@@ -1,0 +1,473 @@
+{
+  "status": "PASS",
+  "records": [
+    {
+      "kind": "original",
+      "freq": 60,
+      "signatureSeconds": 0.356521415989846,
+      "readSeconds": {
+        "bars": 1.0870225839316845,
+        "indicators": 1.343256332911551
+      },
+      "totalSeconds": 3.01602341607213,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 810254336,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 60,
+      "signatureSeconds": 0.2269997918047011,
+      "readSeconds": {
+        "bars": 0.5381412920542061,
+        "indicators": 0.8065472496673465
+      },
+      "totalSeconds": 1.7970103337429464,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 841269248,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 60,
+      "signatureSeconds": 0.20701695838943124,
+      "readSeconds": {
+        "bars": 0.4838216248899698,
+        "indicators": 0.7274315408430994
+      },
+      "totalSeconds": 1.644059875048697,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 855212032,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 60,
+      "signatureSeconds": 0.35260120825842023,
+      "readSeconds": {
+        "bars": 0.4861749168485403,
+        "indicators": 0.7413107920438051
+      },
+      "totalSeconds": 1.8045074581168592,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 872054784,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 60,
+      "signatureSeconds": 0.35295029170811176,
+      "readSeconds": {
+        "bars": 0.5016417498700321,
+        "indicators": 0.7684871670790017
+      },
+      "totalSeconds": 1.8465292919427156,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 878411776,
+      "pair": 2
+    },
+    {
+      "kind": "candidate",
+      "freq": 60,
+      "signatureSeconds": 0.19827254209667444,
+      "readSeconds": {
+        "bars": 0.5089836250990629,
+        "indicators": 0.8057952080853283
+      },
+      "totalSeconds": 1.7414364591240883,
+      "counts": {
+        "bars": {
+          "rows": 17264,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 17264,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "681e1ee58359a84861513e29f50fe9a3871065c0aa8a3bdb56d1b866cc245c28",
+        "indicators": "ad413114799138c28bf3f006a3c7e529780f18983fed230564ed742f5f7203c1"
+      },
+      "rssMaxBytes": 882130944,
+      "pair": 2
+    },
+    {
+      "kind": "original",
+      "freq": 90,
+      "signatureSeconds": 0.3578870422206819,
+      "readSeconds": {
+        "bars": 0.7116772499866784,
+        "indicators": 1.1692831246182323
+      },
+      "totalSeconds": 2.4110263329930604,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 882130944,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 90,
+      "signatureSeconds": 0.2300389581359923,
+      "readSeconds": {
+        "bars": 0.5439832918345928,
+        "indicators": 0.739698167424649
+      },
+      "totalSeconds": 1.6823857077397406,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 885211136,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 90,
+      "signatureSeconds": 0.21485049976035953,
+      "readSeconds": {
+        "bars": 0.5052920831367373,
+        "indicators": 0.7420064173638821
+      },
+      "totalSeconds": 1.6302475831471384,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 885211136,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 90,
+      "signatureSeconds": 0.3264270001091063,
+      "readSeconds": {
+        "bars": 0.46792616741731763,
+        "indicators": 0.6829106658697128
+      },
+      "totalSeconds": 1.6418587500229478,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 90,
+      "signatureSeconds": 0.3178325002081692,
+      "readSeconds": {
+        "bars": 0.4587325840257108,
+        "indicators": 0.7094694580882788
+      },
+      "totalSeconds": 1.65391879202798,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 2
+    },
+    {
+      "kind": "candidate",
+      "freq": 90,
+      "signatureSeconds": 0.19226524978876114,
+      "readSeconds": {
+        "bars": 0.4557411246933043,
+        "indicators": 0.7534514158032835
+      },
+      "totalSeconds": 1.5697721252217889,
+      "counts": {
+        "bars": {
+          "rows": 12948,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 12948,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "9d778550817ba6cf59c6a7b6bebd9aba6eb32291876c44f945b77efade7f3980",
+        "indicators": "401e7fcf391320453b15ef7c2fa06a16d8d0e3cafbed4ea84ff107cb4e98c199"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 2
+    },
+    {
+      "kind": "original",
+      "freq": 120,
+      "signatureSeconds": 1.1761799580417573,
+      "readSeconds": {
+        "bars": 0.6660017496906221,
+        "indicators": 0.9135347078554332
+      },
+      "totalSeconds": 2.867311416193843,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 120,
+      "signatureSeconds": 0.19862129213288426,
+      "readSeconds": {
+        "bars": 0.4550832500681281,
+        "indicators": 0.7851535831578076
+      },
+      "totalSeconds": 1.5499179172329605,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 0
+    },
+    {
+      "kind": "candidate",
+      "freq": 120,
+      "signatureSeconds": 0.21500120777636766,
+      "readSeconds": {
+        "bars": 0.5346850417554379,
+        "indicators": 0.7797602498903871
+      },
+      "totalSeconds": 1.647672874853015,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 120,
+      "signatureSeconds": 0.3595928340218961,
+      "readSeconds": {
+        "bars": 0.5042399168014526,
+        "indicators": 0.7696846248582006
+      },
+      "totalSeconds": 1.7568237092345953,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 1
+    },
+    {
+      "kind": "original",
+      "freq": 120,
+      "signatureSeconds": 0.36982912477105856,
+      "readSeconds": {
+        "bars": 0.528763041831553,
+        "indicators": 0.8461662079207599
+      },
+      "totalSeconds": 1.8566029579378664,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 907362304,
+      "pair": 2
+    },
+    {
+      "kind": "candidate",
+      "freq": 120,
+      "signatureSeconds": 0.20285954186692834,
+      "readSeconds": {
+        "bars": 0.6459365412592888,
+        "indicators": 0.8685719580389559
+      },
+      "totalSeconds": 1.826143375132233,
+      "counts": {
+        "bars": {
+          "rows": 8632,
+          "files": 4316
+        },
+        "indicators": {
+          "rows": 8632,
+          "files": 4316
+        }
+      },
+      "digest": {
+        "bars": "3c767627fa67f963f5598d7bc0afbfb29503ee1491bd4526b4ded6486b904d6a",
+        "indicators": "31b30bc2d6663ed34a7493d48bb90b4f2d932e1158d224551abe240f2723b86a"
+      },
+      "rssMaxBytes": 915357696,
+      "pair": 2
+    }
+  ]
+}

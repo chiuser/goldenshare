@@ -1,0 +1,68 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "forecastVersion": "xxm-key-point-forecast-v0.2",
+  "forecastSpecHash": "969a8a8bda017fe1cab0b6130d08d15977e5a58b5a9a2d94b2820ca56760aeb8",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "8d714e22e6ec4b893e8c2aec2c347417152f266fe125838e78260dddb3ae1c8a",
+  "calendarInputId": "8eba2aed9050cf1a77fb1071c79632d6bd014716b210c122a2b7ad986cce71e3",
+  "computedThrough": "2026-10-13T15:00:00+08:00",
+  "requestedAsOf": "2026-10-13T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "precisionPolicy": "full_float",
+  "refreshAfterMs": 60000,
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_ENTRY_RANGE",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "activation": {
+    "endpoint": "2026-10-14T11:30:00+08:00",
+    "ranges": [],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3829.749856702621,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      },
+      {
+        "priceRange": {
+          "lower": 3829.749856702621,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      }
+    ]
+  },
+  "assumption": null,
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [],
+  "commonConditions": [],
+  "examples": [],
+  "direction": "BOTTOM",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无条件",
+    "targetText": "暂未找到可计算的结构时点",
+    "conditionsText": "当前没有可形成钝化的收盘范围。",
+    "asOfText": "历史回放 · 截至 10/13 15:00 这一根收盘"
+  },
+  "applicabilityText": "目标适用前置范围见正文。",
+  "invalidationText": "钝化消失、零柱或前序走势变化时重算。",
+  "forecastId": "c1b78a72811a3d268b86fc27188fb87a1161659685a6000c4f6acad7a6165192",
+  "_precheck": {
+    "computeSeconds": 0.04616512497887015,
+    "rows": 8630,
+    "sourceRows": 8632,
+    "researchRootInjected": true
+  }
+}

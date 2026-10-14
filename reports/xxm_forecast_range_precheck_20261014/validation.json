@@ -1,0 +1,242 @@
+{
+  "checks": {
+    "activation": 257,
+    "confirmation": 1845,
+    "common": 1390,
+    "boundary": 1479,
+    "identities": 20
+  },
+  "cases": [
+    {
+      "period": "day",
+      "state": "DULL",
+      "sign": -1,
+      "asOf": "2026-09-28",
+      "seconds": 0.0004871250130236149,
+      "status": "READY"
+    },
+    {
+      "period": "day",
+      "state": "STRUCTURE",
+      "sign": -1,
+      "asOf": "2024-08-13",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "day",
+      "state": "NONE",
+      "sign": -1,
+      "asOf": "2026-10-13",
+      "seconds": 0.06898433296009898,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "day",
+      "state": "NONE",
+      "sign": 1,
+      "asOf": "2026-09-23",
+      "seconds": 0.03761616721749306,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "day",
+      "state": "DULL",
+      "sign": 1,
+      "asOf": "2026-05-13",
+      "seconds": 0.0004276670515537262,
+      "status": "READY"
+    },
+    {
+      "period": "day",
+      "state": "STRUCTURE",
+      "sign": 1,
+      "asOf": "2026-05-15",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "day",
+      "state": "LATEST",
+      "sign": -1,
+      "asOf": "2026-10-13",
+      "seconds": 0.06771104177460074,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "m60",
+      "state": "NONE",
+      "sign": -1,
+      "asOf": "2026-10-13T10:30:00+08:00",
+      "seconds": 0.0050184582360088825,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "m60",
+      "state": "NONE",
+      "sign": 1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.003399833105504513,
+      "status": "NO_CANDIDATE"
+    },
+    {
+      "period": "m60",
+      "state": "DULL",
+      "sign": 1,
+      "asOf": "2026-08-18T15:00:00+08:00",
+      "seconds": 0.0006934576667845249,
+      "status": "READY"
+    },
+    {
+      "period": "m60",
+      "state": "STRUCTURE",
+      "sign": 1,
+      "asOf": "2026-02-26T14:00:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m60",
+      "state": "DULL",
+      "sign": -1,
+      "asOf": "2026-10-13T11:30:00+08:00",
+      "seconds": 0.00031308410689234734,
+      "status": "READY"
+    },
+    {
+      "period": "m60",
+      "state": "STRUCTURE",
+      "sign": -1,
+      "asOf": "2026-07-30T15:00:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m60",
+      "state": "LATEST",
+      "sign": 1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.003570584114640951,
+      "status": "NO_CANDIDATE"
+    },
+    {
+      "period": "m90",
+      "state": "DULL",
+      "sign": 1,
+      "asOf": "2026-08-18T15:00:00+08:00",
+      "seconds": 0.0006011673249304295,
+      "status": "READY"
+    },
+    {
+      "period": "m90",
+      "state": "STRUCTURE",
+      "sign": 1,
+      "asOf": "2026-05-08T11:00:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m90",
+      "state": "NONE",
+      "sign": -1,
+      "asOf": "2026-10-13T14:00:00+08:00",
+      "seconds": 0.0036853752098977566,
+      "status": "NO_CANDIDATE"
+    },
+    {
+      "period": "m90",
+      "state": "NONE",
+      "sign": 1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.010019749868661165,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "m90",
+      "state": "DULL",
+      "sign": -1,
+      "asOf": "2026-09-28T15:00:00+08:00",
+      "seconds": 0.0005603749305009842,
+      "status": "READY"
+    },
+    {
+      "period": "m90",
+      "state": "STRUCTURE",
+      "sign": -1,
+      "asOf": "2026-07-09T15:00:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m90",
+      "state": "LATEST",
+      "sign": 1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.009550500195473433,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "m120",
+      "state": "NONE",
+      "sign": -1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.002429042011499405,
+      "status": "NO_CANDIDATE"
+    },
+    {
+      "period": "m120",
+      "state": "NONE",
+      "sign": 1,
+      "asOf": "2026-09-24T15:00:00+08:00",
+      "seconds": 0.008102667052298784,
+      "status": "CONDITIONAL_ENTRY"
+    },
+    {
+      "period": "m120",
+      "state": "DULL",
+      "sign": 1,
+      "asOf": "2026-05-07T11:30:00+08:00",
+      "seconds": 0.0006829998455941677,
+      "status": "READY"
+    },
+    {
+      "period": "m120",
+      "state": "STRUCTURE",
+      "sign": 1,
+      "asOf": "2025-10-13T15:00:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m120",
+      "state": "DULL",
+      "sign": -1,
+      "asOf": "2026-09-28T15:00:00+08:00",
+      "seconds": 0.00041237473487854004,
+      "status": "READY"
+    },
+    {
+      "period": "m120",
+      "state": "STRUCTURE",
+      "sign": -1,
+      "asOf": "2026-07-10T11:30:00+08:00",
+      "status": "CONFIRMED",
+      "projectionRequired": false
+    },
+    {
+      "period": "m120",
+      "state": "LATEST",
+      "sign": -1,
+      "asOf": "2026-10-13T15:00:00+08:00",
+      "seconds": 0.0025972090661525726,
+      "status": "NO_CANDIDATE"
+    }
+  ],
+  "inputs": {
+    "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/daily_source.csv": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+    "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/minute_60_source.csv": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+    "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/minute_90_source.csv": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+    "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/minute_120_source.csv": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b"
+  },
+  "proof": "Activation cuts cover all original step predicates; target curves affine within each previous-DIF source plateau; common interval extrema checked at every plateau endpoint. Random probes supplement, never replace the branch proof."
+}

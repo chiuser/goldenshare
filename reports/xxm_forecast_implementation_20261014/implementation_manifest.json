@@ -1,0 +1,94 @@
+{
+  "status": "development, automated tests and real HTTP checks passed; user requested manual page acceptance",
+  "sourceLatest": "2026-10-13",
+  "files": [
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast.py",
+      "sha256": "e1604e3a09806a349ce92d49771cf79aee9203d79f9ca56c10404b0320222861"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+      "sha256": "b950c65b5b6cdec5f34f469a21bc46069156751949251b155f7c0c8ca098d14b"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py",
+      "sha256": "e1425d403135d6d27b8f862b3b7fdd000ac279543e97f60b12209314415eb48a"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/projection.py",
+      "sha256": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py",
+      "sha256": "b56911ba06b2b9ffc2ab721e5bd9a5f6cd8136c8f78cf82029627f87d8cad862"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+      "sha256": "0ef7d3ba8aec011402ac92b07b2c6bbae5c10a067092cd6c0f2e2d58c6df5952"
+    },
+    {
+      "path": "src/biz/api/wealth/market/index_detail_xxm_forecast.py",
+      "sha256": "1322500305a5be453e308edfeefb31d403bbcf456195b5eaa35065008845fe2e"
+    },
+    {
+      "path": "src/biz/schemas/wealth/market/index_detail_xxm_forecast.py",
+      "sha256": "cc53ccf52b77ea33ddfbf31cf6c66f463b746afbb9a2fa3172d400ff2254c1aa"
+    },
+    {
+      "path": "src/app/api/v1/router.py",
+      "sha256": "0a64b07a12bb91ae5353d9e01e6b81d88a4d106ce24e22352f9771bdec20367a"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx",
+      "sha256": "0f3458b4820e569db7cf13456c12dc4c4a87be4dc693ed8d51db8137dd941539"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts",
+      "sha256": "e2718baddbbcfbe85b74b022c09bfff543c8f9795f3a07f474465669c9178e66"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/types.ts",
+      "sha256": "567c3ccee280a856fc4b460d50af08d22a0c6d5de5557ace31d39df43ddfc5a5"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/xxm-forecast.css",
+      "sha256": "f11ccd0e8a7c31dc44ee46df75c5817270ab1e7fa99003d16920dc06e1d58dcf"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/adapter.ts",
+      "sha256": "2ffeaaa6d807bcb39d84939cdb1a056b6424b9f8c3acfd9dca6661f88ce8d3fe"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/apiClient.ts",
+      "sha256": "2de184902a303fe9e7305b3404f76daff8be24a5a8dce284f771e41d12d88519"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx",
+      "sha256": "f13a97ecb557c52ab1b8c1b32e43dc8cf59d47311f5609c9d83f29f1a5c252ee"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts",
+      "sha256": "f3e0f4c4956d6579d5ca627acae4700820d9db92ccb4cd085b8bc7f8174a4cea"
+    },
+    {
+      "path": "wealth/src/features/index-detail/sidebar/IndexInfoRail.tsx",
+      "sha256": "f25c19c7f4e74ec0694a7c2965910895b54356f9aa5d4e158ffe9a0c7d48e96d"
+    },
+    {
+      "path": "wealth/src/features/index-detail/sidebar/IndexTechnicalTab.tsx",
+      "sha256": "b84c38179fca6a7321abd05101ce1f3633e367c405e3fd5a74b32064bb7ae1f9"
+    },
+    {
+      "path": "wealth/src/pages/index-detail/IndexDetailPage.tsx",
+      "sha256": "364fd6bb659da50266aead3755d7699b15878e49bd028fec13e1df2e0f63f7a2"
+    },
+    {
+      "path": "tests/web/test_wealth_index_detail_xxm_forecast_api.py",
+      "sha256": "c1c405604e68c0d119a3ae8e8d44902eaae277bd810e600d6713a38e48279e16"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_key_point_forecast.py",
+      "sha256": "da9af2e3b79c495f5119c749f5360810e3f627460ae720be9f7284a78d263fbe"
+    }
+  ]
+}

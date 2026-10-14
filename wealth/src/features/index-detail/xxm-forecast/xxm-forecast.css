@@ -1,0 +1,12 @@
+.xxm-forecast-card { display: flex; flex-direction: column; gap: var(--cs-space-12); padding: var(--cs-space-12); border: 1px solid var(--cs-color-border-subtle); border-radius: var(--cs-radius-card); background: var(--cs-color-bg-page); min-width: 0; overflow-wrap: anywhere; }
+.xxm-forecast-card header, .xxm-forecast-row { display: flex; flex-direction: column; gap: calc(var(--cs-space-12) / 2); }
+.xxm-forecast-card header strong, .xxm-forecast-period strong { font-size: 13px; font-weight: 700; line-height: 18px; color: var(--cs-color-text-primary); }
+.xxm-forecast-card header small, .xxm-forecast-card footer { color: var(--cs-color-text-secondary); font-size: 11px; line-height: 16px; }
+.xxm-forecast-row { border-bottom: 1px solid var(--cs-color-border-subtle); padding-bottom: var(--cs-space-12); min-width: 0; }
+.xxm-forecast-period { display: flex; justify-content: space-between; align-items: start; gap: var(--cs-space-8); }
+.xxm-forecast-period span { color: var(--cs-color-text-secondary); font-size: 11px; line-height: 16px; text-align: right; }
+.xxm-forecast-period span.candidate { color: var(--cs-color-brand); }
+.xxm-forecast-target { font-size: 12px; line-height: 18px; font-weight: 700; color: var(--cs-color-text-primary); }
+.xxm-forecast-row p { margin: 0; color: var(--cs-color-text-secondary); font-size: 12px; line-height: 18px; white-space: pre-wrap; }
+.xxm-forecast-row small { color: var(--cs-color-text-muted); font-size: 11px; line-height: 16px; }
+.xxm-forecast-row button { align-self: start; border: 1px solid var(--cs-color-border-subtle); border-radius: var(--cs-radius-card); background: transparent; color: var(--cs-color-text-secondary); font: inherit; font-size: 11px; padding: 3px var(--cs-space-8); cursor: pointer; }

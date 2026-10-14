@@ -1,0 +1,34 @@
+{
+  "plan": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+  "scope": [
+    "000001.SH",
+    "day",
+    "m60",
+    "m90",
+    "m120"
+  ],
+  "checks": {
+    "activation": 257,
+    "confirmation": 1845,
+    "common": 1390,
+    "boundary": 1479,
+    "identities": 20
+  },
+  "limits": {
+    "computeMs": 200,
+    "requestSeconds": 4,
+    "responseBytes": 32768,
+    "sourceRows": 20000
+  },
+  "mapping": {
+    "K1": "entry_partition/solve_entry_ranges + original activation events",
+    "P2": "project_affine_prefix/build_relation + original structure events",
+    "P3": "common_interval all DIF plateau endpoints",
+    "W1": "make_result ordered endpoints/domain feasibility",
+    "C1": "independent clone snapshot identity",
+    "B1": "http_precheck actual source/cold/warm/serialization",
+    "U1": "text_model deterministic Chinese copy"
+  },
+  "codeMigrated": false,
+  "figmaWritten": false
+}

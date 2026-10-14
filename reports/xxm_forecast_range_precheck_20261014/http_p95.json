@@ -1,0 +1,1198 @@
+{
+  "kind": "prototype source/context/normal-auth HTTP precheck, not final DTO/route acceptance",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "samples": [
+        {
+          "seconds": 0.5866197077557445,
+          "computeSeconds": 0.08022491727024317,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.44381466694176197,
+          "computeSeconds": 0.07709266617894173,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18967504194006324,
+          "computeSeconds": 0.07645366713404655,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.24865600001066923,
+          "computeSeconds": 0.07892191736027598,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.19101458275690675,
+          "computeSeconds": 0.07579766679555178,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2653280827216804,
+          "computeSeconds": 0.07430245820432901,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17442895891144872,
+          "computeSeconds": 0.07420204160735011,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.19865995924919844,
+          "computeSeconds": 0.07407875033095479,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18022620771080256,
+          "computeSeconds": 0.07348883291706443,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17357316706329584,
+          "computeSeconds": 0.07434570882469416,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2599166249856353,
+          "computeSeconds": 0.07424733322113752,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.1759421667084098,
+          "computeSeconds": 0.07568445801734924,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18114554090425372,
+          "computeSeconds": 0.07525620795786381,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.28534487541764975,
+          "computeSeconds": 0.07371554104611278,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.1765785408206284,
+          "computeSeconds": 0.07354254182428122,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2602447923272848,
+          "computeSeconds": 0.07526270905509591,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.1771629168651998,
+          "computeSeconds": 0.07451412500813603,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18040850013494492,
+          "computeSeconds": 0.07582316733896732,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.24626337504014373,
+          "computeSeconds": 0.07890508323907852,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2123218746855855,
+          "computeSeconds": 0.07419441686943173,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        }
+      ],
+      "p95Seconds": 0.44381466694176197,
+      "maxSeconds": 0.5866197077557445,
+      "maxComputeSeconds": 0.08022491727024317
+    },
+    {
+      "mode": "cold",
+      "period": "m60",
+      "samples": [
+        {
+          "seconds": 2.7037985832430422,
+          "computeSeconds": 0.09336424991488457,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9985190420411527,
+          "computeSeconds": 0.09289645915850997,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.085884042084217,
+          "computeSeconds": 0.09359737485647202,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9719573333859444,
+          "computeSeconds": 0.09404212515801191,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.955547709017992,
+          "computeSeconds": 0.09609808260574937,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.95130925020203,
+          "computeSeconds": 0.095058917067945,
+          "bytes": 1920,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0163072496652603,
+          "computeSeconds": 0.09396487521007657,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.043423959054053,
+          "computeSeconds": 0.0936507498845458,
+          "bytes": 1921,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9484176253899932,
+          "computeSeconds": 0.09385070810094476,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9999277079477906,
+          "computeSeconds": 0.09508745791390538,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.1012328332290053,
+          "computeSeconds": 0.10396766662597656,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9451861251145601,
+          "computeSeconds": 0.09330675005912781,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0573402498848736,
+          "computeSeconds": 0.09404945792630315,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0813772920519114,
+          "computeSeconds": 0.09264316689223051,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.078925750218332,
+          "computeSeconds": 0.09293612511828542,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.047730542253703,
+          "computeSeconds": 0.09564399998635054,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.034336875192821,
+          "computeSeconds": 0.09494162490591407,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.003824000246823,
+          "computeSeconds": 0.09400216722860932,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0091531248763204,
+          "computeSeconds": 0.09904004214331508,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.08978204196319,
+          "computeSeconds": 0.09628116711974144,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        }
+      ],
+      "p95Seconds": 2.1012328332290053,
+      "maxSeconds": 2.7037985832430422,
+      "maxComputeSeconds": 0.10396766662597656
+    },
+    {
+      "mode": "cold",
+      "period": "m90",
+      "samples": [
+        {
+          "seconds": 2.2619713749736547,
+          "computeSeconds": 0.08565816609188914,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.919487458653748,
+          "computeSeconds": 0.08518574992194772,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9323332076892257,
+          "computeSeconds": 0.08536208420991898,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9353176658041775,
+          "computeSeconds": 0.08467862475663424,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9070104169659317,
+          "computeSeconds": 0.09806229174137115,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.8670692080631852,
+          "computeSeconds": 0.08450791705399752,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 2.01483204215765,
+          "computeSeconds": 0.08698295755311847,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.8824903331696987,
+          "computeSeconds": 0.08966258307918906,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9057607082650065,
+          "computeSeconds": 0.08322124974802136,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9299495001323521,
+          "computeSeconds": 0.08500729221850634,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 2.0687302500009537,
+          "computeSeconds": 0.08443045802414417,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9686326668597758,
+          "computeSeconds": 0.10341229196637869,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.955624916125089,
+          "computeSeconds": 0.08445608289912343,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9195578750222921,
+          "computeSeconds": 0.0853381659835577,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 2.0388047909364104,
+          "computeSeconds": 0.08916083304211497,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 2.0649812081828713,
+          "computeSeconds": 0.08831870835274458,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.9803213747218251,
+          "computeSeconds": 0.09457020787522197,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.8250317079946399,
+          "computeSeconds": 0.08567033289000392,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.8907829578965902,
+          "computeSeconds": 0.08489391626790166,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 1.8479269589297473,
+          "computeSeconds": 0.08388112531974912,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        }
+      ],
+      "p95Seconds": 2.0687302500009537,
+      "maxSeconds": 2.2619713749736547,
+      "maxComputeSeconds": 0.10341229196637869
+    },
+    {
+      "mode": "cold",
+      "period": "m120",
+      "samples": [
+        {
+          "seconds": 2.1493416246958077,
+          "computeSeconds": 0.04766908288002014,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7978889578953385,
+          "computeSeconds": 0.04563950002193451,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7049032910726964,
+          "computeSeconds": 0.04618454212322831,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7127709169872105,
+          "computeSeconds": 0.04629825009033084,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7621590420603752,
+          "computeSeconds": 0.04664741596207023,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.6989637077786028,
+          "computeSeconds": 0.046287958044558764,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.6713534579612315,
+          "computeSeconds": 0.04562075017020106,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.8220827500335872,
+          "computeSeconds": 0.05700891697779298,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.8707227911800146,
+          "computeSeconds": 0.04649741668254137,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7930114157497883,
+          "computeSeconds": 0.049701542127877474,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7192998337559402,
+          "computeSeconds": 0.045959874987602234,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7102519581094384,
+          "computeSeconds": 0.04588491702452302,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.8116300837136805,
+          "computeSeconds": 0.054687332827597857,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7618005406111479,
+          "computeSeconds": 0.04923487501218915,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.732914499938488,
+          "computeSeconds": 0.04747550003230572,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7950046248733997,
+          "computeSeconds": 0.045814541168510914,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.6982569578103721,
+          "computeSeconds": 0.04634800041094422,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.656360833439976,
+          "computeSeconds": 0.04580850014463067,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7286340831778944,
+          "computeSeconds": 0.04628583276644349,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 1.7454682919196784,
+          "computeSeconds": 0.045587666798383,
+          "bytes": 1795,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        }
+      ],
+      "p95Seconds": 1.8707227911800146,
+      "maxSeconds": 2.1493416246958077,
+      "maxComputeSeconds": 0.05700891697779298
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "samples": [
+        {
+          "seconds": 0.17946849996224046,
+          "computeSeconds": 0.07280129194259644,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.19072016701102257,
+          "computeSeconds": 0.07963437493890524,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.3128903340548277,
+          "computeSeconds": 0.07411087490618229,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18073070934042335,
+          "computeSeconds": 0.07710787514224648,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.24638670915737748,
+          "computeSeconds": 0.079583624843508,
+          "bytes": 8695,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17086774995550513,
+          "computeSeconds": 0.0721319168806076,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.25636895932257175,
+          "computeSeconds": 0.0747063746675849,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17079829145222902,
+          "computeSeconds": 0.07391424989327788,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2295082500204444,
+          "computeSeconds": 0.08069787500426173,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.21972258295863867,
+          "computeSeconds": 0.07501595793291926,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17488574981689453,
+          "computeSeconds": 0.0760062918998301,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.26371116703376174,
+          "computeSeconds": 0.08219562470912933,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17887879209592938,
+          "computeSeconds": 0.0758419162593782,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17936562513932586,
+          "computeSeconds": 0.07820325018838048,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.3279002089984715,
+          "computeSeconds": 0.07400195905938745,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18309370800852776,
+          "computeSeconds": 0.07876029191538692,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2684917920269072,
+          "computeSeconds": 0.0811027092859149,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.18862195825204253,
+          "computeSeconds": 0.08410816686227918,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.2622267077676952,
+          "computeSeconds": 0.0772601249627769,
+          "bytes": 8696,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        },
+        {
+          "seconds": 0.17258616723120213,
+          "computeSeconds": 0.07754504214972258,
+          "bytes": 8697,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 912
+        }
+      ],
+      "p95Seconds": 0.3128903340548277,
+      "maxSeconds": 0.3279002089984715,
+      "maxComputeSeconds": 0.08410816686227918
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "samples": [
+        {
+          "seconds": 2.2789189158938825,
+          "computeSeconds": 0.09760887501761317,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6902511660009623,
+          "computeSeconds": 0.09611949976533651,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.682735875248909,
+          "computeSeconds": 0.09745095809921622,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6105362502858043,
+          "computeSeconds": 0.09401170816272497,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.5889165829867125,
+          "computeSeconds": 0.09430291689932346,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.7859791656956077,
+          "computeSeconds": 0.09481425024569035,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6099931662902236,
+          "computeSeconds": 0.0965744168497622,
+          "bytes": 1921,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6624646252021194,
+          "computeSeconds": 0.09948725020512938,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.5909157497808337,
+          "computeSeconds": 0.09512541582807899,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.8120065000839531,
+          "computeSeconds": 0.09732183301821351,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6112980418838561,
+          "computeSeconds": 0.09470258420333266,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6396524999290705,
+          "computeSeconds": 0.10245466697961092,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.9473165841773152,
+          "computeSeconds": 0.09861470945179462,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.633022041991353,
+          "computeSeconds": 0.09983587497845292,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.7373976251110435,
+          "computeSeconds": 0.0984417088329792,
+          "bytes": 1921,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6922909999266267,
+          "computeSeconds": 0.10075837513431907,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6201282921247184,
+          "computeSeconds": 0.09521566610783339,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6060152500867844,
+          "computeSeconds": 0.09441583417356014,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.701786957681179,
+          "computeSeconds": 0.09830333292484283,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6655219169333577,
+          "computeSeconds": 0.09486420871689916,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        }
+      ],
+      "p95Seconds": 0.9473165841773152,
+      "maxSeconds": 2.2789189158938825,
+      "maxComputeSeconds": 0.10245466697961092
+    },
+    {
+      "mode": "warm",
+      "period": "m90",
+      "samples": [
+        {
+          "seconds": 2.210377166979015,
+          "computeSeconds": 0.08584258425980806,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6474387082271278,
+          "computeSeconds": 0.0856135836802423,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6588821657933295,
+          "computeSeconds": 0.08591458294540644,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5822948748245835,
+          "computeSeconds": 0.0832505002617836,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6214454583823681,
+          "computeSeconds": 0.08417449984699488,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5590820838697255,
+          "computeSeconds": 0.08440916705876589,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5727698747068644,
+          "computeSeconds": 0.0855548339895904,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6542507498525083,
+          "computeSeconds": 0.08828179072588682,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6850450411438942,
+          "computeSeconds": 0.08772070799022913,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5732886246405542,
+          "computeSeconds": 0.08509012497961521,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5559632088989019,
+          "computeSeconds": 0.08444020804017782,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6502220421098173,
+          "computeSeconds": 0.08989066677168012,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.57697091717273,
+          "computeSeconds": 0.08502420829609036,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5672400002367795,
+          "computeSeconds": 0.08500183327123523,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.7796032498590648,
+          "computeSeconds": 0.08968150010332465,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5746926669962704,
+          "computeSeconds": 0.0854516252875328,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.712502708658576,
+          "computeSeconds": 0.0847028330899775,
+          "bytes": 16537,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6285003325901926,
+          "computeSeconds": 0.08364274958148599,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.6794487498700619,
+          "computeSeconds": 0.09380658390000463,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        },
+        {
+          "seconds": 0.5742316250689328,
+          "computeSeconds": 0.09157562488690019,
+          "bytes": 16538,
+          "status": "CONDITIONAL_ENTRY",
+          "rows": 12945
+        }
+      ],
+      "p95Seconds": 0.7796032498590648,
+      "maxSeconds": 2.210377166979015,
+      "maxComputeSeconds": 0.09380658390000463
+    },
+    {
+      "mode": "warm",
+      "period": "m120",
+      "samples": [
+        {
+          "seconds": 1.7941867080517113,
+          "computeSeconds": 0.04616512497887015,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.48645183304324746,
+          "computeSeconds": 0.045947249978780746,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.4859841661527753,
+          "computeSeconds": 0.04617774998769164,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5771380406804383,
+          "computeSeconds": 0.049348624888807535,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.7586063747294247,
+          "computeSeconds": 0.06079554231837392,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5154400831088424,
+          "computeSeconds": 0.046368750277906656,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5283005409874022,
+          "computeSeconds": 0.05023983307182789,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5904706660658121,
+          "computeSeconds": 0.04583095898851752,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.48428958421573043,
+          "computeSeconds": 0.04620420793071389,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.4923484171740711,
+          "computeSeconds": 0.046341334003955126,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5692848330363631,
+          "computeSeconds": 0.04575633304193616,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5009117079898715,
+          "computeSeconds": 0.04582570865750313,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5047962921671569,
+          "computeSeconds": 0.046784957870841026,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5759118339046836,
+          "computeSeconds": 0.04708158317953348,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.49693229235708714,
+          "computeSeconds": 0.047687833197414875,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.49896783428266644,
+          "computeSeconds": 0.04628233425319195,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.5282088750973344,
+          "computeSeconds": 0.050249749794602394,
+          "bytes": 1798,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.6119057908654213,
+          "computeSeconds": 0.04614920821040869,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.4826388331130147,
+          "computeSeconds": 0.04555908311158419,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        },
+        {
+          "seconds": 0.4792630420997739,
+          "computeSeconds": 0.04593433300033212,
+          "bytes": 1797,
+          "status": "NO_CANDIDATE",
+          "rows": 8630
+        }
+      ],
+      "p95Seconds": 0.7586063747294247,
+      "maxSeconds": 1.7941867080517113,
+      "maxComputeSeconds": 0.06079554231837392
+    }
+  ],
+  "rssMaxBytes": 1108377600
+}

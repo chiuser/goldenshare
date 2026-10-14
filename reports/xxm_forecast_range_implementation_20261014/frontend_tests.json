@@ -1,0 +1,829 @@
+{
+  "numTotalTests": 1165,
+  "numPassedTests": 1165,
+  "numFailedTests": 0,
+  "success": true,
+  "files": [
+    {
+      "file": "wealth/src/test/market-news-reader-controller.test.tsx",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/test/market-overview-limit-up-real-api.smoke.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/test/market-overview-money-flow-real-api.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/test/market-overview-news-real-api.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/test/market-overview-sector-overview-real-api.test.tsx",
+      "status": "passed",
+      "count": 36
+    },
+    {
+      "file": "wealth/src/test/market-overview-stock-search-real-api.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/test/market-overview-streak-ladder-real-api.smoke.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/test/news-reader-dialog.test.tsx",
+      "status": "passed",
+      "count": 14
+    },
+    {
+      "file": "wealth/src/test/wealth-exploration-index-turnover-real-api.smoke.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/test/wealthDocumentMetadata.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/app/routes/routerState.test.ts",
+      "status": "passed",
+      "count": 14
+    },
+    {
+      "file": "wealth/src/pages/data-center/DataCenterPage.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/pages/market-overview/MarketOverviewPage.test.tsx",
+      "status": "passed",
+      "count": 31
+    },
+    {
+      "file": "wealth/src/pages/index-detail/IndexDetailPage.test.tsx",
+      "status": "passed",
+      "count": 29
+    },
+    {
+      "file": "wealth/src/pages/stock-detail/StockDetailPage.test.tsx",
+      "status": "passed",
+      "count": 14
+    },
+    {
+      "file": "wealth/src/pages/watchlist/WatchlistGroupingPage.test.tsx",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/pages/watchlist/WatchlistPage.test.tsx",
+      "status": "passed",
+      "count": 13
+    },
+    {
+      "file": "wealth/src/pages/wealth-exploration/SectorAnalysisPage.test.tsx",
+      "status": "passed",
+      "count": 15
+    },
+    {
+      "file": "wealth/src/pages/wealth-exploration/SectorDailyInsightPage.test.tsx",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/pages/wealth-exploration/TurnoverInsightPage.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/pages/wealth-exploration/WealthExplorationLandingPage.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/shared/api/wealthApiClient.test.ts",
+      "status": "passed",
+      "count": 14
+    },
+    {
+      "file": "wealth/src/features/auth/api/authApi.test.ts",
+      "status": "passed",
+      "count": 9
+    },
+    {
+      "file": "wealth/src/features/auth/ui/LoginPage.test.tsx",
+      "status": "passed",
+      "count": 18
+    },
+    {
+      "file": "wealth/src/features/auth/model/AuthProvider.test.tsx",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/auth/model/authStorage.test.ts",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/data-center/api/clientPolicy.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/data-center/api/companyCandidates.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/data-center/api/dataCenterApi.test.ts",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/data-center/model/presentation.test.ts",
+      "status": "passed",
+      "count": 18
+    },
+    {
+      "file": "wealth/src/features/data-center/model/useAnnouncementQuery.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/data-center/model/useDownloads.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/data-center/model/useObserver.test.tsx",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/index-detail/api/indexDetailViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/index-detail/api/trendChannelAdapter.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/data-center/ui/CompanySearch.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/data-center/ui/HistoryPanel.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/data-center/ui/QueryPanel.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/data-center/ui/TaskProgress.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/index-detail/controller/useIndexMinuteSeries.test.tsx",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/index-detail/chart/IndexChartWorkspace.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/index-detail/sidebar/IndexTechnicalTab.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/index-detail/state/IndexDetailState.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm/adapter.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm/apiClient.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm/markerGeometry.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/market-context/api/marketPageContextAdapter.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/major-indices/api/marketMajorIndicesAdapter.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/nine-turn/controller/useNineTurnSeriesRegistry.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/nine-turn/ui/NineTurnLayerStatus.test.tsx",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/nine-turn/model/nineTurnAdapter.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/nine-turn/model/nineTurnChartAdapter.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/stock-search/model/useStockSearchController.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/stock-search/api/stockSearchApi.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/stock-search/ui/StockSearch.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/stock-detail/api/stockDetailMockAdapter.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/stock-detail/chart/StockChartWorkspace.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/stock-detail/news/StockDetailNewsPanel.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/watchlist/api/watchlistApi.test.ts",
+      "status": "passed",
+      "count": 24
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/useStockWatchlistGroups.test.tsx",
+      "status": "passed",
+      "count": 11
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/useWatchlistEditController.test.tsx",
+      "status": "passed",
+      "count": 9
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/useWatchlistGroupsController.test.tsx",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/useWatchlistItemsController.test.tsx",
+      "status": "passed",
+      "count": 15
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/watchlistGroupName.test.ts",
+      "status": "passed",
+      "count": 26
+    },
+    {
+      "file": "wealth/src/features/watchlist/model/watchlistViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 11
+    },
+    {
+      "file": "wealth/src/features/watchlist/ui/AddWatchlistDialog.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/watchlist/ui/WatchlistGrouping.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/accountPreference.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/entryDraft.test.ts",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/positionPresentation.test.ts",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/positionsReader.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/recordsQuery.test.ts",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/returnChart.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/returnSelection.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/ruleDeepLink.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/ruleWriteOperation.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useHoldingAnalysis.test.ts",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/usePositions.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useRecords.test.ts",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useReturnRead.test.ts",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useRules.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useTradingAccounts.test.ts",
+      "status": "passed",
+      "count": 4
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/useWriteSession.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/model/writeRecovery.test.ts",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/contractValidation.test.ts",
+      "status": "passed",
+      "count": 20
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/positionContracts.test.ts",
+      "status": "passed",
+      "count": 16
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/recordContracts.test.ts",
+      "status": "passed",
+      "count": 21
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/returnsApi.test.ts",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/roundContracts.test.ts",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/api/tradingAssistantApi.test.ts",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/AccountLedgerFlow.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/AccountSetupDialog.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/FeeFields.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/HoldingAnalysisPanel.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/InitializationCorrectionDialog.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/PositionDetailDialog.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/PositionsCharts.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/RecordFilters.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/RecordMaintenanceForm.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/ReturnCalendarGrid.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/ReturnDates.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/RobotConfigurationDialog.test.tsx",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/RuleConditionEditor.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/trading-assistant/ui/WriteRecoveryDialog.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx",
+      "status": "passed",
+      "count": 26
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/DetailChartZoomControls.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/NineTurnMarkerPrimitive.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/VisibleExtremaPrimitive.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/detailChartIndicatorRange.test.ts",
+      "status": "passed",
+      "count": 9
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/detailChartViewport.test.ts",
+      "status": "passed",
+      "count": 29
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/detailChartVisibleExtrema.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/shared/charts/detail-workspace/visibleExtremaGeometry.test.ts",
+      "status": "passed",
+      "count": 7
+    },
+    {
+      "file": "wealth/src/shared/ui/detail-return-home/DetailReturnHomeButton.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/shared/ui/page-breadcrumb/PageBreadcrumb.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/shared/ui/shortcut-bar/ShortcutBar.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/shared/ui/top-market-bar/TopMarketBar.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/shared/charts/trend-channel/TrendChannelPanePrimitive.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/shared/charts/trend-channel/trendChannelGeometry.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/stock-detail/news/api/stockDetailNewsViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/stock-detail/trend-channel/controller/useStockTrendChannel.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/model/useTurnoverInsightController.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightAdapter.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightApi.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.test.ts",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.ts",
+      "status": "passed",
+      "count": 11
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightPanel.test.tsx",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.test.tsx",
+      "status": "passed",
+      "count": 9
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts",
+      "status": "passed",
+      "count": 5
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/daily-insight/api/sectorDailyInsightAdapter.test.ts",
+      "status": "passed",
+      "count": 33
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/daily-insight/model/sectorDailyInsightUrlState.test.ts",
+      "status": "passed",
+      "count": 14
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/daily-insight/model/useSectorDailyInsightController.test.tsx",
+      "status": "passed",
+      "count": 16
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/daily-insight/ui/DailyInsightWorkspace.test.tsx",
+      "status": "passed",
+      "count": 20
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/member-breadth/model/sectorMemberBreadthUrlState.test.ts",
+      "status": "passed",
+      "count": 8
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthTrendChart.test.tsx",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace.test.tsx",
+      "status": "passed",
+      "count": 19
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/model/sectorMomentumUrlState.test.ts",
+      "status": "passed",
+      "count": 11
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumCharts.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingTable.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SectorMemberPanel.test.tsx",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SelectedSectorSummary.test.tsx",
+      "status": "passed",
+      "count": 1
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/price-volume/api/sectorPriceVolumeAdapter.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/api/sectorMomentumAdapter.test.ts",
+      "status": "passed",
+      "count": 6
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeGeometry.test.ts",
+      "status": "passed",
+      "count": 2
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeUrlState.test.ts",
+      "status": "passed",
+      "count": 10
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace.test.tsx",
+      "status": "passed",
+      "count": 15
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/relative-rotation/model/relativeRotationPlotGeometry.test.ts",
+      "status": "passed",
+      "count": 3
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/relative-rotation/model/sectorRelativeRotationUrlState.test.ts",
+      "status": "passed",
+      "count": 12
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/relative-rotation/ui/RelativeRotationWorkspace.test.tsx",
+      "status": "passed",
+      "count": 13
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/relative-rotation/api/sectorRelativeRotationAdapter.test.ts",
+      "status": "passed",
+      "count": 12
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/member-breadth/api/sectorMemberBreadthAdapter.test.ts",
+      "status": "passed",
+      "count": 26
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumUrlState.test.ts",
+      "status": "passed",
+      "count": 25
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/api/sectorDualMomentumAdapter.test.ts",
+      "status": "passed",
+      "count": 19
+    },
+    {
+      "file": "wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace.test.tsx",
+      "status": "passed",
+      "count": 15
+    }
+  ],
+  "mode": "--maxWorkers=2; first default-parallel run had 4 failures in 3 unrelated files; no unrelated source/test changes made"
+}

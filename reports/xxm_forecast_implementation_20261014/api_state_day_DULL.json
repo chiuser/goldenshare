@@ -1,0 +1,63 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "6ad2a68939ed8d5581594a09ca51812c52e6e7dafabae61b1c2135840c79a8b5",
+  "calendarInputId": "2f0726e07532e929e58c221fc6e668af78b6849390cec9d012157383e9dc3273",
+  "computedThrough": "2026-09-28",
+  "requestedAsOf": "2026-09-28",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "DULL",
+  "status": "READY",
+  "reasonCode": null,
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "2cad04b9ebcbc6b3dc04a6ee1d223aa3cdcd9dfac1fe268bec1d8a9a1a52252a",
+  "targetEndpoint": "2026-09-29",
+  "barsAhead": 1,
+  "scenarios": [
+    {
+      "referencePrice": 3823.6206,
+      "entryBoundary": null,
+      "activationEndpoint": "2026-09-28",
+      "reference": {
+        "startTime": "2026-09-11",
+        "endTime": "2026-09-21",
+        "price": 3864.2794,
+        "dif": -10.316
+      },
+      "path": [],
+      "intervals": [
+        {
+          "lower": 3894.522648843833,
+          "upper": 3966.004588699966,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3894.5227,
+          "displayUpper": 3966.0045
+        },
+        {
+          "lower": 3966.012423522962,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3966.0125,
+          "displayUpper": null
+        }
+      ]
+    }
+  ],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "钝化有效",
+    "targetText": "09/29 收盘 · 底部结构候选",
+    "conditionsText": "前提：当前钝化保持有效（下一完成柱）。\n确认价：3894.5227～3966.0045点；或 ≥3966.0125点。",
+    "asOfText": "历史回放 · 截至 09/28 收盘"
+  },
+  "refreshAfterMs": 60000
+}

@@ -405,3 +405,23 @@
 | `XXM_SOURCE_CONTRACT_INVALID` | 500 | 键／值／版本／日历缺口异常，停止本层，无 fallback |
 | `XXM_BUDGET_EXCEEDED` | 503 | 行数／分区／响应／并发／时限超预算，明确失败 |
 | `XXM_QUERY_FAILED` | 500 | 查询或计算失败，保留行情，可局部重试 |
+
+
+## XXM 关键高低点预测第一版（2026-10-14，授权实施）
+
+依据预测方案 §15；独立预测接口，沿用 WebAppError、quote鉴权和本地分钟capability。200业务状态的reasonCode见方案，不混用HTTP错误。
+
+| 异常码 | HTTP | 含义 |
+| --- | --- | --- |
+| XXMF_REQUEST_INVALID | 400 | 未知／重复／非法参数、未来或非完成端点 |
+| XXMF_NOT_SUPPORTED | 404 | 非上证或当前分钟能力未开放 |
+| XXMF_SOURCE_CONTRACT_INVALID | 500 | 时间键／来源／日历缺口，停止预测 |
+| XXMF_BUDGET_EXCEEDED | 503 | 共享并发、行数、时间或响应预算超过 |
+| XXMF_QUERY_FAILED | 500 | 预测读取／计算失败，可单周期重试 |
+
+
+### XXM范围预测V0.2的业务状态理由
+
+HTTP异常仍复用已登记XXMF_*，没有新增HTTP异常码。200响应的reasonCode新增`NO_ENTRY_RANGE`（本周期没有合格钝化收盘范围）和`NO_CONFIRMATION_IN_HORIZON`（在20根探测内没有后续结构条件）。`ENTRY_ONLY`保留已核实的钝化范围；`PRECISION_PENDING`保留ROUNDING_BOUNDARY/NARROW_INTERVAL/CALIBRATION_FAILED，不能当作确定无结构。
+
+范围排除原因：PRICE_NOT_EXTREME、DIF_NOT_DIVERGENT、WRONG_COLOR_OR_ZERO、INSUFFICIENT_BARS、PRECISION_UNRESOLVED。目标前提排除原因：CANCEL_BEFORE_TARGET、EARLY_STRUCTURE、COLOR_OR_ZERO、NO_TARGET_SOLUTION、PRECISION_UNRESOLVED；分别说明消失、提前形成、零柱／换段、该目标无解或边界待核验。它们是后端条件事实的解释枚举，不是HTTP失败码。

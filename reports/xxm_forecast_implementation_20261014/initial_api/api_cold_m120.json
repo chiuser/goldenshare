@@ -1,0 +1,30 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "8d714e22e6ec4b893e8c2aec2c347417152f266fe125838e78260dddb3ae1c8a",
+  "calendarInputId": "8eba2aed9050cf1a77fb1071c79632d6bd014716b210c122a2b7ad986cce71e3",
+  "computedThrough": "2026-10-13T15:00:00+08:00",
+  "requestedAsOf": "2026-10-13T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_FEASIBLE_TARGET",
+  "precisionPolicy": "full_float",
+  "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "scenarios": [],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无候选",
+    "targetText": "暂无有效候选时点",
+    "conditionsText": "当前参考走势下，20根内尚未找到可确认结构的时点。",
+    "asOfText": "历史回放 · 截至 10/13 15:00"
+  },
+  "refreshAfterMs": 60000
+}

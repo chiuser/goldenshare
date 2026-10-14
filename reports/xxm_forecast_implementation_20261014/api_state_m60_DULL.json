@@ -1,0 +1,54 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "36c6aa32ae0185067e69fcede9e3cd04d12859e033f999a1cedff6a31360875f",
+  "calendarInputId": "ac8db3a89595a4d32b92b1f58c52f0650b1f561aa4e2b82b1f508d99c842d0f3",
+  "computedThrough": "2026-10-13T11:30:00+08:00",
+  "requestedAsOf": "2026-10-13T11:30:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "DULL",
+  "status": "READY",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "b6aedb536346b13f25f5a63fb7a9a44269778b456d184c0e8a20ac9a594d1791",
+  "targetEndpoint": "2026-10-13T14:00:00+08:00",
+  "barsAhead": 1,
+  "scenarios": [
+    {
+      "referencePrice": 3787.157,
+      "entryBoundary": null,
+      "activationEndpoint": "2026-10-13T11:30:00+08:00",
+      "reference": {
+        "startTime": "2026-10-08T14:00:00+08:00",
+        "endTime": "2026-10-09T15:00:00+08:00",
+        "price": 3763.6208,
+        "dif": -27.95939569522625
+      },
+      "path": [],
+      "intervals": [
+        {
+          "lower": 3779.218121934486,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3779.2182,
+          "displayUpper": null
+        }
+      ]
+    }
+  ],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "钝化有效",
+    "targetText": "10/13 14:00 · 底部结构候选",
+    "conditionsText": "前提：当前钝化保持有效（下一完成柱）。\n确认价：≥3779.2182点。",
+    "asOfText": "历史回放 · 截至 10/13 11:30"
+  },
+  "refreshAfterMs": 60000
+}

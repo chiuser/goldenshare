@@ -1,0 +1,25 @@
+
+> wealth@0.1.0 build
+> tsc -b && vite build
+
+vite v7.3.3 building client environment for production...
+transforming...
+✓ 459 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                            0.65 kB │ gzip:   0.38 kB
+dist/assets/wealth-world-seal-favicon-32-BTqGWNU4.png      2.34 kB
+dist/assets/wealth-world-seal-favicon-64-DZFC93Jj.png      6.95 kB
+dist/assets/cs-auth-sans-400-Dqp_bRcq.woff2               16.95 kB
+dist/assets/cs-auth-sans-500-DQgBDH1w.woff2               17.10 kB
+dist/assets/wealth-world-seal-Pw7Rm71k.png             1,214.33 kB
+dist/assets/wealth-world-login-bg-screen-DxC7IKZU.png  1,549.10 kB
+dist/assets/logo_new-elc0kBMd.png                      1,737.83 kB
+dist/assets/index-BvZN3lcW.css                           257.78 kB │ gzip:  41.33 kB
+dist/assets/index-CuU8xjn1.js                          1,452.16 kB │ gzip: 392.72 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.90s

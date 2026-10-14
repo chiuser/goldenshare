@@ -1,0 +1,86 @@
+[
+  {
+    "period": "day",
+    "state": "DULL",
+    "asOf": "2026-09-28",
+    "status": "READY",
+    "target": "2026-09-29"
+  },
+  {
+    "period": "day",
+    "state": "STRUCTURE",
+    "asOf": "2026-05-15",
+    "status": "CONFIRMED",
+    "target": null
+  },
+  {
+    "period": "day",
+    "state": "NONE",
+    "asOf": "2026-10-13",
+    "status": "CONDITIONAL_ENTRY",
+    "target": "2026-10-15"
+  },
+  {
+    "period": "m60",
+    "state": "NONE",
+    "asOf": "2026-10-13T15:00:00+08:00",
+    "status": "NO_CANDIDATE",
+    "target": null
+  },
+  {
+    "period": "m60",
+    "state": "DULL",
+    "asOf": "2026-10-13T11:30:00+08:00",
+    "status": "READY",
+    "target": "2026-10-13T14:00:00+08:00"
+  },
+  {
+    "period": "m60",
+    "state": "STRUCTURE",
+    "asOf": "2026-07-30T15:00:00+08:00",
+    "status": "CONFIRMED",
+    "target": null
+  },
+  {
+    "period": "m90",
+    "state": "DULL",
+    "asOf": "2026-09-28T15:00:00+08:00",
+    "status": "READY",
+    "target": "2026-09-29T11:00:00+08:00"
+  },
+  {
+    "period": "m90",
+    "state": "STRUCTURE",
+    "asOf": "2026-07-09T15:00:00+08:00",
+    "status": "CONFIRMED",
+    "target": null
+  },
+  {
+    "period": "m90",
+    "state": "NONE",
+    "asOf": "2026-10-13T15:00:00+08:00",
+    "status": "CONDITIONAL_ENTRY",
+    "target": "2026-10-14T14:00:00+08:00"
+  },
+  {
+    "period": "m120",
+    "state": "NONE",
+    "asOf": "2026-10-13T15:00:00+08:00",
+    "status": "NO_CANDIDATE",
+    "target": null
+  },
+  {
+    "period": "m120",
+    "state": "DULL",
+    "asOf": "2026-09-28T15:00:00+08:00",
+    "status": "READY",
+    "target": "2026-09-29T11:30:00+08:00"
+  },
+  {
+    "period": "m120",
+    "state": "STRUCTURE",
+    "asOf": "2026-07-10T11:30:00+08:00",
+    "status": "CONFIRMED",
+    "target": null
+  }
+]

@@ -1,0 +1,77 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.2",
+  "forecastSpecHash": "969a8a8bda017fe1cab0b6130d08d15977e5a58b5a9a2d94b2820ca56760aeb8",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "e49af56ae484df98ce2fa1f622a6b711a5c7b45b140c3652b450dd1f95b50208",
+  "calendarInputId": "ac8db3a89595a4d32b92b1f58c52f0650b1f561aa4e2b82b1f508d99c842d0f3",
+  "computedThrough": "2026-10-13T15:00:00+08:00",
+  "requestedAsOf": "2026-10-13T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "precisionPolicy": "full_float",
+  "refreshAfterMs": 60000,
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_ENTRY_RANGE",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "activation": {
+    "endpoint": "2026-10-14T10:30:00+08:00",
+    "ranges": [],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3749.444967959181,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      },
+      {
+        "priceRange": {
+          "lower": 3749.444967959181,
+          "upper": 3823.6145,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "reason": "PRICE_NOT_EXTREME"
+      },
+      {
+        "priceRange": {
+          "lower": 3823.6145,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      }
+    ]
+  },
+  "assumption": null,
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [],
+  "commonConditions": [],
+  "examples": [],
+  "direction": "TOP",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无条件",
+    "targetText": "暂未找到可计算的结构时点",
+    "conditionsText": "当前没有可形成钝化的收盘范围。",
+    "asOfText": "历史回放 · 截至 10/13 15:00 这一根收盘"
+  },
+  "applicabilityText": "目标适用前置范围见正文。",
+  "invalidationText": "钝化消失、零柱或前序走势变化时重算。",
+  "forecastId": "2080fcdc10f334502b9020b53c7f5cfa1e6f167102e389f7d425acafd99a4baf",
+  "_precheck": {
+    "computeSeconds": 0.09336424991488457,
+    "rows": 17260,
+    "sourceRows": 17264,
+    "researchRootInjected": true
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "fileKey": "RADlZzREU4lPVviYfkLy6x",
+  "pageId": "1983:79",
+  "comparison": "final latest display, all four periods; error fixture preserves m60 failure",
+  "nodes": [
+    {
+      "id": "2021:2269",
+      "mismatches": [],
+      "textOverflow": []
+    },
+    {
+      "id": "2021:2312",
+      "mismatches": [],
+      "textOverflow": []
+    },
+    {
+      "id": "2021:2351",
+      "mismatches": [],
+      "textOverflow": []
+    },
+    {
+      "id": "2025:3254",
+      "mismatches": [],
+      "textOverflow": []
+    },
+    {
+      "id": "2025:4188",
+      "mismatches": [],
+      "textOverflow": []
+    },
+    {
+      "id": "2025:5122",
+      "mismatches": [],
+      "textOverflow": []
+    }
+  ]
+}

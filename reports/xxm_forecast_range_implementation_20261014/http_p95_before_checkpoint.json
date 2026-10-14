@@ -1,0 +1,1647 @@
+{
+  "kind": "final product reader/forecast route/query/DTO; readonly formal sources; no page automation",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "p95Seconds": 0.45295983413234353,
+      "maxSeconds": 0.6279101250693202,
+      "maxComputeSeconds": 0.07769591687247157,
+      "maxBytes": 8711,
+      "samples": [
+        {
+          "seconds": 0.6279101250693202,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.19146308302879333,
+          "computeSeconds": 0.07487454218789935,
+          "stages": {
+            "sourceCalendar": 0.06721641635522246,
+            "continuity": 0.0004142080433666706,
+            "cachePut": 0.005043374840170145
+          }
+        },
+        {
+          "seconds": 0.45295983413234353,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2841092920862138,
+          "computeSeconds": 0.07654591696336865,
+          "stages": {
+            "sourceCalendar": 0.15716495783999562,
+            "continuity": 0.00040737492963671684,
+            "cachePut": 0.004995584022253752
+          }
+        },
+        {
+          "seconds": 0.27894291700795293,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.24821587512269616,
+          "computeSeconds": 0.07693179184570909,
+          "stages": {
+            "sourceCalendar": 0.02267141593620181,
+            "continuity": 0.0004247496835887432,
+            "cachePut": 0.005174833349883556
+          }
+        },
+        {
+          "seconds": 0.23751758271828294,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.1503775422461331,
+          "computeSeconds": 0.07572745811194181,
+          "stages": {
+            "sourceCalendar": 0.02810954162850976,
+            "continuity": 0.00041349977254867554,
+            "cachePut": 0.005088292062282562
+          }
+        },
+        {
+          "seconds": 0.26161216711625457,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2331324997358024,
+          "computeSeconds": 0.07688458310440183,
+          "stages": {
+            "sourceCalendar": 0.02159054111689329,
+            "continuity": 0.000432583037763834,
+            "cachePut": 0.0049966247752308846
+          }
+        },
+        {
+          "seconds": 0.2535776668228209,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14350616605952382,
+          "computeSeconds": 0.07587545830756426,
+          "stages": {
+            "sourceCalendar": 0.021905250381678343,
+            "continuity": 0.000417166855186224,
+            "cachePut": 0.005162541288882494
+          }
+        },
+        {
+          "seconds": 0.27852104092016816,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.24907366605475545,
+          "computeSeconds": 0.07440133299678564,
+          "stages": {
+            "sourceCalendar": 0.026581833604723215,
+            "continuity": 0.0004227077588438988,
+            "cachePut": 0.005459165666252375
+          }
+        },
+        {
+          "seconds": 0.3071314999833703,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2062499588355422,
+          "computeSeconds": 0.07536533335223794,
+          "stages": {
+            "sourceCalendar": 0.08167779166251421,
+            "continuity": 0.0004127919673919678,
+            "cachePut": 0.0050247907638549805
+          }
+        },
+        {
+          "seconds": 0.3732263334095478,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2538082911632955,
+          "computeSeconds": 0.07457158295437694,
+          "stages": {
+            "sourceCalendar": 0.04065420897677541,
+            "continuity": 0.0004136674106121063,
+            "cachePut": 0.005018332973122597
+          }
+        },
+        {
+          "seconds": 0.23044991586357355,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2025824161246419,
+          "computeSeconds": 0.07477366738021374,
+          "stages": {
+            "sourceCalendar": 0.06153474980965257,
+            "continuity": 0.0004060831852257252,
+            "cachePut": 0.004999000113457441
+          }
+        },
+        {
+          "seconds": 0.33255233289673924,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.28198333410546184,
+          "computeSeconds": 0.07528733415529132,
+          "stages": {
+            "sourceCalendar": 0.08219079067930579,
+            "continuity": 0.00043000001460313797,
+            "cachePut": 0.005026916973292828
+          }
+        },
+        {
+          "seconds": 0.17080466728657484,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14456991711631417,
+          "computeSeconds": 0.07435079105198383,
+          "stages": {
+            "sourceCalendar": 0.022914708126336336,
+            "continuity": 0.0004115831106901169,
+            "cachePut": 0.005029874853789806
+          }
+        },
+        {
+          "seconds": 0.21309737488627434,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14243841683492064,
+          "computeSeconds": 0.07524470798671246,
+          "stages": {
+            "sourceCalendar": 0.02290574973449111,
+            "continuity": 0.00042445771396160126,
+            "cachePut": 0.005035500042140484
+          }
+        },
+        {
+          "seconds": 0.21040895860642195,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.16421516565605998,
+          "computeSeconds": 0.07442354178056121,
+          "stages": {
+            "sourceCalendar": 0.04207704123109579,
+            "continuity": 0.00046058371663093567,
+            "cachePut": 0.005151333287358284
+          }
+        },
+        {
+          "seconds": 0.2552208327688277,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.228728458750993,
+          "computeSeconds": 0.07485162513330579,
+          "stages": {
+            "sourceCalendar": 0.02283379202708602,
+            "continuity": 0.0004231659695506096,
+            "cachePut": 0.0056042918004095554
+          }
+        },
+        {
+          "seconds": 0.24746262514963746,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.1432077088393271,
+          "computeSeconds": 0.07418391574174166,
+          "stages": {
+            "sourceCalendar": 0.022116916719824076,
+            "continuity": 0.0004186658188700676,
+            "cachePut": 0.005017208866775036
+          }
+        },
+        {
+          "seconds": 0.24695395911112428,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.21959241619333625,
+          "computeSeconds": 0.0754927909001708,
+          "stages": {
+            "sourceCalendar": 0.02037958288565278,
+            "continuity": 0.000426500104367733,
+            "cachePut": 0.005233041942119598
+          }
+        },
+        {
+          "seconds": 0.2584591251797974,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14976766612380743,
+          "computeSeconds": 0.07585445791482925,
+          "stages": {
+            "sourceCalendar": 0.024138708133250475,
+            "continuity": 0.000421332661062479,
+            "cachePut": 0.005031999666243792
+          }
+        },
+        {
+          "seconds": 0.26727241603657603,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.23696441669017076,
+          "computeSeconds": 0.07456812495365739,
+          "stages": {
+            "sourceCalendar": 0.026864625047892332,
+            "continuity": 0.00040170783177018166,
+            "cachePut": 0.005007124971598387
+          }
+        },
+        {
+          "seconds": 0.2870758334174752,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.17906483309343457,
+          "computeSeconds": 0.07769591687247157,
+          "stages": {
+            "sourceCalendar": 0.05544725013896823,
+            "continuity": 0.0004241662099957466,
+            "cachePut": 0.0052604167722165585
+          }
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m60",
+      "p95Seconds": 2.455804207827896,
+      "maxSeconds": 3.8263579169288278,
+      "maxComputeSeconds": 0.10316066676750779,
+      "maxBytes": 1844,
+      "samples": [
+        {
+          "seconds": 3.8263579169288278,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 3.798848417121917,
+          "computeSeconds": 0.10101295774802566,
+          "stages": {
+            "sourceCalendar": 0.028293791227042675,
+            "sourceSignature": 1.2027528756298125,
+            "readMinutes": 2.1353317499160767,
+            "continuity": 0.026424416806548834,
+            "cachePut": 0.14022529171779752
+          }
+        },
+        {
+          "seconds": 1.9957655826583505,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.966367166955024,
+          "computeSeconds": 0.0986345843411982,
+          "stages": {
+            "sourceCalendar": 0.02443262515589595,
+            "sourceSignature": 0.19804608402773738,
+            "readMinutes": 1.344796875026077,
+            "continuity": 0.02831208286806941,
+            "cachePut": 0.13713299995288253
+          }
+        },
+        {
+          "seconds": 2.0650120419450104,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9499417091719806,
+          "computeSeconds": 0.09988083364441991,
+          "stages": {
+            "sourceCalendar": 0.024845624808222055,
+            "sourceSignature": 0.2204408752731979,
+            "readMinutes": 1.3078595423139632,
+            "continuity": 0.025871249847114086,
+            "cachePut": 0.13830637512728572
+          }
+        },
+        {
+          "seconds": 2.0735923340544105,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.046407582703978,
+          "computeSeconds": 0.09810258401557803,
+          "stages": {
+            "sourceCalendar": 0.11148595809936523,
+            "sourceSignature": 0.18801258318126202,
+            "readMinutes": 1.3429442094638944,
+            "continuity": 0.02589879184961319,
+            "cachePut": 0.14638833422213793
+          }
+        },
+        {
+          "seconds": 2.1900935829617083,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.1615304169245064,
+          "computeSeconds": 0.10073408391326666,
+          "stages": {
+            "sourceCalendar": 0.032647666055709124,
+            "sourceSignature": 0.19116587517783046,
+            "readMinutes": 1.477757832966745,
+            "continuity": 0.025991042144596577,
+            "cachePut": 0.1542612500488758
+          }
+        },
+        {
+          "seconds": 2.455804207827896,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.3690541246905923,
+          "computeSeconds": 0.10134437493979931,
+          "stages": {
+            "sourceCalendar": 0.05937912501394749,
+            "sourceSignature": 0.19824999989941716,
+            "readMinutes": 1.6637293342500925,
+            "continuity": 0.0259872917085886,
+            "cachePut": 0.1458117919974029
+          }
+        },
+        {
+          "seconds": 2.147678750101477,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.1210722089745104,
+          "computeSeconds": 0.10106791602447629,
+          "stages": {
+            "sourceCalendar": 0.02702279109507799,
+            "sourceSignature": 0.2417169171385467,
+            "readMinutes": 1.4426665836945176,
+            "continuity": 0.026952082756906748,
+            "cachePut": 0.14611583296209574
+          }
+        },
+        {
+          "seconds": 2.126809624955058,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.098526125308126,
+          "computeSeconds": 0.10003374982625246,
+          "stages": {
+            "sourceCalendar": 0.02923145843669772,
+            "sourceSignature": 0.19699104176834226,
+            "readMinutes": 1.4661264582537115,
+            "continuity": 0.026120291091501713,
+            "cachePut": 0.14784408267587423
+          }
+        },
+        {
+          "seconds": 2.1460263752378523,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.1162340831942856,
+          "computeSeconds": 0.09892716584727168,
+          "stages": {
+            "sourceCalendar": 0.030273249838501215,
+            "sourceSignature": 0.19418829213827848,
+            "readMinutes": 1.4564930000342429,
+            "continuity": 0.02609475003555417,
+            "cachePut": 0.14014504197984934
+          }
+        },
+        {
+          "seconds": 2.173737875185907,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.0605322499759495,
+          "computeSeconds": 0.09758566739037633,
+          "stages": {
+            "sourceCalendar": 0.02776475017890334,
+            "sourceSignature": 0.19227945897728205,
+            "readMinutes": 1.457339916843921,
+            "continuity": 0.025572833139449358,
+            "cachePut": 0.13323279190808535
+          }
+        },
+        {
+          "seconds": 2.0216477499343455,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9775109170004725,
+          "computeSeconds": 0.09938933327794075,
+          "stages": {
+            "sourceCalendar": 0.026140083093196154,
+            "sourceSignature": 0.23163391696289182,
+            "readMinutes": 1.3199203750118613,
+            "continuity": 0.02730095898732543,
+            "cachePut": 0.1344890408217907
+          }
+        },
+        {
+          "seconds": 2.1592960827983916,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.0467498749494553,
+          "computeSeconds": 0.10316066676750779,
+          "stages": {
+            "sourceCalendar": 0.024809665977954865,
+            "sourceSignature": 0.19647433422505856,
+            "readMinutes": 1.426890749949962,
+            "continuity": 0.025769792031496763,
+            "cachePut": 0.13712550001218915
+          }
+        },
+        {
+          "seconds": 2.42766745807603,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.3675672081299126,
+          "computeSeconds": 0.09947745921090245,
+          "stages": {
+            "sourceCalendar": 0.024246249813586473,
+            "sourceSignature": 0.18940487504005432,
+            "readMinutes": 1.6459557502530515,
+            "continuity": 0.026259416714310646,
+            "cachePut": 0.13574504107236862
+          }
+        },
+        {
+          "seconds": 1.992779416963458,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9656763328239322,
+          "computeSeconds": 0.09783558268100023,
+          "stages": {
+            "sourceCalendar": 0.0299687497317791,
+            "sourceSignature": 0.20009316690266132,
+            "readMinutes": 1.338365875184536,
+            "continuity": 0.025654582772403955,
+            "cachePut": 0.14505870919674635
+          }
+        },
+        {
+          "seconds": 2.0088468329049647,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.982300333213061,
+          "computeSeconds": 0.09920924995094538,
+          "stages": {
+            "sourceCalendar": 0.024555332958698273,
+            "sourceSignature": 0.2380197918973863,
+            "readMinutes": 1.3036279580555856,
+            "continuity": 0.025889040902256966,
+            "cachePut": 0.13961995812132955
+          }
+        },
+        {
+          "seconds": 2.0972714591771364,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9869514158926904,
+          "computeSeconds": 0.09972433326765895,
+          "stages": {
+            "sourceCalendar": 0.020874541252851486,
+            "sourceSignature": 0.18836408387869596,
+            "readMinutes": 1.341507500037551,
+            "continuity": 0.02585195889696479,
+            "cachePut": 0.14121141703799367
+          }
+        },
+        {
+          "seconds": 2.0985710001550615,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9884950839914382,
+          "computeSeconds": 0.0999435419216752,
+          "stages": {
+            "sourceCalendar": 0.03421429172158241,
+            "sourceSignature": 0.19498429214581847,
+            "readMinutes": 1.323705917224288,
+            "continuity": 0.025410874746739864,
+            "cachePut": 0.14184154197573662
+          }
+        },
+        {
+          "seconds": 2.093343249987811,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9848296251147985,
+          "computeSeconds": 0.09829212492331862,
+          "stages": {
+            "sourceCalendar": 0.05809579184278846,
+            "sourceSignature": 0.19162224931642413,
+            "readMinutes": 1.3141992082819343,
+            "continuity": 0.025366915855556726,
+            "cachePut": 0.14715208299458027
+          }
+        },
+        {
+          "seconds": 2.119794416707009,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.0032633747905493,
+          "computeSeconds": 0.0993380001746118,
+          "stages": {
+            "sourceCalendar": 0.028638916090130806,
+            "sourceSignature": 0.2320150421001017,
+            "readMinutes": 1.3344178339466453,
+            "continuity": 0.026076000183820724,
+            "cachePut": 0.14987812470644712
+          }
+        },
+        {
+          "seconds": 2.0933336671441793,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.9990794998593628,
+          "computeSeconds": 0.09870475018396974,
+          "stages": {
+            "sourceCalendar": 0.027449500281363726,
+            "sourceSignature": 0.18659033300355077,
+            "readMinutes": 1.373593000229448,
+            "continuity": 0.027357375249266624,
+            "cachePut": 0.14160133292898536
+          }
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m90",
+      "p95Seconds": 2.4716191668994725,
+      "maxSeconds": 2.958099375013262,
+      "maxComputeSeconds": 0.09078174969181418,
+      "maxBytes": 12249,
+      "samples": [
+        {
+          "seconds": 2.958099375013262,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 2.9318150002509356,
+          "computeSeconds": 0.08536520833149552,
+          "stages": {
+            "sourceCalendar": 0.02627212507650256,
+            "sourceSignature": 0.8701107078231871,
+            "readMinutes": 1.7170586669817567,
+            "continuity": 0.01918325014412403,
+            "cachePut": 0.11016449984163046
+          }
+        },
+        {
+          "seconds": 1.9615310840308666,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8717633341439068,
+          "computeSeconds": 0.08604291686788201,
+          "stages": {
+            "sourceCalendar": 0.0654704999178648,
+            "sourceSignature": 0.1930722496472299,
+            "readMinutes": 1.294390874914825,
+            "continuity": 0.02000279212370515,
+            "cachePut": 0.1089318753220141
+          }
+        },
+        {
+          "seconds": 1.9097954169847071,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8827825831249356,
+          "computeSeconds": 0.08407679200172424,
+          "stages": {
+            "sourceCalendar": 0.024478291161358356,
+            "sourceSignature": 0.19056895794346929,
+            "readMinutes": 1.3388966671191156,
+            "continuity": 0.020147582981735468,
+            "cachePut": 0.11571675026789308
+          }
+        },
+        {
+          "seconds": 1.8409233330748975,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8154266658239067,
+          "computeSeconds": 0.08512199996039271,
+          "stages": {
+            "sourceCalendar": 0.023064416833221912,
+            "sourceSignature": 0.19569220766425133,
+            "readMinutes": 1.273946207948029,
+            "continuity": 0.019607375375926495,
+            "cachePut": 0.11565270787104964
+          }
+        },
+        {
+          "seconds": 1.958162167109549,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8414212092757225,
+          "computeSeconds": 0.08505254192277789,
+          "stages": {
+            "sourceCalendar": 0.03216195898130536,
+            "sourceSignature": 0.2335742088034749,
+            "readMinutes": 1.2557687498629093,
+            "continuity": 0.020608958788216114,
+            "cachePut": 0.10929549997672439
+          }
+        },
+        {
+          "seconds": 1.934750750195235,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9029409158974886,
+          "computeSeconds": 0.08495883410796523,
+          "stages": {
+            "sourceCalendar": 0.022590416949242353,
+            "sourceSignature": 0.18918779166415334,
+            "readMinutes": 1.3613596656359732,
+            "continuity": 0.019354332704097033,
+            "cachePut": 0.1179425842128694
+          }
+        },
+        {
+          "seconds": 1.832917416933924,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8047119583934546,
+          "computeSeconds": 0.09078174969181418,
+          "stages": {
+            "sourceCalendar": 0.029810582753270864,
+            "sourceSignature": 0.19216770818457007,
+            "readMinutes": 1.2593735409900546,
+            "continuity": 0.01953995879739523,
+            "cachePut": 0.10899633402004838
+          }
+        },
+        {
+          "seconds": 1.9718064167536795,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9443024997599423,
+          "computeSeconds": 0.08651475002989173,
+          "stages": {
+            "sourceCalendar": 0.025436083786189556,
+            "sourceSignature": 0.23818608419969678,
+            "readMinutes": 1.362146208062768,
+            "continuity": 0.019628874957561493,
+            "cachePut": 0.10994895873591304
+          }
+        },
+        {
+          "seconds": 1.9503142917528749,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.923239542171359,
+          "computeSeconds": 0.08628929173573852,
+          "stages": {
+            "sourceCalendar": 0.02338758297264576,
+            "sourceSignature": 0.1980137089267373,
+            "readMinutes": 1.2680481248535216,
+            "continuity": 0.019225209020078182,
+            "cachePut": 0.10841912496834993
+          }
+        },
+        {
+          "seconds": 1.9490201249718666,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9182678340002894,
+          "computeSeconds": 0.08500654203817248,
+          "stages": {
+            "sourceCalendar": 0.02228262461721897,
+            "sourceSignature": 0.18928625108674169,
+            "readMinutes": 1.3789583751931787,
+            "continuity": 0.01939108269289136,
+            "cachePut": 0.11738662468269467
+          }
+        },
+        {
+          "seconds": 1.9976719170808792,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9157624589279294,
+          "computeSeconds": 0.08385816588997841,
+          "stages": {
+            "sourceCalendar": 0.025986167136579752,
+            "sourceSignature": 0.24217995814979076,
+            "readMinutes": 1.3241904582828283,
+            "continuity": 0.019593290984630585,
+            "cachePut": 0.11415845761075616
+          }
+        },
+        {
+          "seconds": 1.9669024157337844,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9388323747552931,
+          "computeSeconds": 0.08321845903992653,
+          "stages": {
+            "sourceCalendar": 0.030564834363758564,
+            "sourceSignature": 0.19498808262869716,
+            "readMinutes": 1.3792511248029768,
+            "continuity": 0.019895541947335005,
+            "cachePut": 0.11811037501320243
+          }
+        },
+        {
+          "seconds": 1.9883994590491056,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9586104163900018,
+          "computeSeconds": 0.08336812490597367,
+          "stages": {
+            "sourceCalendar": 0.06719316681846976,
+            "sourceSignature": 0.19840962486341596,
+            "readMinutes": 1.3601950840093195,
+            "continuity": 0.021238249726593494,
+            "cachePut": 0.12015575030818582
+          }
+        },
+        {
+          "seconds": 2.4716191668994725,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 2.435528582893312,
+          "computeSeconds": 0.08507837494835258,
+          "stages": {
+            "sourceCalendar": 0.42545029195025563,
+            "sourceSignature": 0.19878833275288343,
+            "readMinutes": 1.4855438331142068,
+            "continuity": 0.01920954091474414,
+            "cachePut": 0.11566333333030343
+          }
+        },
+        {
+          "seconds": 1.9966937080025673,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9501414592377841,
+          "computeSeconds": 0.08510887483134866,
+          "stages": {
+            "sourceCalendar": 0.023611041717231274,
+            "sourceSignature": 0.19559666560962796,
+            "readMinutes": 1.4051395831629634,
+            "continuity": 0.01996129099279642,
+            "cachePut": 0.11444899998605251
+          }
+        },
+        {
+          "seconds": 2.1706738751381636,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 2.0526950410567224,
+          "computeSeconds": 0.08905279217287898,
+          "stages": {
+            "sourceCalendar": 0.07755733421072364,
+            "sourceSignature": 0.1988847921602428,
+            "readMinutes": 1.4418193330056965,
+            "continuity": 0.01954933302477002,
+            "cachePut": 0.11618124973028898
+          }
+        },
+        {
+          "seconds": 1.9603589582256973,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.8937055002897978,
+          "computeSeconds": 0.08625812502577901,
+          "stages": {
+            "sourceCalendar": 0.027736166957765818,
+            "sourceSignature": 0.19731729105114937,
+            "readMinutes": 1.3356774998828769,
+            "continuity": 0.019536708015948534,
+            "cachePut": 0.11756062507629395
+          }
+        },
+        {
+          "seconds": 2.1427555000409484,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 2.1177957910113037,
+          "computeSeconds": 0.0880803749896586,
+          "stages": {
+            "sourceCalendar": 0.025472499895840883,
+            "sourceSignature": 0.19642733316868544,
+            "readMinutes": 1.5660008750855923,
+            "continuity": 0.019815208856016397,
+            "cachePut": 0.11527837486937642
+          }
+        },
+        {
+          "seconds": 2.2080551250837743,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 2.178177250083536,
+          "computeSeconds": 0.08652395801618695,
+          "stages": {
+            "sourceCalendar": 0.11826554127037525,
+            "sourceSignature": 0.2406910010613501,
+            "readMinutes": 1.4896526667289436,
+            "continuity": 0.0197864999063313,
+            "cachePut": 0.11664433311671019
+          }
+        },
+        {
+          "seconds": 2.042592292185873,
+          "bytes": 12249,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 1.9941420829854906,
+          "computeSeconds": 0.08711316669359803,
+          "stages": {
+            "sourceCalendar": 0.023962707724422216,
+            "sourceSignature": 0.19706662371754646,
+            "readMinutes": 1.4349314169958234,
+            "continuity": 0.0206215837970376,
+            "cachePut": 0.12168325018137693
+          }
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m120",
+      "p95Seconds": 1.8315753331407905,
+      "maxSeconds": 2.864539582747966,
+      "maxComputeSeconds": 0.05306758312508464,
+      "maxBytes": 1721,
+      "samples": [
+        {
+          "seconds": 2.864539582747966,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.7639983748085797,
+          "computeSeconds": 0.051302250009030104,
+          "stages": {
+            "sourceCalendar": 0.0248715840280056,
+            "sourceSignature": 0.6345384591259062,
+            "readMinutes": 1.8827306251041591,
+            "continuity": 0.014424290973693132,
+            "cachePut": 0.08773850044235587
+          }
+        },
+        {
+          "seconds": 1.8267406672239304,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.8008016659878194,
+          "computeSeconds": 0.05278783431276679,
+          "stages": {
+            "sourceCalendar": 0.03048945777118206,
+            "sourceSignature": 0.18853508355095983,
+            "readMinutes": 1.3375339591875672,
+            "continuity": 0.013783082831650972,
+            "cachePut": 0.10518054198473692
+          }
+        },
+        {
+          "seconds": 1.7741267918609083,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6610147496685386,
+          "computeSeconds": 0.0481646666303277,
+          "stages": {
+            "sourceCalendar": 0.024533791933208704,
+            "sourceSignature": 0.19179112510755658,
+            "readMinutes": 1.2309215413406491,
+            "continuity": 0.013685207813978195,
+            "cachePut": 0.08167533297091722
+          }
+        },
+        {
+          "seconds": 1.73083975026384,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.7034043748863041,
+          "computeSeconds": 0.04838770814239979,
+          "stages": {
+            "sourceCalendar": 0.026411124970763922,
+            "sourceSignature": 0.24670650018379092,
+            "readMinutes": 1.2049445412121713,
+            "continuity": 0.013958666939288378,
+            "cachePut": 0.08685408299788833
+          }
+        },
+        {
+          "seconds": 1.667035082820803,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6371849169954658,
+          "computeSeconds": 0.05306758312508464,
+          "stages": {
+            "sourceCalendar": 0.023199624847620726,
+            "sourceSignature": 0.19687604205682874,
+            "readMinutes": 1.19763358309865,
+            "continuity": 0.012821375392377377,
+            "cachePut": 0.08390950039029121
+          }
+        },
+        {
+          "seconds": 1.7998116659000516,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.7777313753031194,
+          "computeSeconds": 0.04923991719260812,
+          "stages": {
+            "sourceCalendar": 0.025993624702095985,
+            "sourceSignature": 0.24380162451416254,
+            "readMinutes": 1.2162368330173194,
+            "continuity": 0.013450624886900187,
+            "cachePut": 0.08071116590872407
+          }
+        },
+        {
+          "seconds": 1.6574497087858617,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.628290208056569,
+          "computeSeconds": 0.04832637496292591,
+          "stages": {
+            "sourceCalendar": 0.023607457987964153,
+            "sourceSignature": 0.19554437510669231,
+            "readMinutes": 1.1931354580447078,
+            "continuity": 0.013214250095188618,
+            "cachePut": 0.08291533403098583
+          }
+        },
+        {
+          "seconds": 1.7155553339980543,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6854998329654336,
+          "computeSeconds": 0.04733724985271692,
+          "stages": {
+            "sourceCalendar": 0.08473374973982573,
+            "sourceSignature": 0.19444479141384363,
+            "readMinutes": 1.1978651667013764,
+            "continuity": 0.013269499875605106,
+            "cachePut": 0.07990125007927418
+          }
+        },
+        {
+          "seconds": 1.7355413753539324,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.706394084263593,
+          "computeSeconds": 0.047994292341172695,
+          "stages": {
+            "sourceCalendar": 0.02278670808300376,
+            "sourceSignature": 0.19570358376950026,
+            "readMinutes": 1.2143140835687518,
+            "continuity": 0.013591665774583817,
+            "cachePut": 0.08709562523290515
+          }
+        },
+        {
+          "seconds": 1.7674257499165833,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6624455410055816,
+          "computeSeconds": 0.04869770770892501,
+          "stages": {
+            "sourceCalendar": 0.022661166731268167,
+            "sourceSignature": 0.19302233215421438,
+            "readMinutes": 1.231086665764451,
+            "continuity": 0.013412250205874443,
+            "cachePut": 0.0841675833798945
+          }
+        },
+        {
+          "seconds": 1.7085831249132752,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6774122077040374,
+          "computeSeconds": 0.04818612476810813,
+          "stages": {
+            "sourceCalendar": 0.03040816681459546,
+            "sourceSignature": 0.1895788754336536,
+            "readMinutes": 1.243997790850699,
+            "continuity": 0.013198624830693007,
+            "cachePut": 0.08320620888844132
+          }
+        },
+        {
+          "seconds": 1.68202199973166,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6542660421691835,
+          "computeSeconds": 0.04805329069495201,
+          "stages": {
+            "sourceCalendar": 0.022223500069230795,
+            "sourceSignature": 0.19264987483620644,
+            "readMinutes": 1.2191694593057036,
+            "continuity": 0.013828958850353956,
+            "cachePut": 0.0877545839175582
+          }
+        },
+        {
+          "seconds": 1.7933938750065863,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.758491416927427,
+          "computeSeconds": 0.04864225024357438,
+          "stages": {
+            "sourceCalendar": 0.028306500054895878,
+            "sourceSignature": 0.19121349975466728,
+            "readMinutes": 1.258488334249705,
+            "continuity": 0.01332083297893405,
+            "cachePut": 0.08995720790699124
+          }
+        },
+        {
+          "seconds": 1.656871291808784,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.62938362499699,
+          "computeSeconds": 0.04840983310714364,
+          "stages": {
+            "sourceCalendar": 0.022611458785831928,
+            "sourceSignature": 0.1876360415481031,
+            "readMinutes": 1.2038443749770522,
+            "continuity": 0.01344724977388978,
+            "cachePut": 0.08551054121926427
+          }
+        },
+        {
+          "seconds": 1.7508340417407453,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.7232627919875085,
+          "computeSeconds": 0.04811720922589302,
+          "stages": {
+            "sourceCalendar": 0.02419408317655325,
+            "sourceSignature": 0.250390041153878,
+            "readMinutes": 1.22425241721794,
+            "continuity": 0.013240041676908731,
+            "cachePut": 0.08886800007894635
+          }
+        },
+        {
+          "seconds": 1.6556877079419792,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6223223749548197,
+          "computeSeconds": 0.05070641729980707,
+          "stages": {
+            "sourceCalendar": 0.030869917012751102,
+            "sourceSignature": 0.19423533231019974,
+            "readMinutes": 1.1799937500618398,
+            "continuity": 0.013533958699554205,
+            "cachePut": 0.08492308342829347
+          }
+        },
+        {
+          "seconds": 1.8315753331407905,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.8027460421435535,
+          "computeSeconds": 0.04903308395296335,
+          "stages": {
+            "sourceCalendar": 0.11214450001716614,
+            "sourceSignature": 0.24327733367681503,
+            "readMinutes": 1.2319861673749983,
+            "continuity": 0.01382062491029501,
+            "cachePut": 0.08373579196631908
+          }
+        },
+        {
+          "seconds": 1.7051232918165624,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6777415829710662,
+          "computeSeconds": 0.047987916972488165,
+          "stages": {
+            "sourceCalendar": 0.030621875077486038,
+            "sourceSignature": 0.1982027911581099,
+            "readMinutes": 1.2365219159983099,
+            "continuity": 0.01324849994853139,
+            "cachePut": 0.08296216605231166
+          }
+        },
+        {
+          "seconds": 1.7299656248651445,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.7008060840889812,
+          "computeSeconds": 0.04766437504440546,
+          "stages": {
+            "sourceCalendar": 0.06758083309978247,
+            "sourceSignature": 0.19396420801058412,
+            "readMinutes": 1.2301942501217127,
+            "continuity": 0.013380249962210655,
+            "cachePut": 0.07967683393508196
+          }
+        },
+        {
+          "seconds": 1.7911790409125388,
+          "bytes": 1721,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 1.6754174591042101,
+          "computeSeconds": 0.04824320785701275,
+          "stages": {
+            "sourceCalendar": 0.022557333111763,
+            "sourceSignature": 0.18999266671016812,
+            "readMinutes": 1.197082667145878,
+            "continuity": 0.013328207656741142,
+            "cachePut": 0.08710766630247235
+          }
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "p95Seconds": 0.2645067907869816,
+      "maxSeconds": 0.3079395000822842,
+      "maxComputeSeconds": 0.07710845908150077,
+      "maxBytes": 8711,
+      "samples": [
+        {
+          "seconds": 0.17585191735997796,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14782791677862406,
+          "computeSeconds": 0.07396937534213066,
+          "stages": {
+            "sourceCalendar": 0.025236833840608597,
+            "continuity": 0.00043566571548581123,
+            "cachePut": 0.004892291035503149
+          }
+        },
+        {
+          "seconds": 0.17663041688501835,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14888954116031528,
+          "computeSeconds": 0.07627170905470848,
+          "stages": {
+            "sourceCalendar": 0.03027408290654421,
+            "continuity": 0.0004571247845888138,
+            "cachePut": 0.006138207856565714
+          }
+        },
+        {
+          "seconds": 0.22118149977177382,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14131966698914766,
+          "computeSeconds": 0.07430250011384487,
+          "stages": {
+            "sourceCalendar": 0.025108708068728447,
+            "continuity": 0.0004487079568207264,
+            "cachePut": 0.006245375145226717
+          }
+        },
+        {
+          "seconds": 0.17496324982494116,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14580016676336527,
+          "computeSeconds": 0.07659654226154089,
+          "stages": {
+            "sourceCalendar": 0.027824541088193655,
+            "continuity": 0.00044962484389543533,
+            "cachePut": 0.006078916136175394
+          }
+        },
+        {
+          "seconds": 0.2530209170654416,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.22461108304560184,
+          "computeSeconds": 0.07452745921909809,
+          "stages": {
+            "sourceCalendar": 0.024418374989181757,
+            "continuity": 0.0004520840011537075,
+            "cachePut": 0.00627770833671093
+          }
+        },
+        {
+          "seconds": 0.17161212489008904,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14155333302915096,
+          "computeSeconds": 0.07449025008827448,
+          "stages": {
+            "sourceCalendar": 0.024952332954853773,
+            "continuity": 0.0004797498695552349,
+            "cachePut": 0.006397832650691271
+          }
+        },
+        {
+          "seconds": 0.22633099975064397,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.19818995893001556,
+          "computeSeconds": 0.07572550000622869,
+          "stages": {
+            "sourceCalendar": 0.08058945881202817,
+            "continuity": 0.00046945782378315926,
+            "cachePut": 0.006263208109885454
+          }
+        },
+        {
+          "seconds": 0.2207571668550372,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14300237502902746,
+          "computeSeconds": 0.07612291583791375,
+          "stages": {
+            "sourceCalendar": 0.02370437467470765,
+            "continuity": 0.0004636668600142002,
+            "cachePut": 0.006152832880616188
+          }
+        },
+        {
+          "seconds": 0.17265266692265868,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14349212497472763,
+          "computeSeconds": 0.07648141589015722,
+          "stages": {
+            "sourceCalendar": 0.02460774965584278,
+            "continuity": 0.0004732082597911358,
+            "cachePut": 0.00643491605296731
+          }
+        },
+        {
+          "seconds": 0.2645067907869816,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.23536408366635442,
+          "computeSeconds": 0.07524975016713142,
+          "stages": {
+            "sourceCalendar": 0.026569957844913006,
+            "continuity": 0.0004904996603727341,
+            "cachePut": 0.006053583230823278
+          }
+        },
+        {
+          "seconds": 0.17028312478214502,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14049829076975584,
+          "computeSeconds": 0.07454570895060897,
+          "stages": {
+            "sourceCalendar": 0.02457429189234972,
+            "continuity": 0.00042274966835975647,
+            "cachePut": 0.0061411247588694096
+          }
+        },
+        {
+          "seconds": 0.17378349974751472,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14612149959430099,
+          "computeSeconds": 0.07659158296883106,
+          "stages": {
+            "sourceCalendar": 0.03170399973168969,
+            "continuity": 0.0004536248743534088,
+            "cachePut": 0.0060703749768435955
+          }
+        },
+        {
+          "seconds": 0.3079395000822842,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.19214529218152165,
+          "computeSeconds": 0.07637254195287824,
+          "stages": {
+            "sourceCalendar": 0.07055233372375369,
+            "continuity": 0.0004469589330255985,
+            "cachePut": 0.00606404198333621
+          }
+        },
+        {
+          "seconds": 0.17295708414167166,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14524616580456495,
+          "computeSeconds": 0.07710845908150077,
+          "stages": {
+            "sourceCalendar": 0.02283537480980158,
+            "continuity": 0.000494666863232851,
+            "cachePut": 0.0063827913254499435
+          }
+        },
+        {
+          "seconds": 0.25334479194134474,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.22456541704013944,
+          "computeSeconds": 0.07421649992465973,
+          "stages": {
+            "sourceCalendar": 0.02767558302730322,
+            "continuity": 0.00045279180631041527,
+            "cachePut": 0.006191040854901075
+          }
+        },
+        {
+          "seconds": 0.1704297079704702,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.1446178751066327,
+          "computeSeconds": 0.07657570764422417,
+          "stages": {
+            "sourceCalendar": 0.02613529236987233,
+            "continuity": 0.00047279102727770805,
+            "cachePut": 0.006165249738842249
+          }
+        },
+        {
+          "seconds": 0.17075554188340902,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14178429078310728,
+          "computeSeconds": 0.07536470796912909,
+          "stages": {
+            "sourceCalendar": 0.022466791793704033,
+            "continuity": 0.0004538330249488354,
+            "cachePut": 0.00611383281648159
+          }
+        },
+        {
+          "seconds": 0.23572774976491928,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.13851745892316103,
+          "computeSeconds": 0.07445266610011458,
+          "stages": {
+            "sourceCalendar": 0.023156541865319014,
+            "continuity": 0.0004417090676724911,
+            "cachePut": 0.006072709336876869
+          }
+        },
+        {
+          "seconds": 0.2241757088340819,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.19316720822826028,
+          "computeSeconds": 0.07636954169720411,
+          "stages": {
+            "sourceCalendar": 0.07153654191643,
+            "continuity": 0.00042887497693300247,
+            "cachePut": 0.006245500408113003
+          }
+        },
+        {
+          "seconds": 0.2480758330784738,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2190575827844441,
+          "computeSeconds": 0.07540549989789724,
+          "stages": {
+            "sourceCalendar": 0.022680166643112898,
+            "continuity": 0.00045674992725253105,
+            "cachePut": 0.006206165999174118
+          }
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "p95Seconds": 0.6803970830515027,
+      "maxSeconds": 2.3535784580744803,
+      "maxComputeSeconds": 0.1084320000372827,
+      "maxBytes": 1844,
+      "samples": [
+        {
+          "seconds": 2.3535784580744803,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 2.3238601251505315,
+          "computeSeconds": 0.09950233297422528,
+          "stages": {
+            "sourceCalendar": 0.031248582992702723,
+            "sourceSignature": 0.18849737523123622,
+            "readMinutes": 1.7065619169734418,
+            "continuity": 0.026857958640903234,
+            "cachePut": 0.13399675022810698
+          }
+        },
+        {
+          "seconds": 0.6803970830515027,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.6476481254212558,
+          "computeSeconds": 0.09720150008797646,
+          "stages": {
+            "sourceCalendar": 0.1873774160631001,
+            "sourceSignature": 0.18865333311259747,
+            "continuity": 0.02643370907753706,
+            "cachePut": 0.13400029204785824
+          }
+        },
+        {
+          "seconds": 0.5360522498376667,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5022642500698566,
+          "computeSeconds": 0.1034588748589158,
+          "stages": {
+            "sourceCalendar": 0.0232957499101758,
+            "sourceSignature": 0.1942976671271026,
+            "continuity": 0.026495375204831362,
+            "cachePut": 0.13982975017279387
+          }
+        },
+        {
+          "seconds": 0.6176797496154904,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5856733750551939,
+          "computeSeconds": 0.09957479173317552,
+          "stages": {
+            "sourceCalendar": 0.025959499645978212,
+            "sourceSignature": 0.19452579226344824,
+            "continuity": 0.025932250078767538,
+            "cachePut": 0.14452262502163649
+          }
+        },
+        {
+          "seconds": 0.6058282922022045,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5701649999246001,
+          "computeSeconds": 0.10514466697350144,
+          "stages": {
+            "sourceCalendar": 0.08195087499916553,
+            "sourceSignature": 0.19831858295947313,
+            "continuity": 0.025795541238039732,
+            "cachePut": 0.14471137477084994
+          }
+        },
+        {
+          "seconds": 0.5358585841022432,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5024027503095567,
+          "computeSeconds": 0.0989078339189291,
+          "stages": {
+            "sourceCalendar": 0.026735540945082903,
+            "sourceSignature": 0.19600179186090827,
+            "continuity": 0.02589358389377594,
+            "cachePut": 0.13936387514695525
+          }
+        },
+        {
+          "seconds": 0.533335791900754,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.4986695842817426,
+          "computeSeconds": 0.10067566577345133,
+          "stages": {
+            "sourceCalendar": 0.029903000220656395,
+            "sourceSignature": 0.19012575084343553,
+            "continuity": 0.02544524986296892,
+            "cachePut": 0.1375916670076549
+          }
+        },
+        {
+          "seconds": 0.6036990419961512,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5641781250014901,
+          "computeSeconds": 0.09838770795613527,
+          "stages": {
+            "sourceCalendar": 0.08050833269953728,
+            "sourceSignature": 0.19953229185193777,
+            "continuity": 0.026392791885882616,
+            "cachePut": 0.14639666629955173
+          }
+        },
+        {
+          "seconds": 0.5266165002249181,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.490234375,
+          "computeSeconds": 0.0978164579719305,
+          "stages": {
+            "sourceCalendar": 0.022588875144720078,
+            "sourceSignature": 0.19394829170778394,
+            "continuity": 0.026362000033259392,
+            "cachePut": 0.1326857921667397
+          }
+        },
+        {
+          "seconds": 0.5232652500271797,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.490703874733299,
+          "computeSeconds": 0.09723916556686163,
+          "stages": {
+            "sourceCalendar": 0.022676083724945784,
+            "sourceSignature": 0.1941560418345034,
+            "continuity": 0.025960042141377926,
+            "cachePut": 0.13756187492981553
+          }
+        },
+        {
+          "seconds": 0.5890092076733708,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5565816671587527,
+          "computeSeconds": 0.1084320000372827,
+          "stages": {
+            "sourceCalendar": 0.0813209586776793,
+            "sourceSignature": 0.1931357509456575,
+            "continuity": 0.025702124927192926,
+            "cachePut": 0.13387108407914639
+          }
+        },
+        {
+          "seconds": 0.5228287079371512,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.49232325004413724,
+          "computeSeconds": 0.10036200005561113,
+          "stages": {
+            "sourceCalendar": 0.024519167374819517,
+            "sourceSignature": 0.1939289988949895,
+            "continuity": 0.02574391709640622,
+            "cachePut": 0.1351995002478361
+          }
+        },
+        {
+          "seconds": 0.5408356245607138,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5125846662558615,
+          "computeSeconds": 0.10355025017634034,
+          "stages": {
+            "sourceCalendar": 0.024330290965735912,
+            "sourceSignature": 0.20308054191991687,
+            "continuity": 0.0256547499448061,
+            "cachePut": 0.14152212487533689
+          }
+        },
+        {
+          "seconds": 0.5921015832573175,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5596563750877976,
+          "computeSeconds": 0.1034323750063777,
+          "stages": {
+            "sourceCalendar": 0.07739566639065742,
+            "sourceSignature": 0.19465095829218626,
+            "continuity": 0.025574791245162487,
+            "cachePut": 0.14479933306574821
+          }
+        },
+        {
+          "seconds": 0.6179198329336941,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5043607503175735,
+          "computeSeconds": 0.10484150005504489,
+          "stages": {
+            "sourceCalendar": 0.02785804169252515,
+            "sourceSignature": 0.1925308322533965,
+            "continuity": 0.025348291732370853,
+            "cachePut": 0.13865404203534126
+          }
+        },
+        {
+          "seconds": 0.6221937080845237,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5902782082557678,
+          "computeSeconds": 0.09961395803838968,
+          "stages": {
+            "sourceCalendar": 0.025078250095248222,
+            "sourceSignature": 0.19390141684561968,
+            "continuity": 0.025964832864701748,
+            "cachePut": 0.14526133332401514
+          }
+        },
+        {
+          "seconds": 0.5721647921018302,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5414383341558278,
+          "computeSeconds": 0.09739595791324973,
+          "stages": {
+            "sourceCalendar": 0.07769845938310027,
+            "sourceSignature": 0.19589404202997684,
+            "continuity": 0.02584116719663143,
+            "cachePut": 0.1324730422347784
+          }
+        },
+        {
+          "seconds": 0.5311517501249909,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.498841084074229,
+          "computeSeconds": 0.09893987514078617,
+          "stages": {
+            "sourceCalendar": 0.028890333138406277,
+            "sourceSignature": 0.19882149994373322,
+            "continuity": 0.025671415962278843,
+            "cachePut": 0.13188333297148347
+          }
+        },
+        {
+          "seconds": 0.5294162081554532,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.4945200001820922,
+          "computeSeconds": 0.09955558320507407,
+          "stages": {
+            "sourceCalendar": 0.02501904172822833,
+            "sourceSignature": 0.19463049992918968,
+            "continuity": 0.026323167141526937,
+            "cachePut": 0.135603042319417
+          }
+        },
+        {
+          "seconds": 0.600828125141561,
+          "bytes": 1844,
+          "status": "NO_CANDIDATE",
+          "totalBuildSeconds": 0.5664283749647439,
+          "computeSeconds": 0.0986931249499321,
+          "stages": {
+            "sourceCalendar": 0.08327804179862142,
+            "sourceSignature": 0.20173149928450584,
+            "continuity": 0.026265583001077175,
+            "cachePut": 0.1396982497535646
+          }
+        }
+      ]
+    }
+  ],
+  "rssMaxBytes": 1106034688
+}

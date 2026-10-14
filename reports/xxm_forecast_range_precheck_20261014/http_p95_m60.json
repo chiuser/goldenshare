@@ -1,0 +1,304 @@
+{
+  "kind": "prototype source/context/normal-auth HTTP precheck, not final DTO/route acceptance",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "m60",
+      "samples": [
+        {
+          "seconds": 2.659524291753769,
+          "computeSeconds": 0.09481920907273889,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0404264996759593,
+          "computeSeconds": 0.09424479212611914,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.005810959264636,
+          "computeSeconds": 0.09606883302330971,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.1109908330254257,
+          "computeSeconds": 0.10032441699877381,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0879132919944823,
+          "computeSeconds": 0.0929020419716835,
+          "bytes": 1921,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.100303583778441,
+          "computeSeconds": 0.09615400014445186,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0876474580727518,
+          "computeSeconds": 0.09669879078865051,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.102656832896173,
+          "computeSeconds": 0.10135237500071526,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.1237862086854875,
+          "computeSeconds": 0.09639966674149036,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.3109995000995696,
+          "computeSeconds": 0.09424833301454782,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0135487499646842,
+          "computeSeconds": 0.09494029078632593,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9926381246186793,
+          "computeSeconds": 0.10228545824065804,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.1775404582731426,
+          "computeSeconds": 0.10077362507581711,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.109348291065544,
+          "computeSeconds": 0.09297662507742643,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.2713217502459884,
+          "computeSeconds": 0.09531937493011355,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.111510000191629,
+          "computeSeconds": 0.09295616671442986,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.2878359998576343,
+          "computeSeconds": 0.10180570837110281,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.1008490407839417,
+          "computeSeconds": 0.10603108303621411,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 2.0957996672950685,
+          "computeSeconds": 0.10336691606789827,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 1.9549920000135899,
+          "computeSeconds": 0.09427937492728233,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        }
+      ],
+      "p95Seconds": 2.3109995000995696,
+      "maxSeconds": 2.659524291753769,
+      "maxComputeSeconds": 0.10603108303621411
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "samples": [
+        {
+          "seconds": 2.2446274999529123,
+          "computeSeconds": 0.10383874969556928,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.591839499771595,
+          "computeSeconds": 0.09396383399143815,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6466944999992847,
+          "computeSeconds": 0.09920270834118128,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6225899159908295,
+          "computeSeconds": 0.09434804227203131,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.751248124986887,
+          "computeSeconds": 0.10241470905020833,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.612901917193085,
+          "computeSeconds": 0.09579808404669166,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6677474998869002,
+          "computeSeconds": 0.09446545876562595,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6040184171870351,
+          "computeSeconds": 0.09552283259108663,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.7335865409113467,
+          "computeSeconds": 0.09708658279851079,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6579437498003244,
+          "computeSeconds": 0.09578458266332746,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6102065406739712,
+          "computeSeconds": 0.09517158335074782,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6008288329467177,
+          "computeSeconds": 0.09558220813050866,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.7608597921207547,
+          "computeSeconds": 0.09607924986630678,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6229727920144796,
+          "computeSeconds": 0.09660199983045459,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6013038326054811,
+          "computeSeconds": 0.09708495810627937,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6065937080420554,
+          "computeSeconds": 0.09776145918294787,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6670879172161222,
+          "computeSeconds": 0.09498941572383046,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6374239171855152,
+          "computeSeconds": 0.09577612532302737,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6041648336686194,
+          "computeSeconds": 0.09682554192841053,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        },
+        {
+          "seconds": 0.6605794578790665,
+          "computeSeconds": 0.09599300008267164,
+          "bytes": 1922,
+          "status": "NO_CANDIDATE",
+          "rows": 17260
+        }
+      ],
+      "p95Seconds": 0.7608597921207547,
+      "maxSeconds": 2.2446274999529123,
+      "maxComputeSeconds": 0.10383874969556928
+    }
+  ],
+  "rssMaxBytes": 1004666880
+}

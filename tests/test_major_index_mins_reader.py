@@ -440,3 +440,37 @@ def test_history_signature_detects_atomic_revision_and_ignores_staging(tmp_path:
     (tmp_path / "staging").mkdir()
     (tmp_path / "staging/fake.parquet").write_text("not a source")
     assert reader.history_source_signature(request, dataset="bars") == before
+
+
+def test_history_signature_checks_each_file_once_and_refreshes_next_request(tmp_path, monkeypatch):
+    import os
+    target = _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    original_stat = os.stat
+    calls = []
+    def observe(path, *args, **kwargs):
+        if Path(path) == target:
+            calls.append(kwargs.get('follow_symlinks', True))
+        return original_stat(path, *args, **kwargs)
+    monkeypatch.setattr(os, 'stat', observe)
+    before = reader.history_source_signature(request, dataset='bars')
+    assert calls == [False]
+    replacement = target.with_suffix('.candidate')
+    replacement.write_bytes(target.read_bytes())
+    replacement.replace(target)
+    after = reader.history_source_signature(request, dataset='bars')
+    assert calls == [False, False] and before != after
+
+
+def test_prepared_history_rechecks_file_links_before_parquet_read(tmp_path):
+    target = _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    reader.history_source_signature(request, dataset='bars')
+    replacement = target.with_suffix('.candidate')
+    replacement.write_bytes(target.read_bytes())
+    target.unlink()  # isolated tmp_path fixture only
+    target.symlink_to(replacement)
+    with pytest.raises(IndexMinuteSourceContractError, match='符号链接'):
+        reader.read_complete_history(request, dataset='bars', timeout_seconds=5)

@@ -1,0 +1,1190 @@
+{
+  "createdAt": "2026-10-14T16:48:57.170506+08:00",
+  "method": "20 serial real HTTP requests per period/mode, nearest-rank; cold forces query cache miss, OS/Python caches not flushed; actual formal DB/Lake read-only; no app background lifecycle",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 0.7673702919855714,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 1,
+          "seconds": 0.32676262501627207,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 2,
+          "seconds": 0.39016983285546303,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 3,
+          "seconds": 0.11364504182711244,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 4,
+          "seconds": 0.21055666590109468,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 5,
+          "seconds": 0.20857812510803342,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 6,
+          "seconds": 0.10590158402919769,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 7,
+          "seconds": 0.2018968751654029,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 8,
+          "seconds": 0.19068179093301296,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 9,
+          "seconds": 0.10677974997088313,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 10,
+          "seconds": 0.19402904203161597,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 11,
+          "seconds": 0.1915970421396196,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 12,
+          "seconds": 0.1081691668368876,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 13,
+          "seconds": 0.1986240423284471,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 14,
+          "seconds": 0.2529254578985274,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 15,
+          "seconds": 0.11408474994823337,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 16,
+          "seconds": 0.18960800021886826,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 17,
+          "seconds": 0.19560766592621803,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 18,
+          "seconds": 0.11164775025099516,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 19,
+          "seconds": 0.24788483325392008,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        }
+      ],
+      "p95Seconds": 0.39016983285546303,
+      "maxSeconds": 0.7673702919855714
+    },
+    {
+      "mode": "cold",
+      "period": "m60",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 3.922199791762978,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 1,
+          "seconds": 2.2812822088599205,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 2,
+          "seconds": 1.9988259579986334,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 3,
+          "seconds": 2.020890499930829,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 4,
+          "seconds": 2.1438804999925196,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 5,
+          "seconds": 2.2238108748570085,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 6,
+          "seconds": 2.34811249980703,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 7,
+          "seconds": 2.1850604158826172,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 8,
+          "seconds": 2.0535511248745024,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 9,
+          "seconds": 2.0050446246750653,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 10,
+          "seconds": 2.1220337920822203,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 11,
+          "seconds": 2.055811708793044,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 12,
+          "seconds": 2.2872234168462455,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 13,
+          "seconds": 2.0552677079103887,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 14,
+          "seconds": 1.9530432079918683,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 15,
+          "seconds": 2.097907083109021,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 16,
+          "seconds": 1.906556834001094,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 17,
+          "seconds": 1.9411660828627646,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 18,
+          "seconds": 2.0464121252298355,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 19,
+          "seconds": 1.9743087077513337,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        }
+      ],
+      "p95Seconds": 2.34811249980703,
+      "maxSeconds": 3.922199791762978
+    },
+    {
+      "mode": "cold",
+      "period": "m90",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 3.0122081246227026,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 1,
+          "seconds": 2.231079790741205,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 2,
+          "seconds": 2.2567122080363333,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 3,
+          "seconds": 1.9647970423102379,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 4,
+          "seconds": 1.8816083329729736,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 5,
+          "seconds": 2.0932096247561276,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 6,
+          "seconds": 1.910019832663238,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 7,
+          "seconds": 1.8539263331331313,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 8,
+          "seconds": 2.1911377077922225,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 9,
+          "seconds": 2.1001042909920216,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 10,
+          "seconds": 2.175955125130713,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 11,
+          "seconds": 1.8379139173775911,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 12,
+          "seconds": 1.9461578750051558,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 13,
+          "seconds": 1.9385188329033554,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 14,
+          "seconds": 1.8671090840362012,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 15,
+          "seconds": 2.107776834163815,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 16,
+          "seconds": 2.275634416844696,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 17,
+          "seconds": 1.91096212528646,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 18,
+          "seconds": 2.0956589593552053,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 19,
+          "seconds": 2.4835750409401953,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        }
+      ],
+      "p95Seconds": 2.4835750409401953,
+      "maxSeconds": 3.0122081246227026
+    },
+    {
+      "mode": "cold",
+      "period": "m120",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.7554794577881694,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 1,
+          "seconds": 1.7659159591421485,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 2,
+          "seconds": 1.9031517091207206,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 3,
+          "seconds": 1.7644431251101196,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 4,
+          "seconds": 1.673968625254929,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 5,
+          "seconds": 1.8003000831231475,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 6,
+          "seconds": 1.877346540801227,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 7,
+          "seconds": 2.1966417082585394,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 8,
+          "seconds": 1.887982957996428,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 9,
+          "seconds": 1.9062095829285681,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 10,
+          "seconds": 2.289799749851227,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 11,
+          "seconds": 1.905465583782643,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 12,
+          "seconds": 1.7633266253396869,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 13,
+          "seconds": 1.7108086668886244,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 14,
+          "seconds": 1.9580847499892116,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 15,
+          "seconds": 1.7016520421020687,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 16,
+          "seconds": 1.7783032497391105,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 17,
+          "seconds": 1.87534987507388,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 18,
+          "seconds": 1.7945654159411788,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 19,
+          "seconds": 1.8152443752624094,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        }
+      ],
+      "p95Seconds": 2.289799749851227,
+      "maxSeconds": 2.7554794577881694
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 0.5753465830348432,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 1,
+          "seconds": 0.3027427908964455,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 2,
+          "seconds": 0.3419805825687945,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 3,
+          "seconds": 0.19371754070743918,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 4,
+          "seconds": 0.18244912521913648,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 5,
+          "seconds": 0.09551033424213529,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 6,
+          "seconds": 0.1913027917034924,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 7,
+          "seconds": 0.17418220778927207,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 8,
+          "seconds": 0.09414154198020697,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 9,
+          "seconds": 0.10297154076397419,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 10,
+          "seconds": 0.1829514168202877,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 11,
+          "seconds": 0.18776066694408655,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 12,
+          "seconds": 0.094373042229563,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 13,
+          "seconds": 0.41005929186940193,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 14,
+          "seconds": 0.32612266670912504,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 15,
+          "seconds": 0.174710042309016,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 16,
+          "seconds": 0.09471775032579899,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 17,
+          "seconds": 0.09760062489658594,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 18,
+          "seconds": 0.18618462467566133,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        },
+        {
+          "sample": 19,
+          "seconds": 0.17820458440110087,
+          "bytes": 2088,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609"
+        }
+      ],
+      "p95Seconds": 0.41005929186940193,
+      "maxSeconds": 0.5753465830348432
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 3.3409057087264955,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 1,
+          "seconds": 0.8226076671853662,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 2,
+          "seconds": 0.538806667085737,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 3,
+          "seconds": 0.5125650418922305,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 4,
+          "seconds": 0.5148071669973433,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 5,
+          "seconds": 0.5244663329795003,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 6,
+          "seconds": 0.6679247920401394,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 7,
+          "seconds": 0.517686374951154,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 8,
+          "seconds": 0.5169267919845879,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 9,
+          "seconds": 0.5463698748499155,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 10,
+          "seconds": 0.5217259167693555,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 11,
+          "seconds": 0.5278725838288665,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 12,
+          "seconds": 0.7014577500522137,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 13,
+          "seconds": 0.5271437088958919,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 14,
+          "seconds": 0.5222608339972794,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 15,
+          "seconds": 0.5220859590917826,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 16,
+          "seconds": 0.5251190410926938,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 17,
+          "seconds": 0.5254620839841664,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 18,
+          "seconds": 0.7165878750383854,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        },
+        {
+          "sample": 19,
+          "seconds": 0.5233374587260187,
+          "bytes": 1086,
+          "status": "NO_CANDIDATE",
+          "forecastId": "925b4830e0441ff191f67fa39464ceedbcfc0738e53b2c217f93e73d6c69e2bc"
+        }
+      ],
+      "p95Seconds": 0.8226076671853662,
+      "maxSeconds": 3.3409057087264955
+    },
+    {
+      "mode": "warm",
+      "period": "m90",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.303588124923408,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 1,
+          "seconds": 0.6514292499050498,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 2,
+          "seconds": 0.5243548331782222,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 3,
+          "seconds": 0.7204103749245405,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 4,
+          "seconds": 0.5203309999778867,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 5,
+          "seconds": 0.5265445001423359,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 6,
+          "seconds": 0.5192364165559411,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 7,
+          "seconds": 0.5262879161164165,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 8,
+          "seconds": 0.5242098332382739,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 9,
+          "seconds": 0.6519632921554148,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 10,
+          "seconds": 0.4670712500810623,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 11,
+          "seconds": 0.47125699976459146,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 12,
+          "seconds": 0.5084787500090897,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 13,
+          "seconds": 0.525505917146802,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 14,
+          "seconds": 0.5202713748440146,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 15,
+          "seconds": 0.655503417365253,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 16,
+          "seconds": 0.4939210410229862,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 17,
+          "seconds": 0.7609374159947038,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 18,
+          "seconds": 0.5215544998645782,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        },
+        {
+          "sample": 19,
+          "seconds": 0.7166796247474849,
+          "bytes": 2576,
+          "status": "CONDITIONAL_ENTRY",
+          "forecastId": "c4dd1b53b142851c3d022772c955e00985b8b75a020408f807c1576a0e24bc67"
+        }
+      ],
+      "p95Seconds": 0.7609374159947038,
+      "maxSeconds": 2.303588124923408
+    },
+    {
+      "mode": "warm",
+      "period": "m120",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.155082792043686,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 1,
+          "seconds": 0.471951374784112,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 2,
+          "seconds": 0.5097264586947858,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 3,
+          "seconds": 0.525848874822259,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 4,
+          "seconds": 0.6402227911166847,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 5,
+          "seconds": 0.47235750034451485,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 6,
+          "seconds": 0.4598667910322547,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 7,
+          "seconds": 0.524698999710381,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 8,
+          "seconds": 0.5215524169616401,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 9,
+          "seconds": 0.5275520421564579,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 10,
+          "seconds": 0.6317643336951733,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 11,
+          "seconds": 0.4575657909736037,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 12,
+          "seconds": 0.4848690000362694,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 13,
+          "seconds": 0.5222898330539465,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 14,
+          "seconds": 0.5252745826728642,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 15,
+          "seconds": 0.6402789996936917,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 16,
+          "seconds": 0.4680208330973983,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 17,
+          "seconds": 0.4690152080729604,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 18,
+          "seconds": 0.5188600001856685,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        },
+        {
+          "sample": 19,
+          "seconds": 0.5224534156732261,
+          "bytes": 1087,
+          "status": "NO_CANDIDATE",
+          "forecastId": "f4fb7109d55c4a5bb88ab003b8d0cc75166994a0a421ae606659e3dbfe6ee208"
+        }
+      ],
+      "p95Seconds": 0.6402789996936917,
+      "maxSeconds": 2.155082792043686
+    }
+  ]
+}

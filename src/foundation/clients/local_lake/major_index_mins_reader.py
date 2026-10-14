@@ -4,6 +4,8 @@ import base64
 import binascii
 import json
 import math
+import os
+import stat
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -99,8 +101,10 @@ class MajorIndexMinsLakeReader:
         normalized, _ = _normalize_request(request, dataset=dataset)
         if normalized.cursor is not None:
             raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
+        file_stats: dict[Path, os.stat_result] = {}
         parts = _enumerate_partitions(self._lake_root, dataset=dataset, freq=normalized.freq,
-                                      start_date=normalized.start_date, end_date=normalized.end_date, cursor=None)
+                                      start_date=normalized.start_date, end_date=normalized.end_date,
+                                      cursor=None, file_stats=file_stats)
         if len(parts) > MAX_INDEX_MINUTE_PARTITION_FILES:
             raise IndexMinuteHistoryBudgetError("完整历史超过分区预算。")
         self._prepared_history_partitions[(dataset, normalized.freq, normalized.start_date, normalized.end_date)] = parts
@@ -108,9 +112,9 @@ class MajorIndexMinsLakeReader:
             self._prepared_history_partitions.pop(next(iter(self._prepared_history_partitions)))
         signature = []
         for part in parts:
-            stat = part.path.stat()
-            signature.append((part.trade_date.isoformat(), str(part.path), stat.st_dev, stat.st_ino,
-                              stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns))
+            info = file_stats[part.path]
+            signature.append((part.trade_date.isoformat(), str(part.path), info.st_dev, info.st_ino,
+                              info.st_size, info.st_mtime_ns, info.st_ctime_ns))
         return tuple(signature)
 
     def read_complete_history(
@@ -302,6 +306,7 @@ def _enumerate_partitions(
     start_date: date | None,
     end_date: date | None,
     cursor: dict[str, Any] | None,
+    file_stats: dict[Path, os.stat_result] | None = None,
 ) -> tuple[_PartitionFile, ...]:
     try:
         frequency_root = major_index_minute_frequency_root(lake_root, dataset, freq)
@@ -312,36 +317,38 @@ def _enumerate_partitions(
 
     root = lake_root.expanduser().resolve()
     dataset_root = frequency_root.parent.resolve()
-    cursor_date = (
-        date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
-    )
+    cursor_date = date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
     partitions: list[_PartitionFile] = []
-    # All candidates share the already resolved frequency root. Verify common
-    # ancestors once, and every file/date directory individually before deriving
-    # its absolute path; this preserves the no-symlink/boundary checks without
-    # resolving the same ancestor chain thousands of times.
     blocked_ancestor = _contains_symlink(frequency_root, stop=root)
-    for candidate in frequency_root.glob("trade_date=*/part-000.parquet"):
-        match = TRADE_DATE_PARTITION_PATTERN.fullmatch(candidate.parent.name)
-        if match is None:
-            continue
-        partition_date = date.fromisoformat(match.group(1))
-        if start_date is not None and partition_date < start_date:
-            continue
-        if end_date is not None and partition_date > end_date:
-            continue
-        if cursor_date is not None and partition_date > cursor_date:
-            continue
-        if blocked_ancestor or candidate.is_symlink() or candidate.parent.is_symlink():
-            raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
-        resolved = frequency_root / candidate.parent.name / candidate.name
-        if not resolved.is_relative_to(root) or not resolved.is_relative_to(
-            dataset_root
-        ):
-            raise IndexMinuteSourceContractError("指数分钟分区路径越界。")
-        if resolved.name != "part-000.parquet" or not resolved.is_file():
-            continue
-        partitions.append(_PartitionFile(trade_date=partition_date, path=resolved))
+    # Directory entries supply parent-link metadata. One non-following stat
+    # supplies file type/link checks and, for history signatures, all identity
+    # fields. It is reused only within this enumeration, never across requests.
+    with os.scandir(frequency_root) as directories:
+        for directory in directories:
+            match = TRADE_DATE_PARTITION_PATTERN.fullmatch(directory.name)
+            if match is None:
+                continue
+            partition_date = date.fromisoformat(match.group(1))
+            if start_date is not None and partition_date < start_date:
+                continue
+            if end_date is not None and partition_date > end_date:
+                continue
+            if cursor_date is not None and partition_date > cursor_date:
+                continue
+            candidate = frequency_root / directory.name / "part-000.parquet"
+            try:
+                info = os.stat(candidate, follow_symlinks=False)
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+            if blocked_ancestor or directory.is_symlink() or stat.S_ISLNK(info.st_mode):
+                raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
+            if not candidate.is_relative_to(root) or not candidate.is_relative_to(dataset_root):
+                raise IndexMinuteSourceContractError("指数分钟分区路径越界。")
+            if not stat.S_ISREG(info.st_mode):
+                continue
+            partitions.append(_PartitionFile(trade_date=partition_date, path=candidate))
+            if file_stats is not None:
+                file_stats[candidate] = info
 
     partitions.sort(key=lambda item: item.trade_date, reverse=True)
     return tuple(partitions)

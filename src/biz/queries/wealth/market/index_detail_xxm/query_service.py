@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from collections import OrderedDict
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime
@@ -58,6 +59,32 @@ class SeriesEntry:
     events: list[dict]
     histories: dict[str, dict]
     fingerprints: list[str]
+    checkpoints: dict[int, dict]
+
+    def calculator_at(self, count: int, check) -> XxmCalculator:
+        """Independent real prefix state; no hypothetical/future state is cached."""
+        if not 0 <= count <= len(self.processed):
+            raise ValueError("XXM prefix outside processed source")
+        check()
+        current = self.calculator
+        child = XxmCalculator(period=current.period, source_identity=current.source_identity,
+                              ts_code=current.ts_code, spec=current.spec)
+        if count == len(self.processed):
+            child.restore(current.snapshot())
+            check()
+            return child
+        offset = count // BUDGET.source_batch_rows * BUDGET.source_batch_rows
+        if offset:
+            snapshot = self.checkpoints[offset]
+            if snapshot["processed"] != offset or snapshot["previous"]["time"] != self.processed[offset - 1].time:
+                raise ValueError("XXM checkpoint is not the requested real prefix")
+            child.restore(snapshot)
+        for index in range(offset, count):
+            if index % BUDGET.source_batch_rows == 0:
+                check()
+            child.step(self.processed[index])
+        check()
+        return child
 
 
 class XxmCache:
@@ -98,6 +125,22 @@ class IndexDetailXxmQueryService:
               limit: int, now: datetime | None = None) -> XxmResponseDto:
         if period not in _SERIES_LOCKS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
+        with self.load_entry(session, period=period, now=now) as (entry, current, open_dates, remaining):
+            expected = expected_through(period, open_dates, current, end_date)
+            response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit)
+            if len(response.model_dump_json().encode()) > BUDGET.max_response_bytes:
+                raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标响应超过预算。", 503)
+            remaining()
+            return response
+
+    @contextmanager
+    def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None):
+        """Shared real-data cache entry under the existing slots, lock and deadline.
+
+        Consumers must never mutate this entry with hypothetical bars.
+        """
+        if period not in _SERIES_LOCKS:
+            raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标周期不合法。", 400)
         if period != "day" and self.reader is None:
             raise XxmQueryError("XXM_QUERY_FAILED", "本地分钟来源未配置。", 503)
         started = time.perf_counter()
@@ -118,7 +161,6 @@ class IndexDetailXxmQueryService:
             now = (now or datetime.now(CN_ZONE)).astimezone(CN_ZONE)
             open_dates = calendar_dates(session, end=now.date())
             completed = expected_through(period, open_dates, now, None)
-            expected = expected_through(period, open_dates, now, end_date)
             key = (id(session.get_bind()), self.lake_identity, period, MAIN_SPEC.spec_hash)
             entry = self.cache.get(key)
             if period == "day":
@@ -137,18 +179,20 @@ class IndexDetailXxmQueryService:
             assert_continuous(processed, period=period, open_dates=open_dates)
             origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
             if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
-                entry = SeriesEntry(raw, signature, XxmCalculator(period=period, source_identity=origin), (), [], [], {}, [])
+                entry = SeriesEntry(raw, signature, XxmCalculator(period=period, source_identity=origin), (), [], [], {}, [], {})
             offset = len(entry.processed)
             if offset != len(processed):
                 calculator = XxmCalculator(period=period, source_identity=origin)
                 calculator.restore(entry.calculator.snapshot())
                 entry = SeriesEntry(raw, signature, calculator, entry.processed, list(entry.points),
-                                    list(entry.events), dict(entry.histories), list(entry.fingerprints))
+                                    list(entry.events), dict(entry.histories), list(entry.fingerprints), dict(entry.checkpoints))
             for index in range(offset, len(processed)):
                 if index % BUDGET.source_batch_rows == 0:
                     remaining()
                 bar = processed[index]
                 step = entry.calculator.step(bar)
+                if (index + 1) % BUDGET.source_batch_rows == 0:
+                    entry.checkpoints[index + 1] = entry.calculator.snapshot()
                 entry.points.append(step.point)
                 entry.events.extend(step.events)
                 entry.histories.update({history["id"]: history for history in step.histories})
@@ -158,11 +202,8 @@ class IndexDetailXxmQueryService:
             entry.processed, entry.raw, entry.signature = processed, raw, signature
             remaining()
             self.cache.put(key, entry)
-            response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit)
-            if len(response.model_dump_json().encode()) > BUDGET.max_response_bytes:
-                raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标响应超过预算。", 503)
+            yield entry, now, open_dates, remaining
             remaining()
-            return response
         except XxmQueryError:
             raise
         except (IndexMinuteHistoryBudgetError, OverflowError) as exc:

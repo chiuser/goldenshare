@@ -1,0 +1,20 @@
+{
+  "period": "m60",
+  "asOf": "2026-10-13T15:00:00+08:00",
+  "httpStatus": 503,
+  "body": {
+    "code": "XXMF_BUDGET_EXCEEDED",
+    "message": "研究指标来源超过读取预算。",
+    "request_id": null
+  },
+  "seconds": 4.533124667126685,
+  "measurement": {
+    "totalBuildSeconds": 4.1211271667853,
+    "computeSeconds": null
+  },
+  "stages": {
+    "sourceCalendar": 0.08056299993768334,
+    "sourceSignature": 1.209310790989548,
+    "readMinutes": 2.8310088752768934
+  }
+}

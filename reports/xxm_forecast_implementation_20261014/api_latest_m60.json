@@ -1,0 +1,30 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "e49af56ae484df98ce2fa1f622a6b711a5c7b45b140c3652b450dd1f95b50208",
+  "calendarInputId": null,
+  "computedThrough": "2026-10-13T15:00:00+08:00",
+  "requestedAsOf": null,
+  "mode": "LATEST",
+  "dataStatus": "DELAYED",
+  "ordinaryState": "NONE",
+  "status": "DELAYED",
+  "reasonCode": "SOURCE_DELAYED",
+  "precisionPolicy": "full_float",
+  "forecastId": "f5f73465e37e5152015fb9d43748fe9b00574b038f0775a1585da8fea42fe5e7",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "scenarios": [],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "数据滞后",
+    "targetText": "行情尚未更新，预判暂不可用",
+    "conditionsText": "等待新的已完成行情，暂不显示有效预判。",
+    "asOfText": "截至 10/13 15:00"
+  },
+  "refreshAfterMs": 60000
+}

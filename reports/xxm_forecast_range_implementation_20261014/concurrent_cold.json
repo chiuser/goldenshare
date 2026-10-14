@@ -1,0 +1,383 @@
+[
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 0,
+    "rows": {
+      "day": {
+        "seconds": 0.3427827092818916,
+        "bytes": 8711,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 0.3136893748305738,
+        "computeSeconds": 0.07786220917478204,
+        "stages": {
+          "sourceCalendar": 0.18442470906302333,
+          "continuity": 0.0005156248807907104,
+          "cachePut": 0.00617170799523592,
+          "historicalReplay": 0.0052929590456187725,
+          "calibration": 0.0006077922880649567,
+          "rangeSolve": 0.07134729204699397
+        }
+      },
+      "m60": {
+        "seconds": 2.5974415000528097,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.2549315416254103,
+        "computeSeconds": 0.014095082879066467,
+        "stages": {
+          "sourceCalendar": 0.0621756250038743,
+          "sourceSignature": 0.1948344581760466,
+          "readMinutes": 1.6792571670375764,
+          "continuity": 0.025718375109136105,
+          "cachePut": 0.1478450419381261,
+          "historicalReplay": 0.0016295411624014378,
+          "calibration": 0.008880834095180035,
+          "rangeSolve": 0.0032496247440576553
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 1,
+    "rows": {
+      "day": {
+        "seconds": 0.2725681662559509,
+        "bytes": 8711,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 0.23952545784413815,
+        "computeSeconds": 0.07498658308759332,
+        "stages": {
+          "sourceCalendar": 0.03846366610378027,
+          "continuity": 0.0004693749360740185,
+          "cachePut": 0.005763333290815353,
+          "historicalReplay": 0.005058875307440758,
+          "calibration": 0.0006185420788824558,
+          "rangeSolve": 0.06878029089421034
+        }
+      },
+      "m60": {
+        "seconds": 2.1163253327831626,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.0836712918244302,
+        "computeSeconds": 0.014012749772518873,
+        "stages": {
+          "sourceCalendar": 0.10888004209846258,
+          "sourceSignature": 0.2874030829407275,
+          "readMinutes": 1.3638182091526687,
+          "continuity": 0.02650375012308359,
+          "cachePut": 0.14903591619804502,
+          "historicalReplay": 0.0017695417627692223,
+          "calibration": 0.008870832622051239,
+          "rangeSolve": 0.0030924170278012753
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 2,
+    "rows": {
+      "day": {
+        "seconds": 0.3378769578412175,
+        "bytes": 8711,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 0.3073376249521971,
+        "computeSeconds": 0.07676604203879833,
+        "stages": {
+          "sourceCalendar": 0.11473812535405159,
+          "continuity": 0.0004557911306619644,
+          "cachePut": 0.0054414160549640656,
+          "historicalReplay": 0.005376332905143499,
+          "calibration": 0.0006272089667618275,
+          "rangeSolve": 0.0700636669062078
+        }
+      },
+      "m60": {
+        "seconds": 2.2504004170186818,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.220387749839574,
+        "computeSeconds": 0.015562708955258131,
+        "stages": {
+          "sourceCalendar": 0.19553012493997812,
+          "sourceSignature": 0.29463516594842076,
+          "readMinutes": 1.400056957732886,
+          "continuity": 0.025831374805420637,
+          "cachePut": 0.14398704189807177,
+          "historicalReplay": 0.0018642088398337364,
+          "calibration": 0.009853084105998278,
+          "rangeSolve": 0.0032069161534309387
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m60": {
+        "seconds": 3.125448083039373,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 3.0299023329280317,
+        "computeSeconds": 0.02198420837521553,
+        "stages": {
+          "sourceCalendar": 0.12041970901191235,
+          "sourceSignature": 0.48855437571182847,
+          "readMinutes": 1.842363208066672,
+          "continuity": 0.026286958251148462,
+          "cachePut": 0.37769454112276435,
+          "historicalReplay": 0.0016155829653143883,
+          "calibration": 0.01657441584393382,
+          "rangeSolve": 0.00312604196369648
+        }
+      },
+      "m90": {
+        "seconds": 3.1941082919947803,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 3.164080458227545,
+        "computeSeconds": 0.021602707915008068,
+        "stages": {
+          "sourceCalendar": 0.04150762502104044,
+          "sourceSignature": 0.5724826669320464,
+          "readMinutes": 2.1732177920639515,
+          "continuity": 0.030895083211362362,
+          "cachePut": 0.13227804098278284,
+          "historicalReplay": 0.004603374749422073,
+          "calibration": 0.006629415787756443,
+          "rangeSolve": 0.009738166816532612
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m60": {
+        "seconds": 2.919332915917039,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.8899212912656367,
+        "computeSeconds": 0.013878041412681341,
+        "stages": {
+          "sourceCalendar": 0.03219541674479842,
+          "sourceSignature": 0.4521238752640784,
+          "readMinutes": 2.070957916788757,
+          "continuity": 0.04158537508919835,
+          "cachePut": 0.14348612492904067,
+          "historicalReplay": 0.001654583029448986,
+          "calibration": 0.008743708953261375,
+          "rangeSolve": 0.0031725000590085983
+        }
+      },
+      "m90": {
+        "seconds": 2.7341055418364704,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 2.593332333955914,
+        "computeSeconds": 0.045579999685287476,
+        "stages": {
+          "sourceCalendar": 0.026405791752040386,
+          "sourceSignature": 0.46542799891903996,
+          "readMinutes": 1.658425667323172,
+          "continuity": 0.02309445897117257,
+          "cachePut": 0.13107241643592715,
+          "historicalReplay": 0.004562790971249342,
+          "calibration": 0.014189917128533125,
+          "rangeSolve": 0.02582920901477337
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m60": {
+        "seconds": 2.8384204166941345,
+        "bytes": 1844,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.7943349168635905,
+        "computeSeconds": 0.01410637516528368,
+        "stages": {
+          "sourceCalendar": 0.11624704208225012,
+          "sourceSignature": 0.4577636243775487,
+          "readMinutes": 1.7447083336301148,
+          "continuity": 0.0460210838355124,
+          "cachePut": 0.15286233322694898,
+          "historicalReplay": 0.0016022920608520508,
+          "calibration": 0.00909249996766448,
+          "rangeSolve": 0.0031223753467202187
+        }
+      },
+      "m90": {
+        "seconds": 2.837714666966349,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 2.785786791238934,
+        "computeSeconds": 0.027010458055883646,
+        "stages": {
+          "sourceCalendar": 0.03098962502554059,
+          "sourceSignature": 0.42458529211580753,
+          "readMinutes": 1.714299415703863,
+          "continuity": 0.01992554171010852,
+          "cachePut": 0.25706700002774596,
+          "historicalReplay": 0.00440562516450882,
+          "calibration": 0.012308083940297365,
+          "rangeSolve": 0.009613291826099157
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m90": {
+        "seconds": 3.10827733296901,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 2.9182539167813957,
+        "computeSeconds": 0.021479916758835316,
+        "stages": {
+          "sourceCalendar": 0.08748970832675695,
+          "sourceSignature": 0.3248678334057331,
+          "readMinutes": 2.0503468746319413,
+          "continuity": 0.033544540870934725,
+          "cachePut": 0.1185347088612616,
+          "historicalReplay": 0.00468824990093708,
+          "calibration": 0.006353000178933144,
+          "rangeSolve": 0.009685750119388103
+        }
+      },
+      "m120": {
+        "seconds": 2.9736859160475433,
+        "bytes": 1721,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.8565718340687454,
+        "computeSeconds": 0.017259249929338694,
+        "stages": {
+          "sourceCalendar": 0.1018798341974616,
+          "sourceSignature": 0.2850110838189721,
+          "readMinutes": 2.057026708032936,
+          "continuity": 0.02848529163748026,
+          "cachePut": 0.16619137534871697,
+          "historicalReplay": 0.0026524998247623444,
+          "calibration": 0.012079165782779455,
+          "rangeSolve": 0.00227566622197628
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m90": {
+        "seconds": 2.754764416720718,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 2.724377874750644,
+        "computeSeconds": 0.022588625084608793,
+        "stages": {
+          "sourceCalendar": 0.03556150011718273,
+          "sourceSignature": 0.4884015843272209,
+          "readMinutes": 1.9210840412415564,
+          "continuity": 0.023614624980837107,
+          "cachePut": 0.12491979170590639,
+          "historicalReplay": 0.0050126672722399235,
+          "calibration": 0.006982916966080666,
+          "rangeSolve": 0.009921042248606682
+        }
+      },
+      "m120": {
+        "seconds": 2.5484036249108613,
+        "bytes": 1721,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.4528298331424594,
+        "computeSeconds": 0.015319707803428173,
+        "stages": {
+          "sourceCalendar": 0.04311008378863335,
+          "sourceSignature": 0.47040650015696883,
+          "readMinutes": 1.7000616658478975,
+          "continuity": 0.013884749729186296,
+          "cachePut": 0.11543737491592765,
+          "historicalReplay": 0.0028106668032705784,
+          "calibration": 0.009918125346302986,
+          "rangeSolve": 0.0022847498767077923
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m90": {
+        "seconds": 3.0275235413573682,
+        "bytes": 12249,
+        "status": "CONDITIONAL_ENTRY",
+        "totalBuildSeconds": 2.9943473329767585,
+        "computeSeconds": 0.021579000167548656,
+        "stages": {
+          "sourceCalendar": 0.039722292218357325,
+          "sourceSignature": 0.5583146247081459,
+          "readMinutes": 1.8682361668907106,
+          "continuity": 0.0205379999242723,
+          "cachePut": 0.23390941694378853,
+          "historicalReplay": 0.004653583280742168,
+          "calibration": 0.006510125007480383,
+          "rangeSolve": 0.009809250012040138
+        }
+      },
+      "m120": {
+        "seconds": 3.026477999985218,
+        "bytes": 1721,
+        "status": "NO_CANDIDATE",
+        "totalBuildSeconds": 2.972719917073846,
+        "computeSeconds": 0.010016082786023617,
+        "stages": {
+          "sourceCalendar": 0.03293025027960539,
+          "sourceSignature": 0.5700027919374406,
+          "readMinutes": 1.9747322918847203,
+          "continuity": 0.028332042042165995,
+          "cachePut": 0.18043062509968877,
+          "historicalReplay": 0.0028690830804407597,
+          "calibration": 0.004634540993720293,
+          "rangeSolve": 0.0022378340363502502
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,209 @@
+[
+  {
+    "period": "day",
+    "status": "CONDITIONAL_ENTRY",
+    "seconds": 0.0444652084261179,
+    "bytes": 6080,
+    "target": "2026-10-15",
+    "activation": {
+      "endpoint": "2026-10-14",
+      "ranges": [
+        {
+          "entryRangeId": "entry-1",
+          "priceRange": {
+            "lower": 3423.8226558463057,
+            "upper": 3764.1547,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reference": {
+            "startTime": "2026-07-02",
+            "endTime": "2026-08-03",
+            "price": 3764.1547,
+            "dif": -62.142
+          }
+        }
+      ],
+      "exclusions": [
+        {
+          "priceRange": {
+            "lower": 0.0,
+            "upper": 3423.8226558437987,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "DIF_NOT_DIVERGENT"
+        },
+        {
+          "priceRange": {
+            "lower": 3423.8226558437987,
+            "upper": 3423.8226558463057,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "PRECISION_UNRESOLVED"
+        },
+        {
+          "priceRange": {
+            "lower": 3764.1547,
+            "upper": 3954.5546185031594,
+            "lowerInclusive": true,
+            "upperInclusive": true
+          },
+          "reason": "PRICE_NOT_EXTREME"
+        },
+        {
+          "priceRange": {
+            "lower": 3954.5546185031594,
+            "upper": null,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reason": "WRONG_COLOR_OR_ZERO"
+        }
+      ]
+    }
+  },
+  {
+    "period": "m60",
+    "status": "NO_CANDIDATE",
+    "seconds": 0.02459795866161585,
+    "bytes": 683,
+    "target": null,
+    "activation": {
+      "endpoint": "2026-10-14T10:30:00+08:00",
+      "ranges": [],
+      "exclusions": [
+        {
+          "priceRange": {
+            "lower": 0.0,
+            "upper": 3749.444967959181,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reason": "WRONG_COLOR_OR_ZERO"
+        },
+        {
+          "priceRange": {
+            "lower": 3749.444967959181,
+            "upper": 3823.6145,
+            "lowerInclusive": true,
+            "upperInclusive": true
+          },
+          "reason": "PRICE_NOT_EXTREME"
+        },
+        {
+          "priceRange": {
+            "lower": 3823.6145,
+            "upper": null,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reason": "DIF_NOT_DIVERGENT"
+        }
+      ]
+    }
+  },
+  {
+    "period": "m90",
+    "status": "CONDITIONAL_ENTRY",
+    "seconds": 0.025692833121865988,
+    "bytes": 9124,
+    "target": "2026-10-14T14:00:00+08:00",
+    "activation": {
+      "endpoint": "2026-10-14T11:00:00+08:00",
+      "ranges": [
+        {
+          "entryRangeId": "entry-2",
+          "priceRange": {
+            "lower": 3960.0872,
+            "upper": 3988.543,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reference": {
+            "startTime": "2026-09-17T15:00:00+08:00",
+            "endTime": "2026-09-24T11:00:00+08:00",
+            "price": 3960.0872,
+            "dif": 10.686418044416314
+          }
+        },
+        {
+          "entryRangeId": "entry-1",
+          "priceRange": {
+            "lower": 3988.543,
+            "upper": 4314.966541880807,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reference": {
+            "startTime": "2026-08-26T14:00:00+08:00",
+            "endTime": "2026-09-02T14:00:00+08:00",
+            "price": 3988.543,
+            "dif": 18.556113681828265
+          }
+        }
+      ],
+      "exclusions": [
+        {
+          "priceRange": {
+            "lower": 0.0,
+            "upper": 3770.5889664997444,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "WRONG_COLOR_OR_ZERO"
+        },
+        {
+          "priceRange": {
+            "lower": 3770.5889664997444,
+            "upper": 3960.0872,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "PRICE_NOT_EXTREME"
+        },
+        {
+          "priceRange": {
+            "lower": 4314.966541880807,
+            "upper": null,
+            "lowerInclusive": true,
+            "upperInclusive": false
+          },
+          "reason": "DIF_NOT_DIVERGENT"
+        }
+      ]
+    }
+  },
+  {
+    "period": "m120",
+    "status": "NO_CANDIDATE",
+    "seconds": 0.013529208023101091,
+    "bytes": 556,
+    "target": null,
+    "activation": {
+      "endpoint": "2026-10-14T11:30:00+08:00",
+      "ranges": [],
+      "exclusions": [
+        {
+          "priceRange": {
+            "lower": 0.0,
+            "upper": 3829.749856702621,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reason": "DIF_NOT_DIVERGENT"
+        },
+        {
+          "priceRange": {
+            "lower": 3829.749856702621,
+            "upper": null,
+            "lowerInclusive": true,
+            "upperInclusive": false
+          },
+          "reason": "WRONG_COLOR_OR_ZERO"
+        }
+      ]
+    }
+  }
+]

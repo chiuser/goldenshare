@@ -1,0 +1,30 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "6ac975e2bec0408e047537df65b1e4032994691255731f2566da6578f58dafed",
+  "calendarInputId": null,
+  "computedThrough": "2026-05-15",
+  "requestedAsOf": "2026-05-15",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "STRUCTURE",
+  "status": "CONFIRMED",
+  "reasonCode": null,
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "f0edc7a62aa6bf28d24be82dbf743cc0eb065c1684c8bd0e384f351466862e3b",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "scenarios": [],
+  "confirmedAt": "2026-05-14",
+  "confirmedDirection": "TOP",
+  "display": {
+    "statusLabel": "已确认",
+    "targetText": "05/14 收盘 · 已确认顶部结构",
+    "conditionsText": "等待新的钝化条件，再计算下一候选。",
+    "asOfText": "历史回放 · 截至 05/15 收盘"
+  },
+  "refreshAfterMs": 60000
+}

@@ -1,0 +1,483 @@
+[
+  {
+    "seconds": 2.918084958102554,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 2.622067834250629,
+    "computeSeconds": 0.08513012528419495,
+    "stages": {
+      "sourceCalendar": 0.06710170907899737,
+      "sourceSignature": 0.20655154203996062,
+      "readMinutes": 2.028276416938752,
+      "continuity": 0.020152708049863577,
+      "cachePut": 0.1113377078436315,
+      "historicalReplay": 0.06655112514272332,
+      "calibration": 0.0069846659898757935,
+      "rangeSolve": 0.010704708751291037
+    }
+  },
+  {
+    "seconds": 0.6982554579153657,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.5085894172079861,
+    "computeSeconds": 0.0833687917329371,
+    "stages": {
+      "sourceCalendar": 0.06243383279070258,
+      "sourceSignature": 0.2265556249767542,
+      "continuity": 0.01915462501347065,
+      "cachePut": 0.10238375002518296,
+      "historicalReplay": 0.06620691670104861,
+      "calibration": 0.0065020001493394375,
+      "rangeSolve": 0.009962708223611116
+    }
+  },
+  {
+    "seconds": 0.5004134587943554,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4573587910272181,
+    "computeSeconds": 0.09096166724339128,
+    "stages": {
+      "sourceCalendar": 0.037281792145222425,
+      "sourceSignature": 0.1915053748525679,
+      "continuity": 0.019470625091344118,
+      "cachePut": 0.10534916678443551,
+      "historicalReplay": 0.07372883288189769,
+      "calibration": 0.006826375145465136,
+      "rangeSolve": 0.009834208060055971
+    }
+  },
+  {
+    "seconds": 0.5237646671012044,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4617181667126715,
+    "computeSeconds": 0.0874131671153009,
+    "stages": {
+      "sourceCalendar": 0.03585979109629989,
+      "sourceSignature": 0.19557879213243723,
+      "continuity": 0.018659000284969807,
+      "cachePut": 0.10934954229742289,
+      "historicalReplay": 0.0700389170087874,
+      "calibration": 0.006648375187069178,
+      "rangeSolve": 0.00971187511458993
+    }
+  },
+  {
+    "seconds": 0.5409980830736458,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4818771658465266,
+    "computeSeconds": 0.0856902920641005,
+    "stages": {
+      "sourceCalendar": 0.025611999910324812,
+      "sourceSignature": 0.2254862911067903,
+      "continuity": 0.019690040964633226,
+      "cachePut": 0.11088033393025398,
+      "historicalReplay": 0.06810258375480771,
+      "calibration": 0.007067624945193529,
+      "rangeSolve": 0.00991162471473217
+    }
+  },
+  {
+    "seconds": 0.5006031668744981,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4559510829858482,
+    "computeSeconds": 0.08414233336225152,
+    "stages": {
+      "sourceCalendar": 0.031132916919887066,
+      "sourceSignature": 0.1967877079732716,
+      "continuity": 0.01950283395126462,
+      "cachePut": 0.10928616626188159,
+      "historicalReplay": 0.06681345822289586,
+      "calibration": 0.006508625112473965,
+      "rangeSolve": 0.009992208331823349
+    }
+  },
+  {
+    "seconds": 0.5119599997997284,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.44390008319169283,
+    "computeSeconds": 0.08509729197248816,
+    "stages": {
+      "sourceCalendar": 0.024213166907429695,
+      "sourceSignature": 0.19234208296984434,
+      "continuity": 0.018799041863530874,
+      "cachePut": 0.11121395882219076,
+      "historicalReplay": 0.06847208412364125,
+      "calibration": 0.0061983331106603146,
+      "rangeSolve": 0.00979162473231554
+    }
+  },
+  {
+    "seconds": 0.662769750226289,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.5810408340767026,
+    "computeSeconds": 0.0851805410347879,
+    "stages": {
+      "sourceCalendar": 0.03199662500992417,
+      "sourceSignature": 0.2322428752668202,
+      "continuity": 0.019263125024735928,
+      "cachePut": 0.11264708265662193,
+      "historicalReplay": 0.0676049580797553,
+      "calibration": 0.006539416965097189,
+      "rangeSolve": 0.010279249865561724
+    }
+  },
+  {
+    "seconds": 0.5303936251439154,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4988147499971092,
+    "computeSeconds": 0.08441216684877872,
+    "stages": {
+      "sourceCalendar": 0.03175945766270161,
+      "sourceSignature": 0.19390770886093378,
+      "continuity": 0.018885500263422728,
+      "cachePut": 0.1107199159450829,
+      "historicalReplay": 0.0664941668510437,
+      "calibration": 0.006456458009779453,
+      "rangeSolve": 0.010677667334675789
+    }
+  },
+  {
+    "seconds": 0.5265400409698486,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.492574583273381,
+    "computeSeconds": 0.0858274158090353,
+    "stages": {
+      "sourceCalendar": 0.035072625149041414,
+      "sourceSignature": 0.19351470796391368,
+      "continuity": 0.01966129196807742,
+      "cachePut": 0.11216412484645844,
+      "historicalReplay": 0.06774595798924565,
+      "calibration": 0.007164916954934597,
+      "rangeSolve": 0.010112457908689976
+    }
+  },
+  {
+    "seconds": 0.5819697501137853,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4725087499246001,
+    "computeSeconds": 0.08326062513515353,
+    "stages": {
+      "sourceCalendar": 0.02334124967455864,
+      "sourceSignature": 0.22656604135408998,
+      "continuity": 0.01923287520185113,
+      "cachePut": 0.10694404179230332,
+      "historicalReplay": 0.066857541911304,
+      "calibration": 0.006220208015292883,
+      "rangeSolve": 0.009552542120218277
+    }
+  },
+  {
+    "seconds": 0.4871934582479298,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.45325504103675485,
+    "computeSeconds": 0.0841027912683785,
+    "stages": {
+      "sourceCalendar": 0.027758500073105097,
+      "sourceSignature": 0.19687558338046074,
+      "continuity": 0.0194558328948915,
+      "cachePut": 0.10884895827621222,
+      "historicalReplay": 0.06646520830690861,
+      "calibration": 0.00642470782622695,
+      "rangeSolve": 0.01040716702118516
+    }
+  },
+  {
+    "seconds": 0.5045655840076506,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.474606292322278,
+    "computeSeconds": 0.08706199983134866,
+    "stages": {
+      "sourceCalendar": 0.025161042343825102,
+      "sourceSignature": 0.2098634159192443,
+      "continuity": 0.01945266593247652,
+      "cachePut": 0.11300983279943466,
+      "historicalReplay": 0.06994066573679447,
+      "calibration": 0.006309125106781721,
+      "rangeSolve": 0.009948542341589928
+    }
+  },
+  {
+    "seconds": 0.5413283342495561,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.5059494161978364,
+    "computeSeconds": 0.08451924985274673,
+    "stages": {
+      "sourceCalendar": 0.032644249964505434,
+      "sourceSignature": 0.2406277908012271,
+      "continuity": 0.019555834122002125,
+      "cachePut": 0.11427875002846122,
+      "historicalReplay": 0.06777291698381305,
+      "calibration": 0.006502707954496145,
+      "rangeSolve": 0.009609874803572893
+    }
+  },
+  {
+    "seconds": 0.5028135827742517,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.47038045758381486,
+    "computeSeconds": 0.08636304177343845,
+    "stages": {
+      "sourceCalendar": 0.026731959078460932,
+      "sourceSignature": 0.1943744169548154,
+      "continuity": 0.018911750055849552,
+      "cachePut": 0.11193516571074724,
+      "historicalReplay": 0.06880162516608834,
+      "calibration": 0.006579542066901922,
+      "rangeSolve": 0.010077707935124636
+    }
+  },
+  {
+    "seconds": 0.5209679589606822,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4859598749317229,
+    "computeSeconds": 0.08375566685572267,
+    "stages": {
+      "sourceCalendar": 0.03290262492373586,
+      "sourceSignature": 0.19090716587379575,
+      "continuity": 0.018588874954730272,
+      "cachePut": 0.10940395900979638,
+      "historicalReplay": 0.06638583308085799,
+      "calibration": 0.006633958779275417,
+      "rangeSolve": 0.009915582835674286
+    }
+  },
+  {
+    "seconds": 0.5232742079533637,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4912078334018588,
+    "computeSeconds": 0.08461741684004664,
+    "stages": {
+      "sourceCalendar": 0.026248457841575146,
+      "sourceSignature": 0.2311871238052845,
+      "continuity": 0.01933537470176816,
+      "cachePut": 0.11180254071950912,
+      "historicalReplay": 0.06778208399191499,
+      "calibration": 0.006380333099514246,
+      "rangeSolve": 0.009837375022470951
+    }
+  },
+  {
+    "seconds": 0.5474964999593794,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4925394160673022,
+    "computeSeconds": 0.08596850000321865,
+    "stages": {
+      "sourceCalendar": 0.07031233282759786,
+      "sourceSignature": 0.19678070861846209,
+      "continuity": 0.019072792027145624,
+      "cachePut": 0.1055035418830812,
+      "historicalReplay": 0.06826858408749104,
+      "calibration": 0.006661292165517807,
+      "rangeSolve": 0.010232250206172466
+    }
+  },
+  {
+    "seconds": 0.501334291882813,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.46643962478265166,
+    "computeSeconds": 0.08597870822995901,
+    "stages": {
+      "sourceCalendar": 0.023028207942843437,
+      "sourceSignature": 0.20024904236197472,
+      "continuity": 0.01899395789951086,
+      "cachePut": 0.11176195787265897,
+      "historicalReplay": 0.06874133320525289,
+      "calibration": 0.0064577083103358746,
+      "rangeSolve": 0.009837416931986809
+    }
+  },
+  {
+    "seconds": 0.5718924580141902,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.5342158749699593,
+    "computeSeconds": 0.08486012509092689,
+    "stages": {
+      "sourceCalendar": 0.022269291803240776,
+      "sourceSignature": 0.28164870804175735,
+      "continuity": 0.019817791879177094,
+      "cachePut": 0.10929937474429607,
+      "historicalReplay": 0.06775112496688962,
+      "calibration": 0.006473000161349773,
+      "rangeSolve": 0.009766750037670135
+    }
+  },
+  {
+    "seconds": 0.4856283748522401,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4542340422049165,
+    "computeSeconds": 0.08616470918059349,
+    "stages": {
+      "sourceCalendar": 0.022249167319387197,
+      "sourceSignature": 0.20149562507867813,
+      "continuity": 0.019295917358249426,
+      "cachePut": 0.1132612912915647,
+      "historicalReplay": 0.06818112498149276,
+      "calibration": 0.00638333335518837,
+      "rangeSolve": 0.010637375060468912
+    }
+  },
+  {
+    "seconds": 0.5139626660384238,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4784661657176912,
+    "computeSeconds": 0.08523824997246265,
+    "stages": {
+      "sourceCalendar": 0.03230729140341282,
+      "sourceSignature": 0.19543283339589834,
+      "continuity": 0.01913591707125306,
+      "cachePut": 0.10945579083636403,
+      "historicalReplay": 0.06813162518665195,
+      "calibration": 0.0063763330690562725,
+      "rangeSolve": 0.009725249838083982
+    }
+  },
+  {
+    "seconds": 0.5191250829957426,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.48812650004401803,
+    "computeSeconds": 0.08422574959695339,
+    "stages": {
+      "sourceCalendar": 0.021748000290244818,
+      "sourceSignature": 0.23364233318716288,
+      "continuity": 0.020100083202123642,
+      "cachePut": 0.11625516694039106,
+      "historicalReplay": 0.06685866694897413,
+      "calibration": 0.006721291691064835,
+      "rangeSolve": 0.009745082817971706
+    }
+  },
+  {
+    "seconds": 0.5277069583535194,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4938062923029065,
+    "computeSeconds": 0.0849166251718998,
+    "stages": {
+      "sourceCalendar": 0.033309999853372574,
+      "sourceSignature": 0.20212087500840425,
+      "continuity": 0.019050416070967913,
+      "cachePut": 0.10589624987915158,
+      "historicalReplay": 0.06748874997720122,
+      "calibration": 0.006396583281457424,
+      "rangeSolve": 0.010055166203528643
+    }
+  },
+  {
+    "seconds": 0.5228063752874732,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4909128751605749,
+    "computeSeconds": 0.0837957076728344,
+    "stages": {
+      "sourceCalendar": 0.029928625095635653,
+      "sourceSignature": 0.18971079122275114,
+      "continuity": 0.018887916579842567,
+      "cachePut": 0.11258062487468123,
+      "historicalReplay": 0.06642783293500543,
+      "calibration": 0.006491667125374079,
+      "rangeSolve": 0.009977791924029589
+    }
+  },
+  {
+    "seconds": 0.5319777079857886,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4962769588455558,
+    "computeSeconds": 0.08400229178369045,
+    "stages": {
+      "sourceCalendar": 0.034604040905833244,
+      "sourceSignature": 0.23420604085549712,
+      "continuity": 0.019652999937534332,
+      "cachePut": 0.11012183269485831,
+      "historicalReplay": 0.06698066694661975,
+      "calibration": 0.006320916581898928,
+      "rangeSolve": 0.009650417137891054
+    }
+  },
+  {
+    "seconds": 0.5138065000064671,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4785000840201974,
+    "computeSeconds": 0.08423391729593277,
+    "stages": {
+      "sourceCalendar": 0.027286542113870382,
+      "sourceSignature": 0.19209874980151653,
+      "continuity": 0.018995124846696854,
+      "cachePut": 0.10341333411633968,
+      "historicalReplay": 0.06718408316373825,
+      "calibration": 0.006242457777261734,
+      "rangeSolve": 0.010187499690800905
+    }
+  },
+  {
+    "seconds": 0.5238215830177069,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4876799159683287,
+    "computeSeconds": 0.0845540831796825,
+    "stages": {
+      "sourceCalendar": 0.044576124753803015,
+      "sourceSignature": 0.19638795871287584,
+      "continuity": 0.019260375294834375,
+      "cachePut": 0.11393070919439197,
+      "historicalReplay": 0.06774374982342124,
+      "calibration": 0.006360374856740236,
+      "rangeSolve": 0.009518791921436787
+    }
+  },
+  {
+    "seconds": 0.5246092919260263,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.49308349983766675,
+    "computeSeconds": 0.08649770775809884,
+    "stages": {
+      "sourceCalendar": 0.0264530829153955,
+      "sourceSignature": 0.2336013331077993,
+      "continuity": 0.019172790925949812,
+      "cachePut": 0.11455441685393453,
+      "historicalReplay": 0.06762558268383145,
+      "calibration": 0.007803041022270918,
+      "rangeSolve": 0.010145166888833046
+    }
+  },
+  {
+    "seconds": 0.5220879171974957,
+    "bytes": 12249,
+    "status": "CONDITIONAL_ENTRY",
+    "totalBuildSeconds": 0.4855292499996722,
+    "computeSeconds": 0.08410412492230535,
+    "stages": {
+      "sourceCalendar": 0.02821158291772008,
+      "sourceSignature": 0.198530959431082,
+      "continuity": 0.01920608337968588,
+      "cachePut": 0.1118729580193758,
+      "historicalReplay": 0.06638633273541927,
+      "calibration": 0.006500249728560448,
+      "rangeSolve": 0.010312125086784363
+    }
+  }
+]

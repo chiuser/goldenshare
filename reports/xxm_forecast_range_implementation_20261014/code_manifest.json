@@ -1,0 +1,45 @@
+{
+  "state": "technical implementation/API/performance passed; user page acceptance pending",
+  "code": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "00cb3967372ae50e47c83cd44f790203e076f161ef59dddc15ae37b519ba9333",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "3ec3099c0e4090250232ce729d83e4f23a77b079758016777f9c31ed77fd734a",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "1cf61cdfa6864abc54486f96ab5ce586873a6e3631e433ba112ac66bea44e29a",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "8fbde581f48d6440fc899e0d4e0a4b2233ec65ef562f1e4fa8ba3d73e063692f",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py": "f97fb04f3aa427a14dbd9345a91f6472597de1ba4e5a27d270f685cc94654f61",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "351425eace9c09d66f7f0b57b8d0003875dd337f8934337dc34f50060e3012e0",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/queries/wealth/market/index_detail_xxm/query_service.py": "16570e88b5481440ec5fa509ecba327fd39d0e4c8222406d58d2bcf0ab8f865b",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "73bd9298a69af46eee4407c491a493f2fb0d418ce1533d0c28527c28d93ed735",
+    "src/biz/schemas/wealth/market/index_detail_xxm_forecast.py": "dcf09a620d36a91eaf0a03a003165c5984c3121b1a679ab66ad9a865f36aaf59",
+    "src/biz/api/wealth/market/index_detail_xxm_forecast.py": "1322500305a5be453e308edfeefb31d403bbcf456195b5eaa35065008845fe2e",
+    "src/foundation/clients/local_lake/major_index_mins_reader.py": "eabe8ee5a68744f2dff460b6d9ed7c615ab702f77c519331bc6611e37546c5ef"
+  },
+  "sourceReadonly": true,
+  "newConfig": false,
+  "apiMigration": "v0.2 only, no legacy fields",
+  "readOptimization": "same-invocation metadata reuse + real 1000-row state checkpoints inside existing source cache",
+  "validation": {
+    "backendTests": 152,
+    "frontendTests": 1165,
+    "frontendMode": "maxWorkers=2",
+    "budgetRequests": 178,
+    "latestSnapshots": 4,
+    "maxParallelSeconds": 3.1941082919947803,
+    "maxComputeMs": 78.89733277261257,
+    "maxBodyBytes": 12249,
+    "finalFrontendScopedTests": 56,
+    "realProducerConsumerPayloads": 8
+  },
+  "noKernelSpecChange": true,
+  "frontendCode": {
+    "wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx": "656e6ca178ebee177e06a2d698b5a353dfc714b03d053b6fdfa9a8829c685ff1",
+    "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts": "e2718baddbbcfbe85b74b022c09bfff543c8f9795f3a07f474465669c9178e66",
+    "wealth/src/features/index-detail/xxm-forecast/types.ts": "278aef7ec04a5b9eb6715da49963cdbb98a95a2f758793759a426b4d03532192",
+    "wealth/src/features/index-detail/xxm-forecast/xxm-forecast.css": "f11ccd0e8a7c31dc44ee46df75c5817270ab1e7fa99003d16920dc06e1d58dcf",
+    "wealth/src/features/index-detail/xxm-forecast/adapter.ts": "d9714e6cb3df40811ede3bc4ff472eb706365699bb947f38cf617a4d2b39aa1a",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.ts": "2de184902a303fe9e7305b3404f76daff8be24a5a8dce284f771e41d12d88519",
+    "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx": "1d4f237053915e6e18f4767d24dc1a2888c27a6173a4e28017a8631b39f12a07",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts": "f3e0f4c4956d6579d5ca627acae4700820d9db92ccb4cd085b8bc7f8174a4cea"
+  }
+}

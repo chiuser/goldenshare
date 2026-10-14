@@ -1,0 +1,154 @@
+{
+  "fileKey": "RADlZzREU4lPVviYfkLy6x",
+  "pageId": "1983:79",
+  "roots": [
+    {
+      "id": "2021:2306",
+      "name": "XXM Forecast / Review / 2026-10-14",
+      "width": 1280,
+      "height": 814,
+      "descendants": 88,
+      "counts": {
+        "TEXT": 56,
+        "FRAME": 14,
+        "INSTANCE": 10,
+        "RECTANGLE": 8
+      },
+      "fonts": [
+        "Noto Sans SC"
+      ],
+      "images": [],
+      "visibleZeroWidthText": [],
+      "placeholders": []
+    },
+    {
+      "id": "2021:2395",
+      "name": "XXM Forecast / States Review",
+      "width": 1280,
+      "height": 538,
+      "descendants": 79,
+      "counts": {
+        "TEXT": 48,
+        "FRAME": 22,
+        "INSTANCE": 9
+      },
+      "fonts": [
+        "Noto Sans SC"
+      ],
+      "images": [],
+      "visibleZeroWidthText": [],
+      "placeholders": []
+    },
+    {
+      "id": "2025:2358",
+      "name": "XXM Forecast / SSE Technical / Bottom / 1600",
+      "width": 1600,
+      "height": 1200,
+      "descendants": 839,
+      "counts": {
+        "INSTANCE": 56,
+        "FRAME": 89,
+        "RECTANGLE": 454,
+        "TEXT": 209,
+        "VECTOR": 24,
+        "ELLIPSE": 7
+      },
+      "fonts": [
+        "Noto Sans SC",
+        "Roboto Mono",
+        "SF Pro"
+      ],
+      "images": [
+        {
+          "id": "I2025:2359;97:4",
+          "name": "Brand Logo / official asset / 36x36",
+          "w": 36,
+          "h": 36
+        }
+      ],
+      "visibleZeroWidthText": [],
+      "placeholders": []
+    },
+    {
+      "id": "2025:3292",
+      "name": "XXM Forecast / SSE Technical / Top / 1600",
+      "width": 1600,
+      "height": 1200,
+      "descendants": 839,
+      "counts": {
+        "INSTANCE": 56,
+        "FRAME": 89,
+        "RECTANGLE": 454,
+        "TEXT": 209,
+        "VECTOR": 24,
+        "ELLIPSE": 7
+      },
+      "fonts": [
+        "Noto Sans SC",
+        "Roboto Mono",
+        "SF Pro"
+      ],
+      "images": [
+        {
+          "id": "I2025:3293;97:4",
+          "name": "Brand Logo / official asset / 36x36",
+          "w": 36,
+          "h": 36
+        }
+      ],
+      "visibleZeroWidthText": [],
+      "placeholders": []
+    },
+    {
+      "id": "2025:4226",
+      "name": "XXM Forecast / SSE Technical / Error / 1600",
+      "width": 1600,
+      "height": 1200,
+      "descendants": 841,
+      "counts": {
+        "INSTANCE": 56,
+        "FRAME": 90,
+        "RECTANGLE": 454,
+        "TEXT": 210,
+        "VECTOR": 24,
+        "ELLIPSE": 7
+      },
+      "fonts": [
+        "Noto Sans SC",
+        "Roboto Mono",
+        "SF Pro"
+      ],
+      "images": [
+        {
+          "id": "I2025:4227;97:4",
+          "name": "Brand Logo / official asset / 36x36",
+          "w": 36,
+          "h": 36
+        }
+      ],
+      "visibleZeroWidthText": [],
+      "placeholders": []
+    }
+  ],
+  "rowComponentSet": "2021:2268",
+  "cardComponent": "2021:2269",
+  "widthMeasurements": [
+    {
+      "viewport": 1280,
+      "rail": 344,
+      "card": 296
+    },
+    {
+      "viewport": 1440,
+      "rail": 376.796875,
+      "card": 328.796875
+    },
+    {
+      "viewport": 1600,
+      "rail": 376.796875,
+      "card": 328.796875
+    }
+  ],
+  "nativeEditable": true,
+  "sourceCodeChanges": false
+}

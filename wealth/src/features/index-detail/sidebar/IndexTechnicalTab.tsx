@@ -1,3 +1,5 @@
+import { XxmForecastCard } from "../xxm-forecast/XxmForecastCard";
+import type { ForecastPeriod, ForecastRows } from "../xxm-forecast/types";
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { IndexDetailViewModel, TrendChannelViewModel } from "../model/indexDetailTypes";
@@ -5,6 +7,7 @@ import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary }
 import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 interface IndexTechnicalTabProps {
+  forecast?: { rows: ForecastRows; retry: (period: ForecastPeriod) => void };
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;
@@ -13,7 +16,7 @@ interface IndexTechnicalTabProps {
   viewModel: IndexDetailViewModel;
 }
 
-export function IndexTechnicalTab({ nineTurnSummary, onNineTurnRetry, onTrendRetry, trend, trendPhase, viewModel }: IndexTechnicalTabProps) {
+export function IndexTechnicalTab({ forecast, nineTurnSummary, onNineTurnRetry, onTrendRetry, trend, trendPhase, viewModel }: IndexTechnicalTabProps) {
   const latest = trend?.points.at(-1) ?? null;
   return (
     <section className="index-technical-module" aria-label="技术面">
@@ -31,6 +34,7 @@ export function IndexTechnicalTab({ nineTurnSummary, onNineTurnRetry, onTrendRet
           <Metric label="长期下轨" value={format(latest?.longLower)} />
         </div> : null}
       </div>
+      {forecast ? <XxmForecastCard {...forecast} /> : null}
     </section>
   );
 }

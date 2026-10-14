@@ -1,0 +1,77 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.2",
+  "forecastSpecHash": "969a8a8bda017fe1cab0b6130d08d15977e5a58b5a9a2d94b2820ca56760aeb8",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "bb0d5bdde61c77b26312c25400d5a61d85a71aa6dcec49fd244eaba10a6d7b5a",
+  "calendarInputId": "c5a1745903a2349556fb87a6a59d8524264d8621f494e996105249585c7c88f2",
+  "computedThrough": "2026-10-14T15:00:00+08:00",
+  "requestedAsOf": null,
+  "mode": "LATEST",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "precisionPolicy": "full_float",
+  "refreshAfterMs": 60000,
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_ENTRY_RANGE",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "activation": {
+    "endpoint": "2026-10-15T10:30:00+08:00",
+    "ranges": [],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3766.164548746164,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      },
+      {
+        "priceRange": {
+          "lower": 3766.164548746164,
+          "upper": 3823.6145,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "PRICE_NOT_EXTREME"
+      },
+      {
+        "priceRange": {
+          "lower": 3823.6145,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      }
+    ]
+  },
+  "assumption": null,
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [],
+  "commonConditions": [],
+  "examples": [],
+  "direction": "TOP",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无条件",
+    "targetText": "暂未找到可计算的结构时点",
+    "conditionsText": "当前没有可形成钝化的收盘范围。",
+    "asOfText": "截至 10/14 15:00 这一根收盘"
+  },
+  "applicabilityText": "目标适用前置范围见正文。",
+  "invalidationText": "钝化消失、零柱或前序走势变化时重算。",
+  "forecastId": "4c7dac40222c9e196c806d1c31a0515926ea4364d717ba780ca97e0f427c1e5d",
+  "_precheck": {
+    "computeSeconds": 0.011588375084102154,
+    "rows": 17264,
+    "sourceRows": 17264,
+    "researchRootInjected": true
+  }
+}

@@ -1,0 +1,5587 @@
+{
+  "createdAt": "2026-10-14T15:17:00.083717+08:00",
+  "scope": "M0 read-only frozen-prefix arithmetic and design preparation; no forecast API or feature implementation",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sources": {
+    "day": {
+      "path": "reports/xxm_source_audit_20261013_213852/daily_source.csv",
+      "sha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+      "count": 912,
+      "through": "2026-10-13"
+    },
+    "m60": {
+      "path": "reports/xxm_source_audit_20261013_213852/minute_60_source.csv",
+      "sha256": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+      "count": 17260,
+      "through": "2026-10-13T15:00:00+08:00"
+    },
+    "m90": {
+      "path": "reports/xxm_source_audit_20261013_213852/minute_90_source.csv",
+      "sha256": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+      "count": 12945,
+      "through": "2026-10-13T15:00:00+08:00"
+    },
+    "m120": {
+      "path": "reports/xxm_source_audit_20261013_213852/minute_120_source.csv",
+      "sha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+      "count": 8630,
+      "through": "2026-10-13T15:00:00+08:00"
+    }
+  },
+  "sourceAsOf": "2026-10-13",
+  "calendar": {
+    "path": "future_sse_calendar.json",
+    "sha256": "dc5b592ef4aa0868cd408a8d842463da98511ad23a0efa17ee6c2be660b95532",
+    "rows": 92,
+    "edgeChecks": {
+      "day": {
+        "2026-09-30": [
+          "2026-10-08",
+          "2026-10-09",
+          "2026-10-12",
+          "2026-10-13"
+        ],
+        "2026-10-09": [
+          "2026-10-12",
+          "2026-10-13",
+          "2026-10-14",
+          "2026-10-15"
+        ]
+      },
+      "m60": {
+        "2026-09-30T15:00:00+08:00": [
+          "2026-10-08T10:30:00+08:00",
+          "2026-10-08T11:30:00+08:00",
+          "2026-10-08T14:00:00+08:00",
+          "2026-10-08T15:00:00+08:00"
+        ],
+        "2026-10-09T15:00:00+08:00": [
+          "2026-10-12T10:30:00+08:00",
+          "2026-10-12T11:30:00+08:00",
+          "2026-10-12T14:00:00+08:00",
+          "2026-10-12T15:00:00+08:00"
+        ]
+      },
+      "m90": {
+        "2026-09-30T15:00:00+08:00": [
+          "2026-10-08T11:00:00+08:00",
+          "2026-10-08T14:00:00+08:00",
+          "2026-10-08T15:00:00+08:00",
+          "2026-10-09T11:00:00+08:00"
+        ],
+        "2026-10-09T15:00:00+08:00": [
+          "2026-10-12T11:00:00+08:00",
+          "2026-10-12T14:00:00+08:00",
+          "2026-10-12T15:00:00+08:00",
+          "2026-10-13T11:00:00+08:00"
+        ]
+      },
+      "m120": {
+        "2026-09-30T15:00:00+08:00": [
+          "2026-10-08T11:30:00+08:00",
+          "2026-10-08T15:00:00+08:00",
+          "2026-10-09T11:30:00+08:00",
+          "2026-10-09T15:00:00+08:00"
+        ],
+        "2026-10-09T15:00:00+08:00": [
+          "2026-10-12T11:30:00+08:00",
+          "2026-10-12T15:00:00+08:00",
+          "2026-10-13T11:30:00+08:00",
+          "2026-10-13T15:00:00+08:00"
+        ]
+      }
+    }
+  },
+  "results": {
+    "day": {
+      "latest": {
+        "status": "CONDITIONAL_ENTRY",
+        "target": "2026-10-15",
+        "barsAhead": 2,
+        "asOf": "2026-10-13",
+        "state": "NONE",
+        "cases": [
+          {
+            "referencePrice": 3764.1546,
+            "entry": {
+              "historicalPriceBoundary": 3764.1547,
+              "referencePrice": 3764.1546,
+              "strictDirection": "below"
+            },
+            "activation": "2026-10-14",
+            "path": [
+              {
+                "time": "2026-10-14",
+                "close": 3764.1546
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 3804.781707519806,
+                "rawUpper": 3952.725811567195,
+                "displayLower": 3804.7818,
+                "displayUpper": 3952.7258,
+                "route": "dif_turn"
+              },
+              {
+                "rawLower": 3952.733646388623,
+                "rawUpper": null,
+                "displayLower": 3952.7337,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3804.7818,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.787975376949,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7832744840916,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.792676269806,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7942,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7943,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8005110912345,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7958101983777,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.805211984092,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8067,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8068,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3878.766295257786,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3823.29665802573,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3934.2359324898425,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3952.7258,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3952.7337,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4095.8887840970715,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3988.5224308157353,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4203.255137378408,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0439,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.044,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.050189662663,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.045488769805,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.054890555521,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0564,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0565,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.062725376949,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.058024484091,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.067426269807,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0689,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.069,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.075261091235,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.070560198377,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.079961984093,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0815,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0816,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.087796805521,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.083095912663,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.092497698378,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.094,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0941,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4663.00347112893,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4345.07141627923,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5362.453991798269,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3460.049564662663,
+                  "tests": [
+                    {
+                      "close": 3460.0495636626633,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.049564662663,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.049565662663,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.0621003769493,
+                  "tests": [
+                    {
+                      "close": 3460.0620993769494,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0621003769493,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.062101376949,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.0746360912344,
+                  "tests": [
+                    {
+                      "close": 3460.0746350912345,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0746360912344,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0746370912343,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.087171805521,
+                  "tests": [
+                    {
+                      "close": 3460.087170805521,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.087171805521,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.087172805521,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.099707519806,
+                  "tests": [
+                    {
+                      "close": 3460.099706519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.099707519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.099708519806,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.38167180552,
+                  "tests": [
+                    {
+                      "close": 3800.38167080552,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.38167180552,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.38167280552,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.3942075198065,
+                  "tests": [
+                    {
+                      "close": 3800.3942065198066,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.3942075198065,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.3942085198064,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4067432340917,
+                  "tests": [
+                    {
+                      "close": 3800.406742234092,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4067432340917,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4067442340915,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4192789483777,
+                  "tests": [
+                    {
+                      "close": 3800.419277948378,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4192789483777,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4192799483776,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4318146626633,
+                  "tests": [
+                    {
+                      "close": 3800.4318136626634,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4318146626633,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.431815662663,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.756636091235,
+                  "tests": [
+                    {
+                      "close": 3804.7566350912352,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.756636091235,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.756637091235,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.7691718055203,
+                  "tests": [
+                    {
+                      "close": 3804.7691708055204,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.7691718055203,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.76917280552,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.781707519806,
+                  "tests": [
+                    {
+                      "close": 3804.781706519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.781707519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.7817085198058,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.794243234092,
+                  "tests": [
+                    {
+                      "close": 3804.794242234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.794243234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.794244234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.8067789483775,
+                  "tests": [
+                    {
+                      "close": 3804.8067779483777,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.8067789483775,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.8067799483774,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.725811567195,
+                  "tests": [
+                    {
+                      "close": 3952.725810567195,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3952.725811567195,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3952.7258125671947,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.729728977909,
+                  "tests": [
+                    {
+                      "close": 3952.729727977909,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.729728977909,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.729729977909,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.733646388623,
+                  "tests": [
+                    {
+                      "close": 3952.7336453886232,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.733646388623,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.733647388623,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.04392180552,
+                  "tests": [
+                    {
+                      "close": 4239.0439208055195,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.04392180552,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.04392280552,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.056457519806,
+                  "tests": [
+                    {
+                      "close": 4239.056456519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.056457519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.056458519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.068993234092,
+                  "tests": [
+                    {
+                      "close": 4239.068992234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.068993234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.068994234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.081528948378,
+                  "tests": [
+                    {
+                      "close": 4239.081527948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.081528948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.081529948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.094064662663,
+                  "tests": [
+                    {
+                      "close": 4239.094063662663,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.094064662663,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.0940656626635,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "6c7a256b194f7b281f424a754a08a562eeb7280e6c8b5c4672d5eda751a0db70",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14",
+            "referencePrice": 3764.1546,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14",
+            "referencePrice": 3800.8644,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-15",
+            "referencePrice": 3764.1546,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-15",
+            "referencePrice": 3800.8644,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "previousAsOf": {
+        "asOf": "2026-10-12",
+        "barsAhead": 2,
+        "cases": [
+          {
+            "activation": "2026-10-13",
+            "entry": {
+              "historicalPriceBoundary": 3764.1547,
+              "referencePrice": 3764.1546,
+              "strictDirection": "below"
+            },
+            "intervals": [
+              {
+                "displayLower": 3812.6677,
+                "displayUpper": 3975.5555,
+                "rawLower": 3812.6676212907155,
+                "rawUpper": 3975.555552521036,
+                "route": "dif_turn"
+              },
+              {
+                "displayLower": 3975.5634,
+                "displayUpper": null,
+                "rawLower": 3975.563387342464,
+                "rawUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "path": [
+              {
+                "close": 3764.1546,
+                "time": "2026-10-13"
+              }
+            ],
+            "referencePrice": 3764.1546
+          }
+        ],
+        "id": "34fba7553aa2305f908d0a46217affc5a61cd9bd22ae5b28b3b5fb89f2d08742",
+        "realSnapshotUnchanged": true,
+        "state": "NONE",
+        "status": "CONDITIONAL_ENTRY",
+        "target": "2026-10-14"
+      },
+      "sourceCalibrationMaxAbsError": [
+        0.0004991061312473732,
+        0.0004989165063671308,
+        0.0004998829787439263
+      ]
+    },
+    "m60": {
+      "latest": {
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 4,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 4,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 5,
+            "stamp": "2026-10-15T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 5,
+            "stamp": "2026-10-15T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 6,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 6,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 7,
+            "stamp": "2026-10-15T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 7,
+            "stamp": "2026-10-15T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 8,
+            "stamp": "2026-10-15T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 8,
+            "stamp": "2026-10-15T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 9,
+            "stamp": "2026-10-16T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 9,
+            "stamp": "2026-10-16T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 10,
+            "stamp": "2026-10-16T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 10,
+            "stamp": "2026-10-16T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 11,
+            "stamp": "2026-10-16T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 11,
+            "stamp": "2026-10-16T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 12,
+            "stamp": "2026-10-16T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 12,
+            "stamp": "2026-10-16T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 13,
+            "stamp": "2026-10-19T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 13,
+            "stamp": "2026-10-19T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 14,
+            "stamp": "2026-10-19T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 14,
+            "stamp": "2026-10-19T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 15,
+            "stamp": "2026-10-19T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 15,
+            "stamp": "2026-10-19T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 16,
+            "stamp": "2026-10-19T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 16,
+            "stamp": "2026-10-19T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 17,
+            "stamp": "2026-10-20T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 17,
+            "stamp": "2026-10-20T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 18,
+            "stamp": "2026-10-20T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 18,
+            "stamp": "2026-10-20T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 19,
+            "stamp": "2026-10-20T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 19,
+            "stamp": "2026-10-20T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 20,
+            "stamp": "2026-10-20T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 20,
+            "stamp": "2026-10-20T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "scenarios": [
+          {
+            "referencePrice": 3847.8014,
+            "entry": {
+              "historicalPriceBoundary": 3847.8013,
+              "referencePrice": 3847.8014,
+              "strictDirection": "above"
+            },
+            "ended": null,
+            "path": [
+              {
+                "time": "2026-10-14T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T15:00:00+08:00",
+                "close": 3847.8014
+              }
+            ]
+          },
+          {
+            "referencePrice": 3823.6146,
+            "entry": {
+              "historicalPriceBoundary": 3823.6145,
+              "referencePrice": 3823.6146,
+              "strictDirection": "above"
+            },
+            "ended": null,
+            "path": [
+              {
+                "time": "2026-10-14T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T15:00:00+08:00",
+                "close": 3823.6146
+              }
+            ]
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "previousAsOf": {
+        "asOf": "2026-10-13T14:00:00+08:00",
+        "realSnapshotUnchanged": true,
+        "scenarios": [
+          {
+            "ended": null,
+            "entry": {
+              "historicalPriceBoundary": 3847.8013,
+              "referencePrice": 3847.8014,
+              "strictDirection": "above"
+            },
+            "path": [
+              {
+                "close": 3847.8014,
+                "time": "2026-10-13T15:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-14T10:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-14T11:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-14T14:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-14T15:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-15T10:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-15T11:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-15T14:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-15T15:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-16T10:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-16T11:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-16T14:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-16T15:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-19T10:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-19T11:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-19T14:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-19T15:00:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-20T10:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-20T11:30:00+08:00"
+              },
+              {
+                "close": 3847.8014,
+                "time": "2026-10-20T14:00:00+08:00"
+              }
+            ],
+            "referencePrice": 3847.8014
+          },
+          {
+            "ended": null,
+            "entry": {
+              "historicalPriceBoundary": 3823.6145,
+              "referencePrice": 3823.6146,
+              "strictDirection": "above"
+            },
+            "path": [
+              {
+                "close": 3823.6146,
+                "time": "2026-10-13T15:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-14T10:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-14T11:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-14T14:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-14T15:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-15T10:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-15T11:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-15T14:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-15T15:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-16T10:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-16T11:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-16T14:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-16T15:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-19T10:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-19T11:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-19T14:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-19T15:00:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-20T10:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-20T11:30:00+08:00"
+              },
+              {
+                "close": 3823.6146,
+                "time": "2026-10-20T14:00:00+08:00"
+              }
+            ],
+            "referencePrice": 3823.6146
+          }
+        ],
+        "state": "NONE",
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null
+      },
+      "sourceCalibrationMaxAbsError": [
+        1.000444171950221e-11,
+        9.015010959956271e-12,
+        2.8705926524708048e-12
+      ]
+    },
+    "m90": {
+      "latest": {
+        "status": "CONDITIONAL_ENTRY",
+        "target": "2026-10-14T14:00:00+08:00",
+        "barsAhead": 2,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "cases": [
+          {
+            "referencePrice": 3988.5431,
+            "entry": {
+              "historicalPriceBoundary": 3988.543,
+              "referencePrice": 3988.5431,
+              "strictDirection": "above"
+            },
+            "activation": "2026-10-14T11:00:00+08:00",
+            "path": [
+              {
+                "time": "2026-10-14T11:00:00+08:00",
+                "close": 3988.5431
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 0.0,
+                "rawUpper": 3652.674050968731,
+                "displayLower": 0.0001,
+                "displayUpper": 3652.674,
+                "route": "color_flip"
+              },
+              {
+                "rawLower": 3652.674050968731,
+                "rawUpper": 3826.0992647438115,
+                "displayLower": 3652.6741,
+                "displayUpper": 3826.0992,
+                "route": "dif_turn"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 0.0001,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 1826.3370254843655,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 456.5842563710914,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3196.0897945976394,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3652.674,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3652.6741,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3739.386657856271,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3674.352202690616,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.4211130219264,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3826.0992,
+                  "structure": true,
+                  "route": "dif_turn"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3652.674050968731,
+                  "tests": [
+                    {
+                      "close": 3652.674049968731,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3652.674050968731,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3652.674051968731,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3826.0992647438115,
+                  "tests": [
+                    {
+                      "close": 3826.0992637438117,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3826.0992647438115,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3826.0992657438114,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3827.0373577689334,
+                  "tests": [
+                    {
+                      "close": 3827.0373567689335,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3827.0373577689334,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3827.0373587689332,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3920.8466602811113,
+                  "tests": [
+                    {
+                      "close": 3920.8466592811114,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3920.8466602811113,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3920.846661281111,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4153.460799649744,
+                  "tests": [
+                    {
+                      "close": 4153.460798649744,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4153.460799649744,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4153.460800649745,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "referencePrice": 3960.0873,
+            "entry": {
+              "historicalPriceBoundary": 3960.0872,
+              "referencePrice": 3960.0873,
+              "strictDirection": "above"
+            },
+            "activation": "2026-10-14T11:00:00+08:00",
+            "path": [
+              {
+                "time": "2026-10-14T11:00:00+08:00",
+                "close": 3960.0873
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 0.0,
+                "rawUpper": 3668.953038547084,
+                "displayLower": 0.0001,
+                "displayUpper": 3668.953,
+                "route": "color_flip"
+              },
+              {
+                "rawLower": 3668.953038547084,
+                "rawUpper": 3819.3290543221656,
+                "displayLower": 3668.9531,
+                "displayUpper": 3819.329,
+                "route": "dif_turn"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 0.0001,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 1834.476519273542,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 458.6191298183855,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3210.3339087286986,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3668.953,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3668.9531,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3744.1410464346245,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3687.750040518969,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3800.5320523502805,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3819.329,
+                  "structure": true,
+                  "route": "dif_turn"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3668.953038547084,
+                  "tests": [
+                    {
+                      "close": 3668.953037547084,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3668.953038547084,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3668.953039547084,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3819.3290543221656,
+                  "tests": [
+                    {
+                      "close": 3819.3290533221657,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3819.3290543221656,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3819.3290553221655,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3820.5517053472868,
+                  "tests": [
+                    {
+                      "close": 3820.551704347287,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3820.5517053472868,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3820.5517063472867,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3942.816807859463,
+                  "tests": [
+                    {
+                      "close": 3942.816806859463,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3942.816807859463,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3942.816808859463,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4076.778691201968,
+                  "tests": [
+                    {
+                      "close": 4076.778690201968,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4076.778691201968,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4076.7786922019677,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "c462d7e7df061de8650994f288255c4ce386e785c269576439cd135c8541c365",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:00:00+08:00",
+            "referencePrice": 3988.5431,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:00:00+08:00",
+            "referencePrice": 3960.0873,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3988.5431,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3960.0873,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "previousAsOf": {
+        "asOf": "2026-10-13T14:00:00+08:00",
+        "realSnapshotUnchanged": true,
+        "scenarios": [
+          {
+            "ended": "COLOR_CHANGED",
+            "entry": {
+              "historicalPriceBoundary": 3862.067,
+              "referencePrice": 3809.5122,
+              "strictDirection": "below"
+            },
+            "path": [
+              {
+                "close": 3809.5122,
+                "time": "2026-10-13T15:00:00+08:00"
+              }
+            ],
+            "referencePrice": 3809.5122
+          }
+        ],
+        "state": "NONE",
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null
+      },
+      "sourceCalibrationMaxAbsError": [
+        9.549694368615746e-12,
+        8.466116696581594e-12,
+        4.0110137433657655e-12
+      ]
+    },
+    "m120": {
+      "latest": {
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "scenarios": [
+          {
+            "referencePrice": 3800.8645,
+            "entry": {
+              "historicalPriceBoundary": 3862.7302,
+              "referencePrice": 3800.8645,
+              "strictDirection": "below"
+            },
+            "ended": "COLOR_CHANGED",
+            "path": [
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3800.8645
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3800.8645
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3800.8645
+              }
+            ]
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "previousAsOf": {
+        "asOf": "2026-10-13T11:30:00+08:00",
+        "realSnapshotUnchanged": true,
+        "scenarios": [
+          {
+            "ended": "COLOR_CHANGED",
+            "entry": {
+              "historicalPriceBoundary": 3862.7302,
+              "referencePrice": 3787.157,
+              "strictDirection": "below"
+            },
+            "path": [
+              {
+                "close": 3787.157,
+                "time": "2026-10-13T15:00:00+08:00"
+              },
+              {
+                "close": 3787.157,
+                "time": "2026-10-14T11:30:00+08:00"
+              },
+              {
+                "close": 3787.157,
+                "time": "2026-10-14T15:00:00+08:00"
+              },
+              {
+                "close": 3787.157,
+                "time": "2026-10-15T11:30:00+08:00"
+              },
+              {
+                "close": 3787.157,
+                "time": "2026-10-15T15:00:00+08:00"
+              },
+              {
+                "close": 3787.157,
+                "time": "2026-10-16T11:30:00+08:00"
+              }
+            ],
+            "referencePrice": 3787.157
+          }
+        ],
+        "state": "NONE",
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null
+      },
+      "sourceCalibrationMaxAbsError": [
+        7.73070496506989e-12,
+        6.853184686406166e-12,
+        3.929301328753354e-12
+      ]
+    }
+  },
+  "historicalExamples": [
+    {
+      "period": "day",
+      "state": "DULL",
+      "prefixRows": 906,
+      "result": {
+        "status": "READY",
+        "target": "2026-09-29",
+        "barsAhead": 1,
+        "asOf": "2026-09-28",
+        "state": "DULL",
+        "cases": [
+          {
+            "referencePrice": 3823.6206,
+            "entry": null,
+            "activation": "2026-09-28",
+            "path": [],
+            "intervals": [
+              {
+                "rawLower": 3894.5226488425797,
+                "rawUpper": 3966.004588700749,
+                "displayLower": 3894.5227,
+                "displayUpper": 3966.0045,
+                "route": "dif_turn"
+              },
+              {
+                "rawLower": 3966.012423522178,
+                "rawUpper": null,
+                "displayLower": 3966.0125,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3894.5227,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5289166997227,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5242158068654,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5336175925795,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5351,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5352,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.541452414008,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.536751521151,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5461533068647,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5477,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.5478,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3930.2761544859495,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3903.4798288248503,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3957.072480147049,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3966.0045,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3966.0125,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3992.1751611823784,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3972.553107937228,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4011.7972144275286,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3378,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3379,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3441666997223,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3394658068646,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3488675925796,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3504,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3505,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.356702414008,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.352001521151,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3614033068648,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3629,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.363,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3692381282935,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3645372354363,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.373939021151,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3755,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3756,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3817738425796,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3770729497223,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3864747354364,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.388,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4018.3881,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4420.226845869694,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4118.847742742215,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5083.260872750148,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3889.019470271151,
+                  "tests": [
+                    {
+                      "close": 3889.019469271151,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.019470271151,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.019471271151,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3889.032005985436,
+                  "tests": [
+                    {
+                      "close": 3889.0320049854363,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.032005985436,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.032006985436,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3889.0445416997222,
+                  "tests": [
+                    {
+                      "close": 3889.0445406997223,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.0445416997222,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.044542699722,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3889.057077414008,
+                  "tests": [
+                    {
+                      "close": 3889.057076414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.057077414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.0570784140077,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3889.069613128294,
+                  "tests": [
+                    {
+                      "close": 3889.069612128294,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.069613128294,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3889.069614128294,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3893.2565416997227,
+                  "tests": [
+                    {
+                      "close": 3893.256540699723,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2565416997227,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2565426997226,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3893.269077414008,
+                  "tests": [
+                    {
+                      "close": 3893.269076414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.269077414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2690784140077,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3893.2816131282934,
+                  "tests": [
+                    {
+                      "close": 3893.2816121282935,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2816131282934,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2816141282933,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3893.2941488425795,
+                  "tests": [
+                    {
+                      "close": 3893.2941478425796,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2941488425795,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.2941498425794,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3893.306684556865,
+                  "tests": [
+                    {
+                      "close": 3893.306683556865,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.306684556865,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3893.306685556865,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3894.497577414008,
+                  "tests": [
+                    {
+                      "close": 3894.497576414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3894.497577414008,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3894.497578414008,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3894.5101131282936,
+                  "tests": [
+                    {
+                      "close": 3894.5101121282937,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3894.5101131282936,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3894.5101141282935,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3894.5226488425797,
+                  "tests": [
+                    {
+                      "close": 3894.5226478425798,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3894.5226488425797,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3894.5226498425795,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3894.5351845568653,
+                  "tests": [
+                    {
+                      "close": 3894.5351835568654,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3894.5351845568653,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3894.535185556865,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3894.5477202711504,
+                  "tests": [
+                    {
+                      "close": 3894.5477192711505,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3894.5477202711504,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3894.5477212711503,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3966.004588700749,
+                  "tests": [
+                    {
+                      "close": 3966.004587700749,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3966.004588700749,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3966.004589700749,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3966.0085061114637,
+                  "tests": [
+                    {
+                      "close": 3966.008505111464,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3966.0085061114637,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3966.0085071114636,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3966.012423522178,
+                  "tests": [
+                    {
+                      "close": 3966.012422522178,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3966.012423522178,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3966.0124245221778,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4018.337898842579,
+                  "tests": [
+                    {
+                      "close": 4018.337897842579,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.337898842579,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3378998425787,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4018.3504345568654,
+                  "tests": [
+                    {
+                      "close": 4018.3504335568655,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3504345568654,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3504355568652,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4018.3629702711505,
+                  "tests": [
+                    {
+                      "close": 4018.3629692711506,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3629702711505,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3629712711504,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4018.3755059854366,
+                  "tests": [
+                    {
+                      "close": 4018.3755049854367,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3755059854366,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.3755069854365,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4018.388041699722,
+                  "tests": [
+                    {
+                      "close": 4018.3880406997223,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.388041699722,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4018.388042699722,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "d606b74d4eba55cb576b33e496929f0a72f4aed6a1e4b9706f56e7d6e81ce17f",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-09-29",
+            "referencePrice": 3823.6206,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "day",
+      "state": "STRUCTURE",
+      "prefixRows": 812,
+      "result": {
+        "status": "ALREADY_CONFIRMED",
+        "target": null,
+        "asOf": "2026-05-15",
+        "state": "STRUCTURE",
+        "attempted": 0
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "day",
+      "state": "NONE",
+      "prefixRows": 912,
+      "result": {
+        "status": "CONDITIONAL_ENTRY",
+        "target": "2026-10-15",
+        "barsAhead": 2,
+        "asOf": "2026-10-13",
+        "state": "NONE",
+        "cases": [
+          {
+            "referencePrice": 3764.1546,
+            "entry": {
+              "historicalPriceBoundary": 3764.1547,
+              "referencePrice": 3764.1546,
+              "strictDirection": "below"
+            },
+            "activation": "2026-10-14",
+            "path": [
+              {
+                "time": "2026-10-14",
+                "close": 3764.1546
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 3804.781707519806,
+                "rawUpper": 3952.725811567195,
+                "displayLower": 3804.7818,
+                "displayUpper": 3952.7258,
+                "route": "dif_turn"
+              },
+              {
+                "rawLower": 3952.733646388623,
+                "rawUpper": null,
+                "displayLower": 3952.7337,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3804.7818,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.787975376949,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7832744840916,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.792676269806,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7942,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7943,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8005110912345,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.7958101983777,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.805211984092,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8067,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.8068,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3878.766295257786,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3823.29665802573,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3934.2359324898425,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3952.7258,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3952.7337,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4095.8887840970715,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3988.5224308157353,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4203.255137378408,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0439,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.044,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.050189662663,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.045488769805,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.054890555521,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0564,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0565,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.062725376949,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.058024484091,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.067426269807,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0689,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.069,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.075261091235,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.070560198377,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.079961984093,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0815,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0816,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.087796805521,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.083095912663,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.092497698378,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.094,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4239.0941,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4663.00347112893,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4345.07141627923,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5362.453991798269,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3460.049564662663,
+                  "tests": [
+                    {
+                      "close": 3460.0495636626633,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.049564662663,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.049565662663,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.0621003769493,
+                  "tests": [
+                    {
+                      "close": 3460.0620993769494,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0621003769493,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.062101376949,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.0746360912344,
+                  "tests": [
+                    {
+                      "close": 3460.0746350912345,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0746360912344,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.0746370912343,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.087171805521,
+                  "tests": [
+                    {
+                      "close": 3460.087170805521,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.087171805521,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.087172805521,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3460.099707519806,
+                  "tests": [
+                    {
+                      "close": 3460.099706519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.099707519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3460.099708519806,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.38167180552,
+                  "tests": [
+                    {
+                      "close": 3800.38167080552,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.38167180552,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.38167280552,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.3942075198065,
+                  "tests": [
+                    {
+                      "close": 3800.3942065198066,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.3942075198065,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.3942085198064,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4067432340917,
+                  "tests": [
+                    {
+                      "close": 3800.406742234092,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4067432340917,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4067442340915,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4192789483777,
+                  "tests": [
+                    {
+                      "close": 3800.419277948378,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4192789483777,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4192799483776,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3800.4318146626633,
+                  "tests": [
+                    {
+                      "close": 3800.4318136626634,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.4318146626633,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3800.431815662663,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.756636091235,
+                  "tests": [
+                    {
+                      "close": 3804.7566350912352,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.756636091235,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.756637091235,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.7691718055203,
+                  "tests": [
+                    {
+                      "close": 3804.7691708055204,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.7691718055203,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.76917280552,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.781707519806,
+                  "tests": [
+                    {
+                      "close": 3804.781706519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.781707519806,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3804.7817085198058,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.794243234092,
+                  "tests": [
+                    {
+                      "close": 3804.794242234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.794243234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.794244234092,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3804.8067789483775,
+                  "tests": [
+                    {
+                      "close": 3804.8067779483777,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.8067789483775,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3804.8067799483774,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.725811567195,
+                  "tests": [
+                    {
+                      "close": 3952.725810567195,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3952.725811567195,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3952.7258125671947,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.729728977909,
+                  "tests": [
+                    {
+                      "close": 3952.729727977909,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.729728977909,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.729729977909,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3952.733646388623,
+                  "tests": [
+                    {
+                      "close": 3952.7336453886232,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.733646388623,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3952.733647388623,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.04392180552,
+                  "tests": [
+                    {
+                      "close": 4239.0439208055195,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.04392180552,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.04392280552,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.056457519806,
+                  "tests": [
+                    {
+                      "close": 4239.056456519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.056457519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.056458519806,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.068993234092,
+                  "tests": [
+                    {
+                      "close": 4239.068992234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.068993234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.068994234092,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.081528948378,
+                  "tests": [
+                    {
+                      "close": 4239.081527948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.081528948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.081529948378,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4239.094064662663,
+                  "tests": [
+                    {
+                      "close": 4239.094063662663,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.094064662663,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4239.0940656626635,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "6c7a256b194f7b281f424a754a08a562eeb7280e6c8b5c4672d5eda751a0db70",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14",
+            "referencePrice": 3764.1546,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14",
+            "referencePrice": 3800.8644,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-15",
+            "referencePrice": 3764.1546,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-15",
+            "referencePrice": 3800.8644,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m60",
+      "state": "NONE",
+      "prefixRows": 17260,
+      "result": {
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 4,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 4,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 5,
+            "stamp": "2026-10-15T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 5,
+            "stamp": "2026-10-15T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 6,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 6,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 7,
+            "stamp": "2026-10-15T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 7,
+            "stamp": "2026-10-15T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 8,
+            "stamp": "2026-10-15T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 8,
+            "stamp": "2026-10-15T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 9,
+            "stamp": "2026-10-16T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 9,
+            "stamp": "2026-10-16T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 10,
+            "stamp": "2026-10-16T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 10,
+            "stamp": "2026-10-16T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 11,
+            "stamp": "2026-10-16T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 11,
+            "stamp": "2026-10-16T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 12,
+            "stamp": "2026-10-16T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 12,
+            "stamp": "2026-10-16T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 13,
+            "stamp": "2026-10-19T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 13,
+            "stamp": "2026-10-19T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 14,
+            "stamp": "2026-10-19T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 14,
+            "stamp": "2026-10-19T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 15,
+            "stamp": "2026-10-19T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 15,
+            "stamp": "2026-10-19T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 16,
+            "stamp": "2026-10-19T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 16,
+            "stamp": "2026-10-19T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 17,
+            "stamp": "2026-10-20T10:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 17,
+            "stamp": "2026-10-20T10:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 18,
+            "stamp": "2026-10-20T11:30:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 18,
+            "stamp": "2026-10-20T11:30:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 19,
+            "stamp": "2026-10-20T14:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 19,
+            "stamp": "2026-10-20T14:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 20,
+            "stamp": "2026-10-20T15:00:00+08:00",
+            "referencePrice": 3847.8014,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 20,
+            "stamp": "2026-10-20T15:00:00+08:00",
+            "referencePrice": 3823.6146,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "scenarios": [
+          {
+            "referencePrice": 3847.8014,
+            "entry": {
+              "historicalPriceBoundary": 3847.8013,
+              "referencePrice": 3847.8014,
+              "strictDirection": "above"
+            },
+            "ended": null,
+            "path": [
+              {
+                "time": "2026-10-14T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-15T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-16T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-19T15:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T10:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T11:30:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T14:00:00+08:00",
+                "close": 3847.8014
+              },
+              {
+                "time": "2026-10-20T15:00:00+08:00",
+                "close": 3847.8014
+              }
+            ]
+          },
+          {
+            "referencePrice": 3823.6146,
+            "entry": {
+              "historicalPriceBoundary": 3823.6145,
+              "referencePrice": 3823.6146,
+              "strictDirection": "above"
+            },
+            "ended": null,
+            "path": [
+              {
+                "time": "2026-10-14T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-15T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-16T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-19T15:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T10:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T11:30:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T14:00:00+08:00",
+                "close": 3823.6146
+              },
+              {
+                "time": "2026-10-20T15:00:00+08:00",
+                "close": 3823.6146
+              }
+            ]
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m60",
+      "state": "DULL",
+      "prefixRows": 17258,
+      "result": {
+        "status": "READY",
+        "target": "2026-10-13T14:00:00+08:00",
+        "barsAhead": 1,
+        "asOf": "2026-10-13T11:30:00+08:00",
+        "state": "DULL",
+        "cases": [
+          {
+            "referencePrice": 3787.157,
+            "entry": null,
+            "activation": "2026-10-13T11:30:00+08:00",
+            "path": [],
+            "intervals": [
+              {
+                "rawLower": 3779.218121934486,
+                "rawUpper": null,
+                "displayLower": 3779.2182,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3779.2182,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3780.156540883555,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3779.452726671753,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3780.8603550953567,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3781.0949,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3781.095,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3918.3077650575574,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3815.398161138857,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4021.2173689762576,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4055.5205,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4055.5206,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4461.07262731074,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4156.908584539553,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5130.233521407352,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3705.0295742459048,
+                  "tests": [
+                    {
+                      "close": 3705.029573245905,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3705.0295742459048,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3705.0295752459047,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3771.079532037019,
+                  "tests": [
+                    {
+                      "close": 3771.079531037019,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3771.079532037019,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3771.079533037019,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3778.322983969494,
+                  "tests": [
+                    {
+                      "close": 3778.322982969494,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3778.322983969494,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3778.322984969494,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3779.218121934486,
+                  "tests": [
+                    {
+                      "close": 3779.2181209344863,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3779.218121934486,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3779.218122934486,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3781.0949598326238,
+                  "tests": [
+                    {
+                      "close": 3781.094958832624,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3781.0949598326238,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3781.0949608326237,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4055.520570282491,
+                  "tests": [
+                    {
+                      "close": 4055.520569282491,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4055.520570282491,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4055.520571282491,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "44a2cbf5630d545fff4d0aa0c0f7d1533e6975c51cd8a74f31f0ef02fb3e445c",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-13T14:00:00+08:00",
+            "referencePrice": 3787.157,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m60",
+      "state": "STRUCTURE",
+      "prefixRows": 17072,
+      "result": {
+        "status": "ALREADY_CONFIRMED",
+        "target": null,
+        "asOf": "2026-07-30T15:00:00+08:00",
+        "state": "STRUCTURE",
+        "attempted": 0
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m90",
+      "state": "DULL",
+      "prefixRows": 12927,
+      "result": {
+        "status": "READY",
+        "target": "2026-09-29T11:00:00+08:00",
+        "barsAhead": 1,
+        "asOf": "2026-09-28T15:00:00+08:00",
+        "state": "DULL",
+        "cases": [
+          {
+            "referencePrice": 3823.6206,
+            "entry": null,
+            "activation": "2026-09-28T15:00:00+08:00",
+            "path": [],
+            "intervals": [
+              {
+                "rawLower": 3864.9230368463486,
+                "rawUpper": 4033.2353313357353,
+                "displayLower": 3864.9231,
+                "displayUpper": 4033.2353,
+                "route": "dif_turn"
+              },
+              {
+                "rawLower": 4033.2353313357353,
+                "rawUpper": null,
+                "displayLower": 4033.2354,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3864.9231,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3949.079184091042,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3885.962073657522,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 4012.196294524562,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 4033.2353,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 4033.2354,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4060.260381379621,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4039.9915938467066,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4080.529168912535,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4087.2854,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4087.2855,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4496.013974565857,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4189.467567209094,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5170.416070750736,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3845.5671387961083,
+                  "tests": [
+                    {
+                      "close": 3845.5671377961085,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3845.5671387961083,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3845.567139796108,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3862.67695205264,
+                  "tests": [
+                    {
+                      "close": 3862.67695105264,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3862.67695205264,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3862.67695305264,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3864.9230368463486,
+                  "tests": [
+                    {
+                      "close": 3864.9230358463487,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3864.9230368463486,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3864.9230378463485,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4033.2353313357353,
+                  "tests": [
+                    {
+                      "close": 4033.2353303357354,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 4033.2353313357353,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 4033.235332335735,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4087.2854314235065,
+                  "tests": [
+                    {
+                      "close": 4087.2854304235066,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4087.2854314235065,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4087.2854324235063,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "f93c185842c9fb362ebfbaf8affabefbd3d845d1a231e791b7d7399781e435ea",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-09-29T11:00:00+08:00",
+            "referencePrice": 3823.6206,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m90",
+      "state": "STRUCTURE",
+      "prefixRows": 12759,
+      "result": {
+        "status": "ALREADY_CONFIRMED",
+        "target": null,
+        "asOf": "2026-07-09T15:00:00+08:00",
+        "state": "STRUCTURE",
+        "attempted": 0
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m90",
+      "state": "NONE",
+      "prefixRows": 12945,
+      "result": {
+        "status": "CONDITIONAL_ENTRY",
+        "target": "2026-10-14T14:00:00+08:00",
+        "barsAhead": 2,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "cases": [
+          {
+            "referencePrice": 3988.5431,
+            "entry": {
+              "historicalPriceBoundary": 3988.543,
+              "referencePrice": 3988.5431,
+              "strictDirection": "above"
+            },
+            "activation": "2026-10-14T11:00:00+08:00",
+            "path": [
+              {
+                "time": "2026-10-14T11:00:00+08:00",
+                "close": 3988.5431
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 0.0,
+                "rawUpper": 3652.674050968731,
+                "displayLower": 0.0001,
+                "displayUpper": 3652.674,
+                "route": "color_flip"
+              },
+              {
+                "rawLower": 3652.674050968731,
+                "rawUpper": 3826.0992647438115,
+                "displayLower": 3652.6741,
+                "displayUpper": 3826.0992,
+                "route": "dif_turn"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 0.0001,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 1826.3370254843655,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 456.5842563710914,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3196.0897945976394,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3652.674,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3652.6741,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3739.386657856271,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3674.352202690616,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3804.4211130219264,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3826.0992,
+                  "structure": true,
+                  "route": "dif_turn"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3652.674050968731,
+                  "tests": [
+                    {
+                      "close": 3652.674049968731,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3652.674050968731,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3652.674051968731,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3826.0992647438115,
+                  "tests": [
+                    {
+                      "close": 3826.0992637438117,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3826.0992647438115,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3826.0992657438114,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3827.0373577689334,
+                  "tests": [
+                    {
+                      "close": 3827.0373567689335,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3827.0373577689334,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3827.0373587689332,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3920.8466602811113,
+                  "tests": [
+                    {
+                      "close": 3920.8466592811114,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3920.8466602811113,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3920.846661281111,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4153.460799649744,
+                  "tests": [
+                    {
+                      "close": 4153.460798649744,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4153.460799649744,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4153.460800649745,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "referencePrice": 3960.0873,
+            "entry": {
+              "historicalPriceBoundary": 3960.0872,
+              "referencePrice": 3960.0873,
+              "strictDirection": "above"
+            },
+            "activation": "2026-10-14T11:00:00+08:00",
+            "path": [
+              {
+                "time": "2026-10-14T11:00:00+08:00",
+                "close": 3960.0873
+              }
+            ],
+            "intervals": [
+              {
+                "rawLower": 0.0,
+                "rawUpper": 3668.953038547084,
+                "displayLower": 0.0001,
+                "displayUpper": 3668.953,
+                "route": "color_flip"
+              },
+              {
+                "rawLower": 3668.953038547084,
+                "rawUpper": 3819.3290543221656,
+                "displayLower": 3668.9531,
+                "displayUpper": 3819.329,
+                "route": "dif_turn"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 0.0001,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 1834.476519273542,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 458.6191298183855,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3210.3339087286986,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3668.953,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 3668.9531,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3744.1410464346245,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3687.750040518969,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3800.5320523502805,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3819.329,
+                  "structure": true,
+                  "route": "dif_turn"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3668.953038547084,
+                  "tests": [
+                    {
+                      "close": 3668.953037547084,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 3668.953038547084,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3668.953039547084,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3819.3290543221656,
+                  "tests": [
+                    {
+                      "close": 3819.3290533221657,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3819.3290543221656,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3819.3290553221655,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3820.5517053472868,
+                  "tests": [
+                    {
+                      "close": 3820.551704347287,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3820.5517053472868,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3820.5517063472867,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3942.816807859463,
+                  "tests": [
+                    {
+                      "close": 3942.816806859463,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3942.816807859463,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3942.816808859463,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4076.778691201968,
+                  "tests": [
+                    {
+                      "close": 4076.778690201968,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4076.778691201968,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 4076.7786922019677,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "c462d7e7df061de8650994f288255c4ce386e785c269576439cd135c8541c365",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:00:00+08:00",
+            "referencePrice": 3988.5431,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:00:00+08:00",
+            "referencePrice": 3960.0873,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3988.5431,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T14:00:00+08:00",
+            "referencePrice": 3960.0873,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m120",
+      "state": "NONE",
+      "prefixRows": 8630,
+      "result": {
+        "status": "NO_FEASIBLE_TARGET",
+        "target": null,
+        "asOf": "2026-10-13T15:00:00+08:00",
+        "state": "NONE",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-10-14T11:30:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 2,
+            "stamp": "2026-10-14T15:00:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          },
+          {
+            "j": 3,
+            "stamp": "2026-10-15T11:30:00+08:00",
+            "referencePrice": 3800.8645,
+            "stateBefore": "NONE",
+            "hasSolution": false
+          }
+        ],
+        "scenarios": [
+          {
+            "referencePrice": 3800.8645,
+            "entry": {
+              "historicalPriceBoundary": 3862.7302,
+              "referencePrice": 3800.8645,
+              "strictDirection": "below"
+            },
+            "ended": "COLOR_CHANGED",
+            "path": [
+              {
+                "time": "2026-10-14T11:30:00+08:00",
+                "close": 3800.8645
+              },
+              {
+                "time": "2026-10-14T15:00:00+08:00",
+                "close": 3800.8645
+              },
+              {
+                "time": "2026-10-15T11:30:00+08:00",
+                "close": 3800.8645
+              }
+            ]
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m120",
+      "state": "DULL",
+      "prefixRows": 8618,
+      "result": {
+        "status": "READY",
+        "target": "2026-09-29T11:30:00+08:00",
+        "barsAhead": 1,
+        "asOf": "2026-09-28T15:00:00+08:00",
+        "state": "DULL",
+        "cases": [
+          {
+            "referencePrice": 3823.6206,
+            "entry": null,
+            "activation": "2026-09-28T15:00:00+08:00",
+            "path": [],
+            "intervals": [
+              {
+                "rawLower": 3879.705806145955,
+                "rawUpper": 3996.0542066570706,
+                "displayLower": 3879.7059,
+                "displayUpper": 3996.0542,
+                "route": "dif_turn"
+              },
+              {
+                "rawLower": 3996.0542066570706,
+                "rawUpper": null,
+                "displayLower": 3996.0543,
+                "displayUpper": null,
+                "route": "color_flip"
+              }
+            ],
+            "verification": {
+              "successfulSamples": [
+                {
+                  "close": 3879.7059,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3937.880006401513,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3894.249356209845,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3981.510656593181,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3996.0542,
+                  "structure": true,
+                  "route": "dif_turn"
+                },
+                {
+                  "close": 3996.0543,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4022.547713245957,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4002.677583304292,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4042.4178431876217,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4049.0412,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4049.0413,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4453.9453418183275,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 4150.267250330714,
+                  "structure": true,
+                  "route": "color_flip"
+                },
+                {
+                  "close": 5122.037143091076,
+                  "structure": true,
+                  "route": "color_flip"
+                }
+              ],
+              "boundarySamples": [
+                {
+                  "boundary": 3852.408535797238,
+                  "tests": [
+                    {
+                      "close": 3852.408534797238,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3852.408535797238,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3852.408536797238,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3877.995347421825,
+                  "tests": [
+                    {
+                      "close": 3877.995346421825,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3877.995347421825,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3877.995348421825,
+                      "structure": false,
+                      "route": null
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3879.705806145955,
+                  "tests": [
+                    {
+                      "close": 3879.7058051459553,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3879.705806145955,
+                      "structure": false,
+                      "route": null
+                    },
+                    {
+                      "close": 3879.705807145955,
+                      "structure": true,
+                      "route": "dif_turn"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 3996.0542066570706,
+                  "tests": [
+                    {
+                      "close": 3996.0542056570707,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3996.0542066570706,
+                      "structure": true,
+                      "route": "dif_turn"
+                    },
+                    {
+                      "close": 3996.0542076570705,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                },
+                {
+                  "boundary": 4049.041219834843,
+                  "tests": [
+                    {
+                      "close": 4049.041218834843,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4049.041219834843,
+                      "structure": true,
+                      "route": "color_flip"
+                    },
+                    {
+                      "close": 4049.041220834843,
+                      "structure": true,
+                      "route": "color_flip"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "id": "6ea40554aa2bb38d506ede8b3e4d73b6795e3cb603414854cf581a6687378185",
+        "attempted": [
+          {
+            "j": 1,
+            "stamp": "2026-09-29T11:30:00+08:00",
+            "referencePrice": 3823.6206,
+            "stateBefore": "DULL",
+            "hasSolution": true
+          }
+        ],
+        "realSnapshotUnchanged": true
+      },
+      "prefixOnlyReproducible": true
+    },
+    {
+      "period": "m120",
+      "state": "STRUCTURE",
+      "prefixRows": 8507,
+      "result": {
+        "status": "ALREADY_CONFIRMED",
+        "target": null,
+        "asOf": "2026-07-10T11:30:00+08:00",
+        "state": "STRUCTURE",
+        "attempted": 0
+      },
+      "prefixOnlyReproducible": true
+    }
+  ],
+  "timings": {
+    "day": {
+      "warmProjectionP95Ms": 8.166084066033363,
+      "warmProjection20Ms": [
+        8.166084066033363,
+        7.980041205883026,
+        7.8084999695420265,
+        7.989124860614538,
+        7.753708865493536,
+        7.866166066378355,
+        7.7470410615205765,
+        7.901749573647976,
+        7.7641247771680355,
+        7.870167028158903,
+        7.735416293144226,
+        8.145583793520927,
+        7.833625189960003,
+        7.976916618645191,
+        7.754666730761528,
+        8.356625214219093,
+        7.797208148986101,
+        7.952958811074495,
+        7.733375299721956,
+        7.947333622723818
+      ],
+      "offlineColdLoadReplayForecastP95Ms": 15.60699986293912,
+      "offlineCold20Ms": [
+        15.60699986293912,
+        15.297082718461752,
+        15.17149992287159,
+        15.22758323699236,
+        15.212665777653456,
+        15.23162517696619,
+        15.215250197798014,
+        15.168542042374611,
+        15.133749693632126,
+        15.333999879658222,
+        15.592833049595356,
+        15.801374800503254,
+        15.506833791732788,
+        15.464083291590214,
+        15.500291716307402,
+        15.424041543155909,
+        15.368792228400707,
+        15.58670774102211,
+        15.357291791588068,
+        15.374249778687954
+      ],
+      "initialReplayMs": 5.415208172053099,
+      "compactResponseBytes": 722,
+      "notHttpOrDbLakeLatency": true
+    },
+    "m60": {
+      "warmProjectionP95Ms": 1.4638341963291168,
+      "warmProjection20Ms": [
+        1.3514580205082893,
+        1.3577919453382492,
+        1.3659168034791946,
+        1.3377079740166664,
+        1.3262503780424595,
+        1.3313330709934235,
+        1.4638341963291168,
+        1.2961672618985176,
+        1.3733329251408577,
+        1.3240408152341843,
+        1.3149590231478214,
+        1.3140416704118252,
+        1.2980001047253609,
+        1.48808304220438,
+        1.3654590584337711,
+        1.3355831615626812,
+        1.373250037431717,
+        1.3819173909723759,
+        1.4630411751568317,
+        1.3786670751869678
+      ],
+      "offlineColdLoadReplayForecastP95Ms": 193.7740840949118,
+      "offlineCold20Ms": [
+        183.0487078987062,
+        184.99570805579424,
+        202.6050421409309,
+        184.14683314040303,
+        180.27187511324883,
+        180.82395941019058,
+        181.32570898160338,
+        180.9511659666896,
+        180.21895922720432,
+        176.99800012633204,
+        193.3882082812488,
+        178.0327088199556,
+        179.52779214829206,
+        177.9717500321567,
+        184.13279205560684,
+        175.79970927909017,
+        178.49962506443262,
+        178.93970804288983,
+        176.17433331906796,
+        193.7740840949118
+      ],
+      "initialReplayMs": 92.29462500661612,
+      "compactResponseBytes": 2832,
+      "notHttpOrDbLakeLatency": true
+    },
+    "m90": {
+      "warmProjectionP95Ms": 3.5497089847922325,
+      "warmProjection20Ms": [
+        3.4067919477820396,
+        3.5291253589093685,
+        3.356499597430229,
+        3.3175419084727764,
+        3.3762087114155293,
+        3.5715000703930855,
+        3.4775417298078537,
+        3.3651250414550304,
+        3.365207929164171,
+        3.386249765753746,
+        3.5155839286744595,
+        3.386541735380888,
+        3.348957747220993,
+        3.369082696735859,
+        3.432583063840866,
+        3.5497089847922325,
+        3.3983751200139523,
+        3.3714999444782734,
+        3.3827503211796284,
+        3.4499159082770348
+      ],
+      "offlineColdLoadReplayForecastP95Ms": 150.56033292785287,
+      "offlineCold20Ms": [
+        138.14929220825434,
+        137.29812484234571,
+        137.19204207882285,
+        138.072416651994,
+        138.84262507781386,
+        150.56033292785287,
+        136.43287494778633,
+        140.38720913231373,
+        137.87749968469143,
+        139.41925019025803,
+        137.73091696202755,
+        140.99908294156194,
+        138.23454221710563,
+        138.006207998842,
+        137.87266705185175,
+        137.67262501642108,
+        151.95837523788214,
+        141.52204198762774,
+        141.55795890837908,
+        140.91875031590462
+      ],
+      "initialReplayMs": 70.33575000241399,
+      "compactResponseBytes": 1308,
+      "notHttpOrDbLakeLatency": true
+    },
+    "m120": {
+      "warmProjectionP95Ms": 1.0506249964237213,
+      "warmProjection20Ms": [
+        0.940707977861166,
+        0.9267497807741165,
+        1.0506249964237213,
+        0.9157503955066204,
+        0.9290841408073902,
+        0.9043337777256966,
+        0.9267088025808334,
+        0.9056250564754009,
+        0.9366250596940517,
+        0.9274999611079693,
+        0.9314580820500851,
+        0.9414576925337315,
+        1.1335001327097416,
+        0.9907917119562626,
+        0.9553330019116402,
+        1.0037082247436047,
+        0.961958896368742,
+        0.9507080540060997,
+        0.9917500428855419,
+        0.9305826388299465
+      ],
+      "offlineColdLoadReplayForecastP95Ms": 92.71216718479991,
+      "offlineCold20Ms": [
+        88.27679231762886,
+        88.25287502259016,
+        90.42166685685515,
+        86.55241597443819,
+        89.17912468314171,
+        88.36300019174814,
+        85.67945798859,
+        99.48012512177229,
+        87.08416717126966,
+        86.46420808508992,
+        87.20229100435972,
+        86.54229063540697,
+        85.77150013297796,
+        89.16591620072722,
+        86.61058312281966,
+        86.31058409810066,
+        86.57266711816192,
+        86.60337515175343,
+        86.753916926682,
+        92.71216718479991
+      ],
+      "initialReplayMs": 42.928542010486126,
+      "compactResponseBytes": 498,
+      "notHttpOrDbLakeLatency": true
+    }
+  },
+  "limits": [
+    "Daily source is independently rounded to 3 decimals; tie convention not proved from raw source. Displayed bounds move inside successful cells; exact unrounded tie ownership remains M1 gate.",
+    "Finite branch-cell probe with current detector is a precheck, not exhaustive formal interval proof.",
+    "20 offline cold repetitions are frozen CSV + full replay, not 20 real HTTP/DB/DuckDB requests. Total 4-second endpoint gate remains M1.",
+    "Current-market prices are not freshly fetched; results refer to frozen 2026-10-13 prefixes.",
+    "Future calendar read on 2026-10-14 may reflect revisions after historical asOf; archived past forecasts require as-of calendar evidence."
+  ],
+  "changedFormalData": false,
+  "changedApplicationCode": false,
+  "sourceHashesAfter": {
+    "day": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+    "m60": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+    "m90": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+    "m120": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b"
+  },
+  "additionalChecks": [
+    {
+      "period": "day",
+      "asOf": "2026-09-28",
+      "zeroHistogramDoesNotConfirm": true,
+      "referenceBreakCancelsBeforeStructure": true,
+      "syntheticKernelProbe": true
+    },
+    {
+      "period": "m60",
+      "asOf": "2026-10-13T11:30:00+08:00",
+      "zeroHistogramDoesNotConfirm": true,
+      "referenceBreakCancelsBeforeStructure": true,
+      "syntheticKernelProbe": true
+    },
+    {
+      "period": "m90",
+      "asOf": "2026-09-28T15:00:00+08:00",
+      "zeroHistogramDoesNotConfirm": true,
+      "referenceBreakCancelsBeforeStructure": true,
+      "syntheticKernelProbe": true
+    },
+    {
+      "period": "m120",
+      "asOf": "2026-09-28T15:00:00+08:00",
+      "zeroHistogramDoesNotConfirm": true,
+      "referenceBreakCancelsBeforeStructure": true,
+      "syntheticKernelProbe": true
+    },
+    {
+      "period": "day",
+      "target": "2026-10-15",
+      "gapProbeClose": 3952.729728977909,
+      "gapDoesNotConfirm": true
+    }
+  ],
+  "originalKernelFiles": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "9914275530ce3ef39d9b23d774c03bcd2a1dd235f99d1893bdf22fa92d007394"
+  }
+}

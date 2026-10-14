@@ -1,0 +1,426 @@
+{
+  "status": "PASS",
+  "records": [
+    {
+      "period": "day",
+      "prefixRows": 1,
+      "replayedRows": 1,
+      "fullSeconds": 5.208887159824371e-06,
+      "checkpointSeconds": 3.4999102354049683e-06,
+      "forecastEqual": false,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "day",
+      "prefixRows": 249,
+      "replayedRows": 249,
+      "fullSeconds": 0.0016689170151948929,
+      "checkpointSeconds": 0.0016669169999659061,
+      "forecastEqual": false,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "day",
+      "prefixRows": 250,
+      "replayedRows": 250,
+      "fullSeconds": 0.0020170826464891434,
+      "checkpointSeconds": 0.001868958119302988,
+      "forecastEqual": false,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "day",
+      "prefixRows": 908,
+      "replayedRows": 908,
+      "fullSeconds": 0.004843957722187042,
+      "checkpointSeconds": 0.0055172499269247055,
+      "forecastEqual": true,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "day",
+      "prefixRows": 911,
+      "replayedRows": 911,
+      "fullSeconds": 0.005018249619752169,
+      "checkpointSeconds": 0.004901167005300522,
+      "forecastEqual": true,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "day",
+      "prefixRows": 912,
+      "replayedRows": 912,
+      "fullSeconds": 0.005000041797757149,
+      "checkpointSeconds": 0.0049512917175889015,
+      "forecastEqual": true,
+      "checkpointCount": 0,
+      "checkpointJsonBytes": 2
+    },
+    {
+      "period": "m60",
+      "prefixRows": 1,
+      "replayedRows": 1,
+      "fullSeconds": 9.16607677936554e-06,
+      "checkpointSeconds": 5.500391125679016e-06,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 249,
+      "replayedRows": 249,
+      "fullSeconds": 0.000930124893784523,
+      "checkpointSeconds": 0.0008973749354481697,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 250,
+      "replayedRows": 250,
+      "fullSeconds": 0.0010547079145908356,
+      "checkpointSeconds": 0.001028458122164011,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 999,
+      "replayedRows": 999,
+      "fullSeconds": 0.005328084342181683,
+      "checkpointSeconds": 0.00543641671538353,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 1000,
+      "replayedRows": 0,
+      "fullSeconds": 0.00545479217544198,
+      "checkpointSeconds": 3.091711550951004e-05,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 1001,
+      "replayedRows": 1,
+      "fullSeconds": 0.0051280418410897255,
+      "checkpointSeconds": 3.0166003853082657e-05,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 1999,
+      "replayedRows": 999,
+      "fullSeconds": 0.011003874707967043,
+      "checkpointSeconds": 0.0056493752636015415,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 2000,
+      "replayedRows": 0,
+      "fullSeconds": 0.010506332851946354,
+      "checkpointSeconds": 1.9459053874015808e-05,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 2001,
+      "replayedRows": 1,
+      "fullSeconds": 0.010861209128051996,
+      "checkpointSeconds": 3.191595897078514e-05,
+      "forecastEqual": false,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 17256,
+      "replayedRows": 256,
+      "fullSeconds": 0.08643904188647866,
+      "checkpointSeconds": 0.0015869997441768646,
+      "forecastEqual": true,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 17259,
+      "replayedRows": 259,
+      "fullSeconds": 0.08529033325612545,
+      "checkpointSeconds": 0.0015353746712207794,
+      "forecastEqual": true,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m60",
+      "prefixRows": 17260,
+      "replayedRows": 260,
+      "fullSeconds": 0.08469700021669269,
+      "checkpointSeconds": 0.0015168329700827599,
+      "forecastEqual": true,
+      "checkpointCount": 17,
+      "checkpointJsonBytes": 31014
+    },
+    {
+      "period": "m90",
+      "prefixRows": 1,
+      "replayedRows": 1,
+      "fullSeconds": 7.2498805820941925e-06,
+      "checkpointSeconds": 5.041714757680893e-06,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 249,
+      "replayedRows": 249,
+      "fullSeconds": 0.0009854170493781567,
+      "checkpointSeconds": 0.0009579579345881939,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 250,
+      "replayedRows": 250,
+      "fullSeconds": 0.0009669577702879906,
+      "checkpointSeconds": 0.0009599169716238976,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 999,
+      "replayedRows": 999,
+      "fullSeconds": 0.006003750022500753,
+      "checkpointSeconds": 0.006113249808549881,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 1000,
+      "replayedRows": 0,
+      "fullSeconds": 0.006130749825388193,
+      "checkpointSeconds": 2.4250242859125137e-05,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 1001,
+      "replayedRows": 1,
+      "fullSeconds": 0.0064534577541053295,
+      "checkpointSeconds": 3.537489101290703e-05,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 1999,
+      "replayedRows": 999,
+      "fullSeconds": 0.01172079099342227,
+      "checkpointSeconds": 0.005446291994303465,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 2000,
+      "replayedRows": 0,
+      "fullSeconds": 0.011760999914258718,
+      "checkpointSeconds": 2.2874679416418076e-05,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 2001,
+      "replayedRows": 1,
+      "fullSeconds": 0.011402375064790249,
+      "checkpointSeconds": 3.2125040888786316e-05,
+      "forecastEqual": false,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 12941,
+      "replayedRows": 941,
+      "fullSeconds": 0.06745541701093316,
+      "checkpointSeconds": 0.004349584225565195,
+      "forecastEqual": true,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 12944,
+      "replayedRows": 944,
+      "fullSeconds": 0.06588091608136892,
+      "checkpointSeconds": 0.004335250239819288,
+      "forecastEqual": true,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m90",
+      "prefixRows": 12945,
+      "replayedRows": 945,
+      "fullSeconds": 0.06688850000500679,
+      "checkpointSeconds": 0.004539166111499071,
+      "forecastEqual": true,
+      "checkpointCount": 12,
+      "checkpointJsonBytes": 21841
+    },
+    {
+      "period": "m120",
+      "prefixRows": 1,
+      "replayedRows": 1,
+      "fullSeconds": 7.5837597250938416e-06,
+      "checkpointSeconds": 5.416106432676315e-06,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 249,
+      "replayedRows": 249,
+      "fullSeconds": 0.0010071247816085815,
+      "checkpointSeconds": 0.0009705838747322559,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 250,
+      "replayedRows": 250,
+      "fullSeconds": 0.0009814579971134663,
+      "checkpointSeconds": 0.0009668753482401371,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 999,
+      "replayedRows": 999,
+      "fullSeconds": 0.004752958659082651,
+      "checkpointSeconds": 0.004700582940131426,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 1000,
+      "replayedRows": 0,
+      "fullSeconds": 0.004711583256721497,
+      "checkpointSeconds": 2.0625069737434387e-05,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 1001,
+      "replayedRows": 1,
+      "fullSeconds": 0.004679666366428137,
+      "checkpointSeconds": 3.5082921385765076e-05,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 1999,
+      "replayedRows": 999,
+      "fullSeconds": 0.010694124735891819,
+      "checkpointSeconds": 0.005597999785095453,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 2000,
+      "replayedRows": 0,
+      "fullSeconds": 0.010415374767035246,
+      "checkpointSeconds": 2.4165958166122437e-05,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 2001,
+      "replayedRows": 1,
+      "fullSeconds": 0.010605333838611841,
+      "checkpointSeconds": 3.0499882996082306e-05,
+      "forecastEqual": false,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 8626,
+      "replayedRows": 626,
+      "fullSeconds": 0.04052266711369157,
+      "checkpointSeconds": 0.0025533330626785755,
+      "forecastEqual": true,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 8629,
+      "replayedRows": 629,
+      "fullSeconds": 0.04043054208159447,
+      "checkpointSeconds": 0.002667834050953388,
+      "forecastEqual": true,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    },
+    {
+      "period": "m120",
+      "prefixRows": 8630,
+      "replayedRows": 630,
+      "fullSeconds": 0.040321082808077335,
+      "checkpointSeconds": 0.002690042369067669,
+      "forecastEqual": true,
+      "checkpointCount": 8,
+      "checkpointJsonBytes": 15788
+    }
+  ],
+  "rule": "original full history still read/validated; same 1000-row batch snapshots in existing 64MiB cache; no new knob/TTL/table; whole EMA calibration unchanged"
+}

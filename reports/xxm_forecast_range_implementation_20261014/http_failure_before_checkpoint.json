@@ -1,0 +1,21 @@
+{
+  "period": "m90",
+  "asOf": "2026-10-13T15:00:00+08:00",
+  "httpStatus": 503,
+  "body": {
+    "code": "XXMF_BUDGET_EXCEEDED",
+    "message": "预测计算超过预算。",
+    "request_id": null
+  },
+  "seconds": 0.6538126668892801,
+  "measurement": {
+    "totalBuildSeconds": 0.584481917321682,
+    "computeSeconds": 0.2010168330743909,
+    "stages": {
+      "sourceCalendar": 0.022841583006083965,
+      "sourceSignature": 0.20538841700181365,
+      "continuity": 0.021050957962870598,
+      "cachePut": 0.11799204116687179
+    }
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "kind": "real production forecast route/query/DTO; readonly DB + explicit formal-Lake harness injection; no page automation",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "p95Seconds": 0.487892999779433,
+      "maxSeconds": 0.6838529170490801,
+      "maxComputeSeconds": 0.07790458342060447,
+      "maxBytes": 8711,
+      "samples": [
+        {
+          "seconds": 0.6838529170490801,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.3111114581115544,
+          "computeSeconds": 0.07591270795091987
+        },
+        {
+          "seconds": 0.487892999779433,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.29719770792871714,
+          "computeSeconds": 0.07552504166960716
+        },
+        {
+          "seconds": 0.1929545416496694,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.15962491603568196,
+          "computeSeconds": 0.07524162484332919
+        },
+        {
+          "seconds": 0.2792997909709811,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.237832291983068,
+          "computeSeconds": 0.07477283384650946
+        },
+        {
+          "seconds": 0.19398087542504072,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.16187241720035672,
+          "computeSeconds": 0.0766378752887249
+        },
+        {
+          "seconds": 0.33059474965557456,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.23406874993816018,
+          "computeSeconds": 0.07563033327460289
+        },
+        {
+          "seconds": 0.17919108318164945,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14631995791569352,
+          "computeSeconds": 0.07541050016880035
+        },
+        {
+          "seconds": 0.37377733271569014,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.269272125326097,
+          "computeSeconds": 0.07565795769914985
+        },
+        {
+          "seconds": 0.182198790833354,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.1518458747304976,
+          "computeSeconds": 0.07790458342060447
+        },
+        {
+          "seconds": 0.31380270794034004,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.23780504195019603,
+          "computeSeconds": 0.07548049977049232
+        },
+        {
+          "seconds": 0.18383695930242538,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14765920909121633,
+          "computeSeconds": 0.07577629201114178
+        },
+        {
+          "seconds": 0.33908404130488634,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2373628751374781,
+          "computeSeconds": 0.07534504123032093
+        },
+        {
+          "seconds": 0.19768629223108292,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.16568020777776837,
+          "computeSeconds": 0.07715695817023516
+        },
+        {
+          "seconds": 0.3320649587549269,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2425057077780366,
+          "computeSeconds": 0.07518337527289987
+        },
+        {
+          "seconds": 0.18628637492656708,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.15398179087787867,
+          "computeSeconds": 0.07585229212418199
+        },
+        {
+          "seconds": 0.332779832649976,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.2399661666713655,
+          "computeSeconds": 0.07559637492522597
+        },
+        {
+          "seconds": 0.1802154160104692,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.14924770779907703,
+          "computeSeconds": 0.07561566634103656
+        },
+        {
+          "seconds": 0.3509444589726627,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.24564283387735486,
+          "computeSeconds": 0.07661516685038805
+        },
+        {
+          "seconds": 0.35997041687369347,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.23847395880147815,
+          "computeSeconds": 0.07637149980291724
+        },
+        {
+          "seconds": 0.2940539577975869,
+          "bytes": 8711,
+          "status": "CONDITIONAL_ENTRY",
+          "totalBuildSeconds": 0.1788686253130436,
+          "computeSeconds": 0.07585666701197624
+        }
+      ]
+    }
+  ],
+  "rssMaxBytes": 145719296
+}

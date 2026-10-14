@@ -1,0 +1,53 @@
+{
+  "scope": "M0 readonly probes + Figma draft, no feature implementation",
+  "sourcesUnchanged": true,
+  "kernelUnchanged": true,
+  "checks": {
+    "kernelTests": 10,
+    "localLinks": 19,
+    "docsIntegrity": "passed",
+    "whitespace": "passed"
+  },
+  "files": [
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/README.md",
+      "bytes": 7396,
+      "sha256": "796ea942ecdb652d56e8dbc149c3e08d154b8866649316d5e53841d75c12c11b"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/figma_nodes.json",
+      "bytes": 3216,
+      "sha256": "cc14fe531be0c45495c1fae6b5f326f06af34955f27a6b0b48a59808a71444c2"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/forecast_page_bottom_1600.png",
+      "bytes": 377725,
+      "sha256": "b68b25e9b82d87c5f5a83391436a7e20e2b1bcb87001ca01891ab4a8edca0019"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/forecast_review.png",
+      "bytes": 182640,
+      "sha256": "5d463d88a58d6e93541c878f90781ffc9d8f3c370303b54b1b33f089cfe6b6ec"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/forecast_states.png",
+      "bytes": 97358,
+      "sha256": "28b35faa282d5c3d4d12148736ef3018dbf8f37b3f3a6301096a7d610b99da23"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/future_sse_calendar.json",
+      "bytes": 8944,
+      "sha256": "dc5b592ef4aa0868cd408a8d842463da98511ad23a0efa17ee6c2be660b95532"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/precheck.json",
+      "bytes": 173590,
+      "sha256": "3395b83405d38e1912de6939f63dfd2b6267f225eb81cf28d0c8b5208711f2a9"
+    },
+    {
+      "path": "reports/xxm_forecast_precheck_20261014/precheck.py",
+      "bytes": 16160,
+      "sha256": "483ba6ef34e4995325d131162d119c1e6a1650c065eddfa9abf93c417e0d1082"
+    }
+  ]
+}

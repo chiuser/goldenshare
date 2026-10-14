@@ -14,7 +14,7 @@ from src.biz.api import realtime as biz_realtime
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import context as wealth_market_context
 from src.biz.api.wealth.market import index_detail as wealth_market_index_detail
-from src.biz.api.wealth.market import index_detail_xxm
+from src.biz.api.wealth.market import index_detail_xxm, index_detail_xxm_forecast
 from src.biz.api.wealth.market import (
     index_detail_nine_turn as wealth_market_index_detail_nine_turn,
 )
@@ -94,6 +94,17 @@ def _index_xxm_lake_root():
     if not capability.enabled or capability.lake_root is None:
         raise WebAppError(status_code=503, code="SM_LOCAL_LAKE_NOT_CONFIGURED", message="本地指数分钟数据能力未启用。")
     return capability.lake_root
+
+
+def _forecast_lake_root():
+    capability = resolve_index_minute_capability(get_settings())
+    return capability.lake_root if capability.enabled else None
+
+
+router.include_router(index_detail_xxm_forecast.build_router(
+    db_dependency=get_db_session, auth_dependency=require_quote_access,
+    lake_dependency=_forecast_lake_root, error_factory=WebAppError,
+))
 
 
 def _include_local_minute_router(target_router: APIRouter) -> None:

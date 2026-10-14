@@ -1,0 +1,30 @@
+{
+  "state": "implemented-pending-validation; formal minute source budget failed; approval pending",
+  "files": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "d402b03be1ee9f494e6ccf4856b19f9c42364bd32dfa50f59b3c103acee9ea81",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "3ec3099c0e4090250232ce729d83e4f23a77b079758016777f9c31ed77fd734a",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "eadb80410244ad9137af44509faa1cb58126347e9340ec38293c22808110e025",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "8fbde581f48d6440fc899e0d4e0a4b2233ec65ef562f1e4fa8ba3d73e063692f",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py": "c315cea0697b622d9764248b948e8054a0dd1b9b5abd0c110ab59e80dc7b1c25",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "351425eace9c09d66f7f0b57b8d0003875dd337f8934337dc34f50060e3012e0",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "91d06674fd52b5f085137a7edc107afa1573a452e3a7275eeaaae2e3267d09db",
+    "src/biz/schemas/wealth/market/index_detail_xxm_forecast.py": "dcf09a620d36a91eaf0a03a003165c5984c3121b1a679ab66ad9a865f36aaf59",
+    "src/biz/api/wealth/market/index_detail_xxm_forecast.py": "1322500305a5be453e308edfeefb31d403bbcf456195b5eaa35065008845fe2e",
+    "wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx": "1df6b3d45ff8601150342d17ae57dbaac5a0d098a7d37ad7c1b69453fbfacb20",
+    "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts": "e2718baddbbcfbe85b74b022c09bfff543c8f9795f3a07f474465669c9178e66",
+    "wealth/src/features/index-detail/xxm-forecast/types.ts": "278aef7ec04a5b9eb6715da49963cdbb98a95a2f758793759a426b4d03532192",
+    "wealth/src/features/index-detail/xxm-forecast/xxm-forecast.css": "f11ccd0e8a7c31dc44ee46df75c5817270ab1e7fa99003d16920dc06e1d58dcf",
+    "wealth/src/features/index-detail/xxm-forecast/adapter.ts": "d9714e6cb3df40811ede3bc4ff472eb706365699bb947f38cf617a4d2b39aa1a",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.ts": "2de184902a303fe9e7305b3404f76daff8be24a5a8dce284f771e41d12d88519",
+    "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx": "1d4f237053915e6e18f4767d24dc1a2888c27a6173a4e28017a8631b39f12a07",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts": "f3e0f4c4956d6579d5ca627acae4700820d9db92ccb4cd085b8bc7f8174a4cea"
+  },
+  "originalKernelSpecReader": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd",
+    "src/foundation/clients/local_lake/major_index_mins_reader.py": "5cf0704592fa8796b5a5a6fa838a96e7c542817cba0d89c767707e0268f51563"
+  },
+  "sourceEvidence": "R1 inputs unchanged; R2 formal timing stopped on 60-minute source before computation; current state/reference validation added after first formal daily group; full final timing rerun required"
+}

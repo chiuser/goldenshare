@@ -1,3 +1,4 @@
+import { useXxmForecast } from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -73,6 +74,12 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     supportedPeriods: viewModel?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
     supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
     tsCode: normalizedTsCode,
+  });
+  const forecast = useXxmForecast({
+    active: activeTab === "technical" && hasData,
+    tsCode: normalizedTsCode,
+    historicalDate: new URLSearchParams(search).has("tradeDate") ? viewModel?.asOfTradeDate ?? undefined : undefined,
+    minutes: import.meta.env.DEV && (viewModel?.capabilities.supportsMinute ?? false),
   });
   const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(activePeriod);
   const nineTurnLayer = activeNineTurnPeriod === null
@@ -226,6 +233,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           )
         )}
         <IndexInfoRail
+          forecast={normalizedTsCode === "000001.SH" ? forecast : undefined}
           activeTab={activeTab}
           onAction={showToast}
           onTabChange={setActiveTab}

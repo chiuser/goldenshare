@@ -1,0 +1,86 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "009a079da6885e20eb3a88183ff9efaae039f2a86452d397db087d6766f791f8",
+  "calendarInputId": "a3682fca3ede481ee9f50c053a4c41e8911de01a69ebb5d3dd479c2d4870e84c",
+  "computedThrough": "2026-10-13",
+  "requestedAsOf": "2026-10-13",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "status": "CONDITIONAL_ENTRY",
+  "reasonCode": null,
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "2c365684f3277fe01370159a00cd1cc825fedefd07763eb42fe5bb9621798609",
+  "targetEndpoint": "2026-10-15",
+  "barsAhead": 2,
+  "scenarios": [
+    {
+      "referencePrice": 3764.1546,
+      "entryBoundary": 3764.1547,
+      "activationEndpoint": "2026-10-14",
+      "reference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "path": [
+        {
+          "time": "2026-10-14",
+          "close": 3764.1546
+        }
+      ],
+      "intervals": [
+        {
+          "lower": 3804.78170752106,
+          "upper": 3804.7942432328387,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3804.7818,
+          "displayUpper": 3804.7942
+        },
+        {
+          "lower": 3804.794243235345,
+          "upper": 3804.806778947124,
+          "lowerInclusive": true,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3804.7943,
+          "displayUpper": 3804.8067
+        },
+        {
+          "lower": 3804.806778949631,
+          "upper": 3952.7258115664113,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3804.8068,
+          "displayUpper": 3952.7258
+        },
+        {
+          "lower": 3952.733646389407,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3952.7337,
+          "displayUpper": null
+        }
+      ]
+    }
+  ],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "需先钝化",
+    "targetText": "10/15 收盘 · 底部结构候选",
+    "conditionsText": "前提：10/14 收盘收于3764.1546点，且钝化保持有效。\n确认价：3804.7818～3804.7942点；或 3804.7943～3804.8067点；或 3804.8068～3952.7258点；或 ≥3952.7337点。",
+    "asOfText": "历史回放 · 截至 10/13 收盘"
+  },
+  "refreshAfterMs": 60000
+}

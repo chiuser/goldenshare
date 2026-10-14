@@ -1,0 +1,30 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "3ed148e846d397756882d9b2d38caf18691d4c0aaf66bdd4d355dc14a0c5d8a8",
+  "calendarInputId": null,
+  "computedThrough": "2026-07-10T11:30:00+08:00",
+  "requestedAsOf": "2026-07-10T11:30:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "STRUCTURE",
+  "status": "CONFIRMED",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "1375629543f183742741d18ba8f5809e50509dad693a6935e2c32a08b528ed34",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "scenarios": [],
+  "confirmedAt": "2026-07-09T15:00:00+08:00",
+  "confirmedDirection": "BOTTOM",
+  "display": {
+    "statusLabel": "已确认",
+    "targetText": "07/09 15:00 · 已确认底部结构",
+    "conditionsText": "等待新的钝化条件，再计算下一候选。",
+    "asOfText": "历史回放 · 截至 07/10 11:30"
+  },
+  "refreshAfterMs": 60000
+}

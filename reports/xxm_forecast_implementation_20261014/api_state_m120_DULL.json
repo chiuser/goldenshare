@@ -1,0 +1,63 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "forecastVersion": "xxm-key-point-forecast-v0.1",
+  "forecastSpecHash": "4e1095a8756e35427944c73656a0496a5c6bd2d5193a756226fabc538cb79751",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "be18ed8efc427238913051167a6fbfc8ce54a76f9a9ee89fdd7f5f323f5e2a91",
+  "calendarInputId": "f25f066cace5d8f890ee2caeb3493ee0d8ad41492828b63c1e138b3c32938e06",
+  "computedThrough": "2026-09-28T15:00:00+08:00",
+  "requestedAsOf": "2026-09-28T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "DULL",
+  "status": "READY",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "6dbc8aa14b426271a2592de6d558ce0c9805488b7caacb19064bea4a50922d6f",
+  "targetEndpoint": "2026-09-29T11:30:00+08:00",
+  "barsAhead": 1,
+  "scenarios": [
+    {
+      "referencePrice": 3823.6206,
+      "entryBoundary": null,
+      "activationEndpoint": "2026-09-28T15:00:00+08:00",
+      "reference": {
+        "startTime": "2026-09-03T15:00:00+08:00",
+        "endTime": "2026-09-18T11:30:00+08:00",
+        "price": 3862.7302,
+        "dif": -15.685798156845976
+      },
+      "path": [],
+      "intervals": [
+        {
+          "lower": 3879.705806145955,
+          "upper": 3996.0542066570706,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3879.7059,
+          "displayUpper": 3996.0542
+        },
+        {
+          "lower": 3996.0542066570706,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3996.0543,
+          "displayUpper": null
+        }
+      ]
+    }
+  ],
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "钝化有效",
+    "targetText": "09/29 11:30 · 底部结构候选",
+    "conditionsText": "前提：当前钝化保持有效（下一完成柱）。\n确认价：3879.7059～3996.0542点；或 ≥3996.0543点。",
+    "asOfText": "历史回放 · 截至 09/28 15:00"
+  },
+  "refreshAfterMs": 60000
+}
