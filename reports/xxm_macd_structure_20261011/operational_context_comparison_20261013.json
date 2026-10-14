@@ -1,0 +1,598 @@
+{
+  "research_date": "2026-10-13",
+  "status": "RETROSPECTIVE_OPERATIONAL_CONTEXT_CONTRAST_NOT_FITTED_FILTER_OR_SOFTWARE_FORMULA",
+  "scope": "Separate pullback geometry, daily-trend proximity and dulling-size proxies using existing sources; no new transcripts, labels, rules or production changes.",
+  "evidence_anchors": [
+    {
+      "id": "near_period_scope",
+      "file": "sources/20251111_user_transcript.txt",
+      "source_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 4,
+      "line_end_inclusive": 6,
+      "marker": "价格到趋势的距离比较近",
+      "excerpt": "0:2525秒钟我们昨天也谈到了上午的11点 这个时间啊 由于价格到趋势的距离比较近 就是比较近\n0:3434秒钟所以呢 60分钟及包括60分钟以上级别 任何周期形成结构都好用 日线这个结构呢\n0:4242秒钟级别不大 但是结构所对应的反向周期数 是24个周期 稍等反向周期数24个周期",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "effectiveness_distance",
+      "file": "sources/20251111_user_transcript.txt",
+      "source_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 8,
+      "line_end_inclusive": 12,
+      "marker": "以判定哪一个周期的结构是有效的",
+      "excerpt": "0:5858秒钟24个交易日24个周期啊 但是结构 它的主要的使命是为了服务于趋势\n1:071分钟7秒钟如果结构形成 比方说这有四个字 结构形成 但是趋势并不跌穿 你看之前的几次就是这样 结构是没有意义的\n1:151分钟15秒钟所以我们还是要看价格到趋势的距离 以判定哪一个周期的结构是有效的\n1:241分钟24秒钟但是昨天我们判断的四个周期都有效 6090120日线都有效 但是\n1:311分钟31秒钟今天其实是没有60分钟和120分钟的 90分钟和日线昨天有钝化 今天形成结构",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "actual_participants",
+      "file": "sources/20251111_user_transcript.txt",
+      "source_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 11,
+      "line_end_inclusive": 14,
+      "marker": "今天其实是没有60分钟和120分钟的",
+      "excerpt": "1:241分钟24秒钟但是昨天我们判断的四个周期都有效 6090120日线都有效 但是\n1:311分钟31秒钟今天其实是没有60分钟和120分钟的 90分钟和日线昨天有钝化 今天形成结构\n1:381分钟38秒钟60分钟和120分钟差一个点 还不到一个点是吧 一个是4,018.6 一个是4,018.8\n1:471分钟47秒钟差了0.2 没有 但这不关键 这不关键 关键在这 这个我们昨天重点讲了",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "defense_amount",
+      "file": "sources/20251111_user_transcript.txt",
+      "source_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 89,
+      "line_end_inclusive": 95,
+      "marker": "今天我们觉得减4成是没问题的",
+      "excerpt": "12:2712分钟27秒钟看看大家有什么问题没有 减4成记得昨天说的是减6成 假如说60分钟也有 120分钟也有 并且呢有其他的几个指数\n12:3612分钟36秒钟也有日线的钝化 那我们减6成 不不无可 好吧 那么有的学员说 老师那假如说这次的顶部结构\n12:4512分钟45秒钟这是第一次顶部结构 如果不对 后面还有第二次顶部结构 那我们也有可能 在4成的减4成的基础上\n12:5312分钟53秒钟再减两成 但是目前为止 你像今天对吧 今天呢只是90分钟日线\n13:0013分钟多周期的协调性没有 指数之间的协调性也不够好 所以呢 今天我们觉得减4成是没问题的 那假如说啊\n13:0713分钟7秒钟就是嗯我能够找到确定性好的点 比方说指数之间的协调性好 周期之间的协调性好\n13:1613分钟16秒钟盘中我还能给你找到序列的高点 那我就有可能减6成 但目前为止是没必要的 好吧没必要",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "incremental_defense",
+      "file": "sources/20251114_user_transcript.txt",
+      "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 45,
+      "line_end_inclusive": 50,
+      "marker": "减4成仓可以",
+      "excerpt": "6:076分钟7秒钟但是近期你像今天上午 怎么会出现一只 指数之间的协调性一致性没有增加\n6:156分钟15秒钟另外呢 周期的协调性略好一点点 是吧 不光90分钟 60分钟和120分钟也有了\n6:236分钟23秒钟周期之间的协调性略好一点点 也没有那么好 然后日线结构还消失\n6:326分钟32秒钟好吧这里如果各指数之间协调性好 不排除会再次减 就是你我们判断\n6:396分钟39秒钟它跌不跌到这个长期趋势 这条这个趋势上面 现在为止呢 我觉得4成仓行啊 减4成仓可以\n6:476分钟47秒钟然后呢今天也不属于单日大阴线啊 我们对于大阴线的判断是2%以上 那今天上证指数连1%都没到",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "first_standard",
+      "file": "sources/20251114_user_transcript.txt",
+      "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 52,
+      "line_end_inclusive": 56,
+      "marker": "第一次顶部结构形成",
+      "excerpt": "7:057分钟5秒钟对吧 那么长时间以来的首次顶部结构形成 120分钟啊\n7:147分钟14秒钟90分钟第二次 这是第一次 这是第二次 空间其实相差不大 那这个一往上涨\n7:237分钟23秒钟你就总担心会纠错 纠错难度其实挺大的 没那么容易的 但是你你在第一次结构形成的时候\n7:317分钟31秒钟你不知道后面有没有第二次啊 是不是不知道的呀 所以第一次顶部结构形成 它就符合交易的标准 那你凭什么不交易呢\n7:397分钟39秒钟你凭什么不交易呢 有第二次的话 就挺过去就完了呗 是不是这是正确的交易逻辑 所以呢从昨天昨天对吧",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "60_first_90_second",
+      "file": "sources/20251114_user_transcript.txt",
+      "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 58,
+      "line_end_inclusive": 60,
+      "marker": "120分钟和60分钟",
+      "excerpt": "7:577分钟57秒钟其实这没必要的 没必要这是90分钟 然后我们再看60分钟 60分钟啊\n8:048分钟4秒钟也是啊近期的一次 这120分钟和60分钟 这里是第一次形成 90分钟是第二次形成\n8:128分钟12秒钟好吧但是不管60分钟也好 90分钟也好 120分钟也好 它的调整级别都不是几天 怎么也得半个月吧",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "correction_not_yet",
+      "file": "sources/20251114_user_transcript.txt",
+      "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 118,
+      "line_end_inclusive": 120,
+      "marker": "离纠错很远了",
+      "excerpt": "16:1016分钟10秒钟以后不要问我啊 不要问我 我的操作跟你没关系 纠错标准 等到快纠错的时候我一定会说 我不说就是没有\n16:1716分钟17秒钟离纠错很远了是吧 这两天我都不说 对吧昨天涨了我也不说 因为什么 没那么容易纠错 不像有些人\n16:2516分钟25秒钟他一涨就开始就就不行 当市场与他所期待的 希望的走的不一致的时候",
+      "video_timestamps_not_verified": true
+    },
+    {
+      "id": "2026-04-21:60_context",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "60_context",
+      "raw_excerpt_sha256": "9a4e2d5f729736311dfd22177a156ebd2b99f763781c17027170b63182de6731",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:two_structures_three_reasons",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "two_structures_three_reasons",
+      "raw_excerpt_sha256": "236d56fbb8d619f7e20b7d50553c2d4066f0bebafdf57962ab67ba8d86e6e33c",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:conventional_geometry",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "conventional_geometry",
+      "raw_excerpt_sha256": "8f49498e57add34b4a6d955604a42c2afb89124e94c29ac68ca4f6d3ffa93ade",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:cycle_close",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "cycle_close",
+      "raw_excerpt_sha256": "e94fc67b9bf4de5a5bab6850a4c99315e767f070d14a60ef9f9c7d410f50026b",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:decision_periods",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "decision_periods",
+      "raw_excerpt_sha256": "6077cd4ee31889c896e06908189dfe357844882cf2bc8b07df6e3299a5ca8c7e",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:presence_vs_operation",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "presence_vs_operation",
+      "raw_excerpt_sha256": "e9a0f5f19d5759380176868841f735ca1aeb8a4bd5eb30e48820000a5f7b3f90",
+      "full_transcript_archive": false
+    },
+    {
+      "id": "2026-04-23:scale_reference",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "source_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "passage_id": "scale_reference",
+      "raw_excerpt_sha256": "03330153702856bb188f84250a7c8e4953b453add1e23ad98d3974c9abb2f341",
+      "full_transcript_archive": false
+    }
+  ],
+  "source_anchor_count": 15,
+  "numeric_input_sha256": {
+    "60": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "candidate": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+    "next_dif_helper": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+    "daily_expected": "7cdbd3b44e9c31baed705bbebb671c31adb5492323de79564a028acdad44b3be",
+    "daily_input": "ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad"
+  },
+  "software_vs_candidate_scope": {
+    "nov11_actual_author_participants": [
+      "90",
+      "daily"
+    ],
+    "nov11_60_120_author_absent": true,
+    "nov14_author_minutes": [
+      "60",
+      "90",
+      "120"
+    ],
+    "nov14_new_extra_reduction_not_reported": true,
+    "nov14_meaning": "Structures retained as defense context; failure to add another two-tenths is not evidence that the 60 structure was rejected.",
+    "april_meaning": "Author explicitly rejects operational use of both formed 60 structures; plotted presence retained.",
+    "holdings_limit": "Recommendations and author statements only, not executions. November11 final holding wording remains ambiguous; later14/17 explicitly say reduce four-tenths."
+  },
+  "pullback_geometry": [
+    {
+      "case": "november_first",
+      "as_of": "2025-11-13 15:00:00",
+      "previous_positive_start": "2025-11-06 10:30:00",
+      "previous_positive_end": "2025-11-11 11:30:00",
+      "peak": {
+        "time": "2025-11-10 15:00:00",
+        "close": 4018.5972,
+        "dif": 10.39404530201,
+        "hist": 3.417853411803062
+      },
+      "trough": {
+        "time": "2025-11-12 11:30:00",
+        "close": 3993.3542,
+        "dif": 7.438971989300626,
+        "hist": -2.363637402766418
+      },
+      "decline_points": 25.242999999999938,
+      "decline_pct": 0.628154521184654,
+      "bars_peak_to_trough": 6,
+      "negative_first": "2025-11-11 14:00:00",
+      "negative_last": "2025-11-13 11:30:00",
+      "negative_bars": 8,
+      "new_positive_start": "2025-11-13 14:00:00",
+      "semantics": "Descriptive DG close peaks; no author-picked exact peak/trough or minimum gate"
+    },
+    {
+      "case": "april_first",
+      "as_of": "2026-04-20 11:30:00",
+      "previous_positive_start": "2026-04-08 10:30:00",
+      "previous_positive_end": "2026-04-17 10:30:00",
+      "peak": {
+        "time": "2026-04-16 15:00:00",
+        "close": 4055.5469,
+        "dif": 25.567706301411363,
+        "hist": 3.4724845301961977
+      },
+      "trough": {
+        "time": "2026-04-17 11:30:00",
+        "close": 4043.4478,
+        "dif": 23.787964926128097,
+        "hist": -0.41024253327226035
+      },
+      "decline_points": 12.099099999999908,
+      "decline_pct": 0.29833460932235933,
+      "bars_peak_to_trough": 2,
+      "negative_first": "2026-04-17 11:30:00",
+      "negative_last": "2026-04-17 15:00:00",
+      "negative_bars": 3,
+      "new_positive_start": "2026-04-20 10:30:00",
+      "semantics": "Descriptive DG close peaks; no author-picked exact peak/trough or minimum gate"
+    },
+    {
+      "case": "april_second",
+      "as_of": "2026-04-23 10:30:00",
+      "previous_positive_start": "2026-04-20 10:30:00",
+      "previous_positive_end": "2026-04-20 15:00:00",
+      "peak": {
+        "time": "2026-04-20 15:00:00",
+        "close": 4082.1272,
+        "dif": 25.078403896373402,
+        "hist": 1.5263393525478364
+      },
+      "trough": {
+        "time": "2026-04-21 10:30:00",
+        "close": 4068.5298,
+        "dif": 24.007965188642174,
+        "hist": -0.49163045033169794
+      },
+      "decline_points": 13.597400000000107,
+      "decline_pct": 0.3330959407634393,
+      "bars_peak_to_trough": 1,
+      "negative_first": "2026-04-21 10:30:00",
+      "negative_last": "2026-04-22 14:00:00",
+      "negative_bars": 7,
+      "new_positive_start": "2026-04-22 15:00:00",
+      "semantics": "Descriptive DG close peaks; no author-picked exact peak/trough or minimum gate"
+    }
+  ],
+  "prior_author_scale_reference": {
+    "role": "Author early-April scale reference; DG operationalization, not author-picked exact peaks",
+    "peak": {
+      "time": "2026-04-01 15:00:00",
+      "close": 3948.552,
+      "dif": -0.10143106055556927,
+      "hist": 14.997400432447794
+    },
+    "trough": {
+      "time": "2026-04-03 15:00:00",
+      "close": 3880.0967,
+      "dif": -9.541839920346774,
+      "hist": -7.616534329002352
+    },
+    "decline_points": 68.45530000000008,
+    "decline_pct": 1.7336811063903952,
+    "bars_peak_to_trough": 8,
+    "negative_bars": 7,
+    "first_negative": "2026-04-03 11:30:00",
+    "last_negative": "2026-04-07 15:00:00",
+    "not_a_minimum_threshold": true,
+    "close_based_not_intrabar_low": true
+  },
+  "daily_trend_distance_diagnostic": [
+    {
+      "date": "2025-11-11",
+      "fixture_daily_close": 4002.7576,
+      "bands": {
+        "short_channel": {
+          "upper": 3961.020607943066,
+          "lower": 3921.3379769810476,
+          "close_minus_upper_points": 41.736992056934014,
+          "close_minus_upper_pct_of_close": 1.0427059599345714,
+          "close_minus_lower_points": 81.41962301895228,
+          "close_minus_lower_pct_of_close": 2.0340882750170106,
+          "state": "UP",
+          "position": "ABOVE"
+        },
+        "long_channel": {
+          "upper": 3793.818777664207,
+          "lower": 3753.9083927852607,
+          "close_minus_upper_points": 208.9388223357928,
+          "close_minus_upper_pct_of_close": 5.219871978652737,
+          "close_minus_lower_points": 248.84920721473918,
+          "close_minus_lower_pct_of_close": 6.216944219023884,
+          "state": "UP",
+          "position": "ABOVE"
+        }
+      },
+      "semantics": "Saved independently-derived test fixture, not original software channel readout or intraday distance"
+    },
+    {
+      "date": "2025-11-14",
+      "fixture_daily_close": 3990.4921,
+      "bands": {
+        "short_channel": {
+          "upper": 3975.45716373492,
+          "lower": 3935.746731189464,
+          "close_minus_upper_points": 15.034936265079978,
+          "close_minus_upper_pct_of_close": 0.3767689770662615,
+          "close_minus_lower_points": 54.74536881053609,
+          "close_minus_lower_pct_of_close": 1.3718951808108102,
+          "state": "UP",
+          "position": "ABOVE"
+        },
+        "long_channel": {
+          "upper": 3808.9473343092536,
+          "lower": 3769.0485483982698,
+          "close_minus_upper_points": 181.54476569074632,
+          "close_minus_upper_pct_of_close": 4.5494330308471564,
+          "close_minus_lower_points": 221.44355160173018,
+          "close_minus_lower_pct_of_close": 5.5492792881792745,
+          "state": "UP",
+          "position": "ABOVE"
+        }
+      },
+      "semantics": "Saved independently-derived test fixture, not original software channel readout or intraday distance"
+    },
+    {
+      "date": "2026-04-21",
+      "fixture_daily_close": 4085.0766,
+      "bands": {
+        "short_channel": {
+          "upper": 4024.5388791343034,
+          "lower": 3985.3348766770005,
+          "close_minus_upper_points": 60.53772086569643,
+          "close_minus_upper_pct_of_close": 1.4819237628419608,
+          "close_minus_lower_points": 99.7417233229994,
+          "close_minus_lower_pct_of_close": 2.441612069722252,
+          "state": "UP",
+          "position": "ABOVE"
+        },
+        "long_channel": {
+          "upper": 4018.3382356419324,
+          "lower": 3976.1539965630272,
+          "close_minus_upper_points": 66.73836435806743,
+          "close_minus_upper_pct_of_close": 1.6337114549594351,
+          "close_minus_lower_points": 108.92260343697262,
+          "close_minus_lower_pct_of_close": 2.6663540026880432,
+          "state": "UP",
+          "position": "ABOVE"
+        }
+      },
+      "semantics": "Saved independently-derived test fixture, not original software channel readout or intraday distance"
+    },
+    {
+      "date": "2026-04-23",
+      "fixture_daily_close": 4093.2501,
+      "bands": {
+        "short_channel": {
+          "upper": 4037.329607664732,
+          "lower": 3998.226951724782,
+          "close_minus_upper_points": 55.920492335268136,
+          "close_minus_upper_pct_of_close": 1.366163585637441,
+          "close_minus_lower_points": 95.02314827521832,
+          "close_minus_lower_pct_of_close": 2.3214596214196224,
+          "state": "UP",
+          "position": "ABOVE"
+        },
+        "long_channel": {
+          "upper": 4022.3616805844395,
+          "lower": 3980.3444582992074,
+          "close_minus_upper_points": 70.88841941556075,
+          "close_minus_upper_pct_of_close": 1.731836992212148,
+          "close_minus_lower_points": 112.90564170079278,
+          "close_minus_lower_pct_of_close": 2.7583372367301178,
+          "state": "UP",
+          "position": "ABOVE"
+        }
+      },
+      "semantics": "Saved independently-derived test fixture, not original software channel readout or intraday distance"
+    }
+  ],
+  "daily_fixture_metadata": {
+    "formula": {
+      "key": "high-low-ema-hysteresis",
+      "version": "sse-daily-trend-channel-v1",
+      "short_period": 25,
+      "long_period": 90,
+      "seed": "first_observation",
+      "adjust": false,
+      "state_rule": "strict_close_breakout_inside_retention",
+      "price_quantum": "0.0001",
+      "rounding": "ROUND_HALF_UP"
+    },
+    "reference": {
+      "primary": "pandas.Series.ewm(span=period, adjust=False).mean",
+      "cross_check": "independent_explicit_float64_recursion",
+      "max_cross_check_abs_error": "5.002220859751105e-12",
+      "production_calculator_imported": false,
+      "generated_at": "2026-08-10T17:10:10+08:00"
+    },
+    "first_trade_date": "2020-01-02",
+    "last_trade_date": "2026-08-07"
+  },
+  "selected_reference_break_space_diagnostic": [
+    {
+      "case": "november_first",
+      "time": "2025-11-13 15:00:00",
+      "close": 4029.5012,
+      "dif": 9.025209709538103,
+      "hist": 2.5785127833998764,
+      "reference_start": "2025-11-06 10:30:00",
+      "reference_dif": 10.39404530201,
+      "dif_gap": 1.3688355924718962,
+      "dif_gap_pct_of_reference": 13.169421074268273,
+      "next_close_reference_equality": 4035.377535449618,
+      "next_price_rise_points": 5.876335449617727,
+      "next_price_rise_pct": 0.14583282540323594,
+      "next_dif_line_slope": 0.07977207977207978,
+      "next_dif_line_intercept": -311.51641336633566,
+      "independent_recursion_error": 0.0,
+      "next_actual_reconstruction_residual": -6.821210263296962e-13,
+      "boundary_semantics": "Strictly above gives old-reference DIF break under standard EMA12/26. Not software dulling size, historical withdrawal, whole decision correction, or actual action.",
+      "structure_time": "2025-11-14 14:00:00",
+      "structure_event": "STRUCTURE",
+      "structure_reference_dif": 10.39404530201,
+      "variant_count": 12,
+      "reference_policies": [
+        "nearest_qualifying"
+      ]
+    },
+    {
+      "case": "april_first",
+      "time": "2026-04-20 11:30:00",
+      "close": 4078.3906,
+      "dif": 24.886105952163234,
+      "hist": 1.8088242059869302,
+      "reference_start": "2026-04-08 10:30:00",
+      "reference_dif": 25.567706301411363,
+      "dif_gap": 0.6816003492481286,
+      "dif_gap_pct_of_reference": 2.6658642789967577,
+      "next_close_reference_equality": 4082.860361257867,
+      "next_price_rise_points": 4.469761257867049,
+      "next_price_rise_pct": 0.10959620341091103,
+      "next_dif_line_slope": 0.07977207977207978,
+      "next_dif_line_intercept": -300.1305561351137,
+      "independent_recursion_error": 0.0,
+      "next_actual_reconstruction_residual": 1.7053025658242404e-13,
+      "boundary_semantics": "Strictly above gives old-reference DIF break under standard EMA12/26. Not software dulling size, historical withdrawal, whole decision correction, or actual action.",
+      "structure_time": "2026-04-21 10:30:00",
+      "structure_event": "STRUCTURE",
+      "structure_reference_dif": 25.567706301411363,
+      "variant_count": 24,
+      "reference_policies": [
+        "nearest_qualifying",
+        "strongest_eligible"
+      ]
+    },
+    {
+      "case": "april_second",
+      "time": "2026-04-23 10:30:00",
+      "close": 4101.49,
+      "dif": 23.3798475022395,
+      "hist": 0.006882809153331948,
+      "reference_start": "2026-04-20 10:30:00",
+      "reference_dif": 25.078403896373402,
+      "dif_gap": 1.6985563941339024,
+      "dif_gap_pct_of_reference": 6.772984441723308,
+      "next_close_reference_equality": 4128.462521525972,
+      "next_price_rise_points": 26.972521525972297,
+      "next_price_rise_pct": 0.6576273872659133,
+      "next_dif_line_slope": 0.07977207977207978,
+      "next_dif_line_intercept": -304.25763770683807,
+      "independent_recursion_error": 0.0,
+      "next_actual_reconstruction_residual": 4.547473508864641e-13,
+      "boundary_semantics": "Strictly above gives old-reference DIF break under standard EMA12/26. Not software dulling size, historical withdrawal, whole decision correction, or actual action.",
+      "structure_time": "2026-04-23 11:30:00",
+      "structure_event": "STRUCTURE",
+      "structure_reference_dif": 25.078403896373402,
+      "variant_count": 12,
+      "reference_policies": [
+        "nearest_qualifying"
+      ]
+    },
+    {
+      "case": "november_first",
+      "time": "2025-11-13 15:00:00",
+      "close": 4029.5012,
+      "dif": 9.025209709538103,
+      "hist": 2.5785127833998764,
+      "reference_start": "2025-10-23 15:00:00",
+      "reference_dif": 28.80087595504483,
+      "dif_gap": 19.775666245506727,
+      "dif_gap_pct_of_reference": 68.66341939173823,
+      "next_close_reference_equality": 4266.12030542159,
+      "next_price_rise_points": 236.61910542159012,
+      "next_price_rise_pct": 5.872168630241137,
+      "next_dif_line_slope": 0.07977207977207978,
+      "next_dif_line_intercept": -311.51641336633566,
+      "independent_recursion_error": 0.0,
+      "next_actual_reconstruction_residual": -6.821210263296962e-13,
+      "boundary_semantics": "Strictly above gives old-reference DIF break under standard EMA12/26. Not software dulling size, historical withdrawal, whole decision correction, or actual action.",
+      "structure_time": "2025-11-14 14:00:00",
+      "structure_event": "STRUCTURE",
+      "structure_reference_dif": 28.80087595504483,
+      "variant_count": 12,
+      "reference_policies": [
+        "strongest_eligible"
+      ]
+    },
+    {
+      "case": "april_second",
+      "time": "2026-04-23 10:30:00",
+      "close": 4101.49,
+      "dif": 23.3798475022395,
+      "hist": 0.006882809153331948,
+      "reference_start": "2026-04-08 10:30:00",
+      "reference_dif": 25.567706301411363,
+      "dif_gap": 2.187858799171863,
+      "dif_gap_pct_of_reference": 8.557118004171894,
+      "next_close_reference_equality": 4134.596276674841,
+      "next_price_rise_points": 33.106276674840956,
+      "next_price_rise_pct": 0.8071768229312104,
+      "next_dif_line_slope": 0.07977207977207978,
+      "next_dif_line_intercept": -304.25763770683807,
+      "independent_recursion_error": 0.0,
+      "next_actual_reconstruction_residual": 4.547473508864641e-13,
+      "boundary_semantics": "Strictly above gives old-reference DIF break under standard EMA12/26. Not software dulling size, historical withdrawal, whole decision correction, or actual action.",
+      "structure_time": "2026-04-23 11:30:00",
+      "structure_event": "STRUCTURE",
+      "structure_reference_dif": 25.567706301411363,
+      "variant_count": 12,
+      "reference_policies": [
+        "strongest_eligible"
+      ]
+    }
+  ],
+  "verification": {
+    "variants": 24,
+    "distinct_origin_times": 3,
+    "structure_checkpoints": 3,
+    "prefix_checks": 144,
+    "all_existing_variants_match_three_candidate_structure_times": true,
+    "next_bar_recursion_crosscheck": true,
+    "max_abs_next_real_dif_residual": 6.821210263296962e-13,
+    "next_real_used_only_for_hindsight_algebra_check": true
+  },
+  "findings": [
+    {
+      "id": "small_not_sufficient_rejection",
+      "status": "EXCLUDED_AS_UNIVERSAL_VETO_BY_AUTHOR_POLICY",
+      "evidence": [
+        "near_period_scope",
+        "actual_participants",
+        "defense_amount",
+        "2026-04-23:two_structures_three_reasons"
+      ],
+      "meaning": "November11 explicitly permits a small daily structure near trend while declaring four-tenths defense. Smallness alone does not encode acceptance. Not proof a small structure alone always triggers."
+    },
+    {
+      "id": "negative_bar_count_not_adequate_pullback",
+      "status": "COUNTEREVIDENCE_IN_SAVED_DG_AND_AUTHOR_PAIR",
+      "meaning": "April second rejected structure follows seven negative bars, same count as author early-April scale proxy, but declines only0.3331% in one peak-to-trough bar versus1.7337% in eight. Reject an automatic seven-negative-bars adequacy rule; no replacement universal cutoff inferred."
+    },
+    {
+      "id": "trend_distance_metric_not_identified",
+      "status": "CONTEXT_ROLE_CONFIRMED_MEASURE_UNRESOLVED",
+      "meaning": "November11 near vsApril far is explicit. Saved daily short-upper endpoint gaps are1.0427%,1.4819%,1.3662%; long-upper differs and second April short gap is lower, not higher. Daily-close test-fixture distances cannot reproduce an author pre-structure intraday farther comparison or identify chosen band/edge."
+    },
+    {
+      "id": "next_reference_break_space_not_author_size",
+      "status": "NOT_IDENTIFIED_AND_REFERENCE_DEPENDENT",
+      "meaning": "November13 same first dulling, nearest versus strongest ref gives0.1458% vs5.8722% next-bar break price rise. April first0.1096%, second0.6576%-0.8072%, despite both called small. This as-of next-bar proxy cannot be equated with author level, nor with whole-defense correction."
+    },
+    {
+      "id": "one_new_signal_one_extra_cut",
+      "status": "INCOMPATIBLE_WITH_DECLARED_NOVEMBER_DECISIONS",
+      "meaning": "November14 new60/120 first structures and90second did not automatically add two-tenths. Coordination and existing defense belong to sizing phase, not detection absence."
+    },
+    {
+      "id": "three_filter_AND_OR",
+      "status": "UNRESOLVED",
+      "meaning": "April rejection reasons co-occur; November uses different actual periods and sensitive-time background. Neither independent cause weights nor fixed conjunction/disjunction are identified."
+    }
+  ],
+  "next_step": "Search existing lecture passages for explicit historical DIF peak comparison and quantified dulling-disappearance boundary/required time. Pair the same origin with candidate references before selecting a size metric. Request one date only if local material cannot resolve the discriminating peak; do not requestApr22 or repeated full transcripts.",
+  "limitations": [
+    "Known-source retrospective contrast, not blind validation or performance estimate",
+    "Original software daily band values and event-time distance not obtained",
+    "No author-picked exact pullback pivots",
+    "DG and software numerical differences remain; EMA inversion assumed12/26 and refers to candidate old-reference break only",
+    "No fixed size/distance/pullback thresholds or decision engine",
+    "No claim that near trend overrides nonstandard geometry, or that each rejection reason is independently necessary"
+  ],
+  "preservation": {
+    "prior_file_count": 217,
+    "prior_files_sha256_unchanged": true,
+    "new_permanent_result_files": 1,
+    "software_labels_added": 0
+  }
+}

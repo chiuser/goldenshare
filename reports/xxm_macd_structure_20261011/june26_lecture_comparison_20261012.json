@@ -1,0 +1,347 @@
+{
+  "research_date": "2026-10-12",
+  "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260626_user_transcript.txt",
+  "source_sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+  "prediction_file": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/post_june9_predictions_20261012.json",
+  "prediction_sha256": "24023ccc46498d43f8ac7a0b63c24b8f77f1a677f6f2f48ecd1ea154bbe8fac9",
+  "correction_definition_sha256": "1460c5592cab256bdd982ee1222d1b15b33c710e0d5ceee4360b4436dfd14c64",
+  "method": "Previously frozen numerical paths compared with now-known user lecture; June28 blog context already known; not blind market prediction or original software scoring",
+  "claims": [
+    {
+      "id": "short_preclose",
+      "lines": [
+        5,
+        9
+      ],
+      "locator": "已经确定跌穿短期趋势",
+      "finding": "14:50 已确定短期，长期未确定；应减四成。",
+      "status": "EXPLICIT_EPISODE_PLAN_NOT_FILL"
+    },
+    {
+      "id": "long_close",
+      "lines": [
+        10,
+        18
+      ],
+      "locator": "这个通道的下轨",
+      "finding": "收盘长期也破下轨，下一周一早盘再减两成。",
+      "status": "EXPLICIT_EDGE_CONTEXT_NOT_EXACT_SOFTWARE_VALUE"
+    },
+    {
+      "id": "core_position",
+      "lines": [
+        63,
+        64
+      ],
+      "locator": "4成仓底仓嘛",
+      "finding": "明确四成底仓；上一行转写混乱，不据此新增其他数量。",
+      "status": "EXPLICIT_EPISODE_HOLDING_FLOOR_NOT_UNIVERSAL"
+    },
+    {
+      "id": "other_object_top",
+      "lines": [
+        67,
+        76
+      ],
+      "locator": "如果要是创业板的话",
+      "finding": "创业板上一日钝化加9是另一信号对象的条件性减仓说明。",
+      "status": "OBJECT_SPECIFIC_NOT_SSE_LABEL"
+    },
+    {
+      "id": "ambiguous_bottom_object",
+      "lines": [
+        84,
+        99
+      ],
+      "locator": "中微指数今天跌幅也很大",
+      "finding": "出现90/120底钝化的指数名称转写不清；3959为作者观察价位。",
+      "status": "UNRESOLVED_OBJECT_NO_NEW_LABEL_OR_NUMERIC_ANCHOR"
+    },
+    {
+      "id": "chart_identity",
+      "lines": [
+        154,
+        162
+      ],
+      "locator": "一个是都是上证指数啊",
+      "finding": "作者称展示两张均为上证日线，近期与远期。",
+      "status": "CHART_DESCRIPTION_NOT_SCREENSHOT_OBSERVATION"
+    },
+    {
+      "id": "forecast_override",
+      "lines": [
+        212,
+        224
+      ],
+      "locator": "昨天我认为今天大概率不会破趋势",
+      "finding": "前一日预测不破，实际双破仍按事实处理。",
+      "status": "REALIZED_TRIGGER_OVERRIDES_QUALITATIVE_FORECAST_IN_EPISODE"
+    },
+    {
+      "id": "independent_exit",
+      "lines": [
+        225,
+        240
+      ],
+      "locator": "上证指数破趋势也是要减仓",
+      "finding": "日线结构按收盘；上证破趋势本身提供减仓依据，钝化加9非上证。",
+      "status": "PARALLEL_RATIONALES_NOT_ADDITIVE_TRADE_AMOUNTS"
+    },
+    {
+      "id": "context_not_fill",
+      "lines": [
+        330,
+        336
+      ],
+      "locator": "如果后面有上升突破趋势",
+      "finding": "防守针对未来风险；以后重新突破再恢复，未给期限。",
+      "status": "CONDITIONAL_FUTURE_PATH_NOT_CURRENT_EVENT"
+    }
+  ],
+  "trend_rows": [
+    {
+      "date": "2026-06-15",
+      "close": 4096.4717,
+      "short_channel": {
+        "upper": 4088.888896502274,
+        "lower": 4037.875020527256,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4072.904557605582,
+        "lower": 4026.58501348136,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-16",
+      "close": 4091.8917,
+      "short_channel": {
+        "upper": 4090.0455890790226,
+        "lower": 4040.9515727943904,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4073.5863453505144,
+        "lower": 4027.7121604378135,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-17",
+      "close": 4108.0762,
+      "short_channel": {
+        "upper": 4091.5773053037137,
+        "lower": 4043.4731364255913,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4074.3857201779756,
+        "lower": 4028.723583285334,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-18",
+      "close": 4090.4813,
+      "short_channel": {
+        "upper": 4093.5675895111203,
+        "lower": 4046.3054951620848,
+        "position": "INSIDE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4075.3322098443937,
+        "lower": 4029.8569946417,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-22",
+      "close": 4163.0965,
+      "short_channel": {
+        "upper": 4099.017605702573,
+        "lower": 4048.1414032265398,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4077.2901349027584,
+        "lower": 4030.7430453089155,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-23",
+      "close": 4106.2517,
+      "short_channel": {
+        "upper": 4104.889143725452,
+        "lower": 4051.022126055268,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4079.4452440257746,
+        "lower": 4031.948490466961,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-24",
+      "close": 4110.8134,
+      "short_channel": {
+        "upper": 4105.842655746572,
+        "lower": 4052.9044317433245,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4080.2768826186148,
+        "lower": 4032.9054928742808,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-25",
+      "close": 4120.2806,
+      "short_channel": {
+        "upper": 4107.939182227605,
+        "lower": 4055.989375455377,
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper": 4081.4377753083154,
+        "lower": 4034.2264424814393,
+        "position": "ABOVE",
+        "state": "UP"
+      }
+    },
+    {
+      "date": "2026-06-26",
+      "close": 4027.2648,
+      "short_channel": {
+        "upper": 4107.31152205625,
+        "lower": 4052.2870619588093,
+        "position": "BELOW",
+        "state": "DOWN"
+      },
+      "long_channel": {
+        "upper": 4081.840892334506,
+        "lower": 4033.6469448444846,
+        "position": "BELOW",
+        "state": "DOWN"
+      }
+    }
+  ],
+  "june26_close": 4027.2648,
+  "june26_bands": {
+    "short_channel": {
+      "upper": 4107.31152205625,
+      "lower": 4052.2870619588093,
+      "position": "BELOW",
+      "state": "DOWN",
+      "lower_minus_close": 25.022261958809395
+    },
+    "long_channel": {
+      "upper": 4081.840892334506,
+      "lower": 4033.6469448444846,
+      "position": "BELOW",
+      "state": "DOWN",
+      "lower_minus_close": 6.382144844484628
+    }
+  },
+  "execution_plan": [
+    {
+      "signal_date": "2026-06-26",
+      "knowledge_time": "14:50 as stated by author",
+      "signal": "short trend breach determined",
+      "stated_reduction_percentage_points": 40,
+      "execution": "June26 late session",
+      "filled_trade": false
+    },
+    {
+      "signal_date": "2026-06-26",
+      "knowledge_time": "after final close",
+      "signal": "long trend breach also confirmed",
+      "stated_reduction_percentage_points": 20,
+      "execution": "2026-06-29 early session per lecture",
+      "filled_trade": false
+    }
+  ],
+  "size_comparison": {
+    "june15": {
+      "long_add_points": 20,
+      "short_add_points": 40
+    },
+    "june26": {
+      "short_reduce_points": 40,
+      "long_reduce_points": 20
+    },
+    "support": "Repeated channel-specific 20/40 stated plans are symmetric in this episode",
+    "not_proven": "Universal allocation, full holdings path, actual fills, repeated-signal deduplication or overlap priority"
+  },
+  "candidate_policy_transitions": [
+    {
+      "channel": "short_channel",
+      "return_below_upper": [
+        "2026-06-18",
+        "2026-06-26"
+      ],
+      "cross_below_lower": [
+        "2026-06-26"
+      ]
+    },
+    {
+      "channel": "long_channel",
+      "return_below_upper": [
+        "2026-06-26"
+      ],
+      "cross_below_lower": [
+        "2026-06-26"
+      ]
+    }
+  ],
+  "discrimination": {
+    "june26": "Both upper-return and lower-breach alternatives trigger here; lecture supports lower-edge explanation but does not falsify a separate earlier upper-return rule",
+    "june18": "Only short upper-return alternative triggers; short remains INSIDE/UP. If June18 reduced and June22 restored, June26 could still start fully allocated; do not infer no earlier action from current size alone",
+    "next_source": "2026-06-18 closing lecture; specifically whether short INSIDE causes reduction, otherwise waiting for lower breach"
+  },
+  "resolved_questions": [
+    "Long-trend downside explanation explicitly points at channel lower edge",
+    "Separate channel amounts and closing/next-morning scheduling repeated in actual breach episode",
+    "Trend exit does not require additional other-index top structure in this episode"
+  ],
+  "unresolved_questions": [
+    "June18 actual handling while short INSIDE/UP",
+    "Exact original software daily boundaries and intraday determination",
+    "All positions, actual fills and expiry of following-morning pending actions",
+    "Universal trend/structure overlap priority, cap and deduplication",
+    "Ambiguous name of index with minute bottom dulling; no same-object opposing-signal test",
+    "Original structure post-confirmation reference retirement rules"
+  ],
+  "validations": {
+    "source_locator_checks": 9,
+    "saved_daily_position_checks": 16,
+    "software_labels_added": 0
+  },
+  "evidence_counts": {
+    "mcp_transcripts": 13,
+    "user_transcripts": 6,
+    "unique_transcript_dates": 18,
+    "screenshots": 37,
+    "software_terminal_values": 21,
+    "conditional_software_labels": 52,
+    "new_software_labels": 0
+  }
+}

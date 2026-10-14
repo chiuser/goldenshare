@@ -1,0 +1,498 @@
+{
+  "research_date": "2026-10-12",
+  "status": "NEW_LECTURE_VS_PREEXISTING_SCREEN_NOT_PARAMETER_FITTING",
+  "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+  "prior_screen_sha256": "bd7c555ee5db63a4cf003411263fe892245839c11291b44968c8c42ed8ed04e1",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "claims": [
+    {
+      "key": "trend_not_breached",
+      "line_start": 13,
+      "line_end_inclusive": 14,
+      "marker": "也没有跌穿趋势",
+      "literal_start_line": "1:361分钟36秒钟上证指数日线 上证指数日线 今天收了一个很长的上引线 但是呢也没有跌穿趋势啊 也没有跌穿趋势",
+      "interpretation": "Actual author trend-position assertion; no exact author band values",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "daily_structure_disappearance",
+      "line_start": 32,
+      "line_end_inclusive": 37,
+      "marker": "这个消失是结构消失 不是钝化消失",
+      "literal_start_line": "4:184分钟18秒钟也没有改变 你说顶部结构吧 也没有改变 对吧无非就是一次结构 还是二次结构的问题 然后我们看日线呢",
+      "interpretation": "Daily displayed structure disappearance reported by Nov14; exact marker bar/date and raw formula unobserved",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "period_context_changed",
+      "line_start": 35,
+      "line_end_inclusive": 47,
+      "marker": "现在呢是60分钟90分钟120分钟",
+      "literal_start_line": "4:434分钟43秒钟那么我们之前就说啊 日线可以不看 因为它的级别比较小 那这个地方呢 由于其他周期的配合 所以呢",
+      "interpretation": "Current visible minute structures differ from previous90/daily; coordination only slightly better. Correction membership is not specified.",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "index_coordination",
+      "line_start": 38,
+      "line_end_inclusive": 45,
+      "marker": "所以指数之间的协调性就不会好",
+      "literal_start_line": "5:075分钟7秒钟我们再说指数之间的协调性 注意啊上证指数是创新高的 不管怎么样 它是创新高的回落",
+      "interpretation": "Target index makes new high but others do not; morphology matters beyond shared labels. No cross-index numeric labels.",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "amount_conditional",
+      "line_start": 48,
+      "line_end_inclusive": 49,
+      "marker": "不排除会再次减",
+      "literal_start_line": "6:326分钟32秒钟好吧这里如果各指数之间协调性好 不排除会再次减 就是你我们判断",
+      "interpretation": "Further reduction conditional on index coordination; four-tenths-position and reduce-four-tenths wording both retained; no inferred final holdings",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "large_down_day",
+      "line_start": 50,
+      "line_end_inclusive": 51,
+      "marker": "大阴线的判断是2%以上",
+      "literal_start_line": "6:476分钟47秒钟然后呢今天也不属于单日大阴线啊 我们对于大阴线的判断是2%以上 那今天上证指数连1%都没到",
+      "interpretation": "Author defines a large down day here at2% or above; not an automatic structure/trade gate",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "minute_structure_ordinals",
+      "line_start": 51,
+      "line_end_inclusive": 59,
+      "marker": "90分钟是第二次形成",
+      "literal_start_line": "6:556分钟55秒钟所以也不属于单日大阴线 还有什么问题吗 好我们接着往下讲 这是日线 120分钟线那么长时间以来的首次",
+      "interpretation": "Author confirms120/60 first structure in this recent context and90 second; not lifetime counts or exact timestamps",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "act_without_second_foreknowledge",
+      "line_start": 53,
+      "line_end_inclusive": 56,
+      "marker": "第一次顶部结构形成 它就符合交易的标准",
+      "literal_start_line": "7:147分钟14秒钟90分钟第二次 这是第一次 这是第二次 空间其实相差不大 那这个一往上涨",
+      "interpretation": "Future second structure was unknown at first action; does not justify delaying all first structures",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "duration_heuristic",
+      "line_start": 60,
+      "line_end_inclusive": 63,
+      "marker": "没有办法得出来精确的数字",
+      "literal_start_line": "8:128分钟12秒钟好吧但是不管60分钟也好 90分钟也好 120分钟也好 它的调整级别都不是几天 怎么也得半个月吧",
+      "interpretation": "About two weeks is a contextual adjustment expectation; no exact duration, fixed expiry or tested guarantee",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "future_long_trend_action",
+      "line_start": 64,
+      "line_end_inclusive": 65,
+      "marker": "到时候再说",
+      "literal_start_line": "8:458分钟45秒钟今天谁说的跌到2 跌到3,600去 我看不出来 你我不知道你怎么看出来的 目前来讲 我看不出来",
+      "interpretation": "Further long-trend reduction left unresolved; not an automatic two-tenths instruction now",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "disappearance_wording_scope",
+      "line_start": 66,
+      "line_end_inclusive": 71,
+      "marker": "这个动画消失是不是要买回来",
+      "literal_start_line": "9:029分钟2秒钟是不是你 像这个昨天有人问老师 这个动画消失是不是要买回来 你说我能说不是啊 但你要说",
+      "interpretation": "Generic question is discussed with risk of misunderstanding; nearby SSE disappearance phrasing does not identify minute cancellation or exact join",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "correction_not_close",
+      "line_start": 118,
+      "line_end_inclusive": 119,
+      "marker": "离纠错很远了",
+      "literal_start_line": "16:1016分钟10秒钟以后不要问我啊 不要问我 我的操作跟你没关系 纠错标准 等到快纠错的时候我一定会说 我不说就是没有",
+      "interpretation": "Author explicitly says correction far away; daily structure disappearance alone did not establish present episode correction. Not account fills.",
+      "literal_prefix_not_verified_video_time": true
+    },
+    {
+      "key": "next_week_plan",
+      "line_start": 125,
+      "line_end_inclusive": 129,
+      "marker": "下周一预计还没有操作",
+      "literal_start_line": "17:0317分钟3秒钟有一天 我没有这种嬉笑怒骂式的讲课了 你可能会想念我的 好了不多讲了啊 下周一预计还没有操作",
+      "interpretation": "Future Monday expected observation and next-week trend focus; not actual Monday no-action evidence",
+      "literal_prefix_not_verified_video_time": true
+    }
+  ],
+  "frozen_screen_checks": [
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 1,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 1,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:recovered_rounded_seed",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 1,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 1,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "daily_fixture:fixture_first_close",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 1,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 1,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:recovered_rounded_seed",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 1,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 1,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    },
+    {
+      "daily_initialization": "minute60_daily_endpoint:fixture_first_close",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "date_level_minute_events_agree": true,
+      "author_exact_times_observed": false,
+      "ordinals_agree_in_recent_screen": true
+    }
+  ],
+  "prefix_checks": 4,
+  "software_labels_added": 0,
+  "source_assertions": [
+    {
+      "period": "60",
+      "kind": "top_structure",
+      "recent_ordinal": 1,
+      "asserted_by_date": "2025-11-14",
+      "exact_event_time": null
+    },
+    {
+      "period": "90",
+      "kind": "top_structure",
+      "recent_ordinal": 2,
+      "asserted_by_date": "2025-11-14",
+      "exact_event_time": null
+    },
+    {
+      "period": "120",
+      "kind": "top_structure",
+      "recent_ordinal": 1,
+      "asserted_by_date": "2025-11-14",
+      "exact_event_time": null
+    },
+    {
+      "period": "daily",
+      "kind": "structure_disappearance_distinct_from_dulling_disappearance",
+      "asserted_by_date": "2025-11-14",
+      "exact_event_date": null,
+      "not_mapped_to_candidate_CANCEL": true
+    }
+  ],
+  "trend_fixture": {
+    "row": {
+      "trade_date": "2025-11-14",
+      "short_channel": {
+        "upper_raw": "3975.45716373492",
+        "lower_raw": "3935.746731189464",
+        "upper": "3975.4572",
+        "lower": "3935.7467",
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "long_channel": {
+        "upper_raw": "3808.9473343092536",
+        "lower_raw": "3769.0485483982698",
+        "upper": "3808.9473",
+        "lower": "3769.0485",
+        "position": "ABOVE",
+        "state": "UP"
+      },
+      "combined_state": "UP_UP"
+    },
+    "price": {
+      "trade_date": "2025-11-14",
+      "open": "4007.1258",
+      "high": "4034.0786",
+      "low": "3990.3074",
+      "close": "3990.4921"
+    },
+    "close_to_close_change_pct": -0.968087563790776,
+    "author_exact_bands_unknown": true
+  },
+  "daily_candidate": {
+    "window": [
+      {
+        "time": "2025-11-11",
+        "event": "STRUCTURE",
+        "state": "STRUCTURE",
+        "wave_count": 4,
+        "ref_start": "2025-10-24",
+        "close": 4002.7576,
+        "dif": 37.426,
+        "hist": 0.612,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "dif_turn",
+        "event_ref_start": "2025-10-24",
+        "event_ref_dif": 42.86,
+        "event_ref_price": 4016.331
+      },
+      {
+        "time": "2025-11-12",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 1,
+        "ref_start": "",
+        "close": 4000.1396,
+        "dif": 36.18722708156611,
+        "hist": -1.492214262150469,
+        "wave_sign": -1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      {
+        "time": "2025-11-13",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 1,
+        "ref_start": "",
+        "close": 4029.5012,
+        "dif": 37.14648648589764,
+        "hist": 0.3410436372100776,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      {
+        "time": "2025-11-14",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 1,
+        "ref_start": "",
+        "close": 3990.4921,
+        "dif": 34.36288417891001,
+        "hist": -4.180928781412149,
+        "wave_sign": -1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      }
+    ],
+    "derivation": {
+      "mode": "recovered_rounded_seed",
+      "seed_rows_kept_verbatim": 207,
+      "added_rows": 3,
+      "seed_reconstruction_max_abs_errors": {
+        "close": 0.0,
+        "dif": 0.0014430746819797946,
+        "hist": 0.0014684856969466864
+      },
+      "seed_last_errors": {
+        "dif": 4.8320669904455826e-05,
+        "hist": 0.00037465051951290906
+      },
+      "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+    },
+    "provisional_disappearance_mechanisms": {
+      "current_state_clear": "2025-11-12",
+      "histogram_back_positive_after_negative": "2025-11-13",
+      "upward_dif_turn_after_structure": {
+        "0.75": "2025-11-13",
+        "1.0": "2025-11-13",
+        "1.2": "2025-11-13"
+      },
+      "dif_above_confirmed_bar": null,
+      "dif_above_original_reference": null
+    },
+    "limitation": "Source does not specify marker date; NONE on12 and competing transitions on13 are unverified explanations, not new software labels"
+  },
+  "decision_inferences": {
+    "daily_disappearance_sufficient_for_episode_correction": "INCOMPATIBLE_WITH_AUTHOR_THIS_CASE_DAILY_DISAPPEARS_YET_CORRECTION_FAR",
+    "old_candidate_CANCEL_exhausts_software_disappearance": "UNSUPPORTED_SEMANTIC_GAP_EXPOSED",
+    "every_second_structure_adds_two_tenths": "NOT_SUPPORTED_ADDITIONAL_REDUCTION_CONDITIONAL_NO_EXPLICIT_ADDITION_THIS_DAY",
+    "final_holdings": "UNRESOLVED_FOUR_TENTHS_POSITION_VS_REDUCTION",
+    "updated_minute_structures_automatically_change_correction_join": "NOT_IDENTIFIED",
+    "raw_reference_break_is_required_for_structure_disappearance": "NOT_ESTABLISHED_SOURCE_DISTINGUISHES_TERMS_EXACT_DATE_FORMULA_UNVERIFIED"
+  },
+  "material_request": {
+    "primary": "2025-11-14 video daily indicator screenshot with the structure-disappearance label and nearby dates",
+    "reason": "New text exposes missing event category and date; resolve before treating old CANCEL as all disappearance",
+    "paused": "Nov20 transcript remains useful backup but no simultaneous request"
+  },
+  "limitations": [
+    "Date/ordinal agreement does not prove software input or precise structure times",
+    "Original screen no CANCEL remains true only for narrow candidate semantics, not absence of all software disappearance",
+    "No blanket AND/OR, additive amount, fixed duration or trade performance identified",
+    "Nearby later SSE-disappearance phrase lacks explicit period; do not label minute CANCEL",
+    "Direction reset, historical structure withdrawal, dulling disappearance and decision closure need separate identities"
+  ]
+}

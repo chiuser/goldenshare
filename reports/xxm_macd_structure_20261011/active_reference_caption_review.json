@@ -1,0 +1,924 @@
+{
+  "as_of": "2026-10-11T14:51:00.648865+00:00",
+  "frozen_audit_sha256": "1b5218bb81a3b3f33336348c37c4b0c6a639eed9dfd66c33c4da7b3b8ad00893",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "source_file": "sources/20251216_vidiq_transcript.json",
+  "source_sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+  "source_url": "https://www.youtube.com/watch?v=MXHvcQgdfHk",
+  "source_length": 5974,
+  "caption_context": "比方大家再看这个90分钟 好大家看这90分钟 我们就重点提到了这个 这个结构 是吧这个结构 这个结构呢 它就没有创新低 所以呢就这段时间 都不确定他是上升周期还是反弹 这反弹周期还是调整周期 那如果要是反弹周期 或者上升周期的话 那调整他就只只有6天了 只有这6天他就不够嘛 他今天创新低了之后 价格创新低之后 这一段时间23天都是调整周期 那他就满足了最低要求了啊 所以现在新的钝化代表了这个地方 如果90分钟形成结构 他也符合买入的标准 我们再看60分钟 60分钟也有钝化 也具备买入标准 也就是说现在分钟周期有三个动画 120分钟 90分钟和60分钟 ",
+  "availability": {
+    "date": "2025-12-16",
+    "period": "90 minutes",
+    "basis": "Speaker explicitly directs viewers to the 90-minute chart"
+  },
+  "narrated_close": "Bottom dulling present; a possible future structure is discussed",
+  "cannot_distinguish": "All four candidates have DULL at close; the phrase new dulling does not uniquely locate cancellation and reactivation.",
+  "added_screenshot_labels": 0,
+  "focal": [
+    {
+      "mode": "locked",
+      "rows": [
+        {
+          "time": "2025-12-15 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3867.921,
+          "dif": -5.1276345043547735,
+          "hist": -3.918507368770239,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3867.921,
+            "current_wave_dif": -5.1276345043547735
+          }
+        },
+        {
+          "time": "2025-12-16 11:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 12,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3821.73,
+          "dif": -9.772001789585374,
+          "hist": -10.565793551385152,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-12-05 11:00:00",
+          "event_ref_dif": -7.239400383468819,
+          "event_ref_price": 3873.8203,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": null,
+            "event_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -9.772001789585374
+          }
+        },
+        {
+          "time": "2025-12-16 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3826.3425,
+          "dif": -12.931440525426751,
+          "hist": -13.507736818454323,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_start": "2025-11-14 15:00:00",
+          "event_ref_dif": -39.36387132679238,
+          "event_ref_price": 3823.296,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -12.931440525426751
+          }
+        },
+        {
+          "time": "2025-12-16 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3824.812,
+          "dif": -15.381508588829547,
+          "hist": -14.72629835620793,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -15.381508588829547
+          }
+        }
+      ]
+    },
+    {
+      "mode": "both_before",
+      "rows": [
+        {
+          "time": "2025-12-15 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3867.921,
+          "dif": -5.1276345043547735,
+          "hist": -3.918507368770239,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3867.921,
+            "current_wave_dif": -5.1276345043547735
+          }
+        },
+        {
+          "time": "2025-12-16 11:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 12,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3821.73,
+          "dif": -9.772001789585374,
+          "hist": -10.565793551385152,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": true,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -9.772001789585374
+          }
+        },
+        {
+          "time": "2025-12-16 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3826.3425,
+          "dif": -12.931440525426751,
+          "hist": -13.507736818454323,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -12.931440525426751
+          }
+        },
+        {
+          "time": "2025-12-16 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3824.812,
+          "dif": -15.381508588829547,
+          "hist": -14.72629835620793,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -15.381508588829547
+          }
+        }
+      ]
+    },
+    {
+      "mode": "dull_before",
+      "rows": [
+        {
+          "time": "2025-12-15 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3867.921,
+          "dif": -5.1276345043547735,
+          "hist": -3.918507368770239,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3867.921,
+            "current_wave_dif": -5.1276345043547735
+          }
+        },
+        {
+          "time": "2025-12-16 11:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 12,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3821.73,
+          "dif": -9.772001789585374,
+          "hist": -10.565793551385152,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": true,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -9.772001789585374
+          }
+        },
+        {
+          "time": "2025-12-16 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3826.3425,
+          "dif": -12.931440525426751,
+          "hist": -13.507736818454323,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -12.931440525426751
+          }
+        },
+        {
+          "time": "2025-12-16 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3824.812,
+          "dif": -15.381508588829547,
+          "hist": -14.72629835620793,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -15.381508588829547
+          }
+        }
+      ]
+    },
+    {
+      "mode": "both_after",
+      "rows": [
+        {
+          "time": "2025-12-15 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3867.921,
+          "dif": -5.1276345043547735,
+          "hist": -3.918507368770239,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3867.921,
+            "current_wave_dif": -5.1276345043547735
+          }
+        },
+        {
+          "time": "2025-12-16 11:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 12,
+          "ref_start": "2025-12-05 11:00:00",
+          "close": 3821.73,
+          "dif": -9.772001789585374,
+          "hist": -10.565793551385152,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-12-05 11:00:00",
+          "event_ref_dif": -7.239400383468819,
+          "event_ref_price": 3873.8203,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "active_reference": null,
+            "event_reference": {
+              "sign": -1,
+              "count": 1,
+              "price": 3873.8203,
+              "dif": -7.239400383468819,
+              "start": "2025-12-05 11:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": true,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -9.772001789585374
+          }
+        },
+        {
+          "time": "2025-12-16 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3826.3425,
+          "dif": -12.931440525426751,
+          "hist": -13.507736818454323,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_start": "2025-11-14 15:00:00",
+          "event_ref_dif": -39.36387132679238,
+          "event_ref_price": 3823.296,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -12.931440525426751
+          }
+        },
+        {
+          "time": "2025-12-16 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-11-14 15:00:00",
+          "close": 3824.812,
+          "dif": -15.381508588829547,
+          "hist": -14.72629835620793,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 22,
+              "price": 3823.296,
+              "dif": -39.36387132679238,
+              "start": "2025-11-14 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 22,
+                "price": 3823.296,
+                "dif": -39.36387132679238,
+                "start": "2025-11-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 1,
+                "price": 3873.8203,
+                "dif": -7.239400383468819,
+                "start": "2025-12-05 11:00:00"
+              }
+            ],
+            "attempted": true,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3821.73,
+            "current_wave_dif": -15.381508588829547
+          }
+        }
+      ]
+    }
+  ],
+  "proposed_screenshot": {
+    "date": "2025-12-16",
+    "period": "90 minutes",
+    "need": "MACD labels and final DIF/DEA/hist; preferably history since December 5",
+    "reason": "Check whether green disappearance then new yellow dulling occur during December 16",
+    "prerequisite": "First reconcile software OHLC/indicator values and bar timestamps with DG 90-minute bins",
+    "fallback": "Leave locking unresolved if alignment or marker positions are unclear"
+  },
+  "deferred_30_minute_target": {
+    "date": "2026-06-05",
+    "video": "https://www.youtube.com/watch?v=cFhQ9WaI9tE",
+    "availability": "Unconfirmed: transcript not obtained due to vidIQ credits; no retry"
+  },
+  "limitations": [
+    "Reuploaded video and ASR transcript, not directly verified audio",
+    "No new screenshot; no exact marker anchor inferred from captions",
+    "DG 90-minute timestamps are hypotheses for comparison, not verified software bar times"
+  ],
+  "protected_files_unchanged": true,
+  "audit_script_sha256": "56c9531d563a678168c91ca5246763d350f9e97192534cc1e51ea0b8b65ab398"
+}

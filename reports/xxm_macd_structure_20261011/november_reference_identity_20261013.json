@@ -1,0 +1,540 @@
+{
+  "research_date": "2026-10-13",
+  "status": "120_OLDER_REGION_COMPARISON_SUPPORTED_90_TARGET_UNRESOLVED",
+  "scope": "Review existing Nov13/14 lecture passages, Nov13 original120 image and Nov17 original90 historical image. No new source, fitted gate, software label or parameter.",
+  "source_coverage": {
+    "120": "Nov13 original image. No saved Nov14 original120 image in current manifest.",
+    "90": "Nov17 historical image covers Nov13/14. No contemporaneous Nov13/14 original90 image; visible plot starts Nov4 and does not show October peak.",
+    "lecture_dates": [
+      "2025-11-13",
+      "2025-11-14",
+      "2025-11-17"
+    ]
+  },
+  "image_sources": [
+    {
+      "file": "sources/20251113_120.png",
+      "sha256": "9a8e83348ca913add85fc97d0a005088172aef22ac56dd483b1b69ae1201c2d3",
+      "width": 2822,
+      "height": 1092,
+      "manifest_date": "2025-11-13",
+      "period": "120"
+    },
+    {
+      "file": "sources/20251117_90.png",
+      "sha256": "92870c579d2d2ac98a67beebb553c5102d7b96c2ff49becc3671740492cf648e",
+      "width": 2824,
+      "height": 1084,
+      "manifest_date": "2025-11-17",
+      "period": "90"
+    }
+  ],
+  "source_anchors": [
+    {
+      "id": "120_this_value_and_activation_qualification",
+      "file": "sources/20251113_user_transcript.txt",
+      "file_sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "lines": [
+        12,
+        17
+      ],
+      "char_start": 515,
+      "char_end": 830,
+      "raw_excerpt": "1:321分钟32秒钟再看一下 120分钟 120分钟明天有可能就有动画了 因为他要跟这个值做对比啊\n1:421分钟42秒钟这个钝化的级别还可以 不算大反正也不算小 够用 120分钟今天有红角线了啊\n1:501分钟50秒钟0点正值啊 正值就是红角线 所以呢需要两根红角线 需要收盘价格创新高 对吧那这的时候呢 为啥没有啊\n1:591分钟59秒钟当时我们也说了 差了0.2 然后呢 还是一根红角线现 在呢也是一根红脚线\n2:062分钟6秒钟收盘价格创新高了 但是下面只有一根红脚线 那明天上午就第二根红脚线了 两根红脚线\n2:142分钟14秒钟价格创新高 收盘价格创新高 就会有120分钟的顶部动画 然后90分钟 90分钟二次是吧\n",
+      "excerpt_sha256": "59efa82b15722ec29a251d7e188910de798dce3908506fcf56eeafb31f05b2e0",
+      "audio_verified": false
+    },
+    {
+      "id": "90_second_next_morning",
+      "file": "sources/20251113_user_transcript.txt",
+      "file_sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "lines": [
+        17,
+        20
+      ],
+      "char_start": 775,
+      "char_end": 973,
+      "raw_excerpt": "2:142分钟14秒钟价格创新高 收盘价格创新高 就会有120分钟的顶部动画 然后90分钟 90分钟二次是吧\n2:232分钟23秒钟二次也是 明天上午 60分钟EU 已经出现\n2:312分钟31秒钟60分钟之前都没有啊 这这是没有的 120分钟这也是没有的 但是呢在在涨\n2:402分钟40秒钟涨到这的时候呢 60分钟就出钝化了 所以呢 这个周期之间的协调性会变好 但是指数这之间的协调性还一般\n",
+      "excerpt_sha256": "814f3d89660c156fbf1a1f69b6f61b5da1cdff641baba7de077ee941e2853d00",
+      "audio_verified": false
+    },
+    {
+      "id": "daily_disappearance_distinction",
+      "file": "sources/20251114_user_transcript.txt",
+      "file_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "lines": [
+        33,
+        37
+      ],
+      "char_start": 1544,
+      "char_end": 1802,
+      "raw_excerpt": "4:264分钟26秒钟这有个消失 这个消失是结构消失 不是钝化消失 那再向上呢 还有可能有新的钝化啊\n4:344分钟34秒钟如果向上 但是假如它不向上呢 这个结构消失也等于消失了 对啊也等于消失了\n4:434分钟43秒钟那么我们之前就说啊 日线可以不看 因为它的级别比较小 那这个地方呢 由于其他周期的配合 所以呢\n4:514分钟51秒钟它这个要比上一次的规模要大 但是你要说协调性好 原来是90分钟日线\n4:584分钟58秒钟现在呢是60分钟90分钟120分钟 结果日线消失了 所以你说周期协调性好 也没有好多少\n",
+      "excerpt_sha256": "2b78e1eda00cf9fd0fc3ecb590a92cb13d4e49b59760d25faa11ac04cd57ed1c",
+      "audio_verified": false
+    },
+    {
+      "id": "120_first_90_second_and_correction_difficulty",
+      "file": "sources/20251114_user_transcript.txt",
+      "file_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "lines": [
+        52,
+        60
+      ],
+      "char_start": 2523,
+      "char_end": 2996,
+      "raw_excerpt": "7:057分钟5秒钟对吧 那么长时间以来的首次顶部结构形成 120分钟啊\n7:147分钟14秒钟90分钟第二次 这是第一次 这是第二次 空间其实相差不大 那这个一往上涨\n7:237分钟23秒钟你就总担心会纠错 纠错难度其实挺大的 没那么容易的 但是你你在第一次结构形成的时候\n7:317分钟31秒钟你不知道后面有没有第二次啊 是不是不知道的呀 所以第一次顶部结构形成 它就符合交易的标准 那你凭什么不交易呢\n7:397分钟39秒钟你凭什么不交易呢 有第二次的话 就挺过去就完了呗 是不是这是正确的交易逻辑 所以呢从昨天昨天对吧\n7:487分钟48秒钟这个好多人在市场走出 跟他期待的方向不一致的时候 就很受到影响 很受到行情的影响\n7:577分钟57秒钟其实这没必要的 没必要这是90分钟 然后我们再看60分钟 60分钟啊\n8:048分钟4秒钟也是啊近期的一次 这120分钟和60分钟 这里是第一次形成 90分钟是第二次形成\n8:128分钟12秒钟好吧但是不管60分钟也好 90分钟也好 120分钟也好 它的调整级别都不是几天 怎么也得半个月吧\n",
+      "excerpt_sha256": "f46f8bdae5b8f696f79eec858bd9ce70ab3ebd60e8b3a1c83b985cce71493d10",
+      "audio_verified": false
+    },
+    {
+      "id": "correction_standard_not_yet_specified",
+      "file": "sources/20251114_user_transcript.txt",
+      "file_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "lines": [
+        118,
+        119
+      ],
+      "char_start": 6096,
+      "char_end": 6219,
+      "raw_excerpt": "16:1016分钟10秒钟以后不要问我啊 不要问我 我的操作跟你没关系 纠错标准 等到快纠错的时候我一定会说 我不说就是没有\n16:1716分钟17秒钟离纠错很远了是吧 这两天我都不说 对吧昨天涨了我也不说 因为什么 没那么容易纠错 不像有些人\n",
+      "excerpt_sha256": "500e28b63f081e34f3d3b6057d8165ff245d5c519849d54d1dad708a08156569",
+      "audio_verified": false
+    },
+    {
+      "id": "structures_effects_remain",
+      "file": "sources/20251117_user_transcript.txt",
+      "file_sha256": "6f49d68ea49cf995d5d1d6ecf7979a79028597b47a69a42bf81a753c32980cf3",
+      "lines": [
+        4,
+        9
+      ],
+      "char_start": 111,
+      "char_end": 385,
+      "raw_excerpt": "0:2424秒钟指数形成分钟线的顶部结构之后 目前仍然在趋势之上 本周重点观察的就是趋势\n0:3333秒钟如果结构不能够导致趋势破位 或者是底部结构不能到 导致趋势的突破 结构是没有意义的\n0:4242秒钟趋势为王 结构修编 结就结构 本来他就是辅助趋势的 服务于趋势的 稍等但是现在目前结构的效果还有\n0:5151秒钟对吧分钟周期 60分钟 90分钟 120分钟都有顶部结构 分别管用的\n0:5858秒钟对应的周期分别是681212天 日线结构消失了啊 大家看到\n1:071分钟7秒钟这个日线的顶部结构是消失了 所以暂时不用看日线 那么分钟线呢\n",
+      "excerpt_sha256": "4cb75f4ba295c25a84b6c4771098f2a598a6e01b65340e6646ef63f902058601",
+      "audio_verified": false
+    },
+    {
+      "id": "90_four_periods",
+      "file": "sources/20251117_user_transcript.txt",
+      "file_sha256": "6f49d68ea49cf995d5d1d6ecf7979a79028597b47a69a42bf81a753c32980cf3",
+      "lines": [
+        50,
+        53
+      ],
+      "char_start": 2334,
+      "char_end": 2542,
+      "raw_excerpt": "6:446分钟44秒钟需要克服的多数都是人性的问题 不是行情问题 好我们再看一下90分钟\n6:536分钟53秒钟90分钟四个周期了啊 四个周期 我们说24个周期 数呢也是属于小数\n7:007分钟所以呢反正近期呢 没有判断 没有办法判断低点 顶部结构 你比方说24个周期 你跌20个周期的时候\n7:087分钟8秒钟18个周期的时候 你说去找低点 那还有情可原 对不对 那你说这个120分钟跌俩周期 90分钟跌4个周期\n",
+      "excerpt_sha256": "42c3e0b11d5c6e319a2f23ab20aa5ecedaed94b6f504f2e1180434f801b3b220",
+      "audio_verified": false
+    }
+  ],
+  "visual_observations": [
+    {
+      "image": "sources/20251113_120.png",
+      "id": "older_dif_region_circled",
+      "coordinate_basis": "Original PNG pixel coordinates, manually read approximate regions; no quantitative DIF cursor measurement.",
+      "approx_region_xyxy": [
+        620,
+        665,
+        881,
+        852
+      ],
+      "observation": "Red ellipse crosses October28/29 date labels and earlier high DIF region. A separate long red stroke starts nearOctober30 and extends towardcurrent DIF area.",
+      "context": "Nov13 01:32 says tomorrow possible120 dulling because compare with this value;01:42 says size notlarge/notsmall/enough.",
+      "inference": "Supports October older high-region as author analytical comparison for prospective120 dulling size, rather than merely visible old curve.",
+      "not_proved": [
+        "Exact software historical peak date/value",
+        "Software sole active reference or stronger-reference algorithm",
+        "Old peak retention atNov14 based on a Nov14 image"
+      ]
+    },
+    {
+      "image": "sources/20251113_120.png",
+      "id": "recent_price_peak_circled",
+      "approx_region_xyxy": [
+        1620,
+        305,
+        1775,
+        417
+      ],
+      "observation": "Separate circle is on recent Nov10/11 price bars, not a labelled historical DIF cursor.",
+      "inference": "Price qualification and DIF size comparison may point to different visible areas. Do not equate software price and DIF reference selection from these circles."
+    },
+    {
+      "image": "sources/20251117_90.png",
+      "id": "november_history_only",
+      "observation": "Visible timeline starts2025-11-04; shows first andsecond DULL/STRUCTURE regions and green disappearance nearNov13. October DIF high is outsideviewport.",
+      "inference": "Supports event order already recorded; cannot identify second90 software DIF target. Green historical disappearance is not proof old reference peak has retired."
+    }
+  ],
+  "reference_catalog": [
+    {
+      "period": "90",
+      "role": "older",
+      "wave_start": "2025-10-23 15:00:00",
+      "wave_end": "2025-10-30 15:00:00",
+      "wave_count": 16,
+      "dif_peak_time": "2025-10-30 11:00:00",
+      "dif_peak": 31.39180919304681,
+      "price_peak_time": "2025-10-30 11:00:00",
+      "price_peak": 4017.2124,
+      "asof13_postwave_max_dif": 24.582953981951505,
+      "asof14_postwave_max_dif": 24.582953981951505,
+      "dif_crossed_through_nov14": false,
+      "later_close_exceeded_price_by_nov13": true,
+      "subsequent_sign_spans": [
+        {
+          "start": "2025-10-31 11:00:00",
+          "end": "2025-11-06 11:00:00",
+          "sign": -1,
+          "count": 13
+        },
+        {
+          "start": "2025-11-06 14:00:00",
+          "end": "2025-11-11 11:00:00",
+          "sign": 1,
+          "count": 9
+        },
+        {
+          "start": "2025-11-11 14:00:00",
+          "end": "2025-11-13 14:00:00",
+          "sign": -1,
+          "count": 7
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "end": "2025-11-14 14:00:00",
+          "sign": 1,
+          "count": 3
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-14 15:00:00",
+          "sign": -1,
+          "count": 1
+        }
+      ],
+      "completed_positive_spans_between_old_and_current": 1,
+      "values_are_software_cursor_truth": false
+    },
+    {
+      "period": "90",
+      "role": "recent",
+      "wave_start": "2025-11-06 14:00:00",
+      "wave_end": "2025-11-11 11:00:00",
+      "wave_count": 9,
+      "dif_peak_time": "2025-11-10 15:00:00",
+      "dif_peak": 13.0978018009082,
+      "price_peak_time": "2025-11-10 15:00:00",
+      "price_peak": 4018.5972,
+      "asof13_postwave_max_dif": 11.554488560280333,
+      "asof14_postwave_max_dif": 12.117558385294615,
+      "dif_crossed_through_nov14": false,
+      "later_close_exceeded_price_by_nov13": true,
+      "subsequent_sign_spans": [
+        {
+          "start": "2025-11-11 14:00:00",
+          "end": "2025-11-13 14:00:00",
+          "sign": -1,
+          "count": 7
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "end": "2025-11-14 14:00:00",
+          "sign": 1,
+          "count": 3
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-14 15:00:00",
+          "sign": -1,
+          "count": 1
+        }
+      ],
+      "completed_positive_spans_between_old_and_current": 0,
+      "values_are_software_cursor_truth": false
+    },
+    {
+      "period": "120",
+      "role": "older",
+      "wave_start": "2025-10-23 15:00:00",
+      "wave_end": "2025-10-31 11:30:00",
+      "wave_count": 12,
+      "dif_peak_time": "2025-10-30 11:30:00",
+      "dif_peak": 36.04526039839266,
+      "price_peak_time": "2025-10-30 11:30:00",
+      "price_peak": 4018.8628,
+      "asof13_postwave_max_dif": 26.49750496327215,
+      "asof14_postwave_max_dif": 26.49750496327215,
+      "dif_crossed_through_nov14": false,
+      "later_close_exceeded_price_by_nov13": true,
+      "subsequent_sign_spans": [
+        {
+          "start": "2025-10-31 15:00:00",
+          "end": "2025-11-10 11:30:00",
+          "sign": -1,
+          "count": 12
+        },
+        {
+          "start": "2025-11-10 15:00:00",
+          "end": "2025-11-10 15:00:00",
+          "sign": 1,
+          "count": 1
+        },
+        {
+          "start": "2025-11-11 11:30:00",
+          "end": "2025-11-13 11:30:00",
+          "sign": -1,
+          "count": 5
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "end": "2025-11-14 11:30:00",
+          "sign": 1,
+          "count": 2
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-14 15:00:00",
+          "sign": -1,
+          "count": 1
+        }
+      ],
+      "completed_positive_spans_between_old_and_current": 1,
+      "values_are_software_cursor_truth": false
+    },
+    {
+      "period": "120",
+      "role": "recent",
+      "wave_start": "2025-11-10 15:00:00",
+      "wave_end": "2025-11-10 15:00:00",
+      "wave_count": 1,
+      "dif_peak_time": "2025-11-10 15:00:00",
+      "dif_peak": 19.29233245855994,
+      "price_peak_time": "2025-11-10 15:00:00",
+      "price_peak": 4018.5972,
+      "asof13_postwave_max_dif": 18.800732317045004,
+      "asof14_postwave_max_dif": 18.800732317045004,
+      "dif_crossed_through_nov14": false,
+      "later_close_exceeded_price_by_nov13": true,
+      "subsequent_sign_spans": [
+        {
+          "start": "2025-11-11 11:30:00",
+          "end": "2025-11-13 11:30:00",
+          "sign": -1,
+          "count": 5
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "end": "2025-11-14 11:30:00",
+          "sign": 1,
+          "count": 2
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-14 15:00:00",
+          "sign": -1,
+          "count": 1
+        }
+      ],
+      "completed_positive_spans_between_old_and_current": 0,
+      "values_are_software_cursor_truth": false
+    }
+  ],
+  "candidate_origin_comparison": [
+    {
+      "period": "90",
+      "time": "2025-11-13 15:00:00",
+      "groups": [
+        {
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "reference_start": "",
+          "reference_dif": null,
+          "settings_count": 24,
+          "reference_policy": "nearest_qualifying"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    },
+    {
+      "period": "90",
+      "time": "2025-11-14 11:00:00",
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_start": "2025-11-06 14:00:00",
+          "reference_dif": 13.0978018009082,
+          "settings_count": 12,
+          "reference_policy": "nearest_qualifying"
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_start": "2025-10-23 15:00:00",
+          "reference_dif": 31.39180919304681,
+          "settings_count": 12,
+          "reference_policy": "strongest_eligible"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    },
+    {
+      "period": "90",
+      "time": "2025-11-14 14:00:00",
+      "groups": [
+        {
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 3,
+          "reference_start": "2025-11-06 14:00:00",
+          "reference_dif": 13.0978018009082,
+          "settings_count": 12,
+          "reference_policy": "nearest_qualifying"
+        },
+        {
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 3,
+          "reference_start": "2025-10-23 15:00:00",
+          "reference_dif": 31.39180919304681,
+          "settings_count": 12,
+          "reference_policy": "strongest_eligible"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    },
+    {
+      "period": "120",
+      "time": "2025-11-13 15:00:00",
+      "groups": [
+        {
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "reference_start": "",
+          "reference_dif": null,
+          "settings_count": 24,
+          "reference_policy": "nearest_qualifying"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    },
+    {
+      "period": "120",
+      "time": "2025-11-14 11:30:00",
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_start": "2025-11-10 15:00:00",
+          "reference_dif": 19.29233245855994,
+          "settings_count": 12,
+          "reference_policy": "nearest_qualifying"
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_start": "2025-10-23 15:00:00",
+          "reference_dif": 36.04526039839266,
+          "settings_count": 12,
+          "reference_policy": "strongest_eligible"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    },
+    {
+      "period": "120",
+      "time": "2025-11-14 15:00:00",
+      "groups": [
+        {
+          "event": "STRUCTURE",
+          "state": "NONE",
+          "wave_count": 1,
+          "reference_start": "2025-11-10 15:00:00",
+          "reference_dif": 19.29233245855994,
+          "settings_count": 12,
+          "reference_policy": "nearest_qualifying"
+        },
+        {
+          "event": "STRUCTURE",
+          "state": "NONE",
+          "wave_count": 1,
+          "reference_start": "2025-10-23 15:00:00",
+          "reference_dif": 36.04526039839266,
+          "settings_count": 12,
+          "reference_policy": "strongest_eligible"
+        }
+      ],
+      "event_and_state_discriminate_reference_selection": false
+    }
+  ],
+  "input_sha256": {
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "discrimination_screen_20261012/derived_120.csv": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+  },
+  "old120_export_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "temporary_script_sha256": "65afe29b68c840210aa6b54440c41c370a8eb8b2e56d24a2320e8af0c1338ea6",
+  "findings": [
+    {
+      "id": "120_analytical_old_region",
+      "status": "SUPPORTED_VISUAL_TEXT_INFERENCE",
+      "finding": "AtNov13 author appears to compare prospective120 scale against olderOctober high region. Saved DG wholewave peak isOct30 11:30 DIF36.045260; recent singlepositivebar waveNov10 15 DIF19.292332. Exact software value remainsunknown."
+    },
+    {
+      "id": "older_peak_not_automatically_replaced",
+      "status": "AUTHOR_ANALYTICAL_SCOPE_ONLY",
+      "finding": "In saved120 sequence there is one completed interveningpositive wave withonebar, plus two negative spans beforecurrent. Combined old-region annotation andthis-value passage support oldpeak stillanalytically relevant onNov13. This doesnot prove software selectedit or fixedtwowave window."
+    },
+    {
+      "id": "90_software_target",
+      "status": "UNRESOLVED",
+      "finding": "OldDG highOct30 11 DIF31.391809 andrecentNov10 15 DIF13.097802 bothremaincandidates; no oldpeak inimage,no literalnumeric reference quote. Nov14 newstructure has identicalevent/state underbothselectionpolicies."
+    },
+    {
+      "id": "numerical_survival_vs_eligibility",
+      "status": "CONFIRMED_SAVED_DATA_ONLY",
+      "finding": "Neitherolder90 nor120 high wascrossed by subsequent savedDIF throughNov14. This supports noDIF-break retirement but cannot ruleout window/count expiry. Currentwave preNov14 colorflip couldselecteitherhistoricaltarget."
+    },
+    {
+      "id": "nov14_inheritance",
+      "status": "NOT_CONFIRMED",
+      "finding": "Nov14 first120/second90 structure andNov17 continuingeffects do notidentify same oldtarget or itssolecontinuation. Do notupgradeNov13 visualcomparison intoNov14 softwaretruth."
+    },
+    {
+      "id": "convergence",
+      "status": "PARTIAL",
+      "finding": "120 analyticalcomparison favorsolderregion;90 remainsunidentified. Neither event labels nor correctiondifficulty safelyexclude nearest-reference activation. No score-driven choice ismade."
+    }
+  ],
+  "next_step": "Compare this Nov13 120 old-region survival evidence to existing Oct16 explicit oldpeak retirement explanation. Enumerate intervening completed signwaves and price/DIF cross conditions under unchanged candidates; isolate discriminating retirement mechanisms before one targeted source request.",
+  "verification": {
+    "original_image_manifest_hashes_match": true,
+    "image_count_added": 0,
+    "software_labels_added": 0,
+    "source_anchors": 7,
+    "prefix_checks": 144,
+    "origins": 6,
+    "settings_per_origin": 24,
+    "older_dif_peaks_count": 2,
+    "older_dif_peaks_not_crossed_through_nov14": true,
+    "november120_overlap_rows": 28,
+    "november120_export_vs_derived_max_dif_error": 6.366462912410498e-12,
+    "unchanged_research_files": 220
+  },
+  "limitations": [
+    "Static handwriting has no synchronized pointer/time history; comparison attribution is an inference, not a direct peak-value quote.",
+    "90 viewport excludesOctober; absence on screen doesnot mean reference retirement.",
+    "Author scale judgment and software detection reference may differ.",
+    "Candidate histories retain two same-sign waves by hypothesis; this audit doesnot prove authors history-window rule.",
+    "No network, quota, DB/Lake, formal implementation or trades."
+  ]
+}

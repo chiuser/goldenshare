@@ -1,0 +1,208 @@
+{
+  "frozenInputHashesVerified": [
+    {
+      "path": "inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "rows": 1316,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/60_20260301_20260420.csv",
+      "sha256": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f",
+      "rows": 140,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/90_20250401_20250703.csv",
+      "sha256": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c",
+      "rows": 189,
+      "columns": [
+        "trade_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "dif",
+        "dea",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+      "rows": 459,
+      "columns": [
+        "trade_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "dif",
+        "dea",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/90_20250701_20250814.csv",
+      "sha256": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+      "rows": 99,
+      "columns": [
+        "trade_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "dif",
+        "dea",
+        "hist"
+      ]
+    },
+    {
+      "path": "discrimination_screen_20261012/derived_90.csv",
+      "sha256": "9d3d8130b87a52627637d6bd5987a7040ce9dd6061858c9b934fcf19931a357a",
+      "rows": 987,
+      "columns": [
+        "time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/120_20250401_20251111.csv",
+      "sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "rows": 300,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/120_20250401_20250711.csv",
+      "sha256": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+      "rows": 138,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/120_20260101_20260507.csv",
+      "sha256": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+      "rows": 158,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "dea",
+        "hist"
+      ]
+    },
+    {
+      "path": "inputs/120_20260701_20260901.csv",
+      "sha256": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0",
+      "rows": 90,
+      "columns": [
+        "trade_time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    },
+    {
+      "path": "discrimination_screen_20261012/derived_120.csv",
+      "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "rows": 738,
+      "columns": [
+        "time",
+        "close",
+        "dif",
+        "hist"
+      ]
+    }
+  ],
+  "minuteComparison": {
+    "60": {
+      "frozenMergedRows": 1316,
+      "overlapRows": 1316,
+      "missingTimes": [],
+      "maxAbsoluteDifferences": {
+        "close": 0.0,
+        "dif": 0.0,
+        "hist": 0.0
+      },
+      "differentRowsOutsideFrozenTolerance": 0,
+      "differenceSamples": [],
+      "currentSourceStart": "2009-01-05 10:30:00"
+    },
+    "90": {
+      "frozenMergedRows": 1107,
+      "overlapRows": 1107,
+      "missingTimes": [],
+      "maxAbsoluteDifferences": {
+        "close": 0.0,
+        "dif": 9.549694368615746e-12,
+        "hist": 3.844036200462142e-12
+      },
+      "differentRowsOutsideFrozenTolerance": 0,
+      "differenceSamples": [],
+      "currentSourceStart": "2009-01-05 11:00:00"
+    },
+    "120": {
+      "frozenMergedRows": 738,
+      "overlapRows": 738,
+      "missingTimes": [],
+      "maxAbsoluteDifferences": {
+        "close": 0.0,
+        "dif": 7.275957614183426e-12,
+        "hist": 3.888445121447148e-12
+      },
+      "differentRowsOutsideFrozenTolerance": 0,
+      "differenceSamples": [],
+      "currentSourceStart": "2009-01-05 11:30:00"
+    }
+  },
+  "dailyComparison": [
+    {
+      "path": "inputs/daily_2025.csv",
+      "sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+      "rows": 207,
+      "overlapRows": 207,
+      "missingTimes": [],
+      "maxAbsoluteDifferences": {
+        "close": 0.0,
+        "dif": 0.0,
+        "dea": 0.0,
+        "hist": 0.0
+      }
+    },
+    {
+      "path": "inputs/daily_20260801_20261009.csv",
+      "sha256": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c",
+      "rows": 44,
+      "overlapRows": 44,
+      "missingTimes": [],
+      "maxAbsoluteDifferences": {
+        "close": 0.0,
+        "dif": 0.0,
+        "dea": 0.0,
+        "hist": 0.0
+      }
+    }
+  ],
+  "note": "source comparison only, no algorithm replay and no changes to frozen evidence"
+}

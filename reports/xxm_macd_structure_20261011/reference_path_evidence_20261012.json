@@ -1,0 +1,1707 @@
+{
+  "audited_at_utc": "2026-10-12T14:45:51.658334+00:00",
+  "purpose": "Separate selection preference from switching priority using existing evidence",
+  "inference": "finite-sample observational equivalence; no universal formula or software truth claim",
+  "rows": 579,
+  "prefix_checks": 96,
+  "variants": [
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": true
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 28,
+            "price": 3406.0967,
+            "dif": 10.556501856990963,
+            "start": "2025-05-29 15:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "active_reference": null,
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "checkpoints": [
+        {
+          "time": "2025-06-24 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 14:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-25 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        },
+        {
+          "time": "2025-06-27 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "active_reference": {
+            "sign": 1,
+            "count": 22,
+            "price": 3403.948,
+            "dif": 23.498217554217263,
+            "start": "2025-05-06 14:00:00"
+          },
+          "changed_reference": false
+        }
+      ]
+    }
+  ],
+  "paired_checks": [
+    {
+      "gate_pct": 0.75,
+      "active_policy": "locked",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "active_policy": "both_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "active_policy": "dull_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 0.75,
+      "active_policy": "both_after",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "active_policy": "locked",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "active_policy": "both_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "active_policy": "dull_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.0,
+      "active_policy": "both_after",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "active_policy": "locked",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "active_policy": "both_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "active_policy": "dull_before",
+      "compared_bars": 579,
+      "event_state_difference_times": [],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    },
+    {
+      "gate_pct": 1.2,
+      "active_policy": "both_after",
+      "compared_bars": 579,
+      "event_state_difference_times": [
+        "2025-06-25 14:00:00",
+        "2025-06-25 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-08-18 14:00:00"
+      ],
+      "internal_reference_difference_times": [
+        "2025-06-24 14:00:00",
+        "2025-06-24 15:00:00",
+        "2025-06-25 11:00:00",
+        "2025-06-25 14:00:00",
+        "2025-07-04 15:00:00",
+        "2025-08-15 15:00:00",
+        "2025-08-18 11:00:00",
+        "2025-11-14 11:00:00",
+        "2025-11-14 14:00:00"
+      ]
+    }
+  ],
+  "june25_14_groups": {
+    "cancellation_gap": 6,
+    "continuous_dulling": 18
+  },
+  "evidence": [
+    {
+      "date": "20250624",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250624_vidiq_transcript.json",
+      "source_sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "url": "https://www.youtube.com/watch?v=0pRHKjTiHGM",
+      "text_start": 3288,
+      "text_end": 3488,
+      "excerpt": "90分钟也一样啊 他还是可以跟隔风进行对比 所以顿化的级别比较大 所以90分钟 120分钟仍然是有顿化的 但是就是因为这里是三浪三 如果其他的浪型我 们可能就等钝化消失再进行纠错了 但是三浪三它比较特殊 另外呢就是钝化的级别越大 代表了钝化到钝化消失 所消耗的空间就越大 再加上现在是三浪三 目前给大家的建议是 也许是损耗最小的建议 所以衡量我们有可能会失去什么 有可能会得到什么 我们遇到的最大的机",
+      "role": "old_peak_eligibility_not_unique_choice",
+      "index_semantics": "Unicode character offset, not video time"
+    },
+    {
+      "date": "20250625",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json",
+      "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "url": "https://www.youtube.com/watch?v=5SBg6oU2c4c",
+      "text_start": 2282,
+      "text_end": 2472,
+      "excerpt": "90分钟线呢 今天收盘的时候 钝化加9也是一个原理啊 就是这个 涨速比较快 那么这个钝化加9 按理说这个位置上也可以判定高位 但是由于涨速快 然后呢背大背景是3浪 所以呢也是不建议操作的 60分钟动画消失了啊 最好的走势啊 我先说啊 这里最好的走势是全部动画消失 全部动画消失 那就代表了下一次再形成动画 不定啥时候了 这是最好的一种走势当然 也不能说市场一定会这么走 我们只是说",
+      "role": "snapshot_at_close_not_continuous_path",
+      "index_semantics": "Unicode character offset, not video time"
+    },
+    {
+      "date": "20250625",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json",
+      "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "url": "https://www.youtube.com/watch?v=5SBg6oU2c4c",
+      "text_start": 2376,
+      "text_end": 2471,
+      "excerpt": "60分钟动画消失了啊 最好的走势啊 我先说啊 这里最好的走势是全部动画消失 全部动画消失 那就代表了下一次再形成动画 不定啥时候了 这是最好的一种走势当然 也不能说市场一定会这么走 我们只是",
+      "role": "different_frequency_control",
+      "index_semantics": "Unicode character offset, not video time"
+    },
+    {
+      "date": "20250625",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json",
+      "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "url": "https://www.youtube.com/watch?v=5SBg6oU2c4c",
+      "text_start": 1540,
+      "text_end": 1775,
+      "excerpt": "我们再看120分钟线 120分钟线呢 目前还用同样的算法啊 目前的DF值是12 目前的DF值是12 上一个周期呢DF值是7 那么也是运行5或者是4.5 最高的值呢是26啊 最高值是26这个位置啊 2612-26有14 那么我们算4.5的话呢应该是 差不多4个周期 4个周期就两天 日线呢动画消失 那么基本上也是至少需要两天 所以到周五啊 到周五的时候我们再看 好吧到周五的时 候我们再看 那么然后呢 就是我们还看到这个速度比较快啊 这波速度比较快 一般来讲 急涨的情况下",
+      "role": "reported_peak_26_is_120min_not_90min",
+      "index_semantics": "Unicode character offset, not video time"
+    },
+    {
+      "date": "20250626",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_vidiq_transcript.json",
+      "source_sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "url": "https://www.youtube.com/watch?v=jv_ZGcDSV10",
+      "text_start": 865,
+      "text_end": 1075,
+      "excerpt": "然后再看90分钟线 90分钟线这个钝化加9还是在 还是有一定效果 但是昨天是大阳线 所以昨天我们不建议操作啊 就等这个顶部结构形成就行了 那么时间的重点注意的是上午的11点 11:30 下午的2点 下午3点啊 这四个时间 这四个时间不减最好 注意啊不减这里最好 假如明天是中阳线最好 但是假如说结构形成 还是要尊重一下 结构就是结构形成我再买 我再卖出 将来动画教室我再买回 这样的话 他拿你拿我 市场拿我们一点办法都没",
+      "role": "later_snapshot_not_june25_14",
+      "index_semantics": "Unicode character offset, not video time"
+    },
+    {
+      "date": "20250626",
+      "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_vidiq_transcript.json",
+      "source_sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "url": "https://www.youtube.com/watch?v=jv_ZGcDSV10",
+      "text_start": 2121,
+      "text_end": 2216,
+      "excerpt": "60分钟动画消失了 对吧哪哪一个 90分钟或120分钟 哪一个先来哪一个减 然后呢 11点之前不用不用考虑 11点要看一下 11:30要看一下 刚才说了 就这四个时间点 下午102十 下午1",
+      "role": "different_frequency_control",
+      "index_semantics": "Unicode character offset, not video time"
+    }
+  ],
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "inputs": [
+    {
+      "path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/inputs/90_20250401_20250703.csv",
+      "sha256": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    }
+  ],
+  "chart_context": {
+    "path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250703_90.png",
+    "sha256": "357ab7fd72acdd8d8b451ad9c677feac9cf7136a4a0e22e4931ea0525038b1aa",
+    "limitation": "Post-event historical image; missing marker is not proof of no earlier cancellation"
+  },
+  "conclusion": "Existing endpoint narratives do not eliminate any group; current label alone cannot choose nearest versus strongest with pre-cancellation refresh",
+  "minimum_evidence": [
+    "June 24 90-minute explanation explicitly identifying the selected comparison peak during initial dulling",
+    "June 25 14:00 contemporaneous 90-minute state or explicit timestamped cancellation; would separate gap versus continuity only"
+  ],
+  "protected_existing_files_unchanged": 213
+}

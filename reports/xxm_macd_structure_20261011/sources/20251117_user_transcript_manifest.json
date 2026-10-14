@@ -1,0 +1,15 @@
+{
+  "date": "2025-11-17",
+  "received_on": "2026-10-12",
+  "provider": "user async-question reply",
+  "original_path": null,
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251117_user_transcript.txt",
+  "sha256": "6f49d68ea49cf995d5d1d6ecf7979a79028597b47a69a42bf81a753c32980cf3",
+  "lines": 133,
+  "characters": 6694,
+  "capture_method": "Full supplied text manually preserved, including literal malformed prefixes and unrelated discussion; no original-file byte comparator",
+  "limitations": [
+    "No audio verification",
+    "90 historical green-marker identity not explicitly explained in supplied text"
+  ]
+}

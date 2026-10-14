@@ -1,0 +1,1824 @@
+{
+  "research_date": "2026-10-13",
+  "status": "RAW_SEGMENT_BEFORE_PAIR_FILTER_LOCALLY_SUPPORTED",
+  "scope": "Review saved June24/25 and Aug15/18 skipped-peak examples; compare ordering of two-history truncation and current price/DIF filtering, using Oct24 existing event as discriminator. Diagnostic snapshots only, no alternative replay or product implementation.",
+  "qualification_definitions": {
+    "pair_qualification": "Current positive wave price>historical wave price AND current positive wave DIF<historical wave DIF, strict extrema, causal prefix.",
+    "raw": "Take last two completed positive sign segments, then filter and choose strongest.",
+    "pair_filtered": "Filter entire completed positive history by current price/DIF relation, take last two survivors, then choose strongest.",
+    "ever_dull": "Take last two historical positive segments that had any positive-direction DULL under unchanged strongest candidate, then filter; candidate-defined, not software facts."
+  },
+  "source_anchors": [
+    {
+      "id": "skipped_peak_interpretation",
+      "file": "sources/20250624_vidiq_transcript.json",
+      "sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "source_url": "https://www.youtube.com/watch?v=0pRHKjTiHGM",
+      "json_pointer": "/response/transcription",
+      "char_start": 3234,
+      "char_end": 3340,
+      "raw_excerpt": "120分钟线 120分钟线因为跟格峰可以进行比较 因此这个钝化的级别还是比较大的啊 钝化的级别还是比较大的 90分钟也一样啊 他还是可以跟隔风进行对比 所以顿化的级别比较大 所以90分钟 120分钟仍然是有顿化的",
+      "audio_verified": false
+    },
+    {
+      "id": "explicit_old26_reference",
+      "file": "sources/20250625_vidiq_transcript.json",
+      "sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "source_url": "https://www.youtube.com/watch?v=5SBg6oU2c4c",
+      "json_pointer": "/response/transcription",
+      "char_start": 1540,
+      "char_end": 1679,
+      "raw_excerpt": "我们再看120分钟线 120分钟线呢 目前还用同样的算法啊 目前的DF值是12 目前的DF值是12 上一个周期呢DF值是7 那么也是运行5或者是4.5 最高的值呢是26啊 最高值是26这个位置啊 2612-26有14 那么我们算4.5的话呢应该是 差不多4个周期 4个周期就两天",
+      "audio_verified": false
+    },
+    {
+      "id": "next_bar3750_boundary",
+      "file": "sources/20250815_vidiq_transcript.json",
+      "sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+      "source_url": "https://www.youtube.com/watch?v=WqGqhpLhLPk",
+      "json_pointer": "/response/transcription",
+      "char_start": 1185,
+      "char_end": 1334,
+      "raw_excerpt": "120分钟结构相乘 3689跌7个点动画消失 3750涨54个点 对吧你看我刚才说的都是一样的呀 那个叫史同学史诗泽对吧 你这个得出来的结论 跟我跟我刚才说的是一样的啊 上证指数涨3个点 钝化消失 跌16个点 结构形成 120分钟涨54个点 钝化消失 跌7个点 钝化形成 所以就是3:16和54:7",
+      "audio_verified": false
+    },
+    {
+      "id": "120_end_of_day_dullness_disappearance",
+      "file": "sources/20250818_vidiq_transcript.json",
+      "sha256": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+      "source_url": "https://www.youtube.com/watch?v=_mIgN_lnoc0",
+      "json_pointer": "/response/transcription",
+      "char_start": 739,
+      "char_end": 829,
+      "raw_excerpt": "好我们再看一下120分钟 120分钟钝化消失啊 钝化消失 这个消失是钝化消失 所以呢这个是要买回的 今天最低点 下午最低点的时候 动画又没消失了 对吧但是呢 到收盘的时候还是上涨的",
+      "audio_verified": false
+    }
+  ],
+  "original_images": [
+    {
+      "file": "sources/20250625_120.png",
+      "sha256": "f6c16362087c5a1f6c1b7323be10be5983a04d01f7b5287a72de88fdce59ae1e",
+      "manifest_hash_matched": true
+    },
+    {
+      "file": "sources/20250818_120.png",
+      "sha256": "c69cb4190eaf3c3d695aaa4af2172a7e19ad188ec2f46c376f8a6689d8cf4f40",
+      "manifest_hash_matched": true
+    },
+    {
+      "file": "sources/20251027_120.png",
+      "sha256": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+      "manifest_hash_matched": true
+    }
+  ],
+  "reference_wave_catalog": [
+    {
+      "start": "2025-05-06 11:30:00",
+      "sign": 1,
+      "count": 17,
+      "price": 3403.948,
+      "dif": 26.114902990716928,
+      "price_time": "2025-05-14 15:00:00",
+      "dif_time": "2025-05-15 11:30:00",
+      "wave_end": "2025-05-16 11:30:00",
+      "events_owned_by_wave": [
+        {
+          "time": "2025-05-06 15:00:00",
+          "event": "DULL",
+          "event_route": "activation",
+          "event_ref_start": "2025-04-11 15:00:00",
+          "event_ref_dif": 7.200664107300327
+        },
+        {
+          "time": "2025-05-07 11:30:00",
+          "event": "CANCEL",
+          "event_route": "dif_break",
+          "event_ref_start": "2025-04-11 15:00:00",
+          "event_ref_dif": 7.200664107300327
+        }
+      ],
+      "end_candidate_state": "NONE",
+      "ever_candidate_dull": true,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    },
+    {
+      "start": "2025-06-04 11:30:00",
+      "sign": 1,
+      "count": 14,
+      "price": 3404.6565,
+      "dif": 11.88627301629458,
+      "price_time": "2025-06-12 11:30:00",
+      "dif_time": "2025-06-12 15:00:00",
+      "wave_end": "2025-06-12 15:00:00",
+      "events_owned_by_wave": [
+        {
+          "time": "2025-06-12 11:30:00",
+          "event": "DULL",
+          "event_route": "activation",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928
+        },
+        {
+          "time": "2025-06-13 11:30:00",
+          "event": "STRUCTURE",
+          "event_route": "color_flip",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928
+        }
+      ],
+      "end_candidate_state": "DULL",
+      "ever_candidate_dull": true,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    },
+    {
+      "start": "2025-07-21 11:30:00",
+      "sign": 1,
+      "count": 12,
+      "price": 3608.5757,
+      "dif": 32.468748833716745,
+      "price_time": "2025-07-23 11:30:00",
+      "dif_time": "2025-07-24 15:00:00",
+      "wave_end": "2025-07-28 15:00:00",
+      "events_owned_by_wave": [
+        {
+          "time": "2025-07-21 15:00:00",
+          "event": "DULL",
+          "event_route": "activation",
+          "event_ref_start": "2025-06-24 11:30:00",
+          "event_ref_dif": 27.208300610376682
+        },
+        {
+          "time": "2025-07-23 11:30:00",
+          "event": "CANCEL",
+          "event_route": "dif_break",
+          "event_ref_start": "2025-06-24 11:30:00",
+          "event_ref_dif": 27.208300610376682
+        }
+      ],
+      "end_candidate_state": "NONE",
+      "ever_candidate_dull": true,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    },
+    {
+      "start": "2025-07-30 11:30:00",
+      "sign": 1,
+      "count": 2,
+      "price": 3628.53,
+      "dif": 29.635069504135572,
+      "price_time": "2025-07-30 11:30:00",
+      "dif_time": "2025-07-30 11:30:00",
+      "wave_end": "2025-07-30 15:00:00",
+      "events_owned_by_wave": [
+        {
+          "time": "2025-07-30 15:00:00",
+          "event": "DULL",
+          "event_route": "activation",
+          "event_ref_start": "2025-07-21 11:30:00",
+          "event_ref_dif": 32.468748833716745
+        },
+        {
+          "time": "2025-07-31 11:30:00",
+          "event": "STRUCTURE",
+          "event_route": "color_flip",
+          "event_ref_start": "2025-07-21 11:30:00",
+          "event_ref_dif": 32.468748833716745
+        }
+      ],
+      "end_candidate_state": "DULL",
+      "ever_candidate_dull": true,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    },
+    {
+      "start": "2025-10-16 11:30:00",
+      "sign": 1,
+      "count": 2,
+      "price": 3916.228,
+      "dif": 15.518977563021508,
+      "price_time": "2025-10-16 15:00:00",
+      "dif_time": "2025-10-16 15:00:00",
+      "wave_end": "2025-10-16 15:00:00",
+      "events_owned_by_wave": [],
+      "end_candidate_state": "NONE",
+      "ever_candidate_dull": false,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    },
+    {
+      "start": "2025-10-22 15:00:00",
+      "sign": 1,
+      "count": 1,
+      "price": 3913.7576,
+      "dif": 10.383808977830995,
+      "price_time": "2025-10-22 15:00:00",
+      "dif_time": "2025-10-22 15:00:00",
+      "wave_end": "2025-10-22 15:00:00",
+      "events_owned_by_wave": [],
+      "end_candidate_state": "NONE",
+      "ever_candidate_dull": false,
+      "intrinsic_peak_can_differ_from_reference_of_earlier_signal": true,
+      "software_events_observed_here": false
+    }
+  ],
+  "snapshots": [
+    {
+      "time": "2025-06-24 15:00:00",
+      "current_wave": {
+        "start": "2025-06-24 11:30:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3420.566,
+        "dif": 4.483709462167553,
+        "price_time": "2025-06-24 15:00:00",
+        "dif_time": "2025-06-24 15:00:00"
+      },
+      "historical_positive_waves": 3,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-06-04 11:30:00",
+            "sign": 1,
+            "count": 14,
+            "price": 3404.6565,
+            "dif": 11.88627301629458,
+            "price_time": "2025-06-12 11:30:00",
+            "dif_time": "2025-06-12 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-06-04 11:30:00",
+            "sign": 1,
+            "count": 14,
+            "price": 3404.6565,
+            "dif": 11.88627301629458,
+            "price_time": "2025-06-12 11:30:00",
+            "dif_time": "2025-06-12 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-06-04 11:30:00",
+            "sign": 1,
+            "count": 14,
+            "price": 3404.6565,
+            "dif": 11.88627301629458,
+            "price_time": "2025-06-12 11:30:00",
+            "dif_time": "2025-06-12 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-06-24 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3420.566,
+        "dif": 4.483709462167553,
+        "hist": 6.202076109208423,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-05-06 11:30:00",
+        "event_ref_dif": 26.114902990716928,
+        "event_ref_price": 3403.948
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "current_wave": {
+        "start": "2025-06-24 11:30:00",
+        "sign": 1,
+        "count": 4,
+        "price": 3455.9736,
+        "dif": 12.048531096510033,
+        "price_time": "2025-06-25 15:00:00",
+        "dif_time": "2025-06-25 15:00:00"
+      },
+      "historical_positive_waves": 3,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-06-04 11:30:00",
+            "sign": 1,
+            "count": 14,
+            "price": 3404.6565,
+            "dif": 11.88627301629458,
+            "price_time": "2025-06-12 11:30:00",
+            "dif_time": "2025-06-12 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-05-06 11:30:00",
+            "sign": 1,
+            "count": 17,
+            "price": 3403.948,
+            "dif": 26.114902990716928,
+            "price_time": "2025-05-14 15:00:00",
+            "dif_time": "2025-05-15 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-06-04 11:30:00",
+            "sign": 1,
+            "count": 14,
+            "price": 3404.6565,
+            "dif": 11.88627301629458,
+            "price_time": "2025-06-12 11:30:00",
+            "dif_time": "2025-06-12 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-05-06 11:30:00",
+          "sign": 1,
+          "count": 17,
+          "price": 3403.948,
+          "dif": 26.114902990716928,
+          "price_time": "2025-05-14 15:00:00",
+          "dif_time": "2025-05-15 11:30:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-06-25 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 4,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3455.9736,
+        "dif": 12.048531096510033,
+        "hist": 15.069571257187135,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "current_wave": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3638.3965,
+        "dif": 19.816737676205776,
+        "price_time": "2025-08-07 11:30:00",
+        "dif_time": "2025-08-07 11:30:00"
+      },
+      "historical_positive_waves": 6,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-08-07 11:30:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-07-21 11:30:00",
+        "close": 3638.3965,
+        "dif": 19.816737676205776,
+        "hist": 3.7526602998063723,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-07-21 11:30:00",
+        "event_ref_dif": 32.468748833716745,
+        "event_ref_price": 3608.5757
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "current_wave": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 15,
+        "price": 3696.7705,
+        "dif": 28.850816828276493,
+        "price_time": "2025-08-15 15:00:00",
+        "dif_time": "2025-08-14 11:30:00"
+      },
+      "historical_positive_waves": 6,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-08-15 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 15,
+        "ref_start": "2025-07-21 11:30:00",
+        "close": 3696.7705,
+        "dif": 27.959338965998086,
+        "hist": 3.390660065572817,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "dif_return",
+        "event_ref_start": "2025-07-21 11:30:00",
+        "event_ref_dif": 32.468748833716745,
+        "event_ref_price": 3608.5757
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "current_wave": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 16,
+        "price": 3740.5027,
+        "dif": 31.65267767334717,
+        "price_time": "2025-08-18 11:30:00",
+        "dif_time": "2025-08-18 11:30:00"
+      },
+      "historical_positive_waves": 6,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-07-21 11:30:00",
+          "sign": 1,
+          "count": 12,
+          "price": 3608.5757,
+          "dif": 32.468748833716745,
+          "price_time": "2025-07-23 11:30:00",
+          "dif_time": "2025-07-24 15:00:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-08-18 11:30:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-07-21 11:30:00",
+        "close": 3740.5027,
+        "dif": 31.65267767334717,
+        "hist": 8.621869984216787,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "current_wave": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 17,
+        "price": 3740.5027,
+        "dif": 33.19041623126077,
+        "price_time": "2025-08-18 11:30:00",
+        "dif_time": "2025-08-18 15:00:00"
+      },
+      "historical_positive_waves": 6,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ],
+        "qualify_then_last_two": [],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-07-21 11:30:00",
+            "sign": 1,
+            "count": 12,
+            "price": 3608.5757,
+            "dif": 32.468748833716745,
+            "price_time": "2025-07-23 11:30:00",
+            "dif_time": "2025-07-24 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          },
+          {
+            "start": "2025-07-30 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3628.53,
+            "dif": 29.635069504135572,
+            "price_time": "2025-07-30 11:30:00",
+            "dif_time": "2025-07-30 11:30:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": null,
+        "qualify_then_last_two": null,
+        "ever_dull_then_last_two": null
+      },
+      "raw_vs_qualify_selection_differs": false,
+      "actual_strongest_candidate": {
+        "time": "2025-08-18 15:00:00",
+        "event": "CANCEL",
+        "state": "NONE",
+        "wave_count": 17,
+        "ref_start": "2025-07-21 11:30:00",
+        "close": 3728.0273,
+        "dif": 33.19041623126077,
+        "hist": 9.35787768003518,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "dif_break",
+        "event_ref_start": "2025-07-21 11:30:00",
+        "event_ref_dif": 32.468748833716745,
+        "event_ref_price": 3608.5757
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "current_wave": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3938.9841,
+        "dif": 13.44434809032191,
+        "price_time": "2025-10-24 11:30:00",
+        "dif_time": "2025-10-24 11:30:00"
+      },
+      "historical_positive_waves": 11,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-10-16 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3916.228,
+            "dif": 15.518977563021508,
+            "price_time": "2025-10-16 15:00:00",
+            "dif_time": "2025-10-16 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-10-22 15:00:00",
+            "sign": 1,
+            "count": 1,
+            "price": 3913.7576,
+            "dif": 10.383808977830995,
+            "price_time": "2025-10-22 15:00:00",
+            "dif_time": "2025-10-22 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-09-30 11:30:00",
+            "sign": 1,
+            "count": 9,
+            "price": 3933.9724,
+            "dif": 19.868377518397665,
+            "price_time": "2025-10-09 15:00:00",
+            "dif_time": "2025-10-10 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-10-16 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3916.228,
+            "dif": 15.518977563021508,
+            "price_time": "2025-10-16 15:00:00",
+            "dif_time": "2025-10-16 15:00:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-09-11 15:00:00",
+            "sign": 1,
+            "count": 10,
+            "price": 3893.9502,
+            "dif": 20.93471168695578,
+            "price_time": "2025-09-18 11:30:00",
+            "dif_time": "2025-09-18 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-09-30 11:30:00",
+            "sign": 1,
+            "count": 9,
+            "price": 3933.9724,
+            "dif": 19.868377518397665,
+            "price_time": "2025-10-09 15:00:00",
+            "dif_time": "2025-10-10 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": {
+          "start": "2025-10-16 11:30:00",
+          "sign": 1,
+          "count": 2,
+          "price": 3916.228,
+          "dif": 15.518977563021508,
+          "price_time": "2025-10-16 15:00:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        "qualify_then_last_two": {
+          "start": "2025-09-30 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3933.9724,
+          "dif": 19.868377518397665,
+          "price_time": "2025-10-09 15:00:00",
+          "dif_time": "2025-10-10 11:30:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-09-11 15:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3893.9502,
+          "dif": 20.93471168695578,
+          "price_time": "2025-09-18 11:30:00",
+          "dif_time": "2025-09-18 11:30:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": true,
+      "actual_strongest_candidate": {
+        "time": "2025-10-24 11:30:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:30:00",
+        "close": 3938.9841,
+        "dif": 13.44434809032191,
+        "hist": 6.0297835351494165,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:30:00",
+        "event_ref_dif": 15.518977563021508,
+        "event_ref_price": 3916.228
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "current_wave": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 3,
+        "price": 3950.3115,
+        "dif": 16.181185402706433,
+        "price_time": "2025-10-24 15:00:00",
+        "dif_time": "2025-10-24 15:00:00"
+      },
+      "historical_positive_waves": 11,
+      "nearest_price_gate": true,
+      "current_min_two_bars": true,
+      "pools": {
+        "raw_last_two": [
+          {
+            "start": "2025-10-16 11:30:00",
+            "sign": 1,
+            "count": 2,
+            "price": 3916.228,
+            "dif": 15.518977563021508,
+            "price_time": "2025-10-16 15:00:00",
+            "dif_time": "2025-10-16 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          },
+          {
+            "start": "2025-10-22 15:00:00",
+            "sign": 1,
+            "count": 1,
+            "price": 3913.7576,
+            "dif": 10.383808977830995,
+            "price_time": "2025-10-22 15:00:00",
+            "dif_time": "2025-10-22 15:00:00",
+            "price_ok": true,
+            "dif_ok": false
+          }
+        ],
+        "qualify_then_last_two": [
+          {
+            "start": "2025-09-11 15:00:00",
+            "sign": 1,
+            "count": 10,
+            "price": 3893.9502,
+            "dif": 20.93471168695578,
+            "price_time": "2025-09-18 11:30:00",
+            "dif_time": "2025-09-18 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-09-30 11:30:00",
+            "sign": 1,
+            "count": 9,
+            "price": 3933.9724,
+            "dif": 19.868377518397665,
+            "price_time": "2025-10-09 15:00:00",
+            "dif_time": "2025-10-10 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ],
+        "ever_dull_then_last_two": [
+          {
+            "start": "2025-09-11 15:00:00",
+            "sign": 1,
+            "count": 10,
+            "price": 3893.9502,
+            "dif": 20.93471168695578,
+            "price_time": "2025-09-18 11:30:00",
+            "dif_time": "2025-09-18 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          },
+          {
+            "start": "2025-09-30 11:30:00",
+            "sign": 1,
+            "count": 9,
+            "price": 3933.9724,
+            "dif": 19.868377518397665,
+            "price_time": "2025-10-09 15:00:00",
+            "dif_time": "2025-10-10 11:30:00",
+            "price_ok": true,
+            "dif_ok": true
+          }
+        ]
+      },
+      "potential_new_strongest_targets": {
+        "raw_last_two": null,
+        "qualify_then_last_two": {
+          "start": "2025-09-11 15:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3893.9502,
+          "dif": 20.93471168695578,
+          "price_time": "2025-09-18 11:30:00",
+          "dif_time": "2025-09-18 11:30:00"
+        },
+        "ever_dull_then_last_two": {
+          "start": "2025-09-11 15:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3893.9502,
+          "dif": 20.93471168695578,
+          "price_time": "2025-09-18 11:30:00",
+          "dif_time": "2025-09-18 11:30:00"
+        }
+      },
+      "raw_vs_qualify_selection_differs": true,
+      "actual_strongest_candidate": {
+        "time": "2025-10-24 15:00:00",
+        "event": "CANCEL",
+        "state": "NONE",
+        "wave_count": 3,
+        "ref_start": "2025-10-16 11:30:00",
+        "close": 3950.3115,
+        "dif": 16.181185402706433,
+        "hist": 9.20276652793477,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "dif_break",
+        "event_ref_start": "2025-10-16 11:30:00",
+        "event_ref_dif": 15.518977563021508,
+        "event_ref_price": 3916.228
+      },
+      "qualification_note": "Qualify is strictly current-wave highest close greater than reference close peak AND current-wave DIF peak lower than reference DIF peak. Not author verified formula or intrinsic chart pattern quality."
+    }
+  ],
+  "candidate_prefix_checks": [
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 26.114902990716928,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 26.114902990716928,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-24 15:00:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 26.114902990716928,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 11.88627301629458,
+      "active_ref_start": "2025-06-04 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-06-25 15:00:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-05-06 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-07 11:30:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-15 15:00:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 29.635069504135572,
+      "active_ref_start": "2025-07-30 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 11:30:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "event_ref_dif": null,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "NONE",
+      "state": "NONE",
+      "event_ref_dif": null,
+      "active_ref_start": "",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "NONE",
+      "state": "NONE",
+      "event_ref_dif": null,
+      "active_ref_start": "",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "NONE",
+      "state": "NONE",
+      "event_ref_dif": null,
+      "active_ref_start": "",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-08-18 15:00:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 32.468748833716745,
+      "active_ref_start": "2025-07-21 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 11:30:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    },
+    {
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "policy": "strongest_eligible",
+      "event": "CANCEL",
+      "state": "NONE",
+      "event_ref_dif": 15.518977563021508,
+      "active_ref_start": "2025-10-16 11:30:00",
+      "prefix_matched": true
+    }
+  ],
+  "october24_locked_target_diagnostic": [
+    {
+      "selection": "raw_last_two",
+      "activation_origin": "2025-10-24 11:30:00",
+      "frozen_dif_target": 15.518977563021508,
+      "target_start": "2025-10-16 11:30:00",
+      "next_time": "2025-10-24 15:00:00",
+      "next_dif": 16.181185402706433,
+      "strict_dif_cross": true,
+      "conditional_next_event": "CANCEL",
+      "observed_event": "CANCEL",
+      "observed_confidence": "mapped; reused holdout20251027, no new software label",
+      "matches": true
+    },
+    {
+      "selection": "qualify_then_last_two",
+      "activation_origin": "2025-10-24 11:30:00",
+      "frozen_dif_target": 19.868377518397665,
+      "target_start": "2025-09-30 11:30:00",
+      "next_time": "2025-10-24 15:00:00",
+      "next_dif": 16.181185402706433,
+      "strict_dif_cross": false,
+      "conditional_next_event": "NONE_CONTINUE_DULL",
+      "observed_event": "CANCEL",
+      "observed_confidence": "mapped; reused holdout20251027, no new software label",
+      "matches": false
+    },
+    {
+      "selection": "ever_dull_then_last_two",
+      "activation_origin": "2025-10-24 11:30:00",
+      "frozen_dif_target": 20.93471168695578,
+      "target_start": "2025-09-11 15:00:00",
+      "next_time": "2025-10-24 15:00:00",
+      "next_dif": 16.181185402706433,
+      "strict_dif_cross": false,
+      "conditional_next_event": "NONE_CONTINUE_DULL",
+      "observed_event": "CANCEL",
+      "observed_confidence": "mapped; reused holdout20251027, no new software label",
+      "matches": false
+    }
+  ],
+  "aug15_narrated_price_boundary_control": [
+    {
+      "role": "older",
+      "target_dif": 32.468748833716745,
+      "next_close_equality_boundary": 3750.7327349032066,
+      "approx_quote": 3750
+    },
+    {
+      "role": "recent",
+      "target_dif": 29.635069504135572,
+      "next_close_equality_boundary": 3715.2105404502427,
+      "approx_quote": 3750
+    }
+  ],
+  "findings": [
+    {
+      "id": "two_case_sequences",
+      "assessment": "June target26.114903 has one intervening completed14bar positive segment; Aug target32.468749 has one intervening completed2bar positive segment. No intervening onebar positive segment in these two examples."
+    },
+    {
+      "id": "same_selection_in_two_examples",
+      "assessment": "The older target is inside raw lasttwo already. Filtering before or after truncation doesnot change strongest choice at June24 activation and June25, Aug7 activation, Aug15 and Aug18AM. These examples confirm older retention, not counting order."
+    },
+    {
+      "id": "peak_vs_prior_signal",
+      "assessment": "May6 andJuly21 wave ownhigher peaks later serve as references although unchanged candidate cleared earlier dulling against different lower references7.200664 and27.208301. An earlier cancellation doesnot identify the newly formed wave peak as cancelled; software exact old-event labels not newly verified."
+    },
+    {
+      "id": "october_existing_discriminator",
+      "assessment": "At Oct24AM lasttwo raw waves are Oct16 DIF15.518978 and Oct22 DIF10.383809. Oct22 is price-qualified but DIF-ineligible, withonebar andno candidateDULL. Filtering it out before counting brings Sep30 wave19.868378 back into lasttwo and strongest choice. Retaining thatlocked target doesnot cross atPM DIF16.181185, contradicting reused mapped disappearance."
+    },
+    {
+      "id": "only_previous_signal_waves",
+      "assessment": "Both Oct16 andOct22 hadno DULL inunchanged candidate despiteOct16 peak compatible withOct24 disappearance bound. Counting onlyhistorical waves withcandidateDULL also selectsolder20.934712 and fails samePM crossing. This is model-conditioned, not a claim about unobserved software marker absence."
+    },
+    {
+      "id": "limitations_of_rejection",
+      "assessment": "Filters-first strongest locked, andcandidate-everDULL-first strongest locked, are locally challenged. A different selection policy, evolving qualification, simultaneous references or hidden reference change isnot excluded. Fixedtwo rawsign window remains unproved globally; no final software formula declared."
+    }
+  ],
+  "verification": {
+    "unchanged_research_files": 222,
+    "prefix_checks": 48,
+    "snapshot_inventory_prefix_checks": 8,
+    "source_anchors": 4,
+    "original_image_hash_checks": 3,
+    "new_sources": 0,
+    "new_software_labels": 0,
+    "formal_code_changes": 0
+  },
+  "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "temporary_script_sha256": "5fd2cc533e486abcb90e32e1783e23269db92d45ec838ea321a1f66eb47af542",
+  "materials_needed_now": false,
+  "next_step": "Use existing sources to constrain threshold and locked-reference versus later re-selection independently, especially whether a price-qualified but DIF-ineligible segment must count even when it has2+bars. Find one such out-of-window counterexample or preserve nonidentification; avoid request for already unavailable images or redundant skip-peak sources.",
+  "limitations": [
+    "ASR skipped-peak words not audio verified; original excerpts retained.",
+    "June25 green label remains unassigned; no new scoring label invented.",
+    "August older target remains conditional on standard EMA reconstruction, quoted origin and saved-data alignment.",
+    "Oct24 afternoon label is mapped with original marker-timing conditions, not a new independent observation.",
+    "Raw-versus-filtered comparison is a snapshot candidate audit; active-reference lock and future qualification changes must be separately tested."
+  ]
+}

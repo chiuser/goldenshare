@@ -1,0 +1,1397 @@
+{
+  "research_date": "2026-10-13",
+  "scope": "Contrast Oct16 author older-high retirement with Nov13 older-region size comparison, then reuse existing Oct24/27 conditional cancellation evidence. Saved sources only; no new labels, software cursor truth, policy or cutoff.",
+  "status": "SIGN_HISTORY_LIMIT_SUPPORTED_EXACT_RETIREMENT_UNIDENTIFIED",
+  "source_anchors": [
+    {
+      "id": "oct16_old_high_offscreen_and_excluded_after_alternations",
+      "file": "sources/20251016_transcript.txt",
+      "sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "lines": [
+        35,
+        41
+      ],
+      "char_start": 1678,
+      "char_end": 2013,
+      "raw_excerpt": "4:444分钟44秒钟看一下120分钟线 120分钟线它的量化标准仍然是3934点\n4:514分钟51秒钟收盘价格高于3934就会出 稍等啊我看一下 这个是3934吗\n4:594分钟59秒钟对啊这个 这个就这根线的收盘价格啊 这根线的收盘价格33393 三点九七 就是3934嘛\n5:075分钟7秒钟如果120分钟高于3934点 也会出钝化 但是稍等\n5:155分钟15秒钟钝化的级别不大了啊 钝化的级别不大了 这个 我没有截到前面那个最高的峰值啊\n5:225分钟22秒钟因为就最高的那个值已经过去了 这中间 出现了反复多次的红角线和绿角线 把最高的值度过去了\n5:315分钟31秒钟就是还会出顿化 但是顿化的级别不大 级别不大就代表它容易顿化消失 它比较容易顿化消失\n",
+      "audio_verified": false
+    },
+    {
+      "id": "nov13_this_value_size_and_two_red_bars",
+      "file": "sources/20251113_user_transcript.txt",
+      "sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "lines": [
+        12,
+        17
+      ],
+      "char_start": 515,
+      "char_end": 830,
+      "raw_excerpt": "1:321分钟32秒钟再看一下 120分钟 120分钟明天有可能就有动画了 因为他要跟这个值做对比啊\n1:421分钟42秒钟这个钝化的级别还可以 不算大反正也不算小 够用 120分钟今天有红角线了啊\n1:501分钟50秒钟0点正值啊 正值就是红角线 所以呢需要两根红角线 需要收盘价格创新高 对吧那这的时候呢 为啥没有啊\n1:591分钟59秒钟当时我们也说了 差了0.2 然后呢 还是一根红角线现 在呢也是一根红脚线\n2:062分钟6秒钟收盘价格创新高了 但是下面只有一根红脚线 那明天上午就第二根红脚线了 两根红脚线\n2:142分钟14秒钟价格创新高 收盘价格创新高 就会有120分钟的顶部动画 然后90分钟 90分钟二次是吧\n",
+      "audio_verified": false
+    },
+    {
+      "id": "oct24_120_alternations_and_morning_dull_afternoon_disappearance",
+      "file": "sources/20251024_vidiq_transcript.json",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "json_pointer": "/response/transcription",
+      "char_start": 660,
+      "char_end": 810,
+      "raw_excerpt": "我们再看一下120分钟线 这120分钟啊 120分钟 120分钟 这也是啊 这我画圆圈这个位置啊 反复的绿角线红角线 绿角线红角线 反复的穿插 导致这个地方的级别 敦化的级别比较小 所以他就容易消失嘛 你看第一个周期敦化 第二个周期就消失了 就代表敦化的级别比较小啊 但是不管怎么样 他也是动画消失 ",
+      "audio_verified": false
+    }
+  ],
+  "original_images": [
+    {
+      "file": "sources/20251016_120.png",
+      "sha256": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+      "manifest_hash_matched": true
+    },
+    {
+      "file": "sources/20251113_120.png",
+      "sha256": "9a8e83348ca913add85fc97d0a005088172aef22ac56dd483b1b69ae1201c2d3",
+      "manifest_hash_matched": true
+    },
+    {
+      "file": "sources/20251027_120.png",
+      "sha256": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+      "manifest_hash_matched": true
+    }
+  ],
+  "cases": [
+    {
+      "asof": "2025-10-16 15:00:00",
+      "reference_identity_basis": "Highest completed positive-wave DIF in available April-onward export; plausible older offscreen peak, not directly named by author",
+      "reference": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 31,
+        "price": 3887.995,
+        "dif": 61.800335386972165,
+        "price_time": "2025-08-26 11:30:00",
+        "dif_time": "2025-08-27 11:30:00",
+        "end": "2025-08-27 15:00:00"
+      },
+      "current_wave": {
+        "start": "2025-10-16 11:30:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3916.228,
+        "dif": 15.5189775630256,
+        "price_time": "2025-10-16 15:00:00",
+        "dif_time": "2025-10-16 15:00:00"
+      },
+      "completed_positive_waves_since_reference": [
+        {
+          "start": "2025-09-11 15:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3893.9502,
+          "dif": 20.934711686959872,
+          "price_time": "2025-09-18 11:30:00",
+          "dif_time": "2025-09-18 11:30:00"
+        },
+        {
+          "start": "2025-09-30 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3933.9724,
+          "dif": 19.868377518402212,
+          "price_time": "2025-10-09 15:00:00",
+          "dif_time": "2025-10-10 11:30:00"
+        }
+      ],
+      "completed_positive_count": 2,
+      "completed_rank_from_latest": 3,
+      "post_reference_sign_spans": [
+        {
+          "start": "2025-08-28 11:30:00",
+          "end": "2025-09-11 11:30:00",
+          "sign": -1,
+          "count": 21
+        },
+        {
+          "start": "2025-09-11 15:00:00",
+          "end": "2025-09-18 11:30:00",
+          "sign": 1,
+          "count": 10
+        },
+        {
+          "start": "2025-09-18 15:00:00",
+          "end": "2025-09-29 15:00:00",
+          "sign": -1,
+          "count": 15
+        },
+        {
+          "start": "2025-09-30 11:30:00",
+          "end": "2025-10-14 11:30:00",
+          "sign": 1,
+          "count": 9
+        },
+        {
+          "start": "2025-10-14 15:00:00",
+          "end": "2025-10-15 15:00:00",
+          "sign": -1,
+          "count": 3
+        },
+        {
+          "start": "2025-10-16 11:30:00",
+          "end": "2025-10-16 15:00:00",
+          "sign": 1,
+          "count": 2
+        }
+      ],
+      "postwave_bars": 60,
+      "bars_since_dif_peak": 61,
+      "seconds_since_dif_peak": 4332600.0,
+      "calendar_days_since_peak": 50,
+      "postwave_max_dif": {
+        "time": "2025-08-28 11:30:00",
+        "close": 3803.0845,
+        "dif": 49.926285451861986,
+        "hist": -4.861133341669856
+      },
+      "dif_ever_strictly_crossed": false,
+      "first_later_close_price_cross": {
+        "time": "2025-09-18 11:30:00",
+        "close": 3893.9502,
+        "dif": 20.934711686959872,
+        "hist": 4.068917804971193
+      },
+      "later_completed_wave_dominates_both_price_and_dif": false,
+      "window2_membership": false,
+      "window3_membership": true,
+      "software_cursor_value_observed": false
+    },
+    {
+      "asof": "2025-11-13 15:00:00",
+      "reference_identity_basis": "Saved-data counterpart of October older high region circled on November13 image; exact software peak remains unknown",
+      "reference": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 12,
+        "price": 4018.8628,
+        "dif": 36.04526039839266,
+        "price_time": "2025-10-30 11:30:00",
+        "dif_time": "2025-10-30 11:30:00",
+        "end": "2025-10-31 11:30:00"
+      },
+      "current_wave": {
+        "start": "2025-11-13 15:00:00",
+        "sign": 1,
+        "count": 1,
+        "price": 4029.5012,
+        "dif": 17.771231306341633,
+        "price_time": "2025-11-13 15:00:00",
+        "dif_time": "2025-11-13 15:00:00"
+      },
+      "completed_positive_waves_since_reference": [
+        {
+          "start": "2025-11-10 15:00:00",
+          "sign": 1,
+          "count": 1,
+          "price": 4018.5972,
+          "dif": 19.29233245855994,
+          "price_time": "2025-11-10 15:00:00",
+          "dif_time": "2025-11-10 15:00:00"
+        }
+      ],
+      "completed_positive_count": 1,
+      "completed_rank_from_latest": 2,
+      "post_reference_sign_spans": [
+        {
+          "start": "2025-10-31 15:00:00",
+          "end": "2025-11-10 11:30:00",
+          "sign": -1,
+          "count": 12
+        },
+        {
+          "start": "2025-11-10 15:00:00",
+          "end": "2025-11-10 15:00:00",
+          "sign": 1,
+          "count": 1
+        },
+        {
+          "start": "2025-11-11 11:30:00",
+          "end": "2025-11-13 11:30:00",
+          "sign": -1,
+          "count": 5
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "end": "2025-11-13 15:00:00",
+          "sign": 1,
+          "count": 1
+        }
+      ],
+      "postwave_bars": 19,
+      "bars_since_dif_peak": 21,
+      "seconds_since_dif_peak": 1222200.0,
+      "calendar_days_since_peak": 14,
+      "postwave_max_dif": {
+        "time": "2025-10-31 15:00:00",
+        "close": 3954.79,
+        "dif": 26.49750496327215,
+        "hist": -4.453044949098825
+      },
+      "dif_ever_strictly_crossed": false,
+      "first_later_close_price_cross": {
+        "time": "2025-11-13 15:00:00",
+        "close": 4029.5012,
+        "dif": 17.771231306341633,
+        "hist": 0.1869204580095385
+      },
+      "later_completed_wave_dominates_both_price_and_dif": false,
+      "window2_membership": true,
+      "window3_membership": true,
+      "software_cursor_value_observed": false
+    },
+    {
+      "asof": "2025-10-24 15:00:00",
+      "reference_identity_basis": "Older September30-October10 wave; conditional October24 cancellation excludes sustained activity against its19.868 DIF target",
+      "reference": {
+        "start": "2025-09-30 11:30:00",
+        "sign": 1,
+        "count": 9,
+        "price": 3933.9724,
+        "dif": 19.868377518402212,
+        "price_time": "2025-10-09 15:00:00",
+        "dif_time": "2025-10-10 11:30:00",
+        "end": "2025-10-14 11:30:00"
+      },
+      "current_wave": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 3,
+        "price": 3950.3115,
+        "dif": 16.18118540271098,
+        "price_time": "2025-10-24 15:00:00",
+        "dif_time": "2025-10-24 15:00:00"
+      },
+      "completed_positive_waves_since_reference": [
+        {
+          "start": "2025-10-16 11:30:00",
+          "sign": 1,
+          "count": 2,
+          "price": 3916.228,
+          "dif": 15.5189775630256,
+          "price_time": "2025-10-16 15:00:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-22 15:00:00",
+          "sign": 1,
+          "count": 1,
+          "price": 3913.7576,
+          "dif": 10.383808977835542,
+          "price_time": "2025-10-22 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "completed_positive_count": 2,
+      "completed_rank_from_latest": 3,
+      "post_reference_sign_spans": [
+        {
+          "start": "2025-10-14 15:00:00",
+          "end": "2025-10-15 15:00:00",
+          "sign": -1,
+          "count": 3
+        },
+        {
+          "start": "2025-10-16 11:30:00",
+          "end": "2025-10-16 15:00:00",
+          "sign": 1,
+          "count": 2
+        },
+        {
+          "start": "2025-10-17 11:30:00",
+          "end": "2025-10-22 11:30:00",
+          "sign": -1,
+          "count": 7
+        },
+        {
+          "start": "2025-10-22 15:00:00",
+          "end": "2025-10-22 15:00:00",
+          "sign": 1,
+          "count": 1
+        },
+        {
+          "start": "2025-10-23 11:30:00",
+          "end": "2025-10-23 11:30:00",
+          "sign": -1,
+          "count": 1
+        },
+        {
+          "start": "2025-10-23 15:00:00",
+          "end": "2025-10-24 15:00:00",
+          "sign": 1,
+          "count": 3
+        }
+      ],
+      "postwave_bars": 17,
+      "bars_since_dif_peak": 21,
+      "seconds_since_dif_peak": 1222200.0,
+      "calendar_days_since_peak": 14,
+      "postwave_max_dif": {
+        "time": "2025-10-24 15:00:00",
+        "close": 3950.3115,
+        "dif": 16.18118540271098,
+        "hist": 9.202766527934578
+      },
+      "dif_ever_strictly_crossed": false,
+      "first_later_close_price_cross": {
+        "time": "2025-10-24 11:30:00",
+        "close": 3938.9841,
+        "dif": 13.444348090326457,
+        "hist": 6.029783535149178
+      },
+      "later_completed_wave_dominates_both_price_and_dif": false,
+      "window2_membership": false,
+      "window3_membership": true,
+      "software_cursor_value_observed": false
+    }
+  ],
+  "october24_old_reference_bounds": {
+    "condition": "Same locked DIF target during morning dullness and afternoon strict-DIF cancellation, DG/software alignment and mapped label timing hold",
+    "lower_exclusive": 13.44434809032191,
+    "upper_exclusive": 16.181185402706433,
+    "compatible_existing_peak": 15.518977563021508,
+    "excluded_sustained_target": 19.868377518397665
+  },
+  "age_contrast": {
+    "nov13_older_peak_vs_oct24_excluded_sustained_target_equal_peak_age": true,
+    "equal_completed_bars_since_peak": true,
+    "warning": "November is analytical comparison, October bound excludes sustained software activity, not all eligibility; equal ages do not identify software retirement by themselves."
+  },
+  "mechanism_constraints": [
+    {
+      "mechanism": "Retire on first red/green sign change",
+      "assessment": "Inconsistent with Nov13 older-region analytical use after two negative spans and one completed intervening positive wave; not sole software-reference proof."
+    },
+    {
+      "mechanism": "Retain all highs until a later strict DIF cross",
+      "assessment": "Cannot explain Oct16 author old-high retirement if61.800335 is the described offscreen high; additionally unchanged unlimited cross-filter candidate conflicts with Oct24 mapped cancellation."
+    },
+    {
+      "mechanism": "Retire solely when later completed wave exceeds both price and DIF",
+      "assessment": "No later dominating wave for either case. Unlimited dominated-filter candidate conflicts with existing Oct24 mapped cancellation."
+    },
+    {
+      "mechanism": "Retire solely on later close exceeding historical wave price",
+      "assessment": "Both old-region cases have price crossing but different analytical eligibility. Thus price crossing alone does not distinguish their author-level outcomes."
+    },
+    {
+      "mechanism": "Finite count of completed same-sign segments",
+      "assessment": "Two completed positive waves separate Oct16 provisional highest from current, versus one for Nov13 oldregion; unchanged raw two-wave window is consistent. Not uniquely identified; analytical and software eligibility are distinct."
+    },
+    {
+      "mechanism": "Ignore one-bar positive history for window counting",
+      "assessment": "Existing Oct24/27 evidence conflicts with unchanged longer2 variant. Oct22 single positive bar can be causally material to reference-window hypothesis, even without a standalone dulling event."
+    },
+    {
+      "mechanism": "Calendar or bar-age limit",
+      "assessment": "Oct16/Nov13 ages covary with wave count. Nov13 old peak and Oct24 excluded sustained target have equal elapsed time and equal completed bars from DIF peak, but comparison layers differ; cannot turn this into a hard software age-rule rejection. No cutoff fitted."
+    }
+  ],
+  "replay_variant_summaries": [
+    {
+      "variant": "fixed2",
+      "checks": 12,
+      "mismatches": 0
+    },
+    {
+      "variant": "crossed2",
+      "checks": 12,
+      "mismatches": 0
+    },
+    {
+      "variant": "dominated2",
+      "checks": 12,
+      "mismatches": 0
+    },
+    {
+      "variant": "longer2",
+      "checks": 12,
+      "mismatches": 6
+    },
+    {
+      "variant": "crossed_all",
+      "checks": 12,
+      "mismatches": 3
+    },
+    {
+      "variant": "dominated_all",
+      "checks": 12,
+      "mismatches": 3
+    }
+  ],
+  "replay_checks": [
+    {
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-10-16 11:30:00",
+      "event_reference_dif": 15.518977563021508,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "CANCEL",
+      "state": "NONE",
+      "event_reference_start": "2025-09-30 11:30:00",
+      "event_reference_dif": 19.868377518397665,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "NONE",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "actual_event": "DULL",
+      "state": "DULL",
+      "event_reference_start": "2025-08-06 15:00:00",
+      "event_reference_dif": 61.80033538696671,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": false,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    },
+    {
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "actual_event": "NONE",
+      "state": "DULL",
+      "event_reference_start": "",
+      "event_reference_dif": null,
+      "matched": true,
+      "prefix_matched": true
+    }
+  ],
+  "input_sha256": {
+    "inputs/120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+    "discrimination_screen_20261012/derived_120.csv": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+  },
+  "candidate_sha256": {
+    "active_reference_candidate.py": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46"
+  },
+  "temporary_script_sha256": "7d2a4b605b71411cfe6ef6b4620d75f463247ee61373bb55494efab8ad2716f5",
+  "verification": {
+    "unchanged_research_files": 221,
+    "source_anchors": 3,
+    "original_image_hash_checks": 3,
+    "causal_inventory_prefix_checks": 3,
+    "retirement_replay_prefix_checks": 72,
+    "overlap_rows": 128,
+    "export_vs_derived_max_absolute_errors": {
+      "close": 0.0,
+      "dif": 6.821210263296962e-12,
+      "hist": 2.156497203031904e-12
+    },
+    "new_software_labels": 0,
+    "new_sources": 0
+  },
+  "limitations": [
+    "October16 caption gives no historical DIF date/value;61.800335 identifies highest completed positive wave in saved April-onward data only, not author direct quote.",
+    "November13 comparison is a supported visual/text inference about author analytical grade, not proof of software active reference.",
+    "October24 bound assumes no intervening reference switch and strict-DIF disappearance semantics; old mapped labels reused, not new independent observations.",
+    "Uncrossed history may expire for reasons other than DIF crossing. Reference eligibility, current state, and historical structure validity remain separate.",
+    "Existing unlimited retirement variants combine particular selection, locking and history assumptions; failure does not exclude every alternative lifecycle."
+  ],
+  "next_step": "Inspect existing June24/25 and August15/18 skip-peak examples for whether one-bar or price/DIF-ineligible intervening segments still count in the reference history. Compare fixed raw-segment count to eligible-peak counting before defining one discriminating source request. No new age or size cutoff."
+}

@@ -1,0 +1,4188 @@
+{
+  "research_date": "2026-10-13",
+  "status": "CAUSAL_DIAGNOSTIC_ORDER_NARROWED_NOT_RECOVERED_SOFTWARE_FORMULA",
+  "baseline": {
+    "raw_completed_same_direction_segments": 2,
+    "selector": "strongest_eligible",
+    "active_reference": "locked",
+    "gate_sensitivity": [
+      0.75,
+      1,
+      1.2
+    ],
+    "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba"
+  },
+  "inputs_sha256": {
+    "90_20250401_20250703.csv": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c",
+    "90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7"
+  },
+  "prior_evidence_sha256": {
+    "july3_chart_comparison_20261012.json": "aa8fcc729603e24ebe3e92cf50bf495d73d02effa89f1d7a28fa1885ea32a9f0",
+    "nov13_17_charts_comparison_20261012.json": "e53ff2e7498014485cd3f57a68d83a90ba1d7ff46878fe6b7adc86d8972f038c",
+    "apr21_23_source_comparison_20261012.json": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+    "july120_overlap_marker_review_20261013.json": "536c538ade058f068fa7e9605e9802048c0017f59c43212a2c5943e0508eacdd"
+  },
+  "ninety_overlap_rows": 69,
+  "cases": [
+    {
+      "id": "july90",
+      "period": "90",
+      "anchor": "2025-07-02 14:00:00",
+      "green": "2025-07-03 14:00:00",
+      "source": "july3_chart_comparison_20261012.json"
+    },
+    {
+      "id": "nov90",
+      "period": "90",
+      "anchor": "2025-11-11 11:00:00",
+      "green": "2025-11-13 14:00:00",
+      "source": "nov13_17_charts_comparison_20261012.json"
+    },
+    {
+      "id": "apr60",
+      "period": "60",
+      "anchor": "2026-04-21 10:30:00",
+      "green": "2026-04-21 15:00:00",
+      "source": "apr21_23_source_comparison_20261012.json"
+    },
+    {
+      "id": "june120",
+      "period": "120",
+      "anchor": "2025-06-27 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-03 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json"
+    },
+    {
+      "id": "jul7_120",
+      "period": "120",
+      "anchor": "2025-07-07 11:30:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-08 11:30:00",
+      "source": "july120_overlap_marker_review_20261013.json"
+    },
+    {
+      "id": "jul9_120",
+      "period": "120",
+      "anchor": "2025-07-09 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-10 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json"
+    }
+  ],
+  "chronological_traces": [
+    {
+      "id": "july90",
+      "period": "90",
+      "anchor": "2025-07-02 14:00:00",
+      "green": "2025-07-03 14:00:00",
+      "source": "july3_chart_comparison_20261012.json",
+      "gate": 0.75,
+      "first_negative": "2025-07-02 15:00:00",
+      "first_current_none": "2025-07-02 15:00:00",
+      "next_top_signal": "2025-07-04 15:00:00",
+      "rows": [
+        {
+          "time": "2025-07-02 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 6,
+          "ref_start": "2025-06-24 11:00:00",
+          "close": 3451.9912,
+          "dif": 15.464687416477318,
+          "hist": 0.3796692091010847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-06-24 11:00:00",
+          "event_ref_dif": 19.28212366483376,
+          "event_ref_price": 3455.9736
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3454.7925,
+          "dif": 15.057302552948386,
+          "hist": -0.3480804143654268,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 3449.325,
+          "dif": 14.130379340179388,
+          "hist": -1.7615414719227402,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 3462.8333,
+          "dif": 14.32071267102765,
+          "hist": -1.104699848180978,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "nov90",
+      "period": "90",
+      "anchor": "2025-11-11 11:00:00",
+      "green": "2025-11-13 14:00:00",
+      "source": "nov13_17_charts_comparison_20261012.json",
+      "gate": 0.75,
+      "first_negative": "2025-11-11 14:00:00",
+      "first_current_none": "2025-11-11 14:00:00",
+      "next_top_signal": "2025-11-14 11:00:00",
+      "rows": [
+        {
+          "time": "2025-11-11 11:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-10-23 15:00:00",
+          "close": 3994.2158,
+          "dif": 11.954974379587384,
+          "hist": 0.7751350692128653,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-23 15:00:00",
+          "event_ref_dif": 31.39180919304681,
+          "event_ref_price": 4017.2124
+        },
+        {
+          "time": "2025-11-11 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3997.52,
+          "dif": 11.186940652006342,
+          "hist": -0.6087459087593778,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-11 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4002.7576,
+          "dif": 10.87553256740921,
+          "hist": -0.9852496623629179,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4001.719,
+          "dif": 10.424762899221605,
+          "hist": -1.5094311989905016,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 3995.8953,
+          "dif": 9.488226402504097,
+          "hist": -2.7060033539404174,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 5,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 8.984921438949186,
+          "hist": -2.970090624840193,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 6,
+          "ref_start": "",
+          "close": 4010.026,
+          "dif": 9.276860610648782,
+          "hist": -1.908969825152802,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 7,
+          "ref_start": "",
+          "close": 4019.9592,
+          "dif": 10.192260695477671,
+          "hist": -0.06253572439602095,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "apr60",
+      "period": "60",
+      "anchor": "2026-04-21 10:30:00",
+      "green": "2026-04-21 15:00:00",
+      "source": "apr21_23_source_comparison_20261012.json",
+      "gate": 0.75,
+      "first_negative": "2026-04-21 10:30:00",
+      "first_current_none": "2026-04-21 10:30:00",
+      "next_top_signal": "2026-04-23 10:30:00",
+      "rows": [
+        {
+          "time": "2026-04-21 10:30:00",
+          "event": "STRUCTURE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4068.5298,
+          "dif": 24.007965188642174,
+          "hist": -0.49163045033169794,
+          "wave_sign": -1,
+          "event_direction": 1,
+          "event_route": "color_flip",
+          "event_ref_start": "2026-04-08 10:30:00",
+          "event_ref_dif": 25.567706301411363,
+          "event_ref_price": 4055.5469
+        },
+        {
+          "time": "2026-04-21 11:30:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4072.3916,
+          "dif": 23.20377115621841,
+          "hist": -1.6800148121433907,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4078.9348,
+          "dif": 22.831238838436093,
+          "hist": -1.9400635581664218,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 4085.0767,
+          "dif": 22.769135867655677,
+          "hist": -1.6514155997818065,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "june120",
+      "period": "120",
+      "anchor": "2025-06-27 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-03 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 0.75,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-06-30 15:00:00",
+      "rows": [
+        {
+          "time": "2025-06-27 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 8,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3424.2268,
+          "dif": 16.975843107933997,
+          "hist": 10.008361723479673,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-06-30 11:30:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3431.1777,
+          "dif": 16.486925427460392,
+          "hist": 7.22442109002597,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-06-30 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 10,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3444.4255,
+          "dif": 16.972789633044158,
+          "hist": 6.556919600954796,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-01 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3451.6926,
+          "dif": 17.739742049007873,
+          "hist": 6.472659546305781,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-01 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 12,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.7473,
+          "dif": 18.621464402837773,
+          "hist": 6.58888340317246,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3456.5105,
+          "dif": 19.001399986004344,
+          "hist": 5.879003655604478,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3454.7925,
+          "dif": 18.945481710867625,
+          "hist": 4.6137336842648295,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 15,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.357,
+          "dif": 18.890343669539106,
+          "hist": 3.6027660812862337,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 16,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul7_120",
+      "period": "120",
+      "anchor": "2025-07-07 11:30:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-08 11:30:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 0.75,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-08 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-07 11:30:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 19,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3465.054,
+          "dif": 19.565827364665893,
+          "hist": 1.889592631141376,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-07 15:00:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 20,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3473.1272,
+          "dif": 19.52414057126589,
+          "hist": 1.4449752354730876,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-08 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 21,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul9_120",
+      "period": "120",
+      "anchor": "2025-07-09 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-10 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 0.75,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-10 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-09 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 24,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.0496,
+          "dif": 23.21478032863115,
+          "hist": 4.309826611086237,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 25,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3505.5798,
+          "dif": 23.728173623380826,
+          "hist": 4.26929056046847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 26,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "july90",
+      "period": "90",
+      "anchor": "2025-07-02 14:00:00",
+      "green": "2025-07-03 14:00:00",
+      "source": "july3_chart_comparison_20261012.json",
+      "gate": 1,
+      "first_negative": "2025-07-02 15:00:00",
+      "first_current_none": "2025-07-02 15:00:00",
+      "next_top_signal": "2025-07-04 15:00:00",
+      "rows": [
+        {
+          "time": "2025-07-02 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 6,
+          "ref_start": "2025-06-24 11:00:00",
+          "close": 3451.9912,
+          "dif": 15.464687416477318,
+          "hist": 0.3796692091010847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-06-24 11:00:00",
+          "event_ref_dif": 19.28212366483376,
+          "event_ref_price": 3455.9736
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3454.7925,
+          "dif": 15.057302552948386,
+          "hist": -0.3480804143654268,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 3449.325,
+          "dif": 14.130379340179388,
+          "hist": -1.7615414719227402,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 3462.8333,
+          "dif": 14.32071267102765,
+          "hist": -1.104699848180978,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "nov90",
+      "period": "90",
+      "anchor": "2025-11-11 11:00:00",
+      "green": "2025-11-13 14:00:00",
+      "source": "nov13_17_charts_comparison_20261012.json",
+      "gate": 1,
+      "first_negative": "2025-11-11 14:00:00",
+      "first_current_none": "2025-11-11 14:00:00",
+      "next_top_signal": "2025-11-14 11:00:00",
+      "rows": [
+        {
+          "time": "2025-11-11 11:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-10-23 15:00:00",
+          "close": 3994.2158,
+          "dif": 11.954974379587384,
+          "hist": 0.7751350692128653,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-23 15:00:00",
+          "event_ref_dif": 31.39180919304681,
+          "event_ref_price": 4017.2124
+        },
+        {
+          "time": "2025-11-11 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3997.52,
+          "dif": 11.186940652006342,
+          "hist": -0.6087459087593778,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-11 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4002.7576,
+          "dif": 10.87553256740921,
+          "hist": -0.9852496623629179,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4001.719,
+          "dif": 10.424762899221605,
+          "hist": -1.5094311989905016,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 3995.8953,
+          "dif": 9.488226402504097,
+          "hist": -2.7060033539404174,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 5,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 8.984921438949186,
+          "hist": -2.970090624840193,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 6,
+          "ref_start": "",
+          "close": 4010.026,
+          "dif": 9.276860610648782,
+          "hist": -1.908969825152802,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 7,
+          "ref_start": "",
+          "close": 4019.9592,
+          "dif": 10.192260695477671,
+          "hist": -0.06253572439602095,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "apr60",
+      "period": "60",
+      "anchor": "2026-04-21 10:30:00",
+      "green": "2026-04-21 15:00:00",
+      "source": "apr21_23_source_comparison_20261012.json",
+      "gate": 1,
+      "first_negative": "2026-04-21 10:30:00",
+      "first_current_none": "2026-04-21 10:30:00",
+      "next_top_signal": "2026-04-23 10:30:00",
+      "rows": [
+        {
+          "time": "2026-04-21 10:30:00",
+          "event": "STRUCTURE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4068.5298,
+          "dif": 24.007965188642174,
+          "hist": -0.49163045033169794,
+          "wave_sign": -1,
+          "event_direction": 1,
+          "event_route": "color_flip",
+          "event_ref_start": "2026-04-08 10:30:00",
+          "event_ref_dif": 25.567706301411363,
+          "event_ref_price": 4055.5469
+        },
+        {
+          "time": "2026-04-21 11:30:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4072.3916,
+          "dif": 23.20377115621841,
+          "hist": -1.6800148121433907,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4078.9348,
+          "dif": 22.831238838436093,
+          "hist": -1.9400635581664218,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 4085.0767,
+          "dif": 22.769135867655677,
+          "hist": -1.6514155997818065,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "june120",
+      "period": "120",
+      "anchor": "2025-06-27 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-03 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-06-30 15:00:00",
+      "rows": [
+        {
+          "time": "2025-06-27 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 8,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3424.2268,
+          "dif": 16.975843107933997,
+          "hist": 10.008361723479673,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-06-30 11:30:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3431.1777,
+          "dif": 16.486925427460392,
+          "hist": 7.22442109002597,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-06-30 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 10,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3444.4255,
+          "dif": 16.972789633044158,
+          "hist": 6.556919600954796,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-01 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3451.6926,
+          "dif": 17.739742049007873,
+          "hist": 6.472659546305781,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-01 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 12,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.7473,
+          "dif": 18.621464402837773,
+          "hist": 6.58888340317246,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3456.5105,
+          "dif": 19.001399986004344,
+          "hist": 5.879003655604478,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3454.7925,
+          "dif": 18.945481710867625,
+          "hist": 4.6137336842648295,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 15,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.357,
+          "dif": 18.890343669539106,
+          "hist": 3.6027660812862337,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 16,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul7_120",
+      "period": "120",
+      "anchor": "2025-07-07 11:30:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-08 11:30:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-08 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-07 11:30:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 19,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3465.054,
+          "dif": 19.565827364665893,
+          "hist": 1.889592631141376,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-07 15:00:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 20,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3473.1272,
+          "dif": 19.52414057126589,
+          "hist": 1.4449752354730876,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-08 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 21,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul9_120",
+      "period": "120",
+      "anchor": "2025-07-09 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-10 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-10 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-09 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 24,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.0496,
+          "dif": 23.21478032863115,
+          "hist": 4.309826611086237,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 25,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3505.5798,
+          "dif": 23.728173623380826,
+          "hist": 4.26929056046847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 26,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "july90",
+      "period": "90",
+      "anchor": "2025-07-02 14:00:00",
+      "green": "2025-07-03 14:00:00",
+      "source": "july3_chart_comparison_20261012.json",
+      "gate": 1.2,
+      "first_negative": "2025-07-02 15:00:00",
+      "first_current_none": "2025-07-02 15:00:00",
+      "next_top_signal": "2025-07-04 15:00:00",
+      "rows": [
+        {
+          "time": "2025-07-02 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 6,
+          "ref_start": "2025-06-24 11:00:00",
+          "close": 3451.9912,
+          "dif": 15.464687416477318,
+          "hist": 0.3796692091010847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-06-24 11:00:00",
+          "event_ref_dif": 19.28212366483376,
+          "event_ref_price": 3455.9736
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3454.7925,
+          "dif": 15.057302552948386,
+          "hist": -0.3480804143654268,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 3449.325,
+          "dif": 14.130379340179388,
+          "hist": -1.7615414719227402,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 3462.8333,
+          "dif": 14.32071267102765,
+          "hist": -1.104699848180978,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "nov90",
+      "period": "90",
+      "anchor": "2025-11-11 11:00:00",
+      "green": "2025-11-13 14:00:00",
+      "source": "nov13_17_charts_comparison_20261012.json",
+      "gate": 1.2,
+      "first_negative": "2025-11-11 14:00:00",
+      "first_current_none": "2025-11-11 14:00:00",
+      "next_top_signal": "2025-11-14 11:00:00",
+      "rows": [
+        {
+          "time": "2025-11-11 11:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-10-23 15:00:00",
+          "close": 3994.2158,
+          "dif": 11.954974379587384,
+          "hist": 0.7751350692128653,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-23 15:00:00",
+          "event_ref_dif": 31.39180919304681,
+          "event_ref_price": 4017.2124
+        },
+        {
+          "time": "2025-11-11 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3997.52,
+          "dif": 11.186940652006342,
+          "hist": -0.6087459087593778,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-11 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4002.7576,
+          "dif": 10.87553256740921,
+          "hist": -0.9852496623629179,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4001.719,
+          "dif": 10.424762899221605,
+          "hist": -1.5094311989905016,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 3995.8953,
+          "dif": 9.488226402504097,
+          "hist": -2.7060033539404174,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-12 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 5,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 8.984921438949186,
+          "hist": -2.970090624840193,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 6,
+          "ref_start": "",
+          "close": 4010.026,
+          "dif": 9.276860610648782,
+          "hist": -1.908969825152802,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 7,
+          "ref_start": "",
+          "close": 4019.9592,
+          "dif": 10.192260695477671,
+          "hist": -0.06253572439602095,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "apr60",
+      "period": "60",
+      "anchor": "2026-04-21 10:30:00",
+      "green": "2026-04-21 15:00:00",
+      "source": "apr21_23_source_comparison_20261012.json",
+      "gate": 1.2,
+      "first_negative": "2026-04-21 10:30:00",
+      "first_current_none": "2026-04-21 10:30:00",
+      "next_top_signal": "2026-04-23 10:30:00",
+      "rows": [
+        {
+          "time": "2026-04-21 10:30:00",
+          "event": "STRUCTURE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4068.5298,
+          "dif": 24.007965188642174,
+          "hist": -0.49163045033169794,
+          "wave_sign": -1,
+          "event_direction": 1,
+          "event_route": "color_flip",
+          "event_ref_start": "2026-04-08 10:30:00",
+          "event_ref_dif": 25.567706301411363,
+          "event_ref_price": 4055.5469
+        },
+        {
+          "time": "2026-04-21 11:30:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 2,
+          "ref_start": "",
+          "close": 4072.3916,
+          "dif": 23.20377115621841,
+          "hist": -1.6800148121433907,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 14:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "",
+          "close": 4078.9348,
+          "dif": 22.831238838436093,
+          "hist": -1.9400635581664218,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2026-04-21 15:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "ref_start": "",
+          "close": 4085.0767,
+          "dif": 22.769135867655677,
+          "hist": -1.6514155997818065,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "conditional_mapped_historical_green"
+    },
+    {
+      "id": "june120",
+      "period": "120",
+      "anchor": "2025-06-27 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-03 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1.2,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-06-30 15:00:00",
+      "rows": [
+        {
+          "time": "2025-06-27 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 8,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3424.2268,
+          "dif": 16.975843107933997,
+          "hist": 10.008361723479673,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-06-30 11:30:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3431.1777,
+          "dif": 16.486925427460392,
+          "hist": 7.22442109002597,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-06-30 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 10,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3444.4255,
+          "dif": 16.972789633044158,
+          "hist": 6.556919600954796,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-01 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 11,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3451.6926,
+          "dif": 17.739742049007873,
+          "hist": 6.472659546305781,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-01 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 12,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.7473,
+          "dif": 18.621464402837773,
+          "hist": 6.58888340317246,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 13,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3456.5105,
+          "dif": 19.001399986004344,
+          "hist": 5.879003655604478,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-02 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 14,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3454.7925,
+          "dif": 18.945481710867625,
+          "hist": 4.6137336842648295,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 11:30:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 15,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3457.357,
+          "dif": 18.890343669539106,
+          "hist": 3.6027660812862337,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-03 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 16,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul7_120",
+      "period": "120",
+      "anchor": "2025-07-07 11:30:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-08 11:30:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1.2,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-08 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-07 11:30:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 19,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3465.054,
+          "dif": 19.565827364665893,
+          "hist": 1.889592631141376,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-07 15:00:00",
+          "event": "NONE",
+          "state": "STRUCTURE",
+          "wave_count": 20,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3473.1272,
+          "dif": 19.52414057126589,
+          "hist": 1.4449752354730876,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-07-08 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 21,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    },
+    {
+      "id": "jul9_120",
+      "period": "120",
+      "anchor": "2025-07-09 15:00:00",
+      "green": null,
+      "uncensored_price_first": "2025-07-10 15:00:00",
+      "source": "july120_overlap_marker_review_20261013.json",
+      "gate": 1.2,
+      "first_negative": null,
+      "first_current_none": null,
+      "next_top_signal": "2025-07-10 11:30:00",
+      "rows": [
+        {
+          "time": "2025-07-09 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 24,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3493.0496,
+          "dif": 23.21478032863115,
+          "hist": 4.309826611086237,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 25,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3505.5798,
+          "dif": 23.728173623380826,
+          "hist": 4.26929056046847,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_return",
+          "event_ref_start": "2025-05-06 11:30:00",
+          "event_ref_dif": 26.114902990716928,
+          "event_ref_price": 3403.948
+        },
+        {
+          "time": "2025-07-10 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 26,
+          "ref_start": "2025-05-06 11:30:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "software_identity": "display_contrast_not_exact_absence_label"
+    }
+  ],
+  "execution_order_variants": [
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 11:30:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 11:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": true,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 0.75,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 11:30:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 11:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 15:00:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": true,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 15:00:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": false,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 0,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-07-02 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_hist_sign_change",
+            "time": "2025-11-11 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": null,
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "drop_history_on_confirmation_color_flip",
+            "time": "2026-04-21 10:30:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": false,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 1,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 15:00:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": "2025-07-08 11:30:00",
+          "green_time_match": null,
+          "display_extra_prediction": true,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": false,
+      "positive_green_matches": 3,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": true,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-21 15:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-21 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    },
+    {
+      "gate": 1.2,
+      "keep_historical_record_on_hist_flip": true,
+      "new_top_signal_before_historical_price_check": true,
+      "require_dif_return": true,
+      "positive_green_matches": 2,
+      "positive_green_total": 3,
+      "display_extra_predictions": 0,
+      "display_contrast_total": 3,
+      "compatible_with_this_selected_six": false,
+      "checks": [
+        {
+          "case_id": "july90",
+          "period": "90",
+          "anchor": "2025-07-02 14:00:00",
+          "mapped_green": "2025-07-03 14:00:00",
+          "prediction": "2025-07-03 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-07-03 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "nov90",
+          "period": "90",
+          "anchor": "2025-11-11 11:00:00",
+          "mapped_green": "2025-11-13 14:00:00",
+          "prediction": "2025-11-13 14:00:00",
+          "green_time_match": true,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2025-11-13 14:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "apr60",
+          "period": "60",
+          "anchor": "2026-04-21 10:30:00",
+          "mapped_green": "2026-04-21 15:00:00",
+          "prediction": "2026-04-22 15:00:00",
+          "green_time_match": false,
+          "display_extra_prediction": null,
+          "closed_reason": {
+            "reason": "diagnostic_withdrawal",
+            "time": "2026-04-22 15:00:00"
+          },
+          "evidence_grade": "mapped_green_positive"
+        },
+        {
+          "case_id": "june120",
+          "period": "120",
+          "anchor": "2025-06-27 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-06-30 15:00:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul7_120",
+          "period": "120",
+          "anchor": "2025-07-07 11:30:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-08 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        },
+        {
+          "case_id": "jul9_120",
+          "period": "120",
+          "anchor": "2025-07-09 15:00:00",
+          "mapped_green": null,
+          "prediction": null,
+          "green_time_match": null,
+          "display_extra_prediction": false,
+          "closed_reason": {
+            "reason": "new_top_DULL",
+            "time": "2025-07-10 11:30:00"
+          },
+          "evidence_grade": "two_frame_display_contrast_not_exact_event_negative"
+        }
+      ]
+    }
+  ],
+  "surviving_signature": {
+    "keep_historical_record_on_hist_flip": true,
+    "new_top_signal_before_historical_price_check": true,
+    "require_dif_return": false
+  },
+  "working_algorithm_steps": [
+    "Calculate frozen ordinaryDULL/STRUCTURE/CANCEL on completedperiodbars, preserving their original semantics.",
+    "At topSTRUCTURE retain historicalrecord with anchor, originalDIFref and formationpositivewave maximumclose; current-wave NONE doesnot destroyit.",
+    "Prioritize an existing ordinarytopCANCEL, tracked originalDIFrefbreak cutoff, and newtopDULL/STRUCTURE beforehistoricalpricewithdrawal. A trackedrefbreak is a diagnosticcutoff, not a newsoftwareCANCEL label; only frozenordinaryoutput defines ordinaryCANCEL. Newstructure creates itsownrecord.",
+    "Onlyon later completedbar withoutcompeting event, test close>storedpeak and emit research historicalwithdrawal; price+DIF remains an explicit competing hypothesis with April softwarevalues unresolved.",
+    "Do not add negativehist requirement, 24bar expiry, AND/OR defense correction or authoroperation filters."
+  ],
+  "findings": [
+    "Allthree mappedgreens occuraftercurrentNONE andbefore nexttopDULL/STRUCTURE, so previouscensor doesnot hide them. Keeping a separate historicalrecord permitsmatches while clearingonflip missesallthree ontheseinputs.",
+    "The July8AM displaycontrast has samebar DULLandpricequalification; pricebeforeDULL emits an extra historicalwithdrawal, DULLbeforeprice doesnot. Other two contrastsalreadyredulled beforepricehit.",
+    "Within 8executioncombinationchoices, onlyretainedhistory+competitorfirst+priceonly fitsselected3positive timingsand3displaycontrasts atall3gates; do not reportthis as general accuracy orunique software identification.",
+    "AddedDIF postponesAprilgreen beyondmappedday. ExacthistoricalsoftwareDIF missing, so data-level selection doesnot definitivelyrejectsourceDIFcondition.",
+    "Mandatorynegativephase, lifetime throughzeros/newcolorwaves, priceanchor variants, simultaneousevent display and sourceformula remain unverified; allmaterials usedpreviously, notblindvalidation."
+  ],
+  "verification": {
+    "preserved_prior_files": 230,
+    "positive_green_cases": 3,
+    "display_contrasts": 3,
+    "execution_signatures": 8,
+    "gate_variant_rows": 24,
+    "case_variant_checks": 144,
+    "prefix_checks": 144,
+    "new_sources": 0,
+    "new_software_labels": 0
+  },
+  "next_step": "Freeze this researchworkflowsignature, extend toexisting fullsaved60/90/120rows to countadditional historicalwithdrawal predictions and overlapwithordinaryevents; choose mostdiscriminating existingsoftwareframe forfalsification beforechangingrule. Do not claim sixcasecalibration validates fulltimeline.",
+  "boundaries": "Temporary algorithm is research diagnostics only; one resultJSON and originaldocappend; no formalindicator,parameters,config,API,boundarychange,network/quota,install,DB/Lakewrite,commit ortrades."
+}

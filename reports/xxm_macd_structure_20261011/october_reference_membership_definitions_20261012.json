@@ -1,0 +1,31 @@
+{
+  "research_date": "2026-10-12",
+  "scope": {"start": "2025-09-18", "end": "2025-10-27", "periods": [90, 120]},
+  "method": "Retrospective causal trace on already known October lectures and saved inputs; not a blind holdout",
+  "unchanged_base": "active_reference_candidate.py default locked nearest_qualifying max_refs=2 as used in correction_lifecycle_20261012.json",
+  "inventory": "Continuous strict histogram sign segments; zero starts a separate zero segment and ends prior segment; only completed nonzero same-direction segments enter history. Current segment is excluded from completed history.",
+  "record": "For every baseline STRUCTURE in scope, retain original event reference. Do not turn window membership changes into CANCEL labels.",
+  "window_loss": "First prefix at or after confirmation whose last N completed segments in the structure direction omit the original reference start; count even when currently in the opposite sign, since this is history membership only. Record if already absent at confirmation.",
+  "opportunity_check": "Only on matching-sign prefixes with at least 2 current bars: nearest price prerequisite, reference-window membership, pair price and DIF conditions. Not proof of actual reference selection or decision validity.",
+  "raw_cross": "First bar strictly after confirmation with direction times current raw DIF minus original reference DIF greater than zero; separate from membership and current active cancellation.",
+  "comparators": "First raw crossing of original confirmed reference versus first membership loss for windows2 and3; original event/state remains separate. No assumed OR/AND mapping or trade decision updater.",
+  "selection_window_check": "Separately compare strongest_eligible windows2 versus3 with other parameters fixed; report parity with default nearest2 rather than assume it. Do not conflate this selection comparison with confirmed-reference monitoring.",
+  "policy_isolation": "Trace strongest_eligible max_refs=2 confirmed records separately as a second profile; no equality with nearest2 is assumed, and their original references are not pooled. Profile added after first diagnostic disclosed a difference, so it is an explicit retrospective extension, not a blind frozen hypothesis.",
+  "gate_pct": [0.75, 1.0, 1.2],
+  "episode_checkpoint_diagnostic": {
+    "anchor": "2025-09-18 15:00:00",
+    "known_checkpoints": {"2025-10-16": false, "2025-10-24": true, "2025-10-27": true},
+    "addition_order": "Added after the membership diagnostic and an exploratory cancellation-event probe. All source checkpoint outcomes were already known; this is not a frozen prediction or blind validation.",
+    "profiles": "Evaluate nearest2 and strongest2 separately at each saved completed-bar endpoint. Carry latest completed bars across periods only for retrospective checkpoint comparison; this is not proof of software intraday timing.",
+    "comparators": ["Both current candidate states NONE", "Both September confirmed references out of last2 completed same-direction history", "Both September confirmed references strictly crossed at least once after confirmation", "Each period has had a top CANCEL since anchor", "Latest top DULL/STRUCTURE/CANCEL event since anchor is CANCEL in each period"],
+    "event_memory_limits": "The last two are competing diagnostic memories, not implemented trading rules. Ignore bottom events only to isolate the top episode; no source yet establishes how bottom events, fresh top activation, trend actions or reference replacement alter episode validity. CANCEL is a local candidate event, not observed invalidation of the original September structure."
+  },
+  "source_constraints": "Oct16 prior episode still needs 90 and120 disappearance; Oct24 states both disappeared and correction available. Software event anchors conditional; original confirmed reference numbers are not observed.",
+  "followup_screen": {
+    "scope": "2025-10-28 through 2025-11-11, common saved-input coverage of both periods",
+    "purpose": "Find where sticky-ever top cancellation and latest-top-event cancellation diverge after the known October correction, to identify evidence with discriminating value. Not a new author truth label.",
+    "ordering": "Declared before evaluating the extension in this diagnostic. Saved numeric inputs and some screenshots had already been seen in earlier research, so do not describe this as untouched holdout data.",
+    "output": "First divergence and dated state changes; do not infer a new episode starts merely because the candidate emits DULL."
+  },
+  "limits": ["No new software labels", "No formal algorithm or trade execution change", "90-minute source alignment unresolved", "History window expiry alone is not presumed episode correction", "Historical display removal is not inferred"]
+}

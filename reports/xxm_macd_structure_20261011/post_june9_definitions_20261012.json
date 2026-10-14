@@ -1,0 +1,28 @@
+{
+  "research_date": "2026-10-12",
+  "lecture_cutoff": "2026-06-09",
+  "start": "2026-06-10",
+  "end": "2026-07-09",
+  "status": "HISTORICAL_NUMERICAL_PREDICTIONS_FROZEN_BEFORE_FOLLOWUP_AUTHOR_TEXT_NOT_PROSPECTIVE_MARKET_FORECAST",
+  "wave_definition": "Contiguous strict sign of MACD histogram; zero ends a wave. Clip all data to end date.",
+  "anchor": "Same-sign wave containing June 9 final bar; only metrics visible by each wave end are computed.",
+  "first_red": "First positive histogram wave beginning after June 9; not a bottom confirmation.",
+  "next_green": "First negative wave following that first positive wave; a new comparison stage, not automatically dulling.",
+  "metrics": {
+    "drawdown_pct": "100*(first_close-min_close)/first_close within wave",
+    "drawdown_per_interval": "drawdown_pct / (bars-1); null if fewer than two bars",
+    "rebound_pct": "100*(positive_wave_max_close-prior_negative_wave_min_close)/prior_negative_wave_min_close",
+    "dif_recovery": "positive_wave_max_dif-prior_negative_wave_min_dif",
+    "red_peak": "maximum positive histogram in positive wave",
+    "red_sum": "sum of positive histogram samples, unscaled by time; not a verified author formula"
+  },
+  "candidate": "Unchanged active_reference_candidate, nearest_qualifying, two prior same-sign waves, >=2 bars; 1% locked baseline plus .75/1/1.2 and four active reference policy samples.",
+  "trend_routes": "Use existing TrendChannelCalculator and fixed 2020-01-02 through 2026-08-07 fixture, clipped to 2026-07-09; freeze first upper breakout and first upward lower-edge entry separately for each 25/90 channel. No trade rules added.",
+  "falsification": "Subsequent same-period software numeric alignment or author text can conflict with any event/ref/date; retain conflicts without adjusting source or thresholds.",
+  "limits": [
+    "60/90 software numeric differences unresolved",
+    "No mapping from these proxy metrics to the author dulling strength yet",
+    "No future author transcript read this turn before freeze",
+    "No production, lake or database writes"
+  ]
+}

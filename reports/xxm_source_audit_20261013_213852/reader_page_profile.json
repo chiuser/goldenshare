@@ -1,0 +1,56 @@
+[
+  {
+    "freq": 60,
+    "dataset": "bars",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 253,
+    "elapsedSeconds": 0.5845190831460059,
+    "cursorPresent": true
+  },
+  {
+    "freq": 60,
+    "dataset": "indicators",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 253,
+    "elapsedSeconds": 0.34981716610491276,
+    "cursorPresent": true
+  },
+  {
+    "freq": 90,
+    "dataset": "bars",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 336,
+    "elapsedSeconds": 0.41687299963086843,
+    "cursorPresent": true
+  },
+  {
+    "freq": 90,
+    "dataset": "indicators",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 336,
+    "elapsedSeconds": 0.9142306251451373,
+    "cursorPresent": true
+  },
+  {
+    "freq": 120,
+    "dataset": "bars",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 503,
+    "elapsedSeconds": 0.4375916672870517,
+    "cursorPresent": true
+  },
+  {
+    "freq": 120,
+    "dataset": "indicators",
+    "count": 1000,
+    "hasMore": true,
+    "scannedFiles": 503,
+    "elapsedSeconds": 0.7241043751128018,
+    "cursorPresent": true
+  }
+]

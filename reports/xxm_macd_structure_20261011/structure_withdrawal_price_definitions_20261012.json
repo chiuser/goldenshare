@@ -1,0 +1,22 @@
+{
+  "research_date": "2026-10-12",
+  "status": "POST_EXISTING_OCTOBER_CHART_REVIEW_HYPOTHESES_NOT_HELD_OUT",
+  "reason": "Frozen simple DIF/color hypotheses produce events15/16Oct, but existing16Oct daily/120charts lack visible disappearance labels; Oct16author explicitly requires daily close above3933.97 to reactivate dulling. Nov13 close exceeds pre-confirmation local close high. Test a price qualification as context, without declaring it structure disappearance formula.",
+  "prior_screen_sha256": "0c44f2a079d0135a1246227e4c88dd7ee9b81f1b9d615993a426307ee396a7f7",
+  "formation_price_basis": "Maximum close in positive histogram wave ending at top-structure confirmation; if confirmation flips to negative, use immediately preceding positive wave, excluding new negative bar. This is a new diagnostic local-price anchor, not original historical DIF reference.",
+  "mechanisms": {
+    "price_only": "First later close strictly above formation-wave maximum close",
+    "price_and_dif": "Price break plus same-bar DIF increase reaching unchanged relative gate",
+    "price_and_positive_hist": "Price break plus current histogram strictly positive, not necessarily the transition bar",
+    "price_dif_and_positive_hist": "All three same-bar conditions"
+  },
+  "window": "Same diagnostic interval as original screen, ending before next top STRUCTURE or input end. Flag raw old-reference break at or before compared predictions; no automatic expiry.",
+  "evidence_status": "Known October negative marker visibility and Nov13 positive mapping are calibration contrast, not new independent validation. Do not retrofit a formula from these two.",
+  "selection": "Report stable dates across the frozen policies/gates/initializations. Prefer observed top anchor, one close date separating mechanisms, daily/120, sufficient gate margins. Missing predictions are censored. Source availability unknown.",
+  "limitations": [
+    "price qualification of new dulling is not proof of structure withdrawal qualification",
+    "software may suppress or erase markers",
+    "no direct software Nov13 historical values",
+    "no auto trades or formal indicator changes"
+  ]
+}

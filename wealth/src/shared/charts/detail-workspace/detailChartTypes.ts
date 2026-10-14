@@ -49,6 +49,7 @@ interface DetailChartWorkspaceBaseProps {
   mainLines: DetailChartLineDefinition[];
   mainLayerAccessory?: ReactNode;
   mainPrimitives?: ISeriesPrimitive<Time>[];
+  macdPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;
   points: DetailChartPoint[];
   renderMainHeader: (point: DetailChartPoint | null) => ReactNode;

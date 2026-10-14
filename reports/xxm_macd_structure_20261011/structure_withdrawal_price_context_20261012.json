@@ -1,0 +1,3328 @@
+{
+  "research_date": "2026-10-12",
+  "status": "POST_EXISTING_OCTOBER_CHART_REVIEW_HYPOTHESES_NOT_HELD_OUT",
+  "definitions_sha256": "c6508e7e1a83476ae42880e9bd2b2d305215229fd8d1319cb00dab3b79b11c57",
+  "frozen_screen_sha256": "0c44f2a079d0135a1246227e4c88dd7ee9b81f1b9d615993a426307ee396a7f7",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "prior_evidence": {
+    "20251016_daily.png": "822f37f803cb9f888a5dfb01ffda6adc77897f12b7f7005d1b976b7acd892c5a",
+    "20251016_120.png": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+    "20251016_transcript.txt": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+    "20251114_daily.png": "2019ff83fa5b0e899b0285f44990d0de1f6c7e65e6b2e70906d185e9199b8045",
+    "20251114_user_transcript.txt": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+    "20250711_120.png": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36"
+  },
+  "existing_chart_review": [
+    {
+      "image": "20251016_daily.png",
+      "window": [
+        "2025-10-15",
+        "2025-10-16"
+      ],
+      "visible": "No visible green disappearance text at15/16; mapped conditional absence, no new software truth label",
+      "scope": "Does not prove global marker absence, original formula or decision correction"
+    },
+    {
+      "image": "20251016_120.png",
+      "window": [
+        "2025-10-15 15:00:00",
+        "2025-10-16 11:30:00"
+      ],
+      "visible": "No visible green disappearance text at those anchors; source/page annotations may affect visibility"
+    },
+    {
+      "image": "20250711_120.png",
+      "window": [
+        "2025-07-03 15:00:00",
+        "2025-07-04 11:30:00"
+      ],
+      "visible": "No new visible green disappearance at price-rule predictions; this interval already returned to DULL without a negative phase. Not the Nov13 cross-phase context."
+    }
+  ],
+  "source_locators": [
+    {
+      "file": "20251016_transcript.txt",
+      "lines": [
+        7,
+        10
+      ],
+      "claim": "daily again dulls only if price above roughly3934"
+    },
+    {
+      "file": "20251016_transcript.txt",
+      "lines": [
+        31,
+        34
+      ],
+      "claim": "close above3934; speaker corrects second structure to second dulling"
+    }
+  ],
+  "known_case_contrast": {
+    "2025-10-13": [
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-10-09",
+          "close": 3933.9724
+        },
+        "anchor": {
+          "time": "2025-10-13",
+          "close": 3889.5022,
+          "dif": 31.789,
+          "hist": -0.258,
+          "old_dif_reference": 78.258
+        },
+        "firsts": {
+          "price_only": "2025-10-24",
+          "price_and_dif": "2025-10-24",
+          "price_and_positive_hist": "2025-10-24",
+          "price_dif_and_positive_hist": "2025-10-24"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_dif": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-10-24",
+            "close": 3950.3115,
+            "dif": 29.091,
+            "hist": 3.255,
+            "previous_dif": 26.328,
+            "dif_rise_pct": 10.494530537830453
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-10-13",
+        "new_top_dull": "2025-11-10",
+        "censored_at": "2025-11-10"
+      }
+    ],
+    "2025-11-11": [
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:daily_fixture:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:recovered_rounded_seed",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648589764,
+            "hist": 0.3410436372100776,
+            "previous_dif": 36.18722708156611,
+            "dif_rise_pct": 2.6508231818076577
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 0.75,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.0,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      },
+      {
+        "series": "daily:minute60_daily_endpoint:fixture_first_close",
+        "gate_pct": 1.2,
+        "policy": "strongest_eligible",
+        "local_price_peak": {
+          "time": "2025-11-10",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "old_dif_reference": 42.86
+        },
+        "firsts": {
+          "price_only": "2025-11-13",
+          "price_and_dif": "2025-11-13",
+          "price_and_positive_hist": "2025-11-13",
+          "price_dif_and_positive_hist": "2025-11-13"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_dif": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13",
+            "close": 4029.5012,
+            "dif": 37.14648648539651,
+            "hist": 0.3410436376828301,
+            "previous_dif": 36.18722708102496,
+            "dif_rise_pct": 2.650823181957884
+          }
+        },
+        "raw_reference_break": "2026-01-09",
+        "first_negative": "2025-11-12",
+        "new_top_dull": "2026-01-06",
+        "censored_at": "2026-03-02"
+      }
+    ]
+  },
+  "groups": 40,
+  "differing_candidates": [
+    {
+      "period": "90",
+      "anchor_time": "2025-11-11 11:00:00",
+      "variants": 6,
+      "existing_observed_anchor": true,
+      "no_raw_break_competition": true,
+      "negative_phase_without_new_dull_before_predictions": true,
+      "firsts": {
+        "price_only": "2025-11-13 14:00:00",
+        "price_and_dif": "2025-11-13 14:00:00",
+        "price_and_positive_hist": "2025-11-13 15:00:00",
+        "price_dif_and_positive_hist": "2025-11-13 15:00:00"
+      },
+      "baseline": {
+        "series": "90",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-11-10 15:00:00",
+          "close": 4018.5972
+        },
+        "anchor": {
+          "time": "2025-11-11 11:00:00",
+          "close": 3994.2158,
+          "dif": 11.954974379587384,
+          "hist": 0.7751350692128653,
+          "old_dif_reference": 31.39180919304681
+        },
+        "firsts": {
+          "price_only": "2025-11-13 14:00:00",
+          "price_and_dif": "2025-11-13 14:00:00",
+          "price_and_positive_hist": "2025-11-13 15:00:00",
+          "price_dif_and_positive_hist": "2025-11-13 15:00:00"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-11-13 14:00:00",
+            "close": 4019.9592,
+            "dif": 10.192260695477671,
+            "hist": -0.06253572439602095,
+            "previous_dif": 9.276860610648782,
+            "dif_rise_pct": 9.86756321182743
+          },
+          "price_and_dif": {
+            "time": "2025-11-13 14:00:00",
+            "close": 4019.9592,
+            "dif": 10.192260695477671,
+            "hist": -0.06253572439602095,
+            "previous_dif": 9.276860610648782,
+            "dif_rise_pct": 9.86756321182743
+          },
+          "price_and_positive_hist": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012,
+            "dif": 11.554488560280333,
+            "hist": 2.129536004167438,
+            "previous_dif": 10.192260695477671,
+            "dif_rise_pct": 13.365316150195076
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012,
+            "dif": 11.554488560280333,
+            "hist": 2.129536004167438,
+            "previous_dif": 10.192260695477671,
+            "dif_rise_pct": 13.365316150195076
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-11-11 14:00:00",
+        "new_top_dull": "2025-11-14 11:00:00",
+        "censored_at": "2025-11-14 11:00:00"
+      }
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-07-02 14:00:00",
+      "variants": 6,
+      "existing_observed_anchor": false,
+      "no_raw_break_competition": true,
+      "negative_phase_without_new_dull_before_predictions": true,
+      "firsts": {
+        "price_only": "2025-07-03 14:00:00",
+        "price_and_dif": "2025-07-03 14:00:00",
+        "price_and_positive_hist": "2025-07-04 14:00:00",
+        "price_dif_and_positive_hist": "2025-07-04 14:00:00"
+      },
+      "baseline": {
+        "series": "90",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-07-01 14:00:00",
+          "close": 3458.5686
+        },
+        "anchor": {
+          "time": "2025-07-02 14:00:00",
+          "close": 3451.9912,
+          "dif": 15.464687416477318,
+          "hist": 0.3796692091010847,
+          "old_dif_reference": 19.28212366483376
+        },
+        "firsts": {
+          "price_only": "2025-07-03 14:00:00",
+          "price_and_dif": "2025-07-03 14:00:00",
+          "price_and_positive_hist": "2025-07-04 14:00:00",
+          "price_dif_and_positive_hist": "2025-07-04 14:00:00"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-07-03 14:00:00",
+            "close": 3462.8333,
+            "dif": 14.32071267102765,
+            "hist": -1.104699848180978,
+            "previous_dif": 14.130379340179388,
+            "dif_rise_pct": 1.3469796264213048
+          },
+          "price_and_dif": {
+            "time": "2025-07-03 14:00:00",
+            "close": 3462.8333,
+            "dif": 14.32071267102765,
+            "hist": -1.104699848180978,
+            "previous_dif": 14.130379340179388,
+            "dif_rise_pct": 1.3469796264213048
+          },
+          "price_and_positive_hist": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902,
+            "dif": 15.643908540563189,
+            "hist": 1.4649793002019855,
+            "previous_dif": 14.709759890822625,
+            "dif_rise_pct": 6.350536355956269
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902,
+            "dif": 15.643908540563189,
+            "hist": 1.4649793002019855,
+            "previous_dif": 14.709759890822625,
+            "dif_rise_pct": 6.350536355956269
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-07-02 15:00:00",
+        "new_top_dull": "2025-07-04 15:00:00",
+        "censored_at": "2025-07-04 15:00:00"
+      }
+    },
+    {
+      "period": "60",
+      "anchor_time": "2025-07-07 10:30:00",
+      "variants": 6,
+      "existing_observed_anchor": false,
+      "no_raw_break_competition": true,
+      "negative_phase_without_new_dull_before_predictions": true,
+      "firsts": {
+        "price_only": "2025-07-08 10:30:00",
+        "price_and_dif": "2025-07-08 10:30:00",
+        "price_and_positive_hist": "2025-07-08 11:30:00",
+        "price_dif_and_positive_hist": "2025-07-08 11:30:00"
+      },
+      "baseline": {
+        "series": "60",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-07-04 14:00:00",
+          "close": 3479.902
+        },
+        "anchor": {
+          "time": "2025-07-07 10:30:00",
+          "close": 3469.131,
+          "dif": 11.753928818517124,
+          "hist": 0.16328861448598175,
+          "old_dif_reference": 20.043562610506342
+        },
+        "firsts": {
+          "price_only": "2025-07-08 10:30:00",
+          "price_and_dif": "2025-07-08 10:30:00",
+          "price_and_positive_hist": "2025-07-08 11:30:00",
+          "price_dif_and_positive_hist": "2025-07-08 11:30:00"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-07-08 10:30:00",
+            "close": 3480.314,
+            "dif": 10.929216206715864,
+            "hist": -0.5099517883459903,
+            "previous_dif": 10.652716502344902,
+            "dif_rise_pct": 2.595579299515752
+          },
+          "price_and_dif": {
+            "time": "2025-07-08 10:30:00",
+            "close": 3480.314,
+            "dif": 10.929216206715864,
+            "hist": -0.5099517883459903,
+            "previous_dif": 10.652716502344902,
+            "dif_rise_pct": 2.595579299515752
+          },
+          "price_and_positive_hist": {
+            "time": "2025-07-08 11:30:00",
+            "close": 3493.1643,
+            "dif": 12.046392713483783,
+            "hist": 1.3795209801518737,
+            "previous_dif": 10.929216206715864,
+            "dif_rise_pct": 10.221927040673128
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-07-08 11:30:00",
+            "close": 3493.1643,
+            "dif": 12.046392713483783,
+            "hist": 1.3795209801518737,
+            "previous_dif": 10.929216206715864,
+            "dif_rise_pct": 10.221927040673128
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": "2025-07-07 11:30:00",
+        "new_top_dull": "2025-07-08 14:00:00",
+        "censored_at": "2025-07-09 14:00:00"
+      }
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-07-07 11:00:00",
+      "variants": 6,
+      "existing_observed_anchor": false,
+      "no_raw_break_competition": true,
+      "negative_phase_without_new_dull_before_predictions": true,
+      "firsts": {
+        "price_only": "2025-07-08 11:00:00",
+        "price_and_dif": "2025-07-08 11:00:00",
+        "price_and_positive_hist": "2025-07-08 14:00:00",
+        "price_dif_and_positive_hist": "2025-07-08 14:00:00"
+      },
+      "baseline": {
+        "series": "90",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-07-04 14:00:00",
+          "close": 3479.902
+        },
+        "anchor": {
+          "time": "2025-07-07 11:00:00",
+          "close": 3465.577,
+          "dif": 14.836886929523189,
+          "hist": -0.3372295869172497,
+          "old_dif_reference": 16.04494100713964
+        },
+        "firsts": {
+          "price_only": "2025-07-08 11:00:00",
+          "price_and_dif": "2025-07-08 11:00:00",
+          "price_and_positive_hist": "2025-07-08 14:00:00",
+          "price_dif_and_positive_hist": "2025-07-08 14:00:00"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-07-08 11:00:00",
+            "close": 3481.511,
+            "dif": 14.689765678892854,
+            "hist": -0.2466050708823353,
+            "previous_dif": 14.422212797924658,
+            "dif_rise_pct": 1.8551444547170806
+          },
+          "price_and_dif": {
+            "time": "2025-07-08 11:00:00",
+            "close": 3481.511,
+            "dif": 14.689765678892854,
+            "hist": -0.2466050708823353,
+            "previous_dif": 14.422212797924658,
+            "dif_rise_pct": 1.8551444547170806
+          },
+          "price_and_positive_hist": {
+            "time": "2025-07-08 14:00:00",
+            "close": 3496.3225,
+            "dif": 15.913526304394509,
+            "hist": 1.7607329440967732,
+            "previous_dif": 14.689765678892854,
+            "dif_rise_pct": 8.330702151771066
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-07-08 14:00:00",
+            "close": 3496.3225,
+            "dif": 15.913526304394509,
+            "hist": 1.7607329440967732,
+            "previous_dif": 14.689765678892854,
+            "dif_rise_pct": 8.330702151771066
+          }
+        },
+        "raw_reference_break": "2025-07-08 15:00:00",
+        "first_negative": "2025-07-07 11:00:00",
+        "new_top_dull": "2025-07-21 11:00:00",
+        "censored_at": "2025-08-08 11:00:00"
+      }
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-06-27 15:00:00",
+      "variants": 6,
+      "existing_observed_anchor": true,
+      "no_raw_break_competition": true,
+      "negative_phase_without_new_dull_before_predictions": false,
+      "firsts": {
+        "price_only": "2025-07-03 15:00:00",
+        "price_and_dif": "2025-07-04 11:30:00",
+        "price_and_positive_hist": "2025-07-03 15:00:00",
+        "price_dif_and_positive_hist": "2025-07-04 11:30:00"
+      },
+      "baseline": {
+        "series": "120",
+        "gate_pct": 0.75,
+        "policy": "nearest_qualifying",
+        "local_price_peak": {
+          "time": "2025-06-26 11:30:00",
+          "close": 3459.657
+        },
+        "anchor": {
+          "time": "2025-06-27 15:00:00",
+          "close": 3424.2268,
+          "dif": 16.975843107938545,
+          "hist": 10.008361723480565,
+          "old_dif_reference": 26.11490299072011
+        },
+        "firsts": {
+          "price_only": "2025-07-03 15:00:00",
+          "price_and_dif": "2025-07-04 11:30:00",
+          "price_and_positive_hist": "2025-07-03 15:00:00",
+          "price_dif_and_positive_hist": "2025-07-04 11:30:00"
+        },
+        "endpoint_evidence": {
+          "price_only": {
+            "time": "2025-07-03 15:00:00",
+            "close": 3461.1506,
+            "dif": 18.93449313950532,
+            "hist": 2.952852016967732,
+            "previous_dif": 18.89034366954411,
+            "dif_rise_pct": 0.2337144878544057
+          },
+          "price_and_positive_hist": {
+            "time": "2025-07-03 15:00:00",
+            "close": 3461.1506,
+            "dif": 18.93449313950532,
+            "hist": 2.952852016967732,
+            "previous_dif": 18.89034366954411,
+            "dif_rise_pct": 0.2337144878544057
+          },
+          "price_and_dif": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417,
+            "dif": 19.877381833754498,
+            "hist": 3.8709035243728707,
+            "previous_dif": 18.93449313950532,
+            "dif_rise_pct": 4.979740874509678
+          },
+          "price_dif_and_positive_hist": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417,
+            "dif": 19.877381833754498,
+            "hist": 3.8709035243728707,
+            "previous_dif": 18.93449313950532,
+            "dif_rise_pct": 4.979740874509678
+          }
+        },
+        "raw_reference_break": null,
+        "first_negative": null,
+        "new_top_dull": "2025-06-30 15:00:00",
+        "censored_at": "2025-07-04 15:00:00"
+      }
+    }
+  ],
+  "endpoint_prefix_checks": 286,
+  "new_software_labels": 0,
+  "limitations": [
+    "price qualification of new dulling is not proof of structure withdrawal qualification",
+    "software may suppress or erase markers",
+    "no direct software Nov13 historical values",
+    "no auto trades or formal indicator changes"
+  ],
+  "conclusion": "Simple DIF/color sufficient rules fail existing conditional visibility contrast. Added price qualification can accommodate both but is post-review calibration, not original software identification."
+}

@@ -1,0 +1,1738 @@
+{
+  "as_of": "2026-10-12 Asia/Shanghai",
+  "sources": [
+    {
+      "file": "codex-clipboard-61621da6-a007-433c-bc86-f43190995a87.png",
+      "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-61621da6-a007-433c-bc86-f43190995a87.png",
+      "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_60.png",
+      "bytes": 1123801,
+      "sha256": "5e0d79f215ab56e2d2a5dac191d8b958294c6fbf5a461454ea29e7771c96adf0",
+      "image_date": "2026-01-05",
+      "period": "60"
+    },
+    {
+      "file": "codex-clipboard-baa1cb68-d15e-4d14-9af2-be30cab63173.png",
+      "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-baa1cb68-d15e-4d14-9af2-be30cab63173.png",
+      "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_90.png",
+      "bytes": 1073300,
+      "sha256": "f2560febeb2ab7dc16b4ff7f7f1e2674f789d181091afcf123332ebe800a857d",
+      "image_date": "2026-01-05",
+      "period": "90"
+    }
+  ],
+  "user_period_clarification": "First screenshot is60, second is90; both Jan5.",
+  "comparisons": [
+    {
+      "freq": 60,
+      "input": "60_20250603_20261009.csv",
+      "input_sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "software": {
+        "close": 4023.42,
+        "dif": 20.358,
+        "dea": 16.594,
+        "hist": 7.529
+      },
+      "dg": {
+        "close": 4023.4167,
+        "dif": 20.378883839287028,
+        "dea": 16.601742161126946,
+        "hist": 7.554283356320163
+      },
+      "software_minus_dg": {
+        "close": 0.0032999999998537533,
+        "dif": -0.020883839287026973,
+        "dea": -0.007742161126945035,
+        "hist": -0.025283356320162653
+      },
+      "jan5_bars": [
+        {
+          "time": "2026-01-05 10:30:00",
+          "close": 4006.483,
+          "dif": 14.351182017727751,
+          "hist": -0.35759130243485515,
+          "dea": 14.529977668945179
+        },
+        {
+          "time": "2026-01-05 11:30:00",
+          "close": 4011.4478,
+          "dif": 16.505198403413033,
+          "hist": 3.160353175148561,
+          "dea": 14.925021815838752
+        },
+        {
+          "time": "2026-01-05 14:00:00",
+          "close": 4018.7495,
+          "dif": 18.587196444579604,
+          "hist": 5.859479405985358,
+          "dea": 15.657456741586925
+        },
+        {
+          "time": "2026-01-05 15:00:00",
+          "close": 4023.4167,
+          "dif": 20.378883839287028,
+          "hist": 7.554283356320163,
+          "dea": 16.601742161126946
+        }
+      ],
+      "baseline_jan5": [
+        {
+          "time": "2026-01-05 10:30:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 10,
+          "ref_start": "",
+          "close": 4006.483,
+          "dif": 14.351182017727751,
+          "hist": -0.35759130243485515,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": null,
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 7,
+                "price": 3868.1125,
+                "dif": -5.4563909806033735,
+                "start": "2025-12-03 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 23,
+                "price": 3820.846,
+                "dif": -17.14639081299856,
+                "start": "2025-12-10 10:30:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3961.2073,
+            "current_wave_dif": 11.898636274287583
+          }
+        },
+        {
+          "time": "2026-01-05 11:30:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4011.4478,
+          "dif": 16.505198403413033,
+          "hist": 3.160353175148561,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": null,
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 10,
+                "price": 3929.8535,
+                "dif": 8.560293166245629,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 32,
+                "price": 3980.0605,
+                "dif": 20.857331758674263,
+                "start": "2025-12-17 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4011.4478,
+            "current_wave_dif": 16.505198403413033
+          }
+        },
+        {
+          "time": "2026-01-05 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "ref_start": "2025-12-17 15:00:00",
+          "close": 4018.7495,
+          "dif": 18.587196444579604,
+          "hist": 5.859479405985358,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "activation",
+          "event_ref_start": "2025-12-17 15:00:00",
+          "event_ref_dif": 20.857331758674263,
+          "event_ref_price": 3980.0605,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": 1,
+              "count": 32,
+              "price": 3980.0605,
+              "dif": 20.857331758674263,
+              "start": "2025-12-17 15:00:00"
+            },
+            "event_reference": {
+              "sign": 1,
+              "count": 32,
+              "price": 3980.0605,
+              "dif": 20.857331758674263,
+              "start": "2025-12-17 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 10,
+                "price": 3929.8535,
+                "dif": 8.560293166245629,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 32,
+                "price": 3980.0605,
+                "dif": 20.857331758674263,
+                "start": "2025-12-17 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4018.7495,
+            "current_wave_dif": 18.587196444579604
+          }
+        },
+        {
+          "time": "2026-01-05 15:00:00",
+          "event": "NONE",
+          "state": "DULL",
+          "wave_count": 3,
+          "ref_start": "2025-12-17 15:00:00",
+          "close": 4023.4167,
+          "dif": 20.378883839287028,
+          "hist": 7.554283356320163,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": 1,
+              "count": 32,
+              "price": 3980.0605,
+              "dif": 20.857331758674263,
+              "start": "2025-12-17 15:00:00"
+            },
+            "active_reference": {
+              "sign": 1,
+              "count": 32,
+              "price": 3980.0605,
+              "dif": 20.857331758674263,
+              "start": "2025-12-17 15:00:00"
+            },
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 10,
+                "price": 3929.8535,
+                "dif": 8.560293166245629,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 32,
+                "price": 3980.0605,
+                "dif": 20.857331758674263,
+                "start": "2025-12-17 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4023.4167,
+            "current_wave_dif": 20.378883839287028
+          }
+        }
+      ],
+      "numerical_controls": [
+        {
+          "mode": "standard",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.378883839294758,
+            "dea": 16.60174216113455,
+            "hist": 7.554283356320418
+          },
+          "residual": {
+            "dif": 0.020883839294757678,
+            "dea": 0.0077421611345478425,
+            "hist": 0.02528335632041845
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "close_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.379154969676165,
+            "dea": 16.60176420683484,
+            "hist": 7.55478152568265
+          },
+          "residual": {
+            "dif": 0.02115496967616437,
+            "dea": 0.007764206834838916,
+            "hist": 0.025781525682649686
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "float32_state",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.37890625,
+            "dea": 16.601774215698242,
+            "hist": 7.554264068603516
+          },
+          "residual": {
+            "dif": 0.02090624999999946,
+            "dea": 0.007774215698240994,
+            "hist": 0.02526406860351571
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "float32_all",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.3798828125,
+            "dea": 16.602771759033203,
+            "hist": 7.554222106933594
+          },
+          "residual": {
+            "dif": 0.02188281249999946,
+            "dea": 0.008771759033201931,
+            "hist": 0.025222106933593835
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.38000000000011,
+            "dea": 16.6,
+            "hist": 7.560000000000215
+          },
+          "residual": {
+            "dif": 0.0220000000001086,
+            "dea": 0.006000000000000227,
+            "hist": 0.031000000000215522
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 3,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.38000000000011,
+            "dea": 16.602,
+            "hist": 7.556000000000218
+          },
+          "residual": {
+            "dif": 0.0220000000001086,
+            "dea": 0.007999999999999119,
+            "hist": 0.02700000000021774
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 4,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.378799999999956,
+            "dea": 16.6016,
+            "hist": 7.554399999999909
+          },
+          "residual": {
+            "dif": 0.020799999999955077,
+            "dea": 0.007600000000000051,
+            "hist": 0.02539999999990883
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 5,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.378889999999956,
+            "dea": 16.60175,
+            "hist": 7.554279999999913
+          },
+          "residual": {
+            "dif": 0.020889999999955222,
+            "dea": 0.007749999999997925,
+            "hist": 0.025279999999913372
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 6,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.378883999999744,
+            "dea": 16.601742,
+            "hist": 7.554283999999484
+          },
+          "residual": {
+            "dif": 0.020883999999742997,
+            "dea": 0.00774200000000036,
+            "hist": 0.025283999999484053
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 21.705078623405825,
+            "dea": 17.889833109885892,
+            "hist": 7.6304910270398665
+          },
+          "residual": {
+            "dif": 1.3470786234058245,
+            "dea": 1.2958331098858906,
+            "hist": 0.10149102703986657
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 3,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.436072367721863,
+            "dea": 16.647486606943463,
+            "hist": 7.577171521556799
+          },
+          "residual": {
+            "dif": 0.07807236772186243,
+            "dea": 0.05348660694346208,
+            "hist": 0.04817152155679949
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 4,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.360051737543927,
+            "dea": 16.58654060649935,
+            "hist": 7.5470222620891505
+          },
+          "residual": {
+            "dif": 0.00205173754392618,
+            "dea": -0.007459393500649725,
+            "hist": 0.018022262089150587
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 5,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.381321525535895,
+            "dea": 16.603774808487625,
+            "hist": 7.555093434096541
+          },
+          "residual": {
+            "dif": 0.02332152553589495,
+            "dea": 0.009774808487623687,
+            "hist": 0.0260934340965413
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 6,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 20.37889387154337,
+            "dea": 16.60175570239643,
+            "hist": 7.5542763382938745
+          },
+          "residual": {
+            "dif": 0.020893871543368192,
+            "dea": 0.0077557023964303085,
+            "hist": 0.025276338293874545
+          },
+          "all_indicators_display_compatible": false
+        }
+      ],
+      "visual_observation": "Regional yellow label; no terminal green label visible",
+      "scored_labels": []
+    },
+    {
+      "freq": 90,
+      "input": "90_20250603_20260113.csv",
+      "input_sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+      "software": {
+        "close": 4023.42,
+        "dif": 23.658,
+        "dea": 20.306,
+        "hist": 6.703
+      },
+      "dg": {
+        "close": 4023.4167,
+        "dif": 23.672999109934608,
+        "dea": 20.305750065424718,
+        "hist": 6.73449808901978
+      },
+      "software_minus_dg": {
+        "close": 0.0032999999998537533,
+        "dif": -0.014999109934606736,
+        "dea": 0.00024993457528310614,
+        "hist": -0.03149808901978002
+      },
+      "jan5_bars": [
+        {
+          "time": "2026-01-05 11:00:00",
+          "close": 4005.239,
+          "dif": 19.06823933396663,
+          "hist": 0.26626993245376696,
+          "dea": 18.935104367739747
+        },
+        {
+          "time": "2026-01-05 14:00:00",
+          "close": 4018.7495,
+          "dif": 21.57927155052721,
+          "hist": 4.230667492459936,
+          "dea": 19.46393780429724
+        },
+        {
+          "time": "2026-01-05 15:00:00",
+          "close": 4023.4167,
+          "dif": 23.672999109934608,
+          "hist": 6.73449808901978,
+          "dea": 20.305750065424718
+        }
+      ],
+      "baseline_jan5": [
+        {
+          "time": "2026-01-05 11:00:00",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4005.239,
+          "dif": 19.06823933396663,
+          "hist": 0.26626993245376696,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": null,
+            "event_reference": null,
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 9,
+                "price": 3929.8535,
+                "dif": 5.347640647957633,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 25,
+                "price": 3978.7737,
+                "dif": 23.132934971069062,
+                "start": "2025-12-18 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4005.239,
+            "current_wave_dif": 19.06823933396663
+          }
+        },
+        {
+          "time": "2026-01-05 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "ref_start": "2025-12-18 11:00:00",
+          "close": 4018.7495,
+          "dif": 21.57927155052721,
+          "hist": 4.230667492459936,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "activation",
+          "event_ref_start": "2025-12-18 11:00:00",
+          "event_ref_dif": 23.132934971069062,
+          "event_ref_price": 3978.7737,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": 1,
+              "count": 25,
+              "price": 3978.7737,
+              "dif": 23.132934971069062,
+              "start": "2025-12-18 11:00:00"
+            },
+            "event_reference": {
+              "sign": 1,
+              "count": 25,
+              "price": 3978.7737,
+              "dif": 23.132934971069062,
+              "start": "2025-12-18 11:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 9,
+                "price": 3929.8535,
+                "dif": 5.347640647957633,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 25,
+                "price": 3978.7737,
+                "dif": 23.132934971069062,
+                "start": "2025-12-18 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4018.7495,
+            "current_wave_dif": 21.57927155052721
+          }
+        },
+        {
+          "time": "2026-01-05 15:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-12-18 11:00:00",
+          "close": 4023.4167,
+          "dif": 23.672999109934608,
+          "hist": 6.73449808901978,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-12-18 11:00:00",
+          "event_ref_dif": 23.132934971069062,
+          "event_ref_price": 3978.7737,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": 1,
+              "count": 25,
+              "price": 3978.7737,
+              "dif": 23.132934971069062,
+              "start": "2025-12-18 11:00:00"
+            },
+            "active_reference": null,
+            "event_reference": {
+              "sign": 1,
+              "count": 25,
+              "price": 3978.7737,
+              "dif": 23.132934971069062,
+              "start": "2025-12-18 11:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": 1,
+                "count": 9,
+                "price": 3929.8535,
+                "dif": 5.347640647957633,
+                "start": "2025-12-05 14:00:00"
+              },
+              {
+                "sign": 1,
+                "count": 25,
+                "price": 3978.7737,
+                "dif": 23.132934971069062,
+                "start": "2025-12-18 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4023.4167,
+            "current_wave_dif": 23.672999109934608
+          }
+        }
+      ],
+      "numerical_controls": [
+        {
+          "mode": "standard",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.672999109942793,
+            "dea": 20.30575006543238,
+            "hist": 6.734498089020825
+          },
+          "residual": {
+            "dif": 0.014999109942792188,
+            "dea": -0.00024993456761990274,
+            "hist": 0.031498089020824516
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "close_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.673260867244153,
+            "dea": 20.305834540982517,
+            "hist": 6.734852652523273
+          },
+          "residual": {
+            "dif": 0.015260867244151655,
+            "dea": -0.00016545901748443725,
+            "hist": 0.03185265252327252
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "float32_state",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.6728515625,
+            "dea": 20.30559539794922,
+            "hist": 6.7345123291015625
+          },
+          "residual": {
+            "dif": 0.01485156249999875,
+            "dea": -0.0004046020507821879,
+            "hist": 0.03151232910156221
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "float32_all",
+          "digits": null,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.6748046875,
+            "dea": 20.307401657104492,
+            "hist": 6.734806060791016
+          },
+          "residual": {
+            "dif": 0.01680468749999875,
+            "dea": 0.0014016571044912496,
+            "hist": 0.031806060791015334
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.659999999999854,
+            "dea": 20.29,
+            "hist": 6.739999999999711
+          },
+          "residual": {
+            "dif": 0.0019999999998532303,
+            "dea": -0.01600000000000179,
+            "hist": 0.036999999999710376
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 3,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.671000000000276,
+            "dea": 20.304,
+            "hist": 6.734000000000556
+          },
+          "residual": {
+            "dif": 0.013000000000275236,
+            "dea": -0.0020000000000024443,
+            "hist": 0.031000000000555694
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 4,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.673099999999977,
+            "dea": 20.3057,
+            "hist": 6.73479999999995
+          },
+          "residual": {
+            "dif": 0.015099999999975466,
+            "dea": -0.0002999999999993008,
+            "hist": 0.03179999999994987
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 5,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.672990000000027,
+            "dea": 20.30573,
+            "hist": 6.734520000000053
+          },
+          "residual": {
+            "dif": 0.014990000000025816,
+            "dea": -0.00027000000000043656,
+            "hist": 0.03152000000005284
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "ema_state_round",
+          "digits": 6,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.672999000000345,
+            "dea": 20.30575,
+            "hist": 6.734498000000691
+          },
+          "residual": {
+            "dif": 0.014999000000344154,
+            "dea": -0.0002500000000011937,
+            "hist": 0.03149800000069103
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 2,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 25.10012966449085,
+            "dea": 21.569365640716942,
+            "hist": 7.061528047547817
+          },
+          "residual": {
+            "dif": 1.4421296644908494,
+            "dea": 1.2633656407169411,
+            "hist": 0.358528047547817
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 3,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.736687167694072,
+            "dea": 20.358821701465573,
+            "hist": 6.7557309324569985
+          },
+          "residual": {
+            "dif": 0.07868716769407058,
+            "dea": 0.052821701465571635,
+            "hist": 0.052730932456998225
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 4,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.652038666917633,
+            "dea": 20.28823089791815,
+            "hist": 6.727615537998965
+          },
+          "residual": {
+            "dif": -0.005961333082368014,
+            "dea": -0.017769102081850008,
+            "hist": 0.02461553799896432
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 5,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.675704359943666,
+            "dea": 20.30803487572543,
+            "hist": 6.735338968436473
+          },
+          "residual": {
+            "dif": 0.01770435994366437,
+            "dea": 0.0020348757254282646,
+            "hist": 0.03233896843647255
+          },
+          "all_indicators_display_compatible": false
+        },
+        {
+          "mode": "coefficient_round",
+          "digits": 6,
+          "calculated": {
+            "trade_time": "2026-01-05 15:00:00",
+            "dif": 23.673009624002134,
+            "dea": 20.305760847342555,
+            "hist": 6.734497553319159
+          },
+          "residual": {
+            "dif": 0.015009624002132682,
+            "dea": -0.00023915265744633984,
+            "hist": 0.03149755331915838
+          },
+          "all_indicators_display_compatible": false
+        }
+      ],
+      "visual_observation": "Yellow label at penultimate area, green at terminal",
+      "scored_labels": [
+        {
+          "freq": 90,
+          "time": "2026-01-05 14:00:00",
+          "expected": "DULL",
+          "confidence": "mapped",
+          "position_error": "possibly one bar"
+        },
+        {
+          "freq": 90,
+          "time": "2026-01-05 15:00:00",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "position_error": "terminal marker visible"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible"
+    }
+  ],
+  "new_conditional_labels": 2,
+  "cumulative_conditional_labels": 52,
+  "cumulative_direct": 20,
+  "cumulative_mapped": 32,
+  "regional_state_not_event_labels": [
+    {
+      "mode": "locked",
+      "gate": 0.75,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "locked",
+      "gate": 1,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "locked",
+      "gate": 1.2,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_before",
+      "gate": 0.75,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_before",
+      "gate": 1,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_before",
+      "gate": 1.2,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "dull_before",
+      "gate": 0.75,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "dull_before",
+      "gate": 1,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "dull_before",
+      "gate": 1.2,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_after",
+      "gate": 0.75,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_after",
+      "gate": 1,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    },
+    {
+      "mode": "both_after",
+      "gate": 1.2,
+      "freq": 60,
+      "time": "2026-01-05 15:00:00",
+      "prediction": "DULL",
+      "regional_expected_state": "DULL",
+      "compatible": true,
+      "counts_as_exact_event_label": false
+    }
+  ],
+  "model_point_checks": [
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "locked",
+      "gate": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "locked",
+      "gate": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "locked",
+      "gate": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "locked",
+      "gate": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "locked",
+      "gate": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "locked",
+      "gate": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_before",
+      "gate": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_before",
+      "gate": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_before",
+      "gate": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_before",
+      "gate": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_before",
+      "gate": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_before",
+      "gate": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "dull_before",
+      "gate": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "dull_before",
+      "gate": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "dull_before",
+      "gate": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "dull_before",
+      "gate": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "dull_before",
+      "gate": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "dull_before",
+      "gate": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_after",
+      "gate": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_after",
+      "gate": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_after",
+      "gate": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_after",
+      "gate": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "position_error": "possibly one bar",
+      "mode": "both_after",
+      "gate": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "route": "activation",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    },
+    {
+      "freq": 90,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "position_error": "terminal marker visible",
+      "mode": "both_after",
+      "gate": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "route": "dif_break",
+      "event_ref_dif": 23.132934971069062,
+      "event_ref_start": "2025-12-18 11:00:00"
+    }
+  ],
+  "prefix_checks": 84,
+  "model_mismatches": 0,
+  "january5_13_same_period_state_controls": [
+    {
+      "freq": 60,
+      "old_screenshot": "/Users/congming/Downloads/IMG_0370.PNG",
+      "price_digits": null,
+      "display_tolerance": 0.001,
+      "anchor": "2026-01-05 15:00:00",
+      "observations": 2,
+      "constraints": 12,
+      "nondegenerate_vertices_checked": 146,
+      "incompatible_interval_certificates": [
+        {
+          "date": "2026-01-13",
+          "field": "dea",
+          "possible_from_first_two_dates": [
+            37.33517479928996,
+            37.33775567098605
+          ],
+          "required_display_interval": [
+            37.31,
+            37.312
+          ]
+        },
+        {
+          "date": "2026-01-13",
+          "field": "hist",
+          "possible_from_first_two_dates": [
+            -1.987511341972084,
+            -1.9863495985799053
+          ],
+          "required_display_interval": [
+            -1.9369999999999998,
+            -1.935
+          ]
+        }
+      ],
+      "feasible": false,
+      "state_offsets": null,
+      "residuals": [],
+      "direct_recurrence_verification_max_residual": null,
+      "interpretation": "Existence within explicit intervals, not recovered software history or a held-out validation."
+    },
+    {
+      "freq": 60,
+      "old_screenshot": "/Users/congming/Downloads/IMG_0370.PNG",
+      "price_digits": 2,
+      "display_tolerance": 0.001,
+      "anchor": "2026-01-05 15:00:00",
+      "observations": 2,
+      "constraints": 12,
+      "nondegenerate_vertices_checked": 146,
+      "incompatible_interval_certificates": [
+        {
+          "date": "2026-01-13",
+          "field": "dea",
+          "possible_from_first_two_dates": [
+            37.33492796245055,
+            37.33750883414664
+          ],
+          "required_display_interval": [
+            37.31,
+            37.312
+          ]
+        },
+        {
+          "date": "2026-01-13",
+          "field": "hist",
+          "possible_from_first_two_dates": [
+            -1.9870176682932748,
+            -1.9858559249010959
+          ],
+          "required_display_interval": [
+            -1.9369999999999998,
+            -1.935
+          ]
+        }
+      ],
+      "feasible": false,
+      "state_offsets": null,
+      "residuals": [],
+      "direct_recurrence_verification_max_residual": null,
+      "interpretation": "Existence within explicit intervals, not recovered software history or a held-out validation."
+    },
+    {
+      "freq": 90,
+      "old_screenshot": "/Users/congming/Downloads/IMG_0369.PNG",
+      "price_digits": null,
+      "display_tolerance": 0.001,
+      "anchor": "2026-01-05 15:00:00",
+      "observations": 2,
+      "constraints": 12,
+      "nondegenerate_vertices_checked": 146,
+      "incompatible_interval_certificates": [
+        {
+          "date": "2026-01-13",
+          "field": "dea",
+          "possible_from_first_two_dates": [
+            44.45292581681632,
+            44.45533467633754
+          ],
+          "required_display_interval": [
+            44.448,
+            44.449999999999996
+          ]
+        },
+        {
+          "date": "2026-01-13",
+          "field": "hist",
+          "possible_from_first_two_dates": [
+            1.7793306473249235,
+            1.7801483663673625
+          ],
+          "required_display_interval": [
+            1.7890000000000001,
+            1.791
+          ]
+        }
+      ],
+      "feasible": false,
+      "state_offsets": null,
+      "residuals": [],
+      "direct_recurrence_verification_max_residual": null,
+      "interpretation": "Existence within explicit intervals, not recovered software history or a held-out validation."
+    },
+    {
+      "freq": 90,
+      "old_screenshot": "/Users/congming/Downloads/IMG_0369.PNG",
+      "price_digits": 2,
+      "display_tolerance": 0.001,
+      "anchor": "2026-01-05 15:00:00",
+      "observations": 2,
+      "constraints": 12,
+      "nondegenerate_vertices_checked": 146,
+      "incompatible_interval_certificates": [
+        {
+          "date": "2026-01-13",
+          "field": "dea",
+          "possible_from_first_two_dates": [
+            44.452682511909806,
+            44.45509137143103
+          ],
+          "required_display_interval": [
+            44.448,
+            44.449999999999996
+          ]
+        },
+        {
+          "date": "2026-01-13",
+          "field": "hist",
+          "possible_from_first_two_dates": [
+            1.779817257137944,
+            1.780634976180383
+          ],
+          "required_display_interval": [
+            1.7890000000000001,
+            1.791
+          ]
+        }
+      ],
+      "feasible": false,
+      "state_offsets": null,
+      "residuals": [],
+      "direct_recurrence_verification_max_residual": null,
+      "interpretation": "Existence within explicit intervals, not recovered software history or a held-out validation."
+    }
+  ],
+  "source_counts": {
+    "screenshots": 37,
+    "numeric_endpoints": 21,
+    "unique_caption_dates": 14,
+    "mcp_captions": 13,
+    "user_caption_files": 2
+  },
+  "protected_files": {
+    "reference_extrema_audit.json": "2c26ecbbd66f220b224a3af08a5db5e7d0f9bfd54a8cbde50e38c875570bc950",
+    "events_r1.csv": "a10181bc0717570d0034b0243ad396a8ae2b92e9396cb3c3d8057b6e43c1d491",
+    "audit_narrated_20250624.json": "6f8375cec92ba005f98e75e0d0d27a34f01da0580a2f7c9df934328eb1e0d864",
+    "audit_90_numeric_semantics.py": "de4c5a2bbfdffd865f590dd02550529073066175379a51bbe241f02e10294e16",
+    "audit_narrated_thresholds.py": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+    "audit_wave_boundaries.py": "4956244a04aae04df1eea300f863eef8a4ed8cb6e99f7171d95e7aacda03988c",
+    "holdout_20250626.json": "e4b1fd66f028a5a4176278f2ee1ce1bf12b50acb467de62ad8e7e4ed68e598ce",
+    "wave_boundary_candidate.py": "e1543b13ad520c611bca013a6f644fe2724e85e934b854d8b68edf6d768cf399",
+    "stage2_reference_choices.csv": "4e41a14b6315ba448270177087dca7a268b104771bf083ea6b92275500e09bb3",
+    "stage2_next_20250626.json": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9",
+    "candidate_queue.csv": "a56ac76c5e617ebecbae755d243019b709bafa1bcd632aeb1c7e3d5c30f4b05f",
+    "youtube_transcript_probe.json": "02d245f22f159e5e831425d6f5bc4a911dabf8678476fb8922916ceaddd05abc",
+    "caption_20260605_user_review.json": "6c65d7fc3ab7d9f4d4158288fab134e5d2ac913c4dead478a2940f53eb6300af",
+    "audit_narrated_20250625.json": "3d848bc73396f87dfd3cd4d16eb268df4ecf02306626f027ece430b5632b9f3e",
+    "validate_stage2.py": "31146fb03412052d7f6f49ef582e9174eb6fa4670a638c2ab8693a70096f3db1",
+    "holdout_20251016.json": "1f8e70726e2017e4736fe30d16168cdf4e3f83cbf7087d3447c766e4cd8c3243",
+    "audit_20251016.py": "2eb262545836c2d64f8645ba3e80233c3a02a2bd449aec184005a21c29372e64",
+    "active_reference_source_probe.json": "f39495335c8ee305e7ed39b4b7be80c5a6c57170c80e0779cbf8ef1448d4ba79",
+    "holdout_20251027.json": "8cea53223f990300913c65893c39c524c562be6f14d56ddb7bce1cb362df1074",
+    "active_reference_audit.json": "1b5218bb81a3b3f33336348c37c4b0c6a639eed9dfd66c33c4da7b3b8ad00893",
+    "wave_boundary_audit.json": "259bce961211fb80b04c76b1a10b7568010d7b673a2612d40dd44ba2f4dace60",
+    "turn_filter_audit.json": "49ac67b22c76f1da69bd8ad4e4c43a78b46730a3a33109e239c695b1098190e2",
+    "available_period_candidate_search.json": "7e1437ab5f0ce740fc732a5f8414c58321c29cc9fdca73deb097b86d201244f0",
+    "reference_retirement_targets_frozen.json": "d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0",
+    "stage2_label_comparison.csv": "0967fd99178b8f88c9902cf12d3593bcc17929e0797ac53799a9ba1d084dece8",
+    "reference_extrema_candidate.py": "3efbf43971245a4810f18b8284c5484008d2fc355671732039afc75fc2837ce0",
+    "export_90_jan13.py": "d6704ed7bdfbde2d77d277d1a660b3c6c20b2664b24444c876bbd5829e3c48ab",
+    "software_numeric_history.csv": "e080f34ca2e5679a0ce0ceabbf084bbb3c3fe71f2b7aefd8132add218ecf02d0",
+    "holdout_0369_0370.json": "480795698d5f1500752ce8c77c1eeffce46401e3ed738b6eb1ad0f220d96205d",
+    "active_reference_candidate.py": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+    "screen_reference_retirement.py": "d25a05161f4a6e45b59a26c22ccae522e1a9de38beb5af85d02a5293bdd73bb8",
+    "holdout_0374.json": "55ef520b0071968fcab117147230415d0827c80222c47239e516f24488edfdf7",
+    "audit_0374.py": "376c32559749569725dbc764420a6678672a06140ff0f97073913bd29d026072",
+    "audit_reference_extrema.py": "fa0341d093feaa81b7f10db56af96f75bd63c2eb9a8e868b655525b0fb43ee0d",
+    "software_numeric_history_audit.json": "cdd4dfa5b819fd91e3494a5715cb099fc21ebe486b3ac698ffc435c41d5aa1f8",
+    "replay_frozen_25_points.py": "dfb95f7a222e7d07ce814ee615d64463407dc048a23cebeadf08666ba5e102d5",
+    "audit_narrated_thresholds.json": "3fee91cd0c7b1ce6b5d92af4e1f6699995bf6af0f745d16c7d517ac0cc7c7529",
+    "audit_20260605_user_captions.py": "bb2c4fbd0058ead0524e2f2cfafddb42baa10fb2841ca3edd076f08fb754aa6b",
+    "reference_disagreement_60.csv": "c3c22f135d362ba520bd066d3c1ee760fab4179c271cddee004397fe5a0463d9",
+    "reference_window_comparison.csv": "1fef37ea221df8c00b924fddd4fdd29092024d8bfa500a0c6f61e1f443f9f98d",
+    "reference_extrema_caption_review.json": "34589d968ea9cb44cf91afc6cf890fdd6182b8a4afc9e26f8fec7ba3b5191e41",
+    "replay_color_flip.py": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+    "audit_reference_extrema_captions.py": "84d59e95e8a5ce77c0d177e36fd5ddd633ff6d2acb92de89e414cc7be9d5548e",
+    "export_90_jan13.json": "f2a52b9e16b6de12a97d05cf349bdf4f4ae53b3ca92da965fe4bb7f1239eafdd",
+    "replay.py": "3799c0d77b80a7fdd05fbb23068148a0e6693d65c406d67a1f64b70ff2b320aa",
+    "audit_active_references.py": "faaea073d0be08536142b2160783bec7918df9a72dc0e8561fec5920d0acd1e9",
+    "stage2_next_screenshot.json": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f",
+    "reference_lifecycle_frozen.json": "1f06f1f8446266473fd105888054579c48ecf147560f21afda9763da2c1733be",
+    "reference_lifecycle_audit.json": "e8778f88a7fe190f3efa99982d0849c5b3971372d0bed7034d2849c55e9eed20",
+    "turn_filter_candidate.py": "e24b528e43f091b070126cb10a1056f144699b801c65503281412e7cd51a619d",
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+    "audit_0366.py": "c9281082dff79a470b1b7d2e69b3002b88555df4a2540f60ebb626463efbd374",
+    "active_reference_caption_review.json": "04b09d58a76ccdc244d1892228d525f96339a038aa4f7fd81c727bf5bf882d54",
+    "audit_active_reference_captions.py": "56c9531d563a678168c91ca5246763d350f9e97192534cc1e51ea0b8b65ab398",
+    "audit_narrated_20251024_27.json": "b8633247571980ee3fed2db7e578d2493bb76e9e51dc0c6b5e1d91a691bacd3d",
+    "screenshot_manifest.json": "b85fddef29008272e7dbb7b7511de60b6550cb47be214dfe1d50f007d785f981",
+    "reference_next_20251024_27.json": "960d2aa0b248a7200339130411d77265eee8ba7dea406b202dd3d82e293b6820",
+    "holdout_20250818.json": "571f7101174a4b6ce41cb1b76c9f1e8d46db874a5c89468e48235211c2fee1d5",
+    "source_manifest_20251016.json": "2603c1908f710e5ab27462da9e860a914fa1e4e5b741ce090962de1b5aee8834",
+    "reference_retirement_screen.json": "c8721abcbd8b5208fd016b4137a22d0c0d086a41e1775c31d4e371332242fe9b",
+    "audit_narrated_20250626.json": "8400d5e7cab2757d6913b15a603691deb3c9b041147f1047a698da829356995c",
+    "label_comparison.csv": "5d589c8e9d9bcee5a781e30544d6930ad58de3912146316d0eb55ff308aa8761",
+    "audit_software_numeric_history.py": "438bd9bb3cc75b25d04876ba9a9f807ad134db9f7fb328fddc53839855f81e2a",
+    "audit_0369_0370.py": "7e476cc9e04cdfede029e93685b4241b5007b8a3b51478e77dd8303a1f26e5a6",
+    "stage2_reference_disagreements.csv": "1f893cccd4c886e3f14bd89511ee76cfbd1d77f8417f6a88a32b4ceeaa4e37af",
+    "validation_stage2.json": "9bdb8abc35f3b237bf6e31c8b8cc2deefe6ec5272f8670843d6aed1554ca7b1a",
+    "reference_retirement_caption_review.json": "6bc0ec8ff26bd3499d6b8fac0d9159e09c66bc0f752a06de8d813d0facec7c24",
+    "numeric_90_semantics_audit.json": "2345e2336b742774cf4fff6fe57b4aa07f6a7767e2f197a2342f83ea6ed340fe",
+    "holdout_20250723_120.json": "64e190e5fbad08f6c82bc6f48e57df81b3c64f75960b42ed2e65301fd9114758",
+    "validation_stage2_frozen.json": "44caa1870430c1422ba15f663feb0350601b81cfe8b52573c5b7999b00a7e5a6",
+    "holdout_20250625.json": "8951ebbc0e38cf1551a3af2da43c9ddad28317221fe26e862ce2132923026bdb",
+    "holdout_0366.json": "27afd2b49171513733d6b412171af01fb44035f19a552d747c560219f173889e",
+    "stage2_new_events.csv": "2bb4e09d3b7afcfb66162b5d3db1104b4a8c3955d958bac50f3f97e92e9da3a7",
+    "audit_turn_filters.py": "5ea134c6c7f60fd3f8e09ac88799b52a3b2ba07bd176601b9746744ff3b91040",
+    "audit_reference_lifecycle.py": "8278c32db01c3a13cb0e886819399eda89d53b93d0634f7fda256d53de808a89",
+    "replay_summary.json": "180d2d88304f7740a6985d0f703796b16bbded7ff3fc3ac41e6e73be85c82269",
+    "sources/20251024_video_search.json": "de42648aa364de2d0b32c14b878cd45a475c79d1ebfb307ea3e944d85250d727",
+    "sources/20250626_vidiq_transcript.json": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+    "sources/20251027_vidiq_transcript.json": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+    "sources/20251016_daily.png": "822f37f803cb9f888a5dfb01ffda6adc77897f12b7f7005d1b976b7acd892c5a",
+    "sources/20250626_video_search.json": "fbaa2ba31c5f0e6a77e006c2eabf4dc2d768db2e150d9bad7c419cea3843b240",
+    "sources/20250624_vidiq_transcript.json": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+    "sources/20251216_120.png": "f81f414d742dff863685622664c8bd31af9f34f026324076bf00c80fa6f79e34",
+    "sources/20250723_120.png": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4",
+    "sources/20251027_120.png": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+    "sources/20250815_vidiq_transcript.json": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+    "sources/20250815_18_video_manifest.json": "f39036fa5550563745c3a387f3211d0e6d6cff763acf133f6323592090d516e1",
+    "sources/20250624_video_search.json": "57b3e273f14ef54b3f88678424edfca9b157153801a4d34884a957cfa58b80bc",
+    "sources/20250711_vidiq_transcript.json": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+    "sources/20251027_video_search.json": "0c9731d8d65bae49a2291c0ed83f2448266ce4c1ea7bca853c64470b675c0c19",
+    "sources/20250723_vidiq_transcript.json": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+    "sources/20250818_120.png": "c69cb4190eaf3c3d695aaa4af2172a7e19ad188ec2f46c376f8a6689d8cf4f40",
+    "sources/20251216_vidiq_transcript.json": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+    "sources/20260605_user_transcript_manifest.json": "8a67679f719cc952d71617f17f1ca651523c07d02e3241c5f255a17167159ed9",
+    "sources/20251216_60.png": "01e83945c6ef0e62072a3d8d549aea12451808dacc187ab3175c5a02000a5f8a",
+    "sources/20250626_120.png": "4a2b5188f399b98b6bc190a21b29e9506ff93f476c1a56f05a4eddb86272f4a3",
+    "sources/20260106_vidiq_transcript.json": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+    "sources/20251016_120.png": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+    "sources/20251024_vidiq_transcript.json": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+    "sources/20250625_vidiq_transcript.json": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+    "sources/20251016_vidiq_transcript.json": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+    "sources/20260605_user_transcript.txt": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+    "sources/20250625_120.png": "f6c16362087c5a1f6c1b7323be10be5983a04d01f7b5287a72de88fdce59ae1e",
+    "sources/20251216_daily.png": "69cb1da8aa0b3dbe9091d957840fc3c471552d62a52790ee73c7c5600296c9c9",
+    "sources/20251016_transcript.txt": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+    "sources/20250722_vidiq_transcript.json": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+    "sources/20250818_vidiq_transcript.json": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+    "sources/20250711_120.png": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+    "inputs/120_20260101_20260507.csv": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+    "inputs/60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "inputs/daily_2025.csv": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "inputs/daily_20260801_20261009.csv": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c",
+    "inputs/90_20250701_20250814.csv": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+    "inputs/120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+    "inputs/30_20250603_20261009.csv": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250",
+    "inputs/daily_20060801_20070529.csv": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641",
+    "inputs/120_20250401_20250711.csv": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+    "inputs/120_20260701_20260901.csv": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0",
+    "inputs/60_20260301_20260420.csv": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f"
+  },
+  "manifest_old_entries_preserved": true,
+  "unchanged_prior_files_except_append_only_manifest": 119,
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "helper_sha256": "438bd9bb3cc75b25d04876ba9a9f807ad134db9f7fb328fddc53839855f81e2a",
+  "script_sha256": "50c8e2787d3be480960826c59713d87523fcb7f5dba848ac8b8d455032d96afe",
+  "conclusions": [
+    "60 and90 have different still-dull/canceled states despite same terminal close.",
+    "All four active-reference policies agree here; locking not uniquely determined.",
+    "Both same-period Jan5/Jan13 pairs reject continuous fixed-state-only and price-rounded-plus-fixed-state explanations under the explicit input/weight assumptions.",
+    "Jan5 picture starts after Dec16 and cannot replace the missing Dec16 90-minute software observations."
+  ],
+  "limits": [
+    "Yellow90 anchor is mapped and may shift one bar.",
+    "Yellow60 location not promoted to an exact activation/terminal event point.",
+    "DIF differences remain beyond display precision; no inferred software reference peak or exact threshold.",
+    "Rule candidates already frozen; no tuning, no claim of blind numerical validation or general accuracy.",
+    "Pair controls assume known DG closes, exact12/26/9 weights, one continuous initialization and no subsequent reseeding.",
+    "No new transcript, network calls, production/Lake writes, or formal indicator changes."
+  ]
+}

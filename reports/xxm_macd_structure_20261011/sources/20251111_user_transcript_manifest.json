@@ -1,0 +1,17 @@
+{
+  "received_on": "2026-10-12",
+  "date": "2025-11-11",
+  "provider": "user async-question reply",
+  "original_path": null,
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251111_user_transcript.txt",
+  "sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+  "characters": 6354,
+  "lines": 121,
+  "capture_method": "Manually saved supplied transcript with original prefixes and wording; no independent original-file byte comparison",
+  "limitations": [
+    "Malformed duplicated seconds/minutes prefixes retained; literal locators are not independently verified video timestamps",
+    "No audio or video URL verification",
+    "Historical trading statements are research evidence, not authorization or fills",
+    "Final position wording conflicts with earlier reduction wording; no inferred final holdings"
+  ]
+}

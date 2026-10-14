@@ -1,0 +1,1853 @@
+{
+  "exported_at_utc": "2026-10-11T05:25:31.500768+00:00",
+  "ts_code": "000001.SH",
+  "freq": 90,
+  "requested_start": "2025-06-03",
+  "requested_end": "2026-01-13",
+  "rows": 459,
+  "first_time": "2025-06-03 11:00:00",
+  "last_time": "2026-01-13 15:00:00",
+  "params_key": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+  "output": "90_20250603_20260113.csv",
+  "output_sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+  "reconciliation": "quote and indicator timestamps unique and identical; histogram equals 2*(DIF-DEA)",
+  "duckdb_version": "1.5.2",
+  "source_files": [
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-03/part-000.parquet",
+      "bytes": 7750,
+      "sha256": "b66d054e58b86f2ad23971ed6da0375f99adf6112175dc67e5ec9703785e5c3e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-04/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "ef08e7470b13a69b30105513707366140409ef51d5304597b28bf4cad7c54844"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-05/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "53fdffae0cdf2bde0971da41bbba6b99ac39e5ba9b0d191f2817f363f9e43042"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-06/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "4ad8c3af8e94dd47f012c18c41fe8e4ce808b1100b1163bbb96a02ca05a0de38"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-09/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "f7a1965c0bb8812b9a881884f9c1946da25c983f58b1634cfe9bdf2555ef9454"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-10/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "393b645f78b0aa81c91103f8cf5eb2282822442deccf74ae199943d1104299ca"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-11/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "93b6d046b871fdc33ad1219ae0198dfec1f38785786fbeb81e39c10e2a293e1b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-12/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "c0e43f23284b82243ee686c7aba9f70fdecd0bb10fc15bfa85893c6f1392e857"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-13/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "7a3f39ea0c94ed09b5f272a87c736a066ffddf38b82142af06ef2d58889338fc"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-16/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "708c501f8b70de4b9c05cb6319ea0451536d9fddf985f8b51027e6d184a6997b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-17/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "2030e3e8dc03621ae9431cf63b6d971ba98167c93fdcde628bc5a249ab3c7257"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-18/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "79329d0cbf0fdda72aa1c642d9f6372a07eb79c5891e8382e7f5b8eb462da849"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-19/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "ae2057ae03c1f162b0f2be29345c3f86917625b3b00b0b5e143416f3b026ec1e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-20/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "a99d435775a89a8334d033ea1a7ea79bae8b05ba3a60903e04c95645dcff3e79"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-23/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "248f78f9746ecfbae9c2e6bec1400a37582ad657882ea6911e6be3fdf6bc4b8e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-24/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "a287c09337ba61f385cd59c905d193cf8362ec410f25c64e783ceccb3b8a2b11"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-25/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "6615bcf5449e4f4424ddd4d5b1224bfefadfed92539f3278706469a0e9f196c6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-26/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "38a99aab52d5b81ba9bb461625f8a93a30f5bfe7bc050b5da3b54f4fe5e665f3"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-27/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "24bb2e289a38c3daf4a364653c5a9b026641bca67b3cf0769f489b823240583c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-06-30/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "4089e157320b0cfcae81e3972fe2f77417f701e4947b043a642d3d8cd702c75a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-01/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "19d164d853eaf957e1b32030392fb9b3331dad472cf9410ebf79e91bfccc0c14"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-02/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "bb581020572d1fbcaaa8e8c76d0869e203fa24e9b319efaa3c6e4924cbbb5e8d"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-03/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "78f58d487bc01f5a6be54813045a4862835cf7910b2e718025b9ad0cc661f418"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-04/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "d74e179fd35a5f4b1ed2da81a047182cc0c3b0b09aba5553483e412276ec5ae0"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-07/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "aa4a8a187239787f4eae6c1ed7089869ce1d80079f5a03a15bb3e3db810a43a6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-08/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "ddf889c6e61cb92116335a603b72688b37c2b290a75fbccb5deaf6454e9c5359"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-09/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "8e5c77c1e4e6f96b33057d983b8a95d4c0549fe701aaaa2b2fa0e1de2d0288d0"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-10/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "da75bcaa6bee92566f052b057ddfe00624c1daa4be5d7deeee406412f8d3afc8"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-11/part-000.parquet",
+      "bytes": 7747,
+      "sha256": "a186b2e6ae3003bc3629517d47095169f5fa57247c52d459bc43abc5995707af"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-14/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "f3bdafd6d8e5016c96b89ebabba4bee3ee03001777e992d613c87e06335dd35a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-15/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "f1de1a3feee807ed161a4551efc0de10aabd478104b1bfdd24f1bda2da343b57"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-16/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "ae8dbd20ab3e8e2cf9536c4c597981f91cd601e6f0c7b56b2eb8d5375e0bf543"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-17/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "8ad9c204366bcdd5ea3d90975e7bd120baa2dc318ac286c0f8df1f75cebeee3c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-18/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "2b9fb56dc35b4558172e4c047ea9668f57f05f417add68fd8ce6170c52d4fba7"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-21/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "41f0c0b75058f624c9720971704f419defd61dfcf50a111da052c6da277e9c65"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-22/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "2d04ede3550fb7bf659dfd68855de304b21ae0bf6b730b8340c7b503982066bd"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-23/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "9feae47df2720a25734de817383c8a05da1434744c097a4c6486e8eacb720509"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-24/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "2a531fa1c551c8a0eb4847f8753b7965bfb94d415b869188d389151bdaebf22e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-25/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "518ff139a06eea23ccac935cf7d3c29c792c7081e652eb4bc282e052c7acf582"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-28/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "17cb75d3bfd3bb2ff07142947259a982297e132911379dcc8ddf3bc9e05dd3d0"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-29/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "025b5277c7a11ba8c2848811d186b75f78936329caee5e6b641e4cdcf1fcf42d"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-30/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "1c892ceb28d6c93bc7f65e0a1e6146894a495a42751c4a25ae53d66a51672961"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-07-31/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "f7b5b6d3597b1ba4b65b76801588e7b7d6564e77ef5da9240520eae27409e49c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-01/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "d930eecca884d85885227f6f8f527e5e35f30a1bc56aec81943423532314bfb4"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-04/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "757f9fb483b46b1c0dc6804d2f41a3a43efbb3e309b5ed5ea2d6fa6f21883693"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-05/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "0e0719cc0affa7adb5a2c78ab57e7db5e2e131340f6bd0db13803a2586c6cb2e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-06/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "11afe03897aff622e829a691e9431827725a87f5793e37d339f894df4b50df97"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-07/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "876a752230a213983bd529f8fc162cec46bc2662c4ae10eaa5ca7021f4ad0271"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-08/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "73f99563ef771c1df6e08bbffdbd0101016efed897397d888b0f53459b19242e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-11/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "ef056994729e9c2ed1bf108f121afca2f7fab9cff2e7627f28afe951c04b7fe0"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-12/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "4948ab7c555a8cb51cc308d4e4f23bb8de36a97ec9558c129b2dd52deb2a882c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-13/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "76479e892e62d7427f420c9ffa95367f97bfc0febb865bcd2a58fefa1646b5ff"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-14/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "5034b73326f9d3d8cfd2c2526025f7a86bb6e8aa84f6999aa9a04d0423def885"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-15/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "8c687fa3817eb186ea1dd229fa39952e333688c5071a586703506969d00f1c93"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-18/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "2c5e39e5ee1088069d0a13f81b8163752437e43fe06406906eacb57e1dd7dee4"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-19/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "2c94cd6661160f68d330fd64437a1ed57f3a23dad11e961f5dce814f50b508ce"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-20/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "7584fa7fbb34be58c02d7576ca5a672bf542581a26f84887463a8f86a66c33a6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-21/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "674551753c4628f44d7f277399028a84751ae27ef2ff39c48ad635dab1724155"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-22/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "a64ba6b6ef316080a22e911f96cdce6404d10a6d1d10df887aeaf3499cb978d6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-25/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "5b02ffb3e8dbb032e65e3853f521b19fde37d1154562a53463c3ef66bf502a33"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-26/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "820f817909c3266a5d0e2a01ffc4fb1172cd41259612292414bd38dbcb429ab6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-27/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "f7def201584cf4bc992b90920c4cd68d187e848c1181ef2226cb842f6a90547a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-28/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "3944713b6d82e79b642c52b980cdb3c5aaae0d1093a8d5447aee839616489082"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-08-29/part-000.parquet",
+      "bytes": 7748,
+      "sha256": "8d029d6a888453689e855c3458b19e0510175e96cf704c9859666a82133efb55"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-01/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "06fd45245776d58b42a848485765818e75c0170b6a3119fe8c2435fcf31cafdf"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-02/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "bc6e2b5d8e7dc713505be66aeea8de18cff3e79b79a3cfce268182a9005b8965"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-03/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "4b994f2e00be7d5ab2e35f8fa7f80c0cd63e5d6d45532563d41c0b2abdc0da8b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-04/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "88ffdf48cc79e982c426232b1022ac70c6290a277ff3e4b941d32b659728c1c7"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-05/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "2ac93827990d28a9f707d87cc26066b0179555b71c9fe80730d2b0fa159b9bab"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-08/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "78e0d9fad91ca44bd0a8b3e4a84add6fae0eb7427de3523373fbdfd8cd333279"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-09/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "e8727c9d186156e49ff2c35f3ea51ce9cc823d733fe3b8ac1b64f76544137e98"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-10/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "86d2484be91067d5990ba1346e2ae2b5c0078cb04f4ede973e7497944c6d7bba"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-11/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "1421ed211645e40ba48b833fefd5a96e578b140d05e0a48fc29b6be1fce2e384"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-12/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "30a275708ad2049f750092c6a5856154a120f07bae40abdc5ef5cd6627a2249b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-15/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "9deb816409ba110574469afc85af7a951575e26e5e3b47af6646867e5a1c3420"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-16/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "84d0a2732b66a56ecfa605106411192d715870ce23ce4501eabf9735dc5303b5"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-17/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "14257a8ff55585648dccfda2b87b1e4f9d9b6a858b91c739a699dd1f917087a2"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-18/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "288d7390f94dc1900228089d34bb9a26f8dae436e4b2b7240964bb42b43e9668"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-19/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "fae5be5f903191db6a100c24ddfa09ae25947e42c31567a3926ce09905a2963a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-22/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "240b214fd8ee495515ae1edb66da4683d2c08b461676e1c310fd65a7ba5b9343"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-23/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "141b2243bd1fd07b65d39db412951c618b7087be69d5eeec34ec90f784d6f5ec"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-24/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "fb5bdabe2486458dd14051ad8845d0ab3cdc0041a50820dde0923e2b6a850cea"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-25/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "e1d94d12d29be7f01089b5da959ded1688a403ad4cd174c2f5fbdc9f1dc8046d"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-26/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "e3e7a627192c2d3c33dbd1683cb8eec3e422d3b2def923593eb6cf2e1c2d8e9f"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-29/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "c2e556e9dc442714ba654435ca97ac17d4fe461ca698e4bc5613c55a18e28bc6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-09-30/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "e7503223de2b3bde14da19ad8b1291e8a29fc607a5bb074559adb8713759d200"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-09/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "8ce5485b420a385ec9eb2393dd4e3cb7f5ffcd13caccdaea2501a728c6a2cfe7"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-10/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "5f7c335ed487d99aec7007b2e024a20d1500bfd595bb5cb067c3342a375ae4ce"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-13/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "8cdcad0a320fa0e3bfddf176cbe6b9ce1a9988862100352d5d03c1d458440f69"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-14/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "fa59a3be9c9845a685010cc532e65ec65b9b54b5e0601d9e68c56727b7300748"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-15/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "36e6e38aa58ed28b4da06884d823cff248cb5ca026b948328480f919bb9aba38"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-16/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "1494649d3ad8cba99c1bef48ce04043b52acd678dde02c1c744cdd0d6247417e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-17/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "ad5c283259ee5a5d4ac4ec2571079962633cd56ad4ad9f66f10bc4cbc76e0a33"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-20/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "6608771ac542b021655ec0cd2dac56effe7def269788c2deb4a35c9e11f92418"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-21/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "f00f87409037b19e954347327a482fb61681282e0060a782971f03e9c0b8d4e0"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-22/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "dd3877033fa8d3143df8aee54e4589d92e09437d9dc79e3e191ec59009d5d1d7"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-23/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "0bfd84d1d27af0269fea6a522039affcbf6c6f1b3d11df8886eb5c8c00037587"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-24/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "0a8f13d3c3d3ea33a520913dfb2562fc572fad37a653dfeb54382c3e899a075f"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-27/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "774e2bbd3c7ad4094da961f05a817c93a5795bb4351f0aadb6976afea180aa1f"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-28/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "d49977ceb97955c08e65aedd54c02a52c452baf01366418fdc58fe332f0adee6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-29/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "3a2eb46d41b6063c8e606e338c3e53c8856500e7369f2ba6840e86d274003a6d"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-30/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "f965045ed53722cddee3dd4d35b5d8cd058f3a2d7889507dd7bac7717bc58918"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-10-31/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "8009001e441b320e23eb08791891f3379bca2f91c7bc5c447a4be2a1dc8991ad"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-03/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "842a0fe02c21b30a432f3d825f89318d3c8bed5ce9c1b4de24c5fb9d76cb5a2e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-04/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "712f5a02141d21ad532203c5ce07f21b5ae4f7219552958bd3d608e6b78a431a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-05/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "b5ac78141f274c0f92b03dd79645b9b5d1ca995166d9f51af548ca3a3ae40d7b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-06/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "b7b8e642cbe3320af561bb6ca79d16fc54da5fdc25a1ca1c727cee2b9978ca54"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-07/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "0fbb0ff795dd0074c23fb62a6b45186847c3a76211b3a26772a4d5e66e7459de"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-10/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "45768afb55b54b61c5a06e9e63928fff6960ab49ffd2567c105034d95c6d9016"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-11/part-000.parquet",
+      "bytes": 7757,
+      "sha256": "07b328dfaa2e03afecb1bb13876ad0bacdbe849c01541853cfa1687aefbb9234"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-12/part-000.parquet",
+      "bytes": 7757,
+      "sha256": "44e8a699e91e227ee4a15f085d088e70926792e7dd0083a056706e5545ee5860"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-13/part-000.parquet",
+      "bytes": 7757,
+      "sha256": "9374f5d8fdf6ca15e635ff1ca0c99d17ff45695e7e66c458aa379ead37ebbd47"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-14/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "81a633f5bc3aae6fe9f8c170d9fedda7bf92f861e18b317ada1212c23601e3a5"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-17/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "64c495f6150bab658dd6aa4b3c852fe8a724dc34a132a534b9c6b0ce53738306"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-18/part-000.parquet",
+      "bytes": 7751,
+      "sha256": "a8b97f934701bbe76d3bf8f54967bea6351d59b73f15093a3470336e865dfe5d"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-19/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "582c8c5a63b6ca0195e67a08a86ba43905266fc0088e6506d9b805217b860659"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-20/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "91cedc92428b2f9bc6fe5288183a8db33c3872486df052add81a7bf4fb5cbff3"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-21/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "a297982f9441df3c1d2d7ecc70664b46bea569c099a7fe8fb1386e2c269f7ad3"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-24/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "429444c24d642ae25ca30b811240af50358434020707c4704ceec63440789502"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-25/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "5f30f66452506c9f0426c4b4a4c63844dbdd5a8fca0e459c8530dd770ce26462"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-26/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "95a4adb93930faa82dd01280c60c4e671914f7e63283a848d3bdf816848a71b5"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-27/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "70b7e4dca537e5a75c6f66c1e1b87f2c67fc7c5f6ea19fd08c125f68d24655db"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-11-28/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "6f11d17bf52e420d9f73a13e8b9b62eeed22e36e3eca0534d93915a2935d9c45"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-01/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "4feefdd30874ac84b148b08741de52cdd1b1db778e383c3b71a89484d3a3be7f"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-02/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "b9e4d4c8b85934b780a841758225bfbc57ae318713fbaf02a134d0490557a7ec"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-03/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "313809f18a2aebebb48b48b73712ac22b6aa5b750684fb6e3b1097c9c1ff3ec6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-04/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "e006dc97bd9d74d166b12cc4adb7370f0d302e918d37c736ffdac0e1def3ca42"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-05/part-000.parquet",
+      "bytes": 7753,
+      "sha256": "d1d8369dd1ad23bbb2d636129885355dd0cf027ea71bb1c8eef70d521d00fc82"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-08/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "8cd6328242d227e920912380f9e206b8d2327acd2a94266a56a146fa8212c2b2"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-09/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "de2a66c641d13a7ef6878eafbdc40c5a5a305f5523ff23de58cb23146333e700"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-10/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "91412a44958e47eb013190af46b561bc3ca3342863f524841207cb9ea5c1240b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-11/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "36fa9cad5bb533fe3e193aa4049764939ef866144ac60dd926ba676c1bdc3d75"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-12/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "a692caa3e0c3213d352fb2c2aeaf89a3174f7f81512532b9c4af4f3388ad8304"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-15/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "2800cb482ec14973d6b90ef6b34306a428a4366d16b084f9cf34071ad597230b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-16/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "8de3badffdf0451feb669e13f7485f9e5c2f8775f2245794dc4a44c6ca6fa8a8"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-17/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "b5ca3c919f0ca381d2b4e8a362dc67042989fd5e15a8f3ef13703765c0de31ca"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-18/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "04367330791b155bf34d68c7de05d8f8f838d830723e8f3fbc5f56947b2a4574"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-19/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "5f3e85b5975d98eb8cd4aeae0460f7148cdef59a65c4038055d11ed0aa5b4dac"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-22/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "442e1406c229942208920114eb794005f91188920d6c21ce485737c9a04341de"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-23/part-000.parquet",
+      "bytes": 7755,
+      "sha256": "6d43883ea19f630d0116eed68cd41913638a2684ae5a5ff0d623f8a7a19b11aa"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-24/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "8d6e01f0bfeda9463f190198152f2312dee8028148b70cca1a269899cf7adb2c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-25/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "80b56351e73c2e1863b7ee90ba673516d95e6468581ca7e243982ad33ffe894e"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-26/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "73994041aeb17066ad28f46efb8f7db5ff17082cac007b571569f86719f47347"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-29/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "bdc09afa8097614e6a2044f2305e628f7c0eaa056ef3dccc697c67cb90fce5e6"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-30/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "3912b705f0179e7d0471e8c130289d90e8d16bd0d6f09679e9032752e140c679"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2025-12-31/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "b5cd5cc78042a4066ef436c310a4f8800909d8a24dac1bc49246fa1a31c09c6a"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-05/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "c6269bca2d0ec75b43bca1c1cde3f276ed6bff0ce3a76bd040fb31b1bc61203f"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-06/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "d95b05aefd597a79e1a61764d13e9bbecaf8ead1d43c837f9a3b94f17d90f817"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-07/part-000.parquet",
+      "bytes": 7756,
+      "sha256": "366c4856c3a9b82c0e317a0e4490873eae3fb24be503e458196ad55ba0c9908b"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-08/part-000.parquet",
+      "bytes": 7752,
+      "sha256": "c85658cb996bb256ea33b9748cd5a4a7ab19323fb736028d4edeed14f067df1c"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-09/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "9870796553d477871c9cb7b65bdbcb095b62fa0562074c4a2ffec4f1bc851820"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-12/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "de8851f3a688d8b1638081e1eabd3fbd7473bef37530a4e8e1eb1f133d5a0317"
+    },
+    {
+      "kind": "indicator",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-01-13/part-000.parquet",
+      "bytes": 7754,
+      "sha256": "a34098a2e8f4ba3ddc4b666ed8c3ced1fb9448a6b24ea5ef123eeab955b87824"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-03/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "bbdaa95d7978d68c270e5b07affb1ed11720e37a69e7ba9fb9a1a83f372fa97f"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-04/part-000.parquet",
+      "bytes": 3349,
+      "sha256": "695e5602fef33801372e1cda43cd62edcd145d624b40c4da71528622341dc7b1"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-05/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "a592836d3c879f8f6130c3d0414cb76c8097ece14978d97b79aa1f025e0f1e98"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-06/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "ff78df9128f5f47d7e35ecfba6478c10c34b40573b78cf702ff740c9d6ce7954"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-09/part-000.parquet",
+      "bytes": 3349,
+      "sha256": "9488233fad816e818ea6fe2c16f59395c57538ecebb1261cd96cf716a6a91893"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-10/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "e8e41d1dafd0fb380a388494302bcd059eab7cafbef41caadaa2da03ace73e20"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-11/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "5e2016929dd22eb79856de08ee396cfea62de33117ff5a21881d6b2ba1da8ad9"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-12/part-000.parquet",
+      "bytes": 3343,
+      "sha256": "bdbcfb12c1551a0720519e8448a8d1d509863d1390d97eece542d6544da9823a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-13/part-000.parquet",
+      "bytes": 3356,
+      "sha256": "fdcba1adead378d7c528f8a012cf0b6ee15e238738d6e7b2d4f83985c638bc80"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-16/part-000.parquet",
+      "bytes": 3346,
+      "sha256": "6f190bf92bfb5301c329b6b56b71f0ef05e0614495a4478e7f928183bd45b07d"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-17/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "c1d060ae0daac4793d7ba9b64e9f06c8869925d99f1c80192a4a5922d78ac609"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-18/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "0c468b21e5aaf73fd82679e9421defbc9ff40207a1a21fc55cc8231c70ab4d6a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-19/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "429499b7fbf9a24ddd03fd325bf8a16c0e5ee7d922c261eefb5bd5bbf7073623"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-20/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "ddeab9a836b4bec6f7dc225c4ac45d292515bae73339c398f28475d20fa22279"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-23/part-000.parquet",
+      "bytes": 3339,
+      "sha256": "9bfeb2cfc4466f569d5076175f7e1d4628a779b702aeb957ed6858b098b79791"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-24/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "843b3cbaeaa24509777aa6945b18b62581b3ffd75c0f6c5bf88f2e5921471274"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-25/part-000.parquet",
+      "bytes": 3332,
+      "sha256": "aa137151c4c414275afbcef2a9ba7aa8bcec0026b030273ea75e93c8334243f1"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-26/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "240cf59a6cdcf612c1f28d52981ed7d9cb4888912504e8756949829008ecf295"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-27/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "57bd29310b4a7ea10221332fde29767ad764fc40cd4e31f36854f202b596b636"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-06-30/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "8ad60845042d21623128644c2a44cc31de5a3b6d1e3bb69c64447295c6bd98b6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-01/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "b9bb82bf2529b5b0219c0c98f38217049e422825e6d75c27262516c0931efdd6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-02/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "9d97adb604adca8a62f6b0bc124e158507ea22bb2df72b49d62f00731bd3ffdf"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-03/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "2b5c2d01b5c537afcb3689ce3d9921ee0dc8908335b0250aec165e2a52658238"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-04/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "d04c359cfb57d1e90399fe05a7c9c80a0b12e7e59d3355760f59b6701b6746f2"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-07/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "67e63db68784412ba9d7f7c1908df959742bcef12382b947a1168f66e3790a46"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-08/part-000.parquet",
+      "bytes": 3362,
+      "sha256": "ab4f0024603442b2af0359d2fda2fcd78abf4e621137dd044b2622b258889385"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-09/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "19a8e1756982e3967a575b4ce8393ad9ebf6cdaa6dcf4da81082f0b5cc4983b7"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-10/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "0663aa06abc83a0178a92995448764db31f2633f03a86f5f1a938e2b46372724"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-11/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "9bc03a768984143f1f74df4fe74b2129c373cd4c6ce481ef1209a85b3cfb9a15"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-14/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "36405ebf002af3649347811715edd749815e4be012395b32a3842c35b01bf1bb"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-15/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "763236d3c7a7bcd92e2a30d7c18948b9cbde69c4481b838bc9928c86bc362da1"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-16/part-000.parquet",
+      "bytes": 3348,
+      "sha256": "5fb67fe877749e6948ea3259096d3c29d1d8b140496e5da51fe5d2625b6f50f8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-17/part-000.parquet",
+      "bytes": 3356,
+      "sha256": "fefd74cd4eaac10a96a81ea2fbd182772329d77d0f27c34d9a110dcdd98d3580"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-18/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "820c7e16d5454e98ac195eeec074a22d19a95f710b06f3274d39aa220dd91ad5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-21/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "3ad7b60c3d0a763a3c06f2de6058e9e955854f99b8a7717fa9139e1dccb29f56"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-22/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "8d847d3d0dce1361993fe5b80677b702689867cab023921caccce0625cd7bafd"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-23/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "ea23bb82099b99b62345e9b623b555c8fe2aaa8ca4f93795bba95aa4f51580c0"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-24/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "98aed3b007e6c0c42401e1a182c0c566b87a8799f6a16947682c2c3baf541fab"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-25/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "5eab5a0fb96192421f7b1278ad3a15c1ef7da2bb6c9f9eefcc776dd0e37fe3c8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-28/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "ed549ba8381e5dd45bb1d327cc25bb6b1bb2bc36af17ca6e18a602d4f2452fd5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-29/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "9b35f27631022acb5246ebe0568ba2a1916b835a772f0f4867561883205e1318"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-30/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "5cbee8f0d31d9835fbb0a2ee878568a9338088e30afe922c3289fb9fb26d67d4"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-07-31/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "bb65b1ee09cdcfc6dcdba19e2539b6aad998d3f5ddb13ee96f0bf846a89e23de"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-01/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "88a87afa8f0da7dd0b5f280fa6e3fd28a19a8acc7feda96f1f5dbca3d8d4e9c1"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-04/part-000.parquet",
+      "bytes": 3347,
+      "sha256": "ef4c4e4b3d2194ca491dde29f7d23b147b1334f22e54b71b9c4ca4b92f1ff1d8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-05/part-000.parquet",
+      "bytes": 3364,
+      "sha256": "b0feb27a43da206e23af2b846fe7234b0891b599adcebe4a6258f4db59ff5f95"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-06/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "9ab36d92b12c7936f9a56d0b1daff047968a0679c19012c6ced9fac67d8d89bb"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-07/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "acd9a52ebe345e9264c15795bb032d5499ef46c52d7f175fb69f692d15b71cd4"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-08/part-000.parquet",
+      "bytes": 3354,
+      "sha256": "7cb1c37f71a76e8b6df0b4c6977ef4dc25fa227f829e3d021429bf6773c3fc3e"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-11/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "26530cab69e50e54b5cef52be360d1717995a5f1dcc51b5d19873c3c347516a9"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-12/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "82458c79753282b05dd7c4d3e7821d385d2e8f149b2ddcd603cedc518e622a89"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-13/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "29dd8841e3c70467833956a980aa1e035d2aa375f07ba2ff7c085bb9589742b8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-14/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "4edbf747d91842f2d50384a84f1e6c1bb83d5f1960e9b02949a85a970437bc65"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-15/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "e3f9b5bd40fa22ee0d03e294e80eb419b6bd9fb496d8bf66d27a45e5a26aaff8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-18/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "f965ba8828fdb1db08a932b829bd3f5d4502bb05f40432dc3a0f674f7ef6f2a0"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-19/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "94cb55a3663d0d96d886ad58d40a58c58a01aa8569e7726a4786578849172f31"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-20/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "2177384b0d3f6f56a904f3f6140456a9af4ceccdf64120ecd2422aafba0ebd92"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-21/part-000.parquet",
+      "bytes": 3329,
+      "sha256": "2267b7adb156db8d977b8c5f67097bd6bbb87f6a5b01514520093ed65d3d62d9"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-22/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "ad53d31d6ed60222ffac4d7057c420fd102937b4ded797e7d1c085b999fbdebf"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-25/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "3f32292d962289bf0bf2a0594daddbfb748b7c6903448b9f5fd02869e26c78ea"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-26/part-000.parquet",
+      "bytes": 3364,
+      "sha256": "d4901dda7df8f582019dd811d9410f93b94bbfaf4828cef89ce6aac9858a6745"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-27/part-000.parquet",
+      "bytes": 3366,
+      "sha256": "179485cb077117f0ccddc0c865dffe7c33c01da91e6d8129e5a07ed0ee4a04e0"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-28/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "778663e5dcadaf641239039f41dd3af1946df3817e5a64b1a410839d01d20f5c"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-08-29/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "ad52b070b6812c801f637d63c63dde516ca32867875c9eafdc1bcf878a4da2ee"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-01/part-000.parquet",
+      "bytes": 3356,
+      "sha256": "b8ad1bea034fe0216f5d0d46c77b68fe4bf8e8ec01f9308f4461e23d34d8d666"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-02/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "9a7815e0086e55411a4efb23e490f2877425d5206f2d11211debbaf46294c158"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-03/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "7fef1b4c372d8419b4bccfa377c515959315d7dfaddde94b92af48825ce8c8f5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-04/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "3ad7660c15fecb521280baec44ca0170330ed9211319fddeaa2497abea57c123"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-05/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "b712b103329ef46908692bbe28c3651bc2932d5d17a45933c8a65a676e55b4b6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-08/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "4977466b607f0350d99f7803c6bf0e918c609c2fe7496818d3ceab144a1af3bd"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-09/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "bfbba7270b8083874a9dfd6c1e293578831e3c494039a1fc7b60164d7385e9b3"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-10/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "6331fa318385a25732d41de02320b2781fd8e660303ee67bd75e852e2e2ca587"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-11/part-000.parquet",
+      "bytes": 3362,
+      "sha256": "09afb4c4e1f55bf6548912761f99f32ba665bebb7b5fce3dd0c0c96006c4b834"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-12/part-000.parquet",
+      "bytes": 3343,
+      "sha256": "670c3302d5067c3dfddbc2b518fba4cf37005452ff3726a8dd79c67707d4c9b5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-15/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "73b5d566f74205f73e23e452bf394900fc8f31d5b5d602974e2b2d038a8a5f29"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-16/part-000.parquet",
+      "bytes": 3356,
+      "sha256": "ae4ad0ca84b5bd1c338b523b32b153a1f2a7924ea61bad9f7a8eeb563b8ba7d5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-17/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "1b197705279bdb704ec10cb0ea59197ac3931db078066483af78f22d924d06a5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-18/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "95e39f60fe92f4b906e57ab2427270c199fca8273ace81bca579b72d7a846f74"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-19/part-000.parquet",
+      "bytes": 3364,
+      "sha256": "cd2b3a4490a4e552978a48e76f70b9d1e672b4a740ff6afe38f5f0745de5b6a4"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-22/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "a10b638bde241f6b151e91d04655e61a4a11491865b844b147aa223309e881a8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-23/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "08faf5b019dfb2f83db5e8291de41c0a7fcca03859320a0541184bb33f978260"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-24/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "fd90110031070d6b9c64f9d65f52efec78c4d87f73f59ae52598f00b1c407139"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-25/part-000.parquet",
+      "bytes": 3364,
+      "sha256": "3259e277d7695616d306a85330120c2c4717b33ec11a38245c83e02caeb1e5d4"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-26/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "95fd45c1a0fb6c02d661194dda7e85a528515ed37fc07db79480d2a8c2bc2d30"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-29/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "756c94aa17f4402d5089bd7291de651912c3b36055126a235dfceb4a9fdc8b21"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-09-30/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "6462d55a262c217cfaf4e3c9a6543692fc823091826371c38ca54fdc8c486cc6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-09/part-000.parquet",
+      "bytes": 3366,
+      "sha256": "aa6ec265da763b2bbe5fbd923698f4e9612bb0af5600ca1d02539942cb95a666"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-10/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "98b367ec817c3dd50ec04241480be813f36e71592edbf2f1c399ca3271a8b56c"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-13/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "edcd6d0f135f5f8b0daf41ee75b79e94e83166486e56c1d2f50cb2d9a8708f99"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-14/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "24d085992f0b73417ee28fad8deb2190f87df175400a8c340d26888d4757ae7a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-15/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "dfa317278f148abcf62e0122284053eb028d74ed1434c9afceadfc393ab56611"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-16/part-000.parquet",
+      "bytes": 3354,
+      "sha256": "0d5f166f26a062b2946533bc3551cea3707378e98b7ccee0cc6b445d632f3fda"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-17/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "96573fb2bc3836feba9cc4d42c782e822fbbbfad95a5f001fa602c6ffc35ec91"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-20/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "60e15c29787480441b8afbc141897f95d147b6bb1c7b6a91a02ed4fe7154f0cd"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-21/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "a98f1a865bc7786cb10771fa8a314ec99ecbc19fb40998e04c90195a8a01e2e7"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-22/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "229f3a76b9e9bf0e1b92f756911fdc85aad5b6a78a0ba91e499f344b5addc27f"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-23/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "7c3781d1697bc60ee9922b51531aab97946556fdf762dfc2307a4c590bfad7a0"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-24/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "25a5d946574defe5bbbe6ac0dd00ad0f12cc3935efb8e524e3de8334d186d775"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-27/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "6625296dc305040a98dfc9183314dc73c522bd92dcc59cf8351e12aa279ae89e"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-28/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "48a658fecfc0b577617fd0502f1811b80afa330ccb3752820e19aa472047ad35"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-29/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "52b4bf3bb4923f3222b9357bf523368ff0ec14124685a37e9ced6dd845b7fac9"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-30/part-000.parquet",
+      "bytes": 3365,
+      "sha256": "3947b9fe6645607f71e63fef4fe92c12e1aad75f86afb72332ca5f112a4e0933"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-10-31/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "7668a18360b385b5cc012eebc4f28f2d33c98668a258e7099cce071d3cea0989"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-03/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "526f34c2b70547fb044a94453e4d5081d8723b7b6c0d6ddd0726924020e106f8"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-04/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "d4e6a90e5d7ad5de63ac82aa08df7a42be667b67c664d9a2eb1831ab4029473c"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-05/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "675d7d189dae5d24a7ba58fdc58e175ea719d18f9adecaf128ee31061a4d3c98"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-06/part-000.parquet",
+      "bytes": 3354,
+      "sha256": "d9e144750a7cc99077ba08d8a0d5bf0091e3d52da8da0ea405aa20278a747d6b"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-07/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "e95346e75f3efd2192e64491f7823f9899ac7960e37014d5aa3474e9918e058d"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-10/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "ec9077d5072a8b6550f30f1f8fec021fcf4f11dad4085db33193541607b25310"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-11/part-000.parquet",
+      "bytes": 3356,
+      "sha256": "82b8fb2267fdb6c7608fc6f4c9f682618d9668f9cf4c548c36beda1fb7602c42"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-12/part-000.parquet",
+      "bytes": 3354,
+      "sha256": "cb67fc1a4e36a63b127759d8081c21bcb82048f6e0eef6410ce4c1803ccf30d6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-13/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "2d8d6a80ed4ef645d61170689811cf15ee3d8586c13b58129b6ebba0484bbefc"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-14/part-000.parquet",
+      "bytes": 3345,
+      "sha256": "a8984ad52a0055ffc4b9ebf2d67399a9a32db74a70497aedd8ebf91139aca6f5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-17/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "e00028d7f359aa3305ea02127ba9c0ad7ac8b8d3fea55044d013c070f6654eb3"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-18/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "cf370daae68a9336ed9d02a2c9ae092af63d0903a8dfb6ef74c6eb52cf155232"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-19/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "54df08371ce3ea2169b637cf89a9716a2bcfb0c0d45ab98ca632fc4aff030b5a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-20/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "83cff53d5d2ee7f4e3fd80a790a507f7b4ada80f5b4390f3b5ec7c2a70e1fa52"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-21/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "ef942d4531e015d8fe5d2ec5c4ba94d4d8f7fe012c3eda2d3a37f2778ef6ae54"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-24/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "5cf74085e0344607a72820d8efd9236ee072fe0e88945906c2017ea202cf97b6"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-25/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "03c4bf509927b5da052c705cd7196f1cfaaeb0bff2a7ea12c32d3532d4bdf4de"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-26/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "ff5c9e43727d561c0bf59fda4bb6b885f73d59214906a3bb39ff956bc25eb127"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-27/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "da75e5d5e6542449220493cf4520d1d1bdc171ba59b716724524b5c4fbccca2a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-11-28/part-000.parquet",
+      "bytes": 3344,
+      "sha256": "53f712e43863f6202f092bc77b64b0d94ac02bf43a93bd91432e5795b221fd84"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-01/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "46107433ef79472fab610ac6e5ddd802d9244cfe5b941e783a916a6b4c40d476"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-02/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "3137026b1dded5e46c16601e9cd33f4440d44a1bd6ffe8f0e698849cdcb29098"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-03/part-000.parquet",
+      "bytes": 3348,
+      "sha256": "82385c80d6edc091cae4ecc6e8567f1babbb86d115b759853974fb5fefe1655b"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-04/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "a13d875de0678d12d91b8ab57884df117793e61a326bc480dba5f4e5d0bee90e"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-05/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "9319d522376c9b893b01a44aa0e97e0f7c0ba8de3d601da7fc0f63fb30c57cab"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-08/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "d59dadf07c543ac7f60cad8201e6af1a82ddaeda6f71365e4a4f0b0ade80ad0a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-09/part-000.parquet",
+      "bytes": 3348,
+      "sha256": "db82b3fbaf19dbe38d129adcd395d67edb0b9b5c50018ab10ef1d662b816e224"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-10/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "f52ddd2848dcfbb9973a53befba2e0f818f1bb6556280e24a39ffa232dc7ac17"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-11/part-000.parquet",
+      "bytes": 3361,
+      "sha256": "2b8e3e04820495f39ea8d99d10faf807c8bde1be7ea10b65e93641563bd250ff"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-12/part-000.parquet",
+      "bytes": 3346,
+      "sha256": "e5778580632ba1ab50499886afa8ba2347f057277aeca1c34f53a94d8511a856"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-15/part-000.parquet",
+      "bytes": 3350,
+      "sha256": "7995062a26057b96ab84c125dd72afb37847fb055270c14192f916bd4089f8f4"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-16/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "80d01f01f85059e3e9b8b446b27fe2e0c966df09def443eff53f45e702e194be"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-17/part-000.parquet",
+      "bytes": 3346,
+      "sha256": "04b1f553f825df47b8eeb93d8d6640f264a7c800718dd7b8b9c75ebb37823288"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-18/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "f73ada911dd48f5e97677def39c9a7121b91402c7fa6596ddef5b8a8c32f7ee9"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-19/part-000.parquet",
+      "bytes": 3358,
+      "sha256": "712bb003ef42d231cd1b93e601020d7f52f41bb9e753d422775d0474ff7ef930"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-22/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "50949838535ccca25bdbbb59962228277e0397404f86f12388ce6b1efd5a4b24"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-23/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "c8efae4d4a26d841c1fbef6fd10f4f551a50dec8238a7ed49fbd098f0b798266"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-24/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "36776e0a32dff8b3c85b248fa42ed1658f72369867830b365d82cd9deadcc45e"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-25/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "5c6ec3bba292722bd480f573ed1ca1ddfab202ee5235ccdbea0a24af8c6c8eae"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-26/part-000.parquet",
+      "bytes": 3359,
+      "sha256": "a29c0e6cf47a56ee5e64e6c67541b1d518dca5709bfecb2138c650dc37390d37"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-29/part-000.parquet",
+      "bytes": 3351,
+      "sha256": "4bb82648692ac5d12aece5181bca87aaa3c40d1f873e0962c80facec9c1ccfb5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-30/part-000.parquet",
+      "bytes": 3353,
+      "sha256": "f8f7379a50bacbd7c3240bb4bb4339fcb9408c237b12cd49b44390be9fb207bf"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2025-12-31/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "7f2471667cca730e06facdf30d3c28ff18ae8eefc9139232555137b417ade04a"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-05/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "1b44e7dfa4f8ec42a6fcc6c89ebe120b666e9a3c7e5a6d60cbad091df39dcfbd"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-06/part-000.parquet",
+      "bytes": 3365,
+      "sha256": "888e259abe376178ee33168c1ad72e548e484bae9ae39ae2e94179679df11346"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-07/part-000.parquet",
+      "bytes": 3363,
+      "sha256": "73c26141b957005d66551a175a12dd53269138e72bc005513d0541d38b3cb6c5"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-08/part-000.parquet",
+      "bytes": 3355,
+      "sha256": "1ae6963e8115c4a5bba8c3cdf859fb6c01d82fd3529b610d45717570ace8dd68"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-09/part-000.parquet",
+      "bytes": 3357,
+      "sha256": "a263b32eee5409b8590349854484e89c35c617329b09d2517af37189ba63fb1e"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-12/part-000.parquet",
+      "bytes": 3352,
+      "sha256": "31a53bb8d3ffbde314e6fb262bdc4bc1a29894fd25ecff485e48e86090d81014"
+    },
+    {
+      "kind": "quote",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-01-13/part-000.parquet",
+      "bytes": 3360,
+      "sha256": "b7a1648a67931c6f8ace523f78bbc6aa150e89a5c1b1a46493f94aed46aeb304"
+    }
+  ]
+}

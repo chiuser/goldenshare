@@ -1,0 +1,23 @@
+{
+  "research_date": "2026-10-12",
+  "status": "ONE_CHART_REQUEST_AFTER_LECTURE_IDENTITY_AUDIT",
+  "date": "2025-07-03",
+  "period": "90",
+  "source_text_sha256": "77976dae557321395bdc7e54b83438a1378fa97e2afc33597ef0156b2b7a4815",
+  "lecture_audit_sha256": "aeb36dd2fbd92d590bc781e681f6037f75fd48853e6439a2fcaa671366877294",
+  "frozen_predictions": {
+    "price_only": "2025-07-03 14:00:00",
+    "price_and_dif": "2025-07-03 14:00:00",
+    "price_and_positive_hist": "2025-07-04 14:00:00",
+    "price_dif_and_positive_hist": "2025-07-04 14:00:00"
+  },
+  "request": "The90 chart shown after the phrase 然后看一下90分钟; preserve lateJuly2-July3 bars and structure/dulling/disappearance labels plus terminal DIF/DEA/histogram. No simultaneous120 or other-date request.",
+  "reason": "Lecture explicitly shows90 structure but gives no dated withdrawal statement. One chart can check label identity/mapping and obtain same-period terminal numbers.",
+  "limits": [
+    "This does not yet confirm the candidateJuly2 formation time",
+    "Historical mapped marker is not intrabar first-display proof",
+    "No green marker is conditional visibility absence, not certain structure persistence",
+    "If unavailable keep unobserved and do not repeat the request",
+    "Text request is fulfilled; do not requestJuly3 transcript again"
+  ]
+}

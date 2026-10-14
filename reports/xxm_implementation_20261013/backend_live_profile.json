@@ -1,0 +1,138 @@
+{
+  "asOf": "2026-10-13T23:07:21.743747+08:00",
+  "requests": [
+    {
+      "period": "day",
+      "attempt": 0,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.11859212489798665,
+      "count": 300,
+      "status": "READY",
+      "events": 20,
+      "histories": 4,
+      "error": null
+    },
+    {
+      "period": "day",
+      "attempt": 1,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.08841424994170666,
+      "count": 300,
+      "status": "READY",
+      "events": 20,
+      "histories": 4,
+      "error": null
+    },
+    {
+      "period": "day",
+      "attempt": 2,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.17783112498000264,
+      "count": 300,
+      "status": "READY",
+      "events": 20,
+      "histories": 4,
+      "error": null
+    },
+    {
+      "period": "m60",
+      "attempt": 0,
+      "httpStatus": 200,
+      "elapsedSeconds": 1.629459667019546,
+      "count": 500,
+      "status": "READY",
+      "events": 35,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m60",
+      "attempt": 1,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.5335535840131342,
+      "count": 500,
+      "status": "READY",
+      "events": 35,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m60",
+      "attempt": 2,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.7350959591567516,
+      "count": 500,
+      "status": "READY",
+      "events": 35,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m90",
+      "attempt": 0,
+      "httpStatus": 200,
+      "elapsedSeconds": 1.226728416979313,
+      "count": 500,
+      "status": "READY",
+      "events": 22,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m90",
+      "attempt": 1,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.5006023333407938,
+      "count": 500,
+      "status": "READY",
+      "events": 22,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m90",
+      "attempt": 2,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.5431876671500504,
+      "count": 500,
+      "status": "READY",
+      "events": 22,
+      "histories": 3,
+      "error": null
+    },
+    {
+      "period": "m120",
+      "attempt": 0,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.9853316657245159,
+      "count": 500,
+      "status": "READY",
+      "events": 21,
+      "histories": 4,
+      "error": null
+    },
+    {
+      "period": "m120",
+      "attempt": 1,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.7154882908798754,
+      "count": 500,
+      "status": "READY",
+      "events": 21,
+      "histories": 4,
+      "error": null
+    },
+    {
+      "period": "m120",
+      "attempt": 2,
+      "httpStatus": 200,
+      "elapsedSeconds": 0.4531358340755105,
+      "count": 500,
+      "status": "READY",
+      "events": 21,
+      "histories": 4,
+      "error": null
+    }
+  ],
+  "note": "first observed requests may have a warm process/OS cache; samples are not a formal P95"
+}

@@ -1,0 +1,405 @@
+{
+  "frozen_at": "2026-10-11T11:19:21.883606+00:00",
+  "scope": "Freeze before retrieving selected-day captions; historical saved-input screen, no unseen software labels",
+  "selection_method": "Among structure-reset-later-cross cases, prefer 90m then 60m, NONE baseline event, DIF margin >0.05, chronological; deduplicate same timestamp",
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "audit_script_sha256": "d25a05161f4a6e45b59a26c22ccae522e1a9de38beb5af85d02a5293bdd73bb8",
+  "variant_script_sha256": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+  "inputs": {
+    "120_20250401_20250711.csv": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+    "120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+    "120_20260101_20260507.csv": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+    "60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "daily_2025.csv": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+    "daily_20260801_20261009.csv": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c"
+  },
+  "eligible_pool": [
+    {
+      "case": "mins90",
+      "time": "2025-07-11 11:00:00",
+      "margin": 0.9504684295579864,
+      "baseline_event": "NONE",
+      "activation_time": "2025-07-01 14:00:00",
+      "reference_start": "2025-06-24 11:00:00",
+      "reference_dif": 19.28212366483376,
+      "reset_time": "2025-07-02 15:00:00"
+    },
+    {
+      "case": "mins90",
+      "time": "2026-01-06 14:00:00",
+      "margin": 0.09672282734163673,
+      "baseline_event": "NONE",
+      "activation_time": "2025-11-10 15:00:00",
+      "reference_start": "2025-10-23 15:00:00",
+      "reference_dif": 31.39180919304681,
+      "reset_time": "2025-11-11 14:00:00"
+    },
+    {
+      "case": "mins60",
+      "time": "2025-07-23 11:30:00",
+      "margin": 2.1790638004290486,
+      "baseline_event": "NONE",
+      "activation_time": "2025-07-04 14:00:00",
+      "reference_start": "2025-06-23 14:00:00",
+      "reference_dif": 20.043562610506342,
+      "reset_time": "2025-07-07 11:30:00"
+    },
+    {
+      "case": "mins60",
+      "time": "2026-01-06 14:00:00",
+      "margin": 1.5079176132608154,
+      "baseline_event": "NONE",
+      "activation_time": "2025-11-13 15:00:00",
+      "reference_start": "2025-10-23 15:00:00",
+      "reference_dif": 28.80087595504483,
+      "reset_time": "2025-11-14 15:00:00"
+    },
+    {
+      "case": "mins60",
+      "time": "2026-03-23 11:30:00",
+      "margin": 7.103668110521994,
+      "baseline_event": "NONE",
+      "activation_time": "2025-12-16 11:30:00",
+      "reference_start": "2025-11-14 15:00:00",
+      "reference_dif": -39.35754884307562,
+      "reset_time": "2025-12-17 15:00:00"
+    },
+    {
+      "case": "mins60",
+      "time": "2026-09-14 14:00:00",
+      "margin": 0.12187681899968084,
+      "baseline_event": "NONE",
+      "activation_time": "2026-07-30 14:00:00",
+      "reference_start": "2026-07-28 14:00:00",
+      "reference_dif": -16.00326225213712,
+      "reset_time": "2026-07-31 10:30:00"
+    }
+  ],
+  "targets": [
+    {
+      "case": "mins90",
+      "time": "2025-07-11 11:00:00",
+      "margin": 0.9504684295579864,
+      "baseline_event": "NONE",
+      "activation_time": "2025-07-01 14:00:00",
+      "reference_start": "2025-06-24 11:00:00",
+      "reference_dif": 19.28212366483376,
+      "reset_time": "2025-07-02 15:00:00",
+      "hypotheses": {
+        "reset_clears_confirmation": "No additional old-structure disappearance event",
+        "retained_until_dif_break": "Old confirmed structure loses validity on first strict DIF crossing"
+      },
+      "predictions": [
+        {
+          "gate": 0.75,
+          "baseline": {
+            "time": "2025-07-11 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 9,
+            "ref_start": "",
+            "close": 3529.7869,
+            "dif": 20.232592094391748,
+            "hist": 3.7971724652655467,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-24 11:00:00",
+              "reference_dif": 19.28212366483376,
+              "direction": 1,
+              "activation_time": "2025-07-01 14:00:00",
+              "confirmation_time": "2025-07-02 14:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1,
+          "baseline": {
+            "time": "2025-07-11 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 9,
+            "ref_start": "",
+            "close": 3529.7869,
+            "dif": 20.232592094391748,
+            "hist": 3.7971724652655467,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-24 11:00:00",
+              "reference_dif": 19.28212366483376,
+              "direction": 1,
+              "activation_time": "2025-07-01 14:00:00",
+              "confirmation_time": "2025-07-02 14:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1.2,
+          "baseline": {
+            "time": "2025-07-11 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 9,
+            "ref_start": "",
+            "close": 3529.7869,
+            "dif": 20.232592094391748,
+            "hist": 3.7971724652655467,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-24 11:00:00",
+              "reference_dif": 19.28212366483376,
+              "direction": 1,
+              "activation_time": "2025-07-01 14:00:00",
+              "confirmation_time": "2025-07-02 14:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        }
+      ]
+    },
+    {
+      "case": "mins90",
+      "time": "2026-01-06 14:00:00",
+      "margin": 0.09672282734163673,
+      "baseline_event": "NONE",
+      "activation_time": "2025-11-10 15:00:00",
+      "reference_start": "2025-10-23 15:00:00",
+      "reference_dif": 31.39180919304681,
+      "reset_time": "2025-11-11 14:00:00",
+      "hypotheses": {
+        "reset_clears_confirmation": "No additional old-structure disappearance event",
+        "retained_until_dif_break": "Old confirmed structure loses validity on first strict DIF crossing"
+      },
+      "predictions": [
+        {
+          "gate": 0.75,
+          "baseline": {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "direction": 1,
+              "activation_time": "2025-11-10 15:00:00",
+              "confirmation_time": "2025-11-11 11:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1,
+          "baseline": {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "direction": 1,
+              "activation_time": "2025-11-10 15:00:00",
+              "confirmation_time": "2025-11-11 11:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1.2,
+          "baseline": {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "direction": 1,
+              "activation_time": "2025-11-10 15:00:00",
+              "confirmation_time": "2025-11-11 11:00:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        }
+      ]
+    },
+    {
+      "case": "mins60",
+      "time": "2025-07-23 11:30:00",
+      "margin": 2.1790638004290486,
+      "baseline_event": "NONE",
+      "activation_time": "2025-07-04 14:00:00",
+      "reference_start": "2025-06-23 14:00:00",
+      "reference_dif": 20.043562610506342,
+      "reset_time": "2025-07-07 11:30:00",
+      "hypotheses": {
+        "reset_clears_confirmation": "No additional old-structure disappearance event",
+        "retained_until_dif_break": "Old confirmed structure loses validity on first strict DIF crossing"
+      },
+      "predictions": [
+        {
+          "gate": 0.75,
+          "baseline": {
+            "time": "2025-07-23 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 14,
+            "ref_start": "",
+            "close": 3608.5757,
+            "dif": 22.22262641093539,
+            "hist": 12.129995645286641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-23 14:00:00",
+              "reference_dif": 20.043562610506342,
+              "direction": 1,
+              "activation_time": "2025-07-04 14:00:00",
+              "confirmation_time": "2025-07-07 10:30:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1,
+          "baseline": {
+            "time": "2025-07-23 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 14,
+            "ref_start": "",
+            "close": 3608.5757,
+            "dif": 22.22262641093539,
+            "hist": 12.129995645286641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-23 14:00:00",
+              "reference_dif": 20.043562610506342,
+              "direction": 1,
+              "activation_time": "2025-07-04 14:00:00",
+              "confirmation_time": "2025-07-07 10:30:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        },
+        {
+          "gate": 1.2,
+          "baseline": {
+            "time": "2025-07-23 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 14,
+            "ref_start": "",
+            "close": 3608.5757,
+            "dif": 22.22262641093539,
+            "hist": 12.129995645286641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          "retained_structure_crosses": [
+            {
+              "reference_start": "2025-06-23 14:00:00",
+              "reference_dif": 20.043562610506342,
+              "direction": 1,
+              "activation_time": "2025-07-04 14:00:00",
+              "confirmation_time": "2025-07-07 10:30:00"
+            }
+          ],
+          "software_label": "NOT_OBSERVED",
+          "conditional_prediction": "OLD_STRUCTURE_CANCEL"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "A conditional old-structure invalidation monitor is not a complete replacement algorithm.",
+    "A green marker can refer to dullness disappearance or structure invalidity; images and narration must establish its subject.",
+    "90m DG/software binning and numerical differences remain unresolved.",
+    "The two added retirement filters are observationally equivalent in these saved inputs only, not proved mathematically identical."
+  ]
+}

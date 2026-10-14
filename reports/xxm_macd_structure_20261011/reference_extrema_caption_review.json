@@ -1,0 +1,114 @@
+{
+  "as_of": "2026-10-11T14:04:25.259704+00:00",
+  "scope": "New numerical caption evidence, not a new screenshot label",
+  "frozen_audit_sha256": "2c26ecbbd66f220b224a3af08a5db5e7d0f9bfd54a8cbde50e38c875570bc950",
+  "candidate_sha256": "3efbf43971245a4810f18b8284c5484008d2fc355671732039afc75fc2837ce0",
+  "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+  "source_file": "sources/20250722_vidiq_transcript.json",
+  "source_sha256": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+  "source_url": "https://www.youtube.com/watch?v=nfiZ-e-zy1E",
+  "caption_context": "开120分钟 平开它也动画消失啊 平开也动画消失 今天收盘呢 正好是3581点啊 那么如果第一个周期在3578点 这个就是3579之下吧 就没有动画消失 是吧没有动画消失 还在动画 也就是说什么意思呢 明天开盘只要不跌在3579 就是不下跌3个点 3五7八点 那么市场呢 就会钝化消失 平着就是一开盘可能就动画消失了 但是呢他如果下跌3个点 那可能就 还是动画 但它形成结构 它其实难度是很大的 那明天上午呢 最好是两个周期啊 90分钟和 120分钟全部动画消失 因为这两个周期 他的动画消失的标准呢 都差不多 看啊这是120分钟 3578点就他俩都是一样 的啊 这90分钟和这个120分钟动画消失的 标准都是一样的 都是3578 ",
+  "caption_claim": {
+    "frequency": "120",
+    "simulated_3578": "still DULL",
+    "approximate_cancellation_boundary": "3578 to 3579",
+    "opening_flat": "CANCEL anticipated"
+  },
+  "frozen_probe": {
+    "period": "2025-07-22 close to 2025-07-23 morning",
+    "frequency": "120",
+    "whole_reference": 27.208300610376682,
+    "last_local_reference": 26.62301931837783,
+    "previous_dif": 25.96695880293464,
+    "next_dif_slope": 0.07977207977207978,
+    "next_dif_intercept": -258.2972350244554,
+    "next_actual_residual": -3.410605131648481e-13,
+    "whole_next_close_equality_boundary": 3579.015821708073,
+    "local_next_close_equality_boundary": 3571.6789026548017,
+    "note": "Both references predict the observed July 23 morning cancellation; need an explicit reference or next-bar cancellation-price statement, not the same endpoint again."
+  },
+  "comparisons": [
+    {
+      "mode": "whole",
+      "simulated_close": 3578,
+      "simulated_dif": 27.12726640004604,
+      "simulated_hist": 8.526722112807107,
+      "reference_dif": 27.208300610376682,
+      "next_close_equality_boundary": 3579.015821708073,
+      "event": "NONE",
+      "state": "DULL",
+      "narrated_expected_state": "DULL",
+      "matches_caption": true
+    },
+    {
+      "mode": "whole",
+      "simulated_close": 3581.861,
+      "simulated_dif": 27.435266400046032,
+      "simulated_hist": 9.019522112807095,
+      "reference_dif": 27.208300610376682,
+      "next_close_equality_boundary": 3579.015821708073,
+      "event": "CANCEL",
+      "state": "NONE",
+      "narrated_expected_state": "NONE",
+      "matches_caption": true
+    },
+    {
+      "mode": "last_interior",
+      "simulated_close": 3578,
+      "simulated_dif": 27.12726640004604,
+      "simulated_hist": 8.526722112807107,
+      "reference_dif": 26.62301931837783,
+      "next_close_equality_boundary": 3571.6789026548017,
+      "event": "CANCEL",
+      "state": "NONE",
+      "narrated_expected_state": "DULL",
+      "matches_caption": false
+    },
+    {
+      "mode": "last_interior",
+      "simulated_close": 3581.861,
+      "simulated_dif": 27.435266400046032,
+      "simulated_hist": 9.019522112807095,
+      "reference_dif": 26.62301931837783,
+      "next_close_equality_boundary": 3571.6789026548017,
+      "event": "CANCEL",
+      "state": "NONE",
+      "narrated_expected_state": "NONE",
+      "matches_caption": true
+    },
+    {
+      "mode": "last_boundary",
+      "simulated_close": 3578,
+      "simulated_dif": 27.12726640004604,
+      "simulated_hist": 8.526722112807107,
+      "reference_dif": 26.62301931837783,
+      "next_close_equality_boundary": 3571.6789026548017,
+      "event": "CANCEL",
+      "state": "NONE",
+      "narrated_expected_state": "DULL",
+      "matches_caption": false
+    },
+    {
+      "mode": "last_boundary",
+      "simulated_close": 3581.861,
+      "simulated_dif": 27.435266400046032,
+      "simulated_hist": 9.019522112807095,
+      "reference_dif": 26.62301931837783,
+      "next_close_equality_boundary": 3571.6789026548017,
+      "event": "CANCEL",
+      "state": "NONE",
+      "narrated_expected_state": "NONE",
+      "matches_caption": true
+    }
+  ],
+  "labels_added": 0,
+  "protected_files_unchanged": true,
+  "limitations": [
+    "Reupload and ASR captions; not direct audio verification",
+    "Narrated simulated intrabar condition, not a completed new actual bar",
+    "DG and software numeric/initialization semantics not fully reconciled",
+    "Only these explicit local-pivot variants are contradicted, not all pivot methods",
+    "Do not promote the 90-minute observation to an exact aligned event label"
+  ],
+  "audit_script_sha256": "84d59e95e8a5ce77c0d177e36fd5ddd633ff6d2acb92de89e414cc7be9d5548e"
+}

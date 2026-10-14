@@ -1,0 +1,136 @@
+{
+  "asOf": "2026-10-13T15:24:18.267Z",
+  "currentRoute": "http://127.0.0.1:5175/wealth/market/index/000001.SH",
+  "unsupportedCode": "399001.SZ",
+  "unsupportedCodeXxmRequests": 0,
+  "unsupportedPeriod": 30,
+  "unsupportedPeriodXxmLayer": false,
+  "viewportChecks": [
+    {
+      "width": 1280,
+      "bodyWidth": 1280,
+      "paneWidth": 904
+    },
+    {
+      "width": 1440,
+      "bodyWidth": 1440,
+      "paneWidth": 1031.203125
+    }
+  ],
+  "otherPageMinWidth": 1460,
+  "local503Retry": "passed_after_fix_pointer_events",
+  "canvasCountOnErrorAndRetry": 28,
+  "realTwoEventTime": "2025-03-14T11:00:00+08:00",
+  "networkTruncated": false,
+  "network": [
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=60&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-04-08&endDate=2026-10-13&limit=500&freq=60"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-04-08&endDate=2026-10-13&limit=500&freq=60",
+      "status": 200
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=90&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-01-29&endDate=2026-10-13&limit=500&freq=90"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-01-29&endDate=2026-10-13&limit=500&freq=90",
+      "status": 200
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minutes?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-indicators?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2025-09-24&endDate=2026-10-13&limit=500&freq=120"
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-nine-turn?tsCode=000001.SH&freq=120&endDate=2026-10-13&limit=500",
+      "status": 200
+    },
+    {
+      "method": "Network.responseReceived",
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2025-09-24&endDate=2026-10-13&limit=500&freq=120",
+      "status": 200
+    }
+  ],
+  "logs": []
+}

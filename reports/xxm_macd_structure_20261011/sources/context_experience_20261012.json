@@ -1,0 +1,30 @@
+{
+  "reviewed_on": "2026-10-12",
+  "evidence_kind": "public_author_text_summary_not_video_transcript",
+  "user_confirmed_semantics": "视频长短期趋势与财势乾坤长短期趋势完全一致；逐日数值尚未对账。",
+  "sources": [
+    {
+      "title": "徐小明：6月8日盘中即时直播",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302be.html",
+      "displayed_publication_time": "2026-06-05 17:01:35",
+      "live_session_date": "2026-06-08",
+      "summary": "10:40关注60、90分钟；11:07尚待确认，11:12要求等周期结束；13:19联系低开与加速；14:00记录分钟钝化消失。",
+      "limits": "博客提前发布；14:00条目未逐一明确周期，不能新增软件事件标签。"
+    },
+    {
+      "title": "徐小明：周三操作策略",
+      "url": "https://finance.sina.com.cn/money/fund/jjgsgd/2026-06-09/doc-iniauzkt5086609.shtml",
+      "displayed_publication_time": "2026-06-09 16:25",
+      "attribution": "新浪财经转载，署名徐小明，来源投资明见",
+      "summary": "序列支持止跌时点，但分钟钝化消失使筑底不能确认；强反弹未改变该结论。急跌可以实际筑底，却可能不属于其框架可确认的低点。",
+      "limits": "不是视频全文；不证明任何收益率或后续底部是否形成。"
+    }
+  ],
+  "requested_transcript_dates": [
+    "2026-06-08",
+    "2026-06-09"
+  ],
+  "mcp_status": "沿用2026-10-11额度不足记录，本轮未重试；未取得这两日视频链接或字幕。",
+  "software_labels_added": 0,
+  "production_changes": false
+}

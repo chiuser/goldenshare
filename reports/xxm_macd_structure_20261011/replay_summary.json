@@ -1,0 +1,229 @@
+{
+  "scope": "Retrospective calibration only; no out-of-sample accuracy estimate",
+  "summaries": [
+    {
+      "threshold_pct": 0,
+      "checked_points": 25,
+      "mismatches": 4,
+      "details": [
+        "jul_120 2025-07-02 15:00:00: NONE -> STRUCTURE",
+        "jul_120 2025-07-03 15:00:00: NONE -> DULL",
+        "aug_120 2025-08-08 15:00:00: NONE -> STRUCTURE",
+        "daily_2025 2025-08-14: NONE -> STRUCTURE"
+      ]
+    },
+    {
+      "threshold_pct": 0.5,
+      "checked_points": 25,
+      "mismatches": 2,
+      "details": [
+        "aug_120 2025-08-08 15:00:00: NONE -> STRUCTURE",
+        "daily_2025 2025-08-14: NONE -> STRUCTURE"
+      ]
+    },
+    {
+      "threshold_pct": 0.7,
+      "checked_points": 25,
+      "mismatches": 1,
+      "details": [
+        "aug_120 2025-08-08 15:00:00: NONE -> STRUCTURE"
+      ]
+    },
+    {
+      "threshold_pct": 0.75,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 0.8,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 0.9,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 1,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 1.1,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 1.2,
+      "checked_points": 25,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "threshold_pct": 1.25,
+      "checked_points": 25,
+      "mismatches": 2,
+      "details": [
+        "jul_120 2025-07-09 15:00:00: STRUCTURE -> NONE",
+        "jul_120 2025-07-10 11:30:00: DULL -> NONE"
+      ]
+    }
+  ],
+  "alternative_rules": [
+    {
+      "variant": "nearest_only",
+      "threshold_pct": 1,
+      "mismatches": 7,
+      "details": [
+        "jul_120 2025-06-27 15:00:00: STRUCTURE -> NONE",
+        "jul_120 2025-06-30 15:00:00: DULL -> NONE",
+        "jul_120 2025-07-07 11:30:00: STRUCTURE -> NONE",
+        "jul_120 2025-07-08 11:30:00: DULL -> NONE",
+        "jul_120 2025-07-09 15:00:00: STRUCTURE -> NONE",
+        "jul_120 2025-07-10 11:30:00: DULL -> NONE",
+        "jul_120 2025-07-11 11:30:00: CANCEL -> NONE"
+      ]
+    },
+    {
+      "variant": "one_bar_activation",
+      "threshold_pct": 1,
+      "mismatches": 5,
+      "details": [
+        "aug_120 2025-08-07 11:30:00: DULL -> NONE",
+        "daily_2025 2025-08-07: NONE -> DULL",
+        "daily_2025 2025-08-08: DULL -> NONE",
+        "may_120 2026-05-06 11:30:00: NONE -> DULL",
+        "may_120 2026-05-06 15:00:00: DULL -> NONE"
+      ]
+    },
+    {
+      "variant": "recheck_close_on_structure",
+      "threshold_pct": 1,
+      "mismatches": 1,
+      "details": [
+        "daily_2025 2025-11-11: STRUCTURE -> NONE"
+      ]
+    },
+    {
+      "variant": "state_extreme_r1",
+      "threshold_pct": 1,
+      "mismatches": 0,
+      "details": []
+    },
+    {
+      "variant": "integer_direction",
+      "threshold_pct": 0,
+      "mismatches": 4,
+      "details": [
+        "jul_120 2025-06-30 15:00:00: DULL -> NONE",
+        "jul_120 2025-07-02 15:00:00: NONE -> STRUCTURE",
+        "jul_120 2025-07-09 15:00:00: STRUCTURE -> NONE",
+        "jul_120 2025-07-10 11:30:00: DULL -> NONE"
+      ]
+    }
+  ],
+  "candidate_search": [
+    {
+      "freq": 30,
+      "bars": 2632,
+      "gate_event_differences": 7,
+      "single_vs_state_extreme_r1_differences": 0
+    },
+    {
+      "freq": 60,
+      "bars": 1316,
+      "gate_event_differences": 8,
+      "single_vs_state_extreme_r1_differences": 0
+    }
+  ],
+  "causal_prefix_checks": 25,
+  "threshold_constraints": [
+    {
+      "case": "aug_120",
+      "time": "2025-08-08 15:00:00",
+      "before": 21.764920271693427,
+      "after": 21.611733034717872,
+      "delta": -0.1531872369755547,
+      "decline_pct": 0.703826318053569
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-14",
+      "before": 45.645,
+      "after": 45.347,
+      "delta": -0.2980000000000018,
+      "decline_pct": 0.652864497754413
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-09 15:00:00",
+      "before": 23.497636445824355,
+      "after": 23.21478032863115,
+      "delta": -0.28285611719320514,
+      "decline_pct": 1.203764122597403
+    }
+  ],
+  "inputs": [
+    {
+      "file": "120_20250401_20250711.csv",
+      "sha256": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+      "rows": 138
+    },
+    {
+      "file": "120_20250401_20251111.csv",
+      "sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "rows": 300
+    },
+    {
+      "file": "120_20260101_20260507.csv",
+      "sha256": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+      "rows": 158
+    },
+    {
+      "file": "120_20260701_20260901.csv",
+      "sha256": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0",
+      "rows": 90
+    },
+    {
+      "file": "30_20250603_20261009.csv",
+      "sha256": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250",
+      "rows": 2632
+    },
+    {
+      "file": "60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "rows": 1316
+    },
+    {
+      "file": "60_20260301_20260420.csv",
+      "sha256": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f",
+      "rows": 140
+    },
+    {
+      "file": "90_20250701_20250814.csv",
+      "sha256": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+      "rows": 99
+    },
+    {
+      "file": "daily_20060801_20070529.csv",
+      "sha256": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641",
+      "rows": 198
+    },
+    {
+      "file": "daily_2025.csv",
+      "sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+      "rows": 207
+    },
+    {
+      "file": "daily_20260801_20261009.csv",
+      "sha256": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c",
+      "rows": 44
+    }
+  ]
+}

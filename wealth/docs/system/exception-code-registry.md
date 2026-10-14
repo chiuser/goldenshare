@@ -392,3 +392,16 @@
 1. 已上线的 `code` 不允许重用为新语义。
 2. 废弃码必须保留历史记录，`status=deprecated`，并补替代码。
 3. 任何页面文档的异常码段落必须引用本文件，不再各写一套。
+
+## XXM 上证研究图层 V0.1（2026-10-13 已授权实施）
+
+依据专项 LLD §8；仅作用于独立 XXM 图层，沿用现有鉴权及 WebAppError envelope。
+
+| code | HTTP／状态 | 触发及恢复 |
+| --- | --- | --- |
+| `XXM_REQUEST_INVALID` | 400 | 非法／未知／重复参数，不重试 |
+| `XXM_NOT_SUPPORTED` | 404 | 合法代码不在本版上证范围，不派发图层 |
+| `XXM_SOURCE_NOT_READY` | 200 EMPTY/DELAYED | 无源或合法末端落后，说明实际覆盖 |
+| `XXM_SOURCE_CONTRACT_INVALID` | 500 | 键／值／版本／日历缺口异常，停止本层，无 fallback |
+| `XXM_BUDGET_EXCEEDED` | 503 | 行数／分区／响应／并发／时限超预算，明确失败 |
+| `XXM_QUERY_FAILED` | 500 | 查询或计算失败，保留行情，可局部重试 |

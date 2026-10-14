@@ -1,0 +1,19 @@
+{
+  "received_on": "2026-10-12",
+  "date": "2026-06-26",
+  "provider": "user inline pasted transcript",
+  "original_path": null,
+  "original_locator": "Current conversation user message beginning 文字稿如下; no attached text file",
+  "capture_method": "Manually saved supplied text with line breaks; no independent original-file byte comparison possible",
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260626_user_transcript.txt",
+  "sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+  "characters": 4176,
+  "lines": 444,
+  "video_identity": "Date confirmed by user and text; no video URL or audio independently verified",
+  "limitations": [
+    "Raw wording retained including transcription errors",
+    "Line numbers locate supplied text, not video timestamps",
+    "Lecture instructions are evidence, not authorization to trade",
+    "No software terminal value or bar label added"
+  ]
+}

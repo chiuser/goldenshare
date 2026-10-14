@@ -1,0 +1,59 @@
+{
+  "scope": "Retrospective author-reference audit; ASR wording contextual interpretation, not exact software formula or new event labels.",
+  "source_url": "https://www.youtube.com/watch?v=0pRHKjTiHGM",
+  "source_sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+  "caption_chars": 5007,
+  "manual_extracted_claims": {
+    "date": "2025-06-24",
+    "freq": 120,
+    "dullness_present": true,
+    "asr_terms": [
+      "格峰",
+      "隔风"
+    ],
+    "interpreted_term": "隔峰",
+    "interpretation_basis": "Speaker describes comparing a nonadjacent peak in the 120-minute and 90-minute dullness passages; contextual correction, not a corrected original transcript."
+  },
+  "candidate_reference_comparison": [
+    {
+      "policy": "nearest_qualifying",
+      "prediction": {
+        "time": "2025-06-24 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-06-04 11:30:00",
+        "close": 3420.566,
+        "dif": 4.483709462167553,
+        "hist": 6.202076109208423,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-06-04 11:30:00",
+        "event_ref_dif": 11.88627301629458,
+        "event_ref_price": 3404.6565
+      }
+    },
+    {
+      "policy": "strongest_eligible",
+      "prediction": {
+        "time": "2025-06-24 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3420.566,
+        "dif": 4.483709462167553,
+        "hist": 6.202076109208423,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-05-06 11:30:00",
+        "event_ref_dif": 26.114902990716928,
+        "event_ref_price": 3403.948
+      }
+    }
+  ],
+  "labels": [],
+  "conclusion": "A skipped-peak comparison was discussed on June24 itself, supporting use of an older reference from activation. Exact peak value26 comes from June25 captions, not this passage. Green marker remains unassigned."
+}

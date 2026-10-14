@@ -1,0 +1,174 @@
+{
+  "research_date": "2026-10-12",
+  "source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260615_user_transcript.txt",
+  "source_sha256": "10978611a37f5c78023992b8082ca132ba4e47f6f694bb45a2f6dcfa3bd87708",
+  "numerical_prediction_file": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/post_june9_predictions_20261012.json",
+  "numerical_prediction_sha256": "24023ccc46498d43f8ac7a0b63c24b8f77f1a677f6f2f48ecd1ea154bbe8fac9",
+  "method": "Numerical predictions frozen before public follow-up text; June12/15 blog context already read before this user transcript; not fully blind or prospective. No candidate changes.",
+  "claims": [
+    {
+      "id": "both_trends",
+      "lines": [
+        87,
+        101
+      ],
+      "finding": "当日收盘突破短期和长期；尾盘长期先能确定，短期最后十分钟未能确定，按收盘确认后次日早盘处理。",
+      "status": "EXPLICIT_EPISODE_CONTEXT_NOT_NUMERIC_BOUNDARY_TRUTH"
+    },
+    {
+      "id": "execution_order",
+      "lines": [
+        240,
+        246
+      ],
+      "finding": "重复说明15日收盘前增加两成，16日开盘增加四成，至满仓；455行明确开盘后。",
+      "status": "HISTORICAL_STATED_PLAN_NOT_OBSERVED_FILLED_TRADES"
+    },
+    {
+      "id": "no_breadth_gate",
+      "lines": [
+        224,
+        246
+      ],
+      "finding": "承认风格尚未转换，同时说明规则上应执行；第134-146行还讨论即使中位数较强也须依规则。",
+      "status": "SUPPORTS_BREADTH_AS_CONTEXT_NOT_HARD_GATE_IN_THIS_EPISODE"
+    },
+    {
+      "id": "two_paths",
+      "lines": [
+        686,
+        695
+      ],
+      "finding": "要么突破趋势，要么向下形成结构；当天采用突破趋势路径。",
+      "status": "SUPPORTS_INDEPENDENT_ENTRY_PATHS_IN_THIS_EPISODE"
+    },
+    {
+      "id": "hypothetical_trend_correction",
+      "lines": [
+        381,
+        384
+      ],
+      "finding": "若次日收盘再跌破短期趋势，理论上应再减；没有给出通道具体边界或数量。",
+      "status": "EXPLICIT_HYPOTHETICAL_NOT_OBSERVED_CORRECTION"
+    },
+    {
+      "id": "actual_low_vs_structure",
+      "lines": [
+        500,
+        508
+      ],
+      "finding": "作者回顾急跌后尖底，低点没有可识别结构；此前序列不一定落在便于买入的低价。",
+      "status": "SUPPORTS_REAL_LOW_DISTINCT_FROM_CONFIRMED_STRUCTURE"
+    },
+    {
+      "id": "future_structure_not_current",
+      "lines": [
+        255,
+        273
+      ],
+      "finding": "上行可能有日线顶钝化，下行可能出现分钟底结构；需按条件讨论，不当作已有结构标签。",
+      "status": "CONDITIONAL_FORECAST_NOT_CURRENT_SOFTWARE_LABEL"
+    },
+    {
+      "id": "correction_transcription",
+      "lines": [
+        372,
+        374
+      ],
+      "finding": "两个纠错问题挤在一起，只接钝化消失；不能将两个路径统一解释成钝化消失。",
+      "status": "AMBIGUOUS_NEEDS_AUDIO_OR_CLEARER_CONTEXT"
+    },
+    {
+      "id": "short_margin_transcription",
+      "lines": [
+        88,
+        89
+      ],
+      "finding": "原文将长期和短期连在一起；结合明确顺序，少量突破更可能指短期，但原句保留，不新增指标读数。",
+      "status": "CONTEXTUAL_INFERENCE_NOT_QUOTED_FACT"
+    },
+    {
+      "id": "visual_slope",
+      "lines": [
+        46,
+        56
+      ],
+      "finding": "15度缓跌解释大、小周期作用相反。图形角度随缩放变化，不能直接成为量化阈值。",
+      "status": "QUALITATIVE_EXPERIENCE_NO_FIXED_ANGLE_RULE"
+    }
+  ],
+  "trend_numeric_comparison": [
+    {
+      "date": "2026-06-15",
+      "close": 4096.4717,
+      "bands": {
+        "short_channel": {
+          "upper": 4088.888896502274,
+          "lower": 4037.875020527256,
+          "position": "ABOVE",
+          "state": "UP",
+          "close_minus_upper": 7.582803497726218,
+          "close_minus_lower": 58.5966794727442
+        },
+        "long_channel": {
+          "upper": 4072.904557605582,
+          "lower": 4026.58501348136,
+          "position": "ABOVE",
+          "state": "UP",
+          "close_minus_upper": 23.56714239441817,
+          "close_minus_lower": 69.88668651864009
+        }
+      },
+      "interpretation": "June15 two closing breakouts compatible with supplied lecture; June16 only a saved follow-up observation, no execution or failure label"
+    },
+    {
+      "date": "2026-06-16",
+      "close": 4091.8917,
+      "bands": {
+        "short_channel": {
+          "upper": 4090.0455890790226,
+          "lower": 4040.9515727943904,
+          "position": "ABOVE",
+          "state": "UP",
+          "close_minus_upper": 1.8461109209774804,
+          "close_minus_lower": 50.94012720560977
+        },
+        "long_channel": {
+          "upper": 4073.5863453505144,
+          "lower": 4027.7121604378135,
+          "position": "ABOVE",
+          "state": "UP",
+          "close_minus_upper": 18.305354649485707,
+          "close_minus_lower": 64.17953956218662
+        }
+      },
+      "interpretation": "June15 two closing breakouts compatible with supplied lecture; June16 only a saved follow-up observation, no execution or failure label"
+    }
+  ],
+  "bottom_events_through_june15": {
+    "60": [],
+    "90": [],
+    "120": []
+  },
+  "resolved_questions": [
+    "Both short and long trends participate separately in this episode",
+    "Late closing uncertainty leads to closing confirmation and following morning execution",
+    "Trend path did not require a bottom structure or completed style transition in this episode"
+  ],
+  "unresolved_questions": [
+    "Original software daily band values and exact upper/lower edge meaning",
+    "Intraday determination standard during final ten minutes",
+    "Whether 20/40 percent allocations are universal, prior holding state and fill details",
+    "Ambiguous combined correction question; structure lifecycle remains unconfirmed"
+  ],
+  "evidence_counts": {
+    "mcp_transcripts": 13,
+    "user_transcripts": 5,
+    "unique_transcript_dates": 17,
+    "screenshots": 37,
+    "software_terminal_values": 21,
+    "conditional_software_labels": 52,
+    "new_software_labels": 0
+  },
+  "next_step": "Compare neighboring already-saved dates under separate trend and structure paths; June15 daily trend screenshot optional when available, no new transcript date requested."
+}

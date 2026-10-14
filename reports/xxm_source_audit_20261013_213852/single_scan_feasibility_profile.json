@@ -1,0 +1,59 @@
+[
+  {
+    "freq": 60,
+    "proposalOnly": true,
+    "existingPublicReaderUnchanged": true,
+    "sourceRowBound": 20000,
+    "datasets": {
+      "bars": {
+        "rows": 17260,
+        "partitions": 4315,
+        "elapsedSeconds": 1.195642292033881
+      },
+      "indicators": {
+        "rows": 17260,
+        "partitions": 4315,
+        "elapsedSeconds": 1.1235372079536319
+      }
+    },
+    "elapsedSeconds": 2.3249947503209114
+  },
+  {
+    "freq": 90,
+    "proposalOnly": true,
+    "existingPublicReaderUnchanged": true,
+    "sourceRowBound": 20000,
+    "datasets": {
+      "bars": {
+        "rows": 12945,
+        "partitions": 4315,
+        "elapsedSeconds": 0.8759985421784222
+      },
+      "indicators": {
+        "rows": 12945,
+        "partitions": 4315,
+        "elapsedSeconds": 1.206719582900405
+      }
+    },
+    "elapsedSeconds": 2.0883902916684747
+  },
+  {
+    "freq": 120,
+    "proposalOnly": true,
+    "existingPublicReaderUnchanged": true,
+    "sourceRowBound": 20000,
+    "datasets": {
+      "bars": {
+        "rows": 8630,
+        "partitions": 4315,
+        "elapsedSeconds": 0.8625112911686301
+      },
+      "indicators": {
+        "rows": 8630,
+        "partitions": 4315,
+        "elapsedSeconds": 1.0761722917668521
+      }
+    },
+    "elapsedSeconds": 1.9448204170912504
+  }
+]

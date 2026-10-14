@@ -1,0 +1,302 @@
+{
+  "validated_at": "2026-10-11T11:44:51.869022+00:00",
+  "scope": "Retrospective screenshot corroboration using unchanged prior candidate; not explicit frozen targets or a blind test",
+  "sources": [
+    {
+      "file": "codex-clipboard-9bd2dc5b-bde8-4f4a-b9b5-072424f641fa.png",
+      "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-9bd2dc5b-bde8-4f4a-b9b5-072424f641fa.png",
+      "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250711_120.png",
+      "bytes": 1597434,
+      "sha256": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+      "image_date": "2025-07-11",
+      "period": "120"
+    },
+    {
+      "file": "codex-clipboard-8941b881-9f36-4895-96b2-cd626ee3c523.png",
+      "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-8941b881-9f36-4895-96b2-cd626ee3c523.png",
+      "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250723_120.png",
+      "bytes": 1322643,
+      "sha256": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4",
+      "image_date": "2025-07-23",
+      "period": "120"
+    }
+  ],
+  "labels": [
+    {
+      "case": "aug_120",
+      "time": "2025-07-21 15:00:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "observation": "Yellow dull label aligns approximately with the second July21 bar; placement conditional."
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 11:30:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "observation": "Green disappearance aligns with first July23 bar, supported by saved July23 transcript explicitly saying morning disappearance."
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last bar has no separate new structure/dullness/cancellation marker; earlier green text is historical."
+    }
+  ],
+  "checks": [
+    {
+      "case": "aug_120",
+      "time": "2025-07-21 15:00:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "observation": "Yellow dull label aligns approximately with the second July21 bar; placement conditional.",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 11:30:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "observation": "Green disappearance aligns with first July23 bar, supported by saved July23 transcript explicitly saying morning disappearance.",
+      "threshold_pct": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last bar has no separate new structure/dullness/cancellation marker; earlier green text is historical.",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "",
+      "event_ref_dif": null
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-21 15:00:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "observation": "Yellow dull label aligns approximately with the second July21 bar; placement conditional.",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 11:30:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "observation": "Green disappearance aligns with first July23 bar, supported by saved July23 transcript explicitly saying morning disappearance.",
+      "threshold_pct": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last bar has no separate new structure/dullness/cancellation marker; earlier green text is historical.",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "",
+      "event_ref_dif": null
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-21 15:00:00",
+      "expected_event": "DULL",
+      "confidence": "mapped",
+      "observation": "Yellow dull label aligns approximately with the second July21 bar; placement conditional.",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 11:30:00",
+      "expected_event": "CANCEL",
+      "confidence": "mapped",
+      "observation": "Green disappearance aligns with first July23 bar, supported by saved July23 transcript explicitly saying morning disappearance.",
+      "threshold_pct": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "2025-06-24 11:30:00",
+      "event_ref_dif": 27.208300610376682
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-07-23 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last bar has no separate new structure/dullness/cancellation marker; earlier green text is historical.",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "prefix_matched": true,
+      "event_ref_start": "",
+      "event_ref_dif": null
+    }
+  ],
+  "new_point_count": 3,
+  "cumulative_points": 50,
+  "cumulative_direct": 19,
+  "cumulative_mapped": 31,
+  "prefix_checks_new": 9,
+  "prefix_checks_duplicate": 6,
+  "duplicate_episode": {
+    "date": "2025-07-11",
+    "original_source": "IMG_0309.PNG",
+    "added_observation_points": 0
+  },
+  "endpoint_comparison": [
+    {
+      "date": "20250711",
+      "software": {
+        "close": 3510.18,
+        "dif": 26.367,
+        "dea": 23.778,
+        "hist": 5.178
+      },
+      "dg": {
+        "close": 3510.1772,
+        "dif": 26.36763351865602,
+        "hist": 5.17785114373217,
+        "dea": 23.778707946789936
+      },
+      "software_minus_dg": {
+        "close": 0.00279999999975189,
+        "dif": -0.0006335186560200157,
+        "dea": -0.0007079467899373526,
+        "hist": 0.00014885626783023298
+      },
+      "note": "Supplementary screenshot for already-labelled July11 episode, not a new sample. DIF/DEA exceed ordinary nearest-rounding tolerance; display truncation or internal computation unresolved."
+    },
+    {
+      "date": "20250723",
+      "software": {
+        "close": 3582.3,
+        "dif": 29.954,
+        "dea": 24.672,
+        "hist": 10.563
+      },
+      "dg": {
+        "close": 3582.298,
+        "dif": 29.95322693920889,
+        "hist": 10.562406655470433,
+        "dea": 24.672023611473673
+      },
+      "software_minus_dg": {
+        "close": 0.0020000000004074536,
+        "dif": 0.0007730607911113907,
+        "dea": -2.361147367224703e-05,
+        "hist": 0.0005933445295678297
+      },
+      "note": "July23 displayed DIF/H differ above ordinary rounding; preserve source values, no recomputation to force equality."
+    }
+  ],
+  "protected_files": {
+    "audit_narrated_20250624.json": "6f8375cec92ba005f98e75e0d0d27a34f01da0580a2f7c9df934328eb1e0d864",
+    "holdout_20250626.json": "e4b1fd66f028a5a4176278f2ee1ce1bf12b50acb467de62ad8e7e4ed68e598ce",
+    "stage2_next_20250626.json": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9",
+    "youtube_transcript_probe.json": "02d245f22f159e5e831425d6f5bc4a911dabf8678476fb8922916ceaddd05abc",
+    "audit_narrated_20250625.json": "3d848bc73396f87dfd3cd4d16eb268df4ecf02306626f027ece430b5632b9f3e",
+    "holdout_20251016.json": "1f8e70726e2017e4736fe30d16168cdf4e3f83cbf7087d3447c766e4cd8c3243",
+    "holdout_20251027.json": "8cea53223f990300913c65893c39c524c562be6f14d56ddb7bce1cb362df1074",
+    "available_period_candidate_search.json": "7e1437ab5f0ce740fc732a5f8414c58321c29cc9fdca73deb097b86d201244f0",
+    "reference_retirement_targets_frozen.json": "d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0",
+    "holdout_0369_0370.json": "480795698d5f1500752ce8c77c1eeffce46401e3ed738b6eb1ad0f220d96205d",
+    "holdout_0374.json": "55ef520b0071968fcab117147230415d0827c80222c47239e516f24488edfdf7",
+    "audit_narrated_thresholds.json": "3fee91cd0c7b1ce6b5d92af4e1f6699995bf6af0f745d16c7d517ac0cc7c7529",
+    "export_90_jan13.json": "f2a52b9e16b6de12a97d05cf349bdf4f4ae53b3ca92da965fe4bb7f1239eafdd",
+    "stage2_next_screenshot.json": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f",
+    "reference_lifecycle_frozen.json": "1f06f1f8446266473fd105888054579c48ecf147560f21afda9763da2c1733be",
+    "reference_lifecycle_audit.json": "e8778f88a7fe190f3efa99982d0849c5b3971372d0bed7034d2849c55e9eed20",
+    "audit_narrated_20251024_27.json": "b8633247571980ee3fed2db7e578d2493bb76e9e51dc0c6b5e1d91a691bacd3d",
+    "reference_next_20251024_27.json": "960d2aa0b248a7200339130411d77265eee8ba7dea406b202dd3d82e293b6820",
+    "holdout_20250818.json": "571f7101174a4b6ce41cb1b76c9f1e8d46db874a5c89468e48235211c2fee1d5",
+    "source_manifest_20251016.json": "2603c1908f710e5ab27462da9e860a914fa1e4e5b741ce090962de1b5aee8834",
+    "reference_retirement_screen.json": "c8721abcbd8b5208fd016b4137a22d0c0d086a41e1775c31d4e371332242fe9b",
+    "audit_narrated_20250626.json": "8400d5e7cab2757d6913b15a603691deb3c9b041147f1047a698da829356995c",
+    "validation_stage2.json": "9bdb8abc35f3b237bf6e31c8b8cc2deefe6ec5272f8670843d6aed1554ca7b1a",
+    "reference_retirement_caption_review.json": "6bc0ec8ff26bd3499d6b8fac0d9159e09c66bc0f752a06de8d813d0facec7c24",
+    "validation_stage2_frozen.json": "44caa1870430c1422ba15f663feb0350601b81cfe8b52573c5b7999b00a7e5a6",
+    "holdout_20250625.json": "8951ebbc0e38cf1551a3af2da43c9ddad28317221fe26e862ce2132923026bdb",
+    "holdout_0366.json": "27afd2b49171513733d6b412171af01fb44035f19a552d747c560219f173889e",
+    "replay_summary.json": "180d2d88304f7740a6985d0f703796b16bbded7ff3fc3ac41e6e73be85c82269",
+    "audit_narrated_thresholds.py": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+    "validate_stage2.py": "31146fb03412052d7f6f49ef582e9174eb6fa4670a638c2ab8693a70096f3db1",
+    "audit_20251016.py": "2eb262545836c2d64f8645ba3e80233c3a02a2bd449aec184005a21c29372e64",
+    "export_90_jan13.py": "d6704ed7bdfbde2d77d277d1a660b3c6c20b2664b24444c876bbd5829e3c48ab",
+    "screen_reference_retirement.py": "d25a05161f4a6e45b59a26c22ccae522e1a9de38beb5af85d02a5293bdd73bb8",
+    "audit_0374.py": "376c32559749569725dbc764420a6678672a06140ff0f97073913bd29d026072",
+    "replay_frozen_25_points.py": "dfb95f7a222e7d07ce814ee615d64463407dc048a23cebeadf08666ba5e102d5",
+    "replay_color_flip.py": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+    "replay.py": "3799c0d77b80a7fdd05fbb23068148a0e6693d65c406d67a1f64b70ff2b320aa",
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+    "audit_0366.py": "c9281082dff79a470b1b7d2e69b3002b88555df4a2540f60ebb626463efbd374",
+    "audit_0369_0370.py": "7e476cc9e04cdfede029e93685b4241b5007b8a3b51478e77dd8303a1f26e5a6",
+    "audit_reference_lifecycle.py": "8278c32db01c3a13cb0e886819399eda89d53b93d0634f7fda256d53de808a89",
+    "inputs/120_20260101_20260507.csv": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+    "inputs/60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "inputs/daily_2025.csv": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "inputs/daily_20260801_20261009.csv": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c",
+    "inputs/90_20250701_20250814.csv": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+    "inputs/120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+    "inputs/30_20250603_20261009.csv": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250",
+    "inputs/daily_20060801_20070529.csv": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641",
+    "inputs/120_20250401_20250711.csv": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+    "inputs/120_20260701_20260901.csv": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0",
+    "inputs/60_20260301_20260420.csv": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f"
+  },
+  "original_candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "manifest_before_sha256": "70ccedc88df1346764b2017838d4040d84a9c8036e97da3efb20a9fb661811df",
+  "manifest_old_entries_preserved": true,
+  "interpretation": [
+    "July11 morning DIF27.208301 crosses candidate May peak26.114903; PM DIF26.367634 remains above it, so pullback does not recreate a valid dull state.",
+    "July21 PM activates candidate dullness with prior June24 sign-wave peak27.208301; July23 AM29.566354 crosses it.",
+    "The strict-break locked-reference hypothesis constrains July23 reference approximately to [July22PM25.966959,July23AM29.566354). Both peaks26.114903 and27.208301 fit; exact source selection is not identified.",
+    "July23 PM price and histogram fall while DIF rises0.386873; no new structure text appears.",
+    "These 120m screenshots do not verify missing 90m/60m cross-wave old-structure targets."
+  ],
+  "material_availability": {
+    "july11_60": "User reports unavailable; do not request again",
+    "july11_90": "Not obtained; withdraw July11 supplementation request rather than assume unavailable or ask again",
+    "july23_60": "Not obtained; user found120m instead; do not repeat same request",
+    "july11_120": "Already provided IMG_0309, now clearer supplementary screenshot",
+    "july23_120": "New available evidence",
+    "next_image_request": "None now; screen with material availability first"
+  },
+  "limitations": [
+    "Mapped historical marker positions conditional on stable text anchoring.",
+    "Same episode repeated across screenshots is not independent evidence.",
+    "Both screenshots have some software-DG DIF/DEA/H differences beyond ordinary3-decimal nearest rounding; exact calculation/display semantics unresolved, record sources separately.",
+    "No source-level confirmation of old-reference peak identity or post-reset confirmed-structure retention."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "research_date": "2026-10-12",
+  "status": "SOURCE_REQUEST_FROZEN_NO_NEW_SOURCE_YET",
+  "screen_sha256": "450add36b4247c71904e5c0b33c246a451952ccb3c96d0ee005d96ed0e2adf9a",
+  "primary": {
+    "date": "2025-11-13",
+    "period": "90",
+    "request": "收盘文字稿优先，重点90分钟先前结构是否消失，是否与钝化消失区分，是否提及下午2点或收盘；暂不要求分钟图",
+    "simple_dif_prediction": "2025-11-13 11:00:00",
+    "price_qualified_dif_prediction": "2025-11-13 14:00:00",
+    "positive_hist_price_prediction": "2025-11-13 15:00:00",
+    "input_hist_at_1400": -0.06253572439602095,
+    "source_precision_risk": "90分钟软件历史数值有未解决差异，14点柱接近零；三时点不是软件确认事实",
+    "why": "原11日90结构有讲解支持；11月13日14/15点能区分价格资格与转红资格；未触发旧DIF参照突破，下一顶结构是14日"
+  },
+  "excluded_primary": {
+    "date": "2025-07-03",
+    "period": "120",
+    "reason": "已有7月11图覆盖，3/4日未见绿色标记；候选此前已返回DULL且未跨负柱，不能冒充本轮跨色结构撤销证据"
+  },
+  "backup": "No extra request now. Do not request unavailable July11 60-minute chart or repeat October16 sources",
+  "boundaries": "讲解可说明身份和经验条件；没有时点则不能判14/15哪项匹配；结构消失不自动解除整体防守"
+}

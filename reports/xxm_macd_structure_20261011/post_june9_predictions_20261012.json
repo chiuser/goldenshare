@@ -1,0 +1,1889 @@
+{
+  "status": "HISTORICAL_NUMERICAL_PREDICTIONS_FROZEN_BEFORE_FOLLOWUP_AUTHOR_TEXT_NOT_PROSPECTIVE_MARKET_FORECAST",
+  "scope": {
+    "start": "2026-06-10",
+    "end": "2026-07-09",
+    "cutoff": "2026-06-09"
+  },
+  "definitions_sha256": "756c2969346bd4d843d323b21e1c079ec101ffb6afd2bf17060af3480c5de5b7",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "software_labels_added": 0,
+  "series": {
+    "60": {
+      "path": "reports/xxm_macd_structure_20261011/inputs/60_20250603_20261009.csv",
+      "source_sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "origin": "SAVED_DG",
+      "anchor_wave": {
+        "start": "2026-06-05 15:00:00",
+        "end": "2026-06-10 11:30:00",
+        "sign": -1,
+        "bars": 11,
+        "closed": true,
+        "min_close": 3949.099,
+        "max_close": 4027.736,
+        "min_dif": -31.754349329541583,
+        "max_dif": -12.267710776245167,
+        "first_close": 4027.736,
+        "last_close": 3986.6611,
+        "drawdown_pct": 1.9523871475190955,
+        "drawdown_per_interval": 0.19523871475190954
+      },
+      "first_red": {
+        "start": "2026-06-10 14:00:00",
+        "end": "2026-06-18 15:00:00",
+        "sign": 1,
+        "bars": 26,
+        "closed": true,
+        "min_close": 3964.2412,
+        "max_close": 4111.23,
+        "min_dif": -25.26657331947763,
+        "max_dif": 21.30043382301028,
+        "first_close": 3990.294,
+        "last_close": 4090.4812,
+        "drawdown_pct": 0.6529042722165318,
+        "drawdown_per_interval": 0.02611617088866127,
+        "red_peak": 28.269226044345473,
+        "red_sum": 354.4291556166644,
+        "rebound_pct": 4.105518752505303,
+        "dif_recovery": 53.05478315255186
+      },
+      "next_green": {
+        "start": "2026-06-22 10:30:00",
+        "end": "2026-06-22 11:30:00",
+        "sign": -1,
+        "bars": 2,
+        "closed": true,
+        "min_close": 4070.8704,
+        "max_close": 4098.0093,
+        "min_dif": 15.294104878370035,
+        "max_dif": 15.541625690742421,
+        "first_close": 4070.8704,
+        "last_close": 4098.0093,
+        "drawdown_pct": 0.0,
+        "drawdown_per_interval": 0.0
+      },
+      "observed_waves": [
+        {
+          "start": "2026-06-05 15:00:00",
+          "end": "2026-06-10 11:30:00",
+          "sign": -1,
+          "bars": 11,
+          "closed": true,
+          "min_close": 3949.099,
+          "max_close": 4027.736,
+          "min_dif": -31.754349329541583,
+          "max_dif": -12.267710776245167,
+          "first_close": 4027.736,
+          "last_close": 3986.6611,
+          "drawdown_pct": 1.9523871475190955,
+          "drawdown_per_interval": 0.19523871475190954
+        },
+        {
+          "start": "2026-06-10 14:00:00",
+          "end": "2026-06-18 15:00:00",
+          "sign": 1,
+          "bars": 26,
+          "closed": true,
+          "min_close": 3964.2412,
+          "max_close": 4111.23,
+          "min_dif": -25.26657331947763,
+          "max_dif": 21.30043382301028,
+          "first_close": 3990.294,
+          "last_close": 4090.4812,
+          "drawdown_pct": 0.6529042722165318,
+          "drawdown_per_interval": 0.02611617088866127,
+          "red_peak": 28.269226044345473,
+          "red_sum": 354.4291556166644,
+          "rebound_pct": 4.105518752505303,
+          "dif_recovery": 53.05478315255186
+        },
+        {
+          "start": "2026-06-22 10:30:00",
+          "end": "2026-06-22 11:30:00",
+          "sign": -1,
+          "bars": 2,
+          "closed": true,
+          "min_close": 4070.8704,
+          "max_close": 4098.0093,
+          "min_dif": 15.294104878370035,
+          "max_dif": 15.541625690742421,
+          "first_close": 4070.8704,
+          "last_close": 4098.0093,
+          "drawdown_pct": 0.0,
+          "drawdown_per_interval": 0.0
+        },
+        {
+          "start": "2026-06-22 14:00:00",
+          "end": "2026-06-23 14:00:00",
+          "sign": 1,
+          "bars": 5,
+          "closed": true,
+          "min_close": 4114.406,
+          "max_close": 4171.3403,
+          "min_dif": 17.629019286016046,
+          "max_dif": 26.043608111404865,
+          "first_close": 4131.895,
+          "last_close": 4114.406,
+          "drawdown_pct": 0.42326825826891745,
+          "drawdown_per_interval": 0.10581706456722936,
+          "red_peak": 11.575412642926544,
+          "red_sum": 34.23291152352614,
+          "rebound_pct": 2.46802010695305,
+          "dif_recovery": 10.74950323303483
+        },
+        {
+          "start": "2026-06-23 15:00:00",
+          "end": "2026-06-30 11:30:00",
+          "sign": -1,
+          "bars": 19,
+          "closed": true,
+          "min_close": 4027.265,
+          "max_close": 4125.7554,
+          "min_dif": -13.250975516053586,
+          "max_dif": 20.803414135699313,
+          "first_close": 4106.2515,
+          "last_close": 4082.1301,
+          "drawdown_pct": 1.9235670294428002,
+          "drawdown_per_interval": 0.10686483496904446
+        },
+        {
+          "start": "2026-06-30 14:00:00",
+          "end": "2026-07-02 11:30:00",
+          "sign": 1,
+          "bars": 8,
+          "closed": true,
+          "min_close": 4075.3113,
+          "max_close": 4138.6494,
+          "min_dif": -6.949365285352542,
+          "max_dif": 6.33546371016655,
+          "first_close": 4079.308,
+          "last_close": 4075.3113,
+          "drawdown_pct": 0.09797495065339872,
+          "drawdown_per_interval": 0.013996421521914102,
+          "red_peak": 15.024859369305698,
+          "red_sum": 66.04931621906698,
+          "rebound_pct": 2.7657579026957593,
+          "dif_recovery": 19.586439226220136
+        },
+        {
+          "start": "2026-07-02 14:00:00",
+          "end": "2026-07-09 14:00:00",
+          "sign": -1,
+          "bars": 21,
+          "closed": true,
+          "min_close": 3952.4917,
+          "max_close": 4065.1716,
+          "min_dif": -27.395472871559377,
+          "max_dif": -0.2841748562309476,
+          "first_close": 4053.1194,
+          "last_close": 4005.997,
+          "drawdown_pct": 2.4827223199987647,
+          "drawdown_per_interval": 0.12413611599993823
+        },
+        {
+          "start": "2026-07-09 15:00:00",
+          "end": "2026-07-09 15:00:00",
+          "sign": 1,
+          "bars": 1,
+          "closed": false,
+          "min_close": 4036.588,
+          "max_close": 4036.588,
+          "min_dif": -19.338434106809927,
+          "max_dif": -19.338434106809927,
+          "first_close": 4036.588,
+          "last_close": 4036.588,
+          "drawdown_pct": 0.0,
+          "drawdown_per_interval": null,
+          "red_peak": 5.044349234111884,
+          "red_sum": 5.044349234111884,
+          "rebound_pct": 2.127678092277845,
+          "dif_recovery": 8.05703876474945
+        }
+      ],
+      "baseline_events": [
+        {
+          "time": "2026-07-06 10:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 7,
+          "ref_start": "2026-06-23 15:00:00",
+          "close": 4025.5522,
+          "dif": -11.446599692406835,
+          "hist": -10.514951919530072,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_start": "2026-06-23 15:00:00",
+          "event_ref_dif": -13.250975516053586,
+          "event_ref_price": 4027.265,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 2,
+                "price": 4070.8704,
+                "dif": 15.294104878370035,
+                "start": "2026-06-22 10:30:00"
+              },
+              {
+                "sign": -1,
+                "count": 19,
+                "price": 4027.265,
+                "dif": -13.250975516053586,
+                "start": "2026-06-23 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4025.5522,
+            "current_wave_dif": -11.446599692406835
+          }
+        },
+        {
+          "time": "2026-07-06 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "ref_start": "2026-06-23 15:00:00",
+          "close": 4047.9292,
+          "dif": -11.355966882053963,
+          "hist": -6.559732612405281,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2026-06-23 15:00:00",
+          "event_ref_dif": -13.250975516053586,
+          "event_ref_price": 4027.265,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 2,
+                "price": 4070.8704,
+                "dif": 15.294104878370035,
+                "start": "2026-06-22 10:30:00"
+              },
+              {
+                "sign": -1,
+                "count": 19,
+                "price": 4027.265,
+                "dif": -13.250975516053586,
+                "start": "2026-06-23 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4025.5522,
+            "current_wave_dif": -11.524175065936106
+          }
+        },
+        {
+          "time": "2026-07-06 15:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 10,
+          "ref_start": "2026-06-23 15:00:00",
+          "close": 4041.2383,
+          "dif": -11.628514123945024,
+          "hist": -5.683861676949924,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_return",
+          "event_ref_start": "2026-06-23 15:00:00",
+          "event_ref_dif": -13.250975516053586,
+          "event_ref_price": 4027.265,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 2,
+                "price": 4070.8704,
+                "dif": 15.294104878370035,
+                "start": "2026-06-22 10:30:00"
+              },
+              {
+                "sign": -1,
+                "count": 19,
+                "price": 4027.265,
+                "dif": -13.250975516053586,
+                "start": "2026-06-23 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4025.5522,
+            "current_wave_dif": -11.628514123945024
+          }
+        },
+        {
+          "time": "2026-07-07 10:30:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 11,
+          "ref_start": "2026-06-23 15:00:00",
+          "close": 4003.3784,
+          "dif": -14.729692571307623,
+          "hist": -9.508974857340096,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_break",
+          "event_ref_start": "2026-06-23 15:00:00",
+          "event_ref_dif": -13.250975516053586,
+          "event_ref_price": 4027.265,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "active_reference": null,
+            "event_reference": {
+              "sign": -1,
+              "count": 19,
+              "price": 4027.265,
+              "dif": -13.250975516053586,
+              "start": "2026-06-23 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 2,
+                "price": 4070.8704,
+                "dif": 15.294104878370035,
+                "start": "2026-06-22 10:30:00"
+              },
+              {
+                "sign": -1,
+                "count": 19,
+                "price": 4027.265,
+                "dif": -13.250975516053586,
+                "start": "2026-06-23 15:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 4003.3784,
+            "current_wave_dif": -14.729692571307623
+          }
+        }
+      ],
+      "baseline_first_bottom_structure": "2026-07-06 14:00:00",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-06 14:00:00"
+        }
+      ]
+    },
+    "90": {
+      "path": "reports/xxm_macd_structure_20261011/discrimination_screen_20261012/derived_90.csv",
+      "source_sha256": "9d3d8130b87a52627637d6bd5987a7040ce9dd6061858c9b934fcf19931a357a",
+      "origin": "DERIVED_NOT_SOFTWARE_HISTORY",
+      "anchor_wave": {
+        "start": "2026-06-05 15:00:00",
+        "end": "2026-06-11 11:00:00",
+        "sign": -1,
+        "bars": 11,
+        "closed": true,
+        "min_close": 3949.099,
+        "max_close": 4027.736,
+        "min_dif": -33.5234988847983,
+        "max_dif": -16.45296152535684,
+        "first_close": 4027.736,
+        "last_close": 3976.2305,
+        "drawdown_pct": 1.9523871475190955,
+        "drawdown_per_interval": 0.19523871475190954
+      },
+      "first_red": {
+        "start": "2026-06-11 14:00:00",
+        "end": "2026-06-23 15:00:00",
+        "sign": 1,
+        "bars": 23,
+        "closed": true,
+        "min_close": 3981.8516,
+        "max_close": 4163.0967,
+        "min_dif": -28.21642363519004,
+        "max_dif": 25.914066257819286,
+        "first_close": 3981.8516,
+        "last_close": 4106.2515,
+        "drawdown_pct": 0.0,
+        "drawdown_per_interval": 0.0,
+        "red_peak": 31.2997903730432,
+        "red_sum": 384.4877170300605,
+        "rebound_pct": 5.418899348940097,
+        "dif_recovery": 59.437565142617586
+      },
+      "next_green": {
+        "start": "2026-06-24 11:00:00",
+        "end": "2026-06-30 15:00:00",
+        "sign": -1,
+        "bars": 15,
+        "closed": true,
+        "min_close": 4021.0525,
+        "max_close": 4121.874,
+        "min_dif": -6.267224117099431,
+        "max_dif": 18.041969657055233,
+        "first_close": 4080.279,
+        "last_close": 4094.3972,
+        "drawdown_pct": 1.4515306428800632,
+        "drawdown_per_interval": 0.1036807602057188
+      },
+      "observed_waves": [
+        {
+          "start": "2026-06-05 15:00:00",
+          "end": "2026-06-11 11:00:00",
+          "sign": -1,
+          "bars": 11,
+          "closed": true,
+          "min_close": 3949.099,
+          "max_close": 4027.736,
+          "min_dif": -33.5234988847983,
+          "max_dif": -16.45296152535684,
+          "first_close": 4027.736,
+          "last_close": 3976.2305,
+          "drawdown_pct": 1.9523871475190955,
+          "drawdown_per_interval": 0.19523871475190954
+        },
+        {
+          "start": "2026-06-11 14:00:00",
+          "end": "2026-06-23 15:00:00",
+          "sign": 1,
+          "bars": 23,
+          "closed": true,
+          "min_close": 3981.8516,
+          "max_close": 4163.0967,
+          "min_dif": -28.21642363519004,
+          "max_dif": 25.914066257819286,
+          "first_close": 3981.8516,
+          "last_close": 4106.2515,
+          "drawdown_pct": 0.0,
+          "drawdown_per_interval": 0.0,
+          "red_peak": 31.2997903730432,
+          "red_sum": 384.4877170300605,
+          "rebound_pct": 5.418899348940097,
+          "dif_recovery": 59.437565142617586
+        },
+        {
+          "start": "2026-06-24 11:00:00",
+          "end": "2026-06-30 15:00:00",
+          "sign": -1,
+          "bars": 15,
+          "closed": true,
+          "min_close": 4021.0525,
+          "max_close": 4121.874,
+          "min_dif": -6.267224117099431,
+          "max_dif": 18.041969657055233,
+          "first_close": 4080.279,
+          "last_close": 4094.3972,
+          "drawdown_pct": 1.4515306428800632,
+          "drawdown_per_interval": 0.1036807602057188
+        },
+        {
+          "start": "2026-07-01 11:00:00",
+          "end": "2026-07-02 11:00:00",
+          "sign": 1,
+          "bars": 4,
+          "closed": true,
+          "min_close": 4081.408,
+          "max_close": 4137.2607,
+          "min_dif": 2.350991306850574,
+          "max_dif": 5.499808502097949,
+          "first_close": 4137.2607,
+          "last_close": 4081.408,
+          "drawdown_pct": 1.3499922787075012,
+          "drawdown_per_interval": 0.4499974262358337,
+          "red_peak": 8.149154716709932,
+          "red_sum": 25.237498446983768,
+          "rebound_pct": 2.889994597185688,
+          "dif_recovery": 11.76703261919738
+        },
+        {
+          "start": "2026-07-02 14:00:00",
+          "end": "2026-07-09 15:00:00",
+          "sign": -1,
+          "bars": 17,
+          "closed": false,
+          "min_close": 3947.8586,
+          "max_close": 4065.1716,
+          "min_dif": -28.912374527451902,
+          "max_dif": 0.8997660409822856,
+          "first_close": 4053.1194,
+          "last_close": 4036.588,
+          "drawdown_pct": 2.597031807155743,
+          "drawdown_per_interval": 0.16231448794723394
+        }
+      ],
+      "baseline_events": [
+        {
+          "time": "2026-07-09 11:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 15,
+          "ref_start": "2026-06-05 15:00:00",
+          "close": 3947.8586,
+          "dif": -28.912374527451902,
+          "hist": -17.110181797592034,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_start": "2026-06-05 15:00:00",
+          "event_ref_dif": -33.5234988847983,
+          "event_ref_price": 3949.099,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": -1,
+              "count": 11,
+              "price": 3949.099,
+              "dif": -33.5234988847983,
+              "start": "2026-06-05 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 11,
+              "price": 3949.099,
+              "dif": -33.5234988847983,
+              "start": "2026-06-05 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 11,
+                "price": 3949.099,
+                "dif": -33.5234988847983,
+                "start": "2026-06-05 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 15,
+                "price": 4021.0525,
+                "dif": -6.267224117099431,
+                "start": "2026-06-24 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3947.8586,
+            "current_wave_dif": -28.912374527451902
+          }
+        },
+        {
+          "time": "2026-07-09 14:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 16,
+          "ref_start": "2026-06-05 15:00:00",
+          "close": 4005.997,
+          "dif": -26.450053404312257,
+          "hist": -9.748431641050196,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2026-06-05 15:00:00",
+          "event_ref_dif": -33.5234988847983,
+          "event_ref_price": 3949.099,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 11,
+              "price": 3949.099,
+              "dif": -33.5234988847983,
+              "start": "2026-06-05 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 11,
+              "price": 3949.099,
+              "dif": -33.5234988847983,
+              "start": "2026-06-05 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 11,
+              "price": 3949.099,
+              "dif": -33.5234988847983,
+              "start": "2026-06-05 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 11,
+                "price": 3949.099,
+                "dif": -33.5234988847983,
+                "start": "2026-06-05 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 15,
+                "price": 4021.0525,
+                "dif": -6.267224117099431,
+                "start": "2026-06-24 11:00:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3947.8586,
+            "current_wave_dif": -28.912374527451902
+          }
+        }
+      ],
+      "baseline_first_bottom_structure": "2026-07-09 14:00:00",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 14:00:00"
+        }
+      ]
+    },
+    "120": {
+      "path": "reports/xxm_macd_structure_20261011/discrimination_screen_20261012/derived_120.csv",
+      "source_sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "origin": "DERIVED_NOT_SOFTWARE_HISTORY",
+      "anchor_wave": {
+        "start": "2026-05-14 15:00:00",
+        "end": "2026-06-11 15:00:00",
+        "sign": -1,
+        "bars": 41,
+        "closed": true,
+        "min_close": 3959.338,
+        "max_close": 4183.056,
+        "min_dif": -35.90853909832276,
+        "max_dif": 37.48135339502278,
+        "first_close": 4177.9175,
+        "last_close": 3987.0146,
+        "drawdown_pct": 5.231781144553462,
+        "drawdown_per_interval": 0.13079452861383656
+      },
+      "first_red": {
+        "start": "2026-06-12 11:30:00",
+        "end": "2026-06-25 15:00:00",
+        "sign": 1,
+        "bars": 18,
+        "closed": true,
+        "min_close": 4031.513,
+        "max_close": 4163.0967,
+        "min_dif": -28.99527336205574,
+        "max_dif": 19.098544320457677,
+        "first_close": 4049.2942,
+        "last_close": 4120.281,
+        "drawdown_pct": 0.4391185011946008,
+        "drawdown_per_interval": 0.025830500070270632,
+        "red_peak": 30.4163842666662,
+        "red_sum": 357.1851940539358,
+        "rebound_pct": 5.146282029975715,
+        "dif_recovery": 55.00708341878044
+      },
+      "next_green": {
+        "start": "2026-06-26 11:30:00",
+        "end": "2026-06-30 15:00:00",
+        "sign": -1,
+        "bars": 6,
+        "closed": true,
+        "min_close": 4027.265,
+        "max_close": 4094.3972,
+        "min_dif": -0.918308177183917,
+        "max_dif": 9.82910232547647,
+        "first_close": 4032.2986,
+        "last_close": 4094.3972,
+        "drawdown_pct": 0.12483202508862329,
+        "drawdown_per_interval": 0.02496640501772466
+      },
+      "observed_waves": [
+        {
+          "start": "2026-05-14 15:00:00",
+          "end": "2026-06-11 15:00:00",
+          "sign": -1,
+          "bars": 41,
+          "closed": true,
+          "min_close": 3959.338,
+          "max_close": 4183.056,
+          "min_dif": -35.90853909832276,
+          "max_dif": 37.48135339502278,
+          "first_close": 4177.9175,
+          "last_close": 3987.0146,
+          "drawdown_pct": 5.231781144553462,
+          "drawdown_per_interval": 0.13079452861383656
+        },
+        {
+          "start": "2026-06-12 11:30:00",
+          "end": "2026-06-25 15:00:00",
+          "sign": 1,
+          "bars": 18,
+          "closed": true,
+          "min_close": 4031.513,
+          "max_close": 4163.0967,
+          "min_dif": -28.99527336205574,
+          "max_dif": 19.098544320457677,
+          "first_close": 4049.2942,
+          "last_close": 4120.281,
+          "drawdown_pct": 0.4391185011946008,
+          "drawdown_per_interval": 0.025830500070270632,
+          "red_peak": 30.4163842666662,
+          "red_sum": 357.1851940539358,
+          "rebound_pct": 5.146282029975715,
+          "dif_recovery": 55.00708341878044
+        },
+        {
+          "start": "2026-06-26 11:30:00",
+          "end": "2026-06-30 15:00:00",
+          "sign": -1,
+          "bars": 6,
+          "closed": true,
+          "min_close": 4027.265,
+          "max_close": 4094.3972,
+          "min_dif": -0.918308177183917,
+          "max_dif": 9.82910232547647,
+          "first_close": 4032.2986,
+          "last_close": 4094.3972,
+          "drawdown_pct": 0.12483202508862329,
+          "drawdown_per_interval": 0.02496640501772466
+        },
+        {
+          "start": "2026-07-01 11:30:00",
+          "end": "2026-07-02 11:30:00",
+          "sign": 1,
+          "bars": 3,
+          "closed": true,
+          "min_close": 4075.3113,
+          "max_close": 4138.6494,
+          "min_dif": 5.079153392530316,
+          "max_dif": 6.988388421417767,
+          "first_close": 4138.6494,
+          "last_close": 4075.3113,
+          "drawdown_pct": 1.5304050640288687,
+          "drawdown_per_interval": 0.7652025320144343,
+          "red_peak": 3.820204360716385,
+          "red_sum": 5.705472282720395,
+          "rebound_pct": 2.7657579026957593,
+          "dif_recovery": 7.906696598601684
+        },
+        {
+          "start": "2026-07-02 15:00:00",
+          "end": "2026-07-09 15:00:00",
+          "sign": -1,
+          "bars": 11,
+          "closed": false,
+          "min_close": 3952.4917,
+          "max_close": 4056.7827,
+          "min_dif": -26.579232346176013,
+          "max_dif": -0.1765908995330392,
+          "first_close": 4028.9038,
+          "last_close": 4036.588,
+          "drawdown_pct": 1.8965977792768347,
+          "drawdown_per_interval": 0.18965977792768346
+        }
+      ],
+      "baseline_events": [
+        {
+          "time": "2026-07-09 11:30:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 10,
+          "ref_start": "2026-05-14 15:00:00",
+          "close": 3952.4917,
+          "dif": -26.579232346176013,
+          "hist": -24.223055378424867,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_start": "2026-05-14 15:00:00",
+          "event_ref_dif": -35.90853909832276,
+          "event_ref_price": 3959.338,
+          "reference_refresh": {
+            "state_reference_before": null,
+            "active_reference": {
+              "sign": -1,
+              "count": 41,
+              "price": 3959.338,
+              "dif": -35.90853909832276,
+              "start": "2026-05-14 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 41,
+              "price": 3959.338,
+              "dif": -35.90853909832276,
+              "start": "2026-05-14 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 41,
+                "price": 3959.338,
+                "dif": -35.90853909832276,
+                "start": "2026-05-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 6,
+                "price": 4027.265,
+                "dif": -0.918308177183917,
+                "start": "2026-06-26 11:30:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3952.4917,
+            "current_wave_dif": -26.579232346176013
+          }
+        },
+        {
+          "time": "2026-07-09 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 11,
+          "ref_start": "2026-05-14 15:00:00",
+          "close": 4036.588,
+          "dif": -23.03476305462391,
+          "hist": -13.707293436256528,
+          "wave_sign": -1,
+          "event_direction": -1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2026-05-14 15:00:00",
+          "event_ref_dif": -35.90853909832276,
+          "event_ref_price": 3959.338,
+          "reference_refresh": {
+            "state_reference_before": {
+              "sign": -1,
+              "count": 41,
+              "price": 3959.338,
+              "dif": -35.90853909832276,
+              "start": "2026-05-14 15:00:00"
+            },
+            "active_reference": {
+              "sign": -1,
+              "count": 41,
+              "price": 3959.338,
+              "dif": -35.90853909832276,
+              "start": "2026-05-14 15:00:00"
+            },
+            "event_reference": {
+              "sign": -1,
+              "count": 41,
+              "price": 3959.338,
+              "dif": -35.90853909832276,
+              "start": "2026-05-14 15:00:00"
+            },
+            "same_sign_last_two": [
+              {
+                "sign": -1,
+                "count": 41,
+                "price": 3959.338,
+                "dif": -35.90853909832276,
+                "start": "2026-05-14 15:00:00"
+              },
+              {
+                "sign": -1,
+                "count": 6,
+                "price": 4027.265,
+                "dif": -0.918308177183917,
+                "start": "2026-06-26 11:30:00"
+              }
+            ],
+            "attempted": false,
+            "changed": false,
+            "old_cancel_priority": false,
+            "current_wave_price": 3952.4917,
+            "current_wave_dif": -26.579232346176013
+          }
+        }
+      ],
+      "baseline_first_bottom_structure": "2026-07-09 15:00:00",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "different_times": [],
+          "first_bottom_structure": "2026-07-09 15:00:00"
+        }
+      ]
+    }
+  },
+  "prefix_checks": 132,
+  "trend": {
+    "source": "tests/fixtures/quote_trend_channel/000001_sh_daily_input.json",
+    "source_sha256": "ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad",
+    "metadata": {
+      "kind": "core_serving_snapshot",
+      "table": "core_serving.index_daily_serving",
+      "ts_code": "000001.SH",
+      "period": "day",
+      "formal_bars_only": true,
+      "snapshot_end_date": "2026-08-07",
+      "max_updated_at": "2026-08-07T17:30:34.385244+08:00",
+      "extracted_at": "2026-08-10T17:10:10+08:00"
+    },
+    "calculator_sha256": "1b00b8b473e3d151d8f1d5f254debc526c85395e71378fbe80b9a2c543f99620",
+    "expected_sha256": "7cdbd3b44e9c31baed705bbebb671c31adb5492323de79564a028acdad44b3be",
+    "expected_max_boundary_error": 5.002220859751105e-12,
+    "june_close_overlap_max_error": 0.0003999999998995918,
+    "close_comparison": [
+      {
+        "date": "2026-06-05",
+        "fixture_close": 4027.7362,
+        "minute_close": 4027.736,
+        "difference": 0.0001999999999497959,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-08",
+        "fixture_close": 3959.3378,
+        "minute_close": 3959.338,
+        "difference": -0.00020000000040454324,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-09",
+        "fixture_close": 4010.0307,
+        "minute_close": 4010.0308,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-10",
+        "fixture_close": 3993.2258,
+        "minute_close": 3993.2258,
+        "difference": 0.0,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "fixture_close": 3987.0147,
+        "minute_close": 3987.0146,
+        "difference": 0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-12",
+        "fixture_close": 4031.5129,
+        "minute_close": 4031.513,
+        "difference": -9.999999974752427e-05,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-15",
+        "fixture_close": 4096.4717,
+        "minute_close": 4096.4717,
+        "difference": 0.0,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-16",
+        "fixture_close": 4091.8917,
+        "minute_close": 4091.8916,
+        "difference": 0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-17",
+        "fixture_close": 4108.0762,
+        "minute_close": 4108.076,
+        "difference": 0.00020000000040454324,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-18",
+        "fixture_close": 4090.4813,
+        "minute_close": 4090.4812,
+        "difference": 9.999999974752427e-05,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-22",
+        "fixture_close": 4163.0965,
+        "minute_close": 4163.0967,
+        "difference": -0.00020000000040454324,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-23",
+        "fixture_close": 4106.2517,
+        "minute_close": 4106.2515,
+        "difference": 0.00019999999949504854,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-24",
+        "fixture_close": 4110.8134,
+        "minute_close": 4110.8135,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "fixture_close": 4120.2806,
+        "minute_close": 4120.281,
+        "difference": -0.0003999999998995918,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-26",
+        "fixture_close": 4027.2648,
+        "minute_close": 4027.265,
+        "difference": -0.0001999999999497959,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-29",
+        "fixture_close": 4073.9017,
+        "minute_close": 4073.9016,
+        "difference": 9.999999974752427e-05,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "fixture_close": 4094.3972,
+        "minute_close": 4094.3972,
+        "difference": 0.0,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "fixture_close": 4112.4453,
+        "minute_close": 4112.4453,
+        "difference": 0.0,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "fixture_close": 4028.9038,
+        "minute_close": 4028.9038,
+        "difference": 0.0,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "fixture_close": 4043.6432,
+        "minute_close": 4043.6433,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "fixture_close": 4041.2382,
+        "minute_close": 4041.2383,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "fixture_close": 3990.2353,
+        "minute_close": 3990.2354,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-08",
+        "fixture_close": 3970.8797,
+        "minute_close": 3970.8796,
+        "difference": 9.999999974752427e-05,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "fixture_close": 4036.5879,
+        "minute_close": 4036.588,
+        "difference": -0.00010000000020227162,
+        "same_position_with_fixed_bands": {
+          "short_channel": true,
+          "long_channel": true
+        }
+      }
+    ],
+    "close_overlap_status": "DIFFERENT_SAVED_INPUTS_NO_ASSUMED_PRECISION_CORRECTION",
+    "rows": [
+      {
+        "date": "2026-06-05",
+        "close": 4027.7362,
+        "short_channel": {
+          "upper": 4122.731849509956,
+          "lower": 4071.908156478212,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4078.877131401995,
+          "lower": 4033.3854437721943,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-08",
+        "close": 3959.3378,
+        "short_channel": {
+          "upper": 4113.8673226245755,
+          "lower": 4060.8269675183496,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4077.3082493931597,
+          "lower": 4031.066042810168,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-09",
+        "close": 4010.0307,
+        "short_channel": {
+          "upper": 4105.94456703807,
+          "lower": 4052.756277709246,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4075.8481010548485,
+          "lower": 4029.4142176934606,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-10",
+        "close": 3993.2258,
+        "short_channel": {
+          "upper": 4098.280577265911,
+          "lower": 4045.8859255777656,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4074.3198504822144,
+          "lower": 4027.9642722496483,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "close": 3987.0147,
+        "short_channel": {
+          "upper": 4090.5265097839183,
+          "lower": 4039.1590928410146,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4072.6310120100775,
+          "lower": 4026.4362025298756,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-12",
+        "close": 4031.5129,
+        "short_channel": {
+          "upper": 4088.199162877463,
+          "lower": 4036.77584723786,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4072.3593633944715,
+          "lower": 4026.0348991775704,
+          "position": "INSIDE",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-15",
+        "close": 4096.4717,
+        "short_channel": {
+          "upper": 4088.888896502274,
+          "lower": 4037.875020527256,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4072.904557605582,
+          "lower": 4026.58501348136,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-16",
+        "close": 4091.8917,
+        "short_channel": {
+          "upper": 4090.0455890790226,
+          "lower": 4040.9515727943904,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4073.5863453505144,
+          "lower": 4027.7121604378135,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-17",
+        "close": 4108.0762,
+        "short_channel": {
+          "upper": 4091.5773053037137,
+          "lower": 4043.4731364255913,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4074.3857201779756,
+          "lower": 4028.723583285334,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-18",
+        "close": 4090.4813,
+        "short_channel": {
+          "upper": 4093.5675895111203,
+          "lower": 4046.3054951620848,
+          "position": "INSIDE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4075.3322098443937,
+          "lower": 4029.8569946417,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-22",
+        "close": 4163.0965,
+        "short_channel": {
+          "upper": 4099.017605702573,
+          "lower": 4048.1414032265398,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4077.2901349027584,
+          "lower": 4030.7430453089155,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-23",
+        "close": 4106.2517,
+        "short_channel": {
+          "upper": 4104.889143725452,
+          "lower": 4051.022126055268,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4079.4452440257746,
+          "lower": 4031.948490466961,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-24",
+        "close": 4110.8134,
+        "short_channel": {
+          "upper": 4105.842655746572,
+          "lower": 4052.9044317433245,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4080.2768826186148,
+          "lower": 4032.9054928742808,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "close": 4120.2806,
+        "short_channel": {
+          "upper": 4107.939182227605,
+          "lower": 4055.989375455377,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4081.4377753083154,
+          "lower": 4034.2264424814393,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-06-26",
+        "close": 4027.2648,
+        "short_channel": {
+          "upper": 4107.31152205625,
+          "lower": 4052.2870619588093,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4081.840892334506,
+          "lower": 4033.6469448444846,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-29",
+        "close": 4073.9017,
+        "short_channel": {
+          "upper": 4104.8517357442315,
+          "lower": 4047.6920725773625,
+          "position": "INSIDE",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4081.6978903051763,
+          "lower": 4032.743763639111,
+          "position": "INSIDE",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-06-30",
+        "close": 4094.3972,
+        "short_channel": {
+          "upper": 4104.279679148522,
+          "lower": 4048.03652853295,
+          "position": "INSIDE",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4082.04332128748,
+          "lower": 4033.170713888801,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "close": 4112.4453,
+        "short_channel": {
+          "upper": 4107.282280752482,
+          "lower": 4051.0749032611848,
+          "position": "ABOVE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4083.389918621821,
+          "lower": 4034.365542154981,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      {
+        "date": "2026-07-02",
+        "close": 4028.9038,
+        "short_channel": {
+          "upper": 4106.235774540753,
+          "lower": 4048.62411839494,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4083.6160237070553,
+          "lower": 4034.0325566131132,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-07-03",
+        "close": 4043.6432,
+        "short_channel": {
+          "upper": 4103.746884191464,
+          "lower": 4046.980363133791,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4083.4020495596474,
+          "lower": 4033.8836059183195,
+          "position": "INSIDE",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-07-06",
+        "close": 4041.2382,
+        "short_channel": {
+          "upper": 4100.387031561351,
+          "lower": 4043.782927508115,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4082.8892308880068,
+          "lower": 4033.2578937003345,
+          "position": "INSIDE",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-07-07",
+        "close": 3990.2353,
+        "short_channel": {
+          "upper": 4094.858329133555,
+          "lower": 4038.239056161337,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4081.6941686706878,
+          "lower": 4031.9052498827446,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-07-08",
+        "close": 3970.8797,
+        "short_channel": {
+          "upper": 4088.794319200205,
+          "lower": 4032.829344148927,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4080.250916611991,
+          "lower": 4030.4988224127937,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      {
+        "date": "2026-07-09",
+        "close": 4036.5879,
+        "short_channel": {
+          "upper": 4085.082348492497,
+          "lower": 4025.602279214394,
+          "position": "INSIDE",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4079.3781206424965,
+          "lower": 4028.4851669751497,
+          "position": "INSIDE",
+          "state": "DOWN"
+        }
+      }
+    ],
+    "routes": {
+      "short_channel": {
+        "first_upper_break": {
+          "date": "2026-06-15",
+          "close": 4096.4717,
+          "short_channel": {
+            "upper": 4088.888896502274,
+            "lower": 4037.875020527256,
+            "position": "ABOVE",
+            "state": "UP"
+          },
+          "long_channel": {
+            "upper": 4072.904557605582,
+            "lower": 4026.58501348136,
+            "position": "ABOVE",
+            "state": "UP"
+          }
+        },
+        "first_lower_entry": {
+          "date": "2026-06-15",
+          "close": 4096.4717,
+          "short_channel": {
+            "upper": 4088.888896502274,
+            "lower": 4037.875020527256,
+            "position": "ABOVE",
+            "state": "UP"
+          },
+          "long_channel": {
+            "upper": 4072.904557605582,
+            "lower": 4026.58501348136,
+            "position": "ABOVE",
+            "state": "UP"
+          }
+        }
+      },
+      "long_channel": {
+        "first_upper_break": {
+          "date": "2026-06-15",
+          "close": 4096.4717,
+          "short_channel": {
+            "upper": 4088.888896502274,
+            "lower": 4037.875020527256,
+            "position": "ABOVE",
+            "state": "UP"
+          },
+          "long_channel": {
+            "upper": 4072.904557605582,
+            "lower": 4026.58501348136,
+            "position": "ABOVE",
+            "state": "UP"
+          }
+        },
+        "first_lower_entry": {
+          "date": "2026-06-12",
+          "close": 4031.5129,
+          "short_channel": {
+            "upper": 4088.199162877463,
+            "lower": 4036.77584723786,
+            "position": "BELOW",
+            "state": "DOWN"
+          },
+          "long_channel": {
+            "upper": 4072.3593633944715,
+            "lower": 4026.0348991775704,
+            "position": "INSIDE",
+            "state": "DOWN"
+          }
+        }
+      }
+    },
+    "limitations": "Fixed historical serving fixture, not live DB or original software trend values"
+  }
+}

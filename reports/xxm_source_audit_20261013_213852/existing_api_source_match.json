@@ -1,0 +1,56 @@
+{
+  "pass": true,
+  "requests": [
+    {
+      "path": "kline",
+      "freq": null,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minutes",
+      "freq": 60,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minute-indicators",
+      "freq": 60,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minutes",
+      "freq": 90,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minute-indicators",
+      "freq": 90,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minutes",
+      "freq": 120,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    },
+    {
+      "path": "minute-indicators",
+      "freq": 120,
+      "matchedRows": 3,
+      "fieldsEqualToSource": true,
+      "status": 200
+    }
+  ],
+  "rowsChecked": 21,
+  "scope": "existing read-only endpoints, no new XXM endpoint or algorithm acceptance"
+}

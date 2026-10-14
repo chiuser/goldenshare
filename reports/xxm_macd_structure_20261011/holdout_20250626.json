@@ -1,0 +1,244 @@
+{
+  "scope": "New chart comparison against unchanged pre-image predictions. AM absence is mapped and event comparisons are conditional on stable software marker anchoring; unresolved historical green marker is not scored.",
+  "validated_at": "2026-10-11T08:47:59.326841+00:00",
+  "source": {
+    "file": "codex-clipboard-d8ed3c9f-47c9-4fb9-a81c-99b80b62e4ec.png",
+    "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-d8ed3c9f-47c9-4fb9-a81c-99b80b62e4ec.png",
+    "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_120.png",
+    "bytes": 1699251,
+    "sha256": "4a2b5188f399b98b6bc190a21b29e9506ff93f476c1a56f05a4eddb86272f4a3"
+  },
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+  "frozen_predictions_sha256": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9",
+  "old_frozen_files_unchanged": 18,
+  "observed_values": {
+    "close": 3448.45,
+    "dif": 17.443,
+    "dea": 8.885,
+    "hist": 17.116
+  },
+  "saved_data_values": {
+    "time": "2025-06-26 15:00:00",
+    "close": 3448.4534,
+    "dif": 17.443972630778262,
+    "hist": 17.11674593574309,
+    "dea": 8.885599662906717
+  },
+  "labels": [
+    {
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring."
+    },
+    {
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics."
+    }
+  ],
+  "checks": [
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "DULL",
+      "state": "DULL",
+      "matched": false,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "DULL",
+      "state": "DULL",
+      "matched": false,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "DULL",
+      "state": "DULL",
+      "matched": false,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 11:30:00",
+      "expected_event": "NONE",
+      "confidence": "mapped",
+      "observation": "No separate new yellow label is visible under the penultimate June26 AM bar; the visible label cluster is left of the final two bars. Event interpretation is conditional on stable text anchoring.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 15:00:00",
+      "expected_event": "NONE",
+      "confidence": "direct",
+      "observation": "Selected last-bar values align; no new yellow, green or purple event text is visible at the final PM bar. Absence is conditional on the assumed marker semantics.",
+      "predicted": "NONE",
+      "state": "DULL",
+      "matched": true,
+      "conditional_on_marker_semantics": true,
+      "prefix_matched": true,
+      "frozen_prediction_matched": true
+    }
+  ],
+  "adjacent_bar_change": {
+    "am": {
+      "time": "2025-06-26 11:30:00",
+      "close": 3459.657,
+      "dif": 15.675050233028287,
+      "hist": 17.858087624178914
+    },
+    "pm": {
+      "time": "2025-06-26 15:00:00",
+      "close": 3448.4534,
+      "dif": 17.443972630778262,
+      "hist": 17.11674593574309,
+      "dea": 8.885599662906717
+    },
+    "close_change": -11.203600000000279,
+    "dif_change": 1.768922397749975,
+    "dif_relative_pct": 11.284955208773418,
+    "hist_change": -0.7413416884358242
+  },
+  "historical_cluster": {
+    "visible_texts": [
+      "钝化",
+      "消失"
+    ],
+    "location": "Left of the final June26 bars, around the start of the current positive-histogram wave; approximate June24 vicinity only.",
+    "exact_timestamp": null,
+    "event_direction": null,
+    "reference": null,
+    "scored": false
+  },
+  "caption_source": "sources/20250626_vidiq_transcript.json",
+  "conclusion": "Visible lack of new June26 AM activation supports continuation of the older reference conditionally. Both candidates predict no PM event. Price decline and histogram contraction coexist with DIF increase; neither is a standalone structure trigger here. Exact historical green cancellation remains unexplained."
+}

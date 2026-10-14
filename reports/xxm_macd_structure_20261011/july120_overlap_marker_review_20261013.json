@@ -1,0 +1,1297 @@
+{
+  "research_date": "2026-10-13",
+  "status": "EXISTING_TWO_FRAMES_DISPLAY_REVIEW_NOT_EVENT_ABSENCE_PROOF",
+  "source_sha256": {
+    "sources/20250711_120.png": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+    "sources/20250723_120.png": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4"
+  },
+  "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "baseline": {
+    "raw_completed_segments": 2,
+    "selector": "strongest_eligible",
+    "active_reference": "locked",
+    "gates": [
+      0.75,
+      1,
+      1.2
+    ]
+  },
+  "image_registration": [
+    {
+      "first_time": "2025-06-26 11:30:00",
+      "first_center": 61.0,
+      "last_time": "2025-07-11 15:00:00",
+      "last_center": 1457.0,
+      "step_px": 60.69565217391305
+    },
+    {
+      "first_time": "2025-06-27 15:00:00",
+      "first_center": 44.0,
+      "last_time": "2025-07-23 15:00:00",
+      "last_center": 1538.0,
+      "step_px": 41.5
+    }
+  ],
+  "registration_conditions": [
+    "Linear barspacing from visible first/last candles, timestamp alignment to saved close sequence; no cursor timestamps or first-display movie.",
+    "Native images are different viewports/scales; pixel coordinates must not be compared directly.",
+    "Text-left-edge timing inherits prior mapped confidence; overlap can hide pixels and shift visible edges."
+  ],
+  "historical_markers": [
+    {
+      "mapped_time": "2025-06-27 15:00:00",
+      "prior_event_label": "STRUCTURE",
+      "color": "magenta",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            230,
+            750,
+            330,
+            785
+          ],
+          "count": 1188,
+          "bbox": [
+            242,
+            761,
+            319,
+            781
+          ],
+          "expected_bar_center": 243.08695652173913,
+          "left_edge_offset_bars": -0.01790830945558731
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            30,
+            735,
+            125,
+            774
+          ],
+          "count": 1225,
+          "bbox": [
+            42,
+            744,
+            119,
+            765
+          ],
+          "expected_bar_center": 44.0,
+          "left_edge_offset_bars": -0.04819277108433735
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "readable_in_both_views",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-06-30 15:00:00",
+      "prior_event_label": "DULL",
+      "color": "yellow",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            350,
+            750,
+            410,
+            785
+          ],
+          "count": 280,
+          "bbox": [
+            364,
+            761,
+            399,
+            780
+          ],
+          "expected_bar_center": 364.4782608695652,
+          "left_edge_offset_bars": -0.007879656160458005
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            120,
+            737,
+            180,
+            770
+          ],
+          "count": 286,
+          "bbox": [
+            126,
+            744,
+            163,
+            765
+          ],
+          "expected_bar_center": 127.0,
+          "left_edge_offset_bars": -0.024096385542168676
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "readable_in_both_views",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-07-07 11:30:00",
+      "prior_event_label": "STRUCTURE",
+      "color": "magenta",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            900,
+            730,
+            1000,
+            768
+          ],
+          "count": 1178,
+          "bbox": [
+            910,
+            741,
+            987,
+            762
+          ],
+          "expected_bar_center": 910.7391304347826,
+          "left_edge_offset_bars": -0.012177650429799671
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            485,
+            715,
+            585,
+            755
+          ],
+          "count": 1135,
+          "bbox": [
+            499,
+            730,
+            576,
+            750
+          ],
+          "expected_bar_center": 500.5,
+          "left_edge_offset_bars": -0.03614457831325301
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "readable_in_both_views",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-07-08 11:30:00",
+      "prior_event_label": "DULL",
+      "color": "yellow",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            1020,
+            723,
+            1080,
+            760
+          ],
+          "count": 273,
+          "bbox": [
+            1032,
+            732,
+            1069,
+            752
+          ],
+          "expected_bar_center": 1032.1304347826087,
+          "left_edge_offset_bars": -0.002148997134671301
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            575,
+            710,
+            630,
+            750
+          ],
+          "count": 274,
+          "bbox": [
+            582,
+            722,
+            620,
+            742
+          ],
+          "expected_bar_center": 583.5,
+          "left_edge_offset_bars": -0.03614457831325301
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "readable_in_both_views",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-07-09 15:00:00",
+      "prior_event_label": "STRUCTURE",
+      "color": "magenta",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            1200,
+            702,
+            1300,
+            738
+          ],
+          "count": 1013,
+          "bbox": [
+            1212,
+            713,
+            1287,
+            733
+          ],
+          "expected_bar_center": 1214.2173913043478,
+          "left_edge_offset_bars": -0.03653295128939714
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            695,
+            696,
+            790,
+            736
+          ],
+          "count": 762,
+          "bbox": [
+            706,
+            709,
+            777,
+            729
+          ],
+          "expected_bar_center": 708.0,
+          "left_edge_offset_bars": -0.04819277108433735
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "overlap_words_confirmed_by_user_for_july23_view; july11_same_ink_geometry",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-07-10 11:30:00",
+      "prior_event_label": "DULL",
+      "color": "yellow",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            1260,
+            702,
+            1320,
+            738
+          ],
+          "count": 195,
+          "bbox": [
+            1276,
+            710,
+            1313,
+            729
+          ],
+          "expected_bar_center": 1274.9130434782608,
+          "left_edge_offset_bars": 0.01790830945558918
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            735,
+            696,
+            800,
+            736
+          ],
+          "count": 98,
+          "bbox": [
+            754,
+            708,
+            785,
+            723
+          ],
+          "expected_bar_center": 749.5,
+          "left_edge_offset_bars": 0.10843373493975904
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "overlap_words_confirmed_by_user_for_july23_view; july11_same_ink_geometry",
+      "new_software_label": false
+    },
+    {
+      "mapped_time": "2025-07-11 11:30:00",
+      "prior_event_label": "CANCEL",
+      "color": "green",
+      "views": [
+        {
+          "source": "20250711_120.png",
+          "search_box": [
+            1380,
+            675,
+            1445,
+            720
+          ],
+          "count": 396,
+          "bbox": [
+            1398,
+            686,
+            1433,
+            705
+          ],
+          "expected_bar_center": 1396.304347826087,
+          "left_edge_offset_bars": 0.02793696275071568
+        },
+        {
+          "source": "20250723_120.png",
+          "search_box": [
+            815,
+            674,
+            880,
+            715
+          ],
+          "count": 398,
+          "bbox": [
+            833,
+            686,
+            868,
+            705
+          ],
+          "expected_bar_center": 832.5,
+          "left_edge_offset_bars": 0.012048192771084338
+        }
+      ],
+      "confidence": "mapped_not_cursor",
+      "review_status": "readable_in_both_views",
+      "new_software_label": false
+    }
+  ],
+  "green_ink_bands": [
+    {
+      "source": "20250711_120.png",
+      "annotation_band": [
+        20,
+        675,
+        1600,
+        795
+      ],
+      "green_x_groups": [
+        [
+          1398,
+          1433
+        ]
+      ],
+      "claims": "No detected green ink elsewhere in this inspected band; no claim about overwritten/undisplayed software events."
+    },
+    {
+      "source": "20250723_120.png",
+      "annotation_band": [
+        20,
+        675,
+        1600,
+        795
+      ],
+      "green_x_groups": [
+        [
+          833,
+          836
+        ],
+        [
+          837,
+          868
+        ],
+        [
+          1495,
+          1532
+        ]
+      ],
+      "claims": "No detected green ink elsewhere in this inspected band; no claim about overwritten/undisplayed software events."
+    }
+  ],
+  "user_assistance": {
+    "year": "2025",
+    "question": "July23 120 MACD July9/10 overlap: onlymagenta structure andyellow dulling, orvisible green disappearance?",
+    "status": "confirmed_by_user_in_current_chat",
+    "scope": "User confirms visiblewords and dayidentity inJuly23 screenshot; not precisebar cursor or hidden softwareevent absence.",
+    "raw_reply": "2025年7月9日至10日附近有结构形成和钝化，绿色的消失，出现在7月11日，你继续吧",
+    "raw_reply_sha256": "1ec07a12a7b90045dfa764a8373a52886c2528529193efc547813a5c5f53f823"
+  },
+  "withdrawal_diagnostics": [
+    {
+      "gate": 0.75,
+      "anchor": "2025-06-27 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-06-26 11:30:00",
+        "close": 3459.657,
+        "dif": 15.675050233028287,
+        "hist": 17.858087624178914
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-03 15:00:00",
+        "price_and_dif": "2025-07-04 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-03 15:00:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "price_margin": 1.4935999999997875,
+          "dif_rise": 0.04414946996212166,
+          "dif_gate_margin": -0.09752810755942165,
+          "previous_dif": 18.890343669539106,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-04 11:30:00",
+          "close": 3475.2417,
+          "dif": 19.87738183375086,
+          "hist": 3.870903524374107,
+          "price_margin": 15.584699999999884,
+          "dif_rise": 0.942888694249632,
+          "dif_gate_margin": 0.8008799957033728,
+          "previous_dif": 18.934493139501228,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-06-30 15:00:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-03 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 728.6521739130435,
+              "search_box": [
+                723,
+                675,
+                771,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 376.0,
+              "search_box": [
+                370,
+                675,
+                418,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        },
+        {
+          "time": "2025-07-04 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 789.3478260869565,
+              "search_box": [
+                783,
+                675,
+                831,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 417.5,
+              "search_box": [
+                412,
+                675,
+                460,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 0.75,
+      "anchor": "2025-07-07 11:30:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-04 11:30:00",
+        "close": 3475.2417,
+        "dif": 19.87738183375086,
+        "hist": 3.870903524374107
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-08 11:30:00",
+        "price_and_dif": "2025-07-08 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1968121637484728,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1968121637484728,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-08 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-08 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1032.1304347826087,
+              "search_box": [
+                1026,
+                675,
+                1074,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 583.5,
+              "search_box": [
+                578,
+                675,
+                626,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "yellow_redulling_text_same_bar; cannot exclude overdraw"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 0.75,
+      "anchor": "2025-07-09 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-09 11:30:00",
+        "close": 3507.6934,
+        "dif": 23.497636445824355,
+        "hist": 5.9529954982442135
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-10 15:00:00",
+        "price_and_dif": "2025-07-10 15:00:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.28110440028289074,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.28110440028289074,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-10 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-10 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1335.608695652174,
+              "search_box": [
+                1330,
+                675,
+                1378,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 791.0,
+              "search_box": [
+                785,
+                675,
+                833,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1,
+      "anchor": "2025-06-27 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-06-26 11:30:00",
+        "close": 3459.657,
+        "dif": 15.675050233028287,
+        "hist": 17.858087624178914
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-03 15:00:00",
+        "price_and_dif": "2025-07-04 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-03 15:00:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "price_margin": 1.4935999999997875,
+          "dif_rise": 0.04414946996212166,
+          "dif_gate_margin": -0.1447539667332694,
+          "previous_dif": 18.890343669539106,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-04 11:30:00",
+          "close": 3475.2417,
+          "dif": 19.87738183375086,
+          "hist": 3.870903524374107,
+          "price_margin": 15.584699999999884,
+          "dif_rise": 0.942888694249632,
+          "dif_gate_margin": 0.7535437628546197,
+          "previous_dif": 18.934493139501228,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-06-30 15:00:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-03 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 728.6521739130435,
+              "search_box": [
+                723,
+                675,
+                771,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 376.0,
+              "search_box": [
+                370,
+                675,
+                418,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        },
+        {
+          "time": "2025-07-04 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 789.3478260869565,
+              "search_box": [
+                783,
+                675,
+                831,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 417.5,
+              "search_box": [
+                412,
+                675,
+                460,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1,
+      "anchor": "2025-07-07 11:30:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-04 11:30:00",
+        "close": 3475.2417,
+        "dif": 19.87738183375086,
+        "hist": 3.870903524374107
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-08 11:30:00",
+        "price_and_dif": "2025-07-08 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1480018123203082,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1480018123203082,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-08 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-08 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1032.1304347826087,
+              "search_box": [
+                1026,
+                675,
+                1074,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 583.5,
+              "search_box": [
+                578,
+                675,
+                626,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "yellow_redulling_text_same_bar; cannot exclude overdraw"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1,
+      "anchor": "2025-07-09 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-09 11:30:00",
+        "close": 3507.6934,
+        "dif": 23.497636445824355,
+        "hist": 5.9529954982442135
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-10 15:00:00",
+        "price_and_dif": "2025-07-10 15:00:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.2217839662244387,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.2217839662244387,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-10 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-10 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1335.608695652174,
+              "search_box": [
+                1330,
+                675,
+                1378,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 791.0,
+              "search_box": [
+                785,
+                675,
+                833,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1.2,
+      "anchor": "2025-06-27 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-06-26 11:30:00",
+        "close": 3459.657,
+        "dif": 15.675050233028287,
+        "hist": 17.858087624178914
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-03 15:00:00",
+        "price_and_dif": "2025-07-04 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-03 15:00:00",
+          "close": 3461.1506,
+          "dif": 18.934493139501228,
+          "hist": 2.9528520169683716,
+          "price_margin": 1.4935999999997875,
+          "dif_rise": 0.04414946996212166,
+          "dif_gate_margin": -0.1825346540723476,
+          "previous_dif": 18.890343669539106,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-04 11:30:00",
+          "close": 3475.2417,
+          "dif": 19.87738183375086,
+          "hist": 3.870903524374107,
+          "price_margin": 15.584699999999884,
+          "dif_rise": 0.942888694249632,
+          "dif_gate_margin": 0.7156747765756172,
+          "previous_dif": 18.934493139501228,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-06-30 15:00:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-03 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 728.6521739130435,
+              "search_box": [
+                723,
+                675,
+                771,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 376.0,
+              "search_box": [
+                370,
+                675,
+                418,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        },
+        {
+          "time": "2025-07-04 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 789.3478260869565,
+              "search_box": [
+                783,
+                675,
+                831,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 417.5,
+              "search_box": [
+                412,
+                675,
+                460,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1.2,
+      "anchor": "2025-07-07 11:30:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-04 11:30:00",
+        "close": 3475.2417,
+        "dif": 19.87738183375086,
+        "hist": 3.870903524374107
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-08 11:30:00",
+        "price_and_dif": "2025-07-08 11:30:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1089535311777763,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-08 11:30:00",
+          "close": 3493.1643,
+          "dif": 20.867383789298856,
+          "hist": 3.305169337231213,
+          "price_margin": 17.922599999999875,
+          "dif_rise": 1.343243218032967,
+          "dif_gate_margin": 1.1089535311777763,
+          "previous_dif": 19.52414057126589,
+          "baseline_event": "DULL",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-08 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-08 11:30:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1032.1304347826087,
+              "search_box": [
+                1026,
+                675,
+                1074,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 583.5,
+              "search_box": [
+                578,
+                675,
+                626,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "yellow_redulling_text_same_bar; cannot exclude overdraw"
+        }
+      ],
+      "software_false_positive_score": null
+    },
+    {
+      "gate": 1.2,
+      "anchor": "2025-07-09 15:00:00",
+      "formation_wave_close_peak": {
+        "time": "2025-07-09 11:30:00",
+        "close": 3507.6934,
+        "dif": 23.497636445824355,
+        "hist": 5.9529954982442135
+      },
+      "uncensored_firsts": {
+        "price_only": "2025-07-10 15:00:00",
+        "price_and_dif": "2025-07-10 15:00:00"
+      },
+      "first_hit_values": {
+        "price_only": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.17432761897767707,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        },
+        "price_and_dif": {
+          "time": "2025-07-10 15:00:00",
+          "close": 3509.682,
+          "dif": 24.187239325839073,
+          "hist": 4.149937572307962,
+          "price_margin": 1.9885999999996784,
+          "dif_rise": 0.45906570245824696,
+          "dif_gate_margin": 0.17432761897767707,
+          "previous_dif": 23.728173623380826,
+          "baseline_event": "NONE",
+          "baseline_state": "DULL"
+        }
+      },
+      "existing_censor": {
+        "time": "2025-07-10 11:30:00",
+        "reasons": [
+          "new_top_DULL"
+        ]
+      },
+      "recensored_firsts": {
+        "price_only": null,
+        "price_and_dif": null
+      },
+      "no_negative_hist_before_first_price": true,
+      "display_checks": [
+        {
+          "time": "2025-07-10 15:00:00",
+          "views": [
+            {
+              "source": "20250711_120.png",
+              "bar_center": 1335.608695652174,
+              "search_box": [
+                1330,
+                675,
+                1378,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            },
+            {
+              "source": "20250723_120.png",
+              "bar_center": 791.0,
+              "search_box": [
+                785,
+                675,
+                833,
+                795
+              ],
+              "count": 0,
+              "bbox": null
+            }
+          ],
+          "absence_grade": "no_visible_green_in_both_frames_not_exact_event_absence",
+          "obstruction": "no visible pen annotation or text overlay at mapped left-edge anchor; rendering suppression/relocation remains unverified"
+        }
+      ],
+      "software_false_positive_score": null
+    }
+  ],
+  "findings": [
+    "Five sharedlabels directlyreadable inbothviews; July9/10 overlappedstructure/dulling is confirmedbyuser inJuly23view and corresponding magenta/yellow inks remainatcompatiblepositions inJuly11view. No hidden green is invented.",
+    "July11 green remains visible inJuly23 history. There is no observed deletion/relocation of thatgreen between these twoframes; this doesnot prove allmarkers are alwaysretained.",
+    "Ignoring redulling/lifecycle context, price-only predictsJuly3PM,July8AM,July10PM; bothframes lackvisiblegreen atthoseanchors. AddedDIF onlymovesfirstcase toJuly4AM and doesnot solve overbroad display predictions.",
+    "Allthree pricehitsoccur at/after another topDULL whilehist stayspositive. Existingrecensor rule stops beforethat competing event and yieldsno evaluated withdrawalhit for allthree; therefore these are notfalsepositive evidenceagainst the alreadyrecensored price-only hypothesis inthree cleanhistoricalgreen cases.",
+    "Need context to separate redulling from historicalwithdrawal; currentframes do not identify universal sourceformula, positive-to-negative phase requirement, automaticexpiry or wholedefense correction."
+  ],
+  "verification": {
+    "preserved_prior_files": 229,
+    "clear_shared_marker_pairs": 5,
+    "overlap_pairs_pending": 0,
+    "ordinary_baseline_point_checks": 21,
+    "formation_episodes": 3,
+    "gate_diagnostic_rows": 9,
+    "endpoint_prefix_checks": 27,
+    "new_sources": 0,
+    "new_exact_software_labels": 0,
+    "overlap_pairs_user_assisted": 2,
+    "new_user_confirmations": 1
+  },
+  "next_step": "Use existing90minuteJuly3/November13 and60minuteApril21 positivegreen cases plusJuly120displaycontrasts to audit order of structureconfirmation,histogramflip,redulling,pricebreak. Determine whether existingcensor priority suppresses any confirmedgreen; separate evaluable andunscoredcases withoutaddingthresholds or treatingvisibilityas exactabsence.",
+  "boundaries": "One necessaryJSON and originaldocappend; temporaryscripts only. No newimage/crop/notebook,code/config/parameters/API/boundarychanges,network/quota,install,DB/Lakewrite,commit ortrade."
+}

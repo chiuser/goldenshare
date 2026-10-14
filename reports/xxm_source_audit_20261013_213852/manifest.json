@@ -1,0 +1,118 @@
+{
+  "createdAt": "2026-10-13T21:47:24.815438+08:00",
+  "status": "source_and_existing_api_verified_reader_design_adjustment_pending_no_implementation",
+  "tsCode": "000001.SH",
+  "periods": [
+    "day",
+    "m60",
+    "m90",
+    "m120"
+  ],
+  "sourceRows": {
+    "day": 912,
+    "m60": 17260,
+    "m90": 12945,
+    "m120": 8630
+  },
+  "existingApiRequests": 7,
+  "apiSourceMatchedRows": 21,
+  "readOnly": true,
+  "codeChanges": false,
+  "newXxmApiImplemented": false,
+  "algorithmImplemented": false,
+  "figmaDesignApproved": true,
+  "readerAdjustmentApproved": false,
+  "measurementsAreP95": false,
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 6197,
+      "sha256": "e5ec5f3b1f59bbe021cafd8967be62590fbfc00794033e169303e63832995b57"
+    },
+    {
+      "name": "daily_audit.json",
+      "bytes": 1704,
+      "sha256": "ea9359514268d0b92a323164db445cdd9709e08a01f485809f87dc54aed6395a"
+    },
+    {
+      "name": "daily_source.csv",
+      "bytes": 48562,
+      "sha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a"
+    },
+    {
+      "name": "daily_view_definition.sql",
+      "bytes": 1486,
+      "sha256": "5f585e84ac219744f02d305de241676dd58eea3fb57e97a8eabd3a5f20a49087"
+    },
+    {
+      "name": "existing_api_probe.json",
+      "bytes": 21939,
+      "sha256": "e14b27b02ef3f9ce499987b0c5d3ae91a935cf1e2983541afdab3de9c5b47b27"
+    },
+    {
+      "name": "existing_api_source_match.json",
+      "bytes": 1125,
+      "sha256": "2e1a16f8b15386ae1424f945acb3ce07b1f68991c802d46e37881d7df6438edd"
+    },
+    {
+      "name": "frozen_source_comparison.json",
+      "bytes": 5036,
+      "sha256": "8b9e14a2db9ebd5ad92253e346d0099bb63015fa640116b592b5cebfae5f166d"
+    },
+    {
+      "name": "minute_120_audit.json",
+      "bytes": 395108,
+      "sha256": "b32ae8d0fcd7fb0755e1c7d159e8a9afd8032934b0f10fc5c7f33e02e1320f5f"
+    },
+    {
+      "name": "minute_120_source.csv",
+      "bytes": 1542540,
+      "sha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b"
+    },
+    {
+      "name": "minute_60_audit.json",
+      "bytes": 541850,
+      "sha256": "fe61ea9e545cace331b9508ecfb95bd729ad858ebc5240312cd3ade67fd8195c"
+    },
+    {
+      "name": "minute_60_source.csv",
+      "bytes": 3075361,
+      "sha256": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b"
+    },
+    {
+      "name": "minute_90_audit.json",
+      "bytes": 468487,
+      "sha256": "4b30b0de096aaad6fb46dd830ee7c420de28170732c9e055d091b551e4069f7f"
+    },
+    {
+      "name": "minute_90_source.csv",
+      "bytes": 2303811,
+      "sha256": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04"
+    },
+    {
+      "name": "reader_page_profile.json",
+      "bytes": 1111,
+      "sha256": "9e847d3a8eab00d7d1b90b2855dfec23040606f789bb29090e4caabe505974a4"
+    },
+    {
+      "name": "reader_prefix_budget_profile.json",
+      "bytes": 2405,
+      "sha256": "fe8d0acdab4fb7dc444b4025434e3fe646fdebf605ddb8692bdbe4f53b124e78"
+    },
+    {
+      "name": "single_scan_feasibility_profile.json",
+      "bytes": 1308,
+      "sha256": "a42f5651b22d16704414dc3832c3af5be5d4af889a464d165602f3e53ceff82d"
+    },
+    {
+      "name": "sse_calendar.json",
+      "bytes": 91548,
+      "sha256": "ee16d75040b188d3fac838dd5339de289542c10e61ebd5ae49168577ffe39a4f"
+    },
+    {
+      "name": "sse_minute_calendar.json",
+      "bytes": 547763,
+      "sha256": "123b36651b41d0c7defee4ebd6fe3939d277f4c447197d77f829f80bf863aa3c"
+    }
+  ]
+}

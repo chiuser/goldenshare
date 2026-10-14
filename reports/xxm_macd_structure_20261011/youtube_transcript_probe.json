@@ -1,0 +1,17 @@
+{
+  "video_url": "https://www.youtube.com/watch?v=o4w4G6q-fSQ",
+  "video_id": "o4w4G6q-fSQ",
+  "provider": "vidIQ",
+  "language": "zh",
+  "fetched_at": "2026-10-11T07:40:08.381Z",
+  "timestamped_segments_returned": false,
+  "characters": 5325,
+  "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+  "normalized_user_transcript_similarity": 0.9991568296795953,
+  "normalization": "remove user timestamp prefixes ending in 秒钟; remove punctuation and spaces; SequenceMatcher without autojunk",
+  "limits": [
+    "Similarity is text comparison, not accuracy against audio.",
+    "MCP captions and user transcription may originate from the same YouTube ASR; not independent evidence.",
+    "Provider returns plain text here; user transcript remains time-locating source."
+  ]
+}

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from datetime import time as clock_time
 from pathlib import Path
+from threading import Timer
 from typing import Any
 
 from src.foundation.clients.local_lake.major_index_mins_contract import (
@@ -73,15 +74,94 @@ class _PartitionFile:
     path: Path
 
 
+MAX_INDEX_MINUTE_HISTORY_ROWS = 20_000
+INDEX_MINUTE_HISTORY_DUCKDB_CONFIG = {"memory_limit": "512MB", "threads": "2"}
+
+
+class IndexMinuteHistoryBudgetError(IndexMinuteReaderError):
+    """The bounded history read cannot satisfy its resource budget."""
+
+
 class MajorIndexMinsLakeReader:
     def __init__(self, lake_root: Path) -> None:
         self._lake_root = lake_root.expanduser().resolve()
+        self._prepared_history_partitions: dict[tuple[Any, ...], tuple[_PartitionFile, ...]] = {}
 
     def read_bars(self, request: IndexMinuteReadRequest) -> IndexMinuteReadPage:
         return self._read(request, dataset="bars")
 
     def read_indicators(self, request: IndexMinuteReadRequest) -> IndexMinuteReadPage:
         return self._read(request, dataset="indicators")
+
+    def history_source_signature(
+        self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset
+    ) -> tuple[tuple[Any, ...], ...]:
+        normalized, _ = _normalize_request(request, dataset=dataset)
+        if normalized.cursor is not None:
+            raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
+        parts = _enumerate_partitions(self._lake_root, dataset=dataset, freq=normalized.freq,
+                                      start_date=normalized.start_date, end_date=normalized.end_date, cursor=None)
+        if len(parts) > MAX_INDEX_MINUTE_PARTITION_FILES:
+            raise IndexMinuteHistoryBudgetError("完整历史超过分区预算。")
+        self._prepared_history_partitions[(dataset, normalized.freq, normalized.start_date, normalized.end_date)] = parts
+        while len(self._prepared_history_partitions) > 2:
+            self._prepared_history_partitions.pop(next(iter(self._prepared_history_partitions)))
+        signature = []
+        for part in parts:
+            stat = part.path.stat()
+            signature.append((part.trade_date.isoformat(), str(part.path), stat.st_dev, stat.st_ino,
+                              stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns))
+        return tuple(signature)
+
+    def read_complete_history(
+        self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset,
+        max_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS, timeout_seconds: float,
+    ) -> IndexMinuteReadPage:
+        """Read one bounded prefix without changing the public paging contract."""
+        started = time.perf_counter()
+        normalized, _ = _normalize_request(request, dataset=dataset)
+        if normalized.cursor is not None:
+            raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
+        if isinstance(max_rows, bool) or not 1 <= max_rows <= MAX_INDEX_MINUTE_HISTORY_ROWS or timeout_seconds <= 0:
+            raise IndexMinuteHistoryBudgetError("完整历史读取预算无效。")
+        prepared_key = (dataset, normalized.freq, normalized.start_date, normalized.end_date)
+        parts = self._prepared_history_partitions.pop(prepared_key, None)
+        if parts is None:
+            parts = _enumerate_partitions(self._lake_root, dataset=dataset, freq=normalized.freq,
+                                          start_date=normalized.start_date, end_date=normalized.end_date, cursor=None)
+        elif parts and (_contains_symlink(parts[0].path.parent.parent, stop=self._lake_root)
+                        or any(part.path.is_symlink() or part.path.parent.is_symlink() for part in parts)):
+            raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
+        if len(parts) > MAX_INDEX_MINUTE_PARTITION_FILES:
+            raise IndexMinuteHistoryBudgetError("完整历史超过分区预算。")
+        if not parts:
+            return _empty_page(started, scanned_file_count=0)
+        import duckdb
+
+        connection = duckdb.connect(database=":memory:", config=INDEX_MINUTE_HISTORY_DUCKDB_CONFIG)
+        timer = Timer(max(0.001, timeout_seconds - (time.perf_counter() - started)), connection.interrupt)
+        timer.daemon = True
+        timer.start()
+        try:
+            _validate_combined_schema(connection, tuple(part.path for part in parts), dataset=dataset)
+            query_request = IndexMinuteReadRequest(normalized.ts_code, normalized.freq, normalized.start_date,
+                                                  normalized.end_date, max_rows, None)
+            rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+            if len(rows) > max_rows:
+                raise IndexMinuteHistoryBudgetError("完整历史超过行数预算，不能截取后计算。")
+            rows.reverse()
+            if time.perf_counter() - started > timeout_seconds:
+                raise IndexMinuteHistoryBudgetError("完整历史读取超时。")
+        except IndexMinuteReaderError as exc:
+            if time.perf_counter() - started >= timeout_seconds:
+                raise IndexMinuteHistoryBudgetError("完整历史读取超时。") from exc
+            raise
+        finally:
+            timer.cancel()
+            connection.close()
+        dates = [row["trade_date"] for row in rows]
+        return IndexMinuteReadPage(tuple(rows), len(rows), False, None, min(dates) if dates else None,
+                                   max(dates) if dates else None, len(parts), (time.perf_counter() - started) * 1000)
 
     def _read(
         self,
@@ -236,6 +316,11 @@ def _enumerate_partitions(
         date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
     )
     partitions: list[_PartitionFile] = []
+    # All candidates share the already resolved frequency root. Verify common
+    # ancestors once, and every file/date directory individually before deriving
+    # its absolute path; this preserves the no-symlink/boundary checks without
+    # resolving the same ancestor chain thousands of times.
+    blocked_ancestor = _contains_symlink(frequency_root, stop=root)
     for candidate in frequency_root.glob("trade_date=*/part-000.parquet"):
         match = TRADE_DATE_PARTITION_PATTERN.fullmatch(candidate.parent.name)
         if match is None:
@@ -247,9 +332,9 @@ def _enumerate_partitions(
             continue
         if cursor_date is not None and partition_date > cursor_date:
             continue
-        if _contains_symlink(candidate, stop=root):
+        if blocked_ancestor or candidate.is_symlink() or candidate.parent.is_symlink():
             raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
-        resolved = candidate.resolve()
+        resolved = frequency_root / candidate.parent.name / candidate.name
         if not resolved.is_relative_to(root) or not resolved.is_relative_to(
             dataset_root
         ):

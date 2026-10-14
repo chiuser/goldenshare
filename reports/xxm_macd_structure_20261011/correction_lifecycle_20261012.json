@@ -1,0 +1,673 @@
+{
+  "scope": {
+    "start": "2025-09-01",
+    "end": "2025-10-27"
+  },
+  "method": "RETROSPECTIVE_FIXED_CONFIRMED_REFERENCE_DIAGNOSTIC",
+  "definitions_sha256": "1460c5592cab256bdd982ee1222d1b15b33c710e0d5ceee4360b4436dfd14c64",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "periods": {
+    "90": {
+      "input": "90_20250603_20260113.csv",
+      "input_sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 14:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-15 14:00:00",
+              "reference_dif": 52.465540153175425,
+              "first_different_wave_sign": "2025-09-18 14:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:00:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3939.7864,
+              "dif": 9.512013425429814,
+              "hist": 6.686230181755073,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 14:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3947.5713,
+              "dif": 12.225414240583177,
+              "hist": 9.690425449649439,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3950.3115,
+              "dif": 14.430568563102042,
+              "hist": 11.280587275749735,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 11:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3984.6294,
+              "dif": 18.731412906237892,
+              "hist": 15.905820769617147,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 14:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 6,
+              "ref_start": "",
+              "close": 3986.0457,
+              "dif": 22.000538099222013,
+              "hist": 17.95525692446831,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 7,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.180528058405343,
+              "hist": 19.45218947426797,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        },
+        {
+          "gate_pct": 1.0,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 14:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-15 14:00:00",
+              "reference_dif": 52.465540153175425,
+              "first_different_wave_sign": "2025-09-18 14:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:00:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3939.7864,
+              "dif": 9.512013425429814,
+              "hist": 6.686230181755073,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 14:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3947.5713,
+              "dif": 12.225414240583177,
+              "hist": 9.690425449649439,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3950.3115,
+              "dif": 14.430568563102042,
+              "hist": 11.280587275749735,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 11:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3984.6294,
+              "dif": 18.731412906237892,
+              "hist": 15.905820769617147,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 14:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 6,
+              "ref_start": "",
+              "close": 3986.0457,
+              "dif": 22.000538099222013,
+              "hist": 17.95525692446831,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 7,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.180528058405343,
+              "hist": 19.45218947426797,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        },
+        {
+          "gate_pct": 1.2,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 14:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-15 14:00:00",
+              "reference_dif": 52.465540153175425,
+              "first_different_wave_sign": "2025-09-18 14:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:00:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3939.7864,
+              "dif": 9.512013425429814,
+              "hist": 6.686230181755073,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 14:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:00:00",
+              "close": 3947.5713,
+              "dif": 12.225414240583177,
+              "hist": 9.690425449649439,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:00:00",
+              "event_ref_dif": 11.886700855757681,
+              "event_ref_price": 3928.54
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3950.3115,
+              "dif": 14.430568563102042,
+              "hist": 11.280587275749735,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 11:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3984.6294,
+              "dif": 18.731412906237892,
+              "hist": 15.905820769617147,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 14:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 6,
+              "ref_start": "",
+              "close": 3986.0457,
+              "dif": 22.000538099222013,
+              "hist": 17.95525692446831,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 7,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.180528058405343,
+              "hist": 19.45218947426797,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        }
+      ]
+    },
+    "120": {
+      "input": "120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-06 15:00:00",
+              "reference_dif": 61.80033538696671,
+              "first_different_wave_sign": "2025-09-18 15:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-10 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-14 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:30:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3938.9841,
+              "dif": 13.44434809032191,
+              "hist": 6.0297835351494165,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3950.3115,
+              "dif": 16.181185402706433,
+              "hist": 9.20276652793477,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-27 11:30:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3991.3538,
+              "dif": 21.4150598166525,
+              "hist": 15.736412284661526,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.717617151605737,
+              "hist": 19.47322156365439,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        },
+        {
+          "gate_pct": 1.0,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-06 15:00:00",
+              "reference_dif": 61.80033538696671,
+              "first_different_wave_sign": "2025-09-18 15:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-10 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-14 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:30:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3938.9841,
+              "dif": 13.44434809032191,
+              "hist": 6.0297835351494165,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3950.3115,
+              "dif": 16.181185402706433,
+              "hist": 9.20276652793477,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-27 11:30:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3991.3538,
+              "dif": 21.4150598166525,
+              "hist": 15.736412284661526,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.717617151605737,
+              "hist": 19.47322156365439,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        },
+        {
+          "gate_pct": 1.2,
+          "confirmed_reference_records": [
+            {
+              "confirmed_at": "2025-09-18 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-08-06 15:00:00",
+              "reference_dif": 61.80033538696671,
+              "first_different_wave_sign": "2025-09-18 15:00:00",
+              "first_strict_cross": null,
+              "status": "NO_CROSS_BY_WINDOW_END",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-10 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            },
+            {
+              "confirmed_at": "2025-10-14 15:00:00",
+              "direction": 1,
+              "reference_start": "2025-09-11 15:00:00",
+              "reference_dif": 20.93471168695578,
+              "first_different_wave_sign": "2025-10-14 15:00:00",
+              "first_strict_cross": "2025-10-27 11:30:00",
+              "status": "CROSSED",
+              "software_reference": "NOT_OBSERVED"
+            }
+          ],
+          "final_days": [
+            {
+              "time": "2025-10-24 11:30:00",
+              "event": "DULL",
+              "state": "DULL",
+              "wave_count": 2,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3938.9841,
+              "dif": 13.44434809032191,
+              "hist": 6.0297835351494165,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "activation",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-24 15:00:00",
+              "event": "CANCEL",
+              "state": "NONE",
+              "wave_count": 3,
+              "ref_start": "2025-10-16 11:30:00",
+              "close": 3950.3115,
+              "dif": 16.181185402706433,
+              "hist": 9.20276652793477,
+              "wave_sign": 1,
+              "event_direction": 1,
+              "event_route": "dif_break",
+              "event_ref_start": "2025-10-16 11:30:00",
+              "event_ref_dif": 15.518977563021508,
+              "event_ref_price": 3916.228
+            },
+            {
+              "time": "2025-10-27 11:30:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 4,
+              "ref_start": "",
+              "close": 3991.3538,
+              "dif": 21.4150598166525,
+              "hist": 15.736412284661526,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            },
+            {
+              "time": "2025-10-27 15:00:00",
+              "event": "NONE",
+              "state": "NONE",
+              "wave_count": 5,
+              "ref_start": "",
+              "close": 3996.9446,
+              "dif": 25.717617151605737,
+              "hist": 19.47322156365439,
+              "wave_sign": 1,
+              "event_direction": 0,
+              "event_route": "",
+              "event_ref_start": "",
+              "event_ref_dif": null,
+              "event_ref_price": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "prefix_checks": 42,
+  "new_software_labels": 0,
+  "limits": [
+    "90-minute numerical source differences unresolved",
+    "Original software confirmed-reference values are not observed",
+    "Current eligible reference cancellation and prior decision correction are different objects",
+    "No formal trade engine, universal expiry or reassignment policy inferred"
+  ]
+}

@@ -5,12 +5,16 @@ from fastapi import APIRouter
 from src.app.api.v1 import health, qtf, trading_assistant
 from src.app.runtime.announcement_archive_lifespan import include_data_center
 from src.app.auth.api import admin, admin_users, auth, users
+from src.app.auth.dependencies import require_quote_access
+from src.app.dependencies import get_db_session
+from src.app.exceptions import WebAppError
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
 from src.biz.api import realtime as biz_realtime
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import context as wealth_market_context
 from src.biz.api.wealth.market import index_detail as wealth_market_index_detail
+from src.biz.api.wealth.market import index_detail_xxm
 from src.biz.api.wealth.market import (
     index_detail_nine_turn as wealth_market_index_detail_nine_turn,
 )
@@ -58,6 +62,9 @@ router.include_router(biz_market.router)
 router.include_router(biz_realtime.router)
 router.include_router(wealth_market_context.router)
 router.include_router(wealth_market_index_detail.router)
+router.include_router(index_detail_xxm.build_router(
+    db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
+))
 router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
@@ -82,6 +89,13 @@ router.include_router(wealth_market_news_communications.router)
 router.include_router(wealth_market_news_item.router)
 
 
+def _index_xxm_lake_root():
+    capability = resolve_index_minute_capability(get_settings())
+    if not capability.enabled or capability.lake_root is None:
+        raise WebAppError(status_code=503, code="SM_LOCAL_LAKE_NOT_CONFIGURED", message="本地指数分钟数据能力未启用。")
+    return capability.lake_root
+
+
 def _include_local_minute_router(target_router: APIRouter) -> None:
     capability = resolve_local_minute_capability(get_settings())
     if capability.enabled:
@@ -101,10 +115,15 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
     if index_capability.enabled:
         from src.biz.api.wealth.market import (
             index_detail_minutes,
+            index_detail_minute_xxm,
             index_turnover_insight,
         )
 
         target_router.include_router(index_detail_minutes.router)
+        target_router.include_router(index_detail_minute_xxm.build_router(
+            db_dependency=get_db_session, auth_dependency=require_quote_access,
+            lake_dependency=_index_xxm_lake_root, error_factory=WebAppError,
+        ))
         target_router.include_router(index_turnover_insight.router)
 
     index_nine_turn_capability = resolve_index_nine_turn_minute_capability(

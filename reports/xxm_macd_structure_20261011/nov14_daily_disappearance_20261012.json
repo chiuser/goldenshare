@@ -1,0 +1,1508 @@
+{
+  "research_date": "2026-10-12",
+  "image_date": "2025-11-14",
+  "period": "daily",
+  "status": "MAPPED_NEW_EVENT_CATEGORY_NOT_PARAMETER_FITTING",
+  "image_sha256": "2019ff83fa5b0e899b0285f44990d0de1f6c7e65e6b2e70906d185e9199b8045",
+  "dimensions": [
+    2818,
+    1088
+  ],
+  "prior_lecture_audit_sha256": "7d0adbefacb3bd961dbdb805a5149c540f2f70396d87a43564a0a37b59b3ee65",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "source_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+  "fixture_sha256": "ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad",
+  "observations": [
+    {
+      "text": "钝化",
+      "color": "yellow",
+      "text_left_x": 1443,
+      "mapped_date": "2025-11-10",
+      "role": "existing_context_anchor_only",
+      "anchor_distance_px": 1,
+      "date_evidence": "mapped_not_cursor_readout",
+      "semantic_evidence": "Nov14 lecture explicitly distinguishes structure disappearance"
+    },
+    {
+      "text": "结构形成",
+      "color": "magenta",
+      "text_left_x": 1540,
+      "mapped_date": "2025-11-11",
+      "role": "existing_context_anchor_only",
+      "anchor_distance_px": 0,
+      "date_evidence": "mapped_not_cursor_readout",
+      "semantic_evidence": "Nov14 lecture explicitly distinguishes structure disappearance"
+    },
+    {
+      "text": "消失",
+      "color": "green",
+      "text_left_x": 1729,
+      "mapped_date": "2025-11-13",
+      "role": "new_structure_disappearance_category",
+      "anchor_distance_px": 3,
+      "date_evidence": "mapped_not_cursor_readout",
+      "semantic_evidence": "Nov14 lecture explicitly distinguishes structure disappearance"
+    }
+  ],
+  "original_pixel_bar_centers": [
+    [
+      "2025-11-06",
+      1252
+    ],
+    [
+      "2025-11-07",
+      1348
+    ],
+    [
+      "2025-11-10",
+      1444
+    ],
+    [
+      "2025-11-11",
+      1540
+    ],
+    [
+      "2025-11-12",
+      1636
+    ],
+    [
+      "2025-11-13",
+      1732
+    ],
+    [
+      "2025-11-14",
+      1828
+    ]
+  ],
+  "source_line_range": [
+    32,
+    37
+  ],
+  "software_terminal_readout": {
+    "open": 4007.13,
+    "high": 4034.08,
+    "low": 3990.31,
+    "close": 3990.49,
+    "dif": 34.363,
+    "dea": 36.454,
+    "hist": -4.181
+  },
+  "terminal_ohlc_checks": {
+    "open": true,
+    "high": true,
+    "low": true,
+    "close": true
+  },
+  "displayed_hist_identity_residual": 0.0010000000000021103,
+  "saved_daily_fixture_recent_rows": [
+    {
+      "trade_date": "2025-11-06",
+      "open": "3973.3493",
+      "high": "4008.7991",
+      "low": "3973.3493",
+      "close": "4007.7599"
+    },
+    {
+      "trade_date": "2025-11-07",
+      "open": "3994.3167",
+      "high": "4012.0054",
+      "low": "3993.6910",
+      "close": "3997.5557"
+    },
+    {
+      "trade_date": "2025-11-10",
+      "open": "4001.7939",
+      "high": "4018.6958",
+      "low": "3990.8359",
+      "close": "4018.5972"
+    },
+    {
+      "trade_date": "2025-11-11",
+      "open": "4023.8770",
+      "high": "4024.9390",
+      "low": "3991.5156",
+      "close": "4002.7576"
+    },
+    {
+      "trade_date": "2025-11-12",
+      "open": "3996.5648",
+      "high": "4020.3775",
+      "low": "3980.6756",
+      "close": "4000.1396"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "open": "3996.5143",
+      "high": "4030.3983",
+      "low": "3994.7712",
+      "close": "4029.5012"
+    },
+    {
+      "trade_date": "2025-11-14",
+      "open": "4007.1258",
+      "high": "4034.0786",
+      "low": "3990.3074",
+      "close": "3990.4921"
+    }
+  ],
+  "variants": [
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 0.75,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 1.2,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 0.75,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "recovered_rounded_seed",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 1.2,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708156611,
+          "hist": -1.492214262150469,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648589764,
+          "hist": 0.3410436372100776,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.36288417891001,
+          "hist": -4.180928781412149,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "recovered_rounded_seed",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0014430746819797946,
+          "hist": 0.0014684856969466864
+        },
+        "seed_last_errors": {
+          "dif": 4.8320669904455826e-05,
+          "hist": 0.00037465051951290906
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.6508231818076577,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.36288417891001,
+          "software_minus_derived": 0.0001158210899916412,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856961608,
+          "software_minus_derived": 0.0006514303839182389,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928781412149,
+          "software_minus_derived": -7.121858785108515e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 0.75,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "nearest_qualifying",
+      "gate_pct": 1.2,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 0.75,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    },
+    {
+      "initialization": "fixture_first_close",
+      "reference_policy": "strongest_eligible",
+      "gate_pct": 1.2,
+      "window": [
+        {
+          "time": "2025-11-11",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "ref_start": "2025-10-24",
+          "close": 4002.7576,
+          "dif": 37.426,
+          "hist": 0.612,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_turn",
+          "event_ref_start": "2025-10-24",
+          "event_ref_dif": 42.86,
+          "event_ref_price": 4016.331
+        },
+        {
+          "time": "2025-11-12",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4000.1396,
+          "dif": 36.18722708102496,
+          "hist": -1.4922142616395604,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-13",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 4029.5012,
+          "dif": 37.14648648539651,
+          "hist": 0.3410436376828301,
+          "wave_sign": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        },
+        {
+          "time": "2025-11-14",
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "ref_start": "",
+          "close": 3990.4921,
+          "dif": 34.362884178446166,
+          "hist": -4.180928780974284,
+          "wave_sign": -1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "event_ref_price": null
+        }
+      ],
+      "derivation": {
+        "mode": "fixture_first_close",
+        "seed_rows_kept_verbatim": 207,
+        "added_rows": 3,
+        "seed_reconstruction_max_abs_errors": {
+          "close": 0.0,
+          "dif": 0.0004988471381803805,
+          "hist": 0.0004965759908905909
+        },
+        "seed_last_errors": {
+          "dif": 4.8320085099362586e-05,
+          "hist": 0.0003746510708372286
+        },
+        "status": "DERIVED_NOT_SOFTWARE_NUMERIC_HISTORY"
+      },
+      "nov13_dif_rise_pct": 2.650823181957884,
+      "terminal_numeric": {
+        "dif": {
+          "software": 34.363,
+          "derived": 34.362884178446166,
+          "software_minus_derived": 0.0001158215538339391,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        },
+        "dea": {
+          "software": 36.454,
+          "derived": 36.45334856893331,
+          "software_minus_derived": 0.0006514310666929646,
+          "nearest_three_decimal_match": false,
+          "within_conservative_one_display_unit": true
+        },
+        "hist": {
+          "software": -4.181,
+          "derived": -4.180928780974284,
+          "software_minus_derived": -7.121902571594063e-05,
+          "nearest_three_decimal_match": true,
+          "within_conservative_one_display_unit": true
+        }
+      },
+      "old_candidate_matches_new_disappearance_event": false
+    }
+  ],
+  "prefix_checks": 48,
+  "comparisons": {
+    "candidate_state_clear_on_nov12_equals_marker": "NOT_MATCHED_UNDER_MAPPED_ANCHOR",
+    "DIF_rise_vs_histogram_return": "NOT_DISTINGUISHED_BOTH_ON_NOV13",
+    "DIF_above_structure_bar_or_original_reference": "NOT_MATCHED_ON_SAVED_NUMERICAL_PATH",
+    "historical_structure_disappearance_requires_separate_tracking": "SUPPORTED_THIS_CASE_OLD_STATE_ALREADY_NONE",
+    "daily_disappearance_closes_defensive_episode": "NOT_SUPPORTED_AUTHOR_CORRECTION_STILL_FAR",
+    "daily_disappears_again_on_nov14": "NO_NEW_VISIBLE_MARKER_NOT_PROOF_OF_FULL_STATE"
+  },
+  "tally": {
+    "screenshots": 38,
+    "legacy_software_labels_unchanged": 52,
+    "new_mapped_structure_disappearance_observations": 1,
+    "context_anchors_not_counted_again": 2,
+    "new_daily_terminal_readouts": 1,
+    "legacy_minute_terminal_readouts_unchanged": 21
+  },
+  "next_step": "Freeze contrasting dates where upward DIF turn and histogram return occur on different bars before requesting one more source",
+  "limitations": [
+    "Text anchors are manually mapped; no cursor date or original software export",
+    "Red annotations overlap the green text; software marker identity uses the matching lecture",
+    "Nov12/13 historical software indicator values remain unobserved",
+    "DIF and histogram round to terminal display, DEA differs by less than one display unit but does not round identically",
+    "One terminal readout does not certify the entire numerical history",
+    "No formula, gate, correction-period join, final holdings or trade performance identified"
+  ]
+}

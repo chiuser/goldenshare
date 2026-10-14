@@ -1,0 +1,466 @@
+{
+  "research_date": "2026-10-12",
+  "source_sha256": "77976dae557321395bdc7e54b83438a1378fa97e2afc33597ef0156b2b7a4815",
+  "frozen_request_sha256": "b7f5e42984bca51505a9a63a74883e94058d97a06a67b06d87171d8f75efa821",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "input120": {
+    "path": "reports/xxm_macd_structure_20261011/discrimination_screen_20261012/derived_120.csv",
+    "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+  },
+  "source_claims": [
+    {
+      "key": "date",
+      "line": 1,
+      "marker": "今天是2025年的7月3号",
+      "interpretation": "Source date explicitly spoken; malformed prefixes not verified audio times"
+    },
+    {
+      "key": "dull_still_generic",
+      "line": 23,
+      "marker": "动画也没有消失",
+      "interpretation": "Generic current dulling not disappeared; chart/period not specified here"
+    },
+    {
+      "key": "structure_not_guaranteed_decline",
+      "line": 24,
+      "marker": "也不是说所有的结构都是一定会下跌",
+      "interpretation": "Separates standard-following from guaranteed future decline"
+    },
+    {
+      "key": "correction_standard",
+      "line": 42,
+      "marker": "就是纠错一定要有标准啊",
+      "interpretation": "Correction uses standards; a modest rise alone does not imply buyback"
+    },
+    {
+      "key": "120_next3460",
+      "line": 45,
+      "marker": "今天收盘3461 明天跌到3460",
+      "interpretation": "Explicit120 approximate future-price structure condition, not exact software boundary"
+    },
+    {
+      "key": "120_flat",
+      "line": 51,
+      "marker": "今天和昨天的DF值数值是一样的",
+      "interpretation": "Oral flat/equal description; no software historical numbers or rounding rule recovered"
+    },
+    {
+      "key": "120_flat_level_ambiguous",
+      "line": 52,
+      "marker": "动画的级别无法测算",
+      "interpretation": "Flat path makes extrapolative dulling-level calculation unreliable; no universal rule never to cancel"
+    },
+    {
+      "key": "90_structure_shown",
+      "line": 54,
+      "marker": "90分钟啊 结构形成在这是吧",
+      "interpretation": "Author explicitly shows90 historical structure, but no formation/disappearance bar date"
+    },
+    {
+      "key": "no_whole_correction",
+      "line": 80,
+      "marker": "还没有进行纠错",
+      "interpretation": "Whole defense not corrected by current close; not proof that every individual structure remains"
+    },
+    {
+      "key": "120_repeat_forecast",
+      "line": 141,
+      "marker": "今天是3,461 明天到3,460",
+      "interpretation": "Repeats120 conditional scenario, not another independent forecast sample"
+    },
+    {
+      "key": "dull_correction",
+      "line": 145,
+      "marker": "这是减仓所应对的纠错的标准",
+      "interpretation": "Dulling disappearance is named as a correction standard; correction-period AND/OR not given"
+    },
+    {
+      "key": "low_not_immediate",
+      "line": 147,
+      "marker": "低点它需要一段时间",
+      "interpretation": "Immediate large negative candle alone does not identify a bottom; no fixed waiting duration"
+    }
+  ],
+  "frozen90_predictions": {
+    "price_only": "2025-07-03 14:00:00",
+    "price_and_dif": "2025-07-03 14:00:00",
+    "price_and_positive_hist": "2025-07-04 14:00:00",
+    "price_dif_and_positive_hist": "2025-07-04 14:00:00"
+  },
+  "observation90": {
+    "author_shows_historical_structure": true,
+    "formation_time_confirmed": false,
+    "structure_disappearance_confirmed": false,
+    "positive_hist_requirement_identified": false,
+    "classification": "UNSCORED_NO_PERIOD_SPECIFIC_DISAPPEARANCE_CLAIM",
+    "whole_correction": false,
+    "whole_correction_does_not_label_individual_structure": true
+  },
+  "next120_dif_line": {
+    "slope": 0.07977207977207978,
+    "intercept": -257.34987628590403,
+    "ema26_from_saved_prefix": 3426.9053942423357,
+    "assumption": "One standard EMA12/26 next-bar update; DEA EMA9; not original software state",
+    "latest": {
+      "time": "2025-07-03 15:00:00",
+      "close": 3461.1506,
+      "dif": 18.93449313950532,
+      "hist": 2.952852016967732
+    },
+    "previous": {
+      "time": "2025-07-03 11:30:00",
+      "close": 3457.357,
+      "dif": 18.89034366954411,
+      "hist": 3.6027660812872426
+    },
+    "next_real_consistency_residual": -3.410605131648481e-13,
+    "next_real_used_only_for_independent_hindsight_check": true
+  },
+  "variants120": [
+    {
+      "policy": "nearest_qualifying",
+      "gate_pct": 0.75,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3461.641736254604,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3461.6317362546038,
+          "dif": 18.791686720161294,
+          "hist": 2.133791342623745,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 0.7542130559918295
+        },
+        {
+          "close": 3461.651736254604,
+          "dif": 18.793282161756736,
+          "hist": 2.1363440491764507,
+          "event": "NONE",
+          "dif_decline_pct": 0.7457869440083387
+        }
+      ]
+    },
+    {
+      "policy": "nearest_qualifying",
+      "gate_pct": 1.0,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3461.0483427642503,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "NONE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3461.03834276425,
+          "dif": 18.744350487312545,
+          "hist": 2.0580533700657426,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.0042130559917575
+        },
+        {
+          "close": 3461.0583427642505,
+          "dif": 18.745945928908043,
+          "hist": 2.060606076618541,
+          "event": "NONE",
+          "dif_decline_pct": 0.9957869440079664
+        }
+      ]
+    },
+    {
+      "policy": "nearest_qualifying",
+      "gate_pct": 1.2,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3460.5736279719667,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "NONE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3460.5636279719665,
+          "dif": 18.706481501033522,
+          "hist": 1.997462992019308,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.2042130559918198
+        },
+        {
+          "close": 3460.583627971967,
+          "dif": 18.708076942628963,
+          "hist": 2.000015698572014,
+          "event": "NONE",
+          "dif_decline_pct": 1.195786944008329
+        }
+      ]
+    },
+    {
+      "policy": "strongest_eligible",
+      "gate_pct": 0.75,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3461.641736254604,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3461.6317362546038,
+          "dif": 18.791686720161294,
+          "hist": 2.133791342623745,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 0.7542130559918295
+        },
+        {
+          "close": 3461.651736254604,
+          "dif": 18.793282161756736,
+          "hist": 2.1363440491764507,
+          "event": "NONE",
+          "dif_decline_pct": 0.7457869440083387
+        }
+      ]
+    },
+    {
+      "policy": "strongest_eligible",
+      "gate_pct": 1.0,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3461.0483427642503,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "NONE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3461.03834276425,
+          "dif": 18.744350487312545,
+          "hist": 2.0580533700657426,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.0042130559917575
+        },
+        {
+          "close": 3461.0583427642505,
+          "dif": 18.745945928908043,
+          "hist": 2.060606076618541,
+          "event": "NONE",
+          "dif_decline_pct": 0.9957869440079664
+        }
+      ]
+    },
+    {
+      "policy": "strongest_eligible",
+      "gate_pct": 1.2,
+      "latest": {
+        "time": "2025-07-03 15:00:00",
+        "event": "NONE",
+        "state": "DULL",
+        "wave_count": 16,
+        "ref_start": "2025-05-06 11:30:00",
+        "close": 3461.1506,
+        "dif": 18.93449313950532,
+        "hist": 2.952852016967732,
+        "wave_sign": 1,
+        "event_direction": 0,
+        "event_route": "",
+        "event_ref_start": "",
+        "event_ref_dif": null,
+        "event_ref_price": null
+      },
+      "boundary": 3460.5736279719667,
+      "next_scenarios": [
+        {
+          "close": 3460.0,
+          "dif": 18.66151972549204,
+          "hist": 1.925524151152942,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.4416726764327359
+        },
+        {
+          "close": 3461.1506,
+          "dif": 18.753305480477763,
+          "hist": 2.072381359130091,
+          "event": "NONE",
+          "dif_decline_pct": 0.9569184540225357
+        },
+        {
+          "close": 3460.5636279719665,
+          "dif": 18.706481501033522,
+          "hist": 1.997462992019308,
+          "event": "STRUCTURE",
+          "dif_decline_pct": 1.2042130559918198
+        },
+        {
+          "close": 3460.583627971967,
+          "dif": 18.708076942628963,
+          "hist": 2.000015698572014,
+          "event": "NONE",
+          "dif_decline_pct": 1.195786944008329
+        }
+      ]
+    }
+  ],
+  "scenario_checks": 24,
+  "forecast_assessment": "3460 gives STRUCTURE in all six unchanged variants; sufficient scenario fits, not unique gate or exact minimum sell threshold",
+  "flat_price_counterfactual": {
+    "price": 3461.1506,
+    "results": [
+      {
+        "close": 3461.1506,
+        "dif": 18.753305480477763,
+        "hist": 2.072381359130091,
+        "event": "STRUCTURE",
+        "dif_decline_pct": 0.9569184540225357
+      },
+      {
+        "close": 3461.1506,
+        "dif": 18.753305480477763,
+        "hist": 2.072381359130091,
+        "event": "NONE",
+        "dif_decline_pct": 0.9569184540225357
+      },
+      {
+        "close": 3461.1506,
+        "dif": 18.753305480477763,
+        "hist": 2.072381359130091,
+        "event": "NONE",
+        "dif_decline_pct": 0.9569184540225357
+      }
+    ],
+    "limitation": "Never observed as software event; distinguishes diagnostic gates only. No claim author said flat price cannot form a structure."
+  },
+  "old_files_preserved": 199,
+  "new_software_labels": 0,
+  "next_step": "July3 transcript request satisfied; if obtaining one image, target its90 chart shown around literal9:51 to identify historical labels, without assuming those malformed prefixes are verified timestamps. No new date or threshold fitting.",
+  "limitations": [
+    "Generic dulling not disappeared cannot label90 structure withdrawal",
+    "Mentioning90 structure on chart does not establishJuly2 14:00 anchor",
+    "Rounded3461/3460 speech gives no claimed necessary-and-sufficient price cutoff",
+    "DF flat/equal speech has no precise historical software readout",
+    "No original cancellation formula, correction AND/OR, reference expiry or automatic trading identified"
+  ]
+}

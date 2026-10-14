@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
+import { XxmLayerStatus, XxmResearchDetails } from "../xxm/XxmLayerUi";
+import type { XxmLayerState } from "../xxm/types";
 import type { UTCTimestamp } from "lightweight-charts";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
@@ -51,6 +54,8 @@ function LoadedIndexMinuteChart({
   const points = useMemo(() => data.points.map(toDetailChartPoint), [data.points]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : buildBollLines(), [overlay]);
   const dataKey = `index:${data.tsCode}:m${data.freq}`;
+  const xxm = useIndexXxmLayer({ tsCode: data.tsCode, period: `m${data.freq}`, points,
+    indicatorVersion: data.indicatorVersion, indicatorsPending: phase === "loading" });
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
 
   return (
@@ -68,11 +73,12 @@ function LoadedIndexMinuteChart({
       )}
       mainLines={mainLines}
       mainPrimitives={nineTurnChartLayer.mainPrimitives}
+      macdPrimitives={xxm.macdPrimitives}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
       points={points}
       renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}
-      renderPanelHeader={(panel, point) => <IndexMinutePanelHeader panel={panel} point={point} />}
-      renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} />}
+      renderPanelHeader={(panel, point) => <><IndexMinutePanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
+      renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} xxm={xxm} />}
       timeAxisAriaLabel="指数分钟底部时间轴"
       timeMode="minute"
     />
@@ -172,7 +178,7 @@ function IndexMinuteIndicatorBar({
   </div>;
 }
 
-function IndexMinuteTooltip({ point, side }: { point: DetailChartPoint; side: DetailChartTooltipSide }) {
+function IndexMinuteTooltip({ point, side, xxm }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState }) {
   const rows = [
     ["时间", formatMinuteTradeTime(point.fullDate), "secondary"],
     ["开盘", format(point.open), "flat"],
@@ -184,7 +190,7 @@ function IndexMinuteTooltip({ point, side }: { point: DetailChartPoint; side: De
   ];
   return <div aria-label="指数分钟K线数据提示" className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">
     {rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}
-  </div></div>;
+  </div><XxmResearchDetails layer={xxm} time={String(point.time)} /></div>;
 }
 
 function IndexMinuteModuleState({

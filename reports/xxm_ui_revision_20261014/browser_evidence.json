@@ -1,0 +1,1603 @@
+{
+  "asOf": "2026-10-14",
+  "figmaNode": "2010:2173",
+  "pageUrl": "http://127.0.0.1:5175/wealth/market/index/000001.SH",
+  "frames": [
+    {
+      "name": "day_1440",
+      "viewport": [
+        1440,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 3.590476190476238,
+              "y": 9.39856746765247,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 31.13333333333344,
+              "y": 3.2042599438625246,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 407.552380952381,
+              "y": 105.61434586157321,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 425.9142857142857,
+              "y": 110.58840795509002,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 444.27619047619055,
+              "y": 138.12489730950912,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 453.4571428571429,
+              "y": 148.58942630245772,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 903.3238095238096,
+              "y": 82.48706099815156,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 912.504761904762,
+              "y": 88.87772985554871,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 15.590476190476238,
+              "y": 23.39856746765247,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 43.13333333333344,
+              "y": 17.204259943862525,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 371.552380952381,
+              "y": 99.61434586157321,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 389.9142857142857,
+              "y": 124.58840795509002,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 408.27619047619055,
+              "y": 76.12489730950912,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 417.4571428571429,
+              "y": 50.589426302457724,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 867.3238095238096,
+              "y": 76.48706099815156,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 876.504761904762,
+              "y": 102.87772985554871,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 964,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 6,
+            "rightLabels": 2,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "day_1280",
+      "viewport": [
+        1280,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 273.6777777777777,
+              "y": 95.62856764577936,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 292.29999999999995,
+              "y": 100.83029449036334,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 310.9222222222222,
+              "y": 129.6271396417696,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 320.23333333333335,
+              "y": 140.57063418509202,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 776.4777777777778,
+              "y": 71.44273798490667,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 785.7888888888889,
+              "y": 78.12591023434398,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 237.6777777777777,
+              "y": 89.62856764577936,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 256.29999999999995,
+              "y": 114.83029449036334,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 274.9222222222222,
+              "y": 67.62713964176959,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 284.23333333333335,
+              "y": 42.57063418509202,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 740.4777777777778,
+              "y": 65.44273798490667,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 749.7888888888889,
+              "y": 92.12591023434398,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 838,
+          "height": 142,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 6,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "day_1600",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 144.18333333333328,
+              "y": 9.39856746765247,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 172.2833333333333,
+              "y": 3.2042599438625246,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 556.3166666666666,
+              "y": 105.61434586157321,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 575.05,
+              "y": 110.58840795509002,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 593.7833333333333,
+              "y": 138.12489730950912,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 603.15,
+              "y": 148.58942630245772,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 1062.1166666666666,
+              "y": 82.48706099815156,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1071.4833333333333,
+              "y": 88.87772985554871,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 108.18333333333328,
+              "y": 23.39856746765247,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 136.2833333333333,
+              "y": 35.204259943862525,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 520.3166666666666,
+              "y": 99.61434586157321,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 539.05,
+              "y": 124.58840795509002,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 557.7833333333333,
+              "y": 76.12489730950912,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 567.15,
+              "y": 50.589426302457724,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 1026.1166666666666,
+              "y": 76.48706099815156,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 1035.4833333333333,
+              "y": 102.87772985554871,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 8,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "m60_1600",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 865.4166666666666,
+              "y": 80.70247680885913,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 893.5166666666667,
+              "y": 123.87865067792711,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 1005.9166666666666,
+              "y": 121.99331132814297,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1024.65,
+              "y": 142.2746564653075,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 1099.5833333333333,
+              "y": 124.53114435672775,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1108.95,
+              "y": 116.98058511300007,
+              "radius": 4,
+              "color": "#a78bfa"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 829.4166666666666,
+              "y": 74.70247680885913,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 857.5166666666667,
+              "y": 117.87865067792711,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 969.9166666666666,
+              "y": 115.99331132814297,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 988.6500000000001,
+              "y": 80.27465646530749,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 1063.5833333333333,
+              "y": 118.53114435672775,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 1072.95,
+              "y": 90.98058511300007,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 6,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "m90_1600",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 162.91666666666663,
+              "y": 27.17496845899703,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 172.2833333333333,
+              "y": 38.284088949316015,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 930.9833333333333,
+              "y": 98.84982076346313,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 959.0833333333333,
+              "y": 133.52226248296154,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 126.91666666666663,
+              "y": 21.17496845899703,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 136.2833333333333,
+              "y": 52.284088949316015,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 894.9833333333333,
+              "y": 92.84982076346313,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 923.0833333333333,
+              "y": 127.52226248296154,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 4,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "m120_1600",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 3.6833333333331666,
+              "y": 110.81525719975336,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 809.2166666666667,
+              "y": 62.217668039277754,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 818.5833333333333,
+              "y": 66.77188164678297,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 1005.9166666666666,
+              "y": 77.0653789032195,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1015.2833333333333,
+              "y": 83.16449966098644,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "取消",
+              "x": 15.683333333333167,
+              "y": 104.81525719975336,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 773.2166666666667,
+              "y": 56.217668039277754,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 782.5833333333333,
+              "y": 80.77188164678297,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 969.9166666666666,
+              "y": 71.0653789032195,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 979.2833333333333,
+              "y": 97.16449966098644,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 4,
+            "rightLabels": 1,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "m120_zoom_out",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 78.09629629629626,
+              "y": 96.27382974601505,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 86.42222222222222,
+              "y": 91.01011527523438,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 103.07407407407402,
+              "y": 84.62247388569256,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 128.0518518518519,
+              "y": 110.81525719975336,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 844.0814814814814,
+              "y": 62.217668039277754,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 852.4074074074074,
+              "y": 66.77188164678297,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 1018.9259259259259,
+              "y": 77.0653789032195,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1027.2518518518518,
+              "y": 83.16449966098644,
+              "radius": 4,
+              "color": "#9ba8bc"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 42.09629629629626,
+              "y": 90.27382974601505,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 50.42222222222222,
+              "y": 123.0101152752344,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 67.07407407407402,
+              "y": 58.62247388569256,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 92.0518518518519,
+              "y": 104.81525719975336,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 808.0814814814814,
+              "y": 56.217668039277754,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 816.4074074074074,
+              "y": 80.77188164678297,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 982.9259259259259,
+              "y": 71.0653789032195,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "取消",
+              "x": 991.2518518518518,
+              "y": 97.16449966098644,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 8,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "same_bar_m90_1600",
+      "viewport": [
+        1600,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 50.51666666666665,
+              "y": 146.76019708111485,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 59.88333333333321,
+              "y": 135.65306643161554,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 378.3499999999999,
+              "y": 47.687355359758385,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 387.7166666666666,
+              "y": 43.909615269155694,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 696.8166666666666,
+              "y": 18.492045062955867,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 715.55,
+              "y": 19.099616466845504,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 781.1166666666667,
+              "y": 30.287974596921927,
+              "radius": 4,
+              "color": "#15c784"
+            },
+            {
+              "x": 949.7166666666667,
+              "y": 50.19889195000758,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 987.1833333333334,
+              "y": 42.74500913243901,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 1005.9166666666666,
+              "y": 44.46255186270997,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1015.2833333333333,
+              "y": 47.19882559656672,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 1052.75,
+              "y": 40.396102508049765,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1062.1166666666666,
+              "y": 40.80716567133068,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 1090.2166666666667,
+              "y": 48.6693693074366,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 1099.5833333333333,
+              "y": 42.32696740412466,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 1099.5833333333333,
+              "y": 42.32696740412466,
+              "radius": 4,
+              "color": "#15c784"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 14.516666666666652,
+              "y": 120.76019708111485,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 23.883333333333212,
+              "y": 91.65306643161554,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 342.3499999999999,
+              "y": 41.687355359758385,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "消失",
+              "x": 351.7166666666666,
+              "y": 17.909615269155694,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 660.8166666666666,
+              "y": 12.492045062955867,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 679.55,
+              "y": 33.099616466845504,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "结构消失",
+              "x": 721.1166666666667,
+              "y": 44.28797459692193,
+              "width": 48,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#15c784"
+            },
+            {
+              "text": "钝化",
+              "x": 913.7166666666667,
+              "y": 44.19889195000758,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 951.1833333333334,
+              "y": 16.74500913243901,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 969.9166666666666,
+              "y": 58.46255186270997,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 979.2833333333333,
+              "y": 21.19882559656672,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 1016.75,
+              "y": 14.396102508049765,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 1026.1166666666666,
+              "y": 54.80716567133068,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 1054.2166666666667,
+              "y": 62.6693693074366,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 1063.5833333333333,
+              "y": 92.32696740412466,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "结构消失",
+              "x": 1039.5833333333333,
+              "y": 110.32696740412466,
+              "width": 48,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#15c784"
+            }
+          ],
+          "width": 1124,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 16,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "same_bar_m90_1440",
+      "viewport": [
+        1440,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 233.11428571428576,
+              "y": 75.07844037829794,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 242.29523809523812,
+              "y": 69.1308085161972,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 545.2666666666667,
+              "y": 29.11366948865259,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 563.6285714285714,
+              "y": 30.0702231301443,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 627.8952380952381,
+              "y": 47.68504937628242,
+              "radius": 4,
+              "color": "#15c784"
+            },
+            {
+              "x": 793.152380952381,
+              "y": 79.03257557255237,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 829.8761904761905,
+              "y": 67.2972656044536,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 848.2380952380952,
+              "y": 70.00134572168827,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 857.4190476190477,
+              "y": 74.30930456814228,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 894.1428571428571,
+              "y": 63.59917321449032,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 903.3238095238096,
+              "y": 64.2463464738014,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 930.8666666666667,
+              "y": 76.62451218423485,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 940.047619047619,
+              "y": 66.63910537019211,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 940.047619047619,
+              "y": 66.63910537019211,
+              "radius": 4,
+              "color": "#15c784"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 197.11428571428576,
+              "y": 69.07844037829794,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "消失",
+              "x": 206.29523809523812,
+              "y": 43.130808516197206,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 509.26666666666665,
+              "y": 23.11366948865259,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 527.6285714285714,
+              "y": 44.0702231301443,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "结构消失",
+              "x": 567.8952380952381,
+              "y": 41.68504937628242,
+              "width": 48,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#15c784"
+            },
+            {
+              "text": "钝化",
+              "x": 757.152380952381,
+              "y": 73.03257557255237,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 793.8761904761905,
+              "y": 41.2972656044536,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 812.2380952380952,
+              "y": 8.001345721688267,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 821.4190476190477,
+              "y": 30.30930456814228,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 858.1428571428571,
+              "y": 37.59917321449032,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 867.3238095238096,
+              "y": 78.2463464738014,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 894.8666666666667,
+              "y": 90.62451218423485,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "+2",
+              "x": 912.274181547619,
+              "y": 116.63910537019211,
+              "width": 15.7734375,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 964,
+          "height": 150,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 13,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "same_bar_m90_1280",
+      "viewport": [
+        1280,
+        1200
+      ],
+      "horizontalOverflow": false,
+      "layer": "xxm-layer-status ready",
+      "frames": [
+        {
+          "dots": [
+            {
+              "x": 96.76666666666665,
+              "y": 71.0473831767786,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 106.07777777777767,
+              "y": 65.41908725358259,
+              "radius": 4,
+              "color": "#9ba8bc"
+            },
+            {
+              "x": 413.34444444444443,
+              "y": 27.5505194489934,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 431.96666666666664,
+              "y": 28.455714505707036,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 497.14444444444445,
+              "y": 45.12477826883102,
+              "radius": 4,
+              "color": "#15c784"
+            },
+            {
+              "x": 664.7444444444444,
+              "y": 74.78921581026769,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 701.9888888888888,
+              "y": 63.68398959884534,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 720.6111111111111,
+              "y": 66.24288420642984,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 729.9222222222222,
+              "y": 70.31954324904738,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 767.1666666666666,
+              "y": 60.18445250498749,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 776.4777777777778,
+              "y": 60.79687820675166,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 804.4111111111112,
+              "y": 72.51044441595377,
+              "radius": 4,
+              "color": "#f59e0b"
+            },
+            {
+              "x": 813.7222222222222,
+              "y": 63.061166826826096,
+              "radius": 4,
+              "color": "#a78bfa"
+            },
+            {
+              "x": 813.7222222222222,
+              "y": 63.061166826826096,
+              "radius": 4,
+              "color": "#15c784"
+            }
+          ],
+          "labels": [
+            {
+              "text": "钝化",
+              "x": 60.76666666666665,
+              "y": 65.0473831767786,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "消失",
+              "x": 70.07777777777767,
+              "y": 39.41908725358259,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            },
+            {
+              "text": "钝化",
+              "x": 377.34444444444443,
+              "y": 21.5505194489934,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 395.96666666666664,
+              "y": 42.455714505707036,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "结构消失",
+              "x": 437.14444444444445,
+              "y": 39.12477826883102,
+              "width": 48,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#15c784"
+            },
+            {
+              "text": "钝化",
+              "x": 628.7444444444444,
+              "y": 68.78921581026769,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 665.9888888888888,
+              "y": 37.68398959884534,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 684.6111111111111,
+              "y": 80.24288420642984,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 693.9222222222222,
+              "y": 26.319543249047385,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 731.1666666666666,
+              "y": 34.18445250498749,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "结构",
+              "x": 740.4777777777778,
+              "y": 74.79687820675166,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#a78bfa"
+            },
+            {
+              "text": "钝化",
+              "x": 768.4111111111112,
+              "y": 86.51044441595377,
+              "width": 24,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#f59e0b"
+            },
+            {
+              "text": "+2",
+              "x": 785.9487847222222,
+              "y": 113.0611668268261,
+              "width": 15.7734375,
+              "font": "bold 12px -apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+              "color": "#9ba8bc"
+            }
+          ],
+          "width": 838,
+          "height": 142,
+          "checks": {
+            "font": true,
+            "prefix": false,
+            "clipping": false,
+            "leftLabels": 13,
+            "rightLabels": 0,
+            "radius": true,
+            "labelCollisions": [],
+            "dotOverlap": false
+          }
+        }
+      ]
+    }
+  ],
+  "apiSamples": [
+    {
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-04-08&endDate=2026-10-13&limit=500&freq=60",
+      "status": 200,
+      "period": "m60",
+      "pointCount": 500,
+      "eventCount": 35,
+      "source": "minute_gold",
+      "file": "api_m60.json"
+    },
+    {
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2026-01-29&endDate=2026-10-13&limit=500&freq=90",
+      "status": 200,
+      "period": "m90",
+      "pointCount": 500,
+      "eventCount": 22,
+      "source": "minute_gold",
+      "file": "api_m90.json"
+    },
+    {
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/minute-xxm-signals?tsCode=000001.SH&startDate=2025-09-24&endDate=2026-10-13&limit=500&freq=120",
+      "status": 200,
+      "period": "m120",
+      "pointCount": 500,
+      "eventCount": 21,
+      "source": "minute_gold",
+      "file": "api_m120.json"
+    },
+    {
+      "url": "http://127.0.0.1:5175/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH&startDate=2025-07-16&endDate=2026-10-13&limit=300&period=day",
+      "status": 200,
+      "period": "day",
+      "pointCount": 300,
+      "eventCount": 20,
+      "source": "daily_factor",
+      "file": "api_day.json"
+    }
+  ],
+  "console": [],
+  "sameBar": {
+    "time": "2025-03-14T11:00:00+08:00",
+    "events": [
+      {
+        "id": "82d8ba5d52dfc11251f81ad3",
+        "time": "2025-03-14T11:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "color_flip",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2025-03-11T14:00:00+08:00",
+          "endTime": "2025-03-11T14:00:00+08:00",
+          "price": 3353.5955,
+          "dif": 3.4689746288918286
+        },
+        "relatedTopHistoryId": null
+      },
+      {
+        "id": "955afbadfdae79193033aaaa",
+        "time": "2025-03-14T11:00:00+08:00",
+        "direction": "TOP",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": "historical_price_break",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-02-21T14:00:00+08:00",
+          "endTime": "2025-02-24T14:00:00+08:00",
+          "price": 3379.1128,
+          "dif": 16.96991096691272
+        },
+        "relatedTopHistoryId": "b8f25dda595b28e87851f106"
+      }
+    ],
+    "detailText": "底结构 / 顶结构消失"
+  },
+  "temporaryCanvasMeasurementRemoved": true
+}

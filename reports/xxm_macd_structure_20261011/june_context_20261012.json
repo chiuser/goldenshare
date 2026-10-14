@@ -1,0 +1,581 @@
+{
+  "reviewed_on": "2026-10-12",
+  "method": "RETROSPECTIVE_UNCHANGED_CANDIDATE_CONTEXT_COMPARISON",
+  "software_labels_added": 0,
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "source_hashes": {
+    "60": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "90": "9d3d8130b87a52627637d6bd5987a7040ce9dd6061858c9b934fcf19931a357a",
+    "120": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+  },
+  "transcript_hashes": {
+    "20260608": "6d8d5eebb566c2bbf8b950d4d81eae3f74489fb43c02b380c8629f740b8f7d13",
+    "20260609": "110f03db75bf5c4c1424b0ad5fd04794a5a6bfc460ed311a2be1f5d369cad0fe"
+  },
+  "series": {
+    "60": {
+      "origin": "SAVED_DG",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        }
+      ],
+      "baseline_gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2026-06-05 10:30:00",
+          "close": 4067.2349,
+          "dif": -9.436939482186062,
+          "hist": 1.1434877428464674,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 11,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 11:30:00",
+          "close": 4075.3147,
+          "dif": -8.484485187550945,
+          "hist": 2.438717065693364,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 12,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 14:00:00",
+          "close": 4049.691,
+          "dif": -9.68562686340556,
+          "hist": 0.029146971187312687,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 13,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 15:00:00",
+          "close": 4027.736,
+          "dif": -12.267710776245167,
+          "hist": -4.108016683593522,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-08 10:30:00",
+          "close": 3996.1782,
+          "dif": -16.6683393600797,
+          "hist": -10.327419081010067,
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_dif": -18.280048170076952,
+          "event_ref_start": "2026-05-27 14:00:00"
+        },
+        {
+          "time": "2026-06-08 11:30:00",
+          "close": 3976.8274,
+          "dif": -21.46982626353747,
+          "hist": -15.94431431034048,
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "event_direction": -1,
+          "event_route": "dif_break",
+          "event_ref_dif": -18.280048170076952,
+          "event_ref_start": "2026-05-27 14:00:00"
+        },
+        {
+          "time": "2026-06-08 14:00:00",
+          "close": 3949.099,
+          "dif": -27.198956729056135,
+          "hist": -21.922060193102254,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-08 15:00:00",
+          "close": 3959.338,
+          "dif": -30.56084576353487,
+          "hist": -22.91667060964778,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 5,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 10:30:00",
+          "close": 3973.7266,
+          "dif": -31.69872411517872,
+          "hist": -20.15394185034838,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 6,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 11:30:00",
+          "close": 3979.6765,
+          "dif": -31.754349329541583,
+          "hist": -16.21215382325928,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 7,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 14:00:00",
+          "close": 3986.1802,
+          "dif": -30.91724373590023,
+          "hist": -11.630354108781248,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 8,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 15:00:00",
+          "close": 4010.0308,
+          "dif": -28.00644654730968,
+          "hist": -4.647007785280124,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 9,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        }
+      ]
+    },
+    "90": {
+      "origin": "DERIVED_NOT_SOFTWARE_HISTORY",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        }
+      ],
+      "baseline_gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2026-06-05 11:00:00",
+          "close": 4067.8137,
+          "dif": -13.164869177993296,
+          "hist": 2.146666372317462,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 8,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 14:00:00",
+          "close": 4049.691,
+          "dif": -14.11670179959583,
+          "hist": 0.19440090328991744,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 9,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 15:00:00",
+          "close": 4027.736,
+          "dif": -16.45296152535684,
+          "hist": -3.5824948385856814,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-08 11:00:00",
+          "close": 3996.0566,
+          "dif": -20.62299793129114,
+          "hist": -9.53805412036342,
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "event_direction": -1,
+          "event_route": "activation",
+          "event_ref_dif": -20.83623754551445,
+          "event_ref_start": "2026-05-27 14:00:00"
+        },
+        {
+          "time": "2026-06-08 14:00:00",
+          "close": 3949.099,
+          "dif": -27.401005965213244,
+          "hist": -18.475256150566103,
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "event_direction": -1,
+          "event_route": "dif_break",
+          "event_ref_dif": -20.83623754551445,
+          "event_ref_start": "2026-05-27 14:00:00"
+        },
+        {
+          "time": "2026-06-08 15:00:00",
+          "close": 3959.338,
+          "dif": -31.582362618967636,
+          "hist": -21.470375566459907,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 4,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 11:00:00",
+          "close": 3971.5596,
+          "dif": -33.5234988847983,
+          "hist": -20.282118478496983,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 5,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 14:00:00",
+          "close": 3986.1802,
+          "dif": -33.49598229666253,
+          "hist": -16.181668241780358,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 6,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 15:00:00",
+          "close": 4010.0308,
+          "dif": -31.190091154428956,
+          "hist": -9.255908765850556,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 7,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        }
+      ]
+    },
+    "120": {
+      "origin": "DERIVED_NOT_SOFTWARE_HISTORY",
+      "variants": [
+        {
+          "gate_pct": 0.75,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 0.75,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.0,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "locked",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "dull_before",
+          "same_window_signature": true
+        },
+        {
+          "gate_pct": 1.2,
+          "active_policy": "both_after",
+          "same_window_signature": true
+        }
+      ],
+      "baseline_gate_pct": 1.0,
+      "window": [
+        {
+          "time": "2026-06-05 11:30:00",
+          "close": 4075.3147,
+          "dif": -17.08766117203686,
+          "hist": -0.4272159742799744,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 32,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-05 15:00:00",
+          "close": 4027.736,
+          "dif": -19.896406740405382,
+          "hist": -4.835765688813616,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 33,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-08 11:30:00",
+          "close": 3976.8274,
+          "dif": -25.931336097498843,
+          "hist": -13.524499522400433,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 34,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-08 15:00:00",
+          "close": 3959.338,
+          "dif": -31.759209114053192,
+          "hist": -20.144196444407307,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 35,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 11:30:00",
+          "close": 3979.6765,
+          "dif": -34.34083373825979,
+          "hist": -20.245956554256395,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 36,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        },
+        {
+          "time": "2026-06-09 15:00:00",
+          "close": 4010.0308,
+          "dif": -33.55069993969437,
+          "hist": -14.932551165700438,
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 37,
+          "event_direction": 0,
+          "event_route": "",
+          "event_ref_dif": null,
+          "event_ref_start": ""
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "60-minute input is saved DG; 90/120 are prior research derivations",
+    "60/90 software input and calculation differences remain unresolved",
+    "No supplied software numeric values or exact software event timestamps",
+    "Textual agreement cannot validate unique gate or reference policy",
+    "Red/green wave terminology in the transcript requires image verification"
+  ],
+  "prefix_checks": 120,
+  "all_36_sampled_variants_agree": true
+}

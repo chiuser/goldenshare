@@ -1,0 +1,679 @@
+{
+  "research_date": "2026-10-12",
+  "status": "NEW_SOURCE_CONDITIONAL_MAPPING_NOT_FORMULA_RESTORATION",
+  "source_passages": [
+    {
+      "date": "2026-04-21",
+      "provider": "User supplied full text in current chat",
+      "capture_scope": "Research-relevant verbatim passages only; not a full-transcript archive",
+      "full_supplied_message_reviewed": true,
+      "audio_checked": false,
+      "original_path": null,
+      "passages": [
+        {
+          "id": "daily_sequence",
+          "raw_text": "这是日线的序列\n高9 今天是10是吧\n10高于昨天的9\n序列还在有效范围内\n但是假如说\n890三个序列的收盘价格被后面超越\n它不只是11啊\n121314就后面的周期\n如果任何一个周期超过八九十\n这三个周期所对应的最高收盘\n目前来讲\n最高收盘就是今天\n目前来讲啊\n最高收盘就是今天4085点\n后面的如果超过4085\n则代表日线的序列失效",
+          "raw_excerpt_sha256": "098a694edfd0f3816445e37d59b3756f36ce9eb04e5ef98c23d4991016ecc4dd"
+        },
+        {
+          "id": "sequence_decision",
+          "raw_text": "不追涨\n但是呢也不卖出\n序列呢它不是规则啊\n不是规则",
+          "raw_excerpt_sha256": "56d4c038ef459cbdab7fe2fc7307375490abed1a99e80013dfa1c102b2016680"
+        },
+        {
+          "id": "speed_and_cycles",
+          "raw_text": "所以我们说这个结构的形成\n最主要的判定标准是什么呀\n速度的衰退\n速度的衰退\n从急到缓\n我们分时\n分钟线分时线怎么判\n分钟线也是这么判断\n日线也是这么判断\n各个周期基本上都是这么判断\n但你现在你再去看90分钟和120分钟\n这里是明显没有结构的\n日线也没有",
+          "raw_excerpt_sha256": "d10e5824199e76d581b331e086f14131034126cca77aa385fa08297fb9e634e3"
+        },
+        {
+          "id": "60_context",
+          "raw_text": "今天我们还谈到了那个30分钟是吧\n我说这个60分钟及以下级别的周期\n不要看你看这这次的60分钟\n那个顶部的这个动画\n我们也说不理他\n不理他因为他不是常规结构\n我再解释一遍\n就是这种图形是常规结构啊\n这种图形常规向上的\n就是急涨回调缓涨\n他中间必须得有一个明显回调\n但60分钟你说出这个动画就中\n没有中间的这个回调\n对吧所以它不是常规结构\n所以60分钟\n我们只看60分钟及以上级别的\n就是太小的周期\n没有可操作性",
+          "raw_excerpt_sha256": "9a4e2d5f729736311dfd22177a156ebd2b99f763781c17027170b63182de6731"
+        },
+        {
+          "id": "execution_cost",
+          "raw_text": "你看前些天120分钟的顶部结构\n我们建议大家减\n120分钟这种周期的级别\n买回来的难度就小\n然后日线的顶部结构也见一见\n虽然说没有在最低位买回来\n但是买回来的位置\n仍然比120分钟\n就日线的顶部结构位置要低\n你买回来的难度就就就就小",
+          "raw_excerpt_sha256": "a058ea8b2d74851473cca3b628b5bbd3a5a46f7ea42f8fb7050b3d9e072c3698"
+        },
+        {
+          "id": "small_cycles",
+          "raw_text": "大家看这30分钟\n30分钟这次就这一波上升\n5个顶部结构\n是吧 5个\n所以如果不看60分钟及以下级别的\n你就过滤到不少的日间的杂波",
+          "raw_excerpt_sha256": "bcce2fb228627e9d206980b2c25d14dc9a39b5b375ccec6d1d3d8a4c14ef0393"
+        }
+      ],
+      "limitations": [
+        "Manual passage capture has no original-file byte comparator",
+        "Malformed transcriptions retained, including 动画 and ambiguous60period cutoff wording",
+        "Passage IDs are semantic labels, not video playback timestamps"
+      ]
+    },
+    {
+      "date": "2026-04-23",
+      "provider": "User supplied full text in current chat",
+      "capture_scope": "Research-relevant verbatim passages only; not a full-transcript archive",
+      "full_supplied_message_reviewed": true,
+      "audio_checked": false,
+      "original_path": null,
+      "passages": [
+        {
+          "id": "two_structures_three_reasons",
+          "raw_text": "好今天重点讲60分钟\n重点讲60分钟\n请注意第一次形成结构是在这是吧\n这个周期\n第二次形成结构是这个\n今天这个阴线\n这个周期在这的时候\n我们说这中间是没有回落的\n他都是上升途中\n所以他不是一个常规结构\n价格距离趋势也比较远\n钝化的级别也比较小\n所以我们说60分钟不看\n那么今天形成结构之前\n这的上升跟上一次完全一样\n没有出现回落钝化\n的级别比较小\n价格距离趋势更远了\n所以我在讲第一次做压\n当时还没有形成结构\n我在讲的时候就明确的说了\n为什么60分钟的顶部结构不理\n他说了三大原因",
+          "raw_excerpt_sha256": "236d56fbb8d619f7e20b7d50553c2d4066f0bebafdf57962ab67ba8d86e6e33c"
+        },
+        {
+          "id": "conventional_geometry",
+          "raw_text": "急涨回调缓涨\n下跌急跌\n反弹缓跌\n这都是常规结构\n标准结构\n我这一波他不是",
+          "raw_excerpt_sha256": "8f49498e57add34b4a6d955604a42c2afb89124e94c29ac68ca4f6d3ffa93ade"
+        },
+        {
+          "id": "cycle_close",
+          "raw_text": "盘中的顶部钝化呢\n收盘的时候没了\n这很正常啊\n所以为什么一切尽在收盘\n收盘他就写死了\n就不动了呀\n那盘中他经常他会变啊\n变来变去\n所以我们说不管是结构也好趋\n势也好都得看收盘\n区别就在于趋势呢\n我们只看日线收盘\n但是结构呢\n我们需要看60分钟收盘\n90分钟收盘\n120分钟收盘\n对吧也得等这个周期收盘",
+          "raw_excerpt_sha256": "e94fc67b9bf4de5a5bab6850a4c99315e767f070d14a60ef9f9c7d410f50026b"
+        },
+        {
+          "id": "no_apr22_lecture",
+          "raw_text": "我们昨天因为我有点事啊\n没有参加\n没有讲课\n我去参加葬礼了",
+          "raw_excerpt_sha256": "8c4f63c9baf1081a5a91dbbb6d91722787135b43a330864f4a7dcba39ffb4b98"
+        },
+        {
+          "id": "decision_periods",
+          "raw_text": "对周线也不是关注的重点\n就是它不是我们操作的标准\n操作标准只是4个周期\n60分钟 90分钟\n120分钟日线",
+          "raw_excerpt_sha256": "6077cd4ee31889c896e06908189dfe357844882cf2bc8b07df6e3299a5ca8c7e"
+        },
+        {
+          "id": "presence_vs_operation",
+          "raw_text": "日线没有\n120分钟没有\n90分钟没有\n60分钟呢\n有但是他不常规\n所以建议大家不关注\n等同于没有\n有的时候再说呗",
+          "raw_excerpt_sha256": "e9a0f5f19d5759380176868841f735ca1aeb8a4bd5eb30e48820000a5f7b3f90"
+        },
+        {
+          "id": "scale_reference",
+          "raw_text": "90分钟120分钟\n如果想形成结构\n中间是要有一个回落的\n但这个回落\n并不代表市场进入到下跌周期\n调整周期\n他有可能就是\n连接两个上升途中的那个回落\n如果没有这个回落\n是不是很难形成结构的\n那么回落的级别呢\n可以参考4月初4月2号3号那段时间\n的分钟线\n线段长度应该差不太多\n只有这样的规模\n才够形成构筑结构的标准",
+          "raw_excerpt_sha256": "03330153702856bb188f84250a7c8e4953b453add1e23ad98d3974c9abb2f341"
+        }
+      ],
+      "limitations": [
+        "Manual passage capture has no original-file byte comparator",
+        "Malformed transcriptions retained, including 动画 and ambiguous60period cutoff wording",
+        "Passage IDs are semantic labels, not video playback timestamps"
+      ]
+    }
+  ],
+  "image_source": {
+    "file": "codex-clipboard-72b9927e-452f-4bfc-8502-9e5d3f8a87b2.png",
+    "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-72b9927e-452f-4bfc-8502-9e5d3f8a87b2.png",
+    "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260423_60.png",
+    "bytes": 1974205,
+    "sha256": "4e93d2129a92fb1d13ee4cb4d51bb0a1f7ffd3769172321369555966abe8696e",
+    "image_date": "2026-04-23",
+    "period": "60"
+  },
+  "dimensions": [
+    2814,
+    1100
+  ],
+  "original_image_byte_equal": true,
+  "frozen_predictions_sha256": "85fb9bcf4874a051b9664a67697e3c95da97adf95b5f8ab5734f5f2b8dfd35ca",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "input_sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+  "observations": [
+    {
+      "text": "钝化",
+      "kind": "DULL",
+      "left_x": 1755,
+      "edge_range": [
+        1753,
+        1758
+      ],
+      "time": "2026-04-20 11:30:00",
+      "anchor_distance_px": 0.900000000000091,
+      "confidence": "mapped_not_cursor"
+    },
+    {
+      "text": "结构形成",
+      "kind": "STRUCTURE",
+      "left_x": 1812,
+      "edge_range": [
+        1810,
+        1814
+      ],
+      "time": "2026-04-21 10:30:00",
+      "anchor_distance_px": 0.900000000000091,
+      "confidence": "mapped_not_cursor"
+    },
+    {
+      "text": "消失",
+      "kind": "historical_disappearance",
+      "left_x": 1870,
+      "edge_range": [
+        1868,
+        1872
+      ],
+      "time": "2026-04-21 15:00:00",
+      "anchor_distance_px": 3.7000000000000455,
+      "confidence": "mapped_not_cursor"
+    },
+    {
+      "text": "钝化",
+      "kind": "DULL",
+      "left_x": 1957,
+      "edge_range": [
+        1955,
+        1959
+      ],
+      "time": "2026-04-23 10:30:00",
+      "anchor_distance_px": 1.2999999999999545,
+      "confidence": "mapped_not_cursor"
+    },
+    {
+      "text": "结构形成",
+      "kind": "STRUCTURE",
+      "left_x": 1979.5,
+      "edge_range": [
+        1976,
+        1983
+      ],
+      "time": "2026-04-23 11:30:00",
+      "anchor_distance_px": 2.7999999999999545,
+      "confidence": "mapped_not_cursor"
+    }
+  ],
+  "approximate_bar_centers": [
+    [
+      "2026-04-20 10:30:00",
+      1737.5
+    ],
+    [
+      "2026-04-20 11:30:00",
+      1755.9
+    ],
+    [
+      "2026-04-20 14:00:00",
+      1774.3
+    ],
+    [
+      "2026-04-20 15:00:00",
+      1792.7
+    ],
+    [
+      "2026-04-21 10:30:00",
+      1811.1
+    ],
+    [
+      "2026-04-21 11:30:00",
+      1829.5
+    ],
+    [
+      "2026-04-21 14:00:00",
+      1847.9
+    ],
+    [
+      "2026-04-21 15:00:00",
+      1866.3
+    ],
+    [
+      "2026-04-22 10:30:00",
+      1884.7
+    ],
+    [
+      "2026-04-22 11:30:00",
+      1903.1
+    ],
+    [
+      "2026-04-22 14:00:00",
+      1921.5
+    ],
+    [
+      "2026-04-22 15:00:00",
+      1939.9
+    ],
+    [
+      "2026-04-23 10:30:00",
+      1958.3
+    ],
+    [
+      "2026-04-23 11:30:00",
+      1976.7
+    ],
+    [
+      "2026-04-23 14:00:00",
+      1995.1
+    ],
+    [
+      "2026-04-23 15:00:00",
+      2013.5
+    ]
+  ],
+  "mapping_perturbation_checks": 40,
+  "green_pixel_bounds_native_decode": [
+    1870,
+    848,
+    1910,
+    867
+  ],
+  "mapping_conditions": [
+    "Four60-minute bars per date; terminal23Apr15; last candle centre2013.5, spacing18.4",
+    "Manual text-left-edge convention and original screenshot inspection",
+    "No cursor timestamp, contemporaneous21Apr screenshot or proof of no retrospective marker relocation"
+  ],
+  "identity": {
+    "first_software_structure_supported": true,
+    "author_confirms_two60_structures": true,
+    "green_raw_text": "消失",
+    "green_interpretation": "conditional_historical_structure_withdrawal",
+    "author_explicitly_names_green_as_structure_disappearance": false,
+    "author_three_reasons": [
+      "insufficient connecting pullback",
+      "farther from daily trend",
+      "small dulling level"
+    ],
+    "signals_detected_but_not_operationally_accepted": true
+  },
+  "frozen_prediction_assessment": {
+    "price_only": "compatible_with_mapped21Apr15green",
+    "price_and_dif": "conditional_counterexample_using_frozenDG_values; software21Apr14/15DIF unknown",
+    "all24_same_close_disagreement": true,
+    "original_candidate_still_has_no_withdrawal_event": true,
+    "no_refit_or_unconditional_elimination": true
+  },
+  "software_numerical_endpoint": {
+    "time": "2026-04-23 15:00:00",
+    "software": {
+      "close": 4093.25,
+      "dif": 19.523,
+      "dea": 21.809,
+      "hist": -4.572
+    },
+    "dg": {
+      "close": 4093.25,
+      "dif": 19.496683404780924,
+      "hist": -4.585360332329216,
+      "dea": 21.789363570945532
+    },
+    "software_minus_dg": {
+      "close": 0.0,
+      "dif": 0.026316595219075367,
+      "dea": 0.019636429054468607,
+      "hist": 0.013360332329216185
+    },
+    "display_MACD_identity_residual": 2.6645352591003757e-15,
+    "software21Apr_historical_exact_DIF_not_known": true,
+    "no_endpoint_bias_bound_assumed": true
+  },
+  "variants": [
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 11:30:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "ordinary_mapped_matches": 4,
+      "green_candidate_state": "NONE",
+      "historical_withdrawal_event_implemented": false,
+      "frozen_firsts": {
+        "price_only": "2026-04-21 15:00:00",
+        "price_and_dif": "2026-04-22 15:00:00"
+      }
+    }
+  ],
+  "prefix_checks": 144,
+  "pullback_scale_comparison": [
+    {
+      "role": "Author early-April scale reference; DG operationalization, not author-picked exact peaks",
+      "peak": {
+        "time": "2026-04-01 15:00:00",
+        "close": 3948.552,
+        "dif": -0.10143106055556927,
+        "hist": 14.997400432447794
+      },
+      "trough": {
+        "time": "2026-04-03 15:00:00",
+        "close": 3880.0967,
+        "dif": -9.541839920346774,
+        "hist": -7.616534329002352
+      },
+      "decline_points": 68.45530000000008,
+      "decline_pct": 1.7336811063903952,
+      "bars_peak_to_trough": 8,
+      "negative_bars": 7,
+      "first_negative": "2026-04-03 11:30:00",
+      "last_negative": "2026-04-07 15:00:00",
+      "not_a_minimum_threshold": true,
+      "close_based_not_intrabar_low": true
+    },
+    {
+      "role": "DG inter-wave pullback preceding first candidate; text/chart rejects adequate pullback",
+      "peak": {
+        "time": "2026-04-16 15:00:00",
+        "close": 4055.5469,
+        "dif": 25.567706301411363,
+        "hist": 3.4724845301961977
+      },
+      "trough": {
+        "time": "2026-04-17 11:30:00",
+        "close": 4043.4478,
+        "dif": 23.787964926128097,
+        "hist": -0.41024253327226035
+      },
+      "decline_points": 12.099099999999908,
+      "decline_pct": 0.29833460932235567,
+      "bars_peak_to_trough": 2,
+      "negative_bars": 3,
+      "first_negative": "2026-04-17 11:30:00",
+      "last_negative": "2026-04-17 15:00:00",
+      "not_a_minimum_threshold": true,
+      "close_based_not_intrabar_low": true
+    }
+  ],
+  "experience_findings": [
+    "Software structure presence and operational acceptance are separate; 等同于没有 is decision filtering, not deletion of plotted structure",
+    "Regular geometry is acute move, connecting pullback, slower move; histogram sign change alone does not prove adequate pullback",
+    "Three reasons are explicit for this60-minute case; text does not specify their universal weights, cutoffs or AND/OR",
+    "Daily sequence invalidation above8/9/10maximumclose is different from MACD historical withdrawal; sequence alone did not cause a sale here",
+    "Use daily close for trend and each60/90/120bar close for structure; intrabar transience is different from later historical withdrawal",
+    "Do not globally discard60minutes:23Apr explicitly lists60/90/120/daily as operation periods"
+  ],
+  "request_status": {
+    "apr21_full_text_received": true,
+    "apr23_full_text_and_chart_received": true,
+    "apr21_standalone_chart_not_required_for_current_mapping": true,
+    "apr22_video_unavailable_user_reported": true,
+    "apr22_no_lecture_author_confirmed": true,
+    "repeated_source_requests_avoided": true
+  },
+  "next_step": "Use saved inputs to describe connecting-pullback scale, trend distance and dulling level separately; compare existing effective/ignored cases without fitting fixed thresholds. Historical withdrawal remains conditional pending same-cycle software values or independent source.",
+  "preservation": {
+    "prior_noncache_files": 215,
+    "unchanged_except_manifest": 214,
+    "original_manifest_entries": 42
+  },
+  "new_evidence": {
+    "screenshots": 1,
+    "relevant_passage_sources": 2,
+    "full_transcript_archive_files": 0,
+    "minute_numeric_endpoints": 1,
+    "original52labels_unchanged": true,
+    "ordinary_mapped_anchors_separate": 4,
+    "conditional_historical_disappearance_observations_added": 1
+  },
+  "limitations": [
+    "New sources used for confirmation and experience abstraction, not parameter fitting",
+    "Green identity and21Apr15time remain conditional mappings; no original-software formula proved",
+    "Small negativeDG DIF change at21close cannot substitute for unknown software historicalDIF",
+    "Price pullback measurements describe chosenDG segments; author did not designate exact sampled endpoints",
+    "No author decision AND/OR, bottom symmetry, fixed pullback threshold, speed formula or automatic24-bar expiry"
+  ]
+}

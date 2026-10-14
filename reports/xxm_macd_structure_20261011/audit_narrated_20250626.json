@@ -1,0 +1,59 @@
+{
+  "scope": "Narrated end-of-day state only; does not identify whether June26 AM was a new activation. No new software event labels.",
+  "source_url": "https://www.youtube.com/watch?v=jv_ZGcDSV10",
+  "source_sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+  "frozen_predictions_sha256": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9",
+  "caption_chars": 5511,
+  "manual_extracted_claims": {
+    "date": "2025-06-26",
+    "freq": 120,
+    "active_dullness_at_close": true,
+    "sequence_value": 8
+  },
+  "state_comparisons": [
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 0.75,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1.2,
+      "time": "2025-06-26 15:00:00",
+      "predicted_state": "DULL",
+      "consistent_with_narration": true
+    }
+  ],
+  "labels": [],
+  "conclusion": "Both unchanged candidates are DULL at close; their June26 AM activation events differ. Sequence8 is a separate feature and not part of this MACD replay."
+}

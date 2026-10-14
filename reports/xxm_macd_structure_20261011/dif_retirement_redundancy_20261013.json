@@ -1,0 +1,1249 @@
+{
+  "research_date": "2026-10-13",
+  "status": "ALL_THREE_SURVIVING_DEFINITIONS_COLLAPSE_TO_ONE_FROZEN_BEHAVIOR_FAMILY",
+  "scope": "Logic audit of permanentDIF retirement and saved-minute-data premise checks; no new trading/size/age rule or software label. Standard MACD(12,26,9) existing semantics only.",
+  "proof": {
+    "status": "PERMANENT_DIF_RETIREMENT_REDUNDANT_UNDER_VALID_MACD_AND_FROZEN_TWO_RAW_SEGMENT_SELECTION",
+    "prerequisites": [
+      "DEA recurrence E_t=(1-alpha)E_(t-1)+alpha*D_t with0<alpha<1; hist is a positive multiple of D-E; fixed consistent parameters across the sequence.",
+      "Peaks/troughs are full extrema of completed contiguous nonzero histogram-sign segments; zeros split segments, and all completed segments including onebar segments count.",
+      "History limited to latesttwo raw completed same-direction segments, not latesttwo filtered/remaining/unretired references.",
+      "Current same-direction wave extrema used for strict DIF qualification, nearest raw price prerequisite, pair price qualification and strongest eligible selection unchanged.",
+      "Permanent retirement only affects new selection, doesnot mutate segment counting, active lock, cancellation or structure transitions."
+    ],
+    "lemma": [
+      "Normalize top/bottom with s=+1/-1, q=s*D, z=s*DEA. A completed same-direction segment has peak M=max(q); its final z is at most M.",
+      "Before another same-direction segment, normalized histogram is <=0, so q_t<=z_t. With convex DEA recursion, q_t<=z_(t-1) and z_t<=z_(t-1). Thus neither q nor z can exceed M in those opposite/zero bars.",
+      "The first later strict q>M therefore belongs to another same-direction segment, and that segment records a peak greater than M. Equality isnot a strict cross; zero bars do not invalidate the bound."
+    ],
+    "selection_argument": [
+      "If the retired reference is latest in the rawtwo pool, its later cross must be in the current segment; current segment DIF peak exceeds it, so it fails current strict DIF qualification already.",
+      "If it is the older of rawtwo, either current segment crossed it and again it fails, or the one intervening completed segment crossed it. That intervening segment is necessarily the nearest reference and has a stronger DIF.",
+      "If older is currently pair-qualified, current normalized DIF peak is below older peak and therefore below stronger nearest peak. Nearest-price prerequisite makes nearest pair-qualified as well. Strongest selection picks nearest, which cannot itself have been crossed after completion while current DIF still qualifies.",
+      "A historical reference withtwo or more intervening completed same-direction segments is outside rawtwo anyway. Removing retired references after the raw-window truncation changes none of these selections.",
+      "Same new selection plus unchanged active-reference rules implies identical replay output by induction; this concerns this candidate behavior, not an independently observed software retirement formula."
+    ],
+    "numerical_limits": "Exact mathematical recurrence is required for the proof. Saved float sequences were audited for small recurrence residual and separated first-cross margins. Rounded, inconsistent, parameter-switched or differently segmented inputs require fresh verification.",
+    "invalidation": "Not asserted for wider pools, filtering before raw counting, nearest-price-gate removal, nearest rather than strongest selector, current-bar rather than wave-extreme DIF qualification, custom peak identities, or retirement modifying active references."
+  },
+  "inputs": [
+    {
+      "file": "discrimination_screen_20261012/derived_120.csv",
+      "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "semantics": "Existing offlineextendedEMAderived; notsoftwaretruth"
+    },
+    {
+      "file": "inputs/90_20250401_20250703.csv",
+      "sha256": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c",
+      "semantics": "Saved DG export; notsoftwarehistoricaltruth"
+    },
+    {
+      "file": "inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+      "semantics": "Saved DG export; notsoftwarehistoricaltruth"
+    },
+    {
+      "file": "inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "semantics": "Saved DG export; notsoftwarehistoricaltruth"
+    }
+  ],
+  "ninety_overlap_exact_equal_rows": 69,
+  "saved_sequence_checks": [
+    {
+      "period": "120",
+      "rows": 738,
+      "start": "2025-04-01 11:30:00",
+      "end": "2026-10-09 15:00:00",
+      "dea_recurrence_pairs": 737,
+      "max_dea_recurrence_residual": 1.7763568394002505e-15,
+      "zero_histogram_bars": 0,
+      "completed_wave_end_bound_checks": 52,
+      "retired_references_first_crosses": 44,
+      "first_cross_positive": 20,
+      "first_cross_negative": 24,
+      "first_cross_wrong_sign": 0,
+      "minimum_first_cross_strict_margin": 0.02416814503249043,
+      "causal_selection_checks": 281,
+      "eligible_retired_reference_snapshots": 1,
+      "eligible_retired_positive": 1,
+      "eligible_retired_negative": 0,
+      "same_wave_cancellation_boundary_cases": 9,
+      "full_replay_difference_rows": 0
+    },
+    {
+      "period": "90",
+      "rows": 579,
+      "start": "2025-04-01 11:00:00",
+      "end": "2026-01-13 15:00:00",
+      "dea_recurrence_pairs": 578,
+      "max_dea_recurrence_residual": 1.4210854715202004e-14,
+      "zero_histogram_bars": 0,
+      "completed_wave_end_bound_checks": 45,
+      "retired_references_first_crosses": 40,
+      "first_cross_positive": 21,
+      "first_cross_negative": 19,
+      "first_cross_wrong_sign": 0,
+      "minimum_first_cross_strict_margin": 0.06114191280903469,
+      "causal_selection_checks": 252,
+      "eligible_retired_reference_snapshots": 28,
+      "eligible_retired_positive": 28,
+      "eligible_retired_negative": 0,
+      "same_wave_cancellation_boundary_cases": 7,
+      "full_replay_difference_rows": 0
+    },
+    {
+      "period": "60",
+      "rows": 1316,
+      "start": "2025-06-03 10:30:00",
+      "end": "2026-10-09 15:00:00",
+      "dea_recurrence_pairs": 1315,
+      "max_dea_recurrence_residual": 1.4210854715202004e-14,
+      "zero_histogram_bars": 0,
+      "completed_wave_end_bound_checks": 111,
+      "retired_references_first_crosses": 102,
+      "first_cross_positive": 49,
+      "first_cross_negative": 53,
+      "first_cross_wrong_sign": 0,
+      "minimum_first_cross_strict_margin": 0.0027048601314163534,
+      "causal_selection_checks": 643,
+      "eligible_retired_reference_snapshots": 12,
+      "eligible_retired_positive": 11,
+      "eligible_retired_negative": 1,
+      "same_wave_cancellation_boundary_cases": 18,
+      "full_replay_difference_rows": 0
+    }
+  ],
+  "retired_but_pair_qualified_examples": [
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "direction": 1,
+      "current_wave": {
+        "start": "2025-09-11 15:00:00",
+        "sign": 1,
+        "count": 10,
+        "price": 3893.9502,
+        "dif": 20.934711686959872,
+        "price_time": "2025-09-18 11:30:00",
+        "dif_time": "2025-09-18 11:30:00"
+      },
+      "retired_reference": {
+        "start": "2025-07-30 11:30:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.63506950414012,
+        "price_time": "2025-07-30 11:30:00",
+        "dif_time": "2025-07-30 11:30:00"
+      },
+      "retirement_first_cross": {
+        "time": "2025-08-18 11:30:00",
+        "sign": 1,
+        "gap": 2.0176081692115986,
+        "reference": {
+          "start": "2025-07-30 11:30:00",
+          "sign": 1,
+          "count": 2,
+          "price": 3628.53,
+          "dif": 29.63506950414012,
+          "price_time": "2025-07-30 11:30:00",
+          "dif_time": "2025-07-30 11:30:00",
+          "completed_at": "2025-07-31 11:30:00"
+        }
+      },
+      "selected_nearest": {
+        "start": "2025-08-06 15:00:00",
+        "sign": 1,
+        "count": 31,
+        "price": 3887.995,
+        "dif": 61.800335386972165,
+        "price_time": "2025-08-26 11:30:00",
+        "dif_time": "2025-08-27 11:30:00"
+      }
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "direction": 1,
+      "current_wave": {
+        "start": "2025-05-29 15:00:00",
+        "sign": 1,
+        "count": 20,
+        "price": 3404.3806,
+        "dif": 10.556501856990963,
+        "price_time": "2025-06-10 11:00:00",
+        "dif_time": "2025-06-10 11:00:00"
+      },
+      "retired_reference": {
+        "start": "2025-04-10 11:00:00",
+        "sign": 1,
+        "count": 33,
+        "price": 3306.5408,
+        "dif": 13.059142740201423,
+        "price_time": "2025-04-22 14:00:00",
+        "dif_time": "2025-04-23 14:00:00"
+      },
+      "retirement_first_cross": {
+        "time": "2025-05-08 11:00:00",
+        "sign": 1,
+        "gap": 1.4977085750874721,
+        "reference": {
+          "start": "2025-04-10 11:00:00",
+          "sign": 1,
+          "count": 33,
+          "price": 3306.5408,
+          "dif": 13.059142740201423,
+          "price_time": "2025-04-22 14:00:00",
+          "dif_time": "2025-04-23 14:00:00",
+          "completed_at": "2025-04-25 11:00:00"
+        }
+      },
+      "selected_nearest": {
+        "start": "2025-05-06 14:00:00",
+        "sign": 1,
+        "count": 22,
+        "price": 3403.948,
+        "dif": 23.498217554217263,
+        "price_time": "2025-05-14 15:00:00",
+        "dif_time": "2025-05-14 15:00:00"
+      }
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "direction": -1,
+      "current_wave": {
+        "start": "2026-07-16 14:00:00",
+        "sign": -1,
+        "count": 2,
+        "price": 3882.4126,
+        "dif": -26.05445791411921,
+        "price_time": "2026-07-16 15:00:00",
+        "dif_time": "2026-07-16 15:00:00"
+      },
+      "retired_reference": {
+        "start": "2026-07-02 14:00:00",
+        "sign": -1,
+        "count": 21,
+        "price": 3952.4917,
+        "dif": -27.395472871559377,
+        "price_time": "2026-07-09 11:30:00",
+        "dif_time": "2026-07-09 11:30:00"
+      },
+      "retirement_first_cross": {
+        "time": "2026-07-14 10:30:00",
+        "sign": -1,
+        "gap": 0.9862275457812757,
+        "reference": {
+          "start": "2026-07-02 14:00:00",
+          "sign": -1,
+          "count": 21,
+          "price": 3952.4917,
+          "dif": -27.395472871559377,
+          "price_time": "2026-07-09 11:30:00",
+          "dif_time": "2026-07-09 11:30:00",
+          "completed_at": "2026-07-09 15:00:00"
+        }
+      },
+      "selected_nearest": {
+        "start": "2026-07-13 11:30:00",
+        "sign": -1,
+        "count": 7,
+        "price": 3887.9226,
+        "dif": -32.547491493833604,
+        "price_time": "2026-07-14 11:30:00",
+        "dif_time": "2026-07-14 11:30:00"
+      }
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "direction": 1,
+      "current_wave": {
+        "start": "2025-07-18 10:30:00",
+        "sign": 1,
+        "count": 5,
+        "price": 3550.4824,
+        "dif": 9.566544938536936,
+        "price_time": "2025-07-21 10:30:00",
+        "dif_time": "2025-07-21 10:30:00"
+      },
+      "retired_reference": {
+        "start": "2025-07-04 11:30:00",
+        "sign": 1,
+        "count": 4,
+        "price": 3479.902,
+        "dif": 12.268805008978688,
+        "price_time": "2025-07-04 14:00:00",
+        "dif_time": "2025-07-04 14:00:00"
+      },
+      "retirement_first_cross": {
+        "time": "2025-07-08 14:00:00",
+        "sign": 1,
+        "gap": 0.7675237971175193,
+        "reference": {
+          "start": "2025-07-04 11:30:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3479.902,
+          "dif": 12.268805008978688,
+          "price_time": "2025-07-04 14:00:00",
+          "dif_time": "2025-07-04 14:00:00",
+          "completed_at": "2025-07-07 11:30:00"
+        }
+      },
+      "selected_nearest": {
+        "start": "2025-07-08 11:30:00",
+        "sign": 1,
+        "count": 16,
+        "price": 3546.4998,
+        "dif": 19.096267046789308,
+        "price_time": "2025-07-11 11:30:00",
+        "dif_time": "2025-07-11 14:00:00"
+      }
+    }
+  ],
+  "full_replay_parity": [
+    {
+      "period": "120",
+      "gate": 0.75,
+      "rows": 738,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "120",
+      "gate": 1,
+      "rows": 738,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "120",
+      "gate": 1.2,
+      "rows": 738,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "90",
+      "gate": 0.75,
+      "rows": 579,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "90",
+      "gate": 1,
+      "rows": 579,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "90",
+      "gate": 1.2,
+      "rows": 579,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "60",
+      "gate": 0.75,
+      "rows": 1316,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "60",
+      "gate": 1,
+      "rows": 1316,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    },
+    {
+      "period": "60",
+      "gate": 1.2,
+      "rows": 1316,
+      "fixed_equals_permanent_and_dominated": true,
+      "original_candidate_parity": true
+    }
+  ],
+  "prefix_checks": [
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-05-07 11:30:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2025-09-18 11:30:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-04-07 11:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-05-08 11:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-06-10 11:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-13 15:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 0.75,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-13 10:30:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-06-25 11:30:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-07-21 10:30:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-07-16 15:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "none",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "raw_dif_cross",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-10-09 15:00:00",
+      "gate": 1.2,
+      "policy": "dominated",
+      "matched": true
+    }
+  ],
+  "exact_boundary_checks": {
+    "paths": 4096,
+    "bars": 24576,
+    "zero_histogram_bars": 8160,
+    "paths_with_zero": 3610,
+    "same_direction_separated_by_zero_occurrences": 806,
+    "paths_with_dull": 90,
+    "gate": 1,
+    "all_replays_equal": true,
+    "temporary_generator_sha256": "46ea2c85e6e16815d3d4f38706c1efe0d1c4e91fd2c4649e7beb092ed8062460",
+    "semantics": "Short exact-rational synthetic MACD paths inclforcedzero histogram; arbitrary consistent EMA seeds at clipped start. Constructed verification cases, nothistoricalsource norindependentsoftwarelabels."
+  },
+  "invalid_indicator_counterexample": {
+    "rows": [
+      {
+        "time": "invalid_0",
+        "close": 100,
+        "dif": 10,
+        "hist": 1
+      },
+      {
+        "time": "invalid_1",
+        "close": 100,
+        "dif": 10,
+        "hist": 1
+      },
+      {
+        "time": "invalid_2",
+        "close": 90,
+        "dif": 11,
+        "hist": -1
+      },
+      {
+        "time": "invalid_3",
+        "close": 90,
+        "dif": 11,
+        "hist": -1
+      },
+      {
+        "time": "invalid_4",
+        "close": 110,
+        "dif": 9,
+        "hist": 1
+      },
+      {
+        "time": "invalid_5",
+        "close": 110,
+        "dif": 9,
+        "hist": 1
+      }
+    ],
+    "dea_recurrence_max_residual": 2.5000000000000018,
+    "fixed2_final": {
+      "time": "invalid_5",
+      "event": "DULL",
+      "state": "DULL",
+      "wave_count": 2,
+      "ref_start": "invalid_0",
+      "close": 110,
+      "dif": 9,
+      "hist": 1,
+      "wave_sign": 1,
+      "event_direction": 1,
+      "event_route": "activation",
+      "event_ref_start": "invalid_0",
+      "event_ref_dif": 10,
+      "event_ref_price": 100
+    },
+    "crossed2_final": {
+      "time": "invalid_5",
+      "event": "NONE",
+      "state": "NONE",
+      "wave_count": 2,
+      "ref_start": "",
+      "close": 110,
+      "dif": 9,
+      "hist": 1,
+      "wave_sign": 1,
+      "event_direction": 0,
+      "event_route": "",
+      "event_ref_start": "",
+      "event_ref_dif": null,
+      "event_ref_price": null
+    },
+    "semantics": "Deliberately inconsistent DIF/histogram demonstrates recurrence premise is necessary. Not an observed market case."
+  },
+  "equivalence_conclusion": "fixed2, crossed2 and dominated2 are onebehaviorfamily under the frozen rawtwo/nearest-price/strongest/locked-reference premises. Keep historicalcandidatefiles unchanged; logically equivalent interpretations no longer need distinct materials or tuning.",
+  "unresolved": [
+    "This doesnot prove software uses exactlytwo rawsame-sign segments, strongestselector, same peak identity or allcandidate lifecycle rules.",
+    "Old structure after color reset, software STRUCTURE disappearance and author analytical comparison peak remain independent unanswered semantics.",
+    "Firstcrosscounts and eligible-retired snapshots describe saved numerics, not new softwarelabels. Gates are sensitivitychecks, notindependentcases."
+  ],
+  "prior_evidence": {
+    "file": "reference_retirement_cross_period_20261013.json",
+    "sha256": "c9ad17c983654578372e5a380948fb26833d888ca03bcefd1aa8ce1e27c7809b",
+    "status": "Previous3of6conditional survivors and source timing grades preserved; redundancy doesnot rehabilitate rejected long-only or unrestricted-history implementations."
+  },
+  "verification": {
+    "unchanged_research_files": 225,
+    "saved_rows": 2633,
+    "dea_recurrence_pairs": 2630,
+    "completed_wave_bound_checks": 208,
+    "first_crosses": 186,
+    "selection_checks": 1176,
+    "prefix_checks": 108,
+    "full_parity_runs": 9,
+    "boundary_paths": 4096,
+    "new_software_labels": 0,
+    "new_sources": 0
+  },
+  "candidate_sha256": {
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+    "replay_color_flip.py": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+    "audit_reference_lifecycle.py": "8278c32db01c3a13cb0e886819399eda89d53b93d0634f7fda256d53de808a89"
+  },
+  "temporary_script_sha256": "fae13e263269bbd4ade95778a7069438313e76b827fe83c00433f2a34a484841",
+  "materials_needed_now": false,
+  "next_step": "Audit remaining independent reference-selection assumptions instead of further retirement tuning: in the existing raw-history windows, compare nearest-qualified versus strongest-qualified targets and widths1/2/3 against author explicitJune25 peak26, Aug15next-bar3750quote and existingOct24/Jan5disappearance timing. Separate author analytical reference from softwareactive reference, and list what is directly constrained vs conditional. Savedsources only; requestone specificsource only if a genuine unresolved split remains.",
+  "execution_boundary": "Only necessary resultJSON and appended originalresearchnote; no formalcode/config/parameters/API/dependency changes, network/quota/installation/DB/Lake/trade/commit actions."
+}

@@ -1,0 +1,17 @@
+{
+  "received_on": "2026-10-12",
+  "date": "2026-06-09",
+  "provider": "user pasted transcript",
+  "original_path": "/Users/congming/.codex/attachments/132b9e13-0686-4701-a900-80bdd019c45c/Pasted text.txt",
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260609_user_transcript.txt",
+  "sha256": "110f03db75bf5c4c1424b0ad5fd04794a5a6bfc460ed311a2be1f5d369cad0fe",
+  "characters": 6582,
+  "lines": 673,
+  "video_identity": "User confirmed lecture date; no video URL or audio independently verified",
+  "limitations": [
+    "Raw wording preserved including speech recognition errors",
+    "Line numbers locate supplied text, not video timestamps",
+    "Historical trading instructions are source material, not user authorization",
+    "No exact software bar label or software historical value added"
+  ]
+}

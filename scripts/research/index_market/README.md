@@ -17,6 +17,8 @@ index_market/
 
 ## 当前研究状态
 
+2026-10-13 徐小明方向识别：[研究主文档](../../../docs/product/xxm-macd-structure-research-v1.md)当前进展为 §8.49。用户已批准 [V0.1 算法方案](../../../docs/product/xxm-direction-algorithm-plan-v0.1.md)、Figma、完整历史扫描调整及仅指数详情页的响应式修正；上证日线和 60／90／120 分钟开发态已实现并完成技术验收，等用户验收，未部署。内核在 biz；本目录只放冻结来源加载与验收入口，生产模块不依赖旧报告脚本。旧 3161 根分钟在三组门槛下回归通过，新完整源共 39747 根，2615 次事件／生命周期前缀重放及已有 26＋1 个读数对账见[实施报告](../../../reports/xxm_implementation_20261013/README.md)。未确认的软件公式、数值偏差与长历史寿命保留；原报告和失败版本不改写。
+
 2026-09-14提交与清理：用户已批准本研究代码/文档和有用reports一并提交。第28—34节七组正式证据保留，共29文件约12.0MiB；下文“仅本地/暂不提交”为各轮当时状态，已由本次要求替代。源码缺失预检`stock_signal_chain_audit_20260913`的3文件已执行移入废纸篓，受系统读取限制未验证恢复；其30次机会/6笔案例由最终serial报告覆盖，旧阻塞经过仍见方案28.9。删除清单、保留理由和恢复位置见[方案34.11](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#3411-本研究提交与报告清理2026-09-14)。旧Store/历史归档与七组正式报告字节未改；P0门禁不变，未进入新回测。
 
 2026-09-14 P0完成、停止于设计门禁：原股数方案34.10，本地`reports/stock_expansion_p0_20260914/report.md`（暂不提交）。58次B3回踩低点与旧冻结低位全部相同，不再重复跑收益。现存快照中4279只符合五年前上市的沪深存续口径，其中4037只未进入旧案例/对照名单，但4279只均参加过早期全市场排名，不能称完全未使用的数据；历史个股市值缺失，12层抽样无法执行。60日成交额缺行290股日均由全日停牌解释，未知缺行0；年度分钟文件仅000670.SZ缺2021年两频度文件，原因未核实，其余仅证明文件存在。2.897秒、四文件约197KiB、655项主题测试通过。入口：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_expansion_feasibility --output reports/stock_expansion_p0_NEW`。没有抽股、读新分钟明细或计算收益；先决定市值来源与扩大样本复核定位，再讨论P1。下文34节方案制定时记录保留，最新结论以34.10为准。
@@ -285,3 +287,12 @@ DG现有90分钟已直接回放：[结果报告](/Users/congming/github/goldensh
 核心买侧参数单变量实验：[优化报告](../../../reports/stock_chan_research_20260912/parameters.md)。基线、背驰0.8、回撤0.6、MACD面积法共40单元完成，三个新参数均未过预设可靠性筛查。入口：`.venv/bin/python -m scripts.research.index_market.chan.stock_parameter_study --output reports/stock_parameter_reproduction_NEW`；只读封存材料，不读DG、不修改旧参数入口，按原方案第20节执行。
 
 类型与确认滞后实验：[结果](../../../reports/stock_chan_research_20260912/timing.md)。全部/B1/B2/B3/滞后<=4/<=8六组未找到可靠候选；类型表现有阶段反转，简单过滤长滞后没有稳定改善。入口：`.venv/bin/python -m scripts.research.index_market.chan.stock_signal_timing --output reports/stock_timing_reproduction_NEW`，仅读封存材料，原方案第21节。
+
+
+XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新报告目录）：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.xxm.acceptance --source reports/xxm_source_audit_20261013_213852 --research reports/xxm_macd_structure_20261011 --output reports/xxm_implementation_20261013
+```
+
+旧复算入口可能写回原报告，不应为本轮验收直接重跑。新入口会校验原 CSV／图片哈希，使用产品同一内核及来源身份，输出连续基线、软件末端读数、前缀与恢复检查和真实 API 对照。

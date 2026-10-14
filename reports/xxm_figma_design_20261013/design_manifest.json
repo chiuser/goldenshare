@@ -1,0 +1,924 @@
+{
+  "date": "2026-10-13",
+  "status": "figma_design_user_approved_top_cancel_copy_corrected_no_implementation",
+  "fileKey": "RADlZzREU4lPVviYfkLy6x",
+  "pageId": "1983:79",
+  "reviewIndexId": "1983:80",
+  "screens": [
+    {
+      "id": "1987:999",
+      "name": "XXM / SSE Daily / Loaded",
+      "period": "day",
+      "tooltipId": null,
+      "periodIds": {
+        "day": "1987:1028",
+        "m120": "1987:1031",
+        "m90": "1987:1032",
+        "m60": "1987:1033"
+      }
+    },
+    {
+      "id": "1989:352",
+      "name": "XXM / SSE 60 Minute / Loaded",
+      "period": "m60",
+      "tooltipId": null,
+      "periodIds": {
+        "day": "1989:381",
+        "m120": "1989:384",
+        "m90": "1989:385",
+        "m60": "1989:386"
+      }
+    },
+    {
+      "id": "1990:541",
+      "name": "XXM / SSE 90 Minute / Loaded",
+      "period": "m90",
+      "tooltipId": null,
+      "periodIds": {
+        "day": "1990:570",
+        "m120": "1990:573",
+        "m90": "1990:574",
+        "m60": "1990:575"
+      }
+    },
+    {
+      "id": "1990:1389",
+      "name": "XXM / SSE 120 Minute / Loaded",
+      "period": "m120",
+      "tooltipId": null,
+      "periodIds": {
+        "day": "1990:1418",
+        "m120": "1990:1421",
+        "m90": "1990:1422",
+        "m60": "1990:1423"
+      }
+    },
+    {
+      "id": "1991:925",
+      "name": "XXM / SSE Daily / Historical Hover",
+      "period": "day",
+      "tooltipId": "1991:1778",
+      "periodIds": {
+        "day": "1991:954",
+        "m120": "1991:957",
+        "m90": "1991:958",
+        "m60": "1991:959"
+      }
+    },
+    {
+      "id": "1997:1674",
+      "name": "XXM / SSE 60 Minute / Historical Hover",
+      "period": "m60",
+      "tooltipId": "1997:2521",
+      "periodIds": {
+        "day": "1997:1703",
+        "m120": "1997:1706",
+        "m90": "1997:1707",
+        "m60": "1997:1708"
+      }
+    },
+    {
+      "id": "1997:2583",
+      "name": "XXM / SSE 90 Minute / Historical Hover",
+      "period": "m90",
+      "tooltipId": "1997:3430",
+      "periodIds": {
+        "day": "1997:2612",
+        "m120": "1997:2615",
+        "m90": "1997:2616",
+        "m60": "1997:2617"
+      }
+    },
+    {
+      "id": "1991:1840",
+      "name": "XXM / SSE 120 Minute / Multiple Events Hover",
+      "period": "m120",
+      "tooltipId": "1991:2690",
+      "periodIds": {
+        "day": "1991:1869",
+        "m120": "1991:1872",
+        "m90": "1991:1873",
+        "m60": "1991:1874"
+      }
+    }
+  ],
+  "boards": {
+    "boardId": "1996:1442",
+    "responsiveId": "1996:2498",
+    "caseIds": [
+      {
+        "key": "Ready",
+        "title": "数据正常但无新事件",
+        "panelId": "1996:1450",
+        "statusId": "1996:1595",
+        "retryId": null
+      },
+      {
+        "key": "Loading",
+        "title": "研究指标加载中",
+        "panelId": "1996:1599",
+        "statusId": "1996:1744",
+        "retryId": null
+      },
+      {
+        "key": "Empty",
+        "title": "研究指标暂无数据",
+        "panelId": "1996:1748",
+        "statusId": "1996:1893",
+        "retryId": null
+      },
+      {
+        "key": "Delayed",
+        "title": "研究结果覆盖落后",
+        "panelId": "1996:1897",
+        "statusId": "1996:2042",
+        "retryId": null
+      },
+      {
+        "key": "Error",
+        "title": "局部加载失败",
+        "panelId": "1996:2046",
+        "statusId": "1996:2191",
+        "retryId": "1996:2193"
+      },
+      {
+        "key": "Ready",
+        "title": "同柱竞争：新顶部钝化优先",
+        "panelId": "1996:2196",
+        "statusId": "1996:2341",
+        "retryId": null
+      }
+    ],
+    "responsivePanels": [
+      {
+        "viewport": 1440,
+        "panelId": "1996:2503",
+        "paneWidth": 1031.1953125,
+        "rightAxisWidth": 56,
+        "markerFontSize": 11
+      },
+      {
+        "viewport": 1280,
+        "panelId": "1996:2650",
+        "paneWidth": 871.1953125,
+        "rightAxisWidth": 56,
+        "markerFontSize": 11
+      }
+    ],
+    "tooltipExamples": {
+      "history": "1996:2347",
+      "pending": "1996:2407",
+      "multiple": "1996:2796"
+    },
+    "bounds": {
+      "board": {
+        "w": 1660,
+        "h": 360
+      },
+      "responsive": {
+        "w": 1480,
+        "h": 1004.609375
+      }
+    },
+    "editable": true
+  },
+  "components": {
+    "markerSetId": "1984:103",
+    "markerVariants": {
+      "TopDull": "1984:79",
+      "BottomDull": "1984:82",
+      "TopStructure": "1984:85",
+      "BottomStructure": "1984:88",
+      "TopCancel": "1984:91",
+      "BottomCancel": "1984:94",
+      "TopWithdrawal": "1984:97",
+      "Compact": "1984:100"
+    },
+    "tooltipId": "1984:107",
+    "rowId": "1984:104",
+    "rowProperties": {
+      "label": "Label#1984:9",
+      "value": "Value#1984:10"
+    },
+    "tooltipProperties": {
+      "title": "Title#1984:11",
+      "footnote": "Footnote#1984:12"
+    },
+    "statusSetId": "1984:176",
+    "statusVariants": {
+      "Ready": "1984:166",
+      "Loading": "1984:168",
+      "Empty": "1984:170",
+      "Delayed": "1984:172",
+      "Error": "1984:174"
+    },
+    "bindingsVerified": {
+      "colors": true,
+      "spacing": true,
+      "tooltipRadius": true
+    },
+    "fontFamilies": [
+      "Noto Sans SC",
+      "Noto Sans SC",
+      "Roboto Mono"
+    ],
+    "componentSizes": {
+      "tooltip": {
+        "w": 328,
+        "h": 486
+      },
+      "row": {
+        "w": 308,
+        "h": 16
+      }
+    }
+  },
+  "validation": {
+    "roots": [
+      {
+        "id": "1987:999",
+        "name": "XXM / SSE Daily / Loaded",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 808,
+        "types": {
+          "INSTANCE": 52,
+          "FRAME": 90,
+          "RECTANGLE": 450,
+          "TEXT": 185,
+          "VECTOR": 24,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1987:1000;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1989:352",
+        "name": "XXM / SSE 60 Minute / Loaded",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 789,
+        "types": {
+          "INSTANCE": 47,
+          "FRAME": 90,
+          "RECTANGLE": 450,
+          "TEXT": 180,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1989:353;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1990:541",
+        "name": "XXM / SSE 90 Minute / Loaded",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 789,
+        "types": {
+          "INSTANCE": 47,
+          "FRAME": 90,
+          "RECTANGLE": 450,
+          "TEXT": 180,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1990:542;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1990:1389",
+        "name": "XXM / SSE 120 Minute / Loaded",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 791,
+        "types": {
+          "INSTANCE": 48,
+          "FRAME": 90,
+          "RECTANGLE": 450,
+          "TEXT": 181,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1990:1390;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1991:925",
+        "name": "XXM / SSE Daily / Historical Hover",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 869,
+        "types": {
+          "INSTANCE": 71,
+          "FRAME": 90,
+          "RECTANGLE": 451,
+          "TEXT": 226,
+          "VECTOR": 24,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1991:926;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1997:1674",
+        "name": "XXM / SSE 60 Minute / Historical Hover",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 850,
+        "types": {
+          "INSTANCE": 66,
+          "FRAME": 90,
+          "RECTANGLE": 451,
+          "TEXT": 221,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1997:1675;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1997:2583",
+        "name": "XXM / SSE 90 Minute / Historical Hover",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 850,
+        "types": {
+          "INSTANCE": 66,
+          "FRAME": 90,
+          "RECTANGLE": 451,
+          "TEXT": 221,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1997:2584;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1991:1840",
+        "name": "XXM / SSE 120 Minute / Multiple Events Hover",
+        "w": 1600,
+        "h": 1200,
+        "totalNodes": 852,
+        "types": {
+          "INSTANCE": 67,
+          "FRAME": 90,
+          "RECTANGLE": 451,
+          "TEXT": 222,
+          "VECTOR": 15,
+          "ELLIPSE": 7
+        },
+        "images": [
+          {
+            "id": "I1991:1841;97:4",
+            "name": "Brand Logo / official asset / 36x36",
+            "w": 36,
+            "h": 36
+          }
+        ],
+        "fonts": [
+          "Noto Sans SC",
+          "Roboto Mono",
+          "SF Pro"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1996:1442",
+        "name": "XXM / States and Lifecycle Review",
+        "w": 1660,
+        "h": 1460.828125,
+        "totalNodes": 922,
+        "types": {
+          "TEXT": 161,
+          "FRAME": 29,
+          "RECTANGLE": 655,
+          "INSTANCE": 55,
+          "VECTOR": 12,
+          "ELLIPSE": 10
+        },
+        "images": [],
+        "fonts": [
+          "Noto Sans SC",
+          "SF Pro",
+          "Roboto Mono"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      },
+      {
+        "id": "1996:2498",
+        "name": "XXM / Responsive MACD Review",
+        "w": 1480,
+        "h": 1004.609375,
+        "totalNodes": 357,
+        "types": {
+          "TEXT": 78,
+          "FRAME": 8,
+          "RECTANGLE": 218,
+          "INSTANCE": 35,
+          "VECTOR": 4,
+          "ELLIPSE": 14
+        },
+        "images": [],
+        "fonts": [
+          "Noto Sans SC",
+          "SF Pro",
+          "Roboto Mono"
+        ],
+        "fontPass": true,
+        "wrongLabels": [],
+        "collisions": [],
+        "placeholders": []
+      }
+    ],
+    "links": [
+      {
+        "id": "1987:1031",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1987:1032",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1987:1033",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1987:1852",
+        "triggers": [
+          "ON_HOVER"
+        ],
+        "destinations": [
+          "1991:925"
+        ]
+      },
+      {
+        "id": "1989:381",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1989:384",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1989:385",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1989:1193",
+        "triggers": [
+          "ON_HOVER"
+        ],
+        "destinations": [
+          "1997:1674"
+        ]
+      },
+      {
+        "id": "1990:570",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1990:573",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1990:575",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1990:1382",
+        "triggers": [
+          "ON_HOVER"
+        ],
+        "destinations": [
+          "1997:2583"
+        ]
+      },
+      {
+        "id": "1990:1418",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1990:1422",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1990:1423",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1990:2230",
+        "triggers": [
+          "ON_HOVER"
+        ],
+        "destinations": [
+          "1991:1840"
+        ]
+      },
+      {
+        "id": "1991:954",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1991:957",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1991:958",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1991:959",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1991:971",
+        "triggers": [
+          "MOUSE_LEAVE"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1991:1869",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1991:1872",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1991:1873",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1991:1874",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1991:1886",
+        "triggers": [
+          "MOUSE_LEAVE"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1996:2193",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1997:1703",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1997:1706",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1997:1707",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1997:1708",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1997:1720",
+        "triggers": [
+          "MOUSE_LEAVE"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1997:2612",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1987:999"
+        ]
+      },
+      {
+        "id": "1997:2615",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:1389"
+        ]
+      },
+      {
+        "id": "1997:2616",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      },
+      {
+        "id": "1997:2617",
+        "triggers": [
+          "ON_CLICK"
+        ],
+        "destinations": [
+          "1989:352"
+        ]
+      },
+      {
+        "id": "1997:2629",
+        "triggers": [
+          "MOUSE_LEAVE"
+        ],
+        "destinations": [
+          "1990:541"
+        ]
+      }
+    ],
+    "pass": true,
+    "originalBaseline": {
+      "id": "417:2",
+      "unchangedSize": true
+    },
+    "flow": [
+      {
+        "nodeId": "1987:999",
+        "name": "上证研究指标 V0.1 · 四周期与悬停"
+      }
+    ]
+  },
+  "prototypePlayback": "reactions_and_destinations_verified_not_live_played",
+  "priceAndIndicatorData": "illustrative_design_fixtures_not_algorithm_results_or_software_observations",
+  "sourcePageEvidence": "native_current_page_AX_and_current_CSS_verified_native_screenshot_returned_blank_no_live_pixel_acceptance",
+  "previews": [
+    "multiple_events_preview.png",
+    "states_preview.png"
+  ],
+  "unchangedScope": "no production code, API, configuration, dependencies, data, or deployment changes",
+  "userDesignReview": {
+    "date": "2026-10-13",
+    "instruction": "修正一下文案，顶取消改为顶消失。其他的都通过了。",
+    "status": "approved_copy_correction_completed",
+    "scope": "Figma visual and interaction design only; algorithm, API, data and product acceptance remain pending"
+  },
+  "copyCorrection": {
+    "eventType": "CANCEL",
+    "side": "TOP",
+    "componentId": "1984:91",
+    "textNodeId": "1984:93",
+    "previousDisplayText": "顶取消",
+    "displayText": "顶消失",
+    "verifiedNewTextCount": 12,
+    "verifiedPreviousTextCount": 0,
+    "unchangedBottomDisplayText": "底取消",
+    "unchangedHistoricalDisplayText": "顶结构消失",
+    "algorithmSemanticsChanged": false,
+    "previewNodes": [
+      "1991:1840",
+      "1996:1442"
+    ],
+    "previewsRefreshed": true
+  }
+}

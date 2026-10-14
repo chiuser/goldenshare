@@ -1,0 +1,5340 @@
+{
+  "scope": "Existing-evidence replay; not out-of-sample accuracy or original formula",
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "labels": 39,
+  "model_point_checks": 351,
+  "summaries": [
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 0.75,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "nearest_qualifying",
+      "threshold_pct": 1.2,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 0.75,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "strongest_eligible",
+      "threshold_pct": 1.2,
+      "points": 39,
+      "direct_mismatches": 0,
+      "mapped_mismatches": 0,
+      "failures": []
+    },
+    {
+      "policy": "strongest_separate",
+      "threshold_pct": 0.75,
+      "points": 39,
+      "direct_mismatches": 1,
+      "mapped_mismatches": 0,
+      "failures": [
+        {
+          "case": "bottom_daily",
+          "time": "2026-09-29",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "source": "original_25",
+          "policy": "strongest_separate",
+          "threshold_pct": 0.75,
+          "predicted": "NONE",
+          "matched": false,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "causal_prefix_matched": true
+        }
+      ]
+    },
+    {
+      "policy": "strongest_separate",
+      "threshold_pct": 1,
+      "points": 39,
+      "direct_mismatches": 1,
+      "mapped_mismatches": 0,
+      "failures": [
+        {
+          "case": "bottom_daily",
+          "time": "2026-09-29",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "source": "original_25",
+          "policy": "strongest_separate",
+          "threshold_pct": 1,
+          "predicted": "NONE",
+          "matched": false,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "causal_prefix_matched": true
+        }
+      ]
+    },
+    {
+      "policy": "strongest_separate",
+      "threshold_pct": 1.2,
+      "points": 39,
+      "direct_mismatches": 1,
+      "mapped_mismatches": 0,
+      "failures": [
+        {
+          "case": "bottom_daily",
+          "time": "2026-09-29",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "source": "original_25",
+          "policy": "strongest_separate",
+          "threshold_pct": 1.2,
+          "predicted": "NONE",
+          "matched": false,
+          "event_route": "",
+          "event_ref_start": "",
+          "event_ref_dif": null,
+          "causal_prefix_matched": true
+        }
+      ]
+    }
+  ],
+  "filtered_flip_label_checks": [
+    {
+      "case": "jul_120",
+      "time": "2025-06-27 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-06-30 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-02 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-03 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-07 11:30:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-08 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-09 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-10 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 11:30:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-07 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-08 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-08",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-14",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-06",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-11",
+      "expected": "STRUCTURE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-07 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-24",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-28",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-29",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 0.75,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-04-07 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0366",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-05 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 11:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0374",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-16",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-16 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-13",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-09 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-10 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 0.75,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-06-27 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-06-30 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-02 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-03 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-07 11:30:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-08 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-09 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-10 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 11:30:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-07 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-08 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-08",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-14",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-06",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-11",
+      "expected": "STRUCTURE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-07 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-24",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-28",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-29",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-04-07 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0366",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-05 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 11:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0374",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-16",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-16 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-13",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-09 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-10 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-06-27 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-06-30 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-02 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-03 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-07 11:30:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-08 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-09 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-10 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 11:30:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "jul_120",
+      "time": "2025-07-11 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-07 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-08-08 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-08",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-14",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-06",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-11",
+      "expected": "STRUCTURE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-06 15:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "may_120",
+      "time": "2026-05-07 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-24",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-28",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-29",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "threshold_pct": 1.2,
+      "predicted": "CANCEL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-04-07 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0366",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins60",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2026-01-13 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0369_0370",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-05 15:00:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 11:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "IMG_0374",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "mins90",
+      "time": "2025-08-06 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "IMG_0374",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-16",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-16 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "NONE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-13",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-09 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-10 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "DULL",
+      "matched": true,
+      "causal_prefix_matched": true
+    },
+    {
+      "case": "aug_120",
+      "time": "2025-10-14 15:00:00",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "threshold_pct": 1.2,
+      "predicted": "STRUCTURE",
+      "matched": true,
+      "causal_prefix_matched": true
+    }
+  ],
+  "filtered_flip_market_differences": [
+    {
+      "input": "120_20250401_20250711.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260101_20260507.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260101_20260507.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260101_20260507.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260701_20260901.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260701_20260901.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "120_20260701_20260901.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250701_20250814.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250701_20250814.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "90_20250701_20250814.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_2025.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_2025.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_2025.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "threshold_pct": 0.75,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "threshold_pct": 1,
+      "event_differences": 0
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "threshold_pct": 1.2,
+      "event_differences": 0
+    }
+  ],
+  "synthetic_checks": [
+    {
+      "name": "top_color_flip_despite_tiny_dif_turn",
+      "expected": "STRUCTURE",
+      "actual": "STRUCTURE",
+      "passed": true
+    },
+    {
+      "name": "bottom_color_flip_despite_tiny_dif_turn",
+      "expected": "STRUCTURE",
+      "actual": "STRUCTURE",
+      "passed": true
+    },
+    {
+      "name": "no_prior_dull_no_color_structure",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "top_canceled_before_flip",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "bottom_canceled_before_flip",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "already_confirmed_no_duplicate_at_flip",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "zero_histogram_not_assumed_color_confirmation",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "tiny_same_color_turn_stays_filtered",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    },
+    {
+      "name": "reference_break_priority_on_flip_synthetic",
+      "expected": "CANCEL",
+      "actual": "CANCEL",
+      "passed": true
+    },
+    {
+      "name": "filtered_flip_distinguishes_tiny_synthetic_turn",
+      "expected": "NONE",
+      "actual": "NONE",
+      "passed": true
+    }
+  ],
+  "scope_checks": [
+    {
+      "input": "120_20250401_20250711.csv",
+      "rows": 138,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 414
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "rows": 300,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 900
+    },
+    {
+      "input": "120_20260101_20260507.csv",
+      "rows": 158,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 474
+    },
+    {
+      "input": "120_20260701_20260901.csv",
+      "rows": 90,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 270
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "rows": 2632,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 7896
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "rows": 1316,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 3948
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "rows": 140,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 420
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "rows": 459,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 1377
+    },
+    {
+      "input": "90_20250701_20250814.csv",
+      "rows": 99,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 297
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "rows": 198,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 594
+    },
+    {
+      "input": "daily_2025.csv",
+      "rows": 207,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 621
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "rows": 44,
+      "v1_disabled_exact_match": true,
+      "causal_checks": 132
+    }
+  ],
+  "added_events": [
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-13 11:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-13 11:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-07-31 11:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-09-18 15:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-14 15:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "STRUCTURE"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-11 10:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-20 13:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": -1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-11 13:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-14 13:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-21 10:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-05-14 10:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-20 15:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": -1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-11 10:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-19 10:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 14:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-02-27 11:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-21 10:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-23 11:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-08-19 10:30:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-07-07 11:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-09-18 14:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250701_20250814.csv",
+      "time": "2025-07-07 11:00:00",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-01-25",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_2025.csv",
+      "time": "2025-10-13",
+      "old_event": "NONE",
+      "new_event": "STRUCTURE",
+      "route": "color_flip",
+      "direction": 1,
+      "software_label": "STRUCTURE"
+    }
+  ],
+  "reference_event_disagreements": [
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-25 15:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-25 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-26 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-05-06 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-26 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-05-06 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-25 15:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-25 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-26 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-05-06 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-26 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-05-06 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-07-31 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-15 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-01 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-15 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-18 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-18 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-18 15:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-18 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-17 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-21 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-10 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-06-03 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-11 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-06-03 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-18 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-18 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 13:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-12 10:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-12 10:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 13:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-01 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-01 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-23 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-23 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-31 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-11 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-31 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-11 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-11 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-09-05 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-11 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-29 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-18 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-09 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-18 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-09 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-24 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-17 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-25 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-17 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-25 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-17 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-25 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-17 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-15 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-10-14 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-16 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-29 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-16 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-29 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-17 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-29 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-05 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-06 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-10-23 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-11 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-11 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-11 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-12 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-12 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-12 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-12 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-13 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-04 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-14 10:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-10 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-14 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-10 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-14 11:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-05 13:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-14 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-05 13:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-12-19 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-12-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-12-19 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-12-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-12-22 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-12-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-12-22 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-12-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-21 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-21 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-22 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-22 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-22 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-22 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-12 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-28 10:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "DULL",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-28 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "DULL",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-28 10:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-01-22 14:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-28 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-01-22 14:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-11 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-29 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-24 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-29 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 14:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 15:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-03 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-26 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-03 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-26 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-11 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-03 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-12 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-03 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-29 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-27 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-29 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-22 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-05-27 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-05-21 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-05-28 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-05-21 14:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-06-05 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-06-04 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-06-05 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-06-01 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-09 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-06 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-09 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-06 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-07-09 10:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-07-09 10:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 14:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-07 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-07 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-21 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-14 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-22 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-14 14:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-28 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-07-24 10:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-29 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-20 13:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-29 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-20 13:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-29 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-20 13:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-11 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-03 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-13 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-03 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-18 10:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-08-13 13:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-18 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-08-13 13:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-18 10:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-08-10 14:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-18 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-08-10 14:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-26 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-17 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-27 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-17 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-02 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 13:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 14:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-03 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-04 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-24 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-18 10:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-09-08 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-09-18 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-09-08 10:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-25 10:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-11 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-25 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-06-11 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-25 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-06-03 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-25 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-06-03 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-07-31 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-14 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-01 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-07-14 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-18 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-18 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-22 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-23 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-23 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-29 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-10-09 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-17 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-10-30 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-17 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-10-30 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-08 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-13 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-09 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-13 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-12 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-12 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-15 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-12-16 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-14 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-01-09 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-01-09 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-05 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-23 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-14 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-26 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-01-14 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-03 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-13 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-04 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-13 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-11 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-12 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-12 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-13 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-02-27 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-05-07 11:30:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-22 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-05-07 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-22 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-05-07 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-05-07 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-06-26 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-06-05 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-06-29 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-06-05 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-08-19 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-30 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-08-21 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-30 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-08-24 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-30 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-08-24 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-07-30 11:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-09-11 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-19 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-09-14 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-19 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-09-22 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-26 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-09-23 10:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-08-26 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-11 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-02 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-12 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-02 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-12 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-02 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-13 11:30:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2026-03-02 10:30:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-18 11:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-08-05 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-18 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-08-05 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-18 14:00:00",
+      "alternative": "strongest_eligible",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-18 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-18 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-07-18 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-09-11 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-15 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-09-15 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-15 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-09-17 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-08-15 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-09-18 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-08-15 14:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-10-17 15:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-10-21 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-09-18 14:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-17 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-10-31 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-17 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "CANCEL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-10-31 11:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-08 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-13 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-09 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2025-11-13 15:00:00",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-16 11:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-12-05 11:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-16 14:00:00",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2025-11-14 15:00:00",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-02",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2006-10-17",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-12",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "STRUCTURE",
+      "nearest_ref": "",
+      "alternative_ref": "2006-10-17",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-03-20",
+      "alternative": "strongest_separate",
+      "nearest_event": "NONE",
+      "alternative_event": "DULL",
+      "nearest_ref": "",
+      "alternative_ref": "2007-02-15",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-03-21",
+      "alternative": "strongest_separate",
+      "nearest_event": "DULL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2007-02-15",
+      "alternative_ref": "",
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "time": "2026-09-29",
+      "alternative": "strongest_separate",
+      "nearest_event": "CANCEL",
+      "alternative_event": "NONE",
+      "nearest_ref": "2026-09-11",
+      "alternative_ref": "",
+      "software_label": "CANCEL"
+    }
+  ],
+  "reference_choice_differences": [
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-24 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "2025-05-06 11:30:00",
+      "nearest_dif": 11.88627301629458,
+      "alternative_dif": 26.114902990716928,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20250711.csv",
+      "time": "2025-06-24 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "2025-05-06 11:30:00",
+      "nearest_dif": 11.88627301629458,
+      "alternative_dif": 26.114902990716928,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-24 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "2025-05-06 11:30:00",
+      "nearest_dif": 11.88627301629458,
+      "alternative_dif": 26.114902990716928,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-06-24 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-06-04 11:30:00",
+      "alternative_ref": "2025-05-06 11:30:00",
+      "nearest_dif": 11.88627301629458,
+      "alternative_dif": 26.114902990716928,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-07 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-07 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-14 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-14 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-15 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-08-15 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-21 11:30:00",
+      "nearest_dif": 29.635069504135572,
+      "alternative_dif": 32.468748833716745,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-09 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-09 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-10 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "STRUCTURE"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-10 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "STRUCTURE"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-14 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-14 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "DULL"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-14 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "STRUCTURE"
+    },
+    {
+      "input": "120_20250401_20251111.csv",
+      "time": "2025-10-14 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-11 15:00:00",
+      "alternative_ref": "2025-08-06 15:00:00",
+      "nearest_dif": 20.93471168695578,
+      "alternative_dif": 61.80033538696671,
+      "software_label": "STRUCTURE"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 11:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-06-18 10:30:00",
+      "alternative_ref": "2025-06-12 10:00:00",
+      "nearest_dif": -2.289660808736244,
+      "alternative_dif": -4.728524273163657,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-06-19 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-06-18 10:30:00",
+      "alternative_ref": "2025-06-12 10:00:00",
+      "nearest_dif": -2.289660808736244,
+      "alternative_dif": -4.728524273163657,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 10:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-01 10:30:00",
+      "alternative_ref": "2025-06-23 11:00:00",
+      "nearest_dif": 6.4234358480589435,
+      "alternative_dif": 18.982431914955214,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-07-04 10:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-01 10:30:00",
+      "alternative_ref": "2025-06-23 11:00:00",
+      "nearest_dif": 6.4234358480589435,
+      "alternative_dif": 18.982431914955214,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-09-11 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-09-05 11:00:00",
+      "alternative_ref": "2025-08-29 10:00:00",
+      "nearest_dif": 7.142781108287181,
+      "alternative_dif": 10.187240780280717,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-15 14:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-10-14 10:30:00",
+      "alternative_ref": "2025-09-29 14:00:00",
+      "nearest_dif": 1.701242927435942,
+      "alternative_dif": 22.231230988459174,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-17 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-10-14 14:00:00",
+      "alternative_ref": "2025-10-10 11:30:00",
+      "nearest_dif": -5.067202935850219,
+      "alternative_dif": -5.996929367024677,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-10-17 14:30:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2025-10-14 14:00:00",
+      "alternative_ref": "2025-10-10 11:30:00",
+      "nearest_dif": -5.067202935850219,
+      "alternative_dif": -5.996929367024677,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-13 13:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-11-10 15:00:00",
+      "alternative_ref": "2025-11-05 13:30:00",
+      "nearest_dif": 7.21449029233554,
+      "alternative_dif": 10.823977360927984,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2025-11-13 13:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-11-10 15:00:00",
+      "alternative_ref": "2025-11-05 13:30:00",
+      "nearest_dif": 7.21449029233554,
+      "alternative_dif": 10.823977360927984,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-27 14:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "nearest_dif": 4.842564245902395,
+      "alternative_dif": 5.965123604825749,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-27 14:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "nearest_dif": 4.842564245902395,
+      "alternative_dif": 5.965123604825749,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-27 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "nearest_dif": 4.842564245902395,
+      "alternative_dif": 5.965123604825749,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-01-27 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-01-26 14:30:00",
+      "alternative_ref": "2026-01-22 14:30:00",
+      "nearest_dif": 4.842564245902395,
+      "alternative_dif": 5.965123604825749,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-25 10:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "2026-02-03 14:30:00",
+      "nearest_dif": 12.504736668078294,
+      "alternative_dif": 13.567719919292358,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-25 10:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "2026-02-03 14:30:00",
+      "nearest_dif": 12.504736668078294,
+      "alternative_dif": 13.567719919292358,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-25 14:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "2026-02-03 14:30:00",
+      "nearest_dif": 12.504736668078294,
+      "alternative_dif": 13.567719919292358,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-02-25 14:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-02-11 11:00:00",
+      "alternative_ref": "2026-02-03 14:30:00",
+      "nearest_dif": 12.504736668078294,
+      "alternative_dif": 13.567719919292358,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 10:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 10:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-02 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-02-24 11:30:00",
+      "alternative_ref": "2026-02-11 11:00:00",
+      "nearest_dif": 9.856409436883041,
+      "alternative_dif": 12.504736668078294,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-30 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-27 11:30:00",
+      "alternative_ref": "2026-03-24 13:30:00",
+      "nearest_dif": -0.1504584614704072,
+      "alternative_dif": 0.5304752960605583,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-03-30 13:30:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-27 11:30:00",
+      "alternative_ref": "2026-03-24 13:30:00",
+      "nearest_dif": -0.1504584614704072,
+      "alternative_dif": 0.5304752960605583,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-14 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-10 10:00:00",
+      "alternative_ref": "2026-04-07 14:30:00",
+      "nearest_dif": 18.826821763160297,
+      "alternative_dif": 20.934009896612224,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-14 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-10 10:00:00",
+      "alternative_ref": "2026-04-07 14:30:00",
+      "nearest_dif": 18.826821763160297,
+      "alternative_dif": 20.934009896612224,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-14 13:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-10 10:00:00",
+      "alternative_ref": "2026-04-07 14:30:00",
+      "nearest_dif": 18.826821763160297,
+      "alternative_dif": 20.934009896612224,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-14 13:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-10 10:00:00",
+      "alternative_ref": "2026-04-07 14:30:00",
+      "nearest_dif": 18.826821763160297,
+      "alternative_dif": 20.934009896612224,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 11:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-20 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-21 10:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-21 10:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-16 11:30:00",
+      "alternative_ref": "2026-04-14 15:00:00",
+      "nearest_dif": 14.99663418145883,
+      "alternative_dif": 17.176221162324964,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-22 13:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-16 11:30:00",
+      "nearest_dif": 14.110823781182262,
+      "alternative_dif": 14.99663418145883,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-22 13:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-16 11:30:00",
+      "nearest_dif": 14.110823781182262,
+      "alternative_dif": 14.99663418145883,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-23 10:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-16 11:30:00",
+      "nearest_dif": 14.110823781182262,
+      "alternative_dif": 14.99663418145883,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-23 10:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-16 11:30:00",
+      "nearest_dif": 14.110823781182262,
+      "alternative_dif": 14.99663418145883,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-04-29 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-27 11:30:00",
+      "alternative_ref": "2026-04-22 11:30:00",
+      "nearest_dif": 1.7462908581755983,
+      "alternative_dif": 12.03197761811225,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-06-05 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-06-04 11:00:00",
+      "alternative_ref": "2026-06-01 11:00:00",
+      "nearest_dif": -5.5645214347273395,
+      "alternative_dif": -13.089590998111817,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 11:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-07-09 10:00:00",
+      "alternative_ref": "2026-07-07 10:00:00",
+      "nearest_dif": -20.048519944729378,
+      "alternative_dif": -20.66746569666884,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-13 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-07-09 10:00:00",
+      "alternative_ref": "2026-07-07 10:00:00",
+      "nearest_dif": -20.048519944729378,
+      "alternative_dif": -20.66746569666884,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-07-28 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-07-24 10:00:00",
+      "alternative_ref": "2026-07-20 13:30:00",
+      "nearest_dif": -7.2275296146176515,
+      "alternative_dif": -40.632184987634446,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-17 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-08-13 13:30:00",
+      "alternative_ref": "2026-08-10 14:30:00",
+      "nearest_dif": 9.105977860996518,
+      "alternative_dif": 24.22755034624697,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "30_20250603_20261009.csv",
+      "time": "2026-08-17 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-08-13 13:30:00",
+      "alternative_ref": "2026-08-10 14:30:00",
+      "nearest_dif": 9.105977860996518,
+      "alternative_dif": 24.22755034624697,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-24 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-06-11 11:30:00",
+      "alternative_ref": "2025-06-03 10:30:00",
+      "nearest_dif": 8.752220096931978,
+      "alternative_dif": 10.422507933838006,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-06-24 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-06-11 11:30:00",
+      "alternative_ref": "2025-06-03 10:30:00",
+      "nearest_dif": 8.752220096931978,
+      "alternative_dif": 10.422507933838006,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-06 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-06 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-08 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-08 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-11 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-11 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-11 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-11 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-08-12 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-07-30 11:30:00",
+      "alternative_ref": "2025-07-18 10:30:00",
+      "nearest_dif": 15.34856415068407,
+      "alternative_dif": 22.920871532535784,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-09-08 11:30:00",
+      "alternative_ref": "2025-08-20 15:00:00",
+      "nearest_dif": 17.50458931317553,
+      "alternative_dif": 45.86705321037425,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-09-08 11:30:00",
+      "alternative_ref": "2025-08-20 15:00:00",
+      "nearest_dif": 17.50458931317553,
+      "alternative_dif": 45.86705321037425,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-08 11:30:00",
+      "alternative_ref": "2025-08-20 15:00:00",
+      "nearest_dif": 17.50458931317553,
+      "alternative_dif": 45.86705321037425,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-09-18 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-09-08 11:30:00",
+      "alternative_ref": "2025-08-20 15:00:00",
+      "nearest_dif": 17.50458931317553,
+      "alternative_dif": 45.86705321037425,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-13 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-11-06 10:30:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 10.39404530201,
+      "alternative_dif": 28.80087595504483,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-13 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-11-06 10:30:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 10.39404530201,
+      "alternative_dif": 28.80087595504483,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-14 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-11-06 10:30:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 10.39404530201,
+      "alternative_dif": 28.80087595504483,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2025-11-14 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-11-06 10:30:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 10.39404530201,
+      "alternative_dif": 28.80087595504483,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-01-09 10:30:00",
+      "alternative_ref": "2026-01-05 11:30:00",
+      "nearest_dif": 34.338241778149495,
+      "alternative_dif": 37.0529436244683,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-01-12 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-01-09 10:30:00",
+      "alternative_ref": "2026-01-05 11:30:00",
+      "nearest_dif": 34.338241778149495,
+      "alternative_dif": 37.0529436244683,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-16 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-16 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-03-17 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-08 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-25 11:30:00",
+      "alternative_ref": "2026-03-10 11:30:00",
+      "nearest_dif": 0.5906110867122152,
+      "alternative_dif": 2.751190252694869,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-08 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-25 11:30:00",
+      "alternative_ref": "2026-03-10 11:30:00",
+      "nearest_dif": 0.5906110867122152,
+      "alternative_dif": 2.751190252694869,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-23 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-08 10:30:00",
+      "nearest_dif": 25.078403896373402,
+      "alternative_dif": 25.567706301411363,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-23 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-08 10:30:00",
+      "nearest_dif": 25.078403896373402,
+      "alternative_dif": 25.567706301411363,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-23 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-08 10:30:00",
+      "nearest_dif": 25.078403896373402,
+      "alternative_dif": 25.567706301411363,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-23 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-04-20 10:30:00",
+      "alternative_ref": "2026-04-08 10:30:00",
+      "nearest_dif": 25.078403896373402,
+      "alternative_dif": 25.567706301411363,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-30 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-04-22 15:00:00",
+      "alternative_ref": "2026-04-20 10:30:00",
+      "nearest_dif": 23.618094478156763,
+      "alternative_dif": 25.078403896373402,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-04-30 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-04-22 15:00:00",
+      "alternative_ref": "2026-04-20 10:30:00",
+      "nearest_dif": 23.618094478156763,
+      "alternative_dif": 25.078403896373402,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-07-30 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-07-28 14:00:00",
+      "alternative_ref": "2026-07-16 14:00:00",
+      "nearest_dif": -16.00326225213712,
+      "alternative_dif": -56.3228026831398,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20250603_20261009.csv",
+      "time": "2026-07-30 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-07-28 14:00:00",
+      "alternative_ref": "2026-07-16 14:00:00",
+      "nearest_dif": -16.00326225213712,
+      "alternative_dif": -56.3228026831398,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-16 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-16 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 10:30:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 10:30:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 11:30:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-03-17 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-09 10:30:00",
+      "alternative_ref": "2026-03-03 14:00:00",
+      "nearest_dif": -10.913146779701492,
+      "alternative_dif": -11.441971826085137,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-04-08 11:30:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-03-25 11:30:00",
+      "alternative_ref": "2026-03-10 11:30:00",
+      "nearest_dif": 0.5906110867122152,
+      "alternative_dif": 2.751190252694869,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "60_20260301_20260420.csv",
+      "time": "2026-04-08 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "CANCEL",
+      "nearest_ref": "2026-03-25 11:30:00",
+      "alternative_ref": "2026-03-10 11:30:00",
+      "nearest_dif": 0.5906110867122152,
+      "alternative_dif": 2.751190252694869,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-07-04 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-06-30 15:00:00",
+      "alternative_ref": "2025-06-24 11:00:00",
+      "nearest_dif": 16.04494100713964,
+      "alternative_dif": 19.28212366483376,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-07-04 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-06-30 15:00:00",
+      "alternative_ref": "2025-06-24 11:00:00",
+      "nearest_dif": 16.04494100713964,
+      "alternative_dif": 19.28212366483376,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-07-07 11:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-06-30 15:00:00",
+      "alternative_ref": "2025-06-24 11:00:00",
+      "nearest_dif": 16.04494100713964,
+      "alternative_dif": 19.28212366483376,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-07-07 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-06-30 15:00:00",
+      "alternative_ref": "2025-06-24 11:00:00",
+      "nearest_dif": 16.04494100713964,
+      "alternative_dif": 19.28212366483376,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-15 15:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-08-05 15:00:00",
+      "alternative_ref": "2025-07-18 15:00:00",
+      "nearest_dif": 22.90545132205125,
+      "alternative_dif": 25.858590410614397,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-08-15 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-08-05 15:00:00",
+      "alternative_ref": "2025-07-18 15:00:00",
+      "nearest_dif": 22.90545132205125,
+      "alternative_dif": 25.858590410614397,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-14 11:00:00",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2025-11-06 14:00:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 13.0978018009082,
+      "alternative_dif": 31.39180919304681,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-14 11:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-11-06 14:00:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 13.0978018009082,
+      "alternative_dif": 31.39180919304681,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-14 14:00:00",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-11-06 14:00:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 13.0978018009082,
+      "alternative_dif": 31.39180919304681,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-11-14 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-11-06 14:00:00",
+      "alternative_ref": "2025-10-23 15:00:00",
+      "nearest_dif": 13.0978018009082,
+      "alternative_dif": 31.39180919304681,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-11 15:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-12-05 11:00:00",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "nearest_dif": -7.239400383468819,
+      "alternative_dif": -39.36387132679238,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-12 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2025-12-05 11:00:00",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "nearest_dif": -7.239400383468819,
+      "alternative_dif": -39.36387132679238,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "90_20250603_20260113.csv",
+      "time": "2025-12-15 14:00:00",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2025-12-05 11:00:00",
+      "alternative_ref": "2025-11-14 15:00:00",
+      "nearest_dif": -7.239400383468819,
+      "alternative_dif": -39.36387132679238,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-16",
+      "alternative": "strongest_eligible",
+      "event": "DULL",
+      "nearest_ref": "2007-01-23",
+      "alternative_ref": "2006-10-31",
+      "nearest_dif": 162.508,
+      "alternative_dif": 177.769,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-16",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2007-01-23",
+      "alternative_ref": "2006-10-31",
+      "nearest_dif": 162.508,
+      "alternative_dif": 177.769,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-27",
+      "alternative": "strongest_eligible",
+      "event": "STRUCTURE",
+      "nearest_ref": "2007-01-23",
+      "alternative_ref": "2006-10-31",
+      "nearest_dif": 162.508,
+      "alternative_dif": 177.769,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20060801_20070529.csv",
+      "time": "2007-02-27",
+      "alternative": "strongest_separate",
+      "event": "STRUCTURE",
+      "nearest_ref": "2007-01-23",
+      "alternative_ref": "2006-10-31",
+      "nearest_dif": 162.508,
+      "alternative_dif": 177.769,
+      "software_label": "NOT_CONFIRMED"
+    },
+    {
+      "input": "daily_20260801_20261009.csv",
+      "time": "2026-09-28",
+      "alternative": "strongest_separate",
+      "event": "DULL",
+      "nearest_ref": "2026-09-11",
+      "alternative_ref": "2026-08-03",
+      "nearest_dif": -10.316,
+      "alternative_dif": -57.579,
+      "software_label": "DULL"
+    }
+  ],
+  "limitations": [
+    "Mapped labels may shift by one bar; no new screenshot was received.",
+    "Event state after color flip belongs to old wave; current-wave state resets.",
+    "Cross-wave validity/cancellation of old confirmed references remains unimplemented.",
+    "Strongest of two and sign-wave peak definitions are hypotheses, not software facts.",
+    "Color flip bypassing the DIF-turn threshold is not identified by the existing market evidence.",
+    "Bottom turn thresholds and zero-bar splitting remain unconfirmed."
+  ]
+}

@@ -1,0 +1,3931 @@
+{
+  "research_date": "2026-10-12",
+  "definitions_sha256": "35c0fa71517fcb6f3a9846957862b503fd17de78d34d34a1fda2b9dc03e0f8fc",
+  "original_candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "inputs": {
+    "90": {
+      "path": "reports/xxm_macd_structure_20261011/inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    },
+    "120": {
+      "path": "reports/xxm_macd_structure_20261011/discrimination_screen_20261012/derived_120.csv",
+      "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+    }
+  },
+  "old_price_screen_sha256": "450add36b4247c71904e5c0b33c246a451952ccb3c96d0ee005d96ed0e2adf9a",
+  "preserved_prior_files": 195,
+  "counts": {
+    "90": {
+      "input_bars": 459,
+      "anchor_groups": 7,
+      "any_clean_disagreement": 0,
+      "all_six_clean_disagreement": 0,
+      "stable_all_six": 0
+    },
+    "120": {
+      "input_bars": 738,
+      "anchor_groups": 10,
+      "any_clean_disagreement": 0,
+      "all_six_clean_disagreement": 0,
+      "stable_all_six": 0
+    }
+  },
+  "prefix_checks": 120,
+  "all_groups": [
+    {
+      "period": "90",
+      "anchor_time": "2025-07-02 14:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.08435548579691612,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.08435548579691612,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.08435548579691612,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.08435548579691612,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.04902953744646765,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.04902953744646765,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.04902953744646765,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.04902953744646765,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.020768778766108914,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.020768778766108914,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-02 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-02 14:00:00",
+            "dif": 15.464687416477318,
+            "hist": 0.3796692091010847,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-01 14:00:00",
+            "close": 3458.5686
+          },
+          "firsts": {
+            "price_only": "2025-07-03 14:00:00",
+            "price_and_dif": "2025-07-03 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.020768778766108914,
+              "previous_dif": 14.130379340179388
+            },
+            "price_and_dif": {
+              "time": "2025-07-03 14:00:00",
+              "close": 3462.8333,
+              "dif": 14.32071267102765,
+              "hist": -1.104699848180978,
+              "price_margin": 4.264699999999721,
+              "dif_rise": 0.19033333084826154,
+              "dif_gate_margin": 0.020768778766108914,
+              "previous_dif": 14.130379340179388
+            }
+          },
+          "first_negative": "2025-07-02 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-04 15:00:00"
+          },
+          "last_observed": "2025-07-04 14:00:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-07-07 11:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 16.04494100713964
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.15938628498376145,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.15938628498376145,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-08 15:00:00"
+          },
+          "last_observed": "2025-07-08 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.15938628498376145,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.15938628498376145,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-11 11:00:00"
+          },
+          "last_observed": "2025-07-10 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 16.04494100713964
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.12333075298894983,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.12333075298894983,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-08 15:00:00"
+          },
+          "last_observed": "2025-07-08 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.12333075298894983,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.12333075298894983,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-11 11:00:00"
+          },
+          "last_observed": "2025-07-10 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 16.04494100713964
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.09448632739310053,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.09448632739310053,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-08 15:00:00"
+          },
+          "last_observed": "2025-07-08 14:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-07 11:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:00:00",
+            "dif": 14.836886929523189,
+            "hist": -0.3372295869172497,
+            "old_dif_reference": 19.28212366483376
+          },
+          "local_peak": {
+            "time": "2025-07-04 14:00:00",
+            "close": 3479.902
+          },
+          "firsts": {
+            "price_only": "2025-07-08 11:00:00",
+            "price_and_dif": "2025-07-08 11:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.09448632739310053,
+              "previous_dif": 14.422212797924658
+            },
+            "price_and_dif": {
+              "time": "2025-07-08 11:00:00",
+              "close": 3481.511,
+              "dif": 14.689765678892854,
+              "hist": -0.2466050708823353,
+              "price_margin": 1.6089999999999236,
+              "dif_rise": 0.2675528809681964,
+              "dif_gate_margin": 0.09448632739310053,
+              "previous_dif": 14.422212797924658
+            }
+          },
+          "first_negative": "2025-07-07 11:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-07-11 11:00:00"
+          },
+          "last_observed": "2025-07-10 15:00:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-08-08 14:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-08 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-08 14:00:00",
+            "dif": 16.012254618490715,
+            "hist": 6.2267741965114745,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-08 11:00:00",
+            "close": 3643.3398
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-11 11:00:00"
+          },
+          "last_observed": "2025-08-08 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-08-14 14:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 14:00:00",
+            "dif": 22.171734325540456,
+            "hist": 4.226062877981434,
+            "old_dif_reference": 25.858590410614397
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:00:00",
+            "close": 3695.7986
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-08-15 11:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 14:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-09-18 14:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 14:00:00",
+            "dif": 12.671483722265748,
+            "hist": -1.0360377033789838,
+            "old_dif_reference": 52.465540153175425
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:00:00",
+            "close": 3890.613
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 14:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:00:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-11-11 11:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.845823630249023,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.845823630249023,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.845823630249023,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.845823630249023,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8226314787224009,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8226314787224009,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8226314787224009,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8226314787224009,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8040777575011034,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8040777575011034,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-11 11:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-11 11:00:00",
+            "dif": 11.954974379587384,
+            "hist": 0.7751350692128653,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-10 15:00:00",
+            "close": 4018.5972
+          },
+          "firsts": {
+            "price_only": "2025-11-13 14:00:00",
+            "price_and_dif": "2025-11-13 14:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8040777575011034,
+              "previous_dif": 9.276860610648782
+            },
+            "price_and_dif": {
+              "time": "2025-11-13 14:00:00",
+              "close": 4019.9592,
+              "dif": 10.192260695477671,
+              "hist": -0.06253572439602095,
+              "price_margin": 1.3619999999996253,
+              "dif_rise": 0.9154000848288888,
+              "dif_gate_margin": 0.8040777575011034,
+              "previous_dif": 9.276860610648782
+            }
+          },
+          "first_negative": "2025-11-11 14:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-11-14 11:00:00"
+          },
+          "last_observed": "2025-11-13 15:00:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-11-14 14:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 13.0978018009082
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-24 14:00:00"
+          },
+          "last_observed": "2025-12-24 11:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2026-01-05 14:00:00"
+          },
+          "last_observed": "2026-01-05 11:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 13.0978018009082
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-24 14:00:00"
+          },
+          "last_observed": "2025-12-24 11:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2026-01-05 14:00:00"
+          },
+          "last_observed": "2026-01-05 11:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 13.0978018009082
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-24 14:00:00"
+          },
+          "last_observed": "2025-12-24 11:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 14:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 14:00:00",
+            "dif": 11.818681941811974,
+            "hist": 1.6054301091132075,
+            "old_dif_reference": 31.39180919304681
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2026-01-05 14:00:00"
+          },
+          "last_observed": "2026-01-05 11:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-06-13 11:30:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4283603624218064,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4283603624218064,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4283603624218064,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4283603624218064,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4232339794621023,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4232339794621023,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4232339794621023,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.4232339794621023,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.419132873094339,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.419132873094339,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-06-13 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-13 11:30:00",
+            "dif": 9.811028081007862,
+            "hist": -0.306461906009897,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-12 11:30:00",
+            "close": 3404.6565
+          },
+          "firsts": {
+            "price_only": "2025-06-24 11:30:00",
+            "price_and_dif": "2025-06-24 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.419132873094339,
+              "previous_dif": -2.050553183881675
+            },
+            "price_and_dif": {
+              "time": "2025-06-24 11:30:00",
+              "close": 3415.4475,
+              "dif": 1.3931863274192438,
+              "hist": 1.5715488670058009,
+              "price_margin": 10.791000000000167,
+              "dif_rise": 3.443739511300919,
+              "dif_gate_margin": 3.419132873094339,
+              "previous_dif": -2.050553183881675
+            }
+          },
+          "first_negative": "2025-06-13 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-24 15:00:00"
+          },
+          "last_observed": "2025-06-24 11:30:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-06-27 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-06-27 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-06-27 15:00:00",
+            "dif": 16.975843107938545,
+            "hist": 10.008361723480565,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-06-26 11:30:00",
+            "close": 3459.657
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-06-30 15:00:00"
+          },
+          "last_observed": "2025-06-30 11:30:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-07-07 11:30:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-07 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-07 11:30:00",
+            "dif": 19.565827364669985,
+            "hist": 1.88959263114117,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-04 11:30:00",
+            "close": 3475.2417
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-08 11:30:00"
+          },
+          "last_observed": "2025-07-07 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-07-09 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-07-09 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-09 15:00:00",
+            "dif": 23.214780328633424,
+            "hist": 4.3098266110843895,
+            "old_dif_reference": 26.11490299072011
+          },
+          "local_peak": {
+            "time": "2025-07-09 11:30:00",
+            "close": 3507.6934
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-07-10 11:30:00"
+          },
+          "last_observed": "2025-07-09 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-07-31 11:30:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.7170932447512985,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.7170932447512985,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.7170932447512985,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.7170932447512985,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6761139169385069,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6761139169385069,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6761139169385069,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6761139169385069,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6433304546882737,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6433304546882737,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-07-31 11:30:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-07-31 11:30:00",
+            "dif": 26.611050118145613,
+            "hist": -3.9414146397033107,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53
+          },
+          "firsts": {
+            "price_only": "2025-08-06 15:00:00",
+            "price_and_dif": "2025-08-06 15:00:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6433304546882737,
+              "previous_dif": 16.39173112511662
+            },
+            "price_and_dif": {
+              "time": "2025-08-06 15:00:00",
+              "close": 3633.9949,
+              "dif": 18.231762353306294,
+              "hist": 1.5208747289510782,
+              "price_margin": 5.464899999999943,
+              "dif_rise": 1.8400312281896731,
+              "dif_gate_margin": 1.6433304546882737,
+              "previous_dif": 16.39173112511662
+            }
+          },
+          "first_negative": "2025-07-31 11:30:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-07 11:30:00"
+          },
+          "last_observed": "2025-08-06 15:00:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-08-14 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 29.63506950414012
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 29.63506950414012
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 29.63506950414012
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-08-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-08-14 15:00:00",
+            "dif": 27.384917064832734,
+            "hist": 3.8150668371306864,
+            "old_dif_reference": 32.46874883372038
+          },
+          "local_peak": {
+            "time": "2025-08-14 11:30:00",
+            "close": 3690.8792
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-08-15 15:00:00"
+          },
+          "last_observed": "2025-08-15 11:30:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-09-18 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-09-18 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-09-18 15:00:00",
+            "dif": 16.754705925477538,
+            "hist": -3.432874974394778,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-09-18 11:30:00",
+            "close": 3893.9502
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-09-18 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-09 11:30:00"
+          },
+          "last_observed": "2025-09-30 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-10-10 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-10 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-10 15:00:00",
+            "dif": 19.600492874544216,
+            "hist": 13.56124390295695,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": null,
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-14 11:30:00"
+          },
+          "last_observed": "2025-10-13 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-10-14 15:00:00",
+      "variants": 6,
+      "stable_predictions": true,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 20.934711686959872
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-10-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-10-14 15:00:00",
+            "dif": 12.645253054460682,
+            "hist": -2.029733022706356,
+            "old_dif_reference": 61.800335386972165
+          },
+          "local_peak": {
+            "time": "2025-10-09 15:00:00",
+            "close": 3933.9724
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-10-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "new_top_dull",
+            "time": "2025-10-24 11:30:00"
+          },
+          "last_observed": "2025-10-23 15:00:00",
+          "price_and_dif_censored": true
+        }
+      ]
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-11-14 15:00:00",
+      "variants": 6,
+      "stable_predictions": false,
+      "informative_variants": 0,
+      "clean_informative_variants": 0,
+      "all_six_clean_informative": false,
+      "records": [
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 19.29233245855994
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-29 11:30:00"
+          },
+          "last_observed": "2025-12-26 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 0.75,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 36.04526039839266
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": "2026-01-06 11:30:00",
+            "price_and_dif": "2026-01-06 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.586810180146719,
+              "previous_dif": 26.823968284934836
+            },
+            "price_and_dif": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.586810180146719,
+              "previous_dif": 26.823968284934836
+            }
+          },
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2026-01-06 15:00:00"
+          },
+          "last_observed": "2026-01-06 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 19.29233245855994
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-29 11:30:00"
+          },
+          "last_observed": "2025-12-26 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 1.0,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 36.04526039839266
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": "2026-01-06 11:30:00",
+            "price_and_dif": "2026-01-06 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.519750259434382,
+              "previous_dif": 26.823968284934836
+            },
+            "price_and_dif": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.519750259434382,
+              "previous_dif": 26.823968284934836
+            }
+          },
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2026-01-06 15:00:00"
+          },
+          "last_observed": "2026-01-06 11:30:00",
+          "price_and_dif_censored": false
+        },
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "nearest_qualifying",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 19.29233245855994
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": null,
+            "price_and_dif": null
+          },
+          "endpoint_evidence": {},
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": false,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2025-12-29 11:30:00"
+          },
+          "last_observed": "2025-12-26 15:00:00",
+          "price_and_dif_censored": true
+        },
+        {
+          "anchor_time": "2025-11-14 15:00:00",
+          "gate_pct": 1.2,
+          "policy": "strongest_eligible",
+          "anchor": {
+            "time": "2025-11-14 15:00:00",
+            "dif": 15.385962100523557,
+            "hist": -3.769386193859127,
+            "old_dif_reference": 36.04526039839266
+          },
+          "local_peak": {
+            "time": "2025-11-13 15:00:00",
+            "close": 4029.5012
+          },
+          "firsts": {
+            "price_only": "2026-01-06 11:30:00",
+            "price_and_dif": "2026-01-06 11:30:00"
+          },
+          "endpoint_evidence": {
+            "price_only": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.466102322864511,
+              "previous_dif": 26.823968284934836
+            },
+            "price_and_dif": {
+              "time": "2026-01-06 11:30:00",
+              "close": 4069.376,
+              "dif": 32.611958227218565,
+              "hist": 18.79918565127757,
+              "price_margin": 39.87480000000005,
+              "dif_rise": 5.78798994228373,
+              "dif_gate_margin": 5.466102322864511,
+              "previous_dif": 26.823968284934836
+            }
+          },
+          "first_negative": "2025-11-14 15:00:00",
+          "informative": false,
+          "clean_negative_phase": true,
+          "censor": {
+            "kind": "original_dif_reference_break",
+            "time": "2026-01-06 15:00:00"
+          },
+          "last_observed": "2026-01-06 11:30:00",
+          "price_and_dif_censored": false
+        }
+      ]
+    }
+  ],
+  "clean_candidates": [],
+  "coincident_clean_groups": [
+    {
+      "period": "90",
+      "anchor_time": "2025-07-02 14:00:00",
+      "first_price": "2025-07-03 14:00:00",
+      "dif_rise_pct_min": 1.3469796264213048,
+      "minimum_gate_margin": 0.020768778766108914,
+      "previous_dif": 14.130379340179388,
+      "hist": -1.104699848180978
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-07-07 11:00:00",
+      "first_price": "2025-07-08 11:00:00",
+      "dif_rise_pct_min": 1.8551444547170806,
+      "minimum_gate_margin": 0.09448632739310053,
+      "previous_dif": 14.422212797924658,
+      "hist": -0.2466050708823353
+    },
+    {
+      "period": "90",
+      "anchor_time": "2025-11-11 11:00:00",
+      "first_price": "2025-11-13 14:00:00",
+      "dif_rise_pct_min": 9.86756321182743,
+      "minimum_gate_margin": 0.8040777575011034,
+      "previous_dif": 9.276860610648782,
+      "hist": -0.06253572439602095
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-06-13 11:30:00",
+      "first_price": "2025-06-24 11:30:00",
+      "dif_rise_pct_min": 167.94197479833014,
+      "minimum_gate_margin": 3.419132873094339,
+      "previous_dif": -2.050553183881675,
+      "hist": 1.5715488670058009
+    },
+    {
+      "period": "120",
+      "anchor_time": "2025-07-31 11:30:00",
+      "first_price": "2025-08-06 15:00:00",
+      "dif_rise_pct_min": 11.225362435150252,
+      "minimum_gate_margin": 1.6433304546882737,
+      "previous_dif": 16.39173112511662,
+      "hist": 1.5208747289510782
+    }
+  ],
+  "diagnostic_only": true,
+  "new_software_labels": 0,
+  "limitations": [
+    "Changed diagnostic censoring is not original software expiry",
+    "No finite later DIF hit before censoring is not permanent rule failure",
+    "Stable predictions are not software validation",
+    "90 software historical numeric differences unresolved",
+    "No new source, bottom symmetry, gate change or correction join conclusion"
+  ]
+}

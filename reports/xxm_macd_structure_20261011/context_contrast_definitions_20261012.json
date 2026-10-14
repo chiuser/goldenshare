@@ -1,0 +1,496 @@
+{
+  "research_date": "2026-10-12",
+  "scope": "Retrospective contextual lecture contrasts with preserved January candidate inputs; no new sources, labels, parameter fitting or decision engine",
+  "interpretations_are": "Research annotations, not automatic semantic extraction or independently verified trades",
+  "cases": [
+    {
+      "id": "june26_2025_selection",
+      "date": "2025-06-26",
+      "file": "20250626_vidiq_transcript.json",
+      "kind": "conditional_plan",
+      "direction": "top",
+      "phase": "trigger",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "OR_first_structure",
+      "anchors": [
+        [
+          "distance",
+          "日线价格又距离趋势比较远",
+          1435,
+          250
+        ],
+        [
+          "not_actual",
+          "现在啥也没有呢",
+          2081,
+          300
+        ],
+        [
+          "trigger",
+          "90分钟或120分钟 哪一个先来哪一个减",
+          2138,
+          310
+        ],
+        [
+          "respect_trigger",
+          "即便假摔 形成结构你也得操作",
+          2436,
+          250
+        ]
+      ],
+      "finding": "Daily small and far is temporarily excluded; first selected 90/120 structure would trigger. Expected false retreat is not a veto. This is future planning, not an actual structure/action today.",
+      "limitations": [
+        "No measured distance cutoff",
+        "No actual trigger or fills",
+        "Raw four-tenths spelling varies"
+      ]
+    },
+    {
+      "id": "july11_scope",
+      "date": "2025-07-11",
+      "file": "20250711_vidiq_transcript.json",
+      "kind": "declared_policy_and_current_correction",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "120"
+      ],
+      "join": "single_selected_period_in_this_lecture",
+      "anchors": [
+        [
+          "far",
+          "价格到趋势的距离比较远啊",
+          448,
+          420
+        ],
+        [
+          "exclude_60",
+          "不理60分钟是正常的",
+          2473,
+          260
+        ],
+        [
+          "bar_close",
+          "这个周期的结束",
+          1805,
+          170
+        ]
+      ],
+      "finding": "Far trend distance excludes 60 in this case; correcting the original 120 decision should not be blocked by possible new 60 structure. Period close governs the cited correction.",
+      "limitations": [
+        "No 60 software chart available; do not request it again",
+        "Not an event-matched causal estimate of distance",
+        "Transcription 教室 retained; not silently corrected"
+      ]
+    },
+    {
+      "id": "nov11_near_and_amount",
+      "date": "2025-11-11",
+      "file": "20251111_user_transcript.txt",
+      "kind": "author_event_and_declared_action",
+      "direction": "top",
+      "phase": "new_defense",
+      "selected_periods": [
+        "90",
+        "daily"
+      ],
+      "join": "new_correction_join_unknown",
+      "anchors": [
+        [
+          "near",
+          "价格到趋势的距离比较近",
+          null,
+          null,
+          4,
+          11
+        ],
+        [
+          "events",
+          "90分钟和日线昨天有钝化 今天形成结构",
+          null,
+          null,
+          11,
+          14
+        ],
+        [
+          "amount",
+          "今天我们觉得减4成是没问题的",
+          null,
+          null,
+          89,
+          95
+        ],
+        [
+          "position_conflict",
+          "以4成仓为标准",
+          null,
+          null,
+          118,
+          121
+        ]
+      ],
+      "finding": "Near context permits 60-and-above, but actual structure asserted only 90/daily. Poor period/index coordination still leads to declared reduce four-tenths; six-tenths is conditional. Final holding wording conflicts.",
+      "limitations": [
+        "Current software NONE is not event removal",
+        "No coordination score or actual fills",
+        "No resolved final holding",
+        "New AND/OR unspecified"
+      ]
+    },
+    {
+      "id": "jan6_strength",
+      "date": "2026-01-06",
+      "file": "20260106_vidiq_transcript.json",
+      "kind": "conditional_plan_and_forecast",
+      "direction": "top",
+      "phase": "selection",
+      "selected_periods": [
+        "60",
+        "90"
+      ],
+      "join": "not_identified",
+      "anchors": [
+        [
+          "full",
+          "反正我满仓的能",
+          81,
+          210
+        ],
+        [
+          "ambiguous_distance",
+          "60分钟到趋势的距离比较小",
+          433,
+          220
+        ],
+        [
+          "conditional_90",
+          "90分钟结构形成理论上是应该减的",
+          513,
+          400
+        ]
+      ],
+      "finding": "Small dulling and easy disappearance influence attention and expectations. The 90 formed-structure action remains theoretical; full holding is not proof of a formed structure skipped for size.",
+      "limitations": [
+        "Distance wording 小 conflicts with a simple far-distance reading; do not fix it",
+        "No observed ignored structure established",
+        "Numerical candidate is not software truth",
+        "No quantified strength filter"
+      ]
+    },
+    {
+      "id": "dec16_bottom_scope",
+      "date": "2025-12-16",
+      "file": "20251216_vidiq_transcript.json",
+      "kind": "conditional_plan",
+      "direction": "bottom",
+      "phase": "trigger_and_conflict_plan",
+      "selected_periods": [
+        "60",
+        "90",
+        "120"
+      ],
+      "join": "OR_any_structure",
+      "anchors": [
+        [
+          "near",
+          "60分钟及以上级别的底部结构",
+          899,
+          380
+        ],
+        [
+          "new_low",
+          "价格创新低它就具备了",
+          1292,
+          230
+        ],
+        [
+          "any",
+          "三个周期 任何一个周期形成底部结构",
+          2145,
+          370
+        ],
+        [
+          "trend_conflict",
+          "如果近期跌穿长期趋势就不再",
+          2218,
+          270
+        ]
+      ],
+      "finding": "Near-trend bottom planning accepts any 60/90/120 structure; price new low establishes described standard context. A scoped future plan suspends an extra long-trend reduction while this dulling context persists.",
+      "limitations": [
+        "Today labels indicate dulling; do not promote ambiguous 结构 wording to confirmed formation",
+        "Not a universal structure-over-trend priority",
+        "No actual subsequent conflict action proven",
+        "No universal time count or expiry identified"
+      ]
+    },
+    {
+      "id": "oct16_join",
+      "date": "2025-10-16",
+      "file": "20251016_vidiq_transcript.json",
+      "kind": "declared_correction_rule",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "AND_original_participants",
+      "anchors": [
+        [
+          "both",
+          "要求90分钟和120分钟钝化全部消失",
+          466,
+          270
+        ],
+        [
+          "new_daily",
+          "先买回来 等日线的钝化形成结构再卖出",
+          616,
+          160
+        ]
+      ],
+      "finding": "Correction refers to original 90/120 participants; hypothetical new daily dulling does not join the completed old decision automatically.",
+      "limitations": [
+        "Not a universal AND over all periods",
+        "New daily structure is a future plan"
+      ]
+    },
+    {
+      "id": "oct24_instrument",
+      "date": "2025-10-24",
+      "file": "20251024_vidiq_transcript.json",
+      "kind": "author_event_and_declared_correction",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "AND_original_participants",
+      "anchors": [
+        [
+          "correction",
+          "90分钟和120分钟动画消失 应该买回",
+          226,
+          300
+        ],
+        [
+          "instrument",
+          "标的指数为准",
+          1577,
+          260
+        ]
+      ],
+      "finding": "SSE correction is not blocked by Shenzhen/ChiNext 120 dulling still present; index alignment is not a universal all-indices gate.",
+      "limitations": [
+        "Author recommendations not fills",
+        "Other index identities known here but no exact values added",
+        "Monday daily dulling is forecast"
+      ]
+    },
+    {
+      "id": "oct27_hist_heuristic",
+      "date": "2025-10-27",
+      "file": "20251027_vidiq_transcript.json",
+      "kind": "forecast_heuristic",
+      "direction": "top",
+      "phase": "background",
+      "selected_periods": [
+        "120"
+      ],
+      "join": "not_applicable",
+      "anchors": [
+        [
+          "not_action",
+          "但他也不是操作",
+          1862,
+          340
+        ]
+      ],
+      "finding": "DIF rise with three falling red histogram bars can suggest a price high, but lecture explicitly says this is not an action and still lacks structure.",
+      "limitations": [
+        "No measured success probability",
+        "Not a substitute for formation",
+        "One/two-week expectation not fixed expiry"
+      ]
+    },
+    {
+      "id": "june18_2026_forecast",
+      "date": "2026-06-18",
+      "file": "20260618_user_transcript.txt",
+      "kind": "declared_action_vs_forecast",
+      "direction": "trend",
+      "phase": "restore",
+      "selected_periods": [
+        "daily"
+      ],
+      "join": "not_identified",
+      "anchors": [
+        [
+          "forecast",
+          "预判断属于概率分析",
+          null,
+          null,
+          158,
+          165
+        ],
+        [
+          "full",
+          "满仓",
+          null,
+          null,
+          265,
+          270
+        ]
+      ],
+      "finding": "Limited upside forecast does not cancel an already-triggered trend buy; author reports full holding.",
+      "limitations": [
+        "Author holding assertion not fills",
+        "Exact software bands not verified"
+      ]
+    },
+    {
+      "id": "june26_2026_actual",
+      "date": "2026-06-26",
+      "file": "20260626_user_transcript.txt",
+      "kind": "author_event_and_declared_plan",
+      "direction": "trend",
+      "phase": "defense",
+      "selected_periods": [
+        "daily"
+      ],
+      "join": "short_then_long_in_this_case",
+      "anchors": [
+        [
+          "short",
+          "已经确定跌穿短期趋势",
+          null,
+          null,
+          5,
+          18
+        ],
+        [
+          "long",
+          "长期趋势也跌穿了",
+          null,
+          null,
+          5,
+          18
+        ],
+        [
+          "other_indices",
+          "上证指数破趋势也是要减仓",
+          null,
+          null,
+          225,
+          240
+        ]
+      ],
+      "finding": "Author reports short breach before final long breach, reduce four then next opening two. Other-index structures do not replace the stated SSE trend basis.",
+      "limitations": [
+        "14:50 software path not reconstructed",
+        "Ambiguous 中微指数 bottom object cannot establish same-instrument opposing signals",
+        "No universal trend-over-bottom priority"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "all_60plus_always_used",
+      "status": "INCOMPATIBLE_WITH_STATED_CONTEXT_POLICIES",
+      "evidence": [
+        "july11_scope",
+        "nov11_near_and_amount"
+      ],
+      "reason": "Far versus near context changes period eligibility; not proof of a quantitative cutoff."
+    },
+    {
+      "id": "coordination_required_for_any_action",
+      "status": "INCOMPATIBLE_WITH_DECLARED_ACTIONS",
+      "evidence": [
+        "nov11_near_and_amount",
+        "oct24_instrument"
+      ],
+      "reason": "Poor coordination still permits four-tenths defense; correction follows the target index despite other indices."
+    },
+    {
+      "id": "one_global_AND_join",
+      "status": "INCOMPATIBLE_WITH_PHASE_SPECIFIC_PLANS",
+      "evidence": [
+        "june26_2025_selection",
+        "oct16_join",
+        "dec16_bottom_scope"
+      ],
+      "reason": "Trigger OR and original-participant correction AND coexist in different phases; do not claim same-input contradiction."
+    },
+    {
+      "id": "distance_only_selector",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "jan6_strength",
+        "july11_scope",
+        "nov11_near_and_amount"
+      ],
+      "reason": "Distance matters, but size/easy disappearance is discussed and Jan6 wording is ambiguous; no matched actual-event pair isolates the effect."
+    },
+    {
+      "id": "small_structure_always_skipped",
+      "status": "NOT_SUPPORTED",
+      "evidence": [
+        "jan6_strength",
+        "june26_2025_selection"
+      ],
+      "reason": "Jan6 does not establish a formed ignored structure; selected future structure still calls for action even if a false retreat is expected."
+    },
+    {
+      "id": "three_falling_hist_bars_is_trade_structure",
+      "status": "INCOMPATIBLE_WITH_EXPLICIT_LECTURE",
+      "evidence": [
+        "oct27_hist_heuristic"
+      ],
+      "reason": "Author explicitly distinguishes the heuristic high from action/structure."
+    },
+    {
+      "id": "24_bars_fixed_expiry",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "nov11_near_and_amount",
+        "oct27_hist_heuristic"
+      ],
+      "reason": "Counter-direction horizon and expected safe window do not state automatic expiry; no actual expiry pair collected."
+    },
+    {
+      "id": "universal_trend_structure_priority",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "dec16_bottom_scope",
+        "june26_2026_actual"
+      ],
+      "reason": "Conditional bottom protection and actual trend defense belong to different cases; ambiguous bottom instrument prevents a same-instrument conflict contrast."
+    }
+  ],
+  "numeric_scope": {
+    "dates": [
+      "2026-01-05",
+      "2026-01-06"
+    ],
+    "period_inputs": {
+      "60": "60_20250603_20261009.csv",
+      "90": "90_20250603_20260113.csv"
+    },
+    "gates_pct": [
+      0.75,
+      1,
+      1.2
+    ],
+    "policies": [
+      "nearest_qualifying",
+      "strongest_eligible"
+    ],
+    "limit": "Preserved retrospective candidates only. No January daily/120 candidate inferred from unavailable same-window inputs. Software source alignment remains unresolved."
+  }
+}

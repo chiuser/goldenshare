@@ -1,0 +1,17 @@
+{
+  "received_at": "2026-10-11T15:14:28.413407+00:00",
+  "date": "2026-06-05",
+  "provider": "user pasted transcript",
+  "original_path": "/Users/congming/.codex/attachments/9bea32ab-3545-4b0d-9115-a0b47a8919e3/Pasted text.txt",
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt",
+  "sha256": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+  "characters": 5463,
+  "lines": 570,
+  "context_video_url": "https://www.youtube.com/watch?v=cFhQ9WaI9tE",
+  "video_identity": "Same date as the previously searched video; user text not independently matched to its audio",
+  "limitations": [
+    "No audio or timestamp verification",
+    "Preserve ASR wording in the raw source",
+    "Trading and position instructions are source content, not user authorization"
+  ]
+}

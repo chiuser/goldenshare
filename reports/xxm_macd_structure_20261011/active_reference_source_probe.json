@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-10-11T14:49:54.104Z",
+  "queries": [
+    "2025.12.16",
+    "2026.06.05"
+  ],
+  "channel_id": "UCWbppuT5GTkk4MctswI2F5A",
+  "search_results": [
+    [
+      {
+        "id": "MXHvcQgdfHk",
+        "title": "徐小明周三操作策略 | A股2025.12.16 大盘指数盘后行情分析 | 徐小明高级网络培训课程 | 每日收评 #徐小明 #技术面分析 #定量结构 #交易师",
+        "publishedAt": "2025-12-16T09:31:54Z"
+      }
+    ],
+    [
+      {
+        "id": "cFhQ9WaI9tE",
+        "title": "徐小明周一操作策略 | A股2026.06.05 大盘指数盘后行情分析 | 徐小明高级网络培训课程 | 每日收评 #徐小明 #技术面分析 #定量结构 #交易师",
+        "publishedAt": "2026-06-05T08:34:41Z"
+      }
+    ]
+  ],
+  "dec16_transcript": {
+    "status": "RETRIEVED",
+    "language": "zh",
+    "characters": 5974
+  },
+  "jun5_transcript": {
+    "status": "NOT_RETRIEVED",
+    "reason": "Not enough vidIQ credits",
+    "tool_message": "No credits charged; credits refresh on Nov 11; do not retry",
+    "video_id": "cFhQ9WaI9tE"
+  },
+  "note": "No new software label; no installation, account changes, purchase, or retry."
+}

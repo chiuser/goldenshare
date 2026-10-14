@@ -1,0 +1,73 @@
+{
+  "research_date": "2026-10-12",
+  "status": "DEFINED_BEFORE_NEW_SCREEN_NOT_SOFTWARE_RULE",
+  "scope": "Top structures only; offline saved inputs; no candidate patch, bottom symmetry, new software labels or trades",
+  "inputs": {
+    "60": {
+      "path": "reports/xxm_macd_structure_20261011/inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d"
+    },
+    "90": {
+      "path": "reports/xxm_macd_structure_20261011/inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    },
+    "120": {
+      "path": "reports/xxm_macd_structure_20261011/discrimination_screen_20261012/derived_120.csv",
+      "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+    },
+    "daily_seed": {
+      "path": "reports/xxm_macd_structure_20261011/inputs/daily_2025.csv",
+      "sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4"
+    },
+    "daily_fixture": {
+      "path": "tests/fixtures/quote_trend_channel/000001_sh_daily_input.json",
+      "sha256": "ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad"
+    },
+    "candidate": {
+      "path": "reports/xxm_macd_structure_20261011/active_reference_candidate.py",
+      "sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07"
+    },
+    "nov14_observation": {
+      "path": "reports/xxm_macd_structure_20261011/nov14_daily_disappearance_20261012.json",
+      "sha256": "b29a7d2f6a2e43e1a6b4b52f5f3d09867515fb022097ebc0c839ab4997ae5a81"
+    },
+    "legacy_labels": {
+      "path": "reports/xxm_macd_structure_20261011/validation_stage2.json",
+      "sha256": "9bdb8abc35f3b237bf6e31c8b8cc2deefe6ec5272f8670843d6aed1554ca7b1a"
+    }
+  },
+  "gate_pct": [
+    0.75,
+    1.0,
+    1.2
+  ],
+  "reference_policy": [
+    "nearest_qualifying",
+    "strongest_eligible"
+  ],
+  "active_policy": "locked",
+  "daily_initializations": [
+    "recovered_rounded_seed",
+    "fixture_first_close"
+  ],
+  "daily_close_origins": [
+    "daily_fixture",
+    "minute60_daily_endpoint"
+  ],
+  "mechanisms": {
+    "dif_rise_any": "First subsequent bar with DIF rise >= abs(previous DIF)*gate/100, previous DIF nonzero; compare without imposing histogram phase",
+    "dif_rise_after_negative": "Same DIF condition, but a strictly negative histogram has been observed on or after this confirmation; monitor persists across candidate state resets",
+    "histogram_return_positive": "First strictly positive histogram bar after a strictly negative histogram on or after confirmation; zero does not count as a negative phase"
+  },
+  "episode_scope": "Anchor every candidate top STRUCTURE independently. End before next top STRUCTURE or at input end; report raw original-reference break as competing event, not software structure-disappearance. These are diagnostic censoring rules, not inferred expiry or actual software lifecycle.",
+  "ranking": "Primary: distinct DIF-after-negative and histogram-return times, stable across all period variants, no original-reference break at or before either event, no new candidate DULL at or before either event; prefer existing observed anchor and daily/120 numeric provenance. Secondary: any-phase DIF distinction; clearly annotate state-return ambiguity.",
+  "source_policy": "Freeze results before any new material lookup. Existing sources are previously seen context, not held-out truth. Prefer one close date between the two predictions; do not re-request known missing charts or exhaust MCP.",
+  "invalidation": "New dated structure-disappearance marker must distinguish predictions. First event equality supplies no discrimination; marker identity and software input still require checking.",
+  "forbidden": [
+    "no fabricated software history",
+    "no 24-bar expiry",
+    "no importing newer defense participants as correction set",
+    "no changing thresholds or candidate",
+    "no implying higher screening count means validation accuracy"
+  ]
+}

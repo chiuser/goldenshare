@@ -1,0 +1,113 @@
+{
+  "research_date": "2026-10-12",
+  "existing_sources": [
+    {
+      "date": "20250711",
+      "file": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250711_vidiq_transcript.json",
+      "sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "video_url": "https://www.youtube.com/watch?v=BlSH7x0QElk",
+      "text_field": "response.transcription",
+      "locator": "zero-based character offsets, not timestamps",
+      "excerpts": [
+        {
+          "offset": 1176,
+          "match": "减仓纠错的标准"
+        },
+        {
+          "offset": 2452,
+          "match": "不理60分钟"
+        }
+      ]
+    },
+    {
+      "date": "20251016",
+      "file": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251016_vidiq_transcript.json",
+      "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+      "video_url": "https://www.youtube.com/watch?v=o4w4G6q-fSQ",
+      "text_field": "response.transcription",
+      "locator": "zero-based character offsets, not timestamps",
+      "excerpts": [
+        {
+          "offset": 466,
+          "match": "要求90分钟和120分钟"
+        },
+        {
+          "offset": 2267,
+          "match": "全部钝化消失"
+        }
+      ]
+    },
+    {
+      "date": "20251024",
+      "file": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251024_vidiq_transcript.json",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "video_url": "https://www.youtube.com/watch?v=iflE76iVGO8",
+      "text_field": "response.transcription",
+      "locator": "zero-based character offsets, not timestamps",
+      "excerpts": [
+        {
+          "offset": 418,
+          "match": "这个消失是结构消失"
+        },
+        {
+          "offset": 471,
+          "match": "反复的红角线绿角线"
+        },
+        {
+          "offset": 968,
+          "match": "结构形成的纠错标准"
+        },
+        {
+          "offset": 1015,
+          "match": "90分钟只形成过"
+        }
+      ]
+    }
+  ],
+  "new_public_sources": [
+    {
+      "url": "https://blog.sina.com.cn/s/article_archive_1300871220_202606_1.html",
+      "retrieval": "ARCHIVE_FETCHED",
+      "purpose": "Identifies June18 and June26 live pages; not substantive lecture evidence"
+    },
+    {
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302cm.html",
+      "title": "徐小明：周一操作策略",
+      "publication": "2026-06-28 14:08:38",
+      "event_date": "2026-06-26",
+      "retrieval": "FULL_PAGE_TEXT_FETCHED",
+      "paraphrase": "作者回顾上周五即26日上证跌穿趋势，并强调突破与破位分别决定进攻与防守；没有指定通道、具体边界或调整数量。",
+      "comparison": "Qualitatively compatible with saved June26 BELOW/DOWN for both25/90; does not identify which channel or validate June18 non-correction."
+    }
+  ],
+  "fetch_limits": [
+    {
+      "target": "June18 live",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302c2.html",
+      "result": "Cache miss; no body used"
+    },
+    {
+      "target": "June26 live",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302ci.html",
+      "result": "Cache miss; exact-URL search empty; no body used"
+    },
+    {
+      "target": "Initial batched click",
+      "result": "Tool connection failure; independent local work continued"
+    }
+  ],
+  "analysis": [
+    "October structure-based correction follows prior decision periods, not every new period",
+    "A fixed original-reference monitor leaves September90/120 records unbroken throughOct27, while authorOct24 describes correction; this literal candidate is insufficient for episode correction under saved inputs",
+    "Original software historical references remain unobserved; do not claim underlying lifelong retention disproved for every algorithm",
+    "June18 upper re-entry and June26 lower breach were frozen before current public follow-up checks",
+    "Public June28 text confirms only broad June26 breach, not precise numerical or execution agreement"
+  ],
+  "software_labels_added": 0,
+  "next_request": {
+    "primary": "2026-06-26 closing lecture transcript",
+    "why": "Actual trend breach afterJune15 recovery; specify which channel, closing/next-session timing, quantity and how overlapping daily structures are handled",
+    "backup_not_requested": "2026-06-18 closing lecture",
+    "missing_minute_requests": "remain paused"
+  }
+}

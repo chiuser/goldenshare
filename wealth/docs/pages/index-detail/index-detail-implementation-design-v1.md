@@ -1,6 +1,7 @@
 # 指数详情页技术实施方案 v1
 
 > 状态：指数详情开发与生产验收已完成。M1～M5-B、P10、共享图表、九转 S7/M5/M6-A～M6-D 和日线最终数据/性能门禁均已闭环；bars 与 indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。
+> 新增专项（2026-10-13）：上证日线及 60／90／120 分钟的徐小明 V0.1 已按批准 Figma 实现，技术验收完成，等用户验收；仅指数详情页的 1280／1440px 适配另获批准。当前证据及未确认边界见[专项实施方案与 LLD §13](./index-detail-xxm-implementation-and-low-level-design-v0.1.md#13-实施与技术验收2026-10-13)。本专项尚未部署，不改变本文既有验收记录或生产分钟门禁。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)

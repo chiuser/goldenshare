@@ -1,0 +1,70 @@
+{
+  "asOf": "2026-10-13T21:38:52.939942+08:00",
+  "outputDirectory": "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852",
+  "dbTransaction": "READ ONLY",
+  "fieldProjection": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "maxRows": 20000,
+  "batchRows": 1000,
+  "dbReadOnly": "on",
+  "sourceCountAndRange": {
+    "n": 912,
+    "start": "2023-01-03",
+    "end": "2026-10-13"
+  },
+  "readRows": 912,
+  "completedRows": 912,
+  "excludedIncompleteRows": 0,
+  "invalidRows": 0,
+  "invalidSamples": [],
+  "missingOpenDates": [],
+  "nonTradingDates": [],
+  "calendarRows": 1380,
+  "calendarStart": "2023-01-03",
+  "firstRows": [
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2023-01-03",
+      "close": 3116.5119,
+      "macd_dif_bfq": -10.049,
+      "macd_dea_bfq": -5.772,
+      "macd_bfq": -8.554
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2023-01-04",
+      "close": 3123.5164,
+      "macd_dif_bfq": -7.307,
+      "macd_dea_bfq": -6.079,
+      "macd_bfq": -2.456
+    }
+  ],
+  "lastRows": [
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-10-12",
+      "close": 3797.2424,
+      "macd_dif_bfq": -28.721,
+      "macd_dea_bfq": -17.056,
+      "macd_bfq": -23.33
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-10-13",
+      "close": 3800.8644,
+      "macd_dif_bfq": -30.792,
+      "macd_dea_bfq": -19.804,
+      "macd_bfq": -21.978
+    }
+  ],
+  "batchCount": 1,
+  "maxHistogramIdentityDifference": 0.0020000000000131024,
+  "dailySourceSha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+  "elapsedSeconds": 0.8432285003364086
+}

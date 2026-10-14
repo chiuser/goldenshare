@@ -555,6 +555,23 @@ describe("DetailChartWorkspace", () => {
     fetchSpy.mockRestore();
   });
 
+  it("updates asynchronous MACD primitives on DIF without rebuilding or changing viewport", () => {
+    const points = makePoints(300);
+    const primitive = { attached: vi.fn(), detached: vi.fn(), paneViews: () => [] };
+    const first = workspaceElement(points, "daily", "shared:macd:day");
+    const rendered = render(first);
+    const count = chartMock.createChart.mock.calls.length;
+    const range = chartMock.charts[0].timeScale().getVisibleLogicalRange();
+    rendered.rerender(<DetailChartWorkspace {...first.props} macdPrimitives={[primitive as never]} />);
+    expect(chartMock.createChart).toHaveBeenCalledTimes(count);
+    expect(chartMock.charts[1].series[1].attachedPrimitives).toContain(primitive);
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual(range);
+    rendered.rerender(<DetailChartWorkspace {...first.props} macdPrimitives={[]} />);
+    expect(primitive.detached).toHaveBeenCalledTimes(1);
+    expect(chartMock.createChart).toHaveBeenCalledTimes(count);
+    rendered.unmount();
+  });
+
   it("attaches the built-in extrema primitive before external business primitives", () => {
     const externalPrimitive = {
       attached: vi.fn(),

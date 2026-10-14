@@ -1,0 +1,217 @@
+{
+  "scope": "Existing archived 90/120-minute and daily extracts only, not all possible dates.",
+  "searches": [
+    {
+      "freq": 90,
+      "input": "90_20250603_20260113.csv",
+      "bars": 459,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [],
+      "input_sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    },
+    {
+      "freq": 120,
+      "input": "120_20250401_20251111.csv",
+      "bars": 300,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [
+        {
+          "time": "2025-10-16 15:00:00",
+          "event_nearest_price": "NONE",
+          "event_dominated_ref": "DULL",
+          "ref_nearest_price": "",
+          "ref_dominated_ref": "2025-09-11 15:00:00",
+          "software_label": "NOT_CONFIRMED"
+        }
+      ],
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7"
+    },
+    {
+      "freq": 120,
+      "input": "120_20260101_20260507.csv",
+      "bars": 158,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [],
+      "input_sha256": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97"
+    },
+    {
+      "freq": 120,
+      "input": "120_20260701_20260901.csv",
+      "bars": 90,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [],
+      "input_sha256": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0"
+    },
+    {
+      "freq": "daily",
+      "input": "daily_2025.csv",
+      "bars": 207,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [],
+      "input_sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4"
+    },
+    {
+      "freq": "daily",
+      "input": "daily_20260801_20261009.csv",
+      "bars": 44,
+      "threshold_event_differences": 0,
+      "reference_event_disagreements": [],
+      "input_sha256": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c"
+    }
+  ],
+  "next_screenshot": {
+    "date": "2025-10-16",
+    "freq": 120,
+    "time": "15:00:00",
+    "fallback": "2025-10-17 120-minute image retaining Oct 16 historical text",
+    "checks": [
+      {
+        "reference_mode": "frozen_reference",
+        "threshold_pct": 0.75,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "frozen_reference",
+        "threshold_pct": 1,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "frozen_reference",
+        "threshold_pct": 1.2,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "require_nearest_price_break",
+        "threshold_pct": 0.75,
+        "time": "2025-10-16 15:00:00",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 2,
+        "ref_start": "",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "require_nearest_price_break",
+        "threshold_pct": 1,
+        "time": "2025-10-16 15:00:00",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 2,
+        "ref_start": "",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "require_nearest_price_break",
+        "threshold_pct": 1.2,
+        "time": "2025-10-16 15:00:00",
+        "event": "NONE",
+        "state": "NONE",
+        "wave_count": 2,
+        "ref_start": "",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "reject_dominated_reference",
+        "threshold_pct": 0.75,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "reject_dominated_reference",
+        "threshold_pct": 1,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      },
+      {
+        "reference_mode": "reject_dominated_reference",
+        "threshold_pct": 1.2,
+        "time": "2025-10-16 15:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-09-11 15:00:00",
+        "close": 3916.228,
+        "dif": 15.518977563021508,
+        "hist": 3.5569106358906843,
+        "software_label": "NOT_CONFIRMED"
+      }
+    ],
+    "positive_wave_stats": [
+      {
+        "start": "2025-09-11 15:00:00",
+        "end": "2025-09-18 11:30:00",
+        "bars": 10,
+        "max_close": 3893.9502,
+        "max_close_time": "2025-09-18 11:30:00",
+        "max_dif": 20.93471168695578,
+        "max_dif_time": "2025-09-18 11:30:00"
+      },
+      {
+        "start": "2025-09-30 11:30:00",
+        "end": "2025-10-14 11:30:00",
+        "bars": 9,
+        "max_close": 3933.9724,
+        "max_close_time": "2025-10-09 15:00:00",
+        "max_dif": 19.868377518397665,
+        "max_dif_time": "2025-10-10 11:30:00"
+      },
+      {
+        "start": "2025-10-16 11:30:00",
+        "end": "2025-10-16 15:00:00",
+        "bars": 2,
+        "max_close": 3916.228,
+        "max_close_time": "2025-10-16 15:00:00",
+        "max_dif": 15.518977563021508,
+        "max_dif_time": "2025-10-16 15:00:00"
+      }
+    ]
+  },
+  "caveat": "Selecting candidate disagreements is not software validation."
+}

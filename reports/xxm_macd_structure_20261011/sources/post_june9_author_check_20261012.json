@@ -1,0 +1,89 @@
+{
+  "research_date": "2026-10-12",
+  "scope": "Historical numerical predictions frozen before reading follow-up author text; not a prospective market forecast or independent software event scoring",
+  "definitions_file": "post_june9_definitions_20261012.json",
+  "prediction_file": "post_june9_predictions_20261012.json",
+  "prediction_sha256": "24023ccc46498d43f8ac7a0b63c24b8f77f1a677f6f2f48ecd1ea154bbe8fac9",
+  "sources": [
+    {
+      "id": "author_20260612_live",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bq.html",
+      "title": "徐小明：6月12日盘中即时直播",
+      "page_publication": "2026-06-11 15:08:47",
+      "event_date": "2026-06-12",
+      "retrieval": "FULL_PAGE_TEXT_FETCHED",
+      "paraphrases": [
+        {
+          "time": "09:46",
+          "claim": "作者记录90分钟已有红柱，60分钟红柱增多。"
+        },
+        {
+          "time": "10:01",
+          "claim": "作者把先出红柱作为本次底部钝化构筑的条件。"
+        },
+        {
+          "time": "10:19",
+          "claim": "作者记录120分钟盘中也已有红柱。"
+        },
+        {
+          "time": "11:02-11:10",
+          "claim": "作者把随后钝化能否形成结构与下跌速度及是否加速联系起来。"
+        },
+        {
+          "time": "14:23",
+          "claim": "作者仍等待收盘。"
+        }
+      ],
+      "comparison": "Saved complete-bar first red: 60 June10 14:00, 90 June11 14:00, 120 June12 11:30. Phase compatible; live 10:19 is an unfinished 120-minute bar, not a different complete-bar label. No exact event timing score."
+    },
+    {
+      "id": "author_20260615_strategy",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bx.html",
+      "title": "徐小明：周二操作策略",
+      "page_publication": "2026-06-15 16:43:34",
+      "event_date": "2026-06-15",
+      "retrieval": "FULL_PAGE_TEXT_FETCHED_EARLIER_IN_TURN; later refresh unavailable, no further retry",
+      "paraphrases": [
+        {
+          "claim": "作者讨论此前个股风险释放，并转向进攻背景。"
+        },
+        {
+          "claim": "长期看涨的解释涉及货币、居民存款、GDP及市值等宏观背景。"
+        }
+      ],
+      "comparison": "Macro long-term outlook does not directly identify daily90 channel UP. This text does not establish which trend was crossed or executed at closing."
+    },
+    {
+      "id": "author_20260615_live_index",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bt.html",
+      "title": "徐小明：6月15日盘中即时直播",
+      "page_publication": "2026-06-12 16:23:01",
+      "event_date": "2026-06-15",
+      "retrieval": "SEARCH_INDEX_EXCERPT_NOT_FULL_PAGE_FETCH; full open cache miss",
+      "paraphrases": [
+        {
+          "time": "14:47",
+          "claim": "索引摘录中作者预计长期趋势可能通过，对短期趋势仍不确定。"
+        }
+      ],
+      "comparison": "Unconfirmed lecture detail; pre-close estimate cannot be scored against closing values as a conflict. Requests June15 closing lecture and corresponding daily trend image if available."
+    }
+  ],
+  "source_limits": [
+    "Author blog is lecture context, not software numerical truth.",
+    "No video transcript obtained this turn; exhausted MCP not retried.",
+    "Do not turn author probability statements into measured statistical facts.",
+    "No new trading instruction or formal algorithm change."
+  ],
+  "next_material": {
+    "date": "2026-06-15",
+    "type": "closing lecture transcript",
+    "questions": [
+      "具体采用短期还是长期趋势？",
+      "最终以哪条通道的什么位置确认？",
+      "收盘确认后如何安排执行，是否另需结构？"
+    ]
+  },
+  "protected_previous_research_files": 139,
+  "software_labels_added": 0
+}

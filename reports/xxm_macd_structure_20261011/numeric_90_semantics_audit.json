@@ -1,0 +1,465 @@
+{
+  "as_of": "2026-10-11T15:56:53.098638+00:00",
+  "source_code": [
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py",
+      "sha256": "cdf17e57c7ad7e29e28b70e73cf5c507d300e3f8629970fae113b315579bbba9"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_mins.py",
+      "sha256": "30d1619b1f0ade64cc441604eba2936bedc03ddc11edb0729e2313f662db31d9"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_mins_technical.py",
+      "sha256": "3ab9bdb4026ea1083b6f8c0ad5380f83d3de4305deaaa5735e81e9ad59a28cf6"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py",
+      "sha256": "2cea9bdd0c2fa80b711cee494516496e7c63435f2dad2fb53384a23e6e4be96e"
+    }
+  ],
+  "inputs": {
+    "90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "90_20250701_20250814.csv": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+    "30_20250603_20261009.csv": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250"
+  },
+  "rows": 459,
+  "overlapping_rows_unchanged": 99,
+  "windows": [
+    {
+      "target_time": "11:00:00",
+      "source_times": [
+        "10:00:00",
+        "10:30:00",
+        "11:00:00"
+      ],
+      "auction_anchor_time": "09:30:00"
+    },
+    {
+      "target_time": "14:00:00",
+      "source_times": [
+        "11:30:00",
+        "13:30:00",
+        "14:00:00"
+      ],
+      "auction_anchor_time": null
+    },
+    {
+      "target_time": "15:00:00",
+      "source_times": [
+        "14:30:00",
+        "15:00:00"
+      ],
+      "auction_anchor_time": null
+    }
+  ],
+  "endpoint_close_matches": 459,
+  "derived_price_limit": "Saved 30-minute CSV has no OHLC/auction row; only close/endpoint reconstruction is verified",
+  "recovered_first_bar_state": {
+    "fast": 3354.0714601832015,
+    "slow": 3356.638626080141,
+    "dea": -3.2256509480591045
+  },
+  "independent_recurrence_checks": 457,
+  "maximum_residual": {
+    "dif": 9.549694368615746e-12,
+    "dea": 8.73651151422905e-12,
+    "hist": 3.495870259939693e-12
+  },
+  "rounding_control": "Same state and coefficients, round subsequent closes to nearest .01; isolated upper bound .01 DIF plus .001 display",
+  "observations": [
+    {
+      "software": {
+        "date": "2025-08-06",
+        "image": "IMG_0374.PNG",
+        "dif": 12.244,
+        "dea": 7.817,
+        "hist": 8.855,
+        "open": 3628.43,
+        "high": 3634.31,
+        "low": 3628.27,
+        "close": 3633.99
+      },
+      "dg": {
+        "trade_time": "2025-08-06 15:00:00",
+        "open": 3628.4905,
+        "high": 3634.3135,
+        "low": 3628.27,
+        "close": 3633.9949,
+        "dif": 12.26783734068158,
+        "dea": 7.832155132027762,
+        "hist": 8.871364417307637
+      },
+      "index": 140,
+      "software_minus_dg": {
+        "dif": -0.023837340681581054,
+        "dea": -0.015155132027762086,
+        "hist": -0.016364417307636714
+      },
+      "ohlc_software_minus_dg": {
+        "open": -0.060500000000047294,
+        "high": -0.0035000000002582965,
+        "low": 0.0,
+        "close": -0.004900000000361615
+      },
+      "software_open_minus_previous_close": -0.0012000000001535227,
+      "rounded_price_dif": 12.267299375775565,
+      "session_restart_dif": 11.62516506213251,
+      "image_sha256": "039030d96c94dff3a881bedbb95d9c8f69867903a740d84df85d9ca63c711b5e"
+    },
+    {
+      "software": {
+        "date": "2025-08-12",
+        "image": "IMG_0359.PNG",
+        "dif": 18.704,
+        "dea": 16.557,
+        "hist": 4.293,
+        "open": 3666.15,
+        "high": 3668.71,
+        "low": 3661.13,
+        "close": 3665.92
+      },
+      "dg": {
+        "trade_time": "2025-08-12 15:00:00",
+        "open": 3665.6777,
+        "high": 3668.7126,
+        "low": 3661.1296,
+        "close": 3665.9177,
+        "dif": 18.734633965535068,
+        "dea": 16.56664062613122,
+        "hist": 4.335986678807693
+      },
+      "index": 152,
+      "software_minus_dg": {
+        "dif": -0.03063396553506692,
+        "dea": -0.009640626131222518,
+        "hist": -0.04298667880769269
+      },
+      "ohlc_software_minus_dg": {
+        "open": 0.4722999999999047,
+        "high": -0.002599999999802094,
+        "low": 0.0003999999998995918,
+        "close": 0.002300000000104774
+      },
+      "software_open_minus_previous_close": 0.0019999999999527063,
+      "rounded_price_dif": 18.735146672998326,
+      "session_restart_dif": 15.749749498064375,
+      "image_sha256": "cac6248fa179b250128bd9d0bafbd528eb8e298e3f25ff0166bac1e078e49bf5"
+    },
+    {
+      "software": {
+        "date": "2025-08-14",
+        "image": "IMG_0315.PNG",
+        "dif": 20.435,
+        "dea": 20.109,
+        "hist": 0.652,
+        "open": 3677.24,
+        "high": 3686.49,
+        "low": 3666.44,
+        "close": 3666.44
+      },
+      "dg": {
+        "trade_time": "2025-08-14 15:00:00",
+        "open": 3677.3125,
+        "high": 3686.4897,
+        "low": 3666.4426,
+        "close": 3666.4426,
+        "dif": 20.48282859521987,
+        "dea": 20.143528028283768,
+        "hist": 0.6786011338722062
+      },
+      "index": 158,
+      "software_minus_dg": {
+        "dif": -0.04782859521987248,
+        "dea": -0.03452802828376633,
+        "hist": -0.026601133872206195
+      },
+      "ohlc_software_minus_dg": {
+        "open": -0.07250000000021828,
+        "high": 0.00029999999969732016,
+        "low": -0.002599999999802094,
+        "close": -0.002599999999802094
+      },
+      "software_open_minus_previous_close": -0.0007000000000516593,
+      "rounded_price_dif": 20.482480056376062,
+      "session_restart_dif": 16.683047093012647,
+      "image_sha256": "d55ca17d56030a4ca6e1e5a9af4903c975936c93b5aa2526e83b317b47034d94"
+    },
+    {
+      "software": {
+        "date": "2026-01-13",
+        "image": "IMG_0369.PNG",
+        "dif": 45.344,
+        "dea": 44.449,
+        "hist": 1.79,
+        "open": 4163.98,
+        "high": 4164.19,
+        "low": 4126.23,
+        "close": 4138.76
+      },
+      "dg": {
+        "trade_time": "2026-01-13 15:00:00",
+        "open": 4163.8945,
+        "high": 4164.1924,
+        "low": 4126.2344,
+        "close": 4138.7583,
+        "dif": 45.360788562304606,
+        "dea": 44.473937451229595,
+        "hist": 1.7737022221500212
+      },
+      "index": 458,
+      "software_minus_dg": {
+        "dif": -0.01678856230460468,
+        "dea": -0.02493745122959723,
+        "hist": 0.01629777784997888
+      },
+      "ohlc_software_minus_dg": {
+        "open": 0.08549999999922875,
+        "high": -0.0024000000003070454,
+        "low": -0.004400000000714499,
+        "close": 0.0016999999998006388
+      },
+      "software_open_minus_previous_close": 0.004999999999199645,
+      "rounded_price_dif": 45.36127625395875,
+      "session_restart_dif": 34.90806764903027,
+      "image_sha256": "a42e8617e6224f41aefd232ddc861802ab8536757b9123b0de49ceab6290422e"
+    }
+  ],
+  "fixed_initialization_only": {
+    "anchor_dates": [
+      "2025-08-06",
+      "2025-08-12"
+    ],
+    "coefficient_a": 0.08066817896698411,
+    "coefficient_b": -0.10450551964856516,
+    "checks": [
+      {
+        "date": "2025-08-06",
+        "bars_after_anchor": 0,
+        "predicted_difference": -0.023837340681581054,
+        "observed_difference": -0.023837340681581054,
+        "residual": 0.0,
+        "conservative_display_allowance": 0.002,
+        "compatible": true
+      },
+      {
+        "date": "2025-08-12",
+        "bars_after_anchor": 12,
+        "predicted_difference": -0.030633965535066924,
+        "observed_difference": -0.03063396553506692,
+        "residual": 3.469446951953614e-18,
+        "conservative_display_allowance": 0.002,
+        "compatible": true
+      },
+      {
+        "date": "2025-08-14",
+        "bars_after_anchor": 18,
+        "predicted_difference": -0.022164082550806975,
+        "observed_difference": -0.04782859521987248,
+        "residual": -0.02566451266906551,
+        "conservative_display_allowance": 0.0018189008286307474,
+        "compatible": false
+      },
+      {
+        "date": "2026-01-13",
+        "bars_after_anchor": 318,
+        "predicted_difference": -2.4568858792552567e-12,
+        "observed_difference": -0.01678856230460468,
+        "residual": -0.016788562302147796,
+        "conservative_display_allowance": 0.0010000000001016613,
+        "compatible": false
+      }
+    ],
+    "exclusions": "Does not exclude per-chart reseeding, combined source differences or different recurrence precision"
+  },
+  "session_restart_control": "Specific alternative: restart 90-minute grouping after lunch, with four bars per day. Cold seeded on June 3; large mismatch, not an exhaustive bin search",
+  "december16": [
+    {
+      "saved": {
+        "trade_time": "2025-12-16 11:00:00",
+        "open": 3861.5144,
+        "high": 3862.427,
+        "low": 3816.0615,
+        "close": 3821.73,
+        "dif": -9.772001789585374,
+        "dea": -4.489105013892798,
+        "hist": -10.565793551385152
+      },
+      "recomputed": {
+        "trade_time": "2025-12-16 11:00:00",
+        "close": 3821.73,
+        "dif": -9.772001789578553,
+        "dea": -4.489105013885807,
+        "hist": -10.565793551385493
+      }
+    },
+    {
+      "saved": {
+        "trade_time": "2025-12-16 14:00:00",
+        "open": 3821.7915,
+        "high": 3835.2776,
+        "low": 3815.8445,
+        "close": 3826.3425,
+        "dif": -12.931440525426751,
+        "dea": -6.17757211619959,
+        "hist": -13.507736818454323
+      },
+      "recomputed": {
+        "trade_time": "2025-12-16 14:00:00",
+        "close": 3826.3425,
+        "dif": -12.931440525419475,
+        "dea": -6.1775721161925405,
+        "hist": -13.50773681845387
+      }
+    },
+    {
+      "saved": {
+        "trade_time": "2025-12-16 15:00:00",
+        "open": 3826.453,
+        "high": 3831.6396,
+        "low": 3822.1975,
+        "close": 3824.812,
+        "dif": -15.381508588829547,
+        "dea": -8.018359410725582,
+        "hist": -14.72629835620793
+      },
+      "recomputed": {
+        "trade_time": "2025-12-16 15:00:00",
+        "close": 3824.812,
+        "dif": -15.381508588822726,
+        "dea": -8.018359410718578,
+        "hist": -14.726298356208297
+      }
+    }
+  ],
+  "focal_prefix_checks": 7,
+  "software_marker_labels_added": 0,
+  "conclusion": "DG export is internally consistent; nearest-price rounding alone and a single fixed initial-state offset alone cannot explain software differences. Vendor calculation/input history remains unresolved",
+  "browser_probe": "CUA video-tab creation and subsequent state query timed out; no video frame obtained; no further retry",
+  "protected_files": {
+    "reference_extrema_audit.json": "2c26ecbbd66f220b224a3af08a5db5e7d0f9bfd54a8cbde50e38c875570bc950",
+    "events_r1.csv": "a10181bc0717570d0034b0243ad396a8ae2b92e9396cb3c3d8057b6e43c1d491",
+    "audit_narrated_20250624.json": "6f8375cec92ba005f98e75e0d0d27a34f01da0580a2f7c9df934328eb1e0d864",
+    "audit_narrated_thresholds.py": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+    "audit_wave_boundaries.py": "4956244a04aae04df1eea300f863eef8a4ed8cb6e99f7171d95e7aacda03988c",
+    "holdout_20250626.json": "e4b1fd66f028a5a4176278f2ee1ce1bf12b50acb467de62ad8e7e4ed68e598ce",
+    "wave_boundary_candidate.py": "e1543b13ad520c611bca013a6f644fe2724e85e934b854d8b68edf6d768cf399",
+    "stage2_reference_choices.csv": "4e41a14b6315ba448270177087dca7a268b104771bf083ea6b92275500e09bb3",
+    "stage2_next_20250626.json": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9",
+    "candidate_queue.csv": "a56ac76c5e617ebecbae755d243019b709bafa1bcd632aeb1c7e3d5c30f4b05f",
+    "youtube_transcript_probe.json": "02d245f22f159e5e831425d6f5bc4a911dabf8678476fb8922916ceaddd05abc",
+    "caption_20260605_user_review.json": "6c65d7fc3ab7d9f4d4158288fab134e5d2ac913c4dead478a2940f53eb6300af",
+    "audit_narrated_20250625.json": "3d848bc73396f87dfd3cd4d16eb268df4ecf02306626f027ece430b5632b9f3e",
+    "validate_stage2.py": "31146fb03412052d7f6f49ef582e9174eb6fa4670a638c2ab8693a70096f3db1",
+    "holdout_20251016.json": "1f8e70726e2017e4736fe30d16168cdf4e3f83cbf7087d3447c766e4cd8c3243",
+    "audit_20251016.py": "2eb262545836c2d64f8645ba3e80233c3a02a2bd449aec184005a21c29372e64",
+    "active_reference_source_probe.json": "f39495335c8ee305e7ed39b4b7be80c5a6c57170c80e0779cbf8ef1448d4ba79",
+    "holdout_20251027.json": "8cea53223f990300913c65893c39c524c562be6f14d56ddb7bce1cb362df1074",
+    "active_reference_audit.json": "1b5218bb81a3b3f33336348c37c4b0c6a639eed9dfd66c33c4da7b3b8ad00893",
+    "wave_boundary_audit.json": "259bce961211fb80b04c76b1a10b7568010d7b673a2612d40dd44ba2f4dace60",
+    "turn_filter_audit.json": "49ac67b22c76f1da69bd8ad4e4c43a78b46730a3a33109e239c695b1098190e2",
+    "available_period_candidate_search.json": "7e1437ab5f0ce740fc732a5f8414c58321c29cc9fdca73deb097b86d201244f0",
+    "reference_retirement_targets_frozen.json": "d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0",
+    "stage2_label_comparison.csv": "0967fd99178b8f88c9902cf12d3593bcc17929e0797ac53799a9ba1d084dece8",
+    "reference_extrema_candidate.py": "3efbf43971245a4810f18b8284c5484008d2fc355671732039afc75fc2837ce0",
+    "export_90_jan13.py": "d6704ed7bdfbde2d77d277d1a660b3c6c20b2664b24444c876bbd5829e3c48ab",
+    "holdout_0369_0370.json": "480795698d5f1500752ce8c77c1eeffce46401e3ed738b6eb1ad0f220d96205d",
+    "active_reference_candidate.py": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+    "screen_reference_retirement.py": "d25a05161f4a6e45b59a26c22ccae522e1a9de38beb5af85d02a5293bdd73bb8",
+    "holdout_0374.json": "55ef520b0071968fcab117147230415d0827c80222c47239e516f24488edfdf7",
+    "audit_0374.py": "376c32559749569725dbc764420a6678672a06140ff0f97073913bd29d026072",
+    "audit_reference_extrema.py": "fa0341d093feaa81b7f10db56af96f75bd63c2eb9a8e868b655525b0fb43ee0d",
+    "replay_frozen_25_points.py": "dfb95f7a222e7d07ce814ee615d64463407dc048a23cebeadf08666ba5e102d5",
+    "audit_narrated_thresholds.json": "3fee91cd0c7b1ce6b5d92af4e1f6699995bf6af0f745d16c7d517ac0cc7c7529",
+    "audit_20260605_user_captions.py": "bb2c4fbd0058ead0524e2f2cfafddb42baa10fb2841ca3edd076f08fb754aa6b",
+    "reference_disagreement_60.csv": "c3c22f135d362ba520bd066d3c1ee760fab4179c271cddee004397fe5a0463d9",
+    "reference_window_comparison.csv": "1fef37ea221df8c00b924fddd4fdd29092024d8bfa500a0c6f61e1f443f9f98d",
+    "reference_extrema_caption_review.json": "34589d968ea9cb44cf91afc6cf890fdd6182b8a4afc9e26f8fec7ba3b5191e41",
+    "replay_color_flip.py": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+    "audit_reference_extrema_captions.py": "84d59e95e8a5ce77c0d177e36fd5ddd633ff6d2acb92de89e414cc7be9d5548e",
+    "export_90_jan13.json": "f2a52b9e16b6de12a97d05cf349bdf4f4ae53b3ca92da965fe4bb7f1239eafdd",
+    "replay.py": "3799c0d77b80a7fdd05fbb23068148a0e6693d65c406d67a1f64b70ff2b320aa",
+    "audit_active_references.py": "faaea073d0be08536142b2160783bec7918df9a72dc0e8561fec5920d0acd1e9",
+    "stage2_next_screenshot.json": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f",
+    "reference_lifecycle_frozen.json": "1f06f1f8446266473fd105888054579c48ecf147560f21afda9763da2c1733be",
+    "reference_lifecycle_audit.json": "e8778f88a7fe190f3efa99982d0849c5b3971372d0bed7034d2849c55e9eed20",
+    "turn_filter_candidate.py": "e24b528e43f091b070126cb10a1056f144699b801c65503281412e7cd51a619d",
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+    "audit_0366.py": "c9281082dff79a470b1b7d2e69b3002b88555df4a2540f60ebb626463efbd374",
+    "active_reference_caption_review.json": "04b09d58a76ccdc244d1892228d525f96339a038aa4f7fd81c727bf5bf882d54",
+    "audit_active_reference_captions.py": "56c9531d563a678168c91ca5246763d350f9e97192534cc1e51ea0b8b65ab398",
+    "audit_narrated_20251024_27.json": "b8633247571980ee3fed2db7e578d2493bb76e9e51dc0c6b5e1d91a691bacd3d",
+    "screenshot_manifest.json": "b85fddef29008272e7dbb7b7511de60b6550cb47be214dfe1d50f007d785f981",
+    "reference_next_20251024_27.json": "960d2aa0b248a7200339130411d77265eee8ba7dea406b202dd3d82e293b6820",
+    "holdout_20250818.json": "571f7101174a4b6ce41cb1b76c9f1e8d46db874a5c89468e48235211c2fee1d5",
+    "source_manifest_20251016.json": "2603c1908f710e5ab27462da9e860a914fa1e4e5b741ce090962de1b5aee8834",
+    "reference_retirement_screen.json": "c8721abcbd8b5208fd016b4137a22d0c0d086a41e1775c31d4e371332242fe9b",
+    "audit_narrated_20250626.json": "8400d5e7cab2757d6913b15a603691deb3c9b041147f1047a698da829356995c",
+    "label_comparison.csv": "5d589c8e9d9bcee5a781e30544d6930ad58de3912146316d0eb55ff308aa8761",
+    "audit_0369_0370.py": "7e476cc9e04cdfede029e93685b4241b5007b8a3b51478e77dd8303a1f26e5a6",
+    "stage2_reference_disagreements.csv": "1f893cccd4c886e3f14bd89511ee76cfbd1d77f8417f6a88a32b4ceeaa4e37af",
+    "validation_stage2.json": "9bdb8abc35f3b237bf6e31c8b8cc2deefe6ec5272f8670843d6aed1554ca7b1a",
+    "reference_retirement_caption_review.json": "6bc0ec8ff26bd3499d6b8fac0d9159e09c66bc0f752a06de8d813d0facec7c24",
+    "holdout_20250723_120.json": "64e190e5fbad08f6c82bc6f48e57df81b3c64f75960b42ed2e65301fd9114758",
+    "validation_stage2_frozen.json": "44caa1870430c1422ba15f663feb0350601b81cfe8b52573c5b7999b00a7e5a6",
+    "holdout_20250625.json": "8951ebbc0e38cf1551a3af2da43c9ddad28317221fe26e862ce2132923026bdb",
+    "holdout_0366.json": "27afd2b49171513733d6b412171af01fb44035f19a552d747c560219f173889e",
+    "stage2_new_events.csv": "2bb4e09d3b7afcfb66162b5d3db1104b4a8c3955d958bac50f3f97e92e9da3a7",
+    "audit_turn_filters.py": "5ea134c6c7f60fd3f8e09ac88799b52a3b2ba07bd176601b9746744ff3b91040",
+    "audit_reference_lifecycle.py": "8278c32db01c3a13cb0e886819399eda89d53b93d0634f7fda256d53de808a89",
+    "replay_summary.json": "180d2d88304f7740a6985d0f703796b16bbded7ff3fc3ac41e6e73be85c82269",
+    "sources/20251024_video_search.json": "de42648aa364de2d0b32c14b878cd45a475c79d1ebfb307ea3e944d85250d727",
+    "sources/20250626_vidiq_transcript.json": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+    "sources/20251027_vidiq_transcript.json": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+    "sources/20251016_daily.png": "822f37f803cb9f888a5dfb01ffda6adc77897f12b7f7005d1b976b7acd892c5a",
+    "sources/20250626_video_search.json": "fbaa2ba31c5f0e6a77e006c2eabf4dc2d768db2e150d9bad7c419cea3843b240",
+    "sources/20250624_vidiq_transcript.json": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+    "sources/20251216_120.png": "f81f414d742dff863685622664c8bd31af9f34f026324076bf00c80fa6f79e34",
+    "sources/20250723_120.png": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4",
+    "sources/20251027_120.png": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+    "sources/20250815_vidiq_transcript.json": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+    "sources/20250815_18_video_manifest.json": "f39036fa5550563745c3a387f3211d0e6d6cff763acf133f6323592090d516e1",
+    "sources/20250624_video_search.json": "57b3e273f14ef54b3f88678424edfca9b157153801a4d34884a957cfa58b80bc",
+    "sources/20250711_vidiq_transcript.json": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+    "sources/20251027_video_search.json": "0c9731d8d65bae49a2291c0ed83f2448266ce4c1ea7bca853c64470b675c0c19",
+    "sources/20250723_vidiq_transcript.json": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+    "sources/20250818_120.png": "c69cb4190eaf3c3d695aaa4af2172a7e19ad188ec2f46c376f8a6689d8cf4f40",
+    "sources/20251216_vidiq_transcript.json": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+    "sources/20260605_user_transcript_manifest.json": "8a67679f719cc952d71617f17f1ca651523c07d02e3241c5f255a17167159ed9",
+    "sources/20251216_60.png": "01e83945c6ef0e62072a3d8d549aea12451808dacc187ab3175c5a02000a5f8a",
+    "sources/20250626_120.png": "4a2b5188f399b98b6bc190a21b29e9506ff93f476c1a56f05a4eddb86272f4a3",
+    "sources/20260106_vidiq_transcript.json": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+    "sources/20251016_120.png": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+    "sources/20251024_vidiq_transcript.json": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+    "sources/20250625_vidiq_transcript.json": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+    "sources/20251016_vidiq_transcript.json": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+    "sources/20260605_user_transcript.txt": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+    "sources/20250625_120.png": "f6c16362087c5a1f6c1b7323be10be5983a04d01f7b5287a72de88fdce59ae1e",
+    "sources/20251216_daily.png": "69cb1da8aa0b3dbe9091d957840fc3c471552d62a52790ee73c7c5600296c9c9",
+    "sources/20251016_transcript.txt": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+    "sources/20250722_vidiq_transcript.json": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+    "sources/20250818_vidiq_transcript.json": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+    "sources/20250711_120.png": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+    "inputs/120_20260101_20260507.csv": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97",
+    "inputs/60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "inputs/daily_2025.csv": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "inputs/daily_20260801_20261009.csv": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c",
+    "inputs/90_20250701_20250814.csv": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa",
+    "inputs/120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+    "inputs/30_20250603_20261009.csv": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250",
+    "inputs/daily_20060801_20070529.csv": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641",
+    "inputs/120_20250401_20250711.csv": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b",
+    "inputs/120_20260701_20260901.csv": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0",
+    "inputs/60_20260301_20260420.csv": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f"
+  },
+  "protected_files_unchanged": true,
+  "script_sha256": "de4c5a2bbfdffd865f590dd02550529073066175379a51bbe241f02e10294e16",
+  "limits": [
+    "No new 90-minute December 16 software image or numeric reading",
+    "Matching terminal highs/lows/closes does not prove all intraday historical closes agree",
+    "Previous-close opening is an observed alignment, not a verified vendor-wide rule",
+    "Do not apply a constant DIF correction or modify frozen candidates to make screenshots fit",
+    "No formal Dagster execution, Lake/DB reads or writes, dependency installation or trading actions"
+  ]
+}

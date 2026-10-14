@@ -1,0 +1,1206 @@
+{
+  "asOf": "2026-10-13T22:59:53.866404+08:00",
+  "method": "20 serial real HTTP requests per period/mode; nearest-rank P95; uncached8002 forces fresh query cache per request; Python and OS filesystem caches warm; includes first request in sample; warm8001 has retained cache; no app lifespan tasks",
+  "results": [
+    {
+      "mode": "uncached",
+      "period": "day",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 0.6672864998690784,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 298631168
+        },
+        {
+          "sample": 1,
+          "seconds": 0.428166083060205,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 302202880
+        },
+        {
+          "sample": 2,
+          "seconds": 0.23012574994936585,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 303595520
+        },
+        {
+          "sample": 3,
+          "seconds": 0.16070404089987278,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 305086464
+        },
+        {
+          "sample": 4,
+          "seconds": 0.15844616713002324,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 305774592
+        },
+        {
+          "sample": 5,
+          "seconds": 0.0920634581707418,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 306462720
+        },
+        {
+          "sample": 6,
+          "seconds": 0.09937141695991158,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 306855936
+        },
+        {
+          "sample": 7,
+          "seconds": 0.1737182093784213,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 307953664
+        },
+        {
+          "sample": 8,
+          "seconds": 0.1859471253119409,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308133888
+        },
+        {
+          "sample": 9,
+          "seconds": 0.10551841696724296,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308641792
+        },
+        {
+          "sample": 10,
+          "seconds": 0.18121183337643743,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308641792
+        },
+        {
+          "sample": 11,
+          "seconds": 0.19715991709381342,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308690944
+        },
+        {
+          "sample": 12,
+          "seconds": 0.10228424984961748,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308772864
+        },
+        {
+          "sample": 13,
+          "seconds": 0.2948469999246299,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 308789248
+        },
+        {
+          "sample": 14,
+          "seconds": 0.46310258377343416,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 309182464
+        },
+        {
+          "sample": 15,
+          "seconds": 0.22172591695562005,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 309821440
+        },
+        {
+          "sample": 16,
+          "seconds": 0.09316908288747072,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 309870592
+        },
+        {
+          "sample": 17,
+          "seconds": 0.0964814592152834,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 309952512
+        },
+        {
+          "sample": 18,
+          "seconds": 0.1539671253412962,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 310050816
+        },
+        {
+          "sample": 19,
+          "seconds": 0.17459299974143505,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": 310050816
+        }
+      ],
+      "p95Seconds": 0.46310258377343416,
+      "maxSeconds": 0.6672864998690784,
+      "targetSeconds": 3,
+      "pass": true
+    },
+    {
+      "mode": "uncached",
+      "period": "m60",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 3.0500473747961223,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1033207808
+        },
+        {
+          "sample": 1,
+          "seconds": 2.2719172909855843,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1079459840
+        },
+        {
+          "sample": 2,
+          "seconds": 2.0967298336327076,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1090748416
+        },
+        {
+          "sample": 3,
+          "seconds": 2.251667832955718,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1112096768
+        },
+        {
+          "sample": 4,
+          "seconds": 2.2446251660585403,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1113997312
+        },
+        {
+          "sample": 5,
+          "seconds": 2.0394147909246385,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1124139008
+        },
+        {
+          "sample": 6,
+          "seconds": 1.9786813338287175,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1133199360
+        },
+        {
+          "sample": 7,
+          "seconds": 2.583188207820058,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 8,
+          "seconds": 2.369648375082761,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 9,
+          "seconds": 2.1090038754045963,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 10,
+          "seconds": 1.987609624862671,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 11,
+          "seconds": 2.039525999687612,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 12,
+          "seconds": 2.1032226672396064,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 13,
+          "seconds": 1.9148404160514474,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 14,
+          "seconds": 1.9042757079005241,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 15,
+          "seconds": 2.105183417443186,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 16,
+          "seconds": 1.9665233329869807,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1152565248
+        },
+        {
+          "sample": 17,
+          "seconds": 1.939256708137691,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1162674176
+        },
+        {
+          "sample": 18,
+          "seconds": 2.0359988752752542,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1175568384
+        },
+        {
+          "sample": 19,
+          "seconds": 2.3069325420074165,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": 1184464896
+        }
+      ],
+      "p95Seconds": 2.583188207820058,
+      "maxSeconds": 3.0500473747961223,
+      "targetSeconds": 3,
+      "pass": true
+    },
+    {
+      "mode": "uncached",
+      "period": "m90",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.4776624999940395,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1190559744
+        },
+        {
+          "sample": 1,
+          "seconds": 1.9241781253367662,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1191591936
+        },
+        {
+          "sample": 2,
+          "seconds": 1.9617907921783626,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1195442176
+        },
+        {
+          "sample": 3,
+          "seconds": 1.826161667238921,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1195442176
+        },
+        {
+          "sample": 4,
+          "seconds": 1.7897228328511119,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1197408256
+        },
+        {
+          "sample": 5,
+          "seconds": 2.001177500002086,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1197408256
+        },
+        {
+          "sample": 6,
+          "seconds": 1.881075874902308,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1197408256
+        },
+        {
+          "sample": 7,
+          "seconds": 1.8716771667823195,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1204895744
+        },
+        {
+          "sample": 8,
+          "seconds": 2.149791957810521,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1205043200
+        },
+        {
+          "sample": 9,
+          "seconds": 1.874226083047688,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1205043200
+        },
+        {
+          "sample": 10,
+          "seconds": 1.9863650831393898,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 11,
+          "seconds": 2.182820166926831,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 12,
+          "seconds": 2.023748124949634,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 13,
+          "seconds": 1.9002837496809661,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 14,
+          "seconds": 1.9353782078251243,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 15,
+          "seconds": 2.148815124761313,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1221181440
+        },
+        {
+          "sample": 16,
+          "seconds": 2.08642170811072,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1223294976
+        },
+        {
+          "sample": 17,
+          "seconds": 1.8486553747206926,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1231093760
+        },
+        {
+          "sample": 18,
+          "seconds": 1.989211916923523,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 19,
+          "seconds": 1.8167734579183161,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        }
+      ],
+      "p95Seconds": 2.182820166926831,
+      "maxSeconds": 2.4776624999940395,
+      "targetSeconds": 3,
+      "pass": true
+    },
+    {
+      "mode": "uncached",
+      "period": "m120",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.509052834007889,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 1,
+          "seconds": 1.8000580416992307,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 2,
+          "seconds": 1.8951364168897271,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 3,
+          "seconds": 1.718588916119188,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 4,
+          "seconds": 1.7967508332803845,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 5,
+          "seconds": 1.8926770421676338,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 6,
+          "seconds": 1.7915853331796825,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1234632704
+        },
+        {
+          "sample": 7,
+          "seconds": 1.699942875187844,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 8,
+          "seconds": 1.7286027087830007,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 9,
+          "seconds": 1.9697934999130666,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 10,
+          "seconds": 1.7642100416123867,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 11,
+          "seconds": 1.7516663749702275,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 12,
+          "seconds": 1.7531797499395907,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1237204992
+        },
+        {
+          "sample": 13,
+          "seconds": 1.8958083339966834,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1241579520
+        },
+        {
+          "sample": 14,
+          "seconds": 1.7089652079157531,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1241579520
+        },
+        {
+          "sample": 15,
+          "seconds": 1.74523412482813,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1242398720
+        },
+        {
+          "sample": 16,
+          "seconds": 1.9269070839509368,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1245691904
+        },
+        {
+          "sample": 17,
+          "seconds": 1.8120794999413192,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1245691904
+        },
+        {
+          "sample": 18,
+          "seconds": 1.7706350828520954,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1245691904
+        },
+        {
+          "sample": 19,
+          "seconds": 1.9851831658743322,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": 1254326272
+        }
+      ],
+      "p95Seconds": 1.9851831658743322,
+      "maxSeconds": 2.509052834007889,
+      "targetSeconds": 3,
+      "pass": true
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 0.5363502078689635,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 1,
+          "seconds": 0.22026079101487994,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 2,
+          "seconds": 0.23765670880675316,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 3,
+          "seconds": 0.08811912499368191,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 4,
+          "seconds": 0.08682420896366239,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 5,
+          "seconds": 0.08014391688629985,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 6,
+          "seconds": 0.08249354222789407,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 7,
+          "seconds": 0.17717579193413258,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 8,
+          "seconds": 0.14681699965149164,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 9,
+          "seconds": 0.21858037495985627,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 10,
+          "seconds": 0.22379883285611868,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 11,
+          "seconds": 0.08616762515157461,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 12,
+          "seconds": 0.23106058407574892,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 13,
+          "seconds": 0.5200555408373475,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 14,
+          "seconds": 0.17833425011485815,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 15,
+          "seconds": 0.08829000033438206,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 16,
+          "seconds": 0.22649975027889013,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 17,
+          "seconds": 0.18381116725504398,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 18,
+          "seconds": 0.08827416691929102,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 19,
+          "seconds": 0.07942708395421505,
+          "bytes": 65803,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        }
+      ],
+      "p95Seconds": 0.5200555408373475,
+      "maxSeconds": 0.5363502078689635,
+      "targetSeconds": 1,
+      "pass": true
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.6615093327127397,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 1,
+          "seconds": 0.6616820422932506,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 2,
+          "seconds": 0.5229009580798447,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 3,
+          "seconds": 0.5250164582394063,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 4,
+          "seconds": 0.519056792370975,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 5,
+          "seconds": 0.5205047503113747,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 6,
+          "seconds": 0.6686312090605497,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 7,
+          "seconds": 0.5269545000046492,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 8,
+          "seconds": 0.5389690408483148,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 9,
+          "seconds": 0.5163500839844346,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 10,
+          "seconds": 0.5249639586545527,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 11,
+          "seconds": 0.6754550002515316,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 12,
+          "seconds": 0.5089363330043852,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 13,
+          "seconds": 0.5226632920093834,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 14,
+          "seconds": 0.5194856249727309,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 15,
+          "seconds": 0.5280930832959712,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 16,
+          "seconds": 0.6679487912915647,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 17,
+          "seconds": 0.5176996672526002,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 18,
+          "seconds": 0.5181605410762131,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 19,
+          "seconds": 0.5239434172399342,
+          "bytes": 135924,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        }
+      ],
+      "p95Seconds": 0.6754550002515316,
+      "maxSeconds": 2.6615093327127397,
+      "targetSeconds": 1,
+      "pass": true
+    },
+    {
+      "mode": "warm",
+      "period": "m90",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.2513264170847833,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 1,
+          "seconds": 0.7243955843150616,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 2,
+          "seconds": 0.48161637503653765,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 3,
+          "seconds": 0.4884840422309935,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 4,
+          "seconds": 0.5147372921928763,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 5,
+          "seconds": 0.49874191684648395,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 6,
+          "seconds": 0.6662607500329614,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 7,
+          "seconds": 0.49480729131028056,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 8,
+          "seconds": 0.48908895906060934,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 9,
+          "seconds": 0.48127574985846877,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 10,
+          "seconds": 0.4810484158806503,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 11,
+          "seconds": 0.5195160419680178,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 12,
+          "seconds": 0.6855235421098769,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 13,
+          "seconds": 0.47814016696065664,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 14,
+          "seconds": 0.4963315832428634,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 15,
+          "seconds": 0.4869473329745233,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 16,
+          "seconds": 0.48759920755401254,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 17,
+          "seconds": 0.6664047497324646,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 18,
+          "seconds": 0.48204129096120596,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 19,
+          "seconds": 0.4787095827050507,
+          "bytes": 129023,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        }
+      ],
+      "p95Seconds": 0.7243955843150616,
+      "maxSeconds": 2.2513264170847833,
+      "targetSeconds": 1,
+      "pass": true
+    },
+    {
+      "mode": "warm",
+      "period": "m120",
+      "samples": [
+        {
+          "sample": 0,
+          "seconds": 2.1452443334273994,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 1,
+          "seconds": 0.45575308287516236,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 2,
+          "seconds": 0.45483774971216917,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 3,
+          "seconds": 0.6645178329199553,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 4,
+          "seconds": 0.4506955831311643,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 5,
+          "seconds": 0.4489767919294536,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 6,
+          "seconds": 0.508097916841507,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 7,
+          "seconds": 0.5345506658777595,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 8,
+          "seconds": 0.6876423750072718,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 9,
+          "seconds": 0.4562441250309348,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 10,
+          "seconds": 0.4531035842373967,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 11,
+          "seconds": 0.4975446672178805,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 12,
+          "seconds": 0.5249123331159353,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 13,
+          "seconds": 0.5168966660276055,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 14,
+          "seconds": 0.6871699159964919,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 15,
+          "seconds": 0.4539159582927823,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 16,
+          "seconds": 0.44943541707471013,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 17,
+          "seconds": 0.5195880001410842,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 18,
+          "seconds": 0.5318495002575219,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        },
+        {
+          "sample": 19,
+          "seconds": 0.5134346666745842,
+          "bytes": 128435,
+          "httpStatus": 200,
+          "processPeakBytes": null
+        }
+      ],
+      "p95Seconds": 0.6876423750072718,
+      "maxSeconds": 2.1452443334273994,
+      "targetSeconds": 1,
+      "pass": true
+    }
+  ]
+}

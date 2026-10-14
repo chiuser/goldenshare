@@ -1,0 +1,90 @@
+{
+  "asOf": "2026-10-14",
+  "branch": "dev-interface",
+  "status": "Implemented locally; user page review pending; not deployed",
+  "figma": "https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-web?node-id=2010-2173",
+  "visualParameters": {
+    "dotDiameterPx": 8,
+    "fontSizePx": 12,
+    "fontWeight": 700,
+    "lineHeightPx": 16,
+    "lineGapPx": 18,
+    "dotToTextGapPx": 8
+  },
+  "browserScenarioCount": 10,
+  "realApiPoints": 1800,
+  "apiSamples": {
+    "day": {
+      "pointCount": 300,
+      "eventCount": 20,
+      "algorithmVersion": "xxm-direction-v0.1",
+      "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+      "sourceKind": "daily_factor",
+      "computedThrough": "2026-10-13"
+    },
+    "m60": {
+      "pointCount": 500,
+      "eventCount": 35,
+      "algorithmVersion": "xxm-direction-v0.1",
+      "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+      "sourceKind": "minute_gold",
+      "computedThrough": "2026-10-13T15:00:00+08:00"
+    },
+    "m90": {
+      "pointCount": 500,
+      "eventCount": 22,
+      "algorithmVersion": "xxm-direction-v0.1",
+      "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+      "sourceKind": "minute_gold",
+      "computedThrough": "2026-10-13T15:00:00+08:00"
+    },
+    "m120": {
+      "pointCount": 500,
+      "eventCount": 21,
+      "algorithmVersion": "xxm-direction-v0.1",
+      "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+      "sourceKind": "minute_gold",
+      "computedThrough": "2026-10-13T15:00:00+08:00"
+    }
+  },
+  "codegraph": [
+    "codegraph_explore",
+    "codegraph_impact(eventLabel)",
+    "codegraph sync",
+    "codegraph status",
+    "codegraph_impact(layoutXxmLabels)"
+  ],
+  "backendChanged": false,
+  "algorithmChanged": false,
+  "apiChanged": false,
+  "architectureDependenciesChanged": false,
+  "configurationFilesChanged": false,
+  "installedDependencies": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "files": {
+    "wealth/src/features/index-detail/xxm/adapter.ts": "6005bb3ea6a5f2481e6b36d909f903a5a962ac54f732bf30981bf4efc7a08198",
+    "wealth/src/features/index-detail/xxm/markerGeometry.ts": "c57f0bc5c0efaf4f3139ed6b2f7bb0f9116bd76ce25cf1ec24f0ea9eb750e831",
+    "wealth/src/features/index-detail/xxm/XxmMacdPrimitive.ts": "2ba51a3fad992db97ffc19398fac5fb24d9bb35414986981c8002300d305f8ae",
+    "wealth/src/features/index-detail/xxm/adapter.test.tsx": "0eb443c1a6c2a3a194d38a5146c37935b8fc9daf5fceb15aeda46929b395e8b5",
+    "wealth/src/features/index-detail/xxm/markerGeometry.test.ts": "43c89f145ee655b47021fe5f3e97669f755d6a43f015d853f147426c64f733ee",
+    "wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md": "cae7911dbc484ae917da39651464d48a7047dbeaec24dacceebeffad4f6deda1",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "944759d42f85461ac9cf49a04ea68f2129cc2e19446402bdbd593fff2ce1c598",
+    "wealth/docs/README.md": "5cc658d9d231c346fa43ede96746a3d3553452c4afeca02fdecdb222dfc4cb21"
+  },
+  "validation": {
+    "tests": {
+      "command": "npm --prefix wealth run test -- --maxWorkers=2",
+      "files": 162,
+      "passed": 1156
+    },
+    "typecheck": "PASS",
+    "build": "PASS",
+    "docsIntegrity": "PASS",
+    "defaultParallelTestInstability": [
+      "PriceVolumeWorkspace scope switch",
+      "DualMomentumWorkspace browser-history restore"
+    ]
+  }
+}

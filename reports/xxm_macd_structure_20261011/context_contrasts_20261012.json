@@ -1,0 +1,2201 @@
+{
+  "research_date": "2026-10-12",
+  "status": "RETROSPECTIVE_CONTEXT_ANNOTATION_NOT_SOFTWARE_VALIDATION_OR_BLIND_TEST",
+  "definitions_sha256": "5da634f68fb644eeb69394fc5cb4e127a19aa56d1e7b1050f28e6ed6caf11233",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "input_sha256": {
+    "60": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "90": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+  },
+  "source_inventory": [
+    {
+      "file": "20250624_vidiq_transcript.json",
+      "date": "20250624",
+      "sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "characters": 5007
+    },
+    {
+      "file": "20250625_vidiq_transcript.json",
+      "date": "20250625",
+      "sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "characters": 5794
+    },
+    {
+      "file": "20250626_vidiq_transcript.json",
+      "date": "20250626",
+      "sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "characters": 5511
+    },
+    {
+      "file": "20250711_vidiq_transcript.json",
+      "date": "20250711",
+      "sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "characters": 4782
+    },
+    {
+      "file": "20250722_vidiq_transcript.json",
+      "date": "20250722",
+      "sha256": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+      "characters": 7863
+    },
+    {
+      "file": "20250723_vidiq_transcript.json",
+      "date": "20250723",
+      "sha256": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+      "characters": 4382
+    },
+    {
+      "file": "20250815_vidiq_transcript.json",
+      "date": "20250815",
+      "sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+      "characters": 5052
+    },
+    {
+      "file": "20250818_vidiq_transcript.json",
+      "date": "20250818",
+      "sha256": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+      "characters": 5617
+    },
+    {
+      "file": "20251016_vidiq_transcript.json",
+      "date": "20251016",
+      "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+      "characters": 5325
+    },
+    {
+      "file": "20251024_vidiq_transcript.json",
+      "date": "20251024",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "characters": 5416
+    },
+    {
+      "file": "20251027_vidiq_transcript.json",
+      "date": "20251027",
+      "sha256": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+      "characters": 8976
+    },
+    {
+      "file": "20251216_vidiq_transcript.json",
+      "date": "20251216",
+      "sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+      "characters": 5974
+    },
+    {
+      "file": "20260106_vidiq_transcript.json",
+      "date": "20260106",
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "characters": 4951
+    },
+    {
+      "file": "20251111_user_transcript.txt",
+      "date": "20251111",
+      "sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "characters": 6354
+    },
+    {
+      "file": "20260605_user_transcript.txt",
+      "date": "20260605",
+      "sha256": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+      "characters": 5463
+    },
+    {
+      "file": "20260608_user_transcript.txt",
+      "date": "20260608",
+      "sha256": "6d8d5eebb566c2bbf8b950d4d81eae3f74489fb43c02b380c8629f740b8f7d13",
+      "characters": 5615
+    },
+    {
+      "file": "20260609_user_transcript.txt",
+      "date": "20260609",
+      "sha256": "110f03db75bf5c4c1424b0ad5fd04794a5a6bfc460ed311a2be1f5d369cad0fe",
+      "characters": 6582
+    },
+    {
+      "file": "20260615_user_transcript.txt",
+      "date": "20260615",
+      "sha256": "10978611a37f5c78023992b8082ca132ba4e47f6f694bb45a2f6dcfa3bd87708",
+      "characters": 6787
+    },
+    {
+      "file": "20260618_user_transcript.txt",
+      "date": "20260618",
+      "sha256": "6075689f63257964cde2c5ec831708dae737575dbf26e44138fbbfb8a03c3f24",
+      "characters": 5431
+    },
+    {
+      "file": "20260626_user_transcript.txt",
+      "date": "20260626",
+      "sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+      "characters": 4176
+    },
+    {
+      "file": "20251016_transcript.txt",
+      "date": "20251016",
+      "sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "characters": 6868
+    }
+  ],
+  "inventory_files": 21,
+  "distinct_dates": 20,
+  "close_read_case_dates": 10,
+  "located_anchors": 28,
+  "cases": [
+    {
+      "id": "june26_2025_selection",
+      "date": "2025-06-26",
+      "file": "20250626_vidiq_transcript.json",
+      "kind": "conditional_plan",
+      "direction": "top",
+      "phase": "trigger",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "OR_first_structure",
+      "finding": "Daily small and far is temporarily excluded; first selected 90/120 structure would trigger. Expected false retreat is not a veto. This is future planning, not an actual structure/action today.",
+      "limitations": [
+        "No measured distance cutoff",
+        "No actual trigger or fills",
+        "Raw four-tenths spelling varies"
+      ],
+      "sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "evidence": [
+        {
+          "key": "distance",
+          "marker": "日线价格又距离趋势比较远",
+          "locator": {
+            "char_start": 1335,
+            "char_end_exclusive": 1685,
+            "marker_char_offset": 1435,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "构 你现在你要确定这个问题啊 回调一下形成结构 你操不操作 对吧中阳线就就就就好了 就不用理了 今天如果中阳线 那更好了呀 对不对 减多少 4乘啊 4乘 因为日线的级别比较小 所以不用 暂时不用考虑 日线价格又距离趋势比较远 所以呢 4成 能理解的打1 三块来吧 折磨死了 我这不给出最理想走势了吗 那是不是对市场得尊重啊 你以为我想减啊 我根本就不想减仓 最好来一根大阳线 是吧把所有的全给干掉 没有趋势 大阳线又远 没有结构 大阳线又远离趋势 相当长的水 如果一根大阳线起结构消钝化消失 价格远离趋势 未来一周全部满仓 你都不用看行情 未来一周就就全全都是满仓的 连行情看都不用看 你可以出去玩去 我不希望那么走啊 我操那心呐 现在你说我还得盯着明天市场是不是 我也不想盯着明天市场 但我得提前跟"
+        },
+        {
+          "key": "not_actual",
+          "marker": "现在啥也没有呢",
+          "locator": {
+            "char_start": 1981,
+            "char_end_exclusive": 2381,
+            "marker_char_offset": 2081,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "消失 价格就远离趋势 最舒服的一种状态 就未来一周行情都不用看 你就满仓持着就完了 妈的不争气 还没形成结构呢 明天一根大阳线 你不骂倒了吗 是不是我只是说你你 你要有这个认识好不好 你要有这个认识 现在啥也没有呢 我只是提个醒 120分钟结构减还是90分钟结构减 哪个来哪个减 60分钟动画消失了 对吧哪哪一个 90分钟或120分钟 哪一个先来哪一个减 然后呢 11点之前不用不用考虑 11点要看一下 11:30要看一下 刚才说了 就这四个时间点 下午102十 下午14点和下午15点 四个时间点 我们其实做的很安全 你能理解吗 他如果是下跌 拿我们没有办法 他如果是上涨 拿我们也没有办法 就是我们还是把安全放在了第一位 所以这个操作上 可能相会相对来讲就就复杂一点 但是呢 不要怕折腾啊 不要怕折腾 生命在于折腾好不好 生命在于折腾 如果结构有效 注意啊 它有可能是一个假结构 假摔能理解吗 形"
+        },
+        {
+          "key": "trigger",
+          "marker": "90分钟或120分钟 哪一个先来哪一个减",
+          "locator": {
+            "char_start": 2038,
+            "char_end_exclusive": 2448,
+            "marker_char_offset": 2138,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "天一根大阳线 你不骂倒了吗 是不是我只是说你你 你要有这个认识好不好 你要有这个认识 现在啥也没有呢 我只是提个醒 120分钟结构减还是90分钟结构减 哪个来哪个减 60分钟动画消失了 对吧哪哪一个 90分钟或120分钟 哪一个先来哪一个减 然后呢 11点之前不用不用考虑 11点要看一下 11:30要看一下 刚才说了 就这四个时间点 下午102十 下午14点和下午15点 四个时间点 我们其实做的很安全 你能理解吗 他如果是下跌 拿我们没有办法 他如果是上涨 拿我们也没有办法 就是我们还是把安全放在了第一位 所以这个操作上 可能相会相对来讲就就复杂一点 但是呢 不要怕折腾啊 不要怕折腾 生命在于折腾好不好 生命在于折腾 如果结构有效 注意啊 它有可能是一个假结构 假摔能理解吗 形成结构之后他微调一下继续向上 对不对有可能走这种走势 但是这不是问题的关键 你根本就没有想到问题的关键是什么 即便假摔 形成结构你也得"
+        },
+        {
+          "key": "respect_trigger",
+          "marker": "即便假摔 形成结构你也得操作",
+          "locator": {
+            "char_start": 2336,
+            "char_end_exclusive": 2686,
+            "marker_char_offset": 2436,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "在于折腾好不好 生命在于折腾 如果结构有效 注意啊 它有可能是一个假结构 假摔能理解吗 形成结构之后他微调一下继续向上 对不对有可能走这种走势 但是这不是问题的关键 你根本就没有想到问题的关键是什么 即便假摔 形成结构你也得操作 这才是真正的核心 因为他即便是假摔 后面他会再过去 再过去他会还会出钝化消失 认了 但是如果形成结构你没反应 这是不对的 好吧 所以我们其实对于规则是完全尊重啊 对于规则完全尊重 还有什么问题吗 希望我们所有的担心 全都没用 好吧希望我们所有的担心全都没用 一根大洋线解千愁 好 下面的时间看看大家有什么问题没有 去强留弱或去弱留强的问题 只有在大盘达到一定的级别才考虑 我们上次好像说的是大盘达到多少 是吧 个股是大盘的3倍的时候再考虑啊 大盘是5% 个股达到15%的"
+        }
+      ]
+    },
+    {
+      "id": "july11_scope",
+      "date": "2025-07-11",
+      "file": "20250711_vidiq_transcript.json",
+      "kind": "declared_policy_and_current_correction",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "120"
+      ],
+      "join": "single_selected_period_in_this_lecture",
+      "finding": "Far trend distance excludes 60 in this case; correcting the original 120 decision should not be blocked by possible new 60 structure. Period close governs the cited correction.",
+      "limitations": [
+        "No 60 software chart available; do not request it again",
+        "Not an event-matched causal estimate of distance",
+        "Transcription 教室 retained; not silently corrected"
+      ],
+      "sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "evidence": [
+        {
+          "key": "far",
+          "marker": "价格到趋势的距离比较远啊",
+          "locator": {
+            "char_start": 348,
+            "char_end_exclusive": 868,
+            "marker_char_offset": 448,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "00只上涨 下午到收盘的时候 虽然说指数回落了 那么涨跌家数比呢 反过来了 2,700只上涨 1,700只下跌 所以你只管负责按规则来 你只管负责按规则来 其他的交给天意 能理解的打一 好再看这张图 价格到趋势的距离比较远啊 我们说过啊 昨天我们就讲了 不用理会60分钟 不看60分钟 目前90分钟120分钟日线钝化消失 就是钝化消失 好吧 我昨我们昨天特意讲了 不看60分钟啊 动画消失代表没有 那么这个价格远离趋势 然后呢又没有结构 我们就目前来讲就是持股就行了 持股待涨 好吧 我们整天的去跟人性去做斗争 这个就没法讲了 我感觉这这个 这个说了n多遍是吧 说了n多遍 整天去跟人性去做斗争 然后呢就像买了呢 不管你为什么买 是吧 那么很多人的脑海里呢 就一直都是只要买了 涨了就算对 跌了就算错 以市场的涨跌来判断对错 然后我说这种判断对错的方式和结果 在股票市场里将永无止境 永无止境的意思就是 你永远都没有对错标准了 今天对了 明天又错了 后天又对了 大后天又错了 他没有标准 假如说你涨了就是对了 错了跌了就是错了 买了啊买完之后或者是卖出之后 跌了就是对了 涨了就是错了 你就没永远没 不会做到全部对或全部错 你既然做不到全部"
+        },
+        {
+          "key": "exclude_60",
+          "marker": "不理60分钟是正常的",
+          "locator": {
+            "char_start": 2373,
+            "char_end_exclusive": 2733,
+            "marker_char_offset": 2473,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "这种情况 120分钟动画消失的时候 60分钟有可能结构再形成 那这个时候呢 你再加回来 再纠错的时候 容易思前想后 顾虑太多 因此我们昨天先把这个问题就讲了 不理60分钟 因为价格到趋势的距离比较远 不理60分钟是正常的 这样的话呢 120分钟动画教室 你就只看120分钟动画教室就行了好吧 对我们昨天都讲完了 WEI尾盘已经减仓4成了好吧 送你禁言三次 我问你原因是什么 不是问你为什么这么做 你说你在学员区里 不按学员区的操作 你可以自己做呀 我没有我没有建议 我不介意啊 你有自己的选择 我不介意你拿出来嘚瑟 你就没必要了吧 我问你原因 你是不是听不懂话 就是你比方说啊 你像我看啊 昨天有个人说什么来着 然后我问他原因 然后他说骑行突破技术无效 我说技术无效 跟骑骑行突破有啥关系啊 你得告诉我原因是什么 就是你"
+        },
+        {
+          "key": "bar_close",
+          "marker": "这个周期的结束",
+          "locator": {
+            "char_start": 1705,
+            "char_end_exclusive": 1975,
+            "marker_char_offset": 1805,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": " 它耽误涨了吗 上午涨下午涨 上午和下午其实没有那么重要对吧 我们从操作的角度来讲呢 也不是看上行引线 是看收盘价格 你像上午 比方说10点半 可能动画就消失了 我们为什么一定要等到11点半 就是因为这个周期的结束 这操作标准呢 是按收盘价格定的 盘中上下引线 这种走势也很正常 还有什么问题吗 这次上涨能持续多久 不知道那如果有三浪的话 是应该过33674点 我们说分为三步嘛 是吧第一步呢 是过趋势 第二步3450 第三步呢是过3674 这次加的什么情况下减仓 下一次顶部结构或破趋势 峰回路转 这次加的什么时候减仓 什么情况下减仓 下"
+        }
+      ]
+    },
+    {
+      "id": "nov11_near_and_amount",
+      "date": "2025-11-11",
+      "file": "20251111_user_transcript.txt",
+      "kind": "author_event_and_declared_action",
+      "direction": "top",
+      "phase": "new_defense",
+      "selected_periods": [
+        "90",
+        "daily"
+      ],
+      "join": "new_correction_join_unknown",
+      "finding": "Near context permits 60-and-above, but actual structure asserted only 90/daily. Poor period/index coordination still leads to declared reduce four-tenths; six-tenths is conditional. Final holding wording conflicts.",
+      "limitations": [
+        "Current software NONE is not event removal",
+        "No coordination score or actual fills",
+        "No resolved final holding",
+        "New AND/OR unspecified"
+      ],
+      "sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "evidence": [
+        {
+          "key": "near",
+          "marker": "价格到趋势的距离比较近",
+          "locator": {
+            "line_start": 4,
+            "line_end_inclusive": 11,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "0:2525秒钟我们昨天也谈到了上午的11点 这个时间啊 由于价格到趋势的距离比较近 就是比较近\n0:3434秒钟所以呢 60分钟及包括60分钟以上级别 任何周期形成结构都好用 日线这个结构呢\n0:4242秒钟级别不大 但是结构所对应的反向周期数 是24个周期 稍等反向周期数24个周期\n0:5050秒钟比方说90分钟24个就是8天 60分钟呢 就是6天 日线呢就是24天\n0:5858秒钟24个交易日24个周期啊 但是结构 它的主要的使命是为了服务于趋势\n1:071分钟7秒钟如果结构形成 比方说这有四个字 结构形成 但是趋势并不跌穿 你看之前的几次就是这样 结构是没有意义的\n1:151分钟15秒钟所以我们还是要看价格到趋势的距离 以判定哪一个周期的结构是有效的\n1:241分钟24秒钟但是昨天我们判断的四个周期都有效 6090120日线都有效 但是"
+        },
+        {
+          "key": "events",
+          "marker": "90分钟和日线昨天有钝化 今天形成结构",
+          "locator": {
+            "line_start": 11,
+            "line_end_inclusive": 14,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "1:241分钟24秒钟但是昨天我们判断的四个周期都有效 6090120日线都有效 但是\n1:311分钟31秒钟今天其实是没有60分钟和120分钟的 90分钟和日线昨天有钝化 今天形成结构\n1:381分钟38秒钟60分钟和120分钟差一个点 还不到一个点是吧 一个是4,018.6 一个是4,018.8\n1:471分钟47秒钟差了0.2 没有 但这不关键 这不关键 关键在这 这个我们昨天重点讲了"
+        },
+        {
+          "key": "amount",
+          "marker": "今天我们觉得减4成是没问题的",
+          "locator": {
+            "line_start": 89,
+            "line_end_inclusive": 95,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "12:2712分钟27秒钟看看大家有什么问题没有 减4成记得昨天说的是减6成 假如说60分钟也有 120分钟也有 并且呢有其他的几个指数\n12:3612分钟36秒钟也有日线的钝化 那我们减6成 不不无可 好吧 那么有的学员说 老师那假如说这次的顶部结构\n12:4512分钟45秒钟这是第一次顶部结构 如果不对 后面还有第二次顶部结构 那我们也有可能 在4成的减4成的基础上\n12:5312分钟53秒钟再减两成 但是目前为止 你像今天对吧 今天呢只是90分钟日线\n13:0013分钟多周期的协调性没有 指数之间的协调性也不够好 所以呢 今天我们觉得减4成是没问题的 那假如说啊\n13:0713分钟7秒钟就是嗯我能够找到确定性好的点 比方说指数之间的协调性好 周期之间的协调性好\n13:1613分钟16秒钟盘中我还能给你找到序列的高点 那我就有可能减6成 但目前为止是没必要的 好吧没必要"
+        },
+        {
+          "key": "position_conflict",
+          "marker": "以4成仓为标准",
+          "locator": {
+            "line_start": 118,
+            "line_end_inclusive": 121,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "16:3316分钟33秒钟我们足够理性和客观 好吧不多讲了啊 十六点五十九分 总结一下啊 接下来我们重点是看趋势了啊 如果向上呢\n16:4116分钟41秒钟就是二次结构 二次结构从分钟线来看 级别是比较大的 很难出现\n16:4916分钟49秒钟钝化消失并不代表一定不会 那钝化消失我们就买回来就完了 所以今天呢 以4成仓为标准\n16:5716分钟57秒钟因为4成仓也是比较合适的 这就是今天的全部内容 好了不多讲了 我们今天的课程到这里全部结束"
+        }
+      ]
+    },
+    {
+      "id": "jan6_strength",
+      "date": "2026-01-06",
+      "file": "20260106_vidiq_transcript.json",
+      "kind": "conditional_plan_and_forecast",
+      "direction": "top",
+      "phase": "selection",
+      "selected_periods": [
+        "60",
+        "90"
+      ],
+      "join": "not_identified",
+      "finding": "Small dulling and easy disappearance influence attention and expectations. The 90 formed-structure action remains theoretical; full holding is not proof of a formed structure skipped for size.",
+      "limitations": [
+        "Distance wording 小 conflicts with a simple far-distance reading; do not fix it",
+        "No observed ignored structure established",
+        "Numerical candidate is not software truth",
+        "No quantified strength filter"
+      ],
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "evidence": [
+        {
+          "key": "full",
+          "marker": "反正我满仓的能",
+          "locator": {
+            "char_start": 0,
+            "char_end_exclusive": 291,
+            "marker_char_offset": 81,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "大家好今天是2026年的1月6号 这2026年的开盘的这两年是吧 强的不像话了 最近这些年 最好开局吧 最佳开局 请看文档的第一张图 梦幻开局 老师能接受吗 能 反正我满仓的能 这波吧就是咋说呢 这波上证指数立功了呀 这个低点是吧 这没上证指数 这低点买不进来啊 上证指数立功了 但是这个 由于它这个指数今天协协调性一般 所以呢 我们本来没没计划能涨这么强 但是该满仓得满仓 就是你不预判它强 但是你还得满仓 能理解吧 所以呢谨慎乐观 结果变成这样 当然这两天如果没走出来 还还这个谨慎乐观 也没有啥太太多的争议 我们期待慢牛 但现在长出快牛也能接受 勉强接受吧 还能怎么样 你还能"
+        },
+        {
+          "key": "ambiguous_distance",
+          "marker": "60分钟到趋势的距离比较小",
+          "locator": {
+            "char_start": 333,
+            "char_end_exclusive": 653,
+            "marker_char_offset": 433,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "一般就就不建议大家注意 你像昨天90分钟 60分钟有动画的时候 学员也问老师 90分钟60分钟结构形成的时候 我们卖不卖 对吧昨天有人这么问吧 你你让我怎么回答 稍等你让我怎么回答 从结构的角度来讲 60分钟到趋势的距离比较小 那么我们认为60分钟结构形成 还可以不卖 90分钟你不减仓 你看这个昨天啊 价格到趋势的距离啊 这是吧 价格到趋势的距离没有那么远 90分钟结构形成理论上是应该减的 但是90分钟级别特别小 它很容易消失 我们刚才看了 很容易消失 今天日线也很小 今天日线出 钝化可能明天就消失 一天就消失 稍等啊 尤其指数这么涨 明天如果不消失 那后天也消失了 那价格往下走的话呢 DF值也是会继续往上升 DF值会继续往上升 所"
+        },
+        {
+          "key": "conditional_90",
+          "marker": "90分钟结构形成理论上是应该减的",
+          "locator": {
+            "char_start": 413,
+            "char_end_exclusive": 913,
+            "marker_char_offset": 513,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": " 稍等你让我怎么回答 从结构的角度来讲 60分钟到趋势的距离比较小 那么我们认为60分钟结构形成 还可以不卖 90分钟你不减仓 你看这个昨天啊 价格到趋势的距离啊 这是吧 价格到趋势的距离没有那么远 90分钟结构形成理论上是应该减的 但是90分钟级别特别小 它很容易消失 我们刚才看了 很容易消失 今天日线也很小 今天日线出 钝化可能明天就消失 一天就消失 稍等啊 尤其指数这么涨 明天如果不消失 那后天也消失了 那价格往下走的话呢 DF值也是会继续往上升 DF值会继续往上升 所以呢日线钝化消失 日线钝化消失有一个好处 就是我之前说 我说 我们担心这个月线有顶部的序列 然后呢日线有顶部的结构 这个跟21年那个高点是完全一致的 21年年初也是月线顶部序列 日线顶部结构 然后从21年到现在 26年5年月线就两次序列 所以月线序列非常少见 当然如果后面是大牛市 月线序列应该失效 可是判定月线失效 你看月线 本周应该收9 判定月线失效 得等到二 3月份 2月份都不行 你像这个日线的9是吧 昨天都不能判定失效 但是今天判可以判定失效了 当然了这个于操作上 没有操作 还是要满仓 还是要持物 所以呢现在"
+        }
+      ]
+    },
+    {
+      "id": "dec16_bottom_scope",
+      "date": "2025-12-16",
+      "file": "20251216_vidiq_transcript.json",
+      "kind": "conditional_plan",
+      "direction": "bottom",
+      "phase": "trigger_and_conflict_plan",
+      "selected_periods": [
+        "60",
+        "90",
+        "120"
+      ],
+      "join": "OR_any_structure",
+      "finding": "Near-trend bottom planning accepts any 60/90/120 structure; price new low establishes described standard context. A scoped future plan suspends an extra long-trend reduction while this dulling context persists.",
+      "limitations": [
+        "Today labels indicate dulling; do not promote ambiguous 结构 wording to confirmed formation",
+        "Not a universal structure-over-trend priority",
+        "No actual subsequent conflict action proven",
+        "No universal time count or expiry identified"
+      ],
+      "sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+      "evidence": [
+        {
+          "key": "near",
+          "marker": "60分钟及以上级别的底部结构",
+          "locator": {
+            "char_start": 799,
+            "char_end_exclusive": 1279,
+            "marker_char_offset": 899,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "分钟线的底部的钝化 好我们看120分钟 然后我们再看啊 他到达短期趋势的距离也比较近啊 就是长期趋势跟短期趋势都非常他们 他们一个向下一个向上嘛 所以他们之间的距离越来越近 因此呢这个只要有分钟线的 60分钟及以上级别的底部结构的形成 其实就符合了买回来的标准 然后我们再看120分钟线 有底部的动画 明显啊底部的动画 这波的速度并不快啊 你看这个速度是吧 这样下来的 这一波呢 是这样下来的 他们都是用了13个 2120分钟线 13根线这是13根 这也是13根啊 都是用了13根 但这个速度能够看出差异 速度上一旦有差异 下面就有动画 但是呢 现在就是说你从小周期来看呢 就是这一波的速度要更快一点小 周期第一波第二波第三波 小周期的最近的这一波 速度要更快一点 所以会不会明天会有 会有继续 这个速度会有继续的变化 我们不知道 但是呢 他如果形成结构是符合买入标准的 首先趋势要让结构修边结构有了 而且是标准型的结构 你像昨天那90分钟 我们说不看就是就是 他那个结构不标准 前天那个啊 他那结构不标准 但是今天的这个结构 它是标准的底部结构 价格创新低 "
+        },
+        {
+          "key": "new_low",
+          "marker": "价格创新低它就具备了",
+          "locator": {
+            "char_start": 1192,
+            "char_end_exclusive": 1522,
+            "marker_char_offset": 1292,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "构修边结构有了 而且是标准型的结构 你像昨天那90分钟 我们说不看就是就是 他那个结构不标准 前天那个啊 他那结构不标准 但是今天的这个结构 它是标准的底部结构 价格创新低 你上次那个是没有创新低 这价格创新低它就具备了 就全部都是调整周期 它不创新低 你你比方这个地方 它形成结构 它没有创新低 这段时间算是什么周期 我们去判定不了呀 如果判定不了 他往上走6个交易日的调 调整期就只有6个交易日 6个交易日就不够 今天创新低了 就代表交易日扩展到23个 23个至少满足了 我们对这波调整的最低要求 所以它就具备买回来的基础 这是一个逻辑问题 能理解的 打一好的 我们刚才看日线到短期趋势的距离 就告诉大家就是60分钟90分钟120分钟 现在都有动画 比方大"
+        },
+        {
+          "key": "any",
+          "marker": "三个周期 任何一个周期形成底部结构",
+          "locator": {
+            "char_start": 2045,
+            "char_end_exclusive": 2515,
+            "marker_char_offset": 2145,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "他是有钝化消失的可能性的 一旦出现钝化消失的可能性 那么从操作的角度 那短期钝化一消失 就没有结构了 就不建议再操作了 但如果形成结构的话呢 就是就是要买入的 好吧 60分钟 90分钟 120分钟 这三个周期 任何一个周期形成底部结构 都买入买回来 结构形成的纠错标准是钝化小时 那么这边我们有分钟线的结构破趋势 你如果再卖掉就不合理了 所以呢 如果近期跌穿长期趋势就不再 减两成仓了 直到钝化不再有 现在目前三个周期有钝化 直到没有钝化的时候 能理解的 打一其实你要对上升来讲 对称性还是一般 是吧还是一般 嗯时间23个周期呢 其实还可以 但是空间呢 它就不像是传统ABC ABC实际上就是一二三求四嘛对吧 那那现在目前的空间呢 就是a下跌200点 b反弹100点 c用了6天时间 同样是13根线 下跌100点 是吧 所以第二波的速度就比较慢嘛 那这个速度如果是这种速度的话 他不一定走出空间的这个对称性 所以我们只能说 他只是满足了最低要求 不够理想 但是也不追求理想 对吧我 我给我一开始给出这里的建议呢 就是差不多就行 那之前我说6"
+        },
+        {
+          "key": "trend_conflict",
+          "marker": "如果近期跌穿长期趋势就不再",
+          "locator": {
+            "char_start": 2118,
+            "char_end_exclusive": 2488,
+            "marker_char_offset": 2218,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "就是要买入的 好吧 60分钟 90分钟 120分钟 这三个周期 任何一个周期形成底部结构 都买入买回来 结构形成的纠错标准是钝化小时 那么这边我们有分钟线的结构破趋势 你如果再卖掉就不合理了 所以呢 如果近期跌穿长期趋势就不再 减两成仓了 直到钝化不再有 现在目前三个周期有钝化 直到没有钝化的时候 能理解的 打一其实你要对上升来讲 对称性还是一般 是吧还是一般 嗯时间23个周期呢 其实还可以 但是空间呢 它就不像是传统ABC ABC实际上就是一二三求四嘛对吧 那那现在目前的空间呢 就是a下跌200点 b反弹100点 c用了6天时间 同样是13根线 下跌100点 是吧 所以第二波的速度就比较慢嘛 那这个速度如果是这种速度的话 他不一定走出空间的这个对称性 所以我们只能说 他只是满足了最低要求 不够理想 但是也不追求理想 对吧我 我给"
+        }
+      ]
+    },
+    {
+      "id": "oct16_join",
+      "date": "2025-10-16",
+      "file": "20251016_vidiq_transcript.json",
+      "kind": "declared_correction_rule",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "AND_original_participants",
+      "finding": "Correction refers to original 90/120 participants; hypothetical new daily dulling does not join the completed old decision automatically.",
+      "limitations": [
+        "Not a universal AND over all periods",
+        "New daily structure is a future plan"
+      ],
+      "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+      "evidence": [
+        {
+          "key": "both",
+          "marker": "要求90分钟和120分钟钝化全部消失",
+          "locator": {
+            "char_start": 366,
+            "char_end_exclusive": 736,
+            "marker_char_offset": 466,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "是有钝化的 价格呢是超过3934点 钝化的级别较大 但是要注意一点 这跟120分钟关系不大 120分钟我们说的是纠错标准 当时形成顶部结构的时候 是90分钟和120分钟 90分钟和120分钟 所以呢 要求90分钟和120分钟钝化全部消失 排九错 所以在当时我们进行减仓的时候 没有日线的结构也就不存在 我们要等日线的钝化也消失 好吧不存在 我们这个既定的标准 就是90分钟和120分钟 顶部的钝化全消失 也就是说 假如说90分钟和120分钟钝化消失了 但是日线又形成新的钝化 对不起正常的操作应该 是先买回来 等日线的钝化形成结构再卖出 能理解的 打一好的 我们继续 就这个他有个是非的关系啊 是非的关系 是就是非就非 我们说量化 就是把标准的唯一值确定出来 我们不能有多套标准 多套标准等于没有标准 这是日线跟分钟线的关系 价格到趋势的距"
+        },
+        {
+          "key": "new_daily",
+          "marker": "先买回来 等日线的钝化形成结构再卖出",
+          "locator": {
+            "char_start": 516,
+            "char_end_exclusive": 776,
+            "marker_char_offset": 616,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": " 我们要等日线的钝化也消失 好吧不存在 我们这个既定的标准 就是90分钟和120分钟 顶部的钝化全消失 也就是说 假如说90分钟和120分钟钝化消失了 但是日线又形成新的钝化 对不起正常的操作应该 是先买回来 等日线的钝化形成结构再卖出 能理解的 打一好的 我们继续 就这个他有个是非的关系啊 是非的关系 是就是非就非 我们说量化 就是把标准的唯一值确定出来 我们不能有多套标准 多套标准等于没有标准 这是日线跟分钟线的关系 价格到趋势的距离依旧比较近 注意啊依旧比较近 就一点都不能放松警惕 远离趋势 趋势才安全 但是"
+        }
+      ]
+    },
+    {
+      "id": "oct24_instrument",
+      "date": "2025-10-24",
+      "file": "20251024_vidiq_transcript.json",
+      "kind": "author_event_and_declared_correction",
+      "direction": "top",
+      "phase": "correction",
+      "selected_periods": [
+        "90",
+        "120"
+      ],
+      "join": "AND_original_participants",
+      "finding": "SSE correction is not blocked by Shenzhen/ChiNext 120 dulling still present; index alignment is not a universal all-indices gate.",
+      "limitations": [
+        "Author recommendations not fills",
+        "Other index identities known here but no exact values added",
+        "Monday daily dulling is forecast"
+      ],
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "evidence": [
+        {
+          "key": "correction",
+          "marker": "90分钟和120分钟动画消失 应该买回",
+          "locator": {
+            "char_start": 126,
+            "char_end_exclusive": 526,
+            "marker_char_offset": 226,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "失的难度就很小 就大概率就到动画消失了 但是他也到收盘 你今天下午临近收盘的时候操作 和下周一开盘的时候操作都是对的啊 我们在收盘差不多9:509:48左右啊 明确的给出大家交易的建议 按照规则来讲 90分钟和120分钟动画消失 应该买回 但是下周一日线还有钝化 我们这块也细节上也讲了 不要理会日线的钝化 因为我们当时在减仓的时候 日线是没有钝化的 90分钟和120分钟是有钝化的 但是日线没有 好吧所以呢 卖出条件里没有日线 所以这里也不考虑啊 买回来的条件也不考虑日线 这是逻辑的一致性好吧 所以到下午的时候呢 按规则我们是应该买回来的啊 好请看文档的第一张图 这出个消失是吧 这个消失是结构消失啊 下周一大概率可能还有新的动画 但是级别不大 如果这个点要取进去 级别就大了 但是呢这反复的红角线绿角线 最高值这一点取不进去了啊 这个值这个点取不进去了 所以近期来讲 没有大级别的顶部动画 日线"
+        },
+        {
+          "key": "instrument",
+          "marker": "标的指数为准",
+          "locator": {
+            "char_start": 1477,
+            "char_end_exclusive": 1837,
+            "marker_char_offset": 1577,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "这里呢 也算是经历了 深成指和创业板指数最大的一波 4月7号以来最大的一波调整 但是目前来看呢 标的指数上证指数已经钝化消失了 那当然深成指 创业板指数并没有120分钟钝化消失 对吧我们就不管他们了 标的指数为准 所以呢现在也不好说 是吧没准 按上证指数可能位置更好呢 啊位置更好 那你该防也得防啊 对不对我们防了 9月18号到现在 防了这么多天 他没跌没跌 没跌买回来呗 但是该防还是要防 就是在这个上升的过程中 注意啊我原来有跟大家说过 所有的防守都不是为了赚钱 你说我想赚差价 不是如果卖了 然后低位买回来 多多多赚点 不是啊所有的防守只是为了防风险 好吧但是你不要因为说没防到空间 然后就不防守 不要因为这样啊 就该防还是要防 未来还是要防的 但是目前来看 近期这个目前来看 近期是吧 看不出高点啊 跌4,500"
+        }
+      ]
+    },
+    {
+      "id": "oct27_hist_heuristic",
+      "date": "2025-10-27",
+      "file": "20251027_vidiq_transcript.json",
+      "kind": "forecast_heuristic",
+      "direction": "top",
+      "phase": "background",
+      "selected_periods": [
+        "120"
+      ],
+      "join": "not_applicable",
+      "finding": "DIF rise with three falling red histogram bars can suggest a price high, but lecture explicitly says this is not an action and still lacks structure.",
+      "limitations": [
+        "No measured success probability",
+        "Not a substitute for formation",
+        "One/two-week expectation not fixed expiry"
+      ],
+      "sha256": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+      "evidence": [
+        {
+          "key": "not_action",
+          "marker": "但他也不是操作",
+          "locator": {
+            "char_start": 1762,
+            "char_end_exclusive": 2202,
+            "marker_char_offset": 1862,
+            "zero_based": true,
+            "not_video_timestamp": true
+          },
+          "excerpt": "下 通常通常还会继续上涨 但是呢将来会会出现呃 反向运行 就白色线上升 但是红脚线呢 逐渐的下降 那么一般从第三个周期就连续下降 第三个周期的时候 会容易出现价格的高点 容易出现啊 第三个周期的时候 但他也不是操作 对吧我们只能说是价格出现高点 或者是小高点 但是呢他还是没有结构的 然后呢只有再出现一波回调 然后再上 在这个位置才会出现结构 因此我们说就就这么判断的话 就是120分钟 从目前来看呢 就是未来一周吧 就很难出现顶部的钝化 没有钝化就没有结构 也就没有结构 未来一周 那上证指数来看呢 那就不是一周的问题了 上证指数 上证指数可能得两周 这未来两周 可能上证指数日线都没有动画 好吧对 上证指数目前来看呢 从标的指数的角度来讲 是安全的 只要不向下跌穿趋势 它就是安全的 能理解的 打一我们继续再看一下深成指 深成指假如说创新高 是有可能有日线级别的顶部动画 你看这个值在这 这个值在这 价格快创新高了 但是DF值 一个在这 一个在这 所以价格创新高的情况下 下面"
+        }
+      ]
+    },
+    {
+      "id": "june18_2026_forecast",
+      "date": "2026-06-18",
+      "file": "20260618_user_transcript.txt",
+      "kind": "declared_action_vs_forecast",
+      "direction": "trend",
+      "phase": "restore",
+      "selected_periods": [
+        "daily"
+      ],
+      "join": "not_identified",
+      "finding": "Limited upside forecast does not cancel an already-triggered trend buy; author reports full holding.",
+      "limitations": [
+        "Author holding assertion not fills",
+        "Exact software bands not verified"
+      ],
+      "sha256": "6075689f63257964cde2c5ec831708dae737575dbf26e44138fbbfb8a03c3f24",
+      "evidence": [
+        {
+          "key": "forecast",
+          "marker": "预判断属于概率分析",
+          "locator": {
+            "line_start": 158,
+            "line_end_inclusive": 165,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "好吧老师\n我第一天来\n为啥上升空间不大是要买呢\n规则按规则来讲是要买的\n因为已经突破趋势了\n上升空间不大是因为我们的预判断\n预判断属于概率分析\n能理解不"
+        },
+        {
+          "key": "full",
+          "marker": "满仓",
+          "locator": {
+            "line_start": 265,
+            "line_end_inclusive": 270,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "老师我是刚来的学员\n请问现在是几成仓\n满仓\n但我们不是顶上顶上套下来的啊\n我们是刚加加成满仓的\n刚突破趋势的时候加成满仓的"
+        }
+      ]
+    },
+    {
+      "id": "june26_2026_actual",
+      "date": "2026-06-26",
+      "file": "20260626_user_transcript.txt",
+      "kind": "author_event_and_declared_plan",
+      "direction": "trend",
+      "phase": "defense",
+      "selected_periods": [
+        "daily"
+      ],
+      "join": "short_then_long_in_this_case",
+      "finding": "Author reports short breach before final long breach, reduce four then next opening two. Other-index structures do not replace the stated SSE trend basis.",
+      "limitations": [
+        "14:50 software path not reconstructed",
+        "Ambiguous 中微指数 bottom object cannot establish same-instrument opposing signals",
+        "No universal trend-over-bottom priority"
+      ],
+      "sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+      "evidence": [
+        {
+          "key": "short",
+          "marker": "已经确定跌穿短期趋势",
+          "locator": {
+            "line_start": 5,
+            "line_end_inclusive": 18,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "到收盘14:50的时候\n已经确定跌穿短期趋势\n但是无法确定跌穿长期趋势\n所以从规则的角度来讲\n我们是建议减4成仓\n到收盘之后\n其实长期趋势也跌穿了\n你仔细看这个下轨\n这个通道的下轨\n也变成绿色\n也变成蓝色\n所以他两个趋势都跌穿\n因此呢以今天的收盘价格\n下周一早盘应该再减两成仓"
+        },
+        {
+          "key": "long",
+          "marker": "长期趋势也跌穿了",
+          "locator": {
+            "line_start": 5,
+            "line_end_inclusive": 18,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "到收盘14:50的时候\n已经确定跌穿短期趋势\n但是无法确定跌穿长期趋势\n所以从规则的角度来讲\n我们是建议减4成仓\n到收盘之后\n其实长期趋势也跌穿了\n你仔细看这个下轨\n这个通道的下轨\n也变成绿色\n也变成蓝色\n所以他两个趋势都跌穿\n因此呢以今天的收盘价格\n下周一早盘应该再减两成仓"
+        },
+        {
+          "key": "other_indices",
+          "marker": "上证指数破趋势也是要减仓",
+          "locator": {
+            "line_start": 225,
+            "line_end_inclusive": 240,
+            "malformed_prefixes_preserved": true,
+            "not_verified_video_timestamp": true
+          },
+          "excerpt": "老师这里有4个指数形成了顶部结构\n是不是共振了\n但问题关键是你就不算\n就算不形成顶部结构\n形成顶部结构是不是要减仓\n那是不是今天收盘之后\n形成了顶部结构\n日线的结构它也是按照收盘价格呀\n所以按照顶部结构也是要减仓\n上证指数破趋势也是要减仓\n那就无所谓了嘛\n是不是只有钝化加9可以\n在昨天高点减仓\n是略好一点\n但是呢钝化加9的指数\n它不是上证指数"
+        }
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "all_60plus_always_used",
+      "status": "INCOMPATIBLE_WITH_STATED_CONTEXT_POLICIES",
+      "evidence": [
+        "july11_scope",
+        "nov11_near_and_amount"
+      ],
+      "reason": "Far versus near context changes period eligibility; not proof of a quantitative cutoff."
+    },
+    {
+      "id": "coordination_required_for_any_action",
+      "status": "INCOMPATIBLE_WITH_DECLARED_ACTIONS",
+      "evidence": [
+        "nov11_near_and_amount",
+        "oct24_instrument"
+      ],
+      "reason": "Poor coordination still permits four-tenths defense; correction follows the target index despite other indices."
+    },
+    {
+      "id": "one_global_AND_join",
+      "status": "INCOMPATIBLE_WITH_PHASE_SPECIFIC_PLANS",
+      "evidence": [
+        "june26_2025_selection",
+        "oct16_join",
+        "dec16_bottom_scope"
+      ],
+      "reason": "Trigger OR and original-participant correction AND coexist in different phases; do not claim same-input contradiction."
+    },
+    {
+      "id": "distance_only_selector",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "jan6_strength",
+        "july11_scope",
+        "nov11_near_and_amount"
+      ],
+      "reason": "Distance matters, but size/easy disappearance is discussed and Jan6 wording is ambiguous; no matched actual-event pair isolates the effect."
+    },
+    {
+      "id": "small_structure_always_skipped",
+      "status": "NOT_SUPPORTED",
+      "evidence": [
+        "jan6_strength",
+        "june26_2025_selection"
+      ],
+      "reason": "Jan6 does not establish a formed ignored structure; selected future structure still calls for action even if a false retreat is expected."
+    },
+    {
+      "id": "three_falling_hist_bars_is_trade_structure",
+      "status": "INCOMPATIBLE_WITH_EXPLICIT_LECTURE",
+      "evidence": [
+        "oct27_hist_heuristic"
+      ],
+      "reason": "Author explicitly distinguishes the heuristic high from action/structure."
+    },
+    {
+      "id": "24_bars_fixed_expiry",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "nov11_near_and_amount",
+        "oct27_hist_heuristic"
+      ],
+      "reason": "Counter-direction horizon and expected safe window do not state automatic expiry; no actual expiry pair collected."
+    },
+    {
+      "id": "universal_trend_structure_priority",
+      "status": "NOT_IDENTIFIED",
+      "evidence": [
+        "dec16_bottom_scope",
+        "june26_2026_actual"
+      ],
+      "reason": "Conditional bottom protection and actual trend defense belong to different cases; ambiguous bottom instrument prevents a same-instrument conflict contrast."
+    }
+  ],
+  "numeric_scope": {
+    "dates": [
+      "2026-01-05",
+      "2026-01-06"
+    ],
+    "period_inputs": {
+      "60": "60_20250603_20261009.csv",
+      "90": "90_20250603_20260113.csv"
+    },
+    "gates_pct": [
+      0.75,
+      1,
+      1.2
+    ],
+    "policies": [
+      "nearest_qualifying",
+      "strongest_eligible"
+    ],
+    "limit": "Preserved retrospective candidates only. No January daily/120 candidate inferred from unavailable same-window inputs. Software source alignment remains unresolved."
+  },
+  "variants": [
+    {
+      "gate_pct": 0.75,
+      "policy": "nearest_qualifying",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    },
+    {
+      "gate_pct": 0.75,
+      "policy": "strongest_eligible",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    },
+    {
+      "gate_pct": 1,
+      "policy": "nearest_qualifying",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    },
+    {
+      "gate_pct": 1,
+      "policy": "strongest_eligible",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "policy": "nearest_qualifying",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    },
+    {
+      "gate_pct": 1.2,
+      "policy": "strongest_eligible",
+      "results": {
+        "60": [
+          {
+            "time": "2026-01-05 10:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 10,
+            "ref_start": "",
+            "close": 4006.483,
+            "dif": 14.351182017727751,
+            "hist": -0.35759130243485515,
+            "wave_sign": -1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4011.4478,
+            "dif": 16.505198403413033,
+            "hist": 3.160353175148561,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4018.7495,
+            "dif": 18.587196444579604,
+            "hist": 5.859479405985358,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "NONE",
+            "state": "DULL",
+            "wave_count": 3,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4023.4167,
+            "dif": 20.378883839287028,
+            "hist": 7.554283356320163,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 10:30:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "2025-12-17 15:00:00",
+            "close": 4058.408,
+            "dif": 24.341718307056908,
+            "hist": 12.383961833487938,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-17 15:00:00",
+            "event_ref_dif": 20.857331758674263,
+            "event_ref_price": 3980.0605
+          },
+          {
+            "time": "2026-01-06 11:30:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4069.376,
+            "dif": 28.044044818193925,
+            "hist": 15.83089188460957,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 30.308793568305646,
+            "hist": 16.28831150786641,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 7,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 33.19415291875521,
+            "hist": 17.647224167012418,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ],
+        "90": [
+          {
+            "time": "2026-01-05 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 1,
+            "ref_start": "",
+            "close": 4005.239,
+            "dif": 19.06823933396663,
+            "hist": 0.26626993245376696,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-05 14:00:00",
+            "event": "DULL",
+            "state": "DULL",
+            "wave_count": 2,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4018.7495,
+            "dif": 21.57927155052721,
+            "hist": 4.230667492459936,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "activation",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-05 15:00:00",
+            "event": "CANCEL",
+            "state": "NONE",
+            "wave_count": 3,
+            "ref_start": "2025-12-18 11:00:00",
+            "close": 4023.4167,
+            "dif": 23.672999109934608,
+            "hist": 6.73449808901978,
+            "wave_sign": 1,
+            "event_direction": 1,
+            "event_route": "dif_break",
+            "event_ref_start": "2025-12-18 11:00:00",
+            "event_ref_dif": 23.132934971069062,
+            "event_ref_price": 3978.7737
+          },
+          {
+            "time": "2026-01-06 11:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 4,
+            "ref_start": "",
+            "close": 4060.8667,
+            "dif": 28.03107056975614,
+            "hist": 12.360512806930274,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 14:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 5,
+            "ref_start": "",
+            "close": 4065.4104,
+            "dif": 31.488532020388448,
+            "hist": 15.420348566555901,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          },
+          {
+            "time": "2026-01-06 15:00:00",
+            "event": "NONE",
+            "state": "NONE",
+            "wave_count": 6,
+            "ref_start": "",
+            "close": 4083.6672,
+            "dif": 35.294908575494446,
+            "hist": 18.426481341414316,
+            "wave_sign": 1,
+            "event_direction": 0,
+            "event_route": "",
+            "event_ref_start": "",
+            "event_ref_dif": null,
+            "event_ref_price": null
+          }
+        ]
+      }
+    }
+  ],
+  "prefix_checks": 84,
+  "all_event_state_paths_equal": true,
+  "january_formed_structure_not_observed": true,
+  "software_labels_added": 0,
+  "candidate_events_not_author_software_truth": true,
+  "verification_limits": [
+    "Locator checks validate source presence, not semantic interpretation",
+    "No measured distance/size/coordination cutoff or trade-performance test",
+    "No full same-instrument observed conflict pair or expiry pair",
+    "No source fetching, new parameter/config or decision implementation"
+  ]
+}

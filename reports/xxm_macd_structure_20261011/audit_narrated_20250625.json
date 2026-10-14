@@ -1,0 +1,64 @@
+{
+  "scope": "New narrated DIF-reference check against the unchanged frozen June25 alternative; no new screenshot label.",
+  "source_url": "https://www.youtube.com/watch?v=5SBg6oU2c4c",
+  "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+  "manual_extracted_claims": {
+    "freq": 120,
+    "date": "2025-06-25",
+    "current_dif_approximate": 12,
+    "previous_dif_approximate": 7,
+    "reference_dif_approximate": 26,
+    "not_yet_canceled": true
+  },
+  "data_current": {
+    "time": "2025-06-25 15:00:00",
+    "close": 3455.9736,
+    "dif": 12.048531096510033,
+    "hist": 15.069571257187135
+  },
+  "data_previous": {
+    "time": "2025-06-25 11:30:00",
+    "close": 3430.1633,
+    "dif": 7.619559673586991,
+    "hist": 9.979021225637839
+  },
+  "candidate_predictions": {
+    "nearest_qualifying": {
+      "time": "2025-06-25 15:00:00",
+      "event": "CANCEL",
+      "state": "NONE",
+      "wave_count": 4,
+      "ref_start": "2025-06-04 11:30:00",
+      "close": 3455.9736,
+      "dif": 12.048531096510033,
+      "hist": 15.069571257187135,
+      "wave_sign": 1,
+      "event_direction": 1,
+      "event_route": "dif_break",
+      "event_ref_start": "2025-06-04 11:30:00",
+      "event_ref_dif": 11.88627301629458,
+      "event_ref_price": 3404.6565,
+      "active_reference_dif": 11.88627301629458
+    },
+    "strongest_eligible": {
+      "time": "2025-06-25 15:00:00",
+      "event": "NONE",
+      "state": "DULL",
+      "wave_count": 4,
+      "ref_start": "2025-05-06 11:30:00",
+      "close": 3455.9736,
+      "dif": 12.048531096510033,
+      "hist": 15.069571257187135,
+      "wave_sign": 1,
+      "event_direction": 0,
+      "event_route": "",
+      "event_ref_start": "",
+      "event_ref_dif": null,
+      "event_ref_price": null,
+      "active_reference_dif": 26.114902990716928
+    }
+  },
+  "conclusion": "Narrated reference near26 supports the retained May peak26.114903, not recent June peak11.886273; no software marker label added.",
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "frozen_predictions_sha256": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f"
+}

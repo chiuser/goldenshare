@@ -1,0 +1,110 @@
+{
+  "frequency": 60,
+  "sourceBatchRows": 1000,
+  "deadlineSeconds": 4,
+  "measurement": "existing_reader_prefix_pagination_stop_after_budget_exceeded",
+  "completeHistoryRead": false,
+  "elapsedSeconds": 4.027998208999634,
+  "rowsRead": {
+    "bars": 7000,
+    "indicators": 6000
+  },
+  "moreHistoryRemains": {
+    "bars": true,
+    "indicators": true
+  },
+  "pages": [
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.5588720417581499,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.3386346660554409,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.3055456248112023,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.3420953331515193,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.29616608284413815,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.3178148749284446,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.30152300000190735,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.2921145004220307,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.2598153753206134,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.2782813338562846,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.24388895789161325,
+      "hasMore": true
+    },
+    {
+      "dataset": "indicators",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.2643205001950264,
+      "hasMore": true
+    },
+    {
+      "dataset": "bars",
+      "rows": 1000,
+      "scannedFiles": 253,
+      "elapsedSeconds": 0.22889333311468363,
+      "hasMore": true
+    }
+  ],
+  "budgetExceeded": true
+}

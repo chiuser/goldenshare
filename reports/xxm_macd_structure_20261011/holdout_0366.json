@@ -1,0 +1,163 @@
+{
+  "screenshot": "IMG_0366.PNG",
+  "screenshot_date": "2026-04-07",
+  "freq": 60,
+  "frozen_script": "replay_frozen_25_points.py",
+  "frozen_script_sha256": "dfb95f7a222e7d07ce814ee615d64463407dc048a23cebeadf08666ba5e102d5",
+  "observed": {
+    "terminal_event": "NONE",
+    "terminal_confidence": "direct",
+    "current_wave_no_visible_dull_label": true,
+    "earlier_dull_absence_confidence": "regional_not_per_bar_capture",
+    "software_dif": -10.804,
+    "software_dea": -8.638,
+    "software_hist": -4.331
+  },
+  "dg_terminal": {
+    "time": "2026-04-07 15:00:00",
+    "close": 3890.1646,
+    "dif": -10.792811777248517,
+    "hist": -4.351629509264562,
+    "dea": -8.616997022616236
+  },
+  "reference_wave_stats": [
+    {
+      "start": "2026-03-09 10:30:00",
+      "end": "2026-03-10 10:30:00",
+      "bars": 5,
+      "min_close": 4064.674,
+      "min_close_time": "2026-03-09 10:30:00",
+      "min_dif": -10.913146779701492,
+      "min_dif_time": "2026-03-09 11:30:00"
+    },
+    {
+      "start": "2026-03-13 15:00:00",
+      "end": "2026-03-25 10:30:00",
+      "bars": 30,
+      "min_close": 3813.283,
+      "min_close_time": "2026-03-23 15:00:00",
+      "min_dif": -65.63231630368091,
+      "min_dif_time": "2026-03-24 14:00:00"
+    },
+    {
+      "start": "2026-04-03 11:30:00",
+      "end": "2026-04-07 15:00:00",
+      "bars": 7,
+      "min_close": 3880.0967,
+      "min_close_time": "2026-04-03 15:00:00",
+      "min_dif": -10.909973125925717,
+      "min_dif_time": "2026-04-07 14:00:00"
+    }
+  ],
+  "candidate_checks": [
+    {
+      "variant": "frozen_reference_r075",
+      "prior_25_mismatches": 0,
+      "prior_failures": [],
+      "terminal_expected": "NONE",
+      "terminal_predicted": "STRUCTURE",
+      "terminal_matched": false,
+      "causal_prefix_matched": true,
+      "current_wave_events": [
+        {
+          "time": "2026-04-03 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "ref_start": "2026-03-09 10:30:00",
+          "close": 3889.412,
+          "dif": -7.693985436628736,
+          "hist": -5.824958943816863
+        },
+        {
+          "time": "2026-04-07 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 7,
+          "ref_start": "2026-03-09 10:30:00",
+          "close": 3890.1646,
+          "dif": -10.792811777248517,
+          "hist": -4.351629509264562
+        }
+      ]
+    },
+    {
+      "variant": "frozen_reference_r1",
+      "prior_25_mismatches": 0,
+      "prior_failures": [],
+      "terminal_expected": "NONE",
+      "terminal_predicted": "STRUCTURE",
+      "terminal_matched": false,
+      "causal_prefix_matched": true,
+      "current_wave_events": [
+        {
+          "time": "2026-04-03 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "ref_start": "2026-03-09 10:30:00",
+          "close": 3889.412,
+          "dif": -7.693985436628736,
+          "hist": -5.824958943816863
+        },
+        {
+          "time": "2026-04-07 15:00:00",
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 7,
+          "ref_start": "2026-03-09 10:30:00",
+          "close": 3890.1646,
+          "dif": -10.792811777248517,
+          "hist": -4.351629509264562
+        }
+      ]
+    },
+    {
+      "variant": "frozen_reference_r12",
+      "prior_25_mismatches": 0,
+      "prior_failures": [],
+      "terminal_expected": "NONE",
+      "terminal_predicted": "NONE",
+      "terminal_matched": true,
+      "causal_prefix_matched": true,
+      "current_wave_events": [
+        {
+          "time": "2026-04-03 14:00:00",
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "ref_start": "2026-03-09 10:30:00",
+          "close": 3889.412,
+          "dif": -7.693985436628736,
+          "hist": -5.824958943816863
+        }
+      ]
+    },
+    {
+      "variant": "require_nearest_price_break_r1",
+      "prior_25_mismatches": 0,
+      "prior_failures": [],
+      "terminal_expected": "NONE",
+      "terminal_predicted": "NONE",
+      "terminal_matched": true,
+      "causal_prefix_matched": true,
+      "current_wave_events": []
+    },
+    {
+      "variant": "reject_dominated_reference_r1",
+      "prior_25_mismatches": 0,
+      "prior_failures": [],
+      "terminal_expected": "NONE",
+      "terminal_predicted": "NONE",
+      "terminal_matched": true,
+      "causal_prefix_matched": true,
+      "current_wave_events": []
+    }
+  ],
+  "interpretation": "No terminal structure is observed. Reference activation is challenged; do not infer a larger turn threshold from this alone.",
+  "limitations": [
+    "software/DG numeric mismatch",
+    "reference precision margin is only about 0.00317 in DIF",
+    "refinements fitted after new screenshot"
+  ]
+}

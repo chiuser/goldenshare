@@ -1,0 +1,27 @@
+{
+  "research_date": "2026-10-12",
+  "status": "DEFINED_BEFORE_TRACE_NOT_A_NEW_SOFTWARE_RULE",
+  "scope": "Trace existing candidate and saved observations only. No fabricated prefix, new cancellation model, threshold fit or production change.",
+  "root_question": "Why is the mapped June27 90-minute structure absent from the current replay? Distinguish a lost activation reference from a failed DIF-turn gate.",
+  "root_variants": {
+    "gate_pct": [0.75, 1.0, 1.2],
+    "reference_policy": ["nearest_qualifying", "strongest_eligible"],
+    "active_policy": ["locked", "both_before", "dull_before", "both_after"],
+    "max_refs": [2, 10000],
+    "purpose": "Existing replay options only; all-available means all saved waves, not full market history"
+  },
+  "historical_observations": [
+    {"period": "90", "formation": "2025-07-02 14:00:00", "mapped_disappearance": "2025-07-03 14:00:00", "source": "july3_chart_comparison_20261012.json"},
+    {"period": "90", "formation": "2025-11-11 11:00:00", "mapped_disappearance": "2025-11-13 14:00:00", "source": "nov13_17_charts_comparison_20261012.json"},
+    {"period": "daily", "formation": "2025-11-11", "mapped_disappearance": "2025-11-13", "source": "nov14_daily_disappearance_20261012.json"}
+  ],
+  "historical_trace": "Compare saved first negative histogram/state reset with independently mapped green marker. Do not treat a state clear as software historical withdrawal, infer a fixed elapsed-bar rule, or fit to three already-seen examples.",
+  "next_model_constraints": [
+    "Keep current dulling/reference state and historical confirmation records separately observable",
+    "Store formation time, direction, reference identity, price basis and source provenance when available",
+    "A negative histogram reset is not automatically a historical structure-withdrawal event",
+    "No assumed 24-bar expiry, bottom symmetry or correction AND/OR membership",
+    "A price-only versus price-plus-DIF mechanism still needs independent discrimination",
+    "Do not invent missing preJune3 historical prices or DIF peaks; quantify necessary conditions only"
+  ]
+}

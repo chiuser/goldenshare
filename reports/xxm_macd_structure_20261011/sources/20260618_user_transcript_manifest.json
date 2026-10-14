@@ -1,0 +1,18 @@
+{
+  "received_on": "2026-10-12",
+  "date": "2026-06-18",
+  "provider": "user async-question reply with inline transcript",
+  "original_path": null,
+  "capture_method": "Manually saved supplied answer text with line breaks; no independent original-file byte comparison possible",
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260618_user_transcript.txt",
+  "sha256": "6075689f63257964cde2c5ec831708dae737575dbf26e44138fbbfb8a03c3f24",
+  "characters": 5431,
+  "lines": 547,
+  "video_identity": "Date confirmed by user and text; no video URL or audio independently verified",
+  "limitations": [
+    "Raw wording and transcription errors retained",
+    "Line numbers are text locations, not video timestamps",
+    "Historical instructions are evidence, not authorization to trade",
+    "Not a broker position or execution record"
+  ]
+}

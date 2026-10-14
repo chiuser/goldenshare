@@ -1,0 +1,442 @@
+{
+  "asOf": "2026-10-13T23:26:10.372486+08:00",
+  "status": "development_technical_acceptance_passed_user_acceptance_pending_not_deployed",
+  "branch": "dev-interface",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "implementationFiles": [
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_calculator.py",
+      "bytes": 8829,
+      "sha256": "cea00c8fea1f44d84241a04b1914d94954238f65d65143fd9e0ed1661ef9e31d"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/__init__.py",
+      "bytes": 64,
+      "sha256": "7cdc35beae8b7e406e841deb35f5105b40b49c71e1fc3dca4e1f134e3f9d7179"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/acceptance.py",
+      "bytes": 12169,
+      "sha256": "2b771827e1fd9f32b0809f5598d9a03a19b76a2e21df1ab9e720ef8c7087fedb"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/frozen_inputs.py",
+      "bytes": 1855,
+      "sha256": "50503b4bcbc5bf074f5dd62931f85f5836b34ecc7abe0fb31001f79bd88af705"
+    },
+    {
+      "path": "src/app/api/v1/router.py",
+      "bytes": 7237,
+      "sha256": "c61ff1272fc9a7c9c9971453ba5dad9acff6c2d51e8b8b780849ff44e58c3de5"
+    },
+    {
+      "path": "src/biz/api/wealth/market/index_detail_minute_xxm.py",
+      "bytes": 1573,
+      "sha256": "a6de4546afb5a00ca1b7154afc5cb88dd909e6c6db476799e4147d5205edaf90"
+    },
+    {
+      "path": "src/biz/api/wealth/market/index_detail_xxm.py",
+      "bytes": 3835,
+      "sha256": "cb526c743f316a016e006f3b1760d5c05a05f5deb8dbba081dc1c8a22f08b487"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/__init__.py",
+      "bytes": 65,
+      "sha256": "e1ba5e9d772465c20530897e9bb17f5389f42d46ab62d81350db63eea60e64a2"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+      "bytes": 11962,
+      "sha256": "836538261a26ab42ce7eec0d7383ce350d2bbaaafa84c251fd4601f8e7fbcce0"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/source.py",
+      "bytes": 5988,
+      "sha256": "0d66c73c996a227718edcde6ffa00cd47ff610f414f3cc0b1331513aabcdacc0"
+    },
+    {
+      "path": "src/biz/schemas/wealth/market/index_detail_xxm.py",
+      "bytes": 3690,
+      "sha256": "67f8d7db69417ad9cbb94704b5c318a31eaa3968ae22fdbf5168998b2dbd86e5"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/__init__.py",
+      "bytes": 73,
+      "sha256": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+      "bytes": 9412,
+      "sha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/runtime.py",
+      "bytes": 794,
+      "sha256": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+      "bytes": 1148,
+      "sha256": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/types.py",
+      "bytes": 1475,
+      "sha256": "9914275530ce3ef39d9b23d774c03bcd2a1dd235f99d1893bdf22fa92d007394"
+    },
+    {
+      "path": "src/foundation/clients/local_lake/major_index_mins_reader.py",
+      "bytes": 25133,
+      "sha256": "5cf0704592fa8796b5a5a6fa838a96e7c542817cba0d89c767707e0268f51563"
+    },
+    {
+      "path": "tests/test_major_index_mins_reader.py",
+      "bytes": 14924,
+      "sha256": "f0ea76ae56bccf38a5b950cb513fbdf9b0552f7d762c79ea5875c67645c90b2e"
+    },
+    {
+      "path": "tests/web/test_wealth_index_detail_xxm_api.py",
+      "bytes": 12391,
+      "sha256": "59cf44289229f02e0eb077802fab096bf03a6c41069e8b71fb1dbe37353afef5"
+    },
+    {
+      "path": "wealth/src/features/index-detail/chart/IndexChartWorkspace.test.tsx",
+      "bytes": 3323,
+      "sha256": "55faf5cad094bffc7a09a26873e863c9c1d4b0c77efa95f8e26204f70b58a7b5"
+    },
+    {
+      "path": "wealth/src/features/index-detail/chart/IndexChartWorkspace.tsx",
+      "bytes": 12236,
+      "sha256": "04bb0df9faf42a019f7e12af8c69f3823494be736366697af8dc2d4b9e53e9c7"
+    },
+    {
+      "path": "wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx",
+      "bytes": 3363,
+      "sha256": "393757a685cc08198dbda4d52ed23de785bdfb58955f6345ce553d0bd60859ae"
+    },
+    {
+      "path": "wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.tsx",
+      "bytes": 11109,
+      "sha256": "b79a5b350831aa502e94e5c5aaedc3b119ee77959c853e169cd6dae2861656d3"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/XxmLayerUi.tsx",
+      "bytes": 3610,
+      "sha256": "15a4a68a3b19be4bc3111ea0d09ac5a3c343db763c38f208eeaa9af62e7a5b1f"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/XxmMacdPrimitive.ts",
+      "bytes": 3406,
+      "sha256": "bf5512a6b97fa822468f35932f0a318df8cc9e8a55b8763d7be029b3e3af53ab"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/adapter.test.tsx",
+      "bytes": 2965,
+      "sha256": "fa971b376b53a61f2fe913cffa0ebb53e1fae9e79198361b6ed3dbcda318b9ad"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/adapter.ts",
+      "bytes": 7581,
+      "sha256": "99a6c861de7798b547aac6a499cc8beb43ae731cc03ec37338be462c594ae7de"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/apiClient.test.ts",
+      "bytes": 2505,
+      "sha256": "c9082bc46758d68edf3405e27a85ed9a3af6f12418496bc011ecfd46a2a4d272"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/apiClient.ts",
+      "bytes": 1719,
+      "sha256": "64a0b797ba589f6afc0822c9b166f7bd4d75f357bb8bbdbbbc60957984b7d768"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/markerGeometry.test.ts",
+      "bytes": 2770,
+      "sha256": "08c45bba154498d97fda86dc6c8e155b0c10191b3fe9af03c68eaff589dfa407"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/markerGeometry.ts",
+      "bytes": 2425,
+      "sha256": "efd4e64028b99b6b75b3c6c15160dc7a988302d2c67e493ab3216d4af2fa66ef"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/types.ts",
+      "bytes": 2355,
+      "sha256": "dfd8288ae8960f3007217ec1622127fafebd7874dc915199c970e6f51d4c2c44"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx",
+      "bytes": 2850,
+      "sha256": "41afd441ab4b0615580da0e425425b9688918fa7b245678ef051dc878b2bf382"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/useIndexXxmLayer.ts",
+      "bytes": 3838,
+      "sha256": "76c4142ac7c0e22b9bfbe1258fdd8ab5526767c5df16679452b869fe18f9ae53"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/xxm-layer.css",
+      "bytes": 1293,
+      "sha256": "8776a37cec70733a497757177a8b6ea4c4e33dce688823815f1b28e4d832356e"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/xxmFixtures.test-support.ts",
+      "bytes": 2175,
+      "sha256": "26e51d70cb3835d6868c198295afd03ce81603fe5504c1d3b7ded28f50d15157"
+    },
+    {
+      "path": "wealth/src/pages/index-detail/index-detail-page.css",
+      "bytes": 18763,
+      "sha256": "d56f42d67ffce57e963c30f6afbcbb28d7920367f2d1e7cfe2e7077655081d6b"
+    },
+    {
+      "path": "wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx",
+      "bytes": 37013,
+      "sha256": "51cd21e2ca6ea48f96c775da5d1b8556a303d7420a5e46a05c3de9c69d562db9"
+    },
+    {
+      "path": "wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx",
+      "bytes": 33936,
+      "sha256": "60094728b78374db92389f1600e26e17e789bb5aa315e018fd045434c43a7aae"
+    },
+    {
+      "path": "wealth/src/shared/charts/detail-workspace/detailChartTypes.ts",
+      "bytes": 2454,
+      "sha256": "f21ca112b0be7516df39e6815ff3f733cb3fd4497d7ef0ae6aa1271075d64f9f"
+    }
+  ],
+  "documentationFiles": [
+    {
+      "path": "docs/README.md",
+      "bytes": 46004,
+      "sha256": "5f53da21949c8acfa692974ce75f1265afce4189ac47b1db37586c4d27e6006b"
+    },
+    {
+      "path": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+      "bytes": 43349,
+      "sha256": "7c616a4670cf8a810871c9c70f7e3c03433e036d8550b2494a6e4ad2b24fa6c4"
+    },
+    {
+      "path": "docs/product/xxm-macd-structure-research-v1.md",
+      "bytes": 482720,
+      "sha256": "1e9c22fbe2baa32f58316c7b47ee60837f2d87a5294029d1bfde75bd0bbe4313"
+    },
+    {
+      "path": "scripts/research/index_market/README.md",
+      "bytes": 38657,
+      "sha256": "62260a4399a94d5c74cc89204e3c42edd4e0add40928b6c2ee78aef20c979589"
+    },
+    {
+      "path": "wealth/docs/README.md",
+      "bytes": 17180,
+      "sha256": "f31141a11cd9b39555c0e1b086ac0b36b9d2922dbded087af4eb0880e814596a"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-implementation-design-v1.md",
+      "bytes": 54716,
+      "sha256": "d546a3d88f411b372d5ae8f0b4f78c15728c188932bc3e8f9d26552888ae8c6e"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md",
+      "bytes": 89049,
+      "sha256": "30b8f09f07ee0ff2c7240bba26e35020bce50318927e6e33d5ce2e7f24b220fb"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md",
+      "bytes": 11646,
+      "sha256": "acb1924e66b8c36e89b3083b4c516e50cd565979611a6285fb7bff472d8d79d2"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+      "bytes": 35960,
+      "sha256": "160d6ddf3d559c4f2980839f3693600a8942a09722e5eeb5d82bb7047fd7a831"
+    },
+    {
+      "path": "wealth/docs/system/exception-code-registry.md",
+      "bytes": 62766,
+      "sha256": "58bdb9139f691624e20a14b89c56784ad5a4e70d42731c8b514f4ea2931e25c2"
+    }
+  ],
+  "evidenceFiles": [
+    {
+      "path": "reports/xxm_implementation_20261013/README.md",
+      "bytes": 10180,
+      "sha256": "4330767f66fc668aa81613c98c9a70431a51461200c3d1b959d3773751f869ba"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/algorithm_acceptance.json",
+      "bytes": 4990,
+      "sha256": "4fd2bffc185c61a44d75c8e3c690f82a5b36d3b6900d2df6daaa7398442adb4f"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_day_sample.json",
+      "bytes": 94569,
+      "sha256": "75598d4d9fe9c93658c5738ff1e05abaf81c33b8ffeec8b341bf7235d4262915"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_m120_sample.json",
+      "bytes": 173816,
+      "sha256": "543761586635407b3ee2e058d25698e8f5aa83b0102f4a9302dd78d5779b51f3"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_m60_sample.json",
+      "bytes": 183653,
+      "sha256": "246f77c5d49d4b72b079ca8671e4fdcb2542b0815deb589bf5c09149f1184124"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_m90_past_20250314.json",
+      "bytes": 109992,
+      "sha256": "e15fdf0defba767a41340b0cdbe3aabe0ac69b11b4cddde9e4d23cd2495fa68f"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_m90_past_20250703.json",
+      "bytes": 117817,
+      "sha256": "111588e3062be270d666b2556a79c629faaba8b3dfa741048017df2230d7c4c0"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_m90_sample.json",
+      "bytes": 174615,
+      "sha256": "3cc01200c11d449aaadf5178eb892673a60b185a8827fae69582347c974ea025"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/api_p95.json",
+      "bytes": 30692,
+      "sha256": "7d726ba5276c4d54fcbef227f526902bb65d0a44e5bc7f57f5cc76b608557428"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/backend_live_profile.json",
+      "bytes": 2957,
+      "sha256": "31b1558e3b9d72216d670b379c333c6f81cd3ab4cbd91eccbcb005118ca07145"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/baseline_day.json",
+      "bytes": 28971,
+      "sha256": "81ec6a67597b3a0de12984eb1a1f305c4bbebe879492bf5084768c6cb7fc2836"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/baseline_m120.json",
+      "bytes": 302908,
+      "sha256": "8c529deb909b918d1a1aca62d70b8e9ba7229e0d296bb2f316426afe1d1c9d24"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/baseline_m60.json",
+      "bytes": 615963,
+      "sha256": "e9d191e3b810b533fe402afec85395227490e96e80d0349962dcb55eb08709ba"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/baseline_m90.json",
+      "bytes": 469493,
+      "sha256": "8944dcc475f9e65942fd0e49f5ead2bf966bea74540b4f00129abeac171e956e"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/browser_validation.json",
+      "bytes": 5816,
+      "sha256": "6251161c649d4c3021c901f76ebfc339401f1d731050407a63633cdcf8b331af"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/software_readouts.csv",
+      "bytes": 8206,
+      "sha256": "b63f66475b925da516ef0e80403b0eb11280b1436fa62dd029e0d4fd89b06aaf"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/software_readouts.json",
+      "bytes": 25299,
+      "sha256": "45d7f0e8843e7e700fca495be2e72bc640df4689c505d76bc8281fa90eff2829"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_1280.jpg",
+      "bytes": 140991,
+      "sha256": "d5a5ee15a6720e2889c062af5f0c1767a8087e28e1dc50e5652b9caf417ecb6b"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_1440.jpg",
+      "bytes": 191618,
+      "sha256": "950568591d1e879a57894a0b5ff72f4e9dcb413d82bfb11d2670116ea970a5a7"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_day_1600.jpg",
+      "bytes": 207720,
+      "sha256": "38e8ef980572e417c84b84a13c836a9d4de815084f33024cd56eec4b68e0aa3a"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_history_both_markers.jpg",
+      "bytes": 195183,
+      "sha256": "2c4b4047c098b2e648be2f5537af701fcdb402efa9479c578c7c800fec988823"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_history_withdrawal.jpg",
+      "bytes": 226102,
+      "sha256": "a37c36769bad993dc5b36baf76cf343f3a1c95aea614f4f35bb31195788b5eca"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_layer_failure.jpg",
+      "bytes": 140142,
+      "sha256": "0f9df54a55181f66293fd3fd1e350712cafbb35f7789f8b7e4cd051efb81d90a"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_layer_failure_503.jpg",
+      "bytes": 142864,
+      "sha256": "99e4d914ec99e472c9f1bbac3a7376877738c60d29ecc8ab779f5e6ae040454c"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_layer_retry.jpg",
+      "bytes": 143214,
+      "sha256": "c2d350f29ca9f0ae72b3cdcc9a2a46c9f47fd4a3aa5646608a78ecd52fdec00c"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_m120_1600.jpg",
+      "bytes": 174216,
+      "sha256": "80a71001b4cfc5a5e846de899e86e0047285d79651eec7c58c669705cf1166df"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_m60_1600.jpg",
+      "bytes": 208244,
+      "sha256": "cafffc963cf5aaa904d9a7aeaf03d687bbdee57972b8d3d5d8bdde7c1801f9c9"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_m60_zoom.jpg",
+      "bytes": 218790,
+      "sha256": "91017c9b3c781589fa8186c7ceb4b4d215b56a0813f4e83082c4b3af8007872d"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_m90_1600.jpg",
+      "bytes": 209242,
+      "sha256": "376a3083aa85b8556e9a73c2b2b3c6c228c25cc711d6d7cfd963d1738acd6c1c"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_other_index.jpg",
+      "bytes": 214141,
+      "sha256": "4f8890c1eac2cddfcd7d6f56b81e52d7f0cbc0d967367975719767ca25c7098a"
+    },
+    {
+      "path": "reports/xxm_implementation_20261013/ui_two_events.jpg",
+      "bytes": 232510,
+      "sha256": "a5c1def0c3d25396750a6d2996d561c9fc15055652aefc8e668b8fa0b6758c67"
+    }
+  ],
+  "tests": {
+    "backendAndArchitecturePassed": 86,
+    "wealthPassed": 98,
+    "wealthFiles": 16,
+    "typecheck": "pass",
+    "build": "pass",
+    "docsIntegrity": "pass",
+    "whitespace": "pass",
+    "independentEventPrefixChecks": 2615,
+    "resumeCuts": 15,
+    "realApiWindowMatchedRows": 1800
+  },
+  "boundaries": {
+    "dependencyMatrixChanged": false,
+    "formalDbOrLakeWrites": false,
+    "installedDependencies": false,
+    "committed": false,
+    "pushed": false,
+    "deployed": false,
+    "sourceAuditUnchanged": true,
+    "frozenResearchUnchanged": true,
+    "original8000Restarted": false,
+    "reviewApiLifespan": "off"
+  }
+}

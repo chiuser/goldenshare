@@ -1,0 +1,638 @@
+
+> wealth@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.4 /Users/congming/github/goldenshare/wealth
+
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/ui/DailyInsightWorkspace.test.tsx (20 tests) 729ms
+ ✓ src/features/watchlist/model/useWatchlistItemsController.test.tsx (15 tests) 936ms
+ ✓ src/pages/index-detail/IndexDetailPage.test.tsx (29 tests) 1138ms
+ ✓ src/test/market-overview-news-real-api.test.tsx (6 tests) 1227ms
+   ✓ market-overview news real api > renders news briefs and news communications from independent module APIs  340ms
+ ✓ src/test/market-overview-money-flow-real-api.test.tsx (3 tests) 650ms
+ ✓ src/features/watchlist/model/useStockWatchlistGroups.test.tsx (11 tests) 921ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/model/useSectorDailyInsightController.test.tsx (16 tests) 823ms
+ ✓ src/pages/watchlist/WatchlistGroupingPage.test.tsx (5 tests) 3014ms
+   ✓ watchlist grouping page coordination > retains the create draft when a definite limit failure is followed by a failed groups reread  370ms
+   ✓ watchlist grouping page coordination > refreshes groups, sorted first page and search exactly once after one successful add  755ms
+   ✓ watchlist grouping page coordination > auto-reconciles unknown add, falls back to single-stock membership when search omits it, and retries reads only  665ms
+   ✓ watchlist grouping page coordination > does not convert successful add into failure or replay PUT when groups refresh fails  697ms
+   ✓ watchlist grouping page coordination > creates then selects the server group, recolors without selecting stocks and deletes only the current group  526ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/ui/RelativeRotationWorkspace.test.tsx (13 tests) 1558ms
+   ✓ RelativeRotationWorkspace > requests all five scopes and the frozen period/trail controls through URL state  474ms
+ ✓ src/pages/watchlist/WatchlistPage.test.tsx (13 tests) 1647ms
+   ✓ watchlist page > renders the approved columns, units, independent colors and freezing classes without homepage search  311ms
+   ✓ watchlist page > loads cursors, freezes editing tabs, removes only after confirmation and never navigates from an editing row  564ms
+ ✓ src/pages/wealth-exploration/SectorAnalysisPage.test.tsx (15 tests) 1794ms
+   ✓ SectorAnalysisPage > keeps selection, direction, range, and drill-down in the frozen URL/request boundaries  322ms
+   ✓ SectorAnalysisPage > supports all five comparison scopes and exposes parent selectors only where required  386ms
+ ✓ src/test/market-overview-stock-search-real-api.test.tsx (3 tests) 833ms
+   ✓ market overview stock search real API smoke > drives the homepage UI through stockSearchApi and wealthFetch  807ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace.test.tsx (15 tests) 1569ms
+   ✓ PriceVolumeWorkspace > requests every comparison scope and preserves frozen parent closure  469ms
+ ✓ src/features/trading-assistant/model/useRecords.test.ts (7 tests) 525ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace.test.tsx (19 tests) 2107ms
+   ✓ MemberBreadthWorkspace > uses the frozen request boundaries for metric, history, MA and direction changes  372ms
+   ✓ MemberBreadthWorkspace > keeps trend inspection local, preserves it for ranking metric changes and clears it for every Details identity change  517ms
+ ✓ src/features/auth/ui/LoginPage.test.tsx (18 tests) 521ms
+ ✓ src/test/market-overview-streak-ladder-real-api.smoke.test.tsx (3 tests) 488ms
+ ✓ src/test/market-overview-limit-up-real-api.smoke.test.tsx (2 tests) 490ms
+   ✓ market-overview limit-up real api smoke > renders-limit-up-panel  344ms
+ ✓ src/features/trading-assistant/ui/AccountLedgerFlow.test.tsx (2 tests) 509ms
+   ✓ shared account ledger recovery across entry points > restores a cash correction with note  and retains its request and target  341ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingTable.test.tsx (1 test) 447ms
+   ✓ MomentumRankingTable > renders the complete level-two pool in one native scroll viewport  447ms
+ ✓ src/test/market-news-reader-controller.test.tsx (5 tests) 431ms
+ ❯ src/features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace.test.tsx (15 tests | 1 failed) 2963ms
+   ✓ DualMomentumWorkspace > mounts only the dual-momentum controller on its exact route 195ms
+   ✓ DualMomentumWorkspace > navigates between released methods and keeps only shared query state 108ms
+   ✓ DualMomentumWorkspace > navigates to the released price-volume method with only its shared trade date 94ms
+   ✓ DualMomentumWorkspace > keeps result view, selection, sorting and enlarge local with zero requests  359ms
+   ✓ DualMomentumWorkspace > requests all five scopes with only their active parent facts  412ms
+   ✓ DualMomentumWorkspace > renders no-qualified, partial, missing-coordinate and small-group as Ready content states 133ms
+   ✓ DualMomentumWorkspace > shows delayed content and keeps Empty and Error as main states 144ms
+   ✓ DualMomentumWorkspace > updates date, period and threshold through URL-backed Results requests 150ms
+   × DualMomentumWorkspace > restores the complete dual-momentum state from browser history 1054ms
+     → expected 'LEVEL_1' to be 'LEVEL_2' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"market-terminal wealth-exploration-page"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33maria-label[39m=[32m"TopMarketBar"[39m
+          [33mclass[39m=[32m"top-market-bar"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<img[39m
+              [33malt[39m=[32m"财势乾坤"[39m
+              [33mclass[39m=[32m"brand-logo"[39m
+              [33msrc[39m=[32m"http://localhost:3000/wealth/docs/reference/brand/logo/logo_new.png"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-copy"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-title"[39m
+              [36m>[39m
+                [0m财势乾坤[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-subtitle"[39m
+              [36m>[39m
+                [0m专业投研平台[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"一级系统入口"[39m
+            [33mclass[39m=[32m"system-nav"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m乾坤行情[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"active"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m财势探查[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m交易助手[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m交易训练[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m数据中心[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m系统设置[0m
+            [36m</button>[39m
+          [36m</nav>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"主要指数行情条"[39m
+            [33mclass[39m=[32m"ticker-strip"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ticker-track"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ticker-segment"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ticker-segment ticker-segment-clone"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"top-meta"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"user-entry"[39m
+              [33mtitle[39m=[32m"用户入口"[39m
+            [36m>[39m
+              [0m明[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"page-shell wealth-exploration-shell"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Breadcrumb"[39m
+            [33mclass[39m=[32m"breadcrumb-row"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"breadcrumb"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0m财势乾坤[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m/[0m
+              [36m</span>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0m财势探查[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m/[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"current"[39m
+              [36m>[39m
+                [0m板块分析[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-label[39m=[32m"页面时间状态"[39m
+              [33mclass[39m=[32m"breadcrumb-meta"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m2026年10月14日[0m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0m星期三[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"num"[39m
+              [36m>[39m
+                [0m09:36:16[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"status-pill"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"status-dot ready"[39m
+                [36m/>[39m
+                [0m已收盘[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"ShortcutBar / 页面内快捷入口"[39m
+            [33mclass[39m=[32m"shortcut-bar"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"shortcut-card"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-top"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"shortcut-title"[39m
+                [36m>[39m
+                  [0m成交额洞察[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-desc"[39m
+              [36m>[39m
+                [0m查看全市场成交额、日内节奏与历史对比。[0m
+              [36m</div>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"shortcut-card selected"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-top"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39...
+   ✓ DualMomentumWorkspace > aborts a Meta request after the frozen five-second timeout 17ms
+   ✓ DualMomentumWorkspace > keeps the existing authentication boundary on a 401 response 23ms
+   ✓ DualMomentumWorkspace > links scatter focus and keyboard selection to the same selected industry 102ms
+   ✓ DualMomentumWorkspace > drops an obsolete Results response after a rapid period change 124ms
+   ✓ DualMomentumWorkspace > keeps the frozen responsive grid and existing design-token boundary 1ms
+   ✓ DualMomentumWorkspace > reloads Meta once for a fact-version conflict and stops a repeated conflict 46ms
+ ✓ src/pages/market-overview/MarketOverviewPage.test.tsx (31 tests) 4618ms
+   ✓ MarketOverviewPage > keeps leaderboard Top10 columns and range switching behavior  441ms
+   ✓ MarketOverviewPage > navigates major indices to index detail while keeping sector entries on overview  321ms
+   ✓ MarketOverviewPage > uses page-level debug switch for summary, major-indices, breadth, style, turnover and leaderboards modules  372ms
+ ✓ src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx (26 tests) 448ms
+ ✓ src/features/trading-assistant/ui/InitializationCorrectionDialog.test.tsx (3 tests) 373ms
+ ✓ src/features/trading-assistant/ui/AccountSetupDialog.test.tsx (3 tests) 378ms
+ ✓ src/features/watchlist/ui/WatchlistGrouping.test.tsx (6 tests) 363ms
+ ✓ src/pages/stock-detail/StockDetailPage.test.tsx (14 tests) 3410ms
+   ✓ StockDetailPage > renders stock detail route for authenticated users  361ms
+   ✓ StockDetailPage > loads membership, adds once and preserves default day/forward and other placeholders  768ms
+   ✓ StockDetailPage > allows already-added stock to reopen and keeps membership errors local to the action  607ms
+   ✓ StockDetailPage > loads stock trend channel only after first selection and keeps the base chart alive  316ms
+ ✓ src/features/trading-assistant/ui/RobotConfigurationDialog.test.tsx (5 tests) 316ms
+ ✓ src/features/index-detail/controller/useIndexMinuteSeries.test.tsx (5 tests) 382ms
+ ✓ src/features/trading-assistant/model/useWriteSession.test.tsx (6 tests) 392ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SectorMemberPanel.test.tsx (2 tests) 306ms
+ ✓ src/pages/wealth-exploration/SectorDailyInsightPage.test.tsx (8 tests) 462ms
+ ✓ src/features/data-center/ui/QueryPanel.test.tsx (4 tests) 379ms
+ ✓ src/features/trading-assistant/ui/RecordMaintenanceForm.test.tsx (3 tests) 306ms
+ ✓ src/features/trading-assistant/model/useReturnRead.test.ts (7 tests) 310ms
+ ✓ src/features/trading-assistant/ui/PositionsCharts.test.tsx (3 tests) 264ms
+ ✓ src/features/watchlist/ui/AddWatchlistDialog.test.tsx (3 tests) 373ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthTrendChart.test.tsx (6 tests) 299ms
+ ✓ src/test/news-reader-dialog.test.tsx (14 tests) 398ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumCharts.test.tsx (2 tests) 111ms
+ ✓ src/pages/wealth-exploration/TurnoverInsightPage.test.tsx (2 tests) 183ms
+ ✓ src/test/market-overview-sector-overview-real-api.test.tsx (36 tests) 6333ms
+   ✓ market-overview sector-overview V2 real api > renders the formal industry 3x5 workspace and omits tradeDate on the default request  541ms
+   ✓ market-overview sector-overview V2 real api > S13-A10-A11-P01 keeps seven rows scrollable and four approved detail metrics  321ms
+   ✓ market-overview sector-overview V2 real api > S13-A14-A16-PN01 keeps sector selection separate from keyboard-accessible stock navigation  467ms
+   ✓ market-overview sector-overview V2 real api > S13-A05-A15-P01 retains ready facts while refreshing and reports a failed refresh without mock fallback  304ms
+ ✓ src/shared/ui/page-breadcrumb/PageBreadcrumb.test.tsx (2 tests) 95ms
+ ✓ src/features/watchlist/model/useWatchlistGroupsController.test.tsx (4 tests) 257ms
+ ✓ src/features/trading-assistant/model/useHoldingAnalysis.test.ts (3 tests) 230ms
+ ✓ src/test/wealth-exploration-index-turnover-real-api.smoke.test.tsx (1 test) 163ms
+ ✓ src/features/trading-assistant/model/useTradingAccounts.test.ts (4 tests) 258ms
+ ✓ src/features/stock-search/ui/StockSearch.test.tsx (4 tests) 226ms
+ ✓ src/features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController.test.tsx (3 tests) 202ms
+ ✓ src/features/trading-assistant/ui/PositionDetailDialog.test.tsx (2 tests) 216ms
+ ✓ src/features/data-center/ui/HistoryPanel.test.tsx (1 test) 226ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.test.tsx (9 tests) 189ms
+ ✓ src/features/trading-assistant/ui/ReturnCalendarGrid.test.tsx (1 test) 135ms
+ ✓ src/shared/api/wealthApiClient.test.ts (14 tests) 168ms
+ ✓ src/pages/wealth-exploration/WealthExplorationLandingPage.test.tsx (2 tests) 206ms
+ ✓ src/shared/ui/top-market-bar/TopMarketBar.test.tsx (2 tests) 192ms
+ ✓ src/features/data-center/model/useAnnouncementQuery.test.tsx (3 tests) 209ms
+ ✓ src/features/trading-assistant/ui/ReturnDates.test.tsx (1 test) 135ms
+ ✓ src/shared/charts/detail-workspace/DetailChartZoomControls.test.tsx (2 tests) 157ms
+ ✓ src/shared/ui/detail-return-home/DetailReturnHomeButton.test.tsx (1 test) 162ms
+ ✓ src/shared/ui/shortcut-bar/ShortcutBar.test.tsx (2 tests) 179ms
+ ✓ src/features/nine-turn/ui/NineTurnLayerStatus.test.tsx (8 tests) 192ms
+ ✓ src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx (6 tests) 243ms
+ ✓ src/features/trading-assistant/ui/RuleConditionEditor.test.tsx (2 tests) 280ms
+ ✓ src/features/data-center/ui/CompanySearch.test.tsx (2 tests) 188ms
+ ✓ src/features/trading-assistant/model/useRules.test.ts (2 tests) 132ms
+ ✓ src/features/data-center/ui/TaskProgress.test.tsx (6 tests) 189ms
+ ✓ src/features/index-detail/sidebar/IndexTechnicalTab.test.tsx (2 tests) 143ms
+ ✓ src/features/trading-assistant/ui/RecordFilters.test.tsx (1 test) 176ms
+ ✓ src/features/trading-assistant/ui/HoldingAnalysisPanel.test.tsx (2 tests) 142ms
+ ✓ src/features/index-detail/xxm/useIndexXxmLayer.test.tsx (3 tests) 149ms
+ ✓ src/shared/charts/detail-workspace/VisibleExtremaPrimitive.test.ts (6 tests) 69ms
+ ✓ src/features/stock-detail/news/StockDetailNewsPanel.test.tsx (3 tests) 140ms
+ ✓ src/features/index-detail/state/IndexDetailState.test.tsx (4 tests) 108ms
+ ✓ src/features/data-center/model/useDownloads.test.tsx (4 tests) 167ms
+ ✓ src/features/trading-assistant/model/usePositions.test.ts (2 tests) 136ms
+ ✓ src/pages/data-center/DataCenterPage.test.tsx (4 tests) 136ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightPanel.test.tsx (3 tests) 133ms
+ ✓ src/features/wealth-exploration/turnover-insight/model/useTurnoverInsightController.test.tsx (2 tests) 142ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid.test.tsx (3 tests) 185ms
+ ✓ src/features/trading-assistant/ui/WriteRecoveryDialog.test.tsx (1 test) 179ms
+ ✓ src/features/data-center/api/companyCandidates.test.tsx (4 tests) 30ms
+ ✓ src/features/index-detail/xxm/adapter.test.tsx (4 tests) 115ms
+ ✓ src/features/trading-assistant/model/positionsReader.test.ts (6 tests) 30ms
+ ✓ src/shared/charts/detail-workspace/NineTurnMarkerPrimitive.test.ts (6 tests) 118ms
+ ✓ src/features/data-center/model/useObserver.test.tsx (5 tests) 99ms
+ ✓ src/features/stock-detail/trend-channel/controller/useStockTrendChannel.test.tsx (2 tests) 25ms
+ ✓ src/features/trading-assistant/api/recordContracts.test.ts (21 tests) 29ms
+ ✓ src/features/trading-assistant/api/tradingAssistantApi.test.ts (7 tests) 78ms
+ ✓ src/features/stock-detail/chart/StockChartWorkspace.test.tsx (3 tests) 108ms
+ ✓ src/features/stock-search/model/useStockSearchController.test.tsx (6 tests) 67ms
+ ✓ src/features/auth/model/AuthProvider.test.tsx (8 tests) 72ms
+ ✓ src/features/index-detail/chart/IndexChartWorkspace.test.tsx (2 tests) 36ms
+ ✓ src/features/watchlist/api/watchlistApi.test.ts (24 tests) 30ms
+ ✓ src/features/index-detail/xxm/markerGeometry.test.ts (6 tests) 83ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SelectedSectorSummary.test.tsx (1 test) 31ms
+ ✓ src/features/watchlist/model/useWatchlistEditController.test.tsx (9 tests) 26ms
+ ✓ src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx (2 tests) 34ms
+ ✓ src/features/trading-assistant/api/roundContracts.test.ts (7 tests) 34ms
+ ✓ src/features/trading-assistant/api/returnsApi.test.ts (5 tests) 19ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/api/sectorDailyInsightAdapter.test.ts (33 tests) 37ms
+ ✓ src/features/trading-assistant/model/ruleDeepLink.test.ts (6 tests) 3ms
+ ✓ src/features/nine-turn/controller/useNineTurnSeriesRegistry.test.tsx (4 tests) 38ms
+ ✓ src/test/wealthDocumentMetadata.test.ts (4 tests) 22ms
+ ✓ src/features/trading-assistant/ui/FeeFields.test.tsx (1 test) 23ms
+ ✓ src/features/data-center/model/presentation.test.ts (18 tests) 16ms
+ ✓ src/features/trading-assistant/model/entryDraft.test.ts (8 tests) 20ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeGeometry.test.ts (2 tests) 8ms
+ ✓ src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumUrlState.test.ts (25 tests) 7ms
+ ✓ src/features/stock-detail/news/api/stockDetailNewsViewModelAdapter.test.ts (2 tests) 21ms
+ ✓ src/features/index-detail/api/indexDetailViewModelAdapter.test.ts (2 tests) 15ms
+ ✓ src/features/trading-assistant/api/positionContracts.test.ts (16 tests) 9ms
+ ✓ src/features/trading-assistant/api/contractValidation.test.ts (20 tests) 6ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/api/sectorMemberBreadthAdapter.test.ts (26 tests) 10ms
+ ✓ src/app/routes/routerState.test.ts (14 tests) 9ms
+ ✓ src/features/stock-detail/api/stockMinuteViewModelAdapter.test.ts (4 tests) 13ms
+ ✓ src/features/data-center/api/dataCenterApi.test.ts (8 tests) 11ms
+ ✓ src/features/trading-assistant/model/recordsQuery.test.ts (3 tests) 5ms
+ ✓ src/features/trading-assistant/model/positionPresentation.test.ts (3 tests) 15ms
+ ✓ src/features/nine-turn/model/nineTurnAdapter.test.ts (6 tests) 10ms
+ ✓ src/features/index-detail/xxm/apiClient.test.ts (4 tests) 9ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/model/sectorDailyInsightUrlState.test.ts (14 tests) 8ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/api/sectorRelativeRotationAdapter.test.ts (12 tests) 6ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/model/sectorRelativeRotationUrlState.test.ts (12 tests) 4ms
+ ✓ src/shared/charts/detail-workspace/detailChartIndicatorRange.test.ts (9 tests) 6ms
+ ✓ src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts (3 tests) 7ms
+ ✓ src/features/wealth-exploration/sector-analysis/dual-momentum/api/sectorDualMomentumAdapter.test.ts (19 tests) 7ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightApi.test.ts (2 tests) 6ms
+ ✓ src/features/stock-search/api/stockSearchApi.test.ts (4 tests) 15ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/api/sectorPriceVolumeAdapter.test.ts (6 tests) 10ms
+ ✓ src/shared/charts/detail-workspace/detailChartViewport.test.ts (29 tests) 4ms
+ ✓ src/features/auth/api/authApi.test.ts (9 tests) 9ms
+ ✓ src/features/auth/model/authStorage.test.ts (5 tests) 3ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/api/sectorMomentumAdapter.test.ts (6 tests) 4ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.ts (11 tests) 5ms
+ ✓ src/features/watchlist/model/watchlistGroupName.test.ts (26 tests) 5ms
+ ✓ src/features/trading-assistant/model/ruleWriteOperation.test.ts (2 tests) 3ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/model/sectorMomentumUrlState.test.ts (11 tests) 4ms
+ ✓ src/shared/charts/trend-channel/trendChannelGeometry.test.ts (2 tests) 3ms
+ ✓ src/features/stock-detail/api/stockDetailMockAdapter.test.ts (1 test) 8ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightAdapter.test.ts (2 tests) 3ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeUrlState.test.ts (10 tests) 8ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/model/sectorMemberBreadthUrlState.test.ts (8 tests) 10ms
+ ✓ src/features/trading-assistant/model/accountPreference.test.ts (6 tests) 5ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/model/relativeRotationPlotGeometry.test.ts (3 tests) 2ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts (5 tests) 3ms
+ ✓ src/features/index-detail/api/indexMinuteViewModelAdapter.test.ts (4 tests) 7ms
+ ✓ src/shared/charts/detail-workspace/detailChartVisibleExtrema.test.ts (6 tests) 4ms
+ ✓ src/features/trading-assistant/model/writeRecovery.test.ts (8 tests) 6ms
+ ✓ src/shared/charts/detail-workspace/visibleExtremaGeometry.test.ts (7 tests) 2ms
+ ✓ src/features/trading-assistant/model/returnSelection.test.ts (2 tests) 2ms
+ ✓ src/features/watchlist/model/watchlistViewModelAdapter.test.ts (11 tests) 7ms
+ ✓ src/features/index-detail/api/trendChannelAdapter.test.ts (1 test) 3ms
+ ✓ src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.test.ts (2 tests) 2ms
+ ✓ src/features/trading-assistant/model/returnChart.test.ts (2 tests) 2ms
+ ✓ src/features/nine-turn/model/nineTurnChartAdapter.test.ts (2 tests) 3ms
+ ✓ src/features/data-center/api/clientPolicy.test.ts (1 test) 2ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.test.ts (1 test) 2ms
+ ✓ src/features/major-indices/api/marketMajorIndicesAdapter.test.ts (1 test) 2ms
+ ✓ src/features/market-context/api/marketPageContextAdapter.test.ts (1 test) 2ms
+ ✓ src/shared/charts/trend-channel/TrendChannelPanePrimitive.test.ts (1 test) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace.test.tsx > DualMomentumWorkspace > restores the complete dual-momentum state from browser history
+AssertionError: expected 'LEVEL_1' to be 'LEVEL_2' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"market-terminal wealth-exploration-page"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33maria-label[39m=[32m"TopMarketBar"[39m
+          [33mclass[39m=[32m"top-market-bar"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<img[39m
+              [33malt[39m=[32m"财势乾坤"[39m
+              [33mclass[39m=[32m"brand-logo"[39m
+              [33msrc[39m=[32m"http://localhost:3000/wealth/docs/reference/brand/logo/logo_new.png"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-copy"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-title"[39m
+              [36m>[39m
+                [0m财势乾坤[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-subtitle"[39m
+              [36m>[39m
+                [0m专业投研平台[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"一级系统入口"[39m
+            [33mclass[39m=[32m"system-nav"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m乾坤行情[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"active"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m财势探查[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m交易助手[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m交易训练[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m数据中心[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m系统设置[0m
+            [36m</button>[39m
+          [36m</nav>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"主要指数行情条"[39m
+            [33mclass[39m=[32m"ticker-strip"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ticker-track"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"ticker-segment"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"ticker-segment ticker-segment-clone"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"top-meta"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"user-entry"[39m
+              [33mtitle[39m=[32m"用户入口"[39m
+            [36m>[39m
+              [0m明[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"page-shell wealth-exploration-shell"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Breadcrumb"[39m
+            [33mclass[39m=[32m"breadcrumb-row"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"breadcrumb"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0m财势乾坤[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m/[0m
+              [36m</span>[39m
+              [36m<button[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0m财势探查[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m/[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"current"[39m
+              [36m>[39m
+                [0m板块分析[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-label[39m=[32m"页面时间状态"[39m
+              [33mclass[39m=[32m"breadcrumb-meta"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m2026年10月14日[0m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0m星期三[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"num"[39m
+              [36m>[39m
+                [0m09:36:16[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"status-pill"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"status-dot ready"[39m
+                [36m/>[39m
+                [0m已收盘[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"ShortcutBar / 页面内快捷入口"[39m
+            [33mclass[39m=[32m"shortcut-bar"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"shortcut-card"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-top"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"shortcut-title"[39m
+                [36m>[39m
+                  [0m成交额洞察[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-desc"[39m
+              [36m>[39m
+                [0m查看全市场成交额、日内节奏与历史对比。[0m
+              [36m</div>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"shortcut-card selected"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"shortcut-top"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39...
+
+Expected: "LEVEL_2"
+Received: "LEVEL_1"
+
+ ❯ src/features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace.test.tsx:211:80
+    209|     window.dispatchEvent(new PopStateEvent("popstate"));
+    210| 
+    211|     await waitFor(() => expect(lastResultsUrl(urls).searchParams.get("…
+       |                                                                                ^
+    212|     await waitFor(() => expect(lastResultsUrl(urls).searchParams.get("…
+    213|     expect(lastResultsUrl(urls).searchParams.get("leadingThreshold")).…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 161 passed (162)
+      Tests  1 failed | 1155 passed (1156)
+   Start at  09:36:10
+   Duration  14.26s (transform 3.74s, setup 16.89s, collect 24.48s, tests 54.13s, environment 57.87s, prepare 7.28s)
+

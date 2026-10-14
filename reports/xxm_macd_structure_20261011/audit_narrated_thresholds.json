@@ -1,0 +1,102 @@
+{
+  "scope": "New narrated thresholds checked against unchanged stage-2 hypotheses",
+  "script_sha256": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+  "frozen_predictions_sha256": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f",
+  "sources": {
+    "20250815": {
+      "file": "sources/20250815_vidiq_transcript.json",
+      "sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c"
+    },
+    "20250818": {
+      "file": "sources/20250818_vidiq_transcript.json",
+      "sha256": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0"
+    }
+  },
+  "audits": [
+    {
+      "input": "120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "origin_time": "2025-08-15 15:00:00",
+      "origin_close": 3696.7705,
+      "origin_dif": 27.959338965998086,
+      "quoted_next_close_approximate": 3750,
+      "next_dif_slope": 0.07977207977207978,
+      "next_dif_intercept": -266.7350020987328,
+      "policies": {
+        "nearest_qualifying": {
+          "origin_state": "DULL",
+          "reference_start": "2025-07-30 11:30:00",
+          "reference_dif": 29.635069504135572,
+          "next_close_equality_boundary": 3715.2105404502427,
+          "distance_from_approximate_quote": -34.78945954975734
+        },
+        "strongest_eligible": {
+          "origin_state": "DULL",
+          "reference_start": "2025-07-21 11:30:00",
+          "reference_dif": 32.468748833716745,
+          "next_close_equality_boundary": 3750.7327349032066,
+          "distance_from_approximate_quote": 0.7327349032066195
+        }
+      },
+      "top_structure_relative_turn_boundaries": {
+        "0.75": 3691.575384067591,
+        "1": 3690.699158355353,
+        "1.2": 3689.9981777855623
+      },
+      "next_actual_time": "2025-08-18 11:30:00",
+      "next_actual_dif": 31.65267767334717,
+      "next_actual_dif_residual": 1.7053025658242404e-13,
+      "software_label": "NARRATED_THRESHOLD_ONLY_NO_NEW_SCREENSHOT"
+    },
+    {
+      "input": "daily_2025.csv",
+      "input_sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+      "origin_time": "2025-08-15",
+      "origin_close": 3696.7705,
+      "origin_dif": 47.016,
+      "quoted_next_close_approximate": 3699,
+      "next_dif_slope": 0.07977207977207978,
+      "next_dif_intercept": -247.11124501424501,
+      "policies": {
+        "nearest_qualifying": {
+          "origin_state": "DULL",
+          "reference_start": "2025-06-25",
+          "reference_dif": 47.974,
+          "next_close_equality_boundary": 3699.1043214285705,
+          "distance_from_approximate_quote": 0.10432142857052895
+        },
+        "strongest_eligible": {
+          "origin_state": "DULL",
+          "reference_start": "2025-06-25",
+          "reference_dif": 47.974,
+          "next_close_equality_boundary": 3699.1043214285705,
+          "distance_from_approximate_quote": 0.10432142857052895
+        }
+      },
+      "top_structure_relative_turn_boundaries": {
+        "0.75": 3682.6747635714282,
+        "1": 3681.201315714285,
+        "1.2": 3680.0225574285714
+      },
+      "next_actual_time": "2025-08-18",
+      "next_actual_dif": 50.281,
+      "next_actual_dif_residual": -0.00024615384621284875,
+      "software_label": "NARRATED_THRESHOLD_ONLY_NO_NEW_SCREENSHOT"
+    }
+  ],
+  "limitations": [
+    "Reuploaded speaker captions may misrecognize numbers; no new chart supplied.",
+    "Prices are approximate, and equality versus strict crossing is unresolved.",
+    "This distinguishes the two candidate references locally, not every reference rule.",
+    "Aug18 captions do not uniquely locate the final marker in AM versus PM.",
+    "Intrabar cancellation may reverse; only completed bars are replayed."
+  ],
+  "afternoon_recalculation": {
+    "origin_time": "2025-08-18 11:30:00",
+    "reference_dif": 32.468748833716745,
+    "next_close_equality_boundary": 3718.980683695077,
+    "next_actual_close": 3728.0273,
+    "next_actual_dif": 33.19041623126077,
+    "software_label": "PREDICTION_NO_NEW_SCREENSHOT"
+  }
+}

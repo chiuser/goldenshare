@@ -1,0 +1,173 @@
+{
+  "asOf": "2026-10-13 close",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "spec": {
+    "algorithm_version": "xxm-direction-v0.1",
+    "dif_turn_pct": 1.0,
+    "max_refs": 2,
+    "min_bars": 2,
+    "reference_policy": "strongest_eligible",
+    "macd_parameters": [
+      12,
+      26,
+      9
+    ],
+    "histogram_multiplier": 2,
+    "color_flip": true,
+    "flip_requires_turn": false,
+    "historical_price_only": true,
+    "fixed_expiry": null
+  },
+  "periods": {
+    "day": {
+      "rows": 912,
+      "start": "2023-01-03",
+      "end": "2026-10-13",
+      "eventCounts": {
+        "DULL": 29,
+        "STRUCTURE": 16,
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "CANCEL": 13
+      },
+      "historyCounts": {
+        "ENDED": 8,
+        "PENDING": 1
+      },
+      "independentEventPrefixChecks": 63,
+      "prefixAndRestoreCuts": [
+        25,
+        456,
+        911
+      ],
+      "stateBytes": 1581,
+      "frozenNumericOverlap": 0,
+      "realApiWindowMatchedRows": 300,
+      "pointSequenceSha256": "0300c8c5511090fbc657341e2f098856b3c5452ca91a2b614cc3429288fb0cdb"
+    },
+    "m60": {
+      "rows": 17260,
+      "start": "2009-01-05T10:30:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "eventCounts": {
+        "DULL": 529,
+        "CANCEL": 204,
+        "STRUCTURE": 327,
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 63
+      },
+      "historyCounts": {
+        "ENDED": 183,
+        "PENDING": 1
+      },
+      "independentEventPrefixChecks": 1130,
+      "prefixAndRestoreCuts": [
+        25,
+        1000,
+        8630,
+        17259
+      ],
+      "stateBytes": 2090,
+      "frozenNumericOverlap": 1316,
+      "realApiWindowMatchedRows": 500,
+      "pointSequenceSha256": "ffa7c012136025641640f947255a59b7f91ab2c2db4481aaa0dd6ac4831faed8"
+    },
+    "m90": {
+      "rows": 12945,
+      "start": "2009-01-05T11:00:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "eventCounts": {
+        "DULL": 396,
+        "CANCEL": 146,
+        "STRUCTURE": 251,
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 50
+      },
+      "historyCounts": {
+        "ENDED": 147,
+        "PENDING": 1
+      },
+      "independentEventPrefixChecks": 850,
+      "prefixAndRestoreCuts": [
+        25,
+        1000,
+        6472,
+        12944
+      ],
+      "stateBytes": 2094,
+      "frozenNumericOverlap": 1107,
+      "realApiWindowMatchedRows": 500,
+      "pointSequenceSha256": "8e650af9e610f236b3cb53e49a8ad6844a7b6428b9c0879994e432a2df847269"
+    },
+    "m120": {
+      "rows": 8630,
+      "start": "2009-01-05T11:30:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "eventCounts": {
+        "DULL": 271,
+        "CANCEL": 116,
+        "STRUCTURE": 155,
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 27
+      },
+      "historyCounts": {
+        "ENDED": 80
+      },
+      "independentEventPrefixChecks": 572,
+      "prefixAndRestoreCuts": [
+        25,
+        1000,
+        4315,
+        8629
+      ],
+      "stateBytes": 1592,
+      "frozenNumericOverlap": 738,
+      "realApiWindowMatchedRows": 500,
+      "pointSequenceSha256": "7ac83ff9b380e707fe05da9c0494ed125e7ebcaae9e732a0d22eb4cf98e76e90"
+    }
+  },
+  "limitations": [
+    "Full audited history baseline is a new source-origin baseline, not a software event oracle.",
+    "Daily has not passed an independent software event timeline validation.",
+    "Minute frozen CSVs missing DEA infer it only for old test inputs; formal baselines use explicit source DEA."
+  ],
+  "softwareReadouts": {
+    "day": {
+      "count": 1,
+      "deltaDifRange": [
+        0.0,
+        0.0
+      ],
+      "allIndicatorDisplaysMatch": 0
+    },
+    "m60": {
+      "count": 7,
+      "deltaDifRange": [
+        -0.020883839287026973,
+        0.03808995564592976
+      ],
+      "allIndicatorDisplaysMatch": 0
+    },
+    "m90": {
+      "count": 7,
+      "deltaDifRange": [
+        -0.04782859521987248,
+        -0.0141619234366408
+      ],
+      "allIndicatorDisplaysMatch": 0
+    },
+    "m120": {
+      "count": 12,
+      "deltaDifRange": [
+        -0.000972630778260708,
+        0.000889569525583056
+      ],
+      "allIndicatorDisplaysMatch": 5
+    }
+  },
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "kernelFiles": {
+    "src/biz/services/wealth/market/index_detail_xxm/__init__.py": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "9914275530ce3ef39d9b23d774c03bcd2a1dd235f99d1893bdf22fa92d007394",
+    "src/biz/services/wealth/market/index_detail_xxm/runtime.py": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd"
+  }
+}

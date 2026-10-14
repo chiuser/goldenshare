@@ -1,0 +1,15 @@
+
+> wealth@0.1.0 test
+> vitest run src/features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace.test.tsx src/features/index-detail/xxm/markerGeometry.test.ts
+
+
+ RUN  v3.2.4 /Users/congming/github/goldenshare/wealth
+
+ ✓ src/features/index-detail/xxm/markerGeometry.test.ts (6 tests) 55ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace.test.tsx (15 tests) 848ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  09:36:07
+   Duration  2.89s (transform 1.01s, setup 185ms, collect 1.47s, tests 903ms, environment 709ms, prepare 70ms)
+

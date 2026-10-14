@@ -1,0 +1,37 @@
+{
+  "research_date": "2026-10-12",
+  "status": "FROZEN_BEFORE_NEW_SOURCE_RETRIEVAL_NOT_SOFTWARE_TRUTH",
+  "next_source_date": "2025-07-03",
+  "source_kind": "Closing lecture full transcript first, no simultaneous image request",
+  "old_screen_sha256": "450add36b4247c71904e5c0b33c246a451952ccb3c96d0ee005d96ed0e2adf9a",
+  "recensor_screen_sha256": "ec3cc7fb3bcaa3c8aad86bd15a1602614e608a890d90b88711053a6485ac9acb",
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "period": "90",
+  "candidate_anchor": "2025-07-02 14:00:00",
+  "anchor_software_observed": false,
+  "predictions": {
+    "price_only": "2025-07-03 14:00:00",
+    "price_and_dif": "2025-07-03 14:00:00",
+    "price_and_positive_hist": "2025-07-04 14:00:00",
+    "price_dif_and_positive_hist": "2025-07-04 14:00:00"
+  },
+  "numeric_at_price_first": {
+    "time": "2025-07-03 14:00:00",
+    "close": 3462.8333,
+    "dif": 14.32071267102765,
+    "hist": -1.104699848180978,
+    "previous_dif": 14.130379340179388,
+    "dif_rise_pct": 1.3469796264213048
+  },
+  "close15_saved_hist": -1.121055763220916,
+  "primary_question": "Does the author explicitly describe withdrawal of the earlier90 top structure onJuly3, or say it remains? Confirm prior structure identity before scoring.",
+  "value": "Separates price-qualified hypotheses from those additionally requiring a positive histogram; does not separate price-only from price-plus-DIF.",
+  "limitations": [
+    "Software historical numbers unknown; larger distance below zero thanNov13 is not proof of actual software colour",
+    "Earlier90 structure is candidate-only and must be independently confirmed",
+    "Any unspecific disappearance, daily/60/120 observation or whole-portfolio buyback cannot be scored as90 withdrawal",
+    "If source has no90-specific claim keep unobserved; do not force another image/date",
+    "No formal rule/threshold edit or automatic trades"
+  ],
+  "prior_files_preserved": 195
+}

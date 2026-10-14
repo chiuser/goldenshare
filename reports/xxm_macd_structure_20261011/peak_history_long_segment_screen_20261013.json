@@ -1,0 +1,1530 @@
+{
+  "research_date": "2026-10-13",
+  "status": "LONG_SEGMENT_ORDER_DISCRIMINATOR_FOUND_WITH_EXISTING_90_MINUTE_SOURCE",
+  "scope": "Positive-side comparison only. Search saved 120/90/60 sequences for original activations with different strongest targets and all intervening completed positive segments at least two bars. Neither a new qualification formula nor software historical truth.",
+  "fixed_assumptions": {
+    "qualification": "current positive wave highest close strictly greater than historical price peak AND current DIF peak strictly lower than historical DIF peak",
+    "common_gate": "current wave at least two bars and current price exceeds latest raw positive-segment price",
+    "raw_order": "last two raw completed positive segments, then filter and strongest",
+    "filtered_order": "filter full completed positive history, last two survivors, then strongest",
+    "target_after_activation": "locked for conditional crossing contrast"
+  },
+  "inputs": [
+    {
+      "file": "discrimination_screen_20261012/derived_120.csv",
+      "sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "semantics": "Offline extended EMA derived; not software truth"
+    },
+    {
+      "file": "inputs/90_20250401_20250703.csv",
+      "sha256": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c",
+      "semantics": "Saved DG export; not software historical truth"
+    },
+    {
+      "file": "inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+      "semantics": "Saved DG export; not software historical truth"
+    },
+    {
+      "file": "inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+      "semantics": "Saved DG export; not software historical truth"
+    }
+  ],
+  "ninety_minute_overlap": {
+    "equal_rows": 69,
+    "merge_policy": "Exact overlap equality required, sorted unique times"
+  },
+  "screen_summary": [
+    {
+      "period": "120",
+      "rows": 738,
+      "start": "2025-04-01 11:30:00",
+      "end": "2026-10-09 15:00:00",
+      "selection_difference_bar_count": 53,
+      "all_intervening_min_two_bar_count": 0,
+      "independent_origin_count": 0,
+      "unconfounded_positive_wave_starts": []
+    },
+    {
+      "period": "90",
+      "rows": 579,
+      "start": "2025-04-01 11:00:00",
+      "end": "2026-01-13 15:00:00",
+      "selection_difference_bar_count": 94,
+      "all_intervening_min_two_bar_count": 31,
+      "independent_origin_count": 3,
+      "unconfounded_positive_wave_starts": [
+        "2025-06-30 15:00:00",
+        "2025-07-08 14:00:00",
+        "2025-07-18 15:00:00",
+        "2025-10-23 15:00:00",
+        "2025-12-05 14:00:00",
+        "2025-12-18 11:00:00",
+        "2026-01-05 11:00:00"
+      ]
+    },
+    {
+      "period": "60",
+      "rows": 1316,
+      "start": "2025-06-03 10:30:00",
+      "end": "2026-10-09 15:00:00",
+      "selection_difference_bar_count": 220,
+      "all_intervening_min_two_bar_count": 99,
+      "independent_origin_count": 2,
+      "unconfounded_positive_wave_starts": [
+        "2025-07-18 10:30:00",
+        "2025-09-29 14:00:00",
+        "2025-10-23 15:00:00",
+        "2025-12-05 14:00:00",
+        "2025-12-17 15:00:00",
+        "2026-01-05 11:30:00",
+        "2026-03-10 11:30:00",
+        "2026-04-29 15:00:00",
+        "2026-06-10 14:00:00",
+        "2026-06-22 14:00:00"
+      ]
+    }
+  ],
+  "activation_candidates": [
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "current_wave": {
+        "start": "2025-06-30 15:00:00",
+        "sign": 1,
+        "count": 3,
+        "price": 3458.5686,
+        "dif": 15.628968343168253,
+        "price_time": "2025-07-01 14:00:00",
+        "dif_time": "2025-07-01 14:00:00"
+      },
+      "raw_last_two": [
+        {
+          "start": "2025-05-29 15:00:00",
+          "sign": 1,
+          "count": 28,
+          "price": 3406.0967,
+          "dif": 10.556501856990963,
+          "price_time": "2025-06-12 11:00:00",
+          "dif_time": "2025-06-10 11:00:00"
+        },
+        {
+          "start": "2025-06-24 11:00:00",
+          "sign": 1,
+          "count": 13,
+          "price": 3455.9736,
+          "dif": 19.28212366483376,
+          "price_time": "2025-06-25 15:00:00",
+          "dif_time": "2025-06-27 11:00:00"
+        }
+      ],
+      "skipped_raw_segments": [
+        {
+          "start": "2025-05-29 15:00:00",
+          "sign": 1,
+          "count": 28,
+          "price": 3406.0967,
+          "dif": 10.556501856990963,
+          "price_time": "2025-06-12 11:00:00",
+          "dif_time": "2025-06-10 11:00:00"
+        }
+      ],
+      "all_intervening_segments": [
+        {
+          "start": "2025-05-29 15:00:00",
+          "sign": 1,
+          "count": 28,
+          "price": 3406.0967,
+          "dif": 10.556501856990963,
+          "price_time": "2025-06-12 11:00:00",
+          "dif_time": "2025-06-10 11:00:00"
+        },
+        {
+          "start": "2025-06-24 11:00:00",
+          "sign": 1,
+          "count": 13,
+          "price": 3455.9736,
+          "dif": 19.28212366483376,
+          "price_time": "2025-06-25 15:00:00",
+          "dif_time": "2025-06-27 11:00:00"
+        }
+      ],
+      "raw_target": {
+        "start": "2025-06-24 11:00:00",
+        "sign": 1,
+        "count": 13,
+        "price": 3455.9736,
+        "dif": 19.28212366483376,
+        "price_time": "2025-06-25 15:00:00",
+        "dif_time": "2025-06-27 11:00:00"
+      },
+      "filter_first_target": {
+        "start": "2025-05-06 14:00:00",
+        "sign": 1,
+        "count": 22,
+        "price": 3403.948,
+        "dif": 23.498217554217263,
+        "price_time": "2025-05-14 15:00:00",
+        "dif_time": "2025-05-14 15:00:00"
+      },
+      "original_activation": {
+        "time": "2025-07-01 14:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 3,
+        "ref_start": "2025-06-24 11:00:00",
+        "close": 3458.5686,
+        "dif": 15.628968343168253,
+        "hist": 1.6817773783465633,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-06-24 11:00:00",
+        "event_ref_dif": 19.28212366483376,
+        "event_ref_price": 3455.9736
+      },
+      "first_strict_dif_cross_before_wave_end": {
+        "raw": null,
+        "filter_first": null
+      },
+      "note": "Frozen target diagnostics at original activation only; not a complete alternative state replay. Future crossings are post-event checks and never select the target."
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "current_wave": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3939.7864,
+        "dif": 9.512013425429814,
+        "price_time": "2025-10-24 11:00:00",
+        "dif_time": "2025-10-24 11:00:00"
+      },
+      "raw_last_two": [
+        {
+          "start": "2025-10-16 11:00:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3928.54,
+          "dif": 11.886700855757681,
+          "price_time": "2025-10-16 11:00:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-21 15:00:00",
+          "sign": 1,
+          "count": 5,
+          "price": 3916.3323,
+          "dif": 7.514438641693232,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "skipped_raw_segments": [
+        {
+          "start": "2025-10-21 15:00:00",
+          "sign": 1,
+          "count": 5,
+          "price": 3916.3323,
+          "dif": 7.514438641693232,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "all_intervening_segments": [
+        {
+          "start": "2025-10-16 11:00:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3928.54,
+          "dif": 11.886700855757681,
+          "price_time": "2025-10-16 11:00:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-21 15:00:00",
+          "sign": 1,
+          "count": 5,
+          "price": 3916.3323,
+          "dif": 7.514438641693232,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "raw_target": {
+        "start": "2025-10-16 11:00:00",
+        "sign": 1,
+        "count": 4,
+        "price": 3928.54,
+        "dif": 11.886700855757681,
+        "price_time": "2025-10-16 11:00:00",
+        "dif_time": "2025-10-16 15:00:00"
+      },
+      "filter_first_target": {
+        "start": "2025-09-24 15:00:00",
+        "sign": 1,
+        "count": 20,
+        "price": 3933.9724,
+        "dif": 21.939396186412978,
+        "price_time": "2025-10-09 15:00:00",
+        "dif_time": "2025-10-10 11:00:00"
+      },
+      "original_activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "first_strict_dif_cross_before_wave_end": {
+        "raw": {
+          "time": "2025-10-24 14:00:00",
+          "dif": 12.225414240583177
+        },
+        "filter_first": {
+          "time": "2025-10-27 14:00:00",
+          "dif": 22.000538099222013
+        }
+      },
+      "note": "Frozen target diagnostics at original activation only; not a complete alternative state replay. Future crossings are post-event checks and never select the target."
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "current_wave": {
+        "start": "2026-01-05 11:00:00",
+        "sign": 1,
+        "count": 2,
+        "price": 4018.7495,
+        "dif": 21.57927155052721,
+        "price_time": "2026-01-05 14:00:00",
+        "dif_time": "2026-01-05 14:00:00"
+      },
+      "raw_last_two": [
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3929.8535,
+          "dif": 5.347640647957633,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:00:00"
+        },
+        {
+          "start": "2025-12-18 11:00:00",
+          "sign": 1,
+          "count": 25,
+          "price": 3978.7737,
+          "dif": 23.132934971069062,
+          "price_time": "2025-12-29 11:00:00",
+          "dif_time": "2025-12-29 11:00:00"
+        }
+      ],
+      "skipped_raw_segments": [
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3929.8535,
+          "dif": 5.347640647957633,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:00:00"
+        }
+      ],
+      "all_intervening_segments": [
+        {
+          "start": "2025-11-06 14:00:00",
+          "sign": 1,
+          "count": 9,
+          "price": 4018.5972,
+          "dif": 13.0978018009082,
+          "price_time": "2025-11-10 15:00:00",
+          "dif_time": "2025-11-10 15:00:00"
+        },
+        {
+          "start": "2025-11-13 15:00:00",
+          "sign": 1,
+          "count": 3,
+          "price": 4029.5012,
+          "dif": 12.117558385294615,
+          "price_time": "2025-11-13 15:00:00",
+          "dif_time": "2025-11-14 11:00:00"
+        },
+        {
+          "start": "2025-11-26 11:00:00",
+          "sign": 1,
+          "count": 21,
+          "price": 3914.006,
+          "dif": -3.8395259311946575,
+          "price_time": "2025-12-01 15:00:00",
+          "dif_time": "2025-12-03 11:00:00"
+        },
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3929.8535,
+          "dif": 5.347640647957633,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:00:00"
+        },
+        {
+          "start": "2025-12-18 11:00:00",
+          "sign": 1,
+          "count": 25,
+          "price": 3978.7737,
+          "dif": 23.132934971069062,
+          "price_time": "2025-12-29 11:00:00",
+          "dif_time": "2025-12-29 11:00:00"
+        }
+      ],
+      "raw_target": {
+        "start": "2025-12-18 11:00:00",
+        "sign": 1,
+        "count": 25,
+        "price": 3978.7737,
+        "dif": 23.132934971069062,
+        "price_time": "2025-12-29 11:00:00",
+        "dif_time": "2025-12-29 11:00:00"
+      },
+      "filter_first_target": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 16,
+        "price": 4017.2124,
+        "dif": 31.39180919304681,
+        "price_time": "2025-10-30 11:00:00",
+        "dif_time": "2025-10-30 11:00:00"
+      },
+      "original_activation": {
+        "time": "2026-01-05 14:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-12-18 11:00:00",
+        "close": 4018.7495,
+        "dif": 21.57927155052721,
+        "hist": 4.230667492459936,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-12-18 11:00:00",
+        "event_ref_dif": 23.132934971069062,
+        "event_ref_price": 3978.7737
+      },
+      "first_strict_dif_cross_before_wave_end": {
+        "raw": {
+          "time": "2026-01-05 15:00:00",
+          "dif": 23.672999109934608
+        },
+        "filter_first": {
+          "time": "2026-01-06 14:00:00",
+          "dif": 31.488532020388448
+        }
+      },
+      "note": "Frozen target diagnostics at original activation only; not a complete alternative state replay. Future crossings are post-event checks and never select the target."
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "current_wave": {
+        "start": "2025-10-23 15:00:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3929.6956,
+        "dif": 7.202000960191981,
+        "price_time": "2025-10-24 10:30:00",
+        "dif_time": "2025-10-24 10:30:00"
+      },
+      "raw_last_two": [
+        {
+          "start": "2025-10-16 10:30:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3918.9675,
+          "dif": 9.53297106472428,
+          "price_time": "2025-10-16 10:30:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-21 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3916.3323,
+          "dif": 7.03317814990578,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "skipped_raw_segments": [
+        {
+          "start": "2025-10-21 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3916.3323,
+          "dif": 7.03317814990578,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "all_intervening_segments": [
+        {
+          "start": "2025-09-24 11:30:00",
+          "sign": 1,
+          "count": 11,
+          "price": 3859.6226,
+          "dif": 3.089477543159319,
+          "price_time": "2025-09-25 11:30:00",
+          "dif_time": "2025-09-25 15:00:00"
+        },
+        {
+          "start": "2025-09-29 14:00:00",
+          "sign": 1,
+          "count": 14,
+          "price": 3933.9724,
+          "dif": 23.49121352948214,
+          "price_time": "2025-10-09 15:00:00",
+          "dif_time": "2025-10-10 10:30:00"
+        },
+        {
+          "start": "2025-10-16 10:30:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3918.9675,
+          "dif": 9.53297106472428,
+          "price_time": "2025-10-16 10:30:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-21 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3916.3323,
+          "dif": 7.03317814990578,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        }
+      ],
+      "raw_target": {
+        "start": "2025-10-16 10:30:00",
+        "sign": 1,
+        "count": 4,
+        "price": 3918.9675,
+        "dif": 9.53297106472428,
+        "price_time": "2025-10-16 10:30:00",
+        "dif_time": "2025-10-16 15:00:00"
+      },
+      "filter_first_target": {
+        "start": "2025-09-18 10:30:00",
+        "sign": 1,
+        "count": 2,
+        "price": 3896.4612,
+        "dif": 13.271325202195385,
+        "price_time": "2025-09-18 10:30:00",
+        "dif_time": "2025-09-18 11:30:00"
+      },
+      "original_activation": {
+        "time": "2025-10-24 10:30:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 10:30:00",
+        "close": 3929.6956,
+        "dif": 7.202000960191981,
+        "hist": 4.871154411304497,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 10:30:00",
+        "event_ref_dif": 9.53297106472428,
+        "event_ref_price": 3918.9675
+      },
+      "first_strict_dif_cross_before_wave_end": {
+        "raw": {
+          "time": "2025-10-24 14:00:00",
+          "dif": 11.873702751038763
+        },
+        "filter_first": {
+          "time": "2025-10-24 15:00:00",
+          "dif": 13.818258799728028
+        }
+      },
+      "note": "Frozen target diagnostics at original activation only; not a complete alternative state replay. Future crossings are post-event checks and never select the target."
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "current_wave": {
+        "start": "2026-01-05 11:30:00",
+        "sign": 1,
+        "count": 2,
+        "price": 4018.7495,
+        "dif": 18.587196444579604,
+        "price_time": "2026-01-05 14:00:00",
+        "dif_time": "2026-01-05 14:00:00"
+      },
+      "raw_last_two": [
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3929.8535,
+          "dif": 8.560293166245629,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:30:00"
+        },
+        {
+          "start": "2025-12-17 15:00:00",
+          "sign": 1,
+          "count": 32,
+          "price": 3980.0605,
+          "dif": 20.857331758674263,
+          "price_time": "2025-12-29 10:30:00",
+          "dif_time": "2025-12-29 11:30:00"
+        }
+      ],
+      "skipped_raw_segments": [
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3929.8535,
+          "dif": 8.560293166245629,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:30:00"
+        }
+      ],
+      "all_intervening_segments": [
+        {
+          "start": "2025-10-16 10:30:00",
+          "sign": 1,
+          "count": 4,
+          "price": 3918.9675,
+          "dif": 9.53297106472428,
+          "price_time": "2025-10-16 10:30:00",
+          "dif_time": "2025-10-16 15:00:00"
+        },
+        {
+          "start": "2025-10-21 11:30:00",
+          "sign": 1,
+          "count": 9,
+          "price": 3916.3323,
+          "dif": 7.03317814990578,
+          "price_time": "2025-10-21 15:00:00",
+          "dif_time": "2025-10-22 15:00:00"
+        },
+        {
+          "start": "2025-10-23 15:00:00",
+          "sign": 1,
+          "count": 20,
+          "price": 4018.8628,
+          "dif": 28.80087595504483,
+          "price_time": "2025-10-30 11:30:00",
+          "dif_time": "2025-10-28 11:30:00"
+        },
+        {
+          "start": "2025-11-06 10:30:00",
+          "sign": 1,
+          "count": 14,
+          "price": 4018.5972,
+          "dif": 10.39404530201,
+          "price_time": "2025-11-10 15:00:00",
+          "dif_time": "2025-11-10 15:00:00"
+        },
+        {
+          "start": "2025-11-13 14:00:00",
+          "sign": 1,
+          "count": 5,
+          "price": 4031.191,
+          "dif": 10.094300324038159,
+          "price_time": "2025-11-14 10:30:00",
+          "dif_time": "2025-11-14 11:30:00"
+        },
+        {
+          "start": "2025-11-25 11:30:00",
+          "sign": 1,
+          "count": 26,
+          "price": 3914.006,
+          "dif": 1.0776855431308832,
+          "price_time": "2025-12-01 15:00:00",
+          "dif_time": "2025-12-02 10:30:00"
+        },
+        {
+          "start": "2025-12-05 14:00:00",
+          "sign": 1,
+          "count": 10,
+          "price": 3929.8535,
+          "dif": 8.560293166245629,
+          "price_time": "2025-12-08 14:00:00",
+          "dif_time": "2025-12-09 11:30:00"
+        },
+        {
+          "start": "2025-12-17 15:00:00",
+          "sign": 1,
+          "count": 32,
+          "price": 3980.0605,
+          "dif": 20.857331758674263,
+          "price_time": "2025-12-29 10:30:00",
+          "dif_time": "2025-12-29 11:30:00"
+        }
+      ],
+      "raw_target": {
+        "start": "2025-12-17 15:00:00",
+        "sign": 1,
+        "count": 32,
+        "price": 3980.0605,
+        "dif": 20.857331758674263,
+        "price_time": "2025-12-29 10:30:00",
+        "dif_time": "2025-12-29 11:30:00"
+      },
+      "filter_first_target": {
+        "start": "2025-09-29 14:00:00",
+        "sign": 1,
+        "count": 14,
+        "price": 3933.9724,
+        "dif": 23.49121352948214,
+        "price_time": "2025-10-09 15:00:00",
+        "dif_time": "2025-10-10 10:30:00"
+      },
+      "original_activation": {
+        "time": "2026-01-05 14:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-12-17 15:00:00",
+        "close": 4018.7495,
+        "dif": 18.587196444579604,
+        "hist": 5.859479405985358,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-12-17 15:00:00",
+        "event_ref_dif": 20.857331758674263,
+        "event_ref_price": 3980.0605
+      },
+      "first_strict_dif_cross_before_wave_end": {
+        "raw": {
+          "time": "2026-01-06 10:30:00",
+          "dif": 24.341718307056908
+        },
+        "filter_first": {
+          "time": "2026-01-06 10:30:00",
+          "dif": 24.341718307056908
+        }
+      },
+      "note": "Frozen target diagnostics at original activation only; not a complete alternative state replay. Future crossings are post-event checks and never select the target."
+    }
+  ],
+  "software_and_non_discriminating_controls": [
+    {
+      "period": "90",
+      "origin": "2026-01-05 14:00:00",
+      "end": "2026-01-05 15:00:00",
+      "end_dg_dif": 23.672999109934608,
+      "raw_frozen_dif": 23.132934971069062,
+      "filter_first_frozen_dif": 31.39180919304681,
+      "raw_crossed": true,
+      "filter_first_crossed": false,
+      "software_end_dif": 23.658,
+      "software_minus_dg": -0.014999109934606736,
+      "reused_labels": [
+        {
+          "freq": 90,
+          "time": "2026-01-05 14:00:00",
+          "expected": "DULL",
+          "confidence": "mapped",
+          "position_error": "possibly one bar"
+        },
+        {
+          "freq": 90,
+          "time": "2026-01-05 15:00:00",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "position_error": "terminal marker visible"
+        }
+      ],
+      "strength": "Existing terminal screenshot direct CANCEL; mapped 14:00 DULL may be one bar displaced.",
+      "assessment": "Raw target crosses and filter-first strongest target does not. Does not identify exact historical software peak or forbid nearest-qualifying filter-first selection."
+    },
+    {
+      "period": "90",
+      "origin": "2025-10-24 11:00:00",
+      "end": "2025-10-24 15:00:00",
+      "end_dg_dif": 14.430568563102042,
+      "raw_frozen_dif": 11.886700855757681,
+      "filter_first_frozen_dif": 21.939396186412978,
+      "raw_crossed": true,
+      "filter_first_crossed": false,
+      "strength": "Existing caption explicitly says 90 minute dulling disappeared that day; no new exact-hour marker label.",
+      "assessment": "At-day resolution raw target crosses, filter-first strongest target does not; conditional on the selected reference being locked and on matching the compared signal."
+    },
+    {
+      "period": "60",
+      "origin": "2026-01-05 14:00:00",
+      "end": "2026-01-05 15:00:00",
+      "end_dg_dif": 20.378883839287028,
+      "raw_frozen_dif": 20.857331758674263,
+      "filter_first_frozen_dif": 23.49121352948214,
+      "raw_crossed": false,
+      "filter_first_crossed": false,
+      "strength": "Numerical candidate only; no discriminating software observation established.",
+      "assessment": "Do not count as independent software confirmation."
+    },
+    {
+      "period": "60",
+      "origin": "2025-10-24 10:30:00",
+      "end": "2025-10-24 15:00:00",
+      "end_dg_dif": 13.818258799728028,
+      "raw_frozen_dif": 9.53297106472428,
+      "filter_first_frozen_dif": 13.271325202195385,
+      "raw_crossed": true,
+      "filter_first_crossed": true,
+      "strength": "Numerical candidate only; no discriminating software observation established.",
+      "assessment": "Do not count as independent software confirmation."
+    },
+    {
+      "period": "90",
+      "origin": "2025-07-01 14:00:00",
+      "end": "2025-07-03 15:00:00",
+      "end_dg_dif": 14.172402743105067,
+      "raw_frozen_dif": 19.28212366483376,
+      "filter_first_frozen_dif": 23.498217554217263,
+      "raw_crossed": false,
+      "filter_first_crossed": false,
+      "strength": "Numerical candidate only; no discriminating software observation established.",
+      "assessment": "Do not count as independent software confirmation."
+    }
+  ],
+  "source_anchors": [
+    {
+      "id": "90_same_day_disappearance",
+      "file": "sources/20251024_vidiq_transcript.json",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "source_url": "https://www.youtube.com/watch?v=iflE76iVGO8",
+      "json_pointer": "/response/transcription",
+      "char_start": 984,
+      "char_end": 1132,
+      "raw_excerpt": "我们再看90分钟 90分钟今天钝化也消失 是吧钝化也消失 但是90分钟只形成过这一次结构啊 120分钟多次结构 但90分钟就这一次 我们减仓是在这减的 在这减价格呢 是3,852 今天收盘是3,95098个点 不到3% 不到3% 4成仓呢 就是1%左右啊 百分之1%左右的损耗 但时间是比较长的啊",
+      "audio_verified": false
+    },
+    {
+      "id": "90_previous_day_small_dulling",
+      "file": "sources/20260106_vidiq_transcript.json",
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "source_url": "https://www.youtube.com/watch?v=Inqg55eiSso",
+      "json_pointer": "/response/transcription",
+      "char_start": 532,
+      "char_end": 569,
+      "raw_excerpt": "90分钟级别特别小 它很容易消失 我们刚才看了 很容易消失 今天日线也很小",
+      "audio_verified": false
+    }
+  ],
+  "original_image_hash_checks": [
+    {
+      "file": "sources/20260105_60.png",
+      "sha256": "5e0d79f215ab56e2d2a5dac191d8b958294c6fbf5a461454ea29e7771c96adf0",
+      "hash_verified": true
+    },
+    {
+      "file": "sources/20260105_90.png",
+      "sha256": "f2560febeb2ab7dc16b4ff7f7f1e2674f789d181091afcf123332ebe800a857d",
+      "hash_verified": true
+    }
+  ],
+  "reused_holdout": {
+    "file": "holdout_20260105_pair.json",
+    "sha256": "3bdf49287e9143635dac5d3311e88ec78a9ea738e499ba4e635ab197d7104cf8",
+    "new_labels": 0
+  },
+  "verification": {
+    "unchanged_research_files": 223,
+    "candidate_prefix_checks": 60,
+    "independent_segment_inventory_checks": 10,
+    "source_anchors": 2,
+    "image_hash_checks": 2,
+    "new_sources": 0,
+    "new_software_labels": 0
+  },
+  "candidate_prefix_checks": [
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 19.28212366483376,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 11.886700855757681,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "CANCEL",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 9.53297106472428,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "DULL",
+      "route": "activation",
+      "reference_dif": 20.857331758674263,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 0.75,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 0.75,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1.2,
+      "selection": "nearest_qualifying",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "gate": 1.2,
+      "selection": "strongest_eligible",
+      "event": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "matched": true
+    }
+  ],
+  "independent_inventory_checks": [
+    {
+      "period": "90",
+      "time": "2025-07-01 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-07-03 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 10:30:00",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "60",
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    }
+  ],
+  "candidate_sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba",
+  "temporary_script_sha256": "b431baeee2d681dbe0bc115b1a642d95863ce5d774f6b67833514e94bcf7fab9",
+  "materials_needed_now": false,
+  "findings": [
+    "90 minute January5 skipped9bar positive segment separates filtering order from ignoring onebar segments; all5 intervening completed positive segments are at least3bars. Existing screenshot terminal disappearance favors raw counting before pair filtering under strongest locked assumptions.",
+    "90 minute October24 has skipped5bar segment and other intervening4bar segment. Existing caption at-day disappearance independently fits raw11.886701 crossing, not filtered21.939396. It is one correlated market date with the prior120case; not a new exact-hour software label.",
+    "Only5 original activation opportunities met the frozen screen across3 saved frequencies. 130 unconfounded bar snapshots are not130 independent signals. Remaining3 opportunities lack discriminatory observation at current source controls.",
+    "120 minute no unconfounded long-segment origin found in saved738bar scope. This does not prove such cases cannot exist elsewhere or on negative side."
+  ],
+  "limitations": [
+    "Three candidate thresholds are robustness settings, not independent samples.",
+    "DG vs software terminal90DIF differs by0.014999; both lie between candidate targets, but historical peak alignment remains unverified.",
+    "Strongest and locked assumptions are necessary for these local exclusions. A nearest-qualified selector after full-history filtering can select the smaller target; dynamic retargeting is not excluded.",
+    "Software original peak identity, fixed2 universal range, intrinsic peak retirement and author analytical reference must remain separate.",
+    "No code/parameter/config/API changes, network calls, quota usage, installs, DB/Lake writes, commits or trades."
+  ],
+  "next_step": "Apply the six already existing reference-retirement candidates to saved90October24 andJanuary5 controls, report which are excluded at source resolution and which remain equivalent; compare against existing120 evidence. No new mechanisms, thresholds or source request unless a specific unresolved split requires one date."
+}

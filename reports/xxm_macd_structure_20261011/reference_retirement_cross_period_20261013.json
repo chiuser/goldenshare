@@ -1,0 +1,3918 @@
+{
+  "research_date": "2026-10-13",
+  "status": "THREE_DEFINITIONS_SURVIVE_BUT_TWO_ARE_LOGICALLY_EQUIVALENT",
+  "scope": "Six existing historical-reference retirement candidates tested at original90source timing resolution and compared with preserved120controls. Strongest eligible selection and current-reference locking unchanged. No new variants, gates, labels or source fetch.",
+  "variant_definitions": {
+    "fixed2": {},
+    "crossed2": {
+      "retirement_policy": "raw_dif_cross"
+    },
+    "dominated2": {
+      "retirement_policy": "dominated"
+    },
+    "longer2": {
+      "history_min_bars": 2
+    },
+    "crossed_all": {
+      "retirement_policy": "raw_dif_cross",
+      "max_refs": 10000
+    },
+    "dominated_all": {
+      "retirement_policy": "dominated",
+      "max_refs": 10000
+    }
+  },
+  "gates": [
+    0.75,
+    1,
+    1.2
+  ],
+  "sources": {
+    "ninety_day_caption": {
+      "id": "90_same_day_disappearance",
+      "file": "sources/20251024_vidiq_transcript.json",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "source_url": "https://www.youtube.com/watch?v=iflE76iVGO8",
+      "json_pointer": "/response/transcription",
+      "char_start": 984,
+      "char_end": 1132,
+      "raw_excerpt": "我们再看90分钟 90分钟今天钝化也消失 是吧钝化也消失 但是90分钟只形成过这一次结构啊 120分钟多次结构 但90分钟就这一次 我们减仓是在这减的 在这减价格呢 是3,852 今天收盘是3,95098个点 不到3% 不到3% 4成仓呢 就是1%左右啊 百分之1%左右的损耗 但时间是比较长的啊",
+      "audio_verified": false
+    },
+    "ninety_jan6_context": {
+      "id": "90_previous_day_small_dulling",
+      "file": "sources/20260106_vidiq_transcript.json",
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "source_url": "https://www.youtube.com/watch?v=Inqg55eiSso",
+      "json_pointer": "/response/transcription",
+      "char_start": 532,
+      "char_end": 569,
+      "raw_excerpt": "90分钟级别特别小 它很容易消失 我们刚才看了 很容易消失 今天日线也很小",
+      "audio_verified": false
+    },
+    "ninety_jan5_holdout": {
+      "file": "holdout_20260105_pair.json",
+      "sha256": "3bdf49287e9143635dac5d3311e88ec78a9ea738e499ba4e635ab197d7104cf8",
+      "labels": [
+        {
+          "freq": 90,
+          "time": "2026-01-05 14:00:00",
+          "expected": "DULL",
+          "confidence": "mapped",
+          "position_error": "possibly one bar"
+        },
+        {
+          "freq": 90,
+          "time": "2026-01-05 15:00:00",
+          "expected": "CANCEL",
+          "confidence": "direct",
+          "position_error": "terminal marker visible"
+        }
+      ],
+      "software_endpoint": 23.658,
+      "dg_endpoint": 23.672999109934608,
+      "alignment_warning": "Software/DG terminal DIF difference about0.014999 does not close target gaps; historical software peaks unverified."
+    },
+    "ninety_images": [
+      {
+        "file": "sources/20260105_60.png",
+        "sha256": "5e0d79f215ab56e2d2a5dac191d8b958294c6fbf5a461454ea29e7771c96adf0",
+        "hash_verified": true
+      },
+      {
+        "file": "sources/20260105_90.png",
+        "sha256": "f2560febeb2ab7dc16b4ff7f7f1e2674f789d181091afcf123332ebe800a857d",
+        "hash_verified": true
+      }
+    ],
+    "one_twenty_previous_result": {
+      "file": "peak_retirement_contrast_20261013.json",
+      "sha256": "f83851dc61c092f942f40096918d2e812ce24bf939531e741ad6902158ad8bbd",
+      "preserved_source_anchors": [
+        {
+          "id": "oct16_old_high_offscreen_and_excluded_after_alternations",
+          "file": "sources/20251016_transcript.txt",
+          "sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+          "lines": [
+            35,
+            41
+          ],
+          "char_start": 1678,
+          "char_end": 2013,
+          "raw_excerpt": "4:444分钟44秒钟看一下120分钟线 120分钟线它的量化标准仍然是3934点\n4:514分钟51秒钟收盘价格高于3934就会出 稍等啊我看一下 这个是3934吗\n4:594分钟59秒钟对啊这个 这个就这根线的收盘价格啊 这根线的收盘价格33393 三点九七 就是3934嘛\n5:075分钟7秒钟如果120分钟高于3934点 也会出钝化 但是稍等\n5:155分钟15秒钟钝化的级别不大了啊 钝化的级别不大了 这个 我没有截到前面那个最高的峰值啊\n5:225分钟22秒钟因为就最高的那个值已经过去了 这中间 出现了反复多次的红角线和绿角线 把最高的值度过去了\n5:315分钟31秒钟就是还会出顿化 但是顿化的级别不大 级别不大就代表它容易顿化消失 它比较容易顿化消失\n",
+          "audio_verified": false
+        },
+        {
+          "id": "nov13_this_value_size_and_two_red_bars",
+          "file": "sources/20251113_user_transcript.txt",
+          "sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+          "lines": [
+            12,
+            17
+          ],
+          "char_start": 515,
+          "char_end": 830,
+          "raw_excerpt": "1:321分钟32秒钟再看一下 120分钟 120分钟明天有可能就有动画了 因为他要跟这个值做对比啊\n1:421分钟42秒钟这个钝化的级别还可以 不算大反正也不算小 够用 120分钟今天有红角线了啊\n1:501分钟50秒钟0点正值啊 正值就是红角线 所以呢需要两根红角线 需要收盘价格创新高 对吧那这的时候呢 为啥没有啊\n1:591分钟59秒钟当时我们也说了 差了0.2 然后呢 还是一根红角线现 在呢也是一根红脚线\n2:062分钟6秒钟收盘价格创新高了 但是下面只有一根红脚线 那明天上午就第二根红脚线了 两根红脚线\n2:142分钟14秒钟价格创新高 收盘价格创新高 就会有120分钟的顶部动画 然后90分钟 90分钟二次是吧\n",
+          "audio_verified": false
+        },
+        {
+          "id": "oct24_120_alternations_and_morning_dull_afternoon_disappearance",
+          "file": "sources/20251024_vidiq_transcript.json",
+          "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+          "json_pointer": "/response/transcription",
+          "char_start": 660,
+          "char_end": 810,
+          "raw_excerpt": "我们再看一下120分钟线 这120分钟啊 120分钟 120分钟 这也是啊 这我画圆圈这个位置啊 反复的绿角线红角线 绿角线红角线 反复的穿插 导致这个地方的级别 敦化的级别比较小 所以他就容易消失嘛 你看第一个周期敦化 第二个周期就消失了 就代表敦化的级别比较小啊 但是不管怎么样 他也是动画消失 ",
+          "audio_verified": false
+        }
+      ],
+      "preserved_images": [
+        {
+          "file": "sources/20251016_120.png",
+          "sha256": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+          "manifest_hash_matched": true
+        },
+        {
+          "file": "sources/20251113_120.png",
+          "sha256": "9a8e83348ca913add85fc97d0a005088172aef22ac56dd483b1b69ae1201c2d3",
+          "manifest_hash_matched": true
+        },
+        {
+          "file": "sources/20251027_120.png",
+          "sha256": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+          "manifest_hash_matched": true
+        }
+      ],
+      "preserved_labels": [
+        {
+          "time": "2025-10-24 11:30:00",
+          "expected_event": "DULL",
+          "confidence": "mapped",
+          "observation": "Yellow dullness label aligns to the first Oct24 bar; supported by Oct24 caption, conditional on stable text anchoring"
+        },
+        {
+          "time": "2025-10-24 15:00:00",
+          "expected_event": "CANCEL",
+          "confidence": "mapped",
+          "observation": "Green disappearance label aligns to the second Oct24 bar, left of both Oct27 bars; supported by Oct24 caption"
+        },
+        {
+          "time": "2025-10-27 11:30:00",
+          "expected_event": "NONE",
+          "confidence": "mapped",
+          "observation": "No separate new event text under first Oct27 bar; historical green label lies to its left"
+        },
+        {
+          "time": "2025-10-27 15:00:00",
+          "expected_event": "NONE",
+          "confidence": "direct",
+          "observation": "Selected last bar has no new event marker; screenshot endpoint values checked"
+        }
+      ]
+    }
+  },
+  "input_sha256": {
+    "inputs/90_20250401_20250703.csv": "c68e1cddb3daa8c7eaad36b17903b08e1d44e779379dcdd92777074c0fdd776c",
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "inputs/120_20250401_20251111.csv": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7"
+  },
+  "ninety_overlap_rows": 69,
+  "matrix": [
+    {
+      "variant": "fixed2",
+      "definition": {},
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 0,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 0,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 0,
+      "conditional_survivor": true
+    },
+    {
+      "variant": "crossed2",
+      "definition": {
+        "retirement_policy": "raw_dif_cross"
+      },
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 0,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 0,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 0,
+      "conditional_survivor": true
+    },
+    {
+      "variant": "dominated2",
+      "definition": {
+        "retirement_policy": "dominated"
+      },
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 0,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 0,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 0,
+      "conditional_survivor": true
+    },
+    {
+      "variant": "longer2",
+      "definition": {
+        "history_min_bars": 2
+      },
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 0,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 0,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 6,
+      "conditional_survivor": false
+    },
+    {
+      "variant": "crossed_all",
+      "definition": {
+        "retirement_policy": "raw_dif_cross",
+        "max_refs": 10000
+      },
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 3,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 3,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 3,
+      "conditional_survivor": false
+    },
+    {
+      "variant": "dominated_all",
+      "definition": {
+        "retirement_policy": "dominated",
+        "max_refs": 10000
+      },
+      "ninety_jan5_point_checks": 6,
+      "ninety_jan5_point_mismatches": 3,
+      "ninety_oct24_day_checks": 3,
+      "ninety_oct24_day_mismatches": 3,
+      "one_twenty_point_checks": 12,
+      "one_twenty_point_mismatches": 3,
+      "conditional_survivor": false
+    }
+  ],
+  "point_checks": [
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 23.132934971069062,
+      "reference_start": "2025-12-18 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 52.465540153175425,
+      "reference_start": "2025-08-15 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 15.518977563021508,
+      "reference_start": "2025-10-16 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "CANCEL",
+      "state": "NONE",
+      "route": "dif_break",
+      "reference_dif": 19.868377518397665,
+      "reference_start": "2025-09-30 11:30:00",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "NONE",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "actual": "DULL",
+      "state": "DULL",
+      "route": "activation",
+      "reference_dif": 61.80033538696671,
+      "reference_start": "2025-08-06 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "expected": "CANCEL",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": false
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "expected": "NONE",
+      "confidence": "direct",
+      "actual": "NONE",
+      "state": "DULL",
+      "route": "",
+      "reference_dif": null,
+      "reference_start": "",
+      "matched": true
+    }
+  ],
+  "day_checks": [
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "fixed2",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed2",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated2",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "longer2",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "longer2",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "longer2",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-10-16 11:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-10-16 11:00:00",
+        "event_ref_dif": 11.886700855757681,
+        "event_ref_price": 3928.54
+      },
+      "cancellations": [
+        {
+          "time": "2025-10-24 14:00:00",
+          "event": "CANCEL",
+          "state": "NONE",
+          "wave_count": 3,
+          "ref_start": "2025-10-16 11:00:00",
+          "close": 3947.5713,
+          "dif": 12.225414240583177,
+          "hist": 9.690425449649439,
+          "wave_sign": 1,
+          "event_direction": 1,
+          "event_route": "dif_break",
+          "event_ref_start": "2025-10-16 11:00:00",
+          "event_ref_dif": 11.886700855757681,
+          "event_ref_price": 3928.54
+        }
+      ],
+      "end_state": "NONE",
+      "matched": true,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed_all",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated_all",
+      "gate": 1,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    },
+    {
+      "period": "90",
+      "date": "2025-10-24",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "source_resolution": "day-only caption, no exact-hour software label",
+      "activation": {
+        "time": "2025-10-24 11:00:00",
+        "event": "DULL",
+        "state": "DULL",
+        "wave_count": 2,
+        "ref_start": "2025-08-15 14:00:00",
+        "close": 3939.7864,
+        "dif": 9.512013425429814,
+        "hist": 6.686230181755073,
+        "wave_sign": 1,
+        "event_direction": 1,
+        "event_route": "activation",
+        "event_ref_start": "2025-08-15 14:00:00",
+        "event_ref_dif": 52.465540153175425,
+        "event_ref_price": 3884.947
+      },
+      "cancellations": [],
+      "end_state": "DULL",
+      "matched": false,
+      "condition": "Compared to positive target from the same modeled activation; day caption does not directly name this exact historical peak or activation."
+    }
+  ],
+  "prefix_checks": [
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2026-01-05 11:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2026-01-05 14:00:00",
+      "matched": true
+    },
+    {
+      "period": "90",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2026-01-05 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "fixed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "longer2",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "crossed_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 0.75,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-24 15:00:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 11:30:00",
+      "matched": true
+    },
+    {
+      "period": "120",
+      "variant": "dominated_all",
+      "gate": 1.2,
+      "time": "2025-10-27 15:00:00",
+      "matched": true
+    }
+  ],
+  "original_replay_parity": [
+    {
+      "period": "90",
+      "gate": 0.75,
+      "rows": 579,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "gate": 1,
+      "rows": 579,
+      "matched": true
+    },
+    {
+      "period": "90",
+      "gate": 1.2,
+      "rows": 579,
+      "matched": true
+    },
+    {
+      "period": "120",
+      "gate": 0.75,
+      "rows": 300,
+      "matched": true
+    },
+    {
+      "period": "120",
+      "gate": 1,
+      "rows": 300,
+      "matched": true
+    },
+    {
+      "period": "120",
+      "gate": 1.2,
+      "rows": 300,
+      "matched": true
+    }
+  ],
+  "full_sequence_survivor_equivalence": [
+    {
+      "period": "90",
+      "gate": 0.75,
+      "against": "crossed2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "90",
+      "gate": 0.75,
+      "against": "dominated2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "90",
+      "gate": 1,
+      "against": "crossed2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "90",
+      "gate": 1,
+      "against": "dominated2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "90",
+      "gate": 1.2,
+      "against": "crossed2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "90",
+      "gate": 1.2,
+      "against": "dominated2",
+      "rows": 579,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 0.75,
+      "against": "crossed2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 0.75,
+      "against": "dominated2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 1,
+      "against": "crossed2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 1,
+      "against": "dominated2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 1.2,
+      "against": "crossed2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    },
+    {
+      "period": "120",
+      "gate": 1.2,
+      "against": "dominated2",
+      "rows": 300,
+      "different_full_output_rows": 0,
+      "first_difference": []
+    }
+  ],
+  "dominated2_logical_redundancy": {
+    "status": "DOMINATED2_IS_REDUNDANT_UNDER_CURRENT_TWO_RAW_SEGMENT_AND_NEAREST_PRICE_GATE_RULES",
+    "assumptions": [
+      "Only latest two completed same-direction segments enter the raw pool.",
+      "Nearest raw segment price prerequisite and strict current price/DIF pair qualification unchanged.",
+      "Strongest eligible reference chosen, nearest first in equal-DIF ties.",
+      "Dominance only removes histories from new selection; it does not mutate locked current reference, counters or sign-flip lifecycle."
+    ],
+    "argument": [
+      "The nearest completed segment cannot be dominated by a later completed same-direction segment, because no such segment exists yet.",
+      "Only the older of the two can be removed. Its possible dominating later segment is necessarily the nearest one.",
+      "The nearest-price gate already makes the current price qualify against that nearest segment. If the older DIF qualifies and is dominated, the nearest DIF is at least as extreme and qualifies too.",
+      "The unchanged strongest selection therefore chooses the nearest segment before and after removing the older one; equal-DIF ties also choose nearest. If the older one does not qualify, removing it cannot affect selection.",
+      "Identical new selection and identical locked-reference transition rules imply identical complete replay by induction over bars. The normalized sign argument applies to top and bottom directions within these candidate definitions, not to any unobserved author formula."
+    ],
+    "independent_relation_checks": 1458,
+    "relation_grid": [
+      -1,
+      0,
+      1
+    ],
+    "relation_grid_is_not_a_signal_parameter": true,
+    "limits": "Does not establish crossed2 equivalence for every valid MACD sequence, more-than-two pools, a different nearest-price prerequisite, dynamic retargeting or other qualification rules."
+  },
+  "findings": [
+    "Four finite-history definitions fit both90controls. Two unlimited-history variants instead lock on52.465540153175425, the positive segment starting2025-08-15 14:00. No same-day cancellation occurs onOctober24 orJanuary5; January5 direct terminal disappearance additionally conflicts.",
+    "longer2 fits these90cases because relevant recent segments exceedonebar, but remains inconsistent with120October24/27 mapped timing. Three candidate definitions remain jointly compatible; matched90cases do not rehabilitate the120failures.",
+    "dominated2 adds no distinct selection behavior under the frozen two-segment/nearest-price/strongest rules; its equality is structurally justified, not just a sample coincidence. Merge it withfixed2 when counting open mechanisms.",
+    "crossed2 andfixed2 are equal at tested endpoints and throughout both saved full sequences for3gates. Whether this also follows from MACD recurrence and two-segment logic is not established this round; no targeted source request until a true possible split is found."
+  ],
+  "verification": {
+    "unchanged_research_files": 224,
+    "retirement_endpoint_prefix_checks": 180,
+    "point_checks": 108,
+    "caption_day_checks": 18,
+    "preserved120point_checks": 72,
+    "relation_identity_checks": 1458,
+    "new_sources": 0,
+    "new_software_labels": 0
+  },
+  "candidate_sha256": {
+    "reference_retirement_candidate.py": "46ee216b16318e06e995fb804186b4fffee1c2d803ec706aa1994dcaf03c9d46",
+    "screen_reference_retirement.py": "d25a05161f4a6e45b59a26c22ccae522e1a9de38beb5af85d02a5293bdd73bb8",
+    "replay_color_flip.py": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba"
+  },
+  "temporary_script_sha256": "fc73eb052e8fe53841e2eaafd2656ce283b8f1cadf08edea5df8c008ed099d65",
+  "materials_needed_now": false,
+  "limitations": [
+    "Retrospective conditional checks, not blind accuracy. Gates and correlated observations do not multiply independent cases.",
+    "90October24 caption is day-grain; do not invent a14:00exact software label or upgrade its reference identity. January5DULL14:00remainsmapped withpossiblyonebarerror; end15:00CANCELisexistingdirect.",
+    "Reject these specific unlimited strongly selected locked-reference implementations, not every unrestricted-history approach with different selectors or author analytical use of older peaks.",
+    "No formal code, parameter, config, API, architecture or dependency changes; no network, quota, installation, DB/Lake writes, commits or trades."
+  ],
+  "next_step": "Check whether raw-DIF permanent retirement within two raw segments can add behavior beyond fixed2 on a valid MACD sequence. First reason through MACD histogram sign/DEA recurrence and completed-segment order, then verify saved inputs. Merge only if logically redundant; otherwise freeze a real disagreement before requesting one specific source."
+}

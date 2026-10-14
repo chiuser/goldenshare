@@ -1,0 +1,60 @@
+{
+  "research_date": "2026-10-12",
+  "prediction_source": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/post_june9_predictions_20261012.json",
+  "source_sha256": "24023ccc46498d43f8ac7a0b63c24b8f77f1a677f6f2f48ecd1ea154bbe8fac9",
+  "before_author_check": "No June18 or June26 author follow-up text read this turn before this file",
+  "scope": "Saved input candidates, not original software labels or prospective forecast",
+  "trend_correction_alternatives": {
+    "return_under_upper_not_down": {
+      "date": "2026-06-18",
+      "row": {
+        "date": "2026-06-18",
+        "close": 4090.4813,
+        "short_channel": {
+          "upper": 4093.5675895111203,
+          "lower": 4046.3054951620848,
+          "position": "INSIDE",
+          "state": "UP"
+        },
+        "long_channel": {
+          "upper": 4075.3322098443937,
+          "lower": 4029.8569946417,
+          "position": "ABOVE",
+          "state": "UP"
+        }
+      },
+      "expected": "short INSIDE/UP; long ABOVE/UP; differs from state-DOWN correction rule"
+    },
+    "first_below_lower": {
+      "date": "2026-06-26",
+      "row": {
+        "date": "2026-06-26",
+        "close": 4027.2648,
+        "short_channel": {
+          "upper": 4107.31152205625,
+          "lower": 4052.2870619588093,
+          "position": "BELOW",
+          "state": "DOWN"
+        },
+        "long_channel": {
+          "upper": 4081.840892334506,
+          "lower": 4033.6469448444846,
+          "position": "BELOW",
+          "state": "DOWN"
+        }
+      },
+      "expected": "short and long BELOW/DOWN; both turn DOWN, does not identify channel selection"
+    }
+  },
+  "structure_scope": {
+    "start": "2025-09-01",
+    "end": "2025-10-27",
+    "periods": [
+      90,
+      120
+    ],
+    "interpretation": "Retrospective diagnostic on already known October text/images: track each confirmed reference unchanged until first raw DIF strict crossing; compare with current-wave cancellation, without changing baseline",
+    "limits": "A retained-reference diagnostic is a hypothesis; not an implementation of original software structure lifecycle"
+  },
+  "requests": "No missing minute chart request; no new software event label"
+}

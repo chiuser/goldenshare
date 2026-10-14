@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
+import { XxmLayerStatus, XxmResearchDetails } from "../xxm/XxmLayerUi";
+import type { XxmLayerState } from "../xxm/types";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
@@ -39,6 +42,7 @@ export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, tre
 
   const points = useMemo(() => viewModel.chart.candles.map(toDetailChartPoint), [viewModel.chart.candles]);
   const dataKey = `index:${viewModel.identity.tsCode}:day`;
+  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points });
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
@@ -67,6 +71,7 @@ export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, tre
       )}
       mainLines={mainLines}
       mainPrimitives={mainPrimitives}
+      macdPrimitives={xxm.macdPrimitives}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
       points={points}
       renderMainHeader={(point) => (
@@ -78,8 +83,8 @@ export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, tre
           trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
         />
       )}
-      renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}
-      renderTooltip={(point, side) => <IndexTooltip point={point} side={side} />}
+      renderPanelHeader={(panel, point) => <><IndexPanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
+      renderTooltip={(point, side) => <IndexTooltip point={point} side={side} xxm={xxm} />}
       timeAxisAriaLabel="指数日线底部时间轴"
       timeMode="daily"
     />
@@ -183,7 +188,7 @@ function IndexIndicatorBar({ overlay, setOverlay, supportsTrend }: { overlay: In
   </div>;
 }
 
-function IndexTooltip({ point, side }: { point: DetailChartPoint; side: DetailChartTooltipSide }) {
+function IndexTooltip({ point, side, xxm }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState }) {
   const rows = [
     ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
     ["开盘", format(point.open), directionClass(compare(point.open, point.preClose))],
@@ -195,7 +200,7 @@ function IndexTooltip({ point, side }: { point: DetailChartPoint; side: DetailCh
     ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatCompact(point.amount, ""), "secondary"],
   ];
-  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div></div>;
+  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div><XxmResearchDetails layer={xxm} time={String(point.time)} /></div>;
 }
 
 function pointValue(value: number | undefined): number | null { return Number.isFinite(value) ? value ?? null : null; }

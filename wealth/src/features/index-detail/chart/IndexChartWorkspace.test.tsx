@@ -14,6 +14,8 @@ const workspaceMock = vi.hoisted(() => ({
   reset() { this.props.splice(0, this.props.length); },
 }));
 
+vi.mock("../xxm/useIndexXxmLayer", () => ({ useIndexXxmLayer: () => ({ phase: "unsupported", data: null, errorMessage: "", requestKey: "", retry: () => {}, macdPrimitives: [] }) }));
+
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
   DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
     workspaceMock.props.push(props);

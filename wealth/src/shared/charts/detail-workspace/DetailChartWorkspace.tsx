@@ -96,6 +96,8 @@ interface DetailChartViewportUiState {
 }
 
 interface DetailChartRuntime {
+  macdSeries: ISeriesApi<SeriesType>;
+  macdPrimitives: NonNullable<DetailChartWorkspaceProps["macdPrimitives"]>;
   applyRange: (range: DetailChartLogicalRange) => void;
   applyIndicatorRanges: (range: DetailChartLogicalRange) => void;
   getRange: () => DetailChartLogicalRange | null;
@@ -119,6 +121,7 @@ export function DetailChartWorkspace({
   mainLines,
   mainLayerAccessory,
   mainPrimitives,
+  macdPrimitives,
   panelAriaLabels,
   points,
   renderMainHeader,
@@ -130,6 +133,9 @@ export function DetailChartWorkspace({
   topRightAccessory,
 }: DetailChartWorkspaceProps) {
   const primitives = mainPrimitives ?? EMPTY_MAIN_PRIMITIVES;
+  const macdLayers = macdPrimitives ?? EMPTY_MAIN_PRIMITIVES;
+  const latestMacdLayers = useRef(macdLayers);
+  latestMacdLayers.current = macdLayers;
   const chartsAreaRef = useRef<HTMLDivElement | null>(null);
   const chartRefs = useRef<ChartRefs>({ kline: null, macd: null, volume: null, kdj: null });
   const [hoverIndex, setHoverIndex] = useState(points.length - 1);
@@ -275,6 +281,7 @@ export function DetailChartWorkspace({
       (_point, value) => value >= 0 ? "rgba(255, 77, 90, 0.64)" : "rgba(24, 208, 146, 0.64)",
     ));
     const difSeries = addLine(macdChart, DETAIL_CHART_COLORS.brand, (point) => point.dif, true);
+    latestMacdLayers.current.forEach(primitive => difSeries.attachPrimitive(primitive));
     const deaSeries = addLine(macdChart, DETAIL_CHART_COLORS.blue, (point) => point.dea, true);
 
     const kSeries = addLine(kdjChart, DETAIL_CHART_COLORS.brand, (point) => point.k, true);
@@ -459,6 +466,8 @@ export function DetailChartWorkspace({
       });
     };
     const runtime: DetailChartRuntime = {
+      macdSeries: difSeries,
+      macdPrimitives: latestMacdLayers.current,
       applyRange: applyVisibleRange,
       applyIndicatorRanges,
       getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
@@ -638,9 +647,18 @@ export function DetailChartWorkspace({
       window.removeEventListener("mouseup", handleMouseUp, { capture: true });
       klineSeries.detachPrimitive(visibleExtremaPrimitive);
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
+      runtime.macdPrimitives.forEach(primitive => difSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
   }, [candleData, commitViewportRange, crosshairPresentation, dataKey, mainLines, points, primitives, timeAxisPlacement, timeMode]);
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime || runtime.macdPrimitives === macdLayers) return;
+    runtime.macdPrimitives.forEach(primitive => runtime.macdSeries.detachPrimitive(primitive));
+    macdLayers.forEach(primitive => runtime.macdSeries.attachPrimitive(primitive));
+    runtime.macdPrimitives = macdLayers;
+  }, [macdLayers]);
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>

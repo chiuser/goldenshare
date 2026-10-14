@@ -1,0 +1,75 @@
+{
+  "reviewed_at": "2026-10-11T11:24:56.677438+00:00",
+  "frozen_at": "2026-10-11T11:19:21.883606+00:00",
+  "frozen_target_sha256": "d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0",
+  "scope": "Caption review after freezing; no screenshot labels or new accuracy points",
+  "sources": [
+    {
+      "date": "20250711",
+      "video_id": "BlSH7x0QElk",
+      "title": "徐小明周一操作策略 | A股2025.07.11 大盘指数盘后行情分析",
+      "priority": 1,
+      "period": "90分钟",
+      "status": "优先补图",
+      "observations": [
+        "开场确认日期2025年7月11日；讲解120分钟上午钝化消失。",
+        "随后将90分钟、120分钟、日线描述为钝化消失，并讨论顶部结构减仓后以钝化消失纠错。",
+        "这支持核查结构后的失效，但没有说90分钟失效确切在哪根柱，也没有报旧参照19.282。",
+        "不可把120分钟11:30消失直接记作90分钟11:00命中。"
+      ],
+      "request": "上证90分钟，当日收盘图，尽量覆盖6月24日至7月11日，保留白黄线、柱线和历史标记。若视频未展示90分钟，直接跳过；120分钟已提供。",
+      "source_url": "https://www.youtube.com/watch?v=BlSH7x0QElk",
+      "fetched_at": "2026-10-11T11:20:08.832Z",
+      "transcript_chars": 4782,
+      "transcript_file": "reports/xxm_macd_structure_20261011/sources/20250711_vidiq_transcript.json",
+      "transcript_sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "target_label_added": false
+    },
+    {
+      "date": "20260106",
+      "video_id": "Inqg55eiSso",
+      "title": "徐小明周三操作策略 | A股2026.01.06 大盘指数盘后行情分析",
+      "priority": 2,
+      "period": "90分钟",
+      "status": "备选",
+      "observations": [
+        "开场确认日期2026年1月6日；讲解昨天60、90分钟有小级别钝化，90分钟很容易消失。",
+        "没有明确称1月6日14:00突破的是10月旧结构参照；近期12月峰和旧10月峰不得混为一谈。",
+        "原候选按DG数据在1月5日15:00已经取消近期12月峰钝化；本次目标是之后旧10月结构参照的独立失效。",
+        "14:00 DIF超旧峰仅0.096723，下一根15:00超旧峰3.903099；如能移光标，应同时读下午两根。"
+      ],
+      "request": "上证90分钟，先保留12月18日至1月6日及1月5、6日末端标记；若有更宽历史图再核对11月结构来源。",
+      "source_url": "https://www.youtube.com/watch?v=Inqg55eiSso",
+      "fetched_at": "2026-10-11T11:20:07.902Z",
+      "transcript_chars": 4951,
+      "transcript_file": "reports/xxm_macd_structure_20261011/sources/20260106_vidiq_transcript.json",
+      "transcript_sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "target_label_added": false
+    },
+    {
+      "date": "20250723",
+      "video_id": "PQ9MdnGmMgM",
+      "title": "徐小明周四操作策略 | A股2025.07.23 大盘指数盘后行情分析",
+      "priority": 3,
+      "period": "60分钟",
+      "status": "降级，不优先要求寻找",
+      "observations": [
+        "开场确认日期2025年7月23日；主要明确展示120分钟上午钝化消失，并讲90分钟也消失。",
+        "缺少针对60分钟10:30与11:30两根的清楚讲解，不得拿90或120分钟替代60分钟节点。",
+        "60分钟原候选10:30因近期7月峰取消，旧6月结构峰若独立保留到11:30才突破；连续两根区分新旧参照失效。"
+      ],
+      "request": "只在视频实际展示时补上证60分钟，保留当日上午四根与MACD；否则跳过。",
+      "source_url": "https://www.youtube.com/watch?v=PQ9MdnGmMgM",
+      "fetched_at": "2026-10-11T11:20:07.766Z",
+      "transcript_chars": 4382,
+      "transcript_file": "reports/xxm_macd_structure_20261011/sources/20250723_vidiq_transcript.json",
+      "transcript_sha256": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+      "target_label_added": false
+    }
+  ],
+  "limitations": [
+    "公开转发频道，尚未核实作者本人授权；自动字幕有钝化/动画、消失/小时等错词。",
+    "标题与字幕开场日期均核对；字幕缺少可靠的分段时间戳，不猜视频秒数。",
+    "候选失效时间来自DG数据；90分钟软件与DG分桶或初始化差异尚未解决。"
+  ]
+}

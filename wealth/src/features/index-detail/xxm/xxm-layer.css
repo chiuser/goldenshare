@@ -1,0 +1,11 @@
+.xxm-layer-status { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; min-width: 0; color: var(--cs-color-text-secondary); font-size: 11px; pointer-events: auto; }
+.xxm-status-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
+.xxm-layer-status.error { color: var(--cs-color-danger-system); }
+.xxm-layer-status.delayed { color: var(--cs-color-warning); }
+.xxm-layer-status button { padding: 0 4px; border: 1px solid var(--cs-color-border-default); border-radius: 3px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.detail-chart-tooltip:has(.xxm-tooltip) { width: 328px; max-width: calc(100% - 20px); }
+.xxm-tooltip { margin-top: 6px; border-top: 1px solid var(--cs-color-border-subtle); padding-top: 4px; font-size: 11px; line-height: 14px; }
+.xxm-tooltip-title { margin-bottom: 3px; color: var(--cs-color-text-primary); }
+.xxm-tooltip-row { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 6px; min-height: 14px; color: var(--cs-color-text-secondary); }
+.xxm-tooltip-row b { color: var(--cs-color-text-primary); font-size: 10px; font-weight: 400; text-align: right; overflow-wrap: anywhere; }
+.xxm-tooltip-note { margin-top: 4px; color: var(--cs-color-text-muted); font-size: 10px; }

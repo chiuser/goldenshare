@@ -1,0 +1,2575 @@
+{
+  "research_date": "2026-10-13",
+  "status": "EXISTING_LECTURE_SEMANTIC_MEASUREMENT_AUDIT_NOT_ORIGINAL_FORMULA_RESTORATION",
+  "source_inventory": [
+    {
+      "file": "sources/20250624_vidiq_transcript.json",
+      "date": "20250624",
+      "sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "characters": 5007,
+      "source_url": "https://www.youtube.com/watch?v=0pRHKjTiHGM"
+    },
+    {
+      "file": "sources/20250625_vidiq_transcript.json",
+      "date": "20250625",
+      "sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "characters": 5794,
+      "source_url": "https://www.youtube.com/watch?v=5SBg6oU2c4c"
+    },
+    {
+      "file": "sources/20250626_vidiq_transcript.json",
+      "date": "20250626",
+      "sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "characters": 5511,
+      "source_url": "https://www.youtube.com/watch?v=jv_ZGcDSV10"
+    },
+    {
+      "file": "sources/20250711_vidiq_transcript.json",
+      "date": "20250711",
+      "sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "characters": 4782,
+      "source_url": "https://www.youtube.com/watch?v=BlSH7x0QElk"
+    },
+    {
+      "file": "sources/20250722_vidiq_transcript.json",
+      "date": "20250722",
+      "sha256": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+      "characters": 7863,
+      "source_url": "https://www.youtube.com/watch?v=nfiZ-e-zy1E"
+    },
+    {
+      "file": "sources/20250723_vidiq_transcript.json",
+      "date": "20250723",
+      "sha256": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+      "characters": 4382,
+      "source_url": "https://www.youtube.com/watch?v=PQ9MdnGmMgM"
+    },
+    {
+      "file": "sources/20250815_vidiq_transcript.json",
+      "date": "20250815",
+      "sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+      "characters": 5052,
+      "source_url": "https://www.youtube.com/watch?v=WqGqhpLhLPk"
+    },
+    {
+      "file": "sources/20250818_vidiq_transcript.json",
+      "date": "20250818",
+      "sha256": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+      "characters": 5617,
+      "source_url": "https://www.youtube.com/watch?v=_mIgN_lnoc0"
+    },
+    {
+      "file": "sources/20251016_vidiq_transcript.json",
+      "date": "20251016",
+      "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+      "characters": 5325,
+      "source_url": "https://www.youtube.com/watch?v=o4w4G6q-fSQ"
+    },
+    {
+      "file": "sources/20251024_vidiq_transcript.json",
+      "date": "20251024",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "characters": 5416,
+      "source_url": "https://www.youtube.com/watch?v=iflE76iVGO8"
+    },
+    {
+      "file": "sources/20251027_vidiq_transcript.json",
+      "date": "20251027",
+      "sha256": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+      "characters": 8976,
+      "source_url": "https://www.youtube.com/watch?v=Tt49X3Y-K9E"
+    },
+    {
+      "file": "sources/20251216_vidiq_transcript.json",
+      "date": "20251216",
+      "sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+      "characters": 5974,
+      "source_url": "https://www.youtube.com/watch?v=MXHvcQgdfHk"
+    },
+    {
+      "file": "sources/20260106_vidiq_transcript.json",
+      "date": "20260106",
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "characters": 4951,
+      "source_url": "https://www.youtube.com/watch?v=Inqg55eiSso"
+    },
+    {
+      "file": "sources/20250703_user_transcript.txt",
+      "date": "20250703",
+      "sha256": "77976dae557321395bdc7e54b83438a1378fa97e2afc33597ef0156b2b7a4815",
+      "characters": 6489,
+      "source_url": null
+    },
+    {
+      "file": "sources/20251111_user_transcript.txt",
+      "date": "20251111",
+      "sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "characters": 6354,
+      "source_url": null
+    },
+    {
+      "file": "sources/20251113_user_transcript.txt",
+      "date": "20251113",
+      "sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "characters": 4982,
+      "source_url": null
+    },
+    {
+      "file": "sources/20251114_user_transcript.txt",
+      "date": "20251114",
+      "sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "characters": 6709,
+      "source_url": null
+    },
+    {
+      "file": "sources/20251117_user_transcript.txt",
+      "date": "20251117",
+      "sha256": "6f49d68ea49cf995d5d1d6ecf7979a79028597b47a69a42bf81a753c32980cf3",
+      "characters": 6694,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260605_user_transcript.txt",
+      "date": "20260605",
+      "sha256": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+      "characters": 5463,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260608_user_transcript.txt",
+      "date": "20260608",
+      "sha256": "6d8d5eebb566c2bbf8b950d4d81eae3f74489fb43c02b380c8629f740b8f7d13",
+      "characters": 5615,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260609_user_transcript.txt",
+      "date": "20260609",
+      "sha256": "110f03db75bf5c4c1424b0ad5fd04794a5a6bfc460ed311a2be1f5d369cad0fe",
+      "characters": 6582,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260615_user_transcript.txt",
+      "date": "20260615",
+      "sha256": "10978611a37f5c78023992b8082ca132ba4e47f6f694bb45a2f6dcfa3bd87708",
+      "characters": 6787,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260618_user_transcript.txt",
+      "date": "20260618",
+      "sha256": "6075689f63257964cde2c5ec831708dae737575dbf26e44138fbbfb8a03c3f24",
+      "characters": 5431,
+      "source_url": null
+    },
+    {
+      "file": "sources/20260626_user_transcript.txt",
+      "date": "20260626",
+      "sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+      "characters": 4176,
+      "source_url": null
+    },
+    {
+      "file": "sources/20251016_transcript.txt",
+      "date": "20251016",
+      "sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "characters": 6868,
+      "source_url": null
+    }
+  ],
+  "complete_source_files": 25,
+  "complete_source_distinct_dates": 24,
+  "coverage": "Keyword search across all25 complete saved sources and close reading of12 located passages. April21/23 captured passages fromprior source comparison considered separately, not counted ascomplete transcripts.",
+  "evidence_anchors": [
+    {
+      "id": "skip_peak",
+      "file": "sources/20250624_vidiq_transcript.json",
+      "source_sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "char_start": 3241,
+      "char_end_exclusive": 3424,
+      "raw_excerpt": "120分钟线因为跟格峰可以进行比较 因此这个钝化的级别还是比较大的啊 钝化的级别还是比较大的 90分钟也一样啊 他还是可以跟隔风进行对比 所以顿化的级别比较大 所以90分钟 120分钟仍然是有顿化的 但是就是因为这里是三浪三 如果其他的浪型我 们可能就等钝化消失再进行纠错了 但是三浪三它比较特殊 另外呢就是钝化的级别越大 代表了钝化到钝化消失 所消耗的空间就越大 ",
+      "raw_excerpt_sha256": "034e0d001ca0f113658acaae7a4f2742ab1413bfee8b091b209b2eacdda53f20",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "daily_speed_projection",
+      "file": "sources/20250625_vidiq_transcript.json",
+      "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "char_start": 1296,
+      "char_end_exclusive": 1540,
+      "raw_excerpt": "下面这个值 这个值呢是15.64 日线啊 15.64 他的昨天的值呢是10.7 就是一天涨了5 最高呢是23 最高呢是23 在这啊这值最高23 今天是15 昨天是10 代表每天运行5 按照目前的这个速度 明天可能就是十八九 后天可能就过了 所以呢如果明天出钝化 后天就有可能钝化消失 那么这个钝化到消失的距离 只有一到两个周期 所以日线的钝化的级别很小 但是大概率会有钝化 叉子动画的级别很小 所以这一波我们没有说它 就是不会出现对话 我们看到了会出现对话 但是呢 日线的动画级别比较小 ",
+      "raw_excerpt_sha256": "4965915c0a0d72105368ea7cb03e0f05119b654eca638bda3184488a5462c6ad",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "120_speed_projection",
+      "file": "sources/20250625_vidiq_transcript.json",
+      "source_sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "char_start": 1559,
+      "char_end_exclusive": 1734,
+      "raw_excerpt": "目前还用同样的算法啊 目前的DF值是12 目前的DF值是12 上一个周期呢DF值是7 那么也是运行5或者是4.5 最高的值呢是26啊 最高值是26这个位置啊 2612-26有14 那么我们算4.5的话呢应该是 差不多4个周期 4个周期就两天 日线呢动画消失 那么基本上也是至少需要两天 所以到周五啊 到周五的时候我们再看 好吧到周五的时 候我们再看 ",
+      "raw_excerpt_sha256": "2da22d1d766e4b680fea2e06abc34bff3002b1dc9e33c34ceec356e93cfa2e82",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "flat_speed_undefined",
+      "file": "sources/20250703_user_transcript.txt",
+      "source_sha256": "77976dae557321395bdc7e54b83438a1378fa97e2afc33597ef0156b2b7a4815",
+      "char_start": 1969,
+      "char_end_exclusive": 2113,
+      "raw_excerpt": "9:269分钟26秒钟但是要到动画消失现在 因为它走平嘛 今天和昨天的DF值数值是一样的 这个就没有必要计算了\n9:349分钟34秒钟要这么计算的话 横着走那可能永远都不消失是吧 永远都不消失 动画的级别无法测算 就正常的\n9:429分钟42秒钟我们可以去测算级别啊 这种就没必要 好吧\n",
+      "raw_excerpt_sha256": "f452c0248e9bd3e5029a2c2d494fdb570c5b5e3d11a12c53dbb0fbaba1653c0a",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "july_price_boundary",
+      "file": "sources/20250722_vidiq_transcript.json",
+      "source_sha256": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+      "char_start": 299,
+      "char_end_exclusive": 776,
+      "raw_excerpt": "开120分钟 平开它也动画消失啊 平开也动画消失 今天收盘呢 正好是3581点啊 那么如果第一个周期在3578点 这个就是3579之下吧 就没有动画消失 是吧没有动画消失 还在动画 也就是说什么意思呢 明天开盘只要不跌在3579 就是不下跌3个点 3五7八点 那么市场呢 就会钝化消失 平着就是一开盘可能就动画消失了 但是呢他如果下跌3个点 那可能就 还是动画 但它形成结构 它其实难度是很大的 那明天上午呢 最好是两个周期啊 90分钟和 120分钟全部动画消失 因为这两个周期 他的动画消失的标准呢 都差不多 看啊这是120分钟 3578点就他俩都是一样 的啊 这90分钟和这个120分钟动画消失的 标准都是一样的 都是3578 所以只要明天11点是吧 3578点以上 哪怕它走平 就钝化消失了 然后11点半12点1百二十分钟钝化消失 明天上午是有望 两个周期都钝化消失了 那假如说明天上午没有钝化消失 也不用太也也不用太紧张 他只要不大幅下跌就行 因为这个DF值啊 它横盘它也往上走 你看这个我画了我这个模拟k线 是个小阴线 是吧它DF值还是往上走 ",
+      "raw_excerpt_sha256": "b6a839780603f97c960934c524dd6a8f92f62496f8d0d9d0db0e75255e2ca36e",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "aug_period_price_spaces",
+      "file": "sources/20250815_vidiq_transcript.json",
+      "source_sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+      "char_start": 870,
+      "char_end_exclusive": 1435,
+      "raw_excerpt": "120分钟呢 今天的上升 今天的上升 市场又重新钝化了啊 新的钝化 但是120分钟结构形成 和钝化消失的概率 正好是反的 日线涨3个点 钝化就消失 然后跌多少个点 我忘了啊 得跌16个点左右 15个点 16个点左右 结构形成 那就相当于什么 1:5嘛 1:5嘛 但是120分钟反过来 120分钟反过来也是1:5 就是跌一个 他就出顶部的结构 但是涨5个 他应该是跌7个点啊 120分钟应该跌7个点 结构形成 涨50多个点 钝化消失 能理解吗 所以120分钟结构形成的概率更大 日线的钝化消失的概率更大 所以他们两个呢 是不一样的啊 是不一样的 日线3680 对 我刚才说了16个点啊 16个点动画消失 3699对涨3个点动画消失 120分钟结构相乘 3689跌7个点动画消失 3750涨54个点 对吧你看我刚才说的都是一样的呀 那个叫史同学史诗泽对吧 你这个得出来的结论 跟我跟我刚才说的是一样的啊 上证指数涨3个点 钝化消失 跌16个点 结构形成 120分钟涨54个点 钝化消失 跌7个点 钝化形成 所以就是3:16和54:7120分钟呢 这个从单纯从空间的角度来讲 结构形成概率更大 日线呢多环消失概率更大 老师 120分钟每个周期不一样 对每个周期不一样 比方说到下周一的中午的时候 你再去测这个数 可能还不一样 还不一样 ",
+      "raw_excerpt_sha256": "94276e1a89f972f63378443be7adcebebe24fe8771833392583ea6d68016658d",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "older_peak_retired",
+      "file": "sources/20251016_transcript.txt",
+      "source_sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "char_start": 1854,
+      "char_end_exclusive": 2013,
+      "raw_excerpt": "5:155分钟15秒钟钝化的级别不大了啊 钝化的级别不大了 这个 我没有截到前面那个最高的峰值啊\n5:225分钟22秒钟因为就最高的那个值已经过去了 这中间 出现了反复多次的红角线和绿角线 把最高的值度过去了\n5:315分钟31秒钟就是还会出顿化 但是顿化的级别不大 级别不大就代表它容易顿化消失 它比较容易顿化消失\n",
+      "raw_excerpt_sha256": "d3b934edccfaec3ba9823831d3581b739c6a48f3da9f565341d6b78f110b0089",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "space_definition",
+      "file": "sources/20251016_transcript.txt",
+      "source_sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "char_start": 5555,
+      "char_end_exclusive": 5719,
+      "raw_excerpt": "15:1015分钟10秒钟90分钟和120分钟动画消失是多少点 不一样 但是呢级别都不大 原来120分钟级别大\n15:1815分钟18秒钟你像现在我们说日线的钝化级别大 就代表了他到消失 钝化到消失的空间会很大 但是\n15:2415分钟24秒钟90分钟和120分钟的钝化的级别都很小 可能几十个点 十几个点就就消失了 好吧老师\n",
+      "raw_excerpt_sha256": "a9e6f5fa25650ed6ea0686791ed75a38aa754934fc518782d85bfcb2449e588e",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "one_bar_small",
+      "file": "sources/20251024_vidiq_transcript.json",
+      "source_sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "char_start": 763,
+      "char_end_exclusive": 984,
+      "raw_excerpt": "第一个周期敦化 第二个周期就消失了 就代表敦化的级别比较小啊 但是不管怎么样 他也是动画消失 一旦出现120分钟的动画消失 短期之内就没有结构了 没有动画了 动画消失之后 短期之内没有 所以未来可能一周的时间 120分钟都没有 所以呢这个上证指数啊 其实也还好 是吧你级别大的动画 如果到消失 它的空间大呀 这个呢就比较小 哎你看这个 这高位的时候 对啊多次钝化 多次结构啊 多次结构也不一定说是一定会好用 那结构形成的纠错标准就是钝化消失 ",
+      "raw_excerpt_sha256": "e3621ec6130aa699efb65a3e8a7d66d51a36a9e48713e49bf63b3407019cbec1",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "small_easy_disappear",
+      "file": "sources/20260106_vidiq_transcript.json",
+      "source_sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "char_start": 532,
+      "char_end_exclusive": 662,
+      "raw_excerpt": "90分钟级别特别小 它很容易消失 我们刚才看了 很容易消失 今天日线也很小 今天日线出 钝化可能明天就消失 一天就消失 稍等啊 尤其指数这么涨 明天如果不消失 那后天也消失了 那价格往下走的话呢 DF值也是会继续往上升 DF值会继续往上升 所以呢日线钝化消失 ",
+      "raw_excerpt_sha256": "a5a6a2d573243ae3ede3a445711a55f30dc7c35d4376bab47544caaa7002f1e4",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "january_price_boundary",
+      "file": "sources/20260106_vidiq_transcript.json",
+      "source_sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "char_start": 1042,
+      "char_end_exclusive": 1132,
+      "raw_excerpt": "日线钝化一小时怎么样 日线钝化消失的点是4个点 涨4个点 日线钝化就消失了 目前的价格是4083-4087 日线钝化消失 日线钝化一消失 本周可以不看了 下周上半周可能也不用看了 ",
+      "raw_excerpt_sha256": "96b6bc2c75560b5ee865b87b4637d2c1f999d0e2825a01ff5cc16f1ba760d356",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    },
+    {
+      "id": "bottom_speed_projection",
+      "file": "sources/20251216_vidiq_transcript.json",
+      "source_sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+      "char_start": 1906,
+      "char_end_exclusive": 2031,
+      "raw_excerpt": "现在每个周期DF值运行3啊 就这个现在是15 对吧上一个周期是12 运行3 最低值是3434 呃除以3呢 减15 除以3呢 就是19除以3的这个3 六一十八嘛 6根线 6根线就是三天 6根线就是三天 所以他的级别也没有想象那么大啊 也没有想象那么大 ",
+      "raw_excerpt_sha256": "210f14be3362886d965bbc271ed24bfe500b94ad58f6991f213ca77df2fe9332",
+      "locator_not_playback_timestamp": true,
+      "audio_checked": false
+    }
+  ],
+  "selected_passages": 12,
+  "numeric_cases": [
+    {
+      "case": "jun25_top",
+      "time": "2025-06-25 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "nearest_qualifying",
+      "event": "CANCEL",
+      "state": "NONE",
+      "reference_role": "already canceled old reference",
+      "reference_dif": 11.88627301629458,
+      "reference_start": "2025-06-04 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-05-06 11:30:00",
+          "end": "2025-05-16 11:30:00",
+          "dif_peak": {
+            "time": "2025-05-15 11:30:00",
+            "close": 3389.7544,
+            "dif": 26.114902990716928,
+            "hist": 9.747679734245025
+          }
+        },
+        {
+          "start": "2025-06-04 11:30:00",
+          "end": "2025-06-12 15:00:00",
+          "dif_peak": {
+            "time": "2025-06-12 15:00:00",
+            "close": 3402.658,
+            "dif": 11.88627301629458,
+            "hist": 3.7674124880697555
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-06-25 15:00:00",
+        "close": 3455.9736,
+        "dif": 12.048531096510033,
+        "hist": 15.069571257187135
+      },
+      "previous": {
+        "time": "2025-06-25 11:30:00",
+        "close": 3430.1633,
+        "dif": 7.619559673586991,
+        "hist": 9.979021225637839
+      },
+      "dif_remaining_gap": -0.16225808021545163,
+      "dif_velocity_per_bar": 4.428971422923041,
+      "linear_time_estimate_bars": null,
+      "linear_time_estimate_days": null,
+      "next_close_reference_equality": 3412.161971318805,
+      "next_actual_residual": -2.2737367544323206e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "jun25_top",
+      "time": "2025-06-25 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": 26.114902990716928,
+      "reference_start": "2025-05-06 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-05-06 11:30:00",
+          "end": "2025-05-16 11:30:00",
+          "dif_peak": {
+            "time": "2025-05-15 11:30:00",
+            "close": 3389.7544,
+            "dif": 26.114902990716928,
+            "hist": 9.747679734245025
+          }
+        },
+        {
+          "start": "2025-06-04 11:30:00",
+          "end": "2025-06-12 15:00:00",
+          "dif_peak": {
+            "time": "2025-06-12 15:00:00",
+            "close": 3402.658,
+            "dif": 11.88627301629458,
+            "hist": 3.7674124880697555
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-06-25 15:00:00",
+        "close": 3455.9736,
+        "dif": 12.048531096510033,
+        "hist": 15.069571257187135
+      },
+      "previous": {
+        "time": "2025-06-25 11:30:00",
+        "close": 3430.1633,
+        "dif": 7.619559673586991,
+        "hist": 9.979021225637839
+      },
+      "dif_remaining_gap": 14.066371894206895,
+      "dif_velocity_per_bar": 4.428971422923041,
+      "linear_time_estimate_bars": 3.1759906648761675,
+      "linear_time_estimate_days": 1.5879953324380838,
+      "next_close_reference_equality": 3590.528011355314,
+      "next_actual_residual": -2.2737367544323206e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "jul22_top",
+      "time": "2025-07-22 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "nearest_qualifying",
+      "event": "NONE",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": 27.208300610376682,
+      "reference_start": "2025-06-24 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-06-04 11:30:00",
+          "end": "2025-06-12 15:00:00",
+          "dif_peak": {
+            "time": "2025-06-12 15:00:00",
+            "close": 3402.658,
+            "dif": 11.88627301629458,
+            "hist": 3.7674124880697555
+          }
+        },
+        {
+          "start": "2025-06-24 11:30:00",
+          "end": "2025-07-14 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-11 11:30:00",
+            "close": 3546.4998,
+            "dif": 27.208300610376682,
+            "hist": 8.153648113106541
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-07-22 15:00:00",
+        "close": 3581.861,
+        "dif": 25.96695880293464,
+        "hist": 8.337787446786088
+      },
+      "previous": {
+        "time": "2025-07-22 11:30:00",
+        "close": 3568.7783,
+        "dif": 23.71516316003317,
+        "hist": 5.9186430226796745
+      },
+      "dif_remaining_gap": 1.2413418074420406,
+      "dif_velocity_per_bar": 2.2517956429014703,
+      "linear_time_estimate_bars": 0.5512675234785313,
+      "linear_time_estimate_days": 0.2756337617392656,
+      "next_close_reference_equality": 3579.015821708073,
+      "next_actual_residual": 3.410605131648481e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "jul22_top",
+      "time": "2025-07-22 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": 27.208300610376682,
+      "reference_start": "2025-06-24 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-06-04 11:30:00",
+          "end": "2025-06-12 15:00:00",
+          "dif_peak": {
+            "time": "2025-06-12 15:00:00",
+            "close": 3402.658,
+            "dif": 11.88627301629458,
+            "hist": 3.7674124880697555
+          }
+        },
+        {
+          "start": "2025-06-24 11:30:00",
+          "end": "2025-07-14 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-11 11:30:00",
+            "close": 3546.4998,
+            "dif": 27.208300610376682,
+            "hist": 8.153648113106541
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-07-22 15:00:00",
+        "close": 3581.861,
+        "dif": 25.96695880293464,
+        "hist": 8.337787446786088
+      },
+      "previous": {
+        "time": "2025-07-22 11:30:00",
+        "close": 3568.7783,
+        "dif": 23.71516316003317,
+        "hist": 5.9186430226796745
+      },
+      "dif_remaining_gap": 1.2413418074420406,
+      "dif_velocity_per_bar": 2.2517956429014703,
+      "linear_time_estimate_bars": 0.5512675234785313,
+      "linear_time_estimate_days": 0.2756337617392656,
+      "next_close_reference_equality": 3579.015821708073,
+      "next_actual_residual": 3.410605131648481e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "aug15_top",
+      "time": "2025-08-15 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "nearest_qualifying",
+      "event": "DULL",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": 29.635069504135572,
+      "reference_start": "2025-07-30 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-07-21 11:30:00",
+          "end": "2025-07-28 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-24 15:00:00",
+            "close": 3605.7268,
+            "dif": 32.468748833716745,
+            "hist": 10.359473532396414
+          }
+        },
+        {
+          "start": "2025-07-30 11:30:00",
+          "end": "2025-07-30 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53,
+            "dif": 29.635069504135572,
+            "hist": 1.1941166061502244
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-08-15 15:00:00",
+        "close": 3696.7705,
+        "dif": 27.959338965998086,
+        "hist": 3.390660065572817
+      },
+      "previous": {
+        "time": "2025-08-15 11:30:00",
+        "close": 3683.579,
+        "dif": 27.291347540021434,
+        "hist": 2.902342230012728
+      },
+      "dif_remaining_gap": 1.6757305381374863,
+      "dif_velocity_per_bar": 0.667991425976652,
+      "linear_time_estimate_bars": 2.508610848840532,
+      "linear_time_estimate_days": 1.254305424420266,
+      "next_close_reference_equality": 3715.2105404502427,
+      "next_actual_residual": -1.7053025658242404e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "aug15_top",
+      "time": "2025-08-15 15:00:00",
+      "input": "inputs/120_20250401_20251111.csv",
+      "input_sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7",
+      "candidate_policy": "strongest_eligible",
+      "event": "DULL",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": 32.468748833716745,
+      "reference_start": "2025-07-21 11:30:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-07-21 11:30:00",
+          "end": "2025-07-28 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-24 15:00:00",
+            "close": 3605.7268,
+            "dif": 32.468748833716745,
+            "hist": 10.359473532396414
+          }
+        },
+        {
+          "start": "2025-07-30 11:30:00",
+          "end": "2025-07-30 15:00:00",
+          "dif_peak": {
+            "time": "2025-07-30 11:30:00",
+            "close": 3628.53,
+            "dif": 29.635069504135572,
+            "hist": 1.1941166061502244
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-08-15 15:00:00",
+        "close": 3696.7705,
+        "dif": 27.959338965998086,
+        "hist": 3.390660065572817
+      },
+      "previous": {
+        "time": "2025-08-15 11:30:00",
+        "close": 3683.579,
+        "dif": 27.291347540021434,
+        "hist": 2.902342230012728
+      },
+      "dif_remaining_gap": 4.509409867718659,
+      "dif_velocity_per_bar": 0.667991425976652,
+      "linear_time_estimate_bars": 6.750700222125718,
+      "linear_time_estimate_days": 3.375350111062859,
+      "next_close_reference_equality": 3750.7327349032066,
+      "next_actual_residual": -1.7053025658242404e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "dec16_bottom",
+      "time": "2025-12-16 15:00:00",
+      "input": "discrimination_screen_20261012/derived_120.csv",
+      "input_sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "candidate_policy": "nearest_qualifying",
+      "event": "NONE",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": -34.220167332548044,
+      "reference_start": "2025-11-14 15:00:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-11-11 11:30:00",
+          "end": "2025-11-13 11:30:00",
+          "dif_peak": {
+            "time": "2025-11-12 15:00:00",
+            "close": 4000.1396,
+            "dif": 15.928960199495123,
+            "hist": -4.002883201555754
+          }
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-27 15:00:00",
+          "dif_peak": {
+            "time": "2025-11-24 15:00:00",
+            "close": 3836.7654,
+            "dif": -34.220167332548044,
+            "hist": -36.37458439025602
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-12-16 15:00:00",
+        "close": 3824.812,
+        "dif": -15.358715002721055,
+        "hist": -12.638604953002435
+      },
+      "previous": {
+        "time": "2025-12-16 11:30:00",
+        "close": 3820.846,
+        "dif": -12.1779807343637,
+        "hist": -9.436787654538334
+      },
+      "dif_remaining_gap": 18.86145232982699,
+      "dif_velocity_per_bar": 3.180734268357355,
+      "linear_time_estimate_bars": 5.929905090615356,
+      "linear_time_estimate_days": 2.964952545307678,
+      "next_close_reference_equality": 3617.4154748577903,
+      "next_actual_residual": 8.526512829121202e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    },
+    {
+      "case": "dec16_bottom",
+      "time": "2025-12-16 15:00:00",
+      "input": "discrimination_screen_20261012/derived_120.csv",
+      "input_sha256": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246",
+      "candidate_policy": "strongest_eligible",
+      "event": "NONE",
+      "state": "DULL",
+      "reference_role": "active",
+      "reference_dif": -34.220167332548044,
+      "reference_start": "2025-11-14 15:00:00",
+      "historical_same_sign_waves": [
+        {
+          "start": "2025-11-11 11:30:00",
+          "end": "2025-11-13 11:30:00",
+          "dif_peak": {
+            "time": "2025-11-12 15:00:00",
+            "close": 4000.1396,
+            "dif": 15.928960199495123,
+            "hist": -4.002883201555754
+          }
+        },
+        {
+          "start": "2025-11-14 15:00:00",
+          "end": "2025-11-27 15:00:00",
+          "dif_peak": {
+            "time": "2025-11-24 15:00:00",
+            "close": 3836.7654,
+            "dif": -34.220167332548044,
+            "hist": -36.37458439025602
+          }
+        }
+      ],
+      "current": {
+        "time": "2025-12-16 15:00:00",
+        "close": 3824.812,
+        "dif": -15.358715002721055,
+        "hist": -12.638604953002435
+      },
+      "previous": {
+        "time": "2025-12-16 11:30:00",
+        "close": 3820.846,
+        "dif": -12.1779807343637,
+        "hist": -9.436787654538334
+      },
+      "dif_remaining_gap": 18.86145232982699,
+      "dif_velocity_per_bar": 3.180734268357355,
+      "linear_time_estimate_bars": 5.929905090615356,
+      "linear_time_estimate_days": 2.964952545307678,
+      "next_close_reference_equality": 3617.4154748577903,
+      "next_actual_residual": 8.526512829121202e-13,
+      "semantics": "Saved DG/as-of derived EMA diagnostic. Not software numerical peak identification or automatic expiry. Time uses constant recent DIF velocity; price boundary uses standard EMA12/26 next bar."
+    }
+  ],
+  "variants": [
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "CANCEL",
+      "state": "NONE",
+      "active_reference": null,
+      "event_reference": {
+        "sign": 1,
+        "count": 14,
+        "price": 3404.6565,
+        "dif": 11.88627301629458,
+        "start": "2025-06-04 11:30:00"
+      }
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jun25_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 17,
+        "price": 3403.948,
+        "dif": 26.114902990716928,
+        "start": "2025-05-06 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "jul22_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 30,
+        "price": 3546.4998,
+        "dif": 27.208300610376682,
+        "start": "2025-06-24 11:30:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 2,
+        "price": 3628.53,
+        "dif": 29.635069504135572,
+        "start": "2025-07-30 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "aug15_top",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "DULL",
+      "state": "DULL",
+      "active_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      },
+      "event_reference": {
+        "sign": 1,
+        "count": 12,
+        "price": 3608.5757,
+        "dif": 32.468748833716745,
+        "start": "2025-07-21 11:30:00"
+      }
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "nearest_qualifying",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "locked",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "dull_before",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 0.75,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.0,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    },
+    {
+      "case": "dec16_bottom",
+      "gate_pct": 1.2,
+      "reference_policy": "strongest_eligible",
+      "active_policy": "both_after",
+      "event": "NONE",
+      "state": "DULL",
+      "active_reference": {
+        "sign": -1,
+        "count": 19,
+        "price": 3821.6768,
+        "dif": -34.220167332548044,
+        "start": "2025-11-14 15:00:00"
+      },
+      "event_reference": null
+    }
+  ],
+  "prefix_checks": 96,
+  "variant_summary": [
+    {
+      "case": "jun25_top",
+      "state": "NONE",
+      "active_ref_dif": null,
+      "count": 6
+    },
+    {
+      "case": "jun25_top",
+      "state": "DULL",
+      "active_ref_dif": 26.114902990716928,
+      "count": 18
+    },
+    {
+      "case": "jul22_top",
+      "state": "DULL",
+      "active_ref_dif": 27.208300610376682,
+      "count": 24
+    },
+    {
+      "case": "aug15_top",
+      "state": "DULL",
+      "active_ref_dif": 29.635069504135572,
+      "count": 12
+    },
+    {
+      "case": "aug15_top",
+      "state": "DULL",
+      "active_ref_dif": 32.468748833716745,
+      "count": 12
+    },
+    {
+      "case": "dec16_bottom",
+      "state": "DULL",
+      "active_ref_dif": -34.220167332548044,
+      "count": 24
+    }
+  ],
+  "june25_speed_assumption_followup": {
+    "origin": {
+      "time": "2025-06-25 15:00:00",
+      "close": 3455.9736,
+      "dif": 12.048531096510033,
+      "hist": 15.069571257187135
+    },
+    "reference_dif": 26.114902990716928,
+    "next_four": [
+      {
+        "time": "2025-06-26 11:30:00",
+        "close": 3459.657,
+        "dif": 15.675050233028287,
+        "hist": 17.858087624178914
+      },
+      {
+        "time": "2025-06-26 15:00:00",
+        "close": 3448.4534,
+        "dif": 17.443972630778262,
+        "hist": 17.11674593574309
+      },
+      {
+        "time": "2025-06-27 11:30:00",
+        "close": 3441.303,
+        "dif": 18.06068650216912,
+        "hist": 14.680138942819841
+      },
+      {
+        "time": "2025-06-27 15:00:00",
+        "close": 3424.2268,
+        "dif": 16.975843107933997,
+        "hist": 10.008361723479673
+      }
+    ],
+    "first_later_fixed_reference_dif_break": {
+      "time": "2025-07-11 11:30:00",
+      "close": 3546.4998,
+      "dif": 27.208300610376682,
+      "hist": 8.153648113106541
+    },
+    "bars_to_break": 23,
+    "meaning": "Hindsight numerical crossing of fixed May peak, not a software event label or episode correction. Actual DIF speed changed, so the rough four-period forecast is not a fixed deadline."
+  },
+  "earlier_numerical_evidence_sha256": {
+    "audit_narrated_thresholds.json": "3fee91cd0c7b1ce6b5d92af4e1f6699995bf6af0f745d16c7d517ac0cc7c7529",
+    "reference_extrema_caption_review.json": "34589d968ea9cb44cf91afc6cf890fdd6182b8a4afc9e26f8fec7ba3b5191e41",
+    "operational_context_comparison_20261013.json": "bd64d2c21f78f27be039086a5be2231fdc32047973884a82fc09fd22ab87945c"
+  },
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "next_dif_helper_sha256": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+  "findings": [
+    {
+      "id": "time_measurement",
+      "status": "EXPLICIT_TOP_AND_BOTTOM_LECTURE_METHOD",
+      "meaning": "June25 top andDecember16 bottom estimate remaining DIF distance/current per-bar DIF movement, then convert bars totradingdays. This is an approximate conditional run-time estimate, not a fixed parameter or expiry."
+    },
+    {
+      "id": "price_measurement",
+      "status": "EXPLICIT_SCENARIO_DEPENDENT_SPACE",
+      "meaning": "July22 andAug15 compute simulated next-bar close boundaries; Aug15 says values change each period. Price may flat ordown whileDIFmoves towardreference. Not merely a fixed price-rise gap."
+    },
+    {
+      "id": "historical_peak_scope",
+      "status": "OLDER_QUALIFYING_PEAK_SUPPORTED_LOCALLY",
+      "meaning": "June24 says skipped-peak comparison. June25 narrated120target26 agrees withMay15 DG26.114903 rather thanJune12 DG11.886273. Underfrozen DG six nearest locked/cancel-before-refresh settings do notretain thatreference; eighteen settings do. They cannot distinguish strongest initialization from nearest followed bybefore-cancel switch."
+    },
+    {
+      "id": "aug15_peak_discrimination",
+      "status": "EARLIER_LOCAL_NARRATED_THRESHOLD_RECONCILED_NOT_NEW_LABEL",
+      "meaning": "Narrated120nextperiod cancellation near3750 fitsJuly24 DGpeak32.468749 boundary3750.732735, whereas nearerJuly30peak29.635070 boundary3715.210540 is35pointsaway. This constrains a universal nearest-peak selection within fixed candidates; does not independentlyidentify softwareDIForallhistoryrule."
+    },
+    {
+      "id": "july22_extrema",
+      "status": "EARLIER_LOCAL_WHOLE_WAVE_EVIDENCE_REUSED",
+      "meaning": "July22 narrative3578stilldull/near3579cancel fitswholewaveJuly11peak27.208301 boundary3579.015822 ratherthanlastlocal26.623019 boundary3571.678903. No newimageorindependentobservation added."
+    },
+    {
+      "id": "reference_retirement",
+      "status": "EXPLICIT_EXISTENCE_RULE_UNKNOWN",
+      "meaning": "October16 says formermaximum passed afterrepeatedred/green alternations and currentsizeis smaller. Reject unconditionalallhistorymax, but no retirement count or universalnumberofwaves established."
+    },
+    {
+      "id": "level_not_period",
+      "status": "MULTIDIMENSIONAL_CONTEXTUAL_DESCRIPTION",
+      "meaning": "Smallnesscanbeassociatedwithone/two-bar disappearance orsmallscenario pricespace evenonlargeperiods. This fitsNov11smalldailyusable; periodlength, disappearancebudget andoperationaluseareseparate."
+    },
+    {
+      "id": "flat_or_reversal",
+      "status": "DENOMINATOR_NOT_USABLE",
+      "meaning": "July3 flat DIF makes constant-speed projection undefined/unhelpful, not proof of eternal dulling or impossibility ofconditional pricecalculation."
+    }
+  ],
+  "unresolved": [
+    "Exact softwareDIFpeak dates andvalues versusDG",
+    "Unique historicalqualification, initialselection, refreshpriority and retirementwindow",
+    "DailyJune25 narratedhighest23versussavedoldwave22.410differs; noforcedpeaklabel",
+    "Precisequantitative mappingof small/large to tradingacceptanceorfixedthreshold",
+    "ASR numbers and directions retained; noaudioverification",
+    "Nocross-periodsingle-scalecomparisonorpercentageprobabilitydeducedfromprice-space ratios"
+  ],
+  "next_step": "Apply the newly identified time/price measurement distinction to existingNovember/April cases as-of each bar. Keep zero/reversedDIFvelocity estimates undefined and each candidate peak separate. Check whether size wording has an identifiable proxy without fitting acceptance thresholds; seek one missing source only ifneeded.",
+  "verification": {
+    "original_files_preserved": 218,
+    "software_labels_added": 0,
+    "candidate_changed": false,
+    "code_parameters_changed": false,
+    "new_permanent_results": 1,
+    "old_numerical_evidence_reused_not_independent": true
+  }
+}

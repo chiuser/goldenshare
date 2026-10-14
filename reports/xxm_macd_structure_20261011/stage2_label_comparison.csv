@@ -1,0 +1,352 @@
+case,time,expected,confidence,source,policy,threshold_pct,predicted,matched,event_route,event_ref_start,event_ref_dif,causal_prefix_matched
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,nearest_qualifying,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,nearest_qualifying,0.75,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,activation,2025-07-30 11:30:00,29.635069504135572,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,nearest_qualifying,0.75,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,nearest_qualifying,0.75,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,nearest_qualifying,0.75,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,nearest_qualifying,0.75,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,nearest_qualifying,0.75,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,nearest_qualifying,0.75,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,nearest_qualifying,0.75,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,nearest_qualifying,0.75,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,0.75,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,0.75,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,nearest_qualifying,0.75,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,nearest_qualifying,0.75,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,nearest_qualifying,0.75,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,nearest_qualifying,0.75,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,nearest_qualifying,0.75,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,nearest_qualifying,0.75,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,nearest_qualifying,0.75,DULL,True,activation,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,0.75,STRUCTURE,True,dif_turn,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,nearest_qualifying,0.75,DULL,True,dif_return,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,0.75,STRUCTURE,True,color_flip,2025-09-11 15:00:00,20.93471168695578,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,nearest_qualifying,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,nearest_qualifying,1,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,nearest_qualifying,1,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,activation,2025-07-30 11:30:00,29.635069504135572,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,nearest_qualifying,1,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,nearest_qualifying,1,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,nearest_qualifying,1,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,nearest_qualifying,1,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,nearest_qualifying,1,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,nearest_qualifying,1,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,nearest_qualifying,1,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,nearest_qualifying,1,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,nearest_qualifying,1,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,1,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,1,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,nearest_qualifying,1,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,nearest_qualifying,1,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,nearest_qualifying,1,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,nearest_qualifying,1,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,nearest_qualifying,1,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,nearest_qualifying,1,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,nearest_qualifying,1,DULL,True,activation,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,1,STRUCTURE,True,dif_turn,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,nearest_qualifying,1,DULL,True,dif_return,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,1,STRUCTURE,True,color_flip,2025-09-11 15:00:00,20.93471168695578,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,nearest_qualifying,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,nearest_qualifying,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,nearest_qualifying,1.2,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,activation,2025-07-30 11:30:00,29.635069504135572,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,nearest_qualifying,1.2,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,nearest_qualifying,1.2,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,nearest_qualifying,1.2,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,nearest_qualifying,1.2,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,nearest_qualifying,1.2,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,nearest_qualifying,1.2,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,nearest_qualifying,1.2,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,nearest_qualifying,1.2,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,1.2,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,nearest_qualifying,1.2,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,nearest_qualifying,1.2,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,nearest_qualifying,1.2,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,nearest_qualifying,1.2,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,nearest_qualifying,1.2,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,nearest_qualifying,1.2,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,nearest_qualifying,1.2,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,nearest_qualifying,1.2,DULL,True,activation,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,1.2,STRUCTURE,True,dif_turn,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,nearest_qualifying,1.2,DULL,True,dif_return,2025-09-11 15:00:00,20.93471168695578,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,nearest_qualifying,1.2,STRUCTURE,True,color_flip,2025-09-11 15:00:00,20.93471168695578,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_eligible,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_eligible,0.75,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_eligible,0.75,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_eligible,0.75,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_eligible,0.75,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_eligible,0.75,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_eligible,0.75,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_eligible,0.75,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_eligible,0.75,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_eligible,0.75,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_eligible,0.75,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_eligible,0.75,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,0.75,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,0.75,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_eligible,0.75,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_eligible,0.75,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_eligible,0.75,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_eligible,0.75,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_eligible,0.75,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_eligible,0.75,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_eligible,0.75,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,0.75,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_eligible,0.75,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,0.75,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_eligible,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_eligible,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_eligible,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_eligible,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_eligible,1,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_eligible,1,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_eligible,1,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_eligible,1,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_eligible,1,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_eligible,1,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_eligible,1,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_eligible,1,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_eligible,1,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_eligible,1,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_eligible,1,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_eligible,1,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_eligible,1,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,1,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,1,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_eligible,1,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_eligible,1,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_eligible,1,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_eligible,1,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_eligible,1,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_eligible,1,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_eligible,1,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,1,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_eligible,1,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,1,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_eligible,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_eligible,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_eligible,1.2,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_eligible,1.2,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_eligible,1.2,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_eligible,1.2,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_eligible,1.2,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_eligible,1.2,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_eligible,1.2,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_eligible,1.2,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_eligible,1.2,DULL,True,activation,2026-09-11,-10.316,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_eligible,1.2,CANCEL,True,dif_break,2026-09-11,-10.316,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_eligible,1.2,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,1.2,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_eligible,1.2,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_eligible,1.2,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_eligible,1.2,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_eligible,1.2,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_eligible,1.2,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_eligible,1.2,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_eligible,1.2,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_eligible,1.2,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,1.2,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_eligible,1.2,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_eligible,1.2,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_separate,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,0.75,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_separate,0.75,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_separate,0.75,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_separate,0.75,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_separate,0.75,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_separate,0.75,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_separate,0.75,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_separate,0.75,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_separate,0.75,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_separate,0.75,DULL,True,activation,2026-08-03,-57.579,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_separate,0.75,NONE,False,,,,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_separate,0.75,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,0.75,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,0.75,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_separate,0.75,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_separate,0.75,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_separate,0.75,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_separate,0.75,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_separate,0.75,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_separate,0.75,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_separate,0.75,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,0.75,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_separate,0.75,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,0.75,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_separate,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_separate,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_separate,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,1,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_separate,1,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_separate,1,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_separate,1,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_separate,1,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_separate,1,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_separate,1,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_separate,1,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_separate,1,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_separate,1,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_separate,1,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_separate,1,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_separate,1,DULL,True,activation,2026-08-03,-57.579,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_separate,1,NONE,False,,,,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_separate,1,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,1,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,1,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_separate,1,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_separate,1,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_separate,1,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_separate,1,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_separate,1,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_separate,1,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_separate,1,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,1,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_separate,1,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,1,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True
+jul_120,2025-06-27 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-06-30 15:00:00,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-02 15:00:00,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+jul_120,2025-07-03 15:00:00,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+jul_120,2025-07-07 11:30:00,STRUCTURE,mapped,original_25,strongest_separate,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-08 11:30:00,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-09 15:00:00,STRUCTURE,mapped,original_25,strongest_separate,1.2,STRUCTURE,True,dif_turn,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-10 11:30:00,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,dif_return,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 11:30:00,CANCEL,mapped,original_25,strongest_separate,1.2,CANCEL,True,dif_break,2025-05-06 11:30:00,26.114902990716928,True
+jul_120,2025-07-11 15:00:00,NONE,direct,original_25,strongest_separate,1.2,NONE,True,,,,True
+aug_120,2025-08-07 11:30:00,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,activation,2025-07-21 11:30:00,32.468748833716745,True
+aug_120,2025-08-08 15:00:00,NONE,direct,original_25,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-08-07,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-08-08,DULL,direct,original_25,strongest_separate,1.2,DULL,True,activation,2025-06-25,47.974,True
+daily_2025,2025-08-14,NONE,direct,original_25,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-11-06,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-11-07,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-11-10,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,activation,2025-10-24,42.86,True
+daily_2025,2025-11-11,STRUCTURE,direct,original_25,strongest_separate,1.2,STRUCTURE,True,dif_turn,2025-10-24,42.86,True
+may_120,2026-05-06 11:30:00,NONE,mapped,original_25,strongest_separate,1.2,NONE,True,,,,True
+may_120,2026-05-06 15:00:00,DULL,mapped,original_25,strongest_separate,1.2,DULL,True,activation,2026-03-27 15:00:00,35.45335843105204,True
+may_120,2026-05-07 15:00:00,CANCEL,direct,original_25,strongest_separate,1.2,CANCEL,True,dif_break,2026-03-27 15:00:00,35.45335843105204,True
+bottom_daily,2026-09-24,NONE,direct,original_25,strongest_separate,1.2,NONE,True,,,,True
+bottom_daily,2026-09-28,DULL,direct,original_25,strongest_separate,1.2,DULL,True,activation,2026-08-03,-57.579,True
+bottom_daily,2026-09-29,CANCEL,direct,original_25,strongest_separate,1.2,NONE,False,,,,True
+mins60,2026-04-07 15:00:00,NONE,direct,IMG_0366,strongest_separate,1.2,NONE,True,,,,True
+mins60,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,1.2,NONE,True,,,,True
+mins90,2026-01-13 15:00:00,NONE,direct,IMG_0369_0370,strongest_separate,1.2,NONE,True,,,,True
+mins90,2025-08-05 15:00:00,NONE,mapped,IMG_0374,strongest_separate,1.2,NONE,True,,,,True
+mins90,2025-08-06 11:00:00,DULL,mapped,IMG_0374,strongest_separate,1.2,DULL,True,activation,2025-07-18 15:00:00,25.858590410614397,True
+mins90,2025-08-06 15:00:00,NONE,direct,IMG_0374,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-10-16,NONE,direct,20251016,strongest_separate,1.2,NONE,True,,,,True
+aug_120,2025-10-16 15:00:00,NONE,direct,20251016,strongest_separate,1.2,NONE,True,,,,True
+daily_2025,2025-10-10,DULL,mapped,20251016,strongest_separate,1.2,DULL,True,activation,2025-08-07,78.258,True
+daily_2025,2025-10-13,STRUCTURE,mapped,20251016,strongest_separate,1.2,STRUCTURE,True,color_flip,2025-08-07,78.258,True
+aug_120,2025-10-09 11:30:00,DULL,mapped,20251016,strongest_separate,1.2,DULL,True,activation,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-10 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,1.2,STRUCTURE,True,dif_turn,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 11:30:00,DULL,mapped,20251016,strongest_separate,1.2,DULL,True,dif_return,2025-08-06 15:00:00,61.80033538696671,True
+aug_120,2025-10-14 15:00:00,STRUCTURE,mapped,20251016,strongest_separate,1.2,STRUCTURE,True,color_flip,2025-08-06 15:00:00,61.80033538696671,True

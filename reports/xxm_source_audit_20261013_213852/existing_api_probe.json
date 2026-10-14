@@ -1,0 +1,710 @@
+[
+  {
+    "path": "kline",
+    "params": {
+      "tsCode": "000001.SH",
+      "period": "day",
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.402108458802104,
+    "response": {
+      "pageContext": {
+        "market": "CN_A",
+        "tradeDate": "2026-10-13",
+        "prevTradeDate": "2026-10-12",
+        "isTradingDay": true,
+        "sessionStatus": "CLOSED",
+        "timezone": "Asia/Shanghai",
+        "generatedAt": "2026-10-13T21:42:57.085527+08:00",
+        "source": "explicit"
+      },
+      "indexRef": {
+        "tsCode": "000001.SH",
+        "name": "上证指数"
+      },
+      "period": "day",
+      "bars": [
+        {
+          "tradeDate": "2026-10-09",
+          "open": 3804.0896,
+          "high": 3824.7091,
+          "low": 3754.1353,
+          "close": 3813.7913,
+          "preClose": 3811.9043,
+          "change": 1.887,
+          "changePct": 0.0495,
+          "amplitude": 1.8514053461415627,
+          "vol": 535149921.0,
+          "volDisplay": "53514.99万",
+          "amount": 888561198.26,
+          "factors": {
+            "ma": {
+              "ma5": 3824.39242,
+              "ma10": 3876.0762,
+              "ma20": 3892.74833,
+              "ma30": 3906.75184,
+              "ma60": 3897.67989,
+              "ma90": 3951.31459,
+              "ma250": 3990.78495
+            },
+            "boll": {
+              "upper": 3987.328,
+              "middle": 3892.748,
+              "lower": 3798.169
+            },
+            "macd": {
+              "dif": -25.291,
+              "dea": -14.14,
+              "macd": -22.303
+            },
+            "kdj": {
+              "k": 24.59275,
+              "d": 31.32763,
+              "j": 11.12297
+            }
+          }
+        },
+        {
+          "tradeDate": "2026-10-12",
+          "open": 3806.9786,
+          "high": 3828.2162,
+          "low": 3790.9954,
+          "close": 3797.2424,
+          "preClose": 3813.7913,
+          "change": -16.5489,
+          "changePct": -0.4339,
+          "amplitude": 0.9759527219016955,
+          "vol": 461448981.0,
+          "volDisplay": "46144.90万",
+          "amount": 714909910.72,
+          "factors": {
+            "ma": {
+              "ma5": 3819.11678,
+              "ma10": 3864.6133,
+              "ma20": 3886.10463,
+              "ma30": 3903.15317,
+              "ma60": 3894.36457,
+              "ma90": 3947.96578,
+              "ma250": 3990.65962
+            },
+            "boll": {
+              "upper": 3987.661,
+              "middle": 3886.105,
+              "lower": 3784.548
+            },
+            "macd": {
+              "dif": -28.721,
+              "dea": -17.056,
+              "macd": -23.33
+            },
+            "kdj": {
+              "k": 23.12394,
+              "d": 28.59307,
+              "j": 12.18569
+            }
+          }
+        },
+        {
+          "tradeDate": "2026-10-13",
+          "open": 3760.7988,
+          "high": 3822.105,
+          "low": 3741.5262,
+          "close": 3800.8644,
+          "preClose": 3797.2424,
+          "change": 3.622,
+          "changePct": 0.0954,
+          "amplitude": 2.122034663891887,
+          "vol": 483305909.0,
+          "volDisplay": "48330.59万",
+          "amount": 779302288.02,
+          "factors": {
+            "ma": {
+              "ma5": 3813.1994,
+              "ma10": 3849.70906,
+              "ma20": 3879.51289,
+              "ma30": 3900.44839,
+              "ma60": 3892.48241,
+              "ma90": 3944.99128,
+              "ma250": 3990.57574
+            },
+            "boll": {
+              "upper": 3985.149,
+              "middle": 3879.513,
+              "lower": 3773.877
+            },
+            "macd": {
+              "dif": -30.792,
+              "dea": -19.804,
+              "macd": -21.978
+            },
+            "kdj": {
+              "k": 24.83487,
+              "d": 27.34034,
+              "j": 19.82394
+            }
+          }
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "startDate": null,
+        "endDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "expectedTradeDate": "2026-10-13",
+        "observedTradeDate": "2026-10-13"
+      },
+      "debugInfo": null
+    }
+  },
+  {
+    "path": "minutes",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 60,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.663759000133723,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 60,
+      "bars": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:30:00+08:00",
+          "open": 3755.7998,
+          "high": 3787.157,
+          "low": 3749.6665,
+          "close": 3787.157,
+          "vol": 7104303500.0,
+          "amount": 112034079000.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T14:00:00+08:00",
+          "open": 3789.3298,
+          "high": 3822.105,
+          "low": 3789.3298,
+          "close": 3809.5122,
+          "vol": 10020986600.0,
+          "amount": 173318330000.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "open": 3809.6326,
+          "high": 3810.8408,
+          "low": 3790.4617,
+          "close": 3800.8645,
+          "vol": 8724085400.0,
+          "amount": 136832910000.0,
+          "exchange": "XSHG"
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiYmFycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjYwLCJzdGFydERhdGUiOm51bGwsImVuZERhdGUiOiIyMDI2LTEwLTEzIiwiYmVmb3JlVHJhZGVEYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlVGltZSI6IjExOjMwOjAwLjAwMDAwMCJ9",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-13",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  },
+  {
+    "path": "minute-indicators",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 60,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.30147708393633366,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 60,
+      "items": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:30:00+08:00",
+          "ma5": 3789.8394400000006,
+          "ma10": 3791.88975,
+          "ma20": 3811.9073550000003,
+          "ma30": 3825.8052199999997,
+          "ma60": 3867.613128333333,
+          "ma90": 3888.738874444444,
+          "ma250": 3895.8161340000006,
+          "bollMiddle": 3811.9073550000003,
+          "bollUpper": 3866.356905713316,
+          "bollLower": 3757.4578042866847,
+          "macdDif": -22.112627967988374,
+          "macdDea": -22.041220950845467,
+          "macd": -0.14281403428581285,
+          "kdjK": 45.48925476811149,
+          "kdjD": 45.81509779558784,
+          "kdjJ": 44.8375687131588,
+          "observationCount": 17258,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T14:00:00+08:00",
+          "ma5": 3789.9260200000003,
+          "ma10": 3796.47889,
+          "ma20": 3810.9661800000003,
+          "ma30": 3822.1611699999994,
+          "ma60": 3866.4490733333328,
+          "ma90": 3887.089198888888,
+          "ma250": 3895.1886948000006,
+          "bollMiddle": 3810.9661800000003,
+          "bollUpper": 3864.8955744057084,
+          "bollLower": 3757.0367855942923,
+          "macdDif": -19.624599338781536,
+          "macdDea": -21.55789662843268,
+          "macd": 3.866594579302287,
+          "kdjK": 56.46757144943367,
+          "kdjD": 49.36592234686978,
+          "kdjJ": 70.67086965456144,
+          "observationCount": 17259,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 60,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "ma5": 3790.13608,
+          "ma10": 3799.99427,
+          "ma20": 3809.4868350000006,
+          "ma30": 3818.8567666666668,
+          "ma60": 3865.0412683333334,
+          "ma90": 3885.3411577777783,
+          "ma250": 3894.5821859999996,
+          "bollMiddle": 3809.4868350000006,
+          "bollUpper": 3862.8169368424415,
+          "bollLower": 3756.1567331575598,
+          "macdDif": -18.141492015741278,
+          "macdDea": -20.8746157058944,
+          "macd": 5.466247380306243,
+          "kdjK": 60.46131367763754,
+          "kdjD": 53.064386123792374,
+          "kdjJ": 75.25516878532787,
+          "observationCount": 17260,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiaW5kaWNhdG9ycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjYwLCJzdGFydERhdGUiOm51bGwsImVuZERhdGUiOiIyMDI2LTEwLTEzIiwiYmVmb3JlVHJhZGVEYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlVGltZSI6IjExOjMwOjAwLjAwMDAwMCJ9",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-13",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  },
+  {
+    "path": "minutes",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 90,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.2906024158000946,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 90,
+      "bars": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:00:00+08:00",
+          "open": 3760.7988,
+          "high": 3774.708,
+          "low": 3741.5261,
+          "close": 3760.9204,
+          "vol": 26413475600.0,
+          "amount": 418163209700.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T14:00:00+08:00",
+          "open": 3760.5996,
+          "high": 3822.105,
+          "low": 3754.4487,
+          "close": 3809.5122,
+          "vol": 13193030100.0,
+          "amount": 224306153000.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "open": 3809.6326,
+          "high": 3810.8408,
+          "low": 3790.4617,
+          "close": 3800.8645,
+          "vol": 8724085400.0,
+          "amount": 136832910000.0,
+          "exchange": "XSHG"
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiYmFycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjkwLCJzdGFydERhdGUiOm51bGwsImVuZERhdGUiOiIyMDI2LTEwLTEzIiwiYmVmb3JlVHJhZGVEYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlVGltZSI6IjExOjAwOjAwLjAwMDAwMCJ9",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-13",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  },
+  {
+    "path": "minute-indicators",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 90,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.28452624985948205,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 90,
+      "items": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:00:00+08:00",
+          "ma5": 3796.3684999999996,
+          "ma10": 3801.3285500000006,
+          "ma20": 3818.3086300000004,
+          "ma30": 3858.08907,
+          "ma60": 3882.7506149999995,
+          "ma90": 3900.755528888889,
+          "ma250": 3936.8406499999996,
+          "bollMiddle": 3818.3086300000004,
+          "bollUpper": 3871.7232586391324,
+          "bollLower": 3764.8940013608685,
+          "macdDif": -27.5064877306354,
+          "macdDea": -25.112782347440568,
+          "macd": -4.787410766389662,
+          "kdjK": 33.77147638085196,
+          "kdjD": 36.96477764146327,
+          "kdjJ": 27.384873859629323,
+          "observationCount": 12943,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T14:00:00+08:00",
+          "ma5": 3795.51268,
+          "ma10": 3798.2097499999995,
+          "ma20": 3814.36555,
+          "ma30": 3853.802603333333,
+          "ma60": 3880.711048333333,
+          "ma90": 3900.2077011111114,
+          "ma250": 3936.1924603999996,
+          "bollMiddle": 3814.36555,
+          "bollUpper": 3857.0806627803026,
+          "bollLower": 3771.6504372196973,
+          "macdDif": -25.21306206804593,
+          "macdDea": -25.132838291561644,
+          "macd": -0.16044755296857005,
+          "kdjK": 48.655719191260644,
+          "kdjD": 40.8617581580624,
+          "kdjJ": 64.24364125765715,
+          "observationCount": 12944,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 90,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "ma5": 3793.67074,
+          "ma10": 3798.1512000000002,
+          "ma20": 3813.6117399999994,
+          "ma30": 3848.8345299999996,
+          "ma60": 3878.5138033333333,
+          "ma90": 3899.3061088888894,
+          "ma250": 3935.4511975999994,
+          "bollMiddle": 3813.6117399999994,
+          "bollUpper": 3856.7193656883346,
+          "bollLower": 3770.504114311664,
+          "macdDif": -23.818735271793685,
+          "macdDea": -24.870017687608055,
+          "macd": 2.10256483162874,
+          "kdjK": 55.253412172188845,
+          "kdjD": 45.65897616277122,
+          "kdjJ": 74.44228419102409,
+          "observationCount": 12945,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiaW5kaWNhdG9ycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjkwLCJzdGFydERhdGUiOm51bGwsImVuZERhdGUiOiIyMDI2LTEwLTEzIiwiYmVmb3JlVHJhZGVEYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlVGltZSI6IjExOjAwOjAwLjAwMDAwMCJ9",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-13",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  },
+  {
+    "path": "minutes",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 120,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.2760057090781629,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 120,
+      "bars": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-12",
+          "tradeTime": "2026-10-12T15:00:00+08:00",
+          "open": 3809.9182,
+          "high": 3811.3716,
+          "low": 3790.9954,
+          "close": 3797.2424,
+          "vol": 16205189000.0,
+          "amount": 250014100000.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:30:00+08:00",
+          "open": 3760.7988,
+          "high": 3787.157,
+          "low": 3741.5261,
+          "close": 3787.157,
+          "vol": 29585520200.0,
+          "amount": 469151033700.0,
+          "exchange": "XSHG"
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "open": 3789.3298,
+          "high": 3822.105,
+          "low": 3789.3298,
+          "close": 3800.8645,
+          "vol": 18745072000.0,
+          "amount": 310151230000.0,
+          "exchange": "XSHG"
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiYmFycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjEyMCwic3RhcnREYXRlIjpudWxsLCJlbmREYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlRGF0ZSI6IjIwMjYtMTAtMTIiLCJiZWZvcmVUcmFkZVRpbWUiOiIxNTowMDowMC4wMDAwMDAifQ",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-12",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  },
+  {
+    "path": "minute-indicators",
+    "params": {
+      "tsCode": "000001.SH",
+      "freq": 120,
+      "endDate": "2026-10-13",
+      "limit": 3
+    },
+    "status": 200,
+    "elapsedSeconds": 0.2783106667920947,
+    "response": {
+      "tsCode": "000001.SH",
+      "freq": 120,
+      "items": [
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-12",
+          "tradeTime": "2026-10-12T15:00:00+08:00",
+          "ma5": 3799.5456,
+          "ma10": 3816.9557,
+          "ma20": 3863.5504300000002,
+          "ma30": 3871.8467033333322,
+          "ma60": 3902.5453516666666,
+          "ma90": 3906.3101699999993,
+          "ma250": 3989.451827200001,
+          "bollMiddle": 3863.5504300000002,
+          "bollUpper": 3983.541083555751,
+          "bollLower": 3743.5597764442496,
+          "macdDif": -30.108363324289257,
+          "macdDea": -24.867937008337034,
+          "macd": -10.480852631904447,
+          "kdjK": 36.88006302154966,
+          "kdjD": 30.307079262605498,
+          "kdjJ": 50.02603053943798,
+          "observationCount": 8628,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T11:30:00+08:00",
+          "ma5": 3794.59614,
+          "ma10": 3813.0203,
+          "ma20": 3856.239895,
+          "ma30": 3868.2757966666663,
+          "ma60": 3901.0429100000006,
+          "ma90": 3906.060297777777,
+          "ma250": 3989.0757844000013,
+          "bollMiddle": 3856.239895,
+          "bollUpper": 3976.141030291431,
+          "bollLower": 3736.3387597085693,
+          "macdDif": -30.9507125266191,
+          "macdDea": -26.084492111993452,
+          "macd": -9.732440829251296,
+          "kdjK": 36.99395188838501,
+          "kdjD": 32.536036804532,
+          "kdjJ": 45.90978205609103,
+          "observationCount": 8629,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        },
+        {
+          "tsCode": "000001.SH",
+          "freq": 120,
+          "tradeDate": "2026-10-13",
+          "tradeTime": "2026-10-13T15:00:00+08:00",
+          "ma5": 3801.6269,
+          "ma10": 3810.0616100000007,
+          "ma20": 3848.7877850000004,
+          "ma30": 3865.460186666666,
+          "ma60": 3899.6905216666664,
+          "ma90": 3905.962538888888,
+          "ma250": 3988.718584000001,
+          "bollMiddle": 3848.7877850000004,
+          "bollUpper": 3962.861179237504,
+          "bollLower": 3734.714390762497,
+          "macdDif": -30.164482271731686,
+          "macdDea": -26.900490143941102,
+          "macd": -6.527984255581167,
+          "kdjK": 40.79700757931435,
+          "kdjD": 35.28969372945945,
+          "kdjJ": 51.811635279024145,
+          "observationCount": 8630,
+          "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+          "indicatorVersion": 1
+        }
+      ],
+      "meta": {
+        "count": 3,
+        "limit": 3,
+        "hasMore": true,
+        "nextCursor": "eyJ2IjoxLCJkYXRhc2V0IjoiaW5kaWNhdG9ycyIsInRzQ29kZSI6IjAwMDAwMS5TSCIsImZyZXEiOjEyMCwic3RhcnREYXRlIjpudWxsLCJlbmREYXRlIjoiMjAyNi0xMC0xMyIsImJlZm9yZVRyYWRlRGF0ZSI6IjIwMjYtMTAtMTIiLCJiZWZvcmVUcmFkZVRpbWUiOiIxNTowMDowMC4wMDAwMDAifQ",
+        "startDate": null,
+        "endDate": "2026-10-13",
+        "observedStartDate": "2026-10-12",
+        "observedEndDate": "2026-10-13"
+      },
+      "dataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-13",
+        "observedEndDate": "2026-10-13",
+        "message": null
+      }
+    }
+  }
+]

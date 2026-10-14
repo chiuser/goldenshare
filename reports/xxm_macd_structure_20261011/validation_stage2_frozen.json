@@ -1,0 +1,83 @@
+{
+  "as_of": "2026-10-11T07:32:45.954923+00:00",
+  "scope": "Research only; source-supported color-flip path and two-peak DIF reference hypotheses; not a blind test or a production change",
+  "hypotheses": [
+    "Confirm opposite histogram color only from preceding active DULL before wave reset, unless its DIF reference is already broken",
+    "No duplicate color confirmation from preceding STRUCTURE or canceled state",
+    "Compare nearest qualifying DIF with strongest eligible of two and strongest separate DIF of two; nearest price prerequisite retained"
+  ],
+  "files": [
+    {
+      "file": "inputs/120_20260101_20260507.csv",
+      "sha256": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97"
+    },
+    {
+      "file": "inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d"
+    },
+    {
+      "file": "inputs/daily_2025.csv",
+      "sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4"
+    },
+    {
+      "file": "inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    },
+    {
+      "file": "inputs/daily_20260801_20261009.csv",
+      "sha256": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c"
+    },
+    {
+      "file": "inputs/90_20250701_20250814.csv",
+      "sha256": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa"
+    },
+    {
+      "file": "inputs/120_20250401_20251111.csv",
+      "sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7"
+    },
+    {
+      "file": "inputs/30_20250603_20261009.csv",
+      "sha256": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250"
+    },
+    {
+      "file": "inputs/daily_20060801_20070529.csv",
+      "sha256": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641"
+    },
+    {
+      "file": "inputs/120_20250401_20250711.csv",
+      "sha256": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b"
+    },
+    {
+      "file": "inputs/120_20260701_20260901.csv",
+      "sha256": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0"
+    },
+    {
+      "file": "inputs/60_20260301_20260420.csv",
+      "sha256": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f"
+    },
+    {
+      "file": "replay.py",
+      "sha256": "3799c0d77b80a7fdd05fbb23068148a0e6693d65c406d67a1f64b70ff2b320aa"
+    },
+    {
+      "file": "label_comparison.csv",
+      "sha256": "5d589c8e9d9bcee5a781e30544d6930ad58de3912146316d0eb55ff308aa8761"
+    },
+    {
+      "file": "holdout_0366.json",
+      "sha256": "27afd2b49171513733d6b412171af01fb44035f19a552d747c560219f173889e"
+    },
+    {
+      "file": "holdout_0369_0370.json",
+      "sha256": "480795698d5f1500752ce8c77c1eeffce46401e3ed738b6eb1ad0f220d96205d"
+    },
+    {
+      "file": "holdout_0374.json",
+      "sha256": "55ef520b0071968fcab117147230415d0827c80222c47239e516f24488edfdf7"
+    },
+    {
+      "file": "holdout_20251016.json",
+      "sha256": "1f8e70726e2017e4736fe30d16168cdf4e3f83cbf7087d3447c766e4cd8c3243"
+    }
+  ]
+}

@@ -402,3 +402,41 @@ def test_reader_rejects_queries_that_require_more_than_5000_partitions(
         MajorIndexMinsLakeReader(tmp_path).read_bars(
             IndexMinuteReadRequest("000001.SH", 120, None, None, 10_000, None)
         )
+def test_complete_history_preserves_paging_and_rejects_clipping(tmp_path: Path, monkeypatch) -> None:
+    from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError
+
+    _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest("000001.SH", 5, None, None, 2, None)
+    paged = reader.read_bars(request)
+    assert paged.count == 2 and paged.has_more
+    original_connect = duckdb.connect
+    observed = []
+    def bounded_connect(*args, **kwargs):
+        connection = original_connect(*args, **kwargs)
+        observed.append(connection.execute("SELECT current_setting('threads'), current_setting('memory_limit')").fetchone())
+        return connection
+    monkeypatch.setattr(duckdb, "connect", bounded_connect)
+    complete = reader.read_complete_history(request, dataset="bars", timeout_seconds=5)
+    assert observed[0] == (2, "488.2 MiB")
+    assert complete.count == 3 and not complete.has_more and complete.next_cursor is None
+    assert [row["trade_time"] for row in complete.rows] == sorted(row["trade_time"] for row in complete.rows)
+    with pytest.raises(IndexMinuteHistoryBudgetError):
+        reader.read_complete_history(request, dataset="bars", max_rows=2, timeout_seconds=5)
+    with pytest.raises(IndexMinuteRequestError):
+        reader.read_complete_history(IndexMinuteReadRequest("000001.SH",5,None,None,2,paged.next_cursor), dataset="bars", timeout_seconds=5)
+
+
+def test_history_signature_detects_atomic_revision_and_ignores_staging(tmp_path: Path) -> None:
+    target = _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest("000001.SH",5,None,None,1000,None)
+    before = reader.history_source_signature(request, dataset="bars")
+    replacement = target.with_suffix(".candidate")
+    replacement.write_bytes(target.read_bytes())
+    replacement.replace(target)
+    assert reader.history_source_signature(request, dataset="bars") != before
+    before = reader.history_source_signature(request, dataset="bars")
+    (tmp_path / "staging").mkdir()
+    (tmp_path / "staging/fake.parquet").write_text("not a source")
+    assert reader.history_source_signature(request, dataset="bars") == before

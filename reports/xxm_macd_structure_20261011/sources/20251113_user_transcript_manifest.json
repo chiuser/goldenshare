@@ -1,0 +1,17 @@
+{
+  "received_on": "2026-10-12",
+  "date": "2025-11-13",
+  "provider": "user async-question reply",
+  "original_path": null,
+  "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_user_transcript.txt",
+  "sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+  "characters": 4982,
+  "lines": 96,
+  "capture_method": "Manually save supplied full text including malformed prefixes and unrelated discussion; no original-file byte comparator",
+  "limitations": [
+    "No audio/video verification",
+    "Literal prefixes are not verified video times",
+    "No precise90-minute disappearance date/bar identified",
+    "Index identity in transcribed phrase上证五菱 is uncertain"
+  ]
+}

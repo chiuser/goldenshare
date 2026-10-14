@@ -1,0 +1,858 @@
+[
+  {
+    "period": "m120",
+    "time": "2025-06-25T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_120.png",
+    "expectedImageSha256": "f6c16362087c5a1f6c1b7323be10be5983a04d01f7b5287a72de88fdce59ae1e",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3455.97,
+      "dif": 12.048,
+      "dea": 4.513,
+      "hist": 15.069
+    },
+    "source": {
+      "close": 3455.9736,
+      "dif": 12.048531096510033,
+      "dea": 4.513745467916465,
+      "hist": 15.069571257187135
+    },
+    "imageSha256": "f6c16362087c5a1f6c1b7323be10be5983a04d01f7b5287a72de88fdce59ae1e",
+    "softwareMinusSource": {
+      "close": -0.0036000000000058208,
+      "dif": -0.0005310965100324694,
+      "dea": -0.0007454679164649036,
+      "hist": -0.0005712571871345773
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-06-26T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_120.png",
+    "expectedImageSha256": "4a2b5188f399b98b6bc190a21b29e9506ff93f476c1a56f05a4eddb86272f4a3",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3448.45,
+      "dif": 17.443,
+      "dea": 8.885,
+      "hist": 17.116
+    },
+    "source": {
+      "close": 3448.4534,
+      "dif": 17.443972630778262,
+      "dea": 8.885599662906717,
+      "hist": 17.11674593574309
+    },
+    "imageSha256": "4a2b5188f399b98b6bc190a21b29e9506ff93f476c1a56f05a4eddb86272f4a3",
+    "softwareMinusSource": {
+      "close": -0.003400000000056025,
+      "dif": -0.000972630778260708,
+      "dea": -0.0005996629067173131,
+      "hist": -0.0007459357430903424
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-07-11T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250711_120.png",
+    "expectedImageSha256": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3510.18,
+      "dif": 26.367,
+      "dea": 23.778,
+      "hist": 5.178
+    },
+    "source": {
+      "close": 3510.1772,
+      "dif": 26.36763351865602,
+      "dea": 23.778707946789936,
+      "hist": 5.17785114373217
+    },
+    "imageSha256": "af8f31d6ec6fb36bdff43f8dc855acc2fe05ef37fca537d6fb2e6eabc1aeda36",
+    "softwareMinusSource": {
+      "close": 0.00279999999975189,
+      "dif": -0.0006335186560200157,
+      "dea": -0.0007079467899373526,
+      "hist": 0.00014885626783023298
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": true
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-07-23T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250723_120.png",
+    "expectedImageSha256": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3582.3,
+      "dif": 29.954,
+      "dea": 24.672,
+      "hist": 10.563
+    },
+    "source": {
+      "close": 3582.298,
+      "dif": 29.95322693920889,
+      "dea": 24.672023611473673,
+      "hist": 10.562406655470433
+    },
+    "imageSha256": "6646b809f5d477a3e52d7d88c0790b225985e452de72ab645588c5aca9d916b4",
+    "softwareMinusSource": {
+      "close": 0.0020000000004074536,
+      "dif": 0.0007730607911113907,
+      "dea": -2.361147367224703e-05,
+      "hist": 0.0005933445295678297
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": true,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-08-08T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0318.PNG",
+    "expectedImageSha256": "f005e639be0b6f06848ebec394d95d8c4a872c5930d964c923cd9e178f10f356",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3635.13,
+      "dif": 21.612,
+      "dea": 19.67,
+      "hist": 3.884
+    },
+    "source": {
+      "close": 3635.1282,
+      "dif": 21.611733034717872,
+      "dea": 19.66977530158092,
+      "hist": 3.883915466273905
+    },
+    "imageSha256": "f005e639be0b6f06848ebec394d95d8c4a872c5930d964c923cd9e178f10f356",
+    "softwareMinusSource": {
+      "close": 0.0018000000000029104,
+      "dif": 0.00026696528212610815,
+      "dea": 0.00022469841908190347,
+      "hist": 8.45337260950707e-05
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-08-12T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0358.PNG",
+    "expectedImageSha256": "1ec1ad8d5720d6b8dcf27c749c9df297862c4a4a21c882fc5644ad00e3adb1bc",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3665.92,
+      "dif": 24.917,
+      "dea": 22.157,
+      "hist": 5.519
+    },
+    "source": {
+      "close": 3665.9177,
+      "dif": 24.91611043047442,
+      "dea": 22.157039865035873,
+      "hist": 5.5181411308770905
+    },
+    "imageSha256": "1ec1ad8d5720d6b8dcf27c749c9df297862c4a4a21c882fc5644ad00e3adb1bc",
+    "softwareMinusSource": {
+      "close": 0.002300000000104774,
+      "dif": 0.000889569525583056,
+      "dea": -3.986503587327661e-05,
+      "hist": 0.0008588691229096668
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": true,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-08-18T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250818_120.png",
+    "expectedImageSha256": "c69cb4190eaf3c3d695aaa4af2172a7e19ad188ec2f46c376f8a6689d8cf4f40",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3728.03,
+      "dif": 33.19,
+      "dea": 28.511,
+      "hist": 9.358
+    },
+    "source": {
+      "close": 3728.0273,
+      "dif": 33.19041623126077,
+      "dea": 28.51147739124318,
+      "hist": 9.35787768003518
+    },
+    "imageSha256": "c69cb4190eaf3c3d695aaa4af2172a7e19ad188ec2f46c376f8a6689d8cf4f40",
+    "softwareMinusSource": {
+      "close": 0.0027000000000043656,
+      "dif": -0.0004162312607718377,
+      "dea": -0.00047739124318013637,
+      "hist": 0.00012231996482015006
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-10-16T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251016_120.png",
+    "expectedImageSha256": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3916.23,
+      "dif": 15.519,
+      "dea": 13.741,
+      "hist": 3.557
+    },
+    "source": {
+      "close": 3916.228,
+      "dif": 15.518977563021508,
+      "dea": 13.740522245076166,
+      "hist": 3.5569106358906843
+    },
+    "imageSha256": "41dc1ba0b144f70ae79ac9a1f9985c362f9cfccf9aa9c740a911b6704b4e76ed",
+    "softwareMinusSource": {
+      "close": 0.0019999999999527063,
+      "dif": 2.2436978492024195e-05,
+      "dea": 0.00047775492383372864,
+      "hist": 8.93641093155928e-05
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-10-27T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251027_120.png",
+    "expectedImageSha256": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3996.94,
+      "dif": 25.717,
+      "dea": 15.981,
+      "hist": 19.472
+    },
+    "source": {
+      "close": 3996.9446,
+      "dif": 25.717617151605737,
+      "dea": 15.981006369778541,
+      "hist": 19.47322156365439
+    },
+    "imageSha256": "d73de279c08baba9e91eeec3685f7771c52557c886298059f21e5f6292c83f4c",
+    "softwareMinusSource": {
+      "close": -0.0045999999997548,
+      "dif": -0.0006171516057378312,
+      "dea": -6.369778541071014e-06,
+      "hist": -0.0012215636543899677
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": true,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2026-05-07T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0310.PNG",
+    "expectedImageSha256": "6f000e9a0b026fc5077ae8c863240dd0f572e3251b36ffd8f977c70b5c58ca2e",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 4180.09,
+      "dif": 35.653,
+      "dea": 29.911,
+      "hist": 11.483
+    },
+    "source": {
+      "close": 4180.0923,
+      "dif": 35.65322089413985,
+      "dea": 29.91148578093798,
+      "hist": 11.483470226403739
+    },
+    "imageSha256": "6f000e9a0b026fc5077ae8c863240dd0f572e3251b36ffd8f977c70b5c58ca2e",
+    "softwareMinusSource": {
+      "close": -0.002300000000104774,
+      "dif": -0.0002208941398507136,
+      "dea": -0.0004857809379785749,
+      "hist": -0.0004702264037383941
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2026-09-01T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0360.PNG",
+    "expectedImageSha256": "4bbe1333dcd23be8be8b5c66c12a8758cb31990d95fe0fef8ba08a42f7b8fbf0",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3979.89,
+      "dif": 17.049,
+      "dea": 9.777,
+      "hist": 14.544
+    },
+    "source": {
+      "close": 3979.8877,
+      "dif": 17.048927765808003,
+      "dea": 9.776989842988337,
+      "hist": 14.543875845639331
+    },
+    "imageSha256": "4bbe1333dcd23be8be8b5c66c12a8758cb31990d95fe0fef8ba08a42f7b8fbf0",
+    "softwareMinusSource": {
+      "close": 0.0022999999996500264,
+      "dif": 7.223419199675618e-05,
+      "dea": 1.0157011661959814e-05,
+      "hist": 0.00012415436066959273
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-08-06T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0374.PNG",
+    "expectedImageSha256": "039030d96c94dff3a881bedbb95d9c8f69867903a740d84df85d9ca63c711b5e",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3633.99,
+      "dif": 12.244,
+      "dea": 7.817,
+      "hist": 8.855
+    },
+    "source": {
+      "close": 3633.9949,
+      "dif": 12.26783734068158,
+      "dea": 7.832155132027762,
+      "hist": 8.871364417307637
+    },
+    "imageSha256": "039030d96c94dff3a881bedbb95d9c8f69867903a740d84df85d9ca63c711b5e",
+    "softwareMinusSource": {
+      "close": -0.004900000000361615,
+      "dif": -0.023837340681581054,
+      "dea": -0.015155132027762086,
+      "hist": -0.016364417307636714
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-08-12T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0359.PNG",
+    "expectedImageSha256": "cac6248fa179b250128bd9d0bafbd528eb8e298e3f25ff0166bac1e078e49bf5",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3665.92,
+      "dif": 18.704,
+      "dea": 16.557,
+      "hist": 4.293
+    },
+    "source": {
+      "close": 3665.9177,
+      "dif": 18.734633965535068,
+      "dea": 16.56664062613122,
+      "hist": 4.335986678807693
+    },
+    "imageSha256": "cac6248fa179b250128bd9d0bafbd528eb8e298e3f25ff0166bac1e078e49bf5",
+    "softwareMinusSource": {
+      "close": 0.002300000000104774,
+      "dif": -0.03063396553506692,
+      "dea": -0.009640626131222518,
+      "hist": -0.04298667880769269
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-08-14T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0315.PNG",
+    "expectedImageSha256": "d55ca17d56030a4ca6e1e5a9af4903c975936c93b5aa2526e83b317b47034d94",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3666.44,
+      "dif": 20.435,
+      "dea": 20.109,
+      "hist": 0.652
+    },
+    "source": {
+      "close": 3666.4426,
+      "dif": 20.48282859521987,
+      "dea": 20.143528028283768,
+      "hist": 0.6786011338722062
+    },
+    "imageSha256": "d55ca17d56030a4ca6e1e5a9af4903c975936c93b5aa2526e83b317b47034d94",
+    "softwareMinusSource": {
+      "close": -0.002599999999802094,
+      "dif": -0.04782859521987248,
+      "dea": -0.03452802828376633,
+      "hist": -0.026601133872206195
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2026-01-13T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0369.PNG",
+    "expectedImageSha256": "a42e8617e6224f41aefd232ddc861802ab8536757b9123b0de49ceab6290422e",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 4138.76,
+      "dif": 45.344,
+      "dea": 44.449,
+      "hist": 1.79
+    },
+    "source": {
+      "close": 4138.7583,
+      "dif": 45.360788562304606,
+      "dea": 44.473937451229595,
+      "hist": 1.7737022221500212
+    },
+    "imageSha256": "a42e8617e6224f41aefd232ddc861802ab8536757b9123b0de49ceab6290422e",
+    "softwareMinusSource": {
+      "close": 0.0016999999998006388,
+      "dif": -0.01678856230460468,
+      "dea": -0.02493745122959723,
+      "hist": 0.01629777784997888
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2025-12-16T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_60.png",
+    "expectedImageSha256": "01e83945c6ef0e62072a3d8d549aea12451808dacc187ab3175c5a02000a5f8a",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3824.81,
+      "dif": -16.223,
+      "dea": -9.596,
+      "hist": -13.253
+    },
+    "source": {
+      "close": 3824.812,
+      "dif": -16.21568482359453,
+      "dea": -9.584137615665936,
+      "hist": -13.263094415857186
+    },
+    "imageSha256": "01e83945c6ef0e62072a3d8d549aea12451808dacc187ab3175c5a02000a5f8a",
+    "softwareMinusSource": {
+      "close": -0.0019999999999527063,
+      "dif": -0.00731517640546997,
+      "dea": -0.011862384334063947,
+      "hist": 0.010094415857185624
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2026-01-13T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0370.PNG",
+    "expectedImageSha256": "5ffb0d6e584a20c1668a93f523460f33e03c790a26d2373fef9c41ca98b7d037",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 4138.76,
+      "dif": 36.343,
+      "dea": 37.311,
+      "hist": -1.936
+    },
+    "source": {
+      "close": 4138.7583,
+      "dif": 36.304910044354074,
+      "dea": 37.28908406100253,
+      "hist": -1.9683480332969054
+    },
+    "imageSha256": "5ffb0d6e584a20c1668a93f523460f33e03c790a26d2373fef9c41ca98b7d037",
+    "softwareMinusSource": {
+      "close": 0.0016999999998006388,
+      "dif": 0.03808995564592976,
+      "dea": 0.02191593899747346,
+      "hist": 0.0323480332969055
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2026-04-07T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0366.PNG",
+    "expectedImageSha256": "9047d63c83b180b26d05a412cf51e0a48f99015f23814d6cc8173fc25bc39c84",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 3890.16,
+      "dif": -10.804,
+      "dea": -8.638,
+      "hist": -4.331
+    },
+    "source": {
+      "close": 3890.1646,
+      "dif": -10.792811777248517,
+      "dea": -8.616997022616236,
+      "hist": -4.351629509264562
+    },
+    "imageSha256": "9047d63c83b180b26d05a412cf51e0a48f99015f23814d6cc8173fc25bc39c84",
+    "softwareMinusSource": {
+      "close": -0.004600000000209548,
+      "dif": -0.011188222751483679,
+      "dea": -0.021002977383764332,
+      "hist": 0.02062950926456164
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2026-04-20T15:00:00+08:00",
+    "image": "/Users/congming/Downloads/IMG_0361.PNG",
+    "expectedImageSha256": "674787c4b9662e8732fa25ab42a1b9be83876e3accc530576aacc72801f5b818",
+    "sourceRecord": "software_numeric_history_audit.json:observations",
+    "software": {
+      "close": 4082.13,
+      "dif": 25.084,
+      "dea": 24.306,
+      "hist": null
+    },
+    "source": {
+      "close": 4082.1272,
+      "dif": 25.078403896373402,
+      "dea": 24.315234220099484,
+      "hist": 1.5263393525478364
+    },
+    "imageSha256": "674787c4b9662e8732fa25ab42a1b9be83876e3accc530576aacc72801f5b818",
+    "softwareMinusSource": {
+      "close": 0.002800000000206637,
+      "dif": 0.005596103626597682,
+      "dea": -0.009234220099482826,
+      "hist": null
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": null
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2026-01-05T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_60.png",
+    "sourceRecord": "holdout_20260105_pair.json:comparisons",
+    "software": {
+      "close": 4023.42,
+      "dif": 20.358,
+      "dea": 16.594,
+      "hist": 7.529
+    },
+    "source": {
+      "close": 4023.4167,
+      "dif": 20.378883839287028,
+      "dea": 16.601742161126946,
+      "hist": 7.554283356320163
+    },
+    "imageSha256": "5e0d79f215ab56e2d2a5dac191d8b958294c6fbf5a461454ea29e7771c96adf0",
+    "softwareMinusSource": {
+      "close": 0.0032999999998537533,
+      "dif": -0.020883839287026973,
+      "dea": -0.007742161126945035,
+      "hist": -0.025283356320162653
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2026-01-05T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_90.png",
+    "sourceRecord": "holdout_20260105_pair.json:comparisons",
+    "software": {
+      "close": 4023.42,
+      "dif": 23.658,
+      "dea": 20.306,
+      "hist": 6.703
+    },
+    "source": {
+      "close": 4023.4167,
+      "dif": 23.672999109934608,
+      "dea": 20.305750065424718,
+      "hist": 6.73449808901978
+    },
+    "imageSha256": "f2560febeb2ab7dc16b4ff7f7f1e2674f789d181091afcf123332ebe800a857d",
+    "softwareMinusSource": {
+      "close": 0.0032999999998537533,
+      "dif": -0.014999109934606736,
+      "dea": 0.00024993457528310614,
+      "hist": -0.03149808901978002
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": true,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2025-11-13T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_60.png",
+    "sourceRecord": "nov13_17_charts_comparison_20261012.json:numerical_endpoint_comparisons",
+    "software": {
+      "close": 4029.5,
+      "dif": 9.045,
+      "dea": 7.75,
+      "hist": 2.591
+    },
+    "source": {
+      "close": 4029.5012,
+      "dif": 9.025209709538103,
+      "dea": 7.735953317838165,
+      "hist": 2.5785127833998764
+    },
+    "imageSha256": "cc1176539f6f2732936dfec4fa4e35bc2974d474f2d39a9cd2956264eb9fd797",
+    "softwareMinusSource": {
+      "close": -0.0012000000001535227,
+      "dif": 0.01979029046189673,
+      "dea": 0.014046682161835022,
+      "hist": 0.012487216600123752
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2025-11-13T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_120.png",
+    "sourceRecord": "nov13_17_charts_comparison_20261012.json:numerical_endpoint_comparisons",
+    "software": {
+      "close": 4029.5,
+      "dif": 17.772,
+      "dea": 17.678,
+      "hist": 0.187
+    },
+    "source": {
+      "close": 4029.5012,
+      "dif": 17.771231306336176,
+      "dea": 17.677771077330746,
+      "hist": 0.1869204580108601
+    },
+    "imageSha256": "9a8e83348ca913add85fc97d0a005088172aef22ac56dd483b1b69ae1201c2d3",
+    "softwareMinusSource": {
+      "close": -0.0012000000001535227,
+      "dif": 0.0007686936638222619,
+      "dea": 0.00022892266925467197,
+      "hist": 7.95419891398974e-05
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": true,
+      "hist": true
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-11-17T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251117_90.png",
+    "sourceRecord": "nov13_17_charts_comparison_20261012.json:numerical_endpoint_comparisons",
+    "software": {
+      "close": 3972.03,
+      "dif": 0.365,
+      "dea": 6.738,
+      "hist": -12.746
+    },
+    "source": {
+      "close": 3972.035,
+      "dif": 0.3791619234366408,
+      "dea": 6.72521488389666,
+      "hist": -12.692105920920039
+    },
+    "imageSha256": "92870c579d2d2ac98a67beebb553c5102d7b96c2ff49becc3671740492cf648e",
+    "softwareMinusSource": {
+      "close": -0.004999999999654392,
+      "dif": -0.0141619234366408,
+      "dea": 0.012785116103340322,
+      "hist": -0.0538940790799618
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-07-03T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250703_90.png",
+    "sourceRecord": "july3_chart_comparison_20261012.json:numerical_endpoint",
+    "software": {
+      "close": 3461.15,
+      "dif": 14.157,
+      "dea": 14.744,
+      "hist": -1.173
+    },
+    "source": {
+      "close": 3461.1506,
+      "dif": 14.172402743105067,
+      "dea": 14.732930624715525,
+      "hist": -1.121055763220916
+    },
+    "imageSha256": "357ab7fd72acdd8d8b451ad9c677feac9cf7136a4a0e22e4931ea0525038b1aa",
+    "softwareMinusSource": {
+      "close": -0.0005999999998493877,
+      "dif": -0.015402743105067174,
+      "dea": 0.011069375284474603,
+      "hist": -0.05194423677908411
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "m60",
+    "time": "2026-04-23T15:00:00+08:00",
+    "image": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260423_60.png",
+    "sourceRecord": "apr21_23_source_comparison_20261012.json:software_numerical_endpoint",
+    "software": {
+      "close": 4093.25,
+      "dif": 19.523,
+      "dea": 21.809,
+      "hist": -4.572
+    },
+    "source": {
+      "close": 4093.25,
+      "dif": 19.496683404780924,
+      "dea": 21.789363570945532,
+      "hist": -4.585360332329216
+    },
+    "imageSha256": "4e93d2129a92fb1d13ee4cb4d51bb0a1f7ffd3769172321369555966abe8696e",
+    "softwareMinusSource": {
+      "close": 0.0,
+      "dif": 0.026316595219075367,
+      "dea": 0.019636429054468607,
+      "hist": 0.013360332329216185
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": false,
+      "dea": false,
+      "hist": false
+    }
+  },
+  {
+    "period": "day",
+    "time": "2025-11-14",
+    "image": "reports/xxm_macd_structure_20261011/sources/20251114_daily.png",
+    "sourceRecord": "nov14_daily_disappearance_20261012.json:software_terminal_readout",
+    "software": {
+      "close": 3990.49,
+      "dif": 34.363,
+      "dea": 36.454,
+      "hist": -4.181
+    },
+    "source": {
+      "close": 3990.4921,
+      "dif": 34.363,
+      "dea": 36.453,
+      "hist": -4.181
+    },
+    "imageSha256": "2019ff83fa5b0e899b0285f44990d0de1f6c7e65e6b2e70906d185e9199b8045",
+    "softwareMinusSource": {
+      "close": -0.002100000000154978,
+      "dif": 0.0,
+      "dea": 0.0009999999999976694,
+      "hist": 0.0
+    },
+    "sameDisplayedValue": {
+      "close": true,
+      "dif": true,
+      "dea": false,
+      "hist": true
+    }
+  }
+]

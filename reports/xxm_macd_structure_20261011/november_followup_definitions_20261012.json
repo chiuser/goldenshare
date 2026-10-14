@@ -1,0 +1,91 @@
+{
+  "research_date": "2026-10-12",
+  "window": {
+    "start": "2025-11-12",
+    "end": "2025-12-16"
+  },
+  "anchor": {
+    "date": "2025-11-11",
+    "participants": [
+      "90",
+      "daily"
+    ],
+    "structure_times": {
+      "90": "2025-11-11 11:00:00",
+      "daily": "2025-11-11"
+    }
+  },
+  "status": "RETROSPECTIVE_SCREEN_DEFINED_BEFORE_THIS_RUN_NOT_BLIND_RESEARCH",
+  "inputs": {
+    "60": "inputs/60_20250603_20261009.csv",
+    "90": "inputs/90_20250603_20260113.csv",
+    "120": "discrimination_screen_20261012/derived_120.csv",
+    "daily_seed": "inputs/daily_2025.csv",
+    "daily_close_fixture": "tests/fixtures/quote_trend_channel/000001_sh_daily_input.json",
+    "trend_expected": "tests/fixtures/quote_trend_channel/000001_sh_daily_expected_v1.json"
+  },
+  "daily_extension": "Recover 12/26 EMA states from first two saved daily DIF/close bars, DEA from DIF-hist/2; report reconstruction residuals because the seed is rounded to three decimals, never claim exact reproduction. Keep all old seed rows verbatim and extend from saved fixture closes with 9-period DEA. Compare an alternative EMA initialized from the fixture's first close. After observing minute versus daily close rounding differences in the pilot, add a paired minute60 endpoint-tail sensitivity before requesting any new lecture. Four daily derivations are retrospective diagnostics, not software observations.",
+  "diagnostics": [
+    {
+      "key": "current_none_any",
+      "rule": "At completed-bar checkpoints, any original participant current state NONE"
+    },
+    {
+      "key": "current_none_all",
+      "rule": "At completed-bar checkpoints, all original participants current state NONE"
+    },
+    {
+      "key": "strict_original_reference_break_any",
+      "rule": "Any original confirmed top-structure DIF reference strictly surpassed by its own current raw DIF after anchor; once surpassed stays true only in this diagnostic"
+    },
+    {
+      "key": "strict_original_reference_break_all",
+      "rule": "Both original confirmed references strictly surpassed; no reference reselection"
+    },
+    {
+      "key": "post_anchor_cancel_any",
+      "rule": "Any original participant has a later top CANCEL; record local cancellation without assuming episode closure"
+    },
+    {
+      "key": "post_anchor_cancel_all",
+      "rule": "Both original participants have later top CANCEL; not required same timestamp"
+    },
+    {
+      "key": "bottom_structure_any",
+      "rule": "Any 60/90/120 later bottom STRUCTURE; separate possible new-entry basis, not proof original top structure canceled"
+    },
+    {
+      "key": "short_direction_down",
+      "rule": "Saved daily trend fixture direction first changes to DOWN"
+    },
+    {
+      "key": "short_direction_restore_up",
+      "rule": "Saved short trend direction returns UP after a DOWN in screened window; not simply initial UP"
+    },
+    {
+      "key": "long_direction_down",
+      "rule": "Saved long trend fixture direction first changes DOWN"
+    }
+  ],
+  "variants": {
+    "gate_pct": [
+      0.75,
+      1,
+      1.2
+    ],
+    "reference_policy": [
+      "nearest_qualifying",
+      "strongest_eligible"
+    ],
+    "active_policy": "locked"
+  },
+  "screening_policy": "Report first satisfaction and changes; prioritize a robust isolated original-participant cancellation versus daily persistence, then trend change or first bottom formation. Do not invent subtitle dates, infer actual holdings, or promote current NONE to corrected decision.",
+  "source_limit": "Only one saved lecture inside Nov12-Dec16, Dec16. Full source read earlier; no claims of blind outcomes. Missing-period feedback and exhausted MCP quota respected.",
+  "exclusions": [
+    "No automatic 24-bar expiry",
+    "No final position inferable from conflicting November11 wording",
+    "No new labels or parameters",
+    "No reference merge across original 90/daily and former October90/120",
+    "No production/lake/DB/network"
+  ]
+}

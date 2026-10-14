@@ -1,0 +1,89 @@
+{
+  "scope": "Before lifecycle audit; protected candidates, inputs, prior predictions and observations",
+  "files": [
+    {
+      "file": "replay_color_flip.py",
+      "sha256": "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba"
+    },
+    {
+      "file": "replay.py",
+      "sha256": "3799c0d77b80a7fdd05fbb23068148a0e6693d65c406d67a1f64b70ff2b320aa"
+    },
+    {
+      "file": "validate_stage2.py",
+      "sha256": "31146fb03412052d7f6f49ef582e9174eb6fa4670a638c2ab8693a70096f3db1"
+    },
+    {
+      "file": "inputs/120_20250401_20250711.csv",
+      "sha256": "7215119cb60eef9c6abf6442846e9f5ae85585b28eed238ac9a784ad978fdd6b"
+    },
+    {
+      "file": "inputs/120_20250401_20251111.csv",
+      "sha256": "2a74ed6435e51c02eea4c495b61257da8bf9df77bfc83e49aca1977cf29865e7"
+    },
+    {
+      "file": "inputs/120_20260101_20260507.csv",
+      "sha256": "ada4e643f6a52618ecdebc329f6ef1bee5b8e92aa6af616caae75e06cec8ec97"
+    },
+    {
+      "file": "inputs/120_20260701_20260901.csv",
+      "sha256": "503e6d4f3639a75115f26462bff6728374e16a488bc33be7cba25a95475de7a0"
+    },
+    {
+      "file": "inputs/30_20250603_20261009.csv",
+      "sha256": "ba4a1c446dfdf38a35911f56d668f72e7e534bd9c34ac96a63e12c4307723250"
+    },
+    {
+      "file": "inputs/60_20250603_20261009.csv",
+      "sha256": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d"
+    },
+    {
+      "file": "inputs/60_20260301_20260420.csv",
+      "sha256": "843b8d83d1e68aba3a61b4355f987d3eafae7b9da74d6516f97d5e78f790b12f"
+    },
+    {
+      "file": "inputs/90_20250603_20260113.csv",
+      "sha256": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9"
+    },
+    {
+      "file": "inputs/90_20250701_20250814.csv",
+      "sha256": "f2939234a76bec517aed5d8cbd2cb78338adae71d636c79ce02a9892efb5cdfa"
+    },
+    {
+      "file": "inputs/daily_20060801_20070529.csv",
+      "sha256": "f032d61dd72d0e6b5e9c02f5cf57c259a3d2ad8c491a6ae341950367ffc28641"
+    },
+    {
+      "file": "inputs/daily_2025.csv",
+      "sha256": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4"
+    },
+    {
+      "file": "inputs/daily_20260801_20261009.csv",
+      "sha256": "710f152ddaf06baefb37791ff5e17d19bb5f69358f163802212e30f32f5e296c"
+    },
+    {
+      "file": "validation_stage2_frozen.json",
+      "sha256": "44caa1870430c1422ba15f663feb0350601b81cfe8b52573c5b7999b00a7e5a6"
+    },
+    {
+      "file": "stage2_next_screenshot.json",
+      "sha256": "84a1ba0bbc887705862d48052aa1338d9a464fca66ac46a574a73e659df8bd8f"
+    },
+    {
+      "file": "stage2_next_20250626.json",
+      "sha256": "f40507d39a8594dda7aa31a9db3861128b42ea777ef42287102a1d27559d4ab9"
+    },
+    {
+      "file": "holdout_20250625.json",
+      "sha256": "8951ebbc0e38cf1551a3af2da43c9ddad28317221fe26e862ce2132923026bdb"
+    },
+    {
+      "file": "holdout_20250626.json",
+      "sha256": "e4b1fd66f028a5a4176278f2ee1ce1bf12b50acb467de62ad8e7e4ed68e598ce"
+    },
+    {
+      "file": "holdout_20250818.json",
+      "sha256": "571f7101174a4b6ce41cb1b76c9f1e8d46db874a5c89468e48235211c2fee1d5"
+    }
+  ]
+}

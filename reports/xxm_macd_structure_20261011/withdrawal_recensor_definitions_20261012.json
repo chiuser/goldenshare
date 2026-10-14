@@ -1,0 +1,17 @@
+{
+  "research_date": "2026-10-12",
+  "status": "DEFINED_BEFORE_RESCREEN_NOT_ORIGINAL_SOFTWARE_RULE",
+  "question": "Does requiring all four old mechanisms to have finite predictions hide informative price-only versus price-and-DIF differences?",
+  "scope": "Same saved120 and90 inputs, original locked candidate, two unchanged reference policies and three unchanged gates. No new inputs or parameter fitting.",
+  "price_basis": "Same maximum close in positive wave ending at structure confirmation; on negative confirmation use immediately preceding positive wave.",
+  "mechanisms": ["price_only", "price_and_dif"],
+  "gate_pct": [0.75, 1.0, 1.2],
+  "reference_policy": ["nearest_qualifying", "strongest_eligible"],
+  "window": "After top structure, before first new top DULL, strict DIF break of original reference, next top STRUCTURE, or input end. Exclude the competing bar. Censoring is a diagnostic design, not software expiry.",
+  "negative_phase": "Require a strictly negative histogram on or after confirmation and before or on the price-only prediction; no bottom symmetry.",
+  "selection": "Keep price-only finite with price-and-DIF later OR not observed before censoring; report all six variants, gate instability, competitors and censored status. Rank stable120 then stable90. No missing-hit equals rule false forever.",
+  "prefix_check": "Replay only through each prediction and each last observed bar; verify candidate row and first-hit history. Later censoring metadata is retrospective and not a real-time feature.",
+  "sources": "Do not fetch new material before saving screen. Known source coverage is context, not held-out evidence. Do not request known unavailable images.",
+  "invalidation": "A new unambiguous dated structure-withdrawal observation must fall between differing predictions; prediction equality adds no discrimination. Software historical values remain necessary near numerical boundaries.",
+  "forbidden": ["no candidate edits", "no threshold edits", "no old output overwrite", "no automatic24-bar expiry", "no trades", "no formal API/config/data changes"]
+}

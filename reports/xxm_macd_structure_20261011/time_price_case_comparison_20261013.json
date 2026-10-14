@@ -1,0 +1,1939 @@
+{
+  "research_date": "2026-10-13",
+  "status": "PARTIAL_EXPLANATION_NO_SIZE_CLASSIFIER",
+  "scope": "Apply time and next-price measures to10 as-of origins in existing November/April cases; no fitting, new labels, network or changes to candidate.",
+  "input_sha256": {
+    "inputs/60_20250603_20261009.csv": "a1faf4689ccc84eecc3320c85ae4cab415ebb170ceee781e6d2ccbc741e8218d",
+    "inputs/90_20250603_20260113.csv": "cd9d127b9183cdd84998834bbf46900d63fe5a2cf176bd35e6138fe94a4e26f9",
+    "inputs/daily_2025.csv": "6872b4196df28b027cdef5debdf3cd72a7982dc316de29336e7d8933e13da9b4",
+    "discrimination_screen_20261012/derived_120.csv": "c0bf6f047a2a3cb8f41be93142c9c40898ab6b8f34eec0efdae339982785a246"
+  },
+  "input_semantics": {
+    "60": "saved DG endpoint export, not exact software truth",
+    "90": "saved DG endpoint export, software discrepancies unresolved",
+    "120": "previously derived offline EMA series, not new software values",
+    "daily": "saved DG daily values with three-decimal DIF rounding"
+  },
+  "candidate_sha256": "9675c7e89e4a1f0d0dd73bfbee3b853fcd7b5f9db1a984edb24eccbdb9fa8c07",
+  "helper_sha256": "767c59cf97e2c235ec3f9af2d4934277d71bed0e10981c65818f5ec5c9348479",
+  "temporary_script_sha256": "8b2448223c5afcb10acefc45ce0b464e53bcdae82d66219b24823d2b93f244a2",
+  "definitions": {
+    "time": "(selected old DIF high-current DIF)/(current DIF-previous DIF), only if positive numerator and positive velocity; no abs or rounding. Constant velocity assumption only.",
+    "price": "next completed-bar close yielding DIF equality to same target under saved EMA12/26; strictly above equality would cross old high under hypothesis.",
+    "independent_price_check": "Dnext=(2-a-b)*Dcur-(1-a)*(1-b)*Dprev+(a-b)*(Cnext-Ccur), a=2/13,b=2/27.",
+    "day_equivalent": "periods divided by observed usual completed bars per day 60:4,90:3,120:2,daily:1; not forecast wall-clock duration.",
+    "pre_activation": "Nov13 120 has one red bar. Historical targets are prospective budgets only; minimum two bars unchanged and no active reference is imputed.",
+    "not_equivalent_to": [
+      "historical structure disappearance",
+      "entire defense correction",
+      "actual trade",
+      "fixed size cutoff",
+      "fixed24-bar expiry"
+    ]
+  },
+  "evidence_anchors": [
+    {
+      "id": "daily_small",
+      "file": "sources/20251111_user_transcript.txt",
+      "file_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 5,
+      "line_end": 8,
+      "char_start": 182,
+      "char_end": 362,
+      "raw_excerpt": "0:3434秒钟所以呢 60分钟及包括60分钟以上级别 任何周期形成结构都好用 日线这个结构呢\n0:4242秒钟级别不大 但是结构所对应的反向周期数 是24个周期 稍等反向周期数24个周期\n0:5050秒钟比方说90分钟24个就是8天 60分钟呢 就是6天 日线呢就是24天\n0:5858秒钟24个交易日24个周期啊 但是结构 它的主要的使命是为了服务于趋势\n",
+      "raw_excerpt_sha256": "c44c82e3b09a13856585d2d9bc49f62e884de105f2944e63b831f4f365735ea8",
+      "audio_verified": false
+    },
+    {
+      "id": "actual_periods_present",
+      "file": "sources/20251111_user_transcript.txt",
+      "file_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 10,
+      "line_end": 12,
+      "char_start": 423,
+      "char_end": 561,
+      "raw_excerpt": "1:151分钟15秒钟所以我们还是要看价格到趋势的距离 以判定哪一个周期的结构是有效的\n1:241分钟24秒钟但是昨天我们判断的四个周期都有效 6090120日线都有效 但是\n1:311分钟31秒钟今天其实是没有60分钟和120分钟的 90分钟和日线昨天有钝化 今天形成结构\n",
+      "raw_excerpt_sha256": "a5df066aedb4294cac7ae3fd04bb176fb0f02c3cd6940836d2bea8fca4576a28",
+      "audio_verified": false
+    },
+    {
+      "id": "prospective_minutes_large",
+      "file": "sources/20251111_user_transcript.txt",
+      "file_sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "line_start": 119,
+      "line_end": 120,
+      "char_start": 6196,
+      "char_end": 6295,
+      "raw_excerpt": "16:4116分钟41秒钟就是二次结构 二次结构从分钟线来看 级别是比较大的 很难出现\n16:4916分钟49秒钟钝化消失并不代表一定不会 那钝化消失我们就买回来就完了 所以今天呢 以4成仓为标准\n",
+      "raw_excerpt_sha256": "04f7d1cba698ffd1687d08d38b1777ef7f6f9acb0d53bc8663e77e7af260760b",
+      "audio_verified": false
+    },
+    {
+      "id": "120_medium_and_one_red_bar",
+      "file": "sources/20251113_user_transcript.txt",
+      "file_sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "line_start": 12,
+      "line_end": 17,
+      "char_start": 515,
+      "char_end": 830,
+      "raw_excerpt": "1:321分钟32秒钟再看一下 120分钟 120分钟明天有可能就有动画了 因为他要跟这个值做对比啊\n1:421分钟42秒钟这个钝化的级别还可以 不算大反正也不算小 够用 120分钟今天有红角线了啊\n1:501分钟50秒钟0点正值啊 正值就是红角线 所以呢需要两根红角线 需要收盘价格创新高 对吧那这的时候呢 为啥没有啊\n1:591分钟59秒钟当时我们也说了 差了0.2 然后呢 还是一根红角线现 在呢也是一根红脚线\n2:062分钟6秒钟收盘价格创新高了 但是下面只有一根红脚线 那明天上午就第二根红脚线了 两根红脚线\n2:142分钟14秒钟价格创新高 收盘价格创新高 就会有120分钟的顶部动画 然后90分钟 90分钟二次是吧\n",
+      "raw_excerpt_sha256": "59efa82b15722ec29a251d7e188910de798dce3908506fcf56eeafb31f05b2e0",
+      "audio_verified": false
+    },
+    {
+      "id": "daily_small_and_structure_disappearance",
+      "file": "sources/20251114_user_transcript.txt",
+      "file_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 33,
+      "line_end": 37,
+      "char_start": 1544,
+      "char_end": 1802,
+      "raw_excerpt": "4:264分钟26秒钟这有个消失 这个消失是结构消失 不是钝化消失 那再向上呢 还有可能有新的钝化啊\n4:344分钟34秒钟如果向上 但是假如它不向上呢 这个结构消失也等于消失了 对啊也等于消失了\n4:434分钟43秒钟那么我们之前就说啊 日线可以不看 因为它的级别比较小 那这个地方呢 由于其他周期的配合 所以呢\n4:514分钟51秒钟它这个要比上一次的规模要大 但是你要说协调性好 原来是90分钟日线\n4:584分钟58秒钟现在呢是60分钟90分钟120分钟 结果日线消失了 所以你说周期协调性好 也没有好多少\n",
+      "raw_excerpt_sha256": "2b78e1eda00cf9fd0fc3ecb590a92cb13d4e49b59760d25faa11ac04cd57ed1c",
+      "audio_verified": false
+    },
+    {
+      "id": "90_second_120_first",
+      "file": "sources/20251114_user_transcript.txt",
+      "file_sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "line_start": 52,
+      "line_end": 60,
+      "char_start": 2523,
+      "char_end": 2996,
+      "raw_excerpt": "7:057分钟5秒钟对吧 那么长时间以来的首次顶部结构形成 120分钟啊\n7:147分钟14秒钟90分钟第二次 这是第一次 这是第二次 空间其实相差不大 那这个一往上涨\n7:237分钟23秒钟你就总担心会纠错 纠错难度其实挺大的 没那么容易的 但是你你在第一次结构形成的时候\n7:317分钟31秒钟你不知道后面有没有第二次啊 是不是不知道的呀 所以第一次顶部结构形成 它就符合交易的标准 那你凭什么不交易呢\n7:397分钟39秒钟你凭什么不交易呢 有第二次的话 就挺过去就完了呗 是不是这是正确的交易逻辑 所以呢从昨天昨天对吧\n7:487分钟48秒钟这个好多人在市场走出 跟他期待的方向不一致的时候 就很受到影响 很受到行情的影响\n7:577分钟57秒钟其实这没必要的 没必要这是90分钟 然后我们再看60分钟 60分钟啊\n8:048分钟4秒钟也是啊近期的一次 这120分钟和60分钟 这里是第一次形成 90分钟是第二次形成\n8:128分钟12秒钟好吧但是不管60分钟也好 90分钟也好 120分钟也好 它的调整级别都不是几天 怎么也得半个月吧\n",
+      "raw_excerpt_sha256": "f46f8bdae5b8f696f79eec858bd9ce70ab3ebd60e8b3a1c83b985cce71493d10",
+      "audio_verified": false
+    },
+    {
+      "id": "two_structures_three_reasons",
+      "date": "2026-04-23",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "file_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "json_location": "source_passages[date=2026-04-23].passages[id=two_structures_three_reasons]",
+      "raw_excerpt_sha256": "236d56fbb8d619f7e20b7d50553c2d4066f0bebafdf57962ab67ba8d86e6e33c",
+      "audio_verified": false,
+      "full_transcript_archive": false
+    },
+    {
+      "id": "presence_vs_operation",
+      "date": "2026-04-23",
+      "file": "apr21_23_source_comparison_20261012.json",
+      "file_sha256": "911300504bcdf4735ddcebf2f692d820fa57eef288ddcdb3ab75a7a6faaf338d",
+      "json_location": "source_passages[date=2026-04-23].passages[id=presence_vs_operation]",
+      "raw_excerpt_sha256": "e9a0f5f19d5759380176868841f735ca1aeb8a4bd5eb30e48820000a5f7b3f90",
+      "audio_verified": false,
+      "full_transcript_archive": false
+    }
+  ],
+  "cases": [
+    {
+      "id": "nov60",
+      "period": "60",
+      "origin": "2025-11-13 15:00:00",
+      "phase": "first_dull",
+      "close": 4029.5012,
+      "dif": 9.025209709538103,
+      "previous_dif": 7.745119748787147,
+      "source_scope": "No explicit standalone Nov60 size assertion; not whole-defense correction.",
+      "periods_per_trading_day": 4,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-11-06 10:30:00",
+              "reference_dif": 10.39404530201,
+              "reference_price_extreme": 4018.5972,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 1.3688355924718962,
+              "recent_dif_change": 1.2800899607509564,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 1.069327652307247,
+              "estimated_trading_day_equivalent": 0.26733191307681176,
+              "next_close_equality_boundary": 4035.377535449618,
+              "next_close_rise_points": 5.876335449617727,
+              "next_close_rise_pct": 0.1458328254032466,
+              "next_dif_at_unchanged_close": 9.925277801755657,
+              "independent_equality_residual": 6.394884621840902e-14,
+              "next_actual_dif_residual_hindsight_only": 6.075140390748857e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            }
+          ]
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 28.80087595504483,
+              "reference_price_extreme": 4018.8628,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 19.775666245506727,
+              "recent_dif_change": 1.2800899607509564,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 15.448653494560228,
+              "estimated_trading_day_equivalent": 3.862163373640057,
+              "next_close_equality_boundary": 4266.12030542159,
+              "next_close_rise_points": 236.61910542159012,
+              "next_close_rise_pct": 5.872168630241135,
+              "next_dif_at_unchanged_close": 9.925277801755657,
+              "independent_equality_residual": 7.105427357601002e-14,
+              "next_actual_dif_residual_hindsight_only": 6.075140390748857e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apr60_first",
+      "period": "60",
+      "origin": "2026-04-20 11:30:00",
+      "phase": "first_dull",
+      "close": 4078.3906,
+      "dif": 24.886105952163234,
+      "previous_dif": 24.109259293346895,
+      "source_scope": "Apr23 retrospective says both Apr60 dullings small; ignores both for three contextual reasons.",
+      "periods_per_trading_day": 4,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2026-04-08 10:30:00",
+              "reference_dif": 25.567706301411363,
+              "reference_price_extreme": 4055.5469,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 0.6816003492481286,
+              "recent_dif_change": 0.7768466588163392,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 0.8773936806095879,
+              "estimated_trading_day_equivalent": 0.21934842015239697,
+              "next_close_equality_boundary": 4082.860361257867,
+              "next_close_rise_points": 4.469761257867049,
+              "next_close_rise_pct": 0.10959620341090058,
+              "next_dif_at_unchanged_close": 25.211144149786712,
+              "independent_equality_residual": 7.105427357601002e-14,
+              "next_actual_dif_residual_hindsight_only": -2.3092638912203256e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apr60_second",
+      "period": "60",
+      "origin": "2026-04-23 10:30:00",
+      "phase": "first_dull",
+      "close": 4101.49,
+      "dif": 23.3798475022395,
+      "previous_dif": 23.618094478156763,
+      "source_scope": "Apr23 says small before second structure; current DIF is moving away from old high.",
+      "periods_per_trading_day": 4,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2026-04-20 10:30:00",
+              "reference_dif": 25.078403896373402,
+              "reference_price_extreme": 4082.1272,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 1.6985563941339024,
+              "recent_dif_change": -0.23824697591726363,
+              "time_status": "undefined_dif_moving_away",
+              "estimated_periods": null,
+              "estimated_trading_day_equivalent": null,
+              "next_close_equality_boundary": 4128.462521525972,
+              "next_close_rise_points": 26.972521525972297,
+              "next_close_rise_pct": 0.6576273872659033,
+              "next_dif_at_unchanged_close": 22.926749757549462,
+              "independent_equality_residual": 6.039613253960852e-14,
+              "next_actual_dif_residual_hindsight_only": -4.583000645652646e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            }
+          ]
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2026-04-08 10:30:00",
+              "reference_dif": 25.567706301411363,
+              "reference_price_extreme": 4055.5469,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 2.187858799171863,
+              "recent_dif_change": -0.23824697591726363,
+              "time_status": "undefined_dif_moving_away",
+              "estimated_periods": null,
+              "estimated_trading_day_equivalent": null,
+              "next_close_equality_boundary": 4134.596276674841,
+              "next_close_rise_points": 33.106276674840956,
+              "next_close_rise_pct": 0.8071768229312021,
+              "next_dif_at_unchanged_close": 22.926749757549462,
+              "independent_equality_residual": 5.684341886080802e-14,
+              "next_actual_dif_residual_hindsight_only": -4.583000645652646e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov90_first",
+      "period": "90",
+      "origin": "2025-11-10 15:00:00",
+      "phase": "first_dull",
+      "close": 4018.5972,
+      "dif": 13.0978018009082,
+      "previous_dif": 11.883481865199428,
+      "source_scope": "Nov11 minutes large and hard to correct describes possible further structure and entire defense; indirect comparison.",
+      "periods_per_trading_day": 3,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 8,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "reference_price_extreme": 4017.2124,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 18.29400739213861,
+              "recent_dif_change": 1.2143199357087724,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 15.06522857294671,
+              "estimated_trading_day_equivalent": 5.021742857648904,
+              "next_close_equality_boundary": 4237.870407840161,
+              "next_close_rise_points": 219.27320784016047,
+              "next_close_rise_pct": 5.456461469692968,
+              "next_dif_at_unchanged_close": 13.89992936534205,
+              "independent_equality_residual": 3.517186542012496e-13,
+              "next_actual_dif_residual_hindsight_only": 3.375077994860476e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov90_first_structure",
+      "period": "90",
+      "origin": "2025-11-11 11:00:00",
+      "phase": "structure",
+      "close": 3994.2158,
+      "dif": 11.954974379587384,
+      "previous_dif": 13.0978018009082,
+      "source_scope": "Structure-time budget, not first dull; source confirms90 structure at11.",
+      "periods_per_trading_day": 3,
+      "groups": [
+        {
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 9,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "reference_price_extreme": 4017.2124,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 19.436834813459427,
+              "recent_dif_change": -1.142827421320817,
+              "time_status": "undefined_dif_moving_away",
+              "estimated_periods": null,
+              "estimated_trading_day_equivalent": null,
+              "next_close_equality_boundary": 4250.802459210919,
+              "next_close_rise_points": 256.5866592109187,
+              "next_close_rise_pct": 6.4239558416177385,
+              "next_dif_at_unchanged_close": 10.923357746021646,
+              "independent_equality_residual": -3.055333763768431e-13,
+              "next_actual_dif_residual_hindsight_only": 1.787014980436652e-12
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov90_second",
+      "period": "90",
+      "origin": "2025-11-14 11:00:00",
+      "phase": "second_dull",
+      "close": 4024.8313,
+      "dif": 12.117558385294615,
+      "previous_dif": 11.554488560280333,
+      "source_scope": "Nov14 second90 structure; reference choice unresolved; not an explicit individual size label.",
+      "periods_per_trading_day": 3,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-11-06 14:00:00",
+              "reference_dif": 13.0978018009082,
+              "reference_price_extreme": 4018.5972,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 0.980243415613586,
+              "recent_dif_change": 0.5630698250142814,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 1.7408913993725799,
+              "estimated_trading_day_equivalent": 0.5802971331241933,
+              "next_close_equality_boundary": 4033.3202810908087,
+              "next_close_rise_points": 8.48898109080892,
+              "next_close_rise_pct": 0.21091520260262636,
+              "next_dif_at_unchanged_close": 12.420618124148604,
+              "independent_equality_residual": 8.881784197001252e-14,
+              "next_actual_dif_residual_hindsight_only": -4.742872761198669e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            }
+          ]
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 31.39180919304681,
+              "reference_price_extreme": 4017.2124,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 19.274250807752196,
+              "recent_dif_change": 0.5630698250142814,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 34.23065835087741,
+              "estimated_trading_day_equivalent": 11.410219450292471,
+              "next_close_equality_boundary": 4262.648730899404,
+              "next_close_rise_points": 237.81743089940392,
+              "next_close_rise_pct": 5.90875525390105,
+              "next_dif_at_unchanged_close": 12.420618124148604,
+              "independent_equality_residual": 1.1368683772161603e-13,
+              "next_actual_dif_residual_hindsight_only": -4.742872761198669e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov_daily_dull",
+      "period": "daily",
+      "origin": "2025-11-10",
+      "phase": "first_dull",
+      "close": 4018.5972,
+      "dif": 38.196,
+      "previous_dif": 37.011,
+      "source_scope": "Nov11 explicitly small DAILY STRUCTURE; earlier dull-time comparison is indirect.",
+      "periods_per_trading_day": 1,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 3,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-24",
+              "reference_dif": 42.86,
+              "reference_price_extreme": 4016.331,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 4.6640000000000015,
+              "recent_dif_change": 1.1849999999999952,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 3.9358649789029707,
+              "estimated_trading_day_equivalent": 3.9358649789029707,
+              "next_close_equality_boundary": 4070.8819499999995,
+              "next_close_rise_points": 52.28474999999935,
+              "next_close_rise_pct": 1.3010696867055833,
+              "next_dif_at_unchanged_close": 38.689136752136754,
+              "independent_equality_residual": -4.973799150320701e-14,
+              "next_actual_dif_residual_hindsight_only": 0.00042108262110218675,
+              "equality_boundary_range_daily_dif_rounding_only": [
+                4070.859664285714,
+                4070.9042357142857
+              ]
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov_daily_structure",
+      "period": "daily",
+      "origin": "2025-11-11",
+      "phase": "structure",
+      "close": 4002.7576,
+      "dif": 37.426,
+      "previous_dif": 38.196,
+      "source_scope": "Nov11 directly says daily structure small; structure size is not proved identical to dulling measure.",
+      "periods_per_trading_day": 1,
+      "groups": [
+        {
+          "event": "STRUCTURE",
+          "state": "STRUCTURE",
+          "wave_count": 4,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-24",
+              "reference_dif": 42.86,
+              "reference_price_extreme": 4016.331,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 5.4339999999999975,
+              "recent_dif_change": -0.769999999999996,
+              "time_status": "undefined_dif_moving_away",
+              "estimated_periods": null,
+              "estimated_trading_day_equivalent": null,
+              "next_close_equality_boundary": 4083.7857428571433,
+              "next_close_rise_points": 81.0281428571434,
+              "next_close_rise_pct": 2.024308013484089,
+              "next_dif_at_unchanged_close": 36.39621652421653,
+              "independent_equality_residual": 4.973799150320701e-14,
+              "next_actual_dif_residual_hindsight_only": null,
+              "equality_boundary_range_daily_dif_rounding_only": [
+                4083.7634571428566,
+                4083.8080285714286
+              ]
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov120_pre_activation",
+      "period": "120",
+      "origin": "2025-11-13 15:00:00",
+      "phase": "pre_activation",
+      "close": 4029.5012,
+      "dif": 17.771231306341633,
+      "previous_dif": 16.550422899336354,
+      "source_scope": "Nov13 prospective120 dulling not large/not small/enough; one red bar, no candidate DULL yet.",
+      "periods_per_trading_day": 2,
+      "groups": [
+        {
+          "event": "NONE",
+          "state": "NONE",
+          "wave_count": 1,
+          "reference_scope": "unselected_eligible_history_targets_only_no_activation",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 36.04526039839266,
+              "reference_price_extreme": 4018.8628,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 18.274029092051023,
+              "recent_dif_change": 1.2208084070052792,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 14.968793618384707,
+              "estimated_trading_day_equivalent": 7.484396809192353,
+              "next_close_equality_boundary": 4249.127872307459,
+              "next_close_rise_points": 219.6266723074591,
+              "next_close_rise_pct": 5.450467971258058,
+              "next_dif_at_unchanged_close": 18.525183975005696,
+              "independent_equality_residual": 9.237055564881302e-14,
+              "next_actual_dif_residual_hindsight_only": 3.268496584496461e-13
+            },
+            {
+              "reference_start": "2025-11-10 15:00:00",
+              "reference_dif": 19.29233245855994,
+              "reference_price_extreme": 4018.5972,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 1.521101152218307,
+              "recent_dif_change": 1.2208084070052792,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 1.2459786019574237,
+              "estimated_trading_day_equivalent": 0.6229893009787119,
+              "next_close_equality_boundary": 4039.1179542045566,
+              "next_close_rise_points": 9.6167542045564,
+              "next_close_rise_pct": 0.23865867578241198,
+              "next_dif_at_unchanged_close": 18.525183975005696,
+              "independent_equality_residual": 1.1368683772161603e-13,
+              "next_actual_dif_residual_hindsight_only": 3.268496584496461e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nov120_dull",
+      "period": "120",
+      "origin": "2025-11-14 11:30:00",
+      "phase": "first_dull",
+      "close": 4022.8933,
+      "dif": 17.9980580490801,
+      "previous_dif": 17.771231306341633,
+      "source_scope": "Next morning two red bars; date differs from Nov13 size assessment. Time sensitivity diagnostic only.",
+      "periods_per_trading_day": 2,
+      "groups": [
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-11-10 15:00:00",
+              "reference_dif": 19.29233245855994,
+              "reference_price_extreme": 4018.5972,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 1.29427440947984,
+              "recent_dif_change": 0.22682674273846715,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 5.706004476606833,
+              "estimated_trading_day_equivalent": 2.8530022383034166,
+              "next_close_equality_boundary": 4039.4613427025224,
+              "next_close_rise_points": 16.568042702522234,
+              "next_close_rise_pct": 0.4118439507834382,
+              "next_dif_at_unchanged_close": 17.970665234426992,
+              "independent_equality_residual": -1.2079226507921703e-13,
+              "next_actual_dif_residual_hindsight_only": -2.984279490192421e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "nearest_qualifying",
+              "active_policy": "both_after"
+            }
+          ]
+        },
+        {
+          "event": "DULL",
+          "state": "DULL",
+          "wave_count": 2,
+          "reference_scope": "candidate_active_or_event_reference",
+          "measures": [
+            {
+              "reference_start": "2025-10-23 15:00:00",
+              "reference_dif": 36.04526039839266,
+              "reference_price_extreme": 4018.8628,
+              "reference_sign": 1,
+              "reference_is_software_truth": false,
+              "remaining_dif_gap": 18.047202349312556,
+              "recent_dif_change": 0.22682674273846715,
+              "time_status": "conditional_constant_current_velocity",
+              "estimated_periods": 79.56382096497815,
+              "estimated_trading_day_equivalent": 39.781910482489074,
+              "next_close_equality_boundary": 4249.471260805425,
+              "next_close_rise_points": 226.57796080542494,
+              "next_close_rise_pct": 5.63221402877936,
+              "next_dif_at_unchanged_close": 17.970665234426992,
+              "independent_equality_residual": -1.4210854715202004e-13,
+              "next_actual_dif_residual_hindsight_only": -2.984279490192421e-13
+            }
+          ],
+          "settings": [
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 0.75,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "locked"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "dull_before"
+            },
+            {
+              "gate": 1.2,
+              "reference_policy": "strongest_eligible",
+              "active_policy": "both_after"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assessment": [
+    {
+      "claim": "Apr first60 small",
+      "result": "COMPATIBLE_CONDITIONALLY",
+      "basis": "0.8774 periods and4.4698 points at Apr20 first DULL under all24 settings; Apr23 retrospective small, no direct numeric software reference."
+    },
+    {
+      "claim": "Apr second60 small",
+      "result": "NOT_REPRODUCED_BY_TIME_AND_NO_SIZE_CUTOFF",
+      "basis": "DIF delta negative: no finite positive time estimate. Price26.9725 or33.1063 points remains finite but exceeds first; small label not disproved without author reference and grade threshold."
+    },
+    {
+      "claim": "Nov11 daily structure small versus minute risk",
+      "result": "RELATIVE_SPACE_COMPATIBILITY_ONLY",
+      "basis": "Nov10 daily3.9359 periods/52.2848 points versus90 15.0652 periods/219.2732 points; equivalent days3.9359 vs5.0217. Different periods; actual structure snapshots have falling DIF and undefined time. Structure size versus dulling scale not established identical."
+    },
+    {
+      "claim": "Nov second minute correction difficult",
+      "result": "REFERENCE_SENSITIVE_NOT_IDENTIFIED",
+      "basis": "Nov14 90 nearest1.7409 periods/8.4890 points versusolder34.2307/237.8174. Nov13 60 nearest1.0693/5.8763 versusolder15.4487/236.6191. These do not identify whole-defense correction rule."
+    },
+    {
+      "claim": "Nov13 prospective120 neither large nor small/enough",
+      "result": "NO_UNIQUE_NUMERIC_EXPLANATION",
+      "basis": "One red bar: no DULL. Recent target1.2460 periods/9.6168 points versusolder14.9688/219.6267; grade thresholds and actual software target missing."
+    },
+    {
+      "claim": "120 time measure stable grade",
+      "result": "UNSUPPORTED",
+      "basis": "FromNov13 toNov14 morning same recent target1.2460 to5.7060 periods; oldtarget14.9688 to79.5638, mostly velocity drop1.2208 to0.2268, while equality price boundaries rise only0.3434 points and required rise spaces increase6.9513 points. No constant size score derived."
+    }
+  ],
+  "next_step": "Audit existing Nov13/14 90/120 chart and text for historical DIF target and whether old peak remains eligible. Keep whole-defense correction separate; request one discriminating source only if current sources cannot distinguish.",
+  "verification": {
+    "prefix_checks": 240,
+    "variants": 24,
+    "origins": 10,
+    "unique_reference_budget_measures": 15,
+    "source_anchors": 8,
+    "independent_equality_checks_passed": true,
+    "hindsight_dif_residual_max_by_period": {
+      "60": 6.075140390748857e-13,
+      "90": 1.787014980436652e-12,
+      "daily": 0.00042108262110218675,
+      "120": 3.268496584496461e-13
+    },
+    "daily_residual_tolerance": 0.003,
+    "unchanged_existing_research_files": 219,
+    "baseline_manifest_sha256": "4ead9e43dcc322b0455917b7b85403eb3a4b75ab4ac47da60d90d7e859f4b721",
+    "hindsight_next_bar_checks": 14,
+    "next_bar_not_available_origins": [
+      "nov_daily_structure"
+    ]
+  },
+  "limitations": [
+    "Author wording links some structure grades to risk context, not an explicit numeric dulling score.",
+    "No universal small/medium/large cutoffs supplied; cannot fit from few selected examples.",
+    "Reference selection and retirement remain uncertain; candidate variants are not independent observations.",
+    "As-of forecasts recompute each close; later actual DIF used only for algebra verification, not target selection.",
+    "No external quotes or software cursor DIF introduced."
+  ]
+}
