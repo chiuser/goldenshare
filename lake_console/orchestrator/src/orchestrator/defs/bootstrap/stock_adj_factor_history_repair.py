@@ -52,7 +52,7 @@ APPROVED_FACTOR_RANGES = (
     ("688689.SH", "2026-06-29", "2026-07-07", 7),
 )
 FACTOR_SOURCE_COLUMNS = ("ts_code", "trade_date", "adj_factor")
-REPAIR_PLAN_MAX_BYTES = 64 * 1024**2
+REPAIR_PLAN_MAX_BYTES = 192 * 1024**2
 
 
 class FactorRepairError(RuntimeError):
@@ -61,8 +61,8 @@ class FactorRepairError(RuntimeError):
 
 @dataclass(frozen=True)
 class RepairBudget:
-    memory_limit: str = "512MiB"
-    max_rss: int = 1024**3
+    memory_limit: str = "2GiB"
+    max_rss: int = 4 * 1024**3
     threads: int = 2
     max_spill: int = 2 * 1024**3
     max_candidate_bytes: int = 10 * 1024**3
@@ -339,6 +339,7 @@ def validate_repair_plan(plan: dict, expected_hash: str) -> None:
     if {u["asset_key"] for u in plan["units"]} != set(approved_repair_asset_keys()):
         raise FactorRepairError("repair_unit_assets_incomplete")
     validate_price_repair_units(plan)
+    validate_indicator_repair_units(plan)
     for unit in plan["units"]:
         validate_repair_target_paths(Path(plan["lake_root"]), unit["asset_key"], unit["target_paths"])
 
@@ -800,11 +801,14 @@ def repair_units_from_inspection(inspection: dict, *, lake_root: Path) -> tuple[
                       "phase": "factor" if "adj_factor" in asset else
                                "price" if asset == "gold_stock_daily_qfq" or asset in {f"gold_stk_mins_qfq_{f}m" for f in (1,5,15,30,60,90,120)} else "indicator",
                       "validation_paths": inspection.get("validation_paths", {}).get(asset, []),
+                      "calendar_dates": inspection["calendar_dates"],
                       "calculation_windows": [{"ts_code": p["ts_code"], "freq": p["freq"],
                           "windows": p["calculation_windows"],
                           "target_dates": p["target_dates"], "observed_dates": p["observed_dates"],
                           "previous_actual_date": p.get("previous_actual_date"),
                           "end_time": p["end_time"], "trade_date_rows": p["trade_date_rows"],
+                          **{k:p[k] for k in ("previous_expected_date", "seed_last_trade_time", "context_times",
+                              "daily_seed", "full_history_input_rows") if k in p},
                           **({"source_dates": p["source_dates"],
                               "source_inventory_paths": p["source_inventory_paths"]} if asset == "gold_stock_daily_qfq" else {})} for p in profiles]})
     return tuple(units)
@@ -850,18 +854,23 @@ def inspect_repair_daily_seed(connection, *, lake_root: Path, ts_code: str,
 
 
 def repair_implementation_files() -> tuple[Path, ...]:
-    """Explicit R1 calculation/validation closure, shared by freeze and load."""
+    """Explicit factor/price/indicator calculation and validation closure, shared by freeze and load."""
     base = Path(__file__).parents[1]
     return tuple(base / name for name in (
         "bootstrap/stock_adj_factor_history_repair.py",
         "bootstrap/stock_adj_factor_history_repair_cli.py",
         "bootstrap/stock_adj_factor_history_repair_candidates.py",
         "bootstrap/stock_adj_factor_history_repair_execution.py",
+        "bootstrap/stock_adj_factor_history_repair_indicators.py",
+        "stk_mins_qfq_macd_kdj_rules.py", "checks/stk_mins_qfq_macd_kdj_checks.py",
+        "qfq_nineturn_integrity.py", "nineturn_formula.py", "run_contracts/qfq_nineturn.py",
         "bootstrap/stk_mins_qfq_derived_history.py", "stock_factor_price_checks.py",
         "paths.py", "duckdb_sql.py", "stock_daily_qfq.py", "stk_mins_qfq.py",
         "stock_daily_trend_channel.py", "stk_mins_qfq_macd_kdj.py", "qfq_nineturn.py",
         "io/cn_a_gold_minute_bars.py", "duckdb_connection.py",
-        "run_contracts/asset_column_schemas.py", "run_contracts/cn_a_derived_minute_bars.py",
+        "run_contracts/asset_column_schemas.py", "run_contracts/column_schema.py",
+        "asset_guards/stk_mins_continuity.py", "asset_guards/bounded_continuity.py",
+        "run_contracts/cn_a_derived_minute_bars.py",
         "run_contracts/stk_mins.py", "run_contracts/metadata.py", "run_contracts/run_keys.py",
         "partitions.py", "checks/adj_factor_checks.py"))
 
@@ -975,9 +984,114 @@ def _validate_price_repair_units(plan) -> None:
             raise ValueError()
     except (KeyError,TypeError,ValueError) as error:
         raise FactorRepairError("repair_partition_evidence_missing") from error
-    if proof.get("partition_set") != ADJ_FACTOR_PARTITION_SET or registered != sorted(set(registered)) or not proof.get("checked_on"):
+    if proof.get("partition_set") != ADJ_FACTOR_PARTITION_SET or tuple(registered) != tuple(sorted(set(registered))) or not proof.get("checked_on"):
         raise FactorRepairError("repair_partition_evidence_missing")
     for d in days:
         day = f"{d[:4]}-{d[4:6]}-{d[6:]}"
         if not adj_factor_partition_allowed_status(partition_key=day,registered_keys=set(registered),today=proof["checked_on"])["passed"]:
             raise FactorRepairError("repair_factor_partition_not_allowed")
+
+
+def indicator_repair_assets() -> tuple[str, ...]:
+    return tuple(a for a in approved_repair_asset_keys() if a not in (
+        "raw_tushare_adj_factor", "silver_adj_factor", "gold_stock_daily_qfq",
+        *(f"gold_stk_mins_qfq_{f}m" for f in (1,5,15,30,60,90,120))))
+
+
+def indicator_repair_target(root, asset, code, freq, day):
+    from orchestrator.defs import paths
+    if asset == "gold_stock_daily_trend_channel":
+        return paths.gold_stock_daily_trend_channel_path(root,day)
+    if asset == "gold_stock_daily_trend_channel_state":
+        return paths.gold_stock_daily_trend_channel_state_path(root,day)
+    if asset == "gold_stock_daily_qfq_nineturn":
+        return paths.gold_stock_daily_qfq_nineturn_path(root,day)
+    if "nineturn" in asset:
+        return paths.gold_stk_mins_qfq_nineturn_path(root,freq,day)
+    if "_state_" in asset:
+        return paths.gold_stk_mins_qfq_macd_kdj_state_path(root,freq,day)
+    return paths.gold_stk_mins_qfq_macd_kdj_path(root,freq,code,day[:4])
+
+
+def validate_indicator_repair_units(plan) -> None:
+    """Complete replay facts, separately from price impact and final replacement keys."""
+    try:
+        _validate_indicator_repair_units(plan)
+    except (KeyError,TypeError,IndexError,ValueError) as error:
+        raise FactorRepairError("repair_indicator_contract_incomplete") from error
+
+
+def _validate_indicator_repair_units(plan) -> None:
+    from orchestrator.defs import paths
+    units={u["asset_key"]:u for u in plan["units"]}
+    endpoints={(e["asset_key"],e["ts_code"]):e for e in plan["endpoints"]}
+    codes={s["ts_code"] for s in plan["scopes"]}
+    inputs={i["path"] for i in plan["source_fingerprints"]}
+    root=Path(plan["lake_root"])
+    if not {str(paths.silver_trade_calendar_path(root)),str(paths.silver_stock_lifecycle_path(root))} <= inputs:
+        raise FactorRepairError("repair_indicator_reference_missing")
+    for asset in indicator_repair_assets():
+        u=units[asset]; profiles=u["calculation_windows"];calendar=u["calendar_dates"]
+        if (len(profiles)!=25 or {p["ts_code"] for p in profiles}!=codes
+            or not calendar or tuple(calendar)!=tuple(sorted(set(calendar)))
+            or any(date.fromisoformat(d).isoformat()!=d for d in calendar)):
+            raise FactorRepairError("repair_indicator_profiles_incomplete")
+        targets=set()
+        partition_set=("cn_a_stock_daily_trend_channel_trade_days" if "trend_channel" in asset
+            else "cn_a_stock_trade_days" if asset.startswith("gold_stock_daily") else "cn_a_stock_mins_silver_trade_days")
+        registered=plan["partition_validation"]["indicator_sets"][partition_set]
+        if tuple(registered) != tuple(sorted(set(registered))):
+            raise FactorRepairError("repair_indicator_partition_evidence_invalid")
+        for p in profiles:
+            e=endpoints[asset,p["ts_code"]];counts=p["trade_date_rows"]
+            expected=tuple(e["expected_dates"]); observed=tuple(d for d,n in counts if n>0)
+            if (p["freq"]!=e["freq"] or p["end_time"]!=e["end_time"]
+                or tuple(d for d,n in counts)!=expected or sum(n for d,n in counts)!=e["calculation_rows"]
+                or any(type(n) is not int or n<0 for d,n in counts)
+                or tuple(p["observed_dates"])!=observed
+                or expected != tuple(d for d in calendar if e["calculation_start_date"]<=d<=e["end_time"][:10])
+                or not set(expected)<=set(registered)):
+                raise FactorRepairError("repair_indicator_endpoint_mismatch")
+            state="_state" in asset
+            if state and observed!=expected:
+                raise FactorRepairError("repair_state_expected_date_missing")
+            wanted=expected if state else observed
+            if tuple(p["target_dates"])!=wanted or not wanted:
+                raise FactorRepairError("repair_indicator_dates_invalid")
+            if tuple(d for w in p["windows"] for d in w)!=expected:
+                raise FactorRepairError("repair_indicator_windows_incomplete")
+            rows=dict(counts)
+            context=8 if "macd_kdj" in asset else 0
+            if any(not w or sum(rows[d] for d in w)+context>RepairBudget().max_stock_batch_rows for w in p["windows"]):
+                raise FactorRepairError("repair_stock_row_budget_exceeded")
+            first=e["calculation_start_date"]
+            price_asset="gold_stock_daily_qfq" if p["freq"] is None else f"gold_stk_mins_qfq_{p['freq']}m"
+            price=endpoints[price_asset,p["ts_code"]]
+            if first!=price["calculation_start_date"]:
+                raise FactorRepairError("repair_indicator_start_invalid")
+            if "macd_kdj" in asset:
+                for k in ("previous_expected_date","seed_last_trade_time","context_times"):
+                    if (tuple(p[k])!=tuple(e[k]) if k=="context_times" else p[k]!=e[k]):raise FactorRepairError("repair_seed_context_invalid")
+                previous=max((d for d in calendar if d<first),default=None)
+                seed=paths.gold_stk_mins_qfq_macd_kdj_state_path(root,p["freq"],previous or "invalid")
+                if p["previous_expected_date"]!=previous or str(seed) not in inputs:
+                    raise FactorRepairError("repair_exact_seed_invalid")
+            elif "trend_channel" in asset:
+                seed=p["daily_seed"]
+                if seed["initialized_from_listing"]:
+                    if p["ts_code"]!="688689.SH" or first!="2021-01-27" or seed["state_path"] is not None:
+                        raise FactorRepairError("repair_daily_initialization_not_proven")
+                else:
+                    previous=max((d for d in calendar if d<first),default=None)
+                    if (seed["previous_expected_date"]!=previous or seed["state_path"]!=str(paths.gold_stock_daily_trend_channel_state_path(root,previous))
+                        or seed["state_path"] not in inputs or seed["state_source_trade_date"]>=first):
+                        raise FactorRepairError("repair_daily_seed_invalid")
+            if "nineturn" in asset and (type(p["full_history_input_rows"]) is not int or p["full_history_input_rows"]<=0):
+                raise FactorRepairError("repair_nineturn_history_incomplete")
+            targets.update(str(indicator_repair_target(root,asset,p["ts_code"],p["freq"],d)) for d in wanted)
+        if set(u["target_paths"])!=targets or len(u["target_paths"])!=len(targets):
+            raise FactorRepairError("repair_indicator_target_inventory_incomplete")
+        validation=u["validation_paths"]
+        if not targets<=set(validation) or not set(validation)<=inputs or len(validation)!=len(set(validation)):
+            raise FactorRepairError("repair_validation_inventory_invalid")
+        validate_repair_target_paths(root,asset,validation)

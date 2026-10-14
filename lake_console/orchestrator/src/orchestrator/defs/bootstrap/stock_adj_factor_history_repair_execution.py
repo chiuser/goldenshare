@@ -1,4 +1,4 @@
-"""Sequential, resumable R1 candidate workers. No formal writer or Dagster instance."""
+"""Sequential, resumable factor/price/indicator candidate workers. No formal writer or Dagster instance."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     check_repair_cancel,
     check_repair_path,
     file_identity,
+    indicator_repair_assets,
     repair_implementation_files,
     validate_repair_plan,
 )
@@ -33,7 +34,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates impo
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 
 
-def load_price_repair_plan(path: Path, expected_hash: str) -> dict:
+def load_repair_plan(path: Path, expected_hash: str) -> dict:
     path = check_repair_path(path)
     if path.stat().st_size > REPAIR_PLAN_MAX_BYTES:
         raise FactorRepairError("repair_plan_size_exceeded")
@@ -82,13 +83,14 @@ def load_price_repair_plan(path: Path, expected_hash: str) -> dict:
     return plan
 
 
-def price_repair_work(plan, phase: str, *, selected_targets=None):
-    if phase not in ("factor", "price"):
+def repair_candidate_work(plan, phase: str, *, selected_targets=None):
+    if phase not in ("factor", "price", "indicator"):
         raise FactorRepairError("repair_phase_not_supported")
-    assets = set(PRICE_REPAIR_ASSETS[:2] if phase == "factor" else PRICE_REPAIR_ASSETS[2:])
+    order=PRICE_REPAIR_ASSETS[:2] if phase=='factor' else PRICE_REPAIR_ASSETS[2:] if phase=='price' else indicator_repair_assets()
+    assets = set(order)
     work = [(index, path) for index, unit in enumerate(plan["units"])
             if unit["asset_key"] in assets for path in sorted(unit["target_paths"])]
-    work.sort(key=lambda item: (PRICE_REPAIR_ASSETS.index(plan["units"][item[0]]["asset_key"]), item[1]))
+    work.sort(key=lambda item: (order.index(plan["units"][item[0]]["asset_key"]), item[1]))
     if selected_targets is not None:
         selected = tuple(selected_targets)
         if not selected or len(set(selected)) != len(selected) or set(selected) - {p for _, p in work}:
@@ -99,7 +101,7 @@ def price_repair_work(plan, phase: str, *, selected_targets=None):
     return work
 
 
-def price_repair_batches(work):
+def repair_candidate_batches(work):
     """Group one asset/month or asset/year, at most 64 full-file merges per fresh process."""
     groups = {}
     for index, target in work:
@@ -241,11 +243,32 @@ def audit_price_repair_partition_coverage(connection,plan,unit,targets):
         check_repair_storage(Path(plan["run_root"]),plan=plan)
 
 
-def run_price_repair_worker(request: dict) -> dict:
-    plan = load_price_repair_plan(Path(request["plan_path"]), request["expected_hash"])
+def run_repair_candidate_worker(request: dict) -> dict:
+    plan = load_repair_plan(Path(request["plan_path"]), request["expected_hash"])
+    if 'replay_task_index' in request:
+        from dataclasses import replace
+
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+            indicator_replay_tasks,
+            replay_indicator_task,
+        )
+        root=Path(plan['run_root']);temporary=check_repair_path(root/'temp');temporary.mkdir(exist_ok=True)
+        storage=check_repair_storage(root,plan=plan)
+        settings=replace(RepairBudget().connection_settings(temporary),
+            max_temp_directory_size=f"{max(0,RepairBudget().max_spill-storage['spill_bytes'])}B")
+        task=indicator_replay_tasks(plan)[request['replay_task_index']]
+        def progress(data):
+            atomic_repair_json(root/'checkpoints/active.json',{'plan_hash':plan['plan_hash'],
+                'batch_id':request['batch_id'],'completed':0,'current_target':task['profile']['ts_code']+':'+task['asset_key'],**data})
+        with connect_configured_duckdb(settings) as connection:
+            connection.execute('SET autoinstall_known_extensions=false');connection.execute('SET autoload_known_extensions=false')
+            replay=replay_indicator_task(connection,plan,task,audit=request['audit'],progress=progress)
+        rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return {'changed_rows':0,'no_op_files':0,'candidate_delta':0,'replay_result':replay,
+            'peak_rss_bytes':int(rss if sys.platform=='darwin' else rss*1024)}
     unit = plan["units"][request["unit_index"]]
     targets = [check_repair_path(Path(p)) for p in request["targets"]]
-    if (unit["asset_key"] not in PRICE_REPAIR_ASSETS or not 1 <= len(targets) <= 64
+    if (unit["asset_key"] not in (*PRICE_REPAIR_ASSETS,*indicator_repair_assets()) or not 1 <= len(targets) <= 64
             or len(set(targets)) != len(targets) or any(str(p) not in unit["target_paths"] for p in targets)):
         raise FactorRepairError("repair_phase_not_supported")
     root = Path(plan["run_root"])
@@ -259,11 +282,20 @@ def run_price_repair_worker(request: dict) -> dict:
     with connect_configured_duckdb(settings) as connection:
         connection.execute("SET autoinstall_known_extensions=false")
         connection.execute("SET autoload_known_extensions=false")
+        pending={}
+        indicator=unit['asset_key'] in indicator_repair_assets()
         for number, target in enumerate(targets, 1):
             check_repair_storage(root,plan=plan)
             before = root / "candidates" / target.relative_to(Path(plan["lake_root"]))
             old_bytes = before.stat().st_size if before.exists() else 0
-            record = build_repair_target_candidate(connection, plan, unit, target, audit=request["audit"])
+            if indicator:
+                from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+                    build_indicator_target_candidate,
+                )
+                record=build_indicator_target_candidate(connection,plan,unit,target,audit=request['audit'])
+                pending[str(target)]=record
+            else:
+                record = build_repair_target_candidate(connection, plan, unit, target, audit=request["audit"])
             delta += record["candidate_bytes"] - old_bytes
             if request.get("candidate_bytes", 0) + delta > RepairBudget().max_candidate_bytes:
                 raise FactorRepairError("repair_storage_budget_exceeded")
@@ -271,8 +303,18 @@ def run_price_repair_worker(request: dict) -> dict:
             no_op += int(record["no_op"])
             atomic_repair_json(root / "checkpoints/active.json", {
                 "plan_hash": plan["plan_hash"], "batch_id": request["batch_id"],
-                "completed": number, "current_target": str(target)})
-        if unit["asset_key"].startswith("gold_stk_mins_qfq_"):
+                "completed": 0 if indicator else number, "current_target": str(target),
+                "pending_files":number if indicator else 0})
+        if indicator:
+            from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+                audit_indicator_batch,
+                seal_indicator_batch,
+            )
+            proof=audit_indicator_batch(connection,plan,unit,[str(p) for p in targets],pending={p:r for p,r in pending.items() if r.get('business_pending')})
+            seal_indicator_batch(plan,pending,proof)
+            atomic_repair_json(root/'checkpoints/active.json',{'plan_hash':plan['plan_hash'],
+                'batch_id':request['batch_id'],'completed':len(targets),'current_target':str(targets[-1])})
+        elif unit["asset_key"].startswith("gold_stk_mins_qfq_"):
             audit_price_repair_partition_coverage(connection,plan,unit,targets)
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {"changed_rows": changed, "no_op_files": no_op, "candidate_delta": delta,
@@ -295,16 +337,31 @@ def _stop_worker(child):
             child.wait(timeout=5)
 
 
-def execute_price_repair(plan_path: Path, expected_hash: str, *, phase: str, audit=False,
+def execute_repair_candidates(plan_path: Path, expected_hash: str, *, phase: str, audit=False,
                          selected_targets=None, cancel=None, progress=None, worker_command=None) -> dict:
     """Tests inject a worker launcher, never a CLI option for alternate production roots."""
-    plan = load_price_repair_plan(plan_path, expected_hash)
-    work = price_repair_work(plan, phase, selected_targets=selected_targets)
+    plan = load_repair_plan(plan_path, expected_hash)
+    work = repair_candidate_work(plan, phase, selected_targets=selected_targets)
+    replay_work=[]
+    if phase=='indicator':
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
+            indicator_repair_target,
+        )
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+            indicator_replay_tasks,
+        )
+        selected={p for _,p in work}
+        for index,task in enumerate(indicator_replay_tasks(plan)):
+            needed=any(str(indicator_repair_target(Path(plan['lake_root']),asset,p['ts_code'],p['freq'],d)) in selected
+                for asset,p in ((task['asset_key'],task['profile']),(task['state_asset'],task['state_profile']))
+                if p is not None for d in p['target_dates'])
+            if needed:replay_work.append((-index-1,[task['profile']['ts_code']+':'+task['asset_key']]))
     root = check_repair_path(Path(plan["run_root"]))
     storage = None
     started, completed, changed, no_op, peak = time.monotonic(), 0, 0, 0, 0
     summary = {"plan_hash": expected_hash, "phase": phase, "status": "BUILDING",
-               "total": len(work), "completed": 0, "all_chain_ready": False}
+               "total": len(work), "completed": 0, "all_chain_ready": False,
+               "replay_total":len(replay_work),'replay_completed':0}
     def emit(current=None, **extra):
         summary.update(completed=completed, changed_rows=changed, no_op_files=no_op,
                        peak_rss_bytes=peak, elapsed_seconds=time.monotonic()-started,
@@ -339,13 +396,14 @@ def execute_price_repair(plan_path: Path, expected_hash: str, *, phase: str, aud
                     emit(identity["path"],activity="冻结输入指纹核验",verified_inputs=number,
                         verified_bytes=verified_bytes,hashed_current_bytes=0,total_input_bytes=total_bytes)
                     last_preflight = time.monotonic()
-            for batch_number, (index, targets) in enumerate(price_repair_batches(work)):
+            for batch_number, (index, targets) in enumerate([*replay_work,*repair_candidate_batches(work)]):
                 check_repair_cancel(cancel)
                 emit(targets[0])
                 request = {"plan_path": str(plan_path), "expected_hash": expected_hash,
                            "unit_index": index, "targets": targets, "audit": audit,
                            "batch_id": str(batch_number),
                            "candidate_bytes": storage["candidate_bytes"]}
+                if index<0:request['replay_task_index']=-index-1
                 active = root / "checkpoints/active.json"
                 atomic_repair_json(active, {"plan_hash": expected_hash, "batch_id": str(batch_number),
                                            "completed": 0, "current_target": targets[0]})
@@ -375,10 +433,20 @@ def execute_price_repair(plan_path: Path, expected_hash: str, *, phase: str, aud
                             if peak > RepairBudget().max_rss:
                                 raise FactorRepairError("repair_rss_budget_exceeded")
                             observed = json.loads(active.read_text())
-                            if observed["completed"] != summary.get("worker_completed", 0) or time.monotonic() - last_update >= RepairBudget().progress_interval:
+                            if (observed["completed"] != summary.get("worker_completed", 0)
+                                or observed.get('replay_calculated_rows',0)!=summary.get('replay_calculated_rows',0)
+                                or observed.get('replay_completed_windows',0)!=summary.get('replay_completed_windows',0)
+                                or time.monotonic() - last_update >= RepairBudget().progress_interval):
                                 emit(observed["current_target"], worker_completed=observed["completed"],
                                      visible_completed=completed+observed["completed"],
-                                     activity="当前片段/文件校验；暂无法估算剩余时间。")
+                                     replay_completed_rows=observed.get('replay_completed_rows',0),
+                                     replay_calculated_rows=observed.get('replay_calculated_rows',0),
+                                     replay_completed_windows=observed.get('replay_completed_windows',0),
+                                     replay_total_windows=observed.get('replay_total_windows',0),
+                                     replay_total_rows=observed.get('replay_total_rows',0),
+                                     replay_current_window=observed.get('replay_current_window'),
+                                     pending_files=observed.get('pending_files',0),
+                                     activity="指标重放" if index<0 else "当前片段/文件校验；暂无法估算剩余时间。")
                                 last_update = time.monotonic()
                             time.sleep(0.1)
                         for _ in range(5):
@@ -393,9 +461,11 @@ def execute_price_repair(plan_path: Path, expected_hash: str, *, phase: str, aud
                     finally:
                         _stop_worker(child)
                 check_repair_cancel(cancel)
-                for target in targets:
-                    read_repair_candidate_record(plan, Path(target))
-                completed += len(targets)
+                if index<0:
+                    summary['replay_completed']+=1
+                else:
+                    for target in targets:read_repair_candidate_record(plan, Path(target))
+                    completed += len(targets)
                 changed += result["changed_rows"]
                 no_op += result["no_op_files"]
                 storage = check_repair_storage(root,plan=plan)
@@ -403,7 +473,7 @@ def execute_price_repair(plan_path: Path, expected_hash: str, *, phase: str, aud
                     raise FactorRepairError("repair_storage_budget_exceeded")
                 emit(targets[-1], worker_completed=0, visible_completed=completed, **storage)
                 atomic_repair_json(root / "checkpoint.json", summary)
-            summary.update(status="FACTOR_CANDIDATES_VERIFIED" if phase == "factor" else "PRICE_CANDIDATES_VERIFIED",
+            summary.update(status=("FACTOR_CANDIDATES_VERIFIED" if phase == "factor" else "PRICE_CANDIDATES_VERIFIED" if phase=='price' else 'INDICATOR_CANDIDATES_VERIFIED'),
                            sample=selected_targets is not None, audited=audit)
             emit()
             check_repair_storage(root,plan=plan)
@@ -424,7 +494,7 @@ def main():
     request = sys.stdin.read(16385)
     if len(request) > 16384:
         raise FactorRepairError("repair_worker_request_exceeded")
-    print(json.dumps(run_price_repair_worker(json.loads(request)), allow_nan=False))
+    print(json.dumps(run_repair_candidate_worker(json.loads(request)), allow_nan=False))
 
 
 if __name__ == "__main__":

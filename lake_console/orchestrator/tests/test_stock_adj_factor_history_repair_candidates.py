@@ -161,6 +161,7 @@ def price_plan(freeze_case, request):
     args["target_paths"]=sorted({p for u in args["units"] for p in u["target_paths"]})
     inputs.update(Path(p) for p in args["target_paths"])
     args["input_stats"]=[(str(p),p.stat().st_size,p.stat().st_mtime_ns) for p in sorted(inputs)]
+    contracts.complete_indicator_contract(args)
     return freeze_stock_factor_repair(**args)
 
 

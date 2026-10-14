@@ -2,6 +2,8 @@
 
 > 最新开发进展（2026-10-14）：R1七项验收缺口已补齐并通过当前源码隔离验收，逐项对账与测试证据见§22；可以进入下一轮R2开发确认。正式freeze、正式Lake/移动盘staging、sensor及R2均未执行。§21及下列10月13日记录保留用于追溯，不再代表R1最新验收状态。
 
+> R2验收更新（2026-10-14）：R2开发与隔离验收通过，可以进入R3的方案与执行确认；本轮未执行R3。管理员已确认plan上限192MiB。本专项采用DuckDB 2GiB、父子合计RSS 4GiB，见§23；未执行正式freeze、移动盘staging、正式Lake、sensor、事件或serving。
+
 > 当前进展（2026-10-13）：R0只读规划及freeze入口已实现，范围仍为25股/2,489键及获准688689日线扩展；最新结果见§20。正式freeze因维护窗口尚未取得而未执行，R1/R2候选、正式提升和事件未执行。§19保留此前设计确认，不再将其中“本轮仅文档”用于描述本次开发。Prod保持现状。
 
 > 最新范围（2026-10-13，管理员已确认）：因子仍25股/2,489键；额外统一688689.SH日线历史基准，1,299根OHLC差异位于2021-01-27—2026-06-11，日线指标/state需从2021-01-27重放至各资产冻结的实际既有末端（批准时快照为2026-10-12，最新见§19）。§15短区间审计中“日线指标不重写”是此前范围的结果，不能覆盖本次更早历史。范围/候选合并基础实现已有本地代码，完整执行入口仍未完成，25股正式数据尚未修正；详情及新增执行事实见§17、§19。
@@ -131,15 +133,16 @@ class RepairFileCandidate:
 | --- | --- | --- | --- |
 | scopes（逐股 ts_code、factor_ranges） | 必填；当前 25 股 | CLI → run plan | source fetch、impact、candidate、audit；同批不可修改 |
 | as_of/end | 必填 | CLI → plan | anchor、价格和各指标端点；每步核验 |
-| duckdb_memory_limit | 512 MiB | 专项 budget → plan | configured connection；新进程/连接生效 |
-| max_rss | 1 GiB | 同上 | 编排采样、每 unit 退出判定；超限不提升 |
+| REPAIR_PLAN_MAX_BYTES | 192 MiB（2026-10-14获准调整） | 专项合同唯一常量 | freeze编码容量准入及加载前size门禁，共用同一值 |
+| duckdb_memory_limit | 2 GiB（2026-10-14获准调整） | 专项 budget → plan | configured connection；新进程/连接生效 |
+| max_rss | 父子合计4 GiB（2026-10-14获准调整） | 同上 | 编排采样、每 unit 退出判定；超限不提升 |
 | threads | 2 | 同上 | configured connection |
 | max_spill | 2 GiB | 同上 | connection；temp 位于 run/temp |
 | max_candidate_bytes | 10 GiB | 同上 | 规划、每次 COPY 前后、全链审计 |
 | max_stock_batch_rows | 100,000 | 同上 | 单股计算批 planner；超限拆年月/bar 片段 |
 | progress_interval | 最长 30 秒 | 专项常量，写入 plan | CLI 阶段/当前频年/已完成量/最后更新时间 |
 
-`512 MiB` 不是现行共享默认：当前 `duckdb_connection.py` 默认为 `16GB`、4 threads；不能调用默认 resource 误用它。也不更改共享默认。`max_stock_batch_rows` 约束计算关系，不能声称全市场保留行也小于十万；全市场文件合并使用向量化流式 COPY，另受 RSS/spill/磁盘预算约束。
+专项 `2 GiB` 不是现行共享默认：当前 `duckdb_connection.py` 默认为 `16GB`、4 threads；不能调用默认 resource 误用它。也不更改共享默认。`max_stock_batch_rows` 约束计算关系，不能声称全市场保留行也小于十万；全市场文件合并使用向量化流式 COPY，另受 RSS/spill/磁盘预算约束。
 
 审计输出每项 effective value、消费者、源/目标字节、单位进度、RSS/spill 峰值和错误码。参数变化必须新计划，不能在续跑中加大预算。上述新配置在方案评审确认后才能开发。
 
@@ -1056,3 +1059,82 @@ CodeGraph使用explore/impact，并sync/status；覆盖原daily/canonical SQL、
 CodeGraph使用search/callers/impact，覆盖计划生成/加载、候选、公共校验与原checks/readiness/历史审计消费者；结合当前代码核对未被图覆盖的调用。仅必要的因子分区纯核及测试引用迁移，检查名称、metadata和普通日更逻辑保持。未修改R2计算核及子系统依赖矩阵。
 
 本轮不执行正式freeze、不写正式Lake或移动盘staging、不启停sensor、不推进R2、不推送。7项修复完成并通过当前验收，可以进入下一轮R2开发确认；本轮未推进R2。真实完整候选、性能/恢复和正式执行仍分别受R3及后续阶段约束。
+
+## 23. R2开发与资源调整（2026-10-14，验收通过）
+
+R2按已确认清单补齐21个既有指标资产；25股/2,489因子键、31资产/725端点、R2的525条范围记录不扩大。只读复核完成175组精确分钟seed及1,400根context，688689自2021-01-27上市初始化成立，读取到的既有末端为2026-10-13。正式执行仍须重新核验和冻结，临时审计不是执行依赖。
+
+完整市场校验库存仅2024—2026年七频价格及MACD/KDJ就有229,572个文件；按原合同保存最短指纹字段和validation路径至少77,529,744字节，旧64MiB不足。此数量是只读校验输入，不是修复目标，不扩大到范围外股票。
+
+管理员先批准plan放宽到128MiB，完整测算超过该值后明确确认192MiB；内存可在3—4GiB范围按效率需要调整。本专项采用下表并同步§3.3，§19/§22的旧资源值保留作为当时记录；本次只覆盖下列三项，不改变其余预算或共享默认。
+
+| 配置 | 当前值、来源、持久化与消费者 | 生效及测试门禁 |
+| --- | --- | --- |
+| REPAIR_PLAN_MAX_BYTES | 192MiB，专项合同模块唯一常量；freeze估算及plan加载共用 | 新执行生效；144MiB可加载、192MiB+1字节加载前拒绝，freeze准入与编码共用测试；不执行正式freeze |
+| RepairBudget.memory_limit | 2GiB，唯一RepairBudget定义并写入plan；专项inspection及候选worker的configured connection消费 | 每个新连接生效；隔离样本记录实际RSS/spill/耗时，不修改共享16GB默认 |
+| RepairBudget.max_rss | 父子进程合计4GiB，同一RepairBudget写入plan；inspection与候选协调进程消费 | 每次进程采样及退出检查；新预算正反测试、跨批累计和真实退出验收 |
+
+没有新增env、Settings、数据库或日常job开关。预算是可根据证据审议的运行保护值，不是业务范围；调整不削减完整校验，也不自动迁就旧计划。源码和budget变化仍要求重新冻结，不自动更新既有hash。2线程、2GiB累计spill、10GiB全链候选、单股片段100,000行及30秒进度保持；真实25股全链吞吐、资源及恢复仍须在R3验收。
+
+
+### 23.1 当前只读容量与隔离验证记录
+
+完整市场只读目录与size/mtime容量测算包含327,811个输入文件、15,041个目标文件、31个unit和725条范围记录。使用固定长度SHA256占位，仅计算相同JSON编码所需长度，约143,927,952字节（137.3MiB）；它不是可执行计划，没有plan hash，也没有读取所有文件内容计算正式指纹。测算35.79秒、RSS约578MiB，未执行freeze。来源仍是现行Lake和已取得的有界只读范围证据，未来执行必须重新核验。
+
+旧估算超过128MiB后，管理员明确确认192MiB。随后补齐Raw/Silver因子目标、各指标validation路径及当前plan字段，并用现行helper核验九转各股完整历史末端：测算328,164个输入、15,743个目标、31个unit/725条范围记录，编码约145,295,400字节（138.6MiB），距192MiB剩余56,031,192字节（53.4MiB）。读取前后size/mtime稳定，81.45秒、单进程RSS约1.35GiB。SHA256仍仅为等长占位；分区证明用交易日历长度占位，分钟完整市场MACD库存取目录中的价格对应文件上界。没有保存可执行plan、计算正式全库存强指纹或调用freeze；这些数字是当前范围的容量估算，未来正式计划仍须重新核验和实际准入。不得省略完整校验库存、缩减强指纹或扩大业务范围来装入计划。
+
+隔离样本已验证七频MACD/KDJ的字面结果、跨年state续接、日趋势上市初始化、日线和四频分钟九转分段续算、COPY退出后恢复和取消保留已完成片段。最终日期过滤修正后的真实R2子进程样本构建5.15秒，父子RSS峰值794,279,936字节，候选107,235字节、spill为0；该数字只代表一个分钟年度文件样本，不是25股全链资源结论，也不能证明2GiB相比旧预算已有可量化收益。
+
+批量原规则校验先按资产/月物化输入，单次Parquet读取列表最多64文件；MACD覆盖仅投影身份列。趋势/state及九转使用同一语句组合原标量纯核，读取已物化月表，避免当前DuckDB关联子查询优化器的类型绑定错误。生命周期也先物化，月内不重复读取Parquet；月内共享输入指纹和schema核验。MACD共享纯核保留聚合前的字面日期过滤，避免普通单日检查多扫描年度行；范围外日期含无效频率的Parquet反例不影响当前日，选中该坏日期仍拒绝。完整文件的非目标行仍由EXCEPT ALL验等，业务检查完成后才封存。
+
+此前专项合同/候选93项、执行器17项、指标两个文件11项及另加独立末端/真实进度反例均通过；原公式/消费者100项及32子测试、补充趋势M4/M6与MACD repair op45项及9子测试通过。最终日期过滤修正后，普通公式/消费者94项及32子测试重新通过，readiness按其专用受保护启动器20项通过；资产治理12项、静态门禁113项也按当前源码重新通过。最终容量/依赖准入3项、真实子进程及1024-bar进度/取消2项通过；最终真实子进程和完整分钟九转/MACD state文件补充复核2项通过（278.84秒）。采用已有整组证据加最终变更相关测试，不把重叠用例相加。受保护测试报告的源码指纹与当前文件逐一相等；Ruff及文档完整性检查通过。
+
+
+### 23.2 R2逐项对账与验收结论
+
+| 已确认硬口径 | 当前实现 | 验证与结论 |
+| --- | --- | --- |
+| 1. 25股/2,489键、21指标/525范围记录 | 合同校验及indicator_replay_tasks限定资产、股票、频率和唯一目标 | 725端点/31unit只读复核；删范围、删目标、改频率/末端且重算hash仍拒绝 |
+| 2. 不新增覆盖、结果/state分别冻结末端 | 逐profile输出过滤；共同递推到所需最晚末端，各自仅合并原键 | 新冻结夹具结果至10月12日、state更早末端；两者独立，不生成新state日期 |
+| 3. 价格必须来自R1候选或验证no-op | RepairCandidateInputs.require_price_candidates；缺任何受影响文件候选即拒绝 | 反例拦截旧Gold价格回退；完整市场校验读取所需其他股票价格候选 |
+| 4. 日趋势原公式、精确seed/上市初始化 | 提取原prepare核心；重读生命周期和精确上一expected state/source date | 字面EMA带、688689上市首日、停牌carry及原M4/M5/M6回归；缺seed不初始化 |
+| 5. 七频MACD/KDJ、原参数版本与8根context | 原1024-bar内核、单股投影、精确seed复核、跨年候选state续接 | 七频字面结果一致；2023—2026续接；原公式及repair op回归 |
+| 6. 九转完整历史及紧凑连续状态 | 原history-batch builders，4根close context、完整direction/count | 日线/四频分段重放、原金样本计数超过9；历史行数按各自端点统计，不取年度总行数 |
+| 7. 单股片段≤100,000行 | planner包含8/4根context预算；趋势另分≤250 expected日 | 越界反例、跨年/停牌/空观察日期及分段复用；COPY为完整文件流式合并 |
+| 8. 原blocking语义及完整市场 | 抽取趋势、九转、MACD纯核；月内物化、单次输入≤64文件、整批校验后封存；普通单日SQL聚合前限制日期 | 原消费者100项及32子测试，补充趋势M4/M6和MACD repair op45项；最终普通消费者94项/32子测试及readiness20项通过；范围外坏趋势state拒绝，状态/九转/分钟完整文件正例通过 |
+| 9. 原键和保留行完全不变、独立no-op | 原完整文件scope合并，EXCEPT ALL双向保留对账；每结果/state独立比较 | R1合同/候选93项、R2共享日文件及年度文件测试；未用显示精度或抽样代替完整对账 |
+| 10. 恢复、所有权、指纹与封存 | 源/候选投影、逐片段fsync/强指纹、批量业务证据绑定、完整校验后seal | COPY退出、取消、同计划恢复、不重写已完成片段、completed fragment损坏拒绝；实现closure补齐ColumnContract和两个分钟连续性核 |
+| 11. 真实进度及预算 | 1024-bar计算回报与取消检查；计算行数、封存行数/窗口数分开；父子RSS 4GiB、DuckDB 2GiB；plan唯一上限192MiB | 1024行中断后不领取下一段；计算进度单调，封存计数尚为0；真实子进程5.15秒/RSS794,279,936字节/spill0；当前完整容量估算138.6MiB，144MiB加载通过、192MiB+1拒绝，容量冲突解除 |
+| 12. 阶段与执行边界 | sample/full分别记账、all_chain_ready=false；只有手动factor/price/indicator候选入口 | 执行器17项通过；未执行R3或正式freeze，没有正式Lake/移动盘staging、sensor、正式事件、serving或Prod操作 |
+
+12条硬口径已完成开发、隔离测试和逐条对账，192MiB确认及正反测试解除容量冲突，R2开发验收通过，可以进入R3的方案与执行确认。本轮未执行R3；all_chain_ready仍为false。上述通过项只对应已执行的隔离与只读测试，R3的真实25股全链候选、性能和恢复、R4正式提升及R5事件保持独立审批。正式执行前仍须重新核验源、逐资产末端、完整库存、writer排空及真实计划容量，不沿用本次临时容量报告作为执行事实。
+
+CodeGraph沿原explore/search/callers/impact分析并执行sync/status，核验手动CLI→协调器→worker→原纯计算核/校验核；索引遗漏的动态导入由当前代码搜索和真实子进程测试补充。影响面仅为本专项和原计算/checks消费者，普通资产/check身份、schema、job/sensor配置及子系统依赖矩阵不变。新进度回调仅R2传入，原writer默认不传，未增加日常历史扫描。
+
+改动文件为下节19个文件；不影响子系统边界及依赖矩阵。提交只使用明确路径白名单，其他任务改动不回滚、不覆盖、不加入提交；不推送。
+
+### 23.3 本轮提交文件清单
+
+文档路径相对于仓库根目录；`defs/`行相对于`lake_console/orchestrator/src/orchestrator/`，`tests/`行相对于`lake_console/orchestrator/`。没有修改Prod、前端/API或数据集schema。
+
+| 文件 | 用途 |
+| --- | --- |
+| `lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md` | 原方案同步当前资源和验收结论 |
+| `lake_console/docs/design/dagster-stock-adj-factor-history-repair-low-level-design-v1.md` | 原LLD配置审计、证据及12条对账 |
+| `defs/bootstrap/stock_adj_factor_history_repair.py` | 完整指标合同、资源和实现指纹依赖清单 |
+| `defs/bootstrap/stock_adj_factor_history_repair_cli.py` | 只读库存、精确seed/历史端点及手动入口 |
+| `defs/bootstrap/stock_adj_factor_history_repair_candidates.py` | 强制受影响价格候选或已验证no-op |
+| `defs/bootstrap/stock_adj_factor_history_repair_execution.py` | 有界子进程、真实进度与业务批次封存 |
+| `defs/bootstrap/stock_adj_factor_history_repair_indicators.py`（新增） | 单股重放片段、原blocking批量校验及恢复 |
+| `defs/stock_daily_trend_channel.py` | 原纯计算/校验核供原writer与专项共用 |
+| `defs/stk_mins_qfq_macd_kdj.py` | 原replacement准备核及可选1024-bar进度回调 |
+| `defs/stk_mins_qfq_macd_kdj_rules.py`（新增） | 原schema和覆盖规则，保留日期过滤 |
+| `defs/checks/stk_mins_qfq_macd_kdj_checks.py` | 普通checks迁移到同一纯核，身份/metadata保持 |
+| `defs/qfq_nineturn_integrity.py` | 原九转计数/覆盖校验核共用 |
+| `tests/test_stock_adj_factor_history_repair.py` | 完整冻结合同和指标反例 |
+| `tests/test_stock_adj_factor_history_repair_candidates.py` | R1候选回归与完整525条夹具 |
+| `tests/test_stock_adj_factor_history_repair_execution.py` | 进程/预算/恢复及192MiB容量正反测试 |
+| `tests/test_stock_adj_factor_history_repair_indicators.py`（新增） | 公式字面结果、精确seed、范围及片段反例 |
+| `tests/test_stock_adj_factor_history_repair_replay.py`（新增） | 七频/跨年、完整文件、真实进度/取消/恢复 |
+| `tests/test_stk_mins_qfq_macd_kdj_rules.py`（新增） | 原单日/多日语义、频率和范围外日期反例 |
+| `tests/stock_suspend_confirmed_test_runner.py` | 精确新增两个源码读取白名单，隔离规则保持 |

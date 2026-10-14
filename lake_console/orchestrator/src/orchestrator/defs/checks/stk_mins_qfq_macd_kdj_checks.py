@@ -6,11 +6,11 @@ import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
@@ -18,7 +18,11 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMN_TYPES,
     discover_gold_stk_mins_qfq_source_year_paths,
 )
-
+from orchestrator.defs.stk_mins_qfq_macd_kdj_rules import (
+    macd_kdj_schema,
+    macd_kdj_source_coverage_sql,
+    macd_kdj_state_coverage_sql,
+)
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_FILE_EXISTS_AND_SCHEMA_CHECK = (
     "gold_stk_mins_qfq_macd_kdj_file_exists_and_schema_check"
@@ -144,10 +148,8 @@ def _indicator_expected_paths(
 
 def _observed_schema(path: Path) -> dict[str, str]:
     with connect_configured_duckdb() as connection:
-        rows = connection.execute(
-            f"DESCRIBE SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
-        ).fetchall()
-    return {str(row[0]): str(row[1]).upper() for row in rows}
+        _matches,observed=macd_kdj_schema(connection,path,{})
+    return observed
 
 
 def _schema_matches(path: Path, expected_types: dict[str, str]) -> tuple[bool, dict[str, str]]:
@@ -302,26 +304,9 @@ def _indicator_source_coverage_result(
             ),
         )
     with connect_configured_duckdb() as connection:
-        source_row_count = int(
-            connection.execute(
-                f"""
-                SELECT count(*)
-                FROM {_read_parquet_paths(source_paths)}
-                WHERE CAST(freq AS INTEGER) = {freq}
-                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-                """
-            ).fetchone()[0]
-        )
-        indicator_row_count = int(
-            connection.execute(
-                f"""
-                SELECT count(*)
-                FROM {_read_parquet_paths(expected_paths)}
-                WHERE CAST(freq AS INTEGER) = {freq}
-                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-                """
-            ).fetchone()[0]
-        )
+        _day,source_row_count,indicator_row_count=connection.execute(macd_kdj_source_coverage_sql(
+            source=_read_parquet_paths(source_paths),indicator=_read_parquet_paths(expected_paths),
+            freq=freq,dates=(partition_key,))).fetchone()
     failed_rule_names = []
     if source_row_count <= 0:
         failed_rule_names.append(
@@ -430,50 +415,9 @@ def _state_latest_coverage_result(
             extra_metadata={"existing_indicator_file_count": 0},
         )
     with connect_configured_duckdb() as connection:
-        row = connection.execute(
-            f"""
-            WITH indicator_latest AS (
-              SELECT
-                ts_code,
-                max(trade_time) AS last_trade_time
-              FROM {_read_parquet_paths(indicator_paths)}
-              WHERE CAST(freq AS INTEGER) = {freq}
-                AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-              GROUP BY ts_code
-            ),
-            state_rows AS (
-              SELECT
-                ts_code,
-                last_trade_time
-              FROM {read_parquet(state_path, hive_partitioning=False)}
-              WHERE CAST(freq AS INTEGER) = {freq}
-                AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-            ),
-            joined AS (
-              SELECT
-                coalesce(indicator_latest.ts_code, state_rows.ts_code) AS ts_code,
-                indicator_latest.last_trade_time AS indicator_last_trade_time,
-                state_rows.last_trade_time AS state_last_trade_time
-              FROM indicator_latest
-              FULL OUTER JOIN state_rows USING (ts_code)
-            )
-            SELECT
-              (SELECT count(*) FROM indicator_latest) AS indicator_stock_count,
-              (SELECT count(*) FROM state_rows) AS state_row_count,
-              count(*) FILTER (
-                WHERE indicator_last_trade_time IS NOT NULL
-                  AND (
-                    state_last_trade_time IS NULL
-                   OR indicator_last_trade_time != state_last_trade_time
-                  )
-              ) AS current_indicator_mismatch_count,
-              count(*) FILTER (
-                WHERE state_last_trade_time IS NOT NULL
-                  AND CAST(state_last_trade_time AS DATE) > DATE {duckdb_string(partition_key)}
-              ) AS mismatch_count
-            FROM joined
-            """
-        ).fetchone()
+        row=connection.execute(macd_kdj_state_coverage_sql(
+            indicator=_read_parquet_paths(indicator_paths),state=read_parquet(state_path,hive_partitioning=False),
+            freq=freq,dates=(partition_key,))).fetchone()[1:]
     (
         indicator_stock_count,
         state_row_count,

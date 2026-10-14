@@ -121,6 +121,8 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/stock_adj_factor_history_repair_candidates.py",
     "defs/bootstrap/stock_adj_factor_history_repair_cli.py",
     "defs/bootstrap/stock_adj_factor_history_repair_execution.py",
+    "defs/bootstrap/stock_adj_factor_history_repair_indicators.py",
+    "defs/stk_mins_qfq_macd_kdj_rules.py",
     # Existing weekly manual job is read by the unchanged AST reader audit.
     "defs/jobs/stock_weekly_event_backfill.py",
     "defs/ops/stock_weekly_bootstrap_checks.py",

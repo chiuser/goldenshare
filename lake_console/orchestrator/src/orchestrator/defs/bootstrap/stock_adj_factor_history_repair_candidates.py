@@ -202,6 +202,7 @@ class RepairCandidateInputs:
         self.identities = {i["path"]: i for i in plan["source_fingerprints"]}
         self.verified = set()
         self.require_factor_candidates = False
+        self.require_price_candidates = False
         self.overlays = {}
         self.codes = ",".join("'" + s["ts_code"] + "'" for s in plan["scopes"])
 
@@ -220,6 +221,9 @@ class RepairCandidateInputs:
         self.frozen(path)
         record_path = repair_record_path(self.run_root, path, self.lake_root)
         if not record_path.exists():
+            if self.require_price_candidates and any(str(path) in u['target_paths']
+                for u in self.plan['units'] if u['asset_key'] in PRICE_REPAIR_ASSETS[2:]):
+                raise FactorRepairError("repair_price_candidate_required")
             if self.require_factor_candidates and "/adj_factor/" in path.as_posix():
                 day = path.parent.name.removeprefix("trade_date=").replace("-", "")
                 if any(r["trade_date"] == day for r in self.plan["source_rows"]):

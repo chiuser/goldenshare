@@ -1,4 +1,4 @@
-"""Inspection, explicit freeze and R1 staging candidates for the approved repair.
+"""Inspection, explicit freeze and staging candidates for the approved repair.
 
 Fresh, sequential workers keep DuckDB memory bounded across asset families.
 No Dagster instance, job, event or formal file writer is imported here.
@@ -30,6 +30,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     check_repair_roots,
     fetch_current_factor_rows,
     freeze_stock_factor_repair,
+    indicator_repair_target,
     inspect_factor_rows,
     inspect_repair_asset_rows,
     inspect_repair_daily_seed,
@@ -45,6 +46,7 @@ from orchestrator.defs.duckdb_connection import (
     DEFAULT_DUCKDB_TEMP_DIRECTORY,
     connect_configured_duckdb,
 )
+from orchestrator.defs.duckdb_sql import duckdb_string
 
 
 def _rss_bytes() -> int:
@@ -101,6 +103,24 @@ def inspect_repair_daily_source_dates(connection, root: Path, codes, end: str):
                 raise FactorRepairError("input_drift")
         stats.extend(before)
     return {code:tuple(sorted(days)) for code,days in observed.items()}, inventory, stats
+
+
+def _history_input_counts(connection,profiles,source_paths,*,freq,input_stats):
+    """Exact nine-turn full-history counts, bounded reads and independent endpoints."""
+    cutoffs=','.join(f"({duckdb_string(p['ts_code'])},{('DATE' if freq is None else 'TIMESTAMP')} {duckdb_string(p['end_time'])})" for p in profiles)
+    counts={p['ts_code']:0 for p in profiles}
+    field='trade_date' if freq is None else 'trade_time'
+    for offset in range(0,len(source_paths),64):
+        batch=source_paths[offset:offset+64]
+        before={str(p):(p.stat().st_size,p.stat().st_mtime_ns) for p in batch}
+        if any(name in input_stats and input_stats[name]!=identity for name,identity in before.items()):
+            raise FactorRepairError('input_drift')
+        rows=connection.execute(f"SELECT b.ts_code,count(*) FROM read_parquet(?,hive_partitioning=false) b JOIN (VALUES {cutoffs}) ends(ts_code,end_time) ON b.ts_code=ends.ts_code AND b.{field}<=ends.end_time GROUP BY b.ts_code",[[str(p) for p in source_paths[offset:offset+64]]]).fetchall()
+        for code,n in rows:counts[code]+=int(n)
+        if any((Path(name).stat().st_size,Path(name).stat().st_mtime_ns)!=identity for name,identity in before.items()):
+            raise FactorRepairError('input_drift')
+        input_stats.update(before)
+    return counts
 
 
 def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
@@ -171,6 +191,9 @@ def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
                     profile,daily=freq is None)
             else:
                 profile["target_dates"] = profile["expected_dates"] if "state" in asset else actual
+                if "macd_kdj" in asset:
+                    profile["calculation_windows"] = plan_repair_calculation_windows(
+                        profile["trade_date_rows"],max_rows=RepairBudget().max_stock_batch_rows-8)
             if "macd_kdj" in asset:
                 first = price_profiles[code]["calculation_start_date"]
                 if code not in seeds:
@@ -211,16 +234,9 @@ def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
         history_paths = sorted(p for p in full.glob("trade_date=*/part-000.parquet")
                                if p.parent.name.removeprefix("trade_date=") <= end)
         inputs.update(str(p) for p in history_paths)
-        history_counts = {s.ts_code: 0 for s in scopes}
-        for offset in range(0, len(history_paths), 64):
-            counts = connection.execute("""SELECT ts_code,count(*) FROM read_parquet(?,hive_partitioning=false)
-              WHERE ts_code=ANY(?) GROUP BY ts_code""",
-              [[str(p) for p in history_paths[offset:offset + 64]], list(history_counts)]).fetchall()
-            for code, count in counts:
-                history_counts[code] += int(count)
-        for p in profiles:
-            if p["asset_key"] == "gold_stock_daily_qfq_nineturn":
-                p["full_history_input_rows"] = history_counts[p["ts_code"]]
+        nine_profiles=[p for p in profiles if p['asset_key']=='gold_stock_daily_qfq_nineturn']
+        history_counts=_history_input_counts(connection,nine_profiles,history_paths,freq=None,input_stats=input_stats)
+        for p in nine_profiles:p['full_history_input_rows']=history_counts[p['ts_code']]
         source_dates = set()
         for p in profiles:
             if p["asset_key"] != "gold_stock_daily_qfq":
@@ -236,6 +252,13 @@ def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
     else:
         from orchestrator.defs.stk_mins_qfq import gold_stk_mins_qfq_source_freq
         source_freq = gold_stk_mins_qfq_source_freq(freq)
+        nine_profiles=[p for p in profiles if 'nineturn' in p['asset_key']]
+        if nine_profiles:
+            history_paths=sorted({path for p in nine_profiles for path in _year_files(paths.gold_stk_mins_qfq_path,root,
+                [next(s for s in scopes if s.ts_code==p['ts_code'])],freq,p['end_time'][:10])})
+            inputs.update(str(p) for p in history_paths)
+            history_counts=_history_input_counts(connection,nine_profiles,history_paths,freq=freq,input_stats=input_stats)
+            for p in nine_profiles:p['full_history_input_rows']=history_counts[p['ts_code']]
         source_dates = {d for p in profiles if p["asset_key"] == specs[0][0] for d in p["target_dates"]}
         inputs.update(str(paths.silver_stk_mins_path(root, source_freq, d)) for d in source_dates)
         inputs.update(str(paths.silver_adj_factor_path(root, d)) for d in source_dates)
@@ -253,7 +276,42 @@ def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
             raise FactorRepairError("repair_validation_file_missing")
         inputs.update(expected)
         validation_paths[specs[0][0]] = sorted(expected)
+        # Indicator coverage spans the replay, including unchanged later prices.
+        price_validation=set(expected)
+        for p in profiles:
+            if p["asset_key"]==specs[0][0]:
+                price_validation.update(str(name) for name in _year_files(
+                    paths.gold_stk_mins_qfq_path,root,[next(s for s in scopes if s.ts_code==p["ts_code"])],freq,end))
+        # Existing price inventory is the exact full-market input for indicator checks.
+        directory=paths.gold_stk_mins_qfq_path(root,freq,scopes[0].ts_code,end[:4]).parents[2]
+        years={d[:4] for p in profiles for d in p["expected_dates"]}
+        price_validation.update(str(p) for y in years for p in directory.glob(f"ts_code=*/year={y}/part-000.parquet"))
+        price_validation={p for p in price_validation if Path(p).parent.name.removeprefix("year=") in years}
+        inputs.update(price_validation)
+        indicator_paths=set()
+        replay_dates=sorted({d for p in profiles if 'macd_kdj' in p['asset_key'] for d in p['expected_dates']})
+        files=sorted(price_validation)
+        for offset in range(0,len(files),64):
+            identities=connection.execute("""SELECT DISTINCT ts_code,strftime(trade_date,'%Y')
+                FROM read_parquet(?,hive_partitioning=false) WHERE CAST(trade_date AS VARCHAR)=ANY(?)""",
+                [files[offset:offset+64],replay_dates]).fetchall()
+            indicator_paths.update(str(paths.gold_stk_mins_qfq_macd_kdj_path(root,freq,code,year)) for code,year in identities)
+        if any(not Path(p).is_file() for p in indicator_paths):
+            raise FactorRepairError("repair_validation_file_missing")
+        inputs.update(indicator_paths)
+        validation_paths[specs[1][0]]=sorted(indicator_paths)
+        validation_paths[specs[0][0]]=sorted(price_validation)
+    for asset,_helper in specs[1:]:
+        if asset not in validation_paths:
+            validation_paths[asset]=sorted(str(indicator_repair_target(root,asset,p["ts_code"],freq,d))
+                for p in profiles if p["asset_key"]==asset for d in p["target_dates"])
+            validation_paths[asset]=sorted(set(validation_paths[asset]))
+    if freq is None:
+        previous_dates={max((x for x in calendar if x<d),default=None) for p in profiles
+            if 'trend_channel' in p['asset_key'] for d in p['target_dates']}
+        inputs.update(str(paths.gold_stock_daily_trend_channel_state_path(root,d)) for d in previous_dates if d is not None)
     return {"profiles": profiles, "input_paths": sorted(inputs), "target_paths": sorted(targets),
+            "calendar_dates": list(calendar),
             "validation_paths": validation_paths,
             "profile_input_stats": [(name, *values) for name, values in sorted(input_stats.items())]}
 
@@ -323,6 +381,10 @@ def run_repair_inspection(payload: dict, *, progress=None) -> dict:
             targets.update(observed["target_paths"])
             result["profiles"].extend(observed.get("profiles", ()))
             result["validation_paths"].update(observed.get("validation_paths", {}))
+            if "calendar_dates" in observed:
+                if "calendar_dates" in result and result["calendar_dates"]!=observed["calendar_dates"]:
+                    raise FactorRepairError("repair_calendar_drift")
+                result["calendar_dates"]=observed["calendar_dates"]
             if phase == "factor":
                 result["factor"] = observed
         if progress:
@@ -333,14 +395,6 @@ def run_repair_inspection(payload: dict, *, progress=None) -> dict:
         for p in result["profiles"])
     validate_asset_repair_endpoints(_scopes(payload), endpoints)
     target_inventory = [r for r in result["inventory"]["files"] if r[0] in targets]
-    all_files = {r[0]: r for r in result["inventory"]["files"]}
-    for p in result["profiles"]:
-        if "gold_stk_mins_qfq_nineturn" in p["asset_key"]:
-            history = _year_files(paths.gold_stk_mins_qfq_path, Path(paths.DEFAULT_LAKE_ROOT),
-                [next(s for s in _scopes(payload) if s.ts_code == p["ts_code"])], p["freq"], p["end_time"][:10])
-            p["full_history_input_rows"] = sum(all_files[str(path)][3] for path in history)
-        if p.get("full_history_input_rows", 0) > RepairBudget().max_stock_batch_rows:
-            raise FactorRepairError("repair_nineturn_full_history_budget_exceeded")
     result["target_inventory"] = {"files": len(target_inventory),
         "bytes": sum(r[1] for r in target_inventory), "full_file_rows": sum(r[3] for r in target_inventory)}
     result["stop_reasons"] = (["repair_candidate_estimate_exceeded"]
@@ -355,18 +409,18 @@ def main(argv=None) -> int:
         argv = sys.argv[1:]
     if argv and argv[0] in ("build", "audit"):
         from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
-            execute_price_repair,
+            execute_repair_candidates,
         )
         parser = argparse.ArgumentParser(description="构建或审计冻结计划内的因子/价格候选；不写正式Lake。")
         parser.add_argument("command", choices=("build", "audit"))
         parser.add_argument("--plan", type=Path, required=True)
         parser.add_argument("--expected-plan-hash", required=True)
-        parser.add_argument("--phase", choices=("factor", "price"), required=True)
+        parser.add_argument("--phase", choices=("factor", "price", "indicator"), required=True)
         selection = parser.add_mutually_exclusive_group(required=True)
         selection.add_argument("--full", action="store_true")
         selection.add_argument("--sample-target", action="append")
         args = parser.parse_args(argv)
-        result = execute_price_repair(args.plan, args.expected_plan_hash, phase=args.phase,
+        result = execute_repair_candidates(args.plan, args.expected_plan_hash, phase=args.phase,
             audit=args.command == "audit", selected_targets=args.sample_target,
             progress=lambda data: print(json.dumps(data), file=sys.stderr, flush=True))
         print(json.dumps(result))
@@ -378,7 +432,7 @@ def main(argv=None) -> int:
         print(json.dumps(inspect_repair_worker(json.loads(request), argv[1]), allow_nan=False))
         return 0
     parser = argparse.ArgumentParser(description="只读核验批准股票的历史因子修复范围；不创建候选或正式任务。",
-        epilog="R1候选：build/audit --plan PATH --expected-plan-hash HASH --phase factor|price (--full|--sample-target PATH)。")
+        epilog="专项候选：build/audit --plan PATH --expected-plan-hash HASH --phase factor|price|indicator (--full|--sample-target PATH)。")
     parser.add_argument("command", choices=("inspect", "freeze"))
     parser.add_argument("--scope", action="append", required=True, help="CODE:START:END；逐股重复输入")
     parser.add_argument("--as-of", required=True)
@@ -463,6 +517,8 @@ def main(argv=None) -> int:
                 writer_guard=writer_guard, partition_validation={
                     "partition_set": ADJ_FACTOR_PARTITION_SET,
                     "registered_keys": sorted(instance.get_dynamic_partitions(ADJ_FACTOR_PARTITION_SET)),
+                    "indicator_sets": {name:sorted(instance.get_dynamic_partitions(name)) for name in (
+                        "cn_a_stock_daily_trend_channel_trade_days","cn_a_stock_trade_days","cn_a_stock_mins_silver_trade_days")},
                     "checked_on": datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()})
         print(json.dumps({"status": "frozen", "plan_hash": plan["plan_hash"],
                           "plan_path": str(args.run_root / "plan.json")}))

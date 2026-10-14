@@ -155,24 +155,7 @@ def audit_qfq_nineturn_integrity(
         f"OR CAST(freq AS INTEGER) != {normalized_freq}"
     )
     metrics = connection.execute(
-        f"""
-        SELECT
-          count(*) AS row_count,
-          count(*) - count(DISTINCT ({key_columns})) AS duplicate_key_count,
-          count(*) FILTER (WHERE {null_key_predicate}) AS null_key_count,
-          count(*) FILTER (WHERE {partition_predicate}) AS partition_mismatch_count,
-          count(*) FILTER (
-            WHERE up_count IS NULL OR down_count IS NULL
-              OR up_count < 0 OR down_count < 0
-              OR (up_count > 0 AND down_count > 0)
-              OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')
-              OR (nine_down_turn IS NOT NULL AND nine_down_turn != '-9')
-              OR (nine_up_turn = '+9' AND up_count < {QFQ_NINETURN_SIGNAL_THRESHOLD})
-              OR (nine_down_turn = '-9' AND down_count < {QFQ_NINETURN_SIGNAL_THRESHOLD})
-              OR (nine_up_turn IS NOT NULL AND nine_down_turn IS NOT NULL)
-          ) AS invalid_value_count
-        FROM {target}
-        """
+        qfq_nineturn_output_counts_sql(target=target,key_columns=key_columns,null_key_predicate=null_key_predicate,partition_predicate=partition_predicate)
     ).fetchone()
     row_count, duplicate_count, null_count, partition_count, invalid_count = (
         int(value or 0) for value in metrics
@@ -188,20 +171,7 @@ def audit_qfq_nineturn_integrity(
     source_row_count, source_duplicate_count, missing_count, extra_count = (
         int(value or 0)
         for value in connection.execute(
-            f"""
-            WITH source_rows AS ({source_identity_rows_sql}),
-            source_keys AS ({source_identity_sql}),
-            target_keys AS ({target_identity_sql})
-            SELECT
-              (SELECT count(*) FROM source_keys),
-              (SELECT count(*) - count(DISTINCT ({key_columns})) FROM source_rows),
-              (SELECT count(*) FROM (
-                SELECT * FROM source_keys EXCEPT SELECT * FROM target_keys
-              )),
-              (SELECT count(*) FROM (
-                SELECT * FROM target_keys EXCEPT SELECT * FROM source_keys
-              ))
-            """
+            qfq_nineturn_coverage_counts_sql(source_identity_rows_sql=source_identity_rows_sql,source_identity_sql=source_identity_sql,target_identity_sql=target_identity_sql,key_columns=key_columns)
         ).fetchone()
     )
     failed_rules: list[str] = []
@@ -364,3 +334,43 @@ def _failed_diagnostics(
         failed_rule_names=(rule_name,),
         failure_samples=(sample,),
     )
+
+
+def qfq_nineturn_output_counts_sql(*,target,key_columns,null_key_predicate,partition_predicate) -> str:
+    """Canonical formula-free counts, shared by formal and candidate audits."""
+    return f"""
+        SELECT
+          count(*) AS row_count,
+          count(*) - count(DISTINCT ({key_columns})) AS duplicate_key_count,
+          count(*) FILTER (WHERE {null_key_predicate}) AS null_key_count,
+          count(*) FILTER (WHERE {partition_predicate}) AS partition_mismatch_count,
+          count(*) FILTER (
+            WHERE up_count IS NULL OR down_count IS NULL
+              OR up_count < 0 OR down_count < 0
+              OR (up_count > 0 AND down_count > 0)
+              OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')
+              OR (nine_down_turn IS NOT NULL AND nine_down_turn != '-9')
+              OR (nine_up_turn = '+9' AND up_count < {QFQ_NINETURN_SIGNAL_THRESHOLD})
+              OR (nine_down_turn = '-9' AND down_count < {QFQ_NINETURN_SIGNAL_THRESHOLD})
+              OR (nine_up_turn IS NOT NULL AND nine_down_turn IS NOT NULL)
+          ) AS invalid_value_count
+        FROM {target}
+        """
+
+
+def qfq_nineturn_coverage_counts_sql(*,source_identity_rows_sql,source_identity_sql,target_identity_sql,key_columns) -> str:
+    """Canonical formula-free counts, shared by formal and candidate audits."""
+    return f"""
+            WITH source_rows AS ({source_identity_rows_sql}),
+            source_keys AS ({source_identity_sql}),
+            target_keys AS ({target_identity_sql})
+            SELECT
+              (SELECT count(*) FROM source_keys),
+              (SELECT count(*) - count(DISTINCT ({key_columns})) FROM source_rows),
+              (SELECT count(*) FROM (
+                SELECT * FROM source_keys EXCEPT SELECT * FROM target_keys
+              )),
+              (SELECT count(*) FROM (
+                SELECT * FROM target_keys EXCEPT SELECT * FROM source_keys
+              ))
+            """

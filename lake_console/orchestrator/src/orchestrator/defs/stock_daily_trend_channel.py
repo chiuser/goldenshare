@@ -645,82 +645,7 @@ def audit_stock_daily_trend_channel_result(
     qfq_sql = read_parquet(qfq_source_path, hive_partitioning=False)
     date_sql = duckdb_string(normalized_trade_date)
     counts = connection.execute(
-        f"""
-        WITH result_rows AS (
-          SELECT * FROM {result_sql}
-        ),
-        duplicate_keys AS (
-          SELECT ts_code, trade_date
-          FROM result_rows
-          GROUP BY ts_code, trade_date
-          HAVING count(*) > 1
-        ),
-        missing_source_rows AS (
-          SELECT CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE)
-          FROM {qfq_sql}
-          EXCEPT
-          SELECT ts_code, trade_date FROM result_rows
-        ),
-        unexpected_result_rows AS (
-          SELECT ts_code, trade_date FROM result_rows
-          EXCEPT
-          SELECT CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE)
-          FROM {qfq_sql}
-        )
-        SELECT
-          count(*) FILTER (
-            WHERE trade_date IS NULL OR trade_date != DATE {date_sql}
-          ),
-          count(*) FILTER (
-            WHERE ts_code IS NULL OR trim(ts_code) = '' OR trade_date IS NULL
-          ),
-          (SELECT coalesce(sum(row_count), 0) FROM (
-            SELECT count(*) AS row_count FROM result_rows
-            GROUP BY ts_code, trade_date HAVING count(*) > 1
-          )),
-          count(*) FILTER (
-            WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
-               OR NOT isfinite(open) OR NOT isfinite(high)
-               OR NOT isfinite(low) OR NOT isfinite(close)
-               OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
-               OR low > least(open, close) OR greatest(open, close) > high
-          ),
-          count(*) FILTER (
-            WHERE short_upper IS NULL OR short_lower IS NULL
-               OR long_upper IS NULL OR long_lower IS NULL
-               OR NOT isfinite(short_upper) OR NOT isfinite(short_lower)
-               OR NOT isfinite(long_upper) OR NOT isfinite(long_lower)
-               OR short_upper <= 0 OR short_lower <= 0
-               OR long_upper <= 0 OR long_lower <= 0
-               OR short_upper < short_lower OR long_upper < long_lower
-          ),
-          count(*) FILTER (
-            WHERE short_position IS NULL OR long_position IS NULL
-               OR short_state IS NULL OR long_state IS NULL
-               OR combined_state IS NULL
-               OR short_position NOT IN ('ABOVE', 'INSIDE', 'BELOW')
-               OR long_position NOT IN ('ABOVE', 'INSIDE', 'BELOW')
-               OR short_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
-               OR long_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
-               OR combined_state NOT IN (
-                 'UNKNOWN', 'UP_UP', 'UP_DOWN', 'DOWN_UP', 'DOWN_DOWN'
-               )
-          ),
-          count(*) FILTER (
-            WHERE combined_state != CASE
-              WHEN short_state = 'UNKNOWN' OR long_state = 'UNKNOWN'
-                THEN 'UNKNOWN'
-              ELSE short_state || '_' || long_state
-            END
-          ),
-          count(*) FILTER (
-            WHERE formula_version IS NULL
-               OR formula_version != {duckdb_string(FORMULA_VERSION)}
-          ),
-          (SELECT count(*) FROM missing_source_rows),
-          (SELECT count(*) FROM unexpected_result_rows)
-        FROM result_rows
-        """
+        trend_channel_result_counts_sql(result_sql=result_sql,qfq_sql=qfq_sql,date_expression=f"DATE {date_sql}")
     ).fetchone()
     failure_rule_counts = evaluate_stock_daily_trend_channel_result_rules(
         StockDailyTrendChannelResultRuleMetrics(
@@ -800,78 +725,7 @@ def audit_stock_daily_trend_channel_state(
     lifecycle_sql = read_parquet(stock_lifecycle_path, hive_partitioning=False)
     date_sql = duckdb_string(normalized_trade_date)
     counts = connection.execute(
-        f"""
-        WITH state_rows AS (
-          SELECT * FROM {state_sql}
-        ),
-        valid_lifecycle AS (
-          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
-          FROM {lifecycle_sql}
-          WHERE CAST(is_cny_stock AS BOOLEAN)
-            AND CAST(list_date AS DATE) <= DATE {date_sql}
-            AND (
-              delist_date IS NULL OR CAST(delist_date AS DATE) > DATE {date_sql}
-            )
-        )
-        SELECT
-          count(*) FILTER (
-            WHERE trade_date IS NULL OR trade_date != DATE {date_sql}
-          ),
-          count(*) FILTER (
-            WHERE ts_code IS NULL OR trim(ts_code) = '' OR trade_date IS NULL
-               OR state_source_trade_date IS NULL
-               OR observed_on_partition IS NULL
-               OR short_upper_raw IS NULL OR short_lower_raw IS NULL
-               OR short_state IS NULL OR long_upper_raw IS NULL
-               OR long_lower_raw IS NULL OR long_state IS NULL
-               OR combined_state IS NULL OR formula_version IS NULL
-          ),
-          (SELECT coalesce(sum(row_count), 0) FROM (
-            SELECT count(*) AS row_count FROM state_rows
-            GROUP BY ts_code, trade_date HAVING count(*) > 1
-          )),
-          count(*) FILTER (
-            WHERE NOT isfinite(short_upper_raw)
-               OR NOT isfinite(short_lower_raw)
-               OR NOT isfinite(long_upper_raw)
-               OR NOT isfinite(long_lower_raw)
-               OR short_upper_raw <= 0 OR short_lower_raw <= 0
-               OR long_upper_raw <= 0 OR long_lower_raw <= 0
-               OR short_upper_raw < short_lower_raw
-               OR long_upper_raw < long_lower_raw
-          ),
-          count(*) FILTER (
-            WHERE short_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
-               OR long_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
-               OR combined_state NOT IN (
-                 'UNKNOWN', 'UP_UP', 'UP_DOWN', 'DOWN_UP', 'DOWN_DOWN'
-               )
-          ),
-          count(*) FILTER (
-            WHERE combined_state != CASE
-              WHEN short_state = 'UNKNOWN' OR long_state = 'UNKNOWN'
-                THEN 'UNKNOWN'
-              ELSE short_state || '_' || long_state
-            END
-          ),
-          count(*) FILTER (
-            WHERE state_source_trade_date > trade_date
-               OR (
-                 observed_on_partition
-                 AND state_source_trade_date != trade_date
-               )
-          ),
-          count(*) FILTER (
-            WHERE formula_version != {duckdb_string(FORMULA_VERSION)}
-          ),
-          count(*) FILTER (
-            WHERE NOT EXISTS (
-              SELECT 1 FROM valid_lifecycle
-              WHERE valid_lifecycle.ts_code = state_rows.ts_code
-            )
-          )
-        FROM state_rows
-        """
+        trend_channel_state_counts_sql(state_sql=state_sql,lifecycle_sql=lifecycle_sql,date_expression=f"DATE {date_sql}")
     ).fetchone()
     lifecycle_count = int(
         connection.execute(
@@ -970,70 +824,7 @@ def audit_stock_daily_trend_channel_state_coverage(
     )
     date_sql = duckdb_string(normalized_trade_date)
     metrics = connection.execute(
-        f"""
-        WITH valid_lifecycle AS (
-          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
-          FROM {lifecycle_sql}
-          WHERE CAST(is_cny_stock AS BOOLEAN)
-            AND CAST(list_date AS DATE) <= DATE {date_sql}
-            AND (
-              delist_date IS NULL OR CAST(delist_date AS DATE) > DATE {date_sql}
-            )
-        ),
-        qfq_codes AS (
-          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
-          FROM {qfq_sql}
-          WHERE CAST(trade_date AS DATE) = DATE {date_sql}
-        ),
-        previous_codes AS (
-          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
-          FROM {previous_sql}
-        ),
-        expected_carry AS (
-          SELECT previous_codes.ts_code
-          FROM previous_codes
-          JOIN valid_lifecycle USING (ts_code)
-          LEFT JOIN qfq_codes USING (ts_code)
-          WHERE qfq_codes.ts_code IS NULL
-        ),
-        expected_state AS (
-          SELECT ts_code FROM qfq_codes
-          UNION
-          SELECT ts_code FROM expected_carry
-        ),
-        actual_state AS (
-          SELECT CAST(ts_code AS VARCHAR) AS ts_code,
-                 CAST(observed_on_partition AS BOOLEAN) AS observed_on_partition
-          FROM {state_sql}
-          WHERE CAST(trade_date AS DATE) = DATE {date_sql}
-        ),
-        uninitialized AS (
-          SELECT valid_lifecycle.ts_code
-          FROM valid_lifecycle
-          LEFT JOIN expected_state USING (ts_code)
-          WHERE expected_state.ts_code IS NULL
-        ),
-        missing_state AS (
-          SELECT ts_code FROM expected_state
-          EXCEPT
-          SELECT ts_code FROM actual_state
-        ),
-        unexpected_state AS (
-          SELECT ts_code FROM actual_state
-          EXCEPT
-          SELECT ts_code FROM expected_state
-        )
-        SELECT
-          (SELECT count(*) FROM valid_lifecycle),
-          (SELECT count(*) FROM qfq_codes),
-          (SELECT count(*) FROM previous_codes),
-          (SELECT count(*) FROM expected_carry),
-          (SELECT count(*) FROM actual_state WHERE observed_on_partition),
-          (SELECT count(*) FROM actual_state WHERE NOT observed_on_partition),
-          (SELECT count(*) FROM uninitialized),
-          (SELECT count(*) FROM missing_state),
-          (SELECT count(*) FROM unexpected_state)
-        """
+        trend_channel_coverage_counts_sql(state_sql=state_sql,qfq_sql=qfq_sql,lifecycle_sql=lifecycle_sql,previous_sql=previous_sql,date_expression=f"DATE {date_sql}")
     ).fetchone()
     expected_lifecycle_count = int(metrics[0])
     qfq_observed_count = int(metrics[1])
@@ -1982,14 +1773,6 @@ def _compute_trend_repair_segment(
         JOIN trend_repair_codes USING (ts_code)
         """
     )
-    formula_sql = build_stock_daily_trend_channel_repair_segment_sql(
-        "trend_repair_segment_source",
-        segment_trade_day_count=len(segment),
-        previous_state_relation=("trend_repair_seed" if has_seed else None),
-    )
-    connection.execute(
-        f"CREATE OR REPLACE TEMP TABLE trend_repair_observed AS {formula_sql}"
-    )
     date_values = ", ".join(
         f"(DATE {duckdb_string(item.trade_date)})" for item in segment
     )
@@ -2000,9 +1783,30 @@ def _compute_trend_repair_segment(
         FROM (VALUES {date_values})
         """
     )
+    prepare_stock_daily_trend_channel_repair_tables(
+        connection=connection,source_relation="trend_repair_segment_source",
+        dates_relation="trend_repair_segment_dates",codes_relation="trend_repair_codes",
+        lifecycle_relation="trend_repair_lifecycle",segment_trade_day_count=len(segment),
+        previous_state_relation="trend_repair_seed" if has_seed else None,
+    )
+
+
+def prepare_stock_daily_trend_channel_repair_tables(
+    *,connection,source_relation,dates_relation,codes_relation,lifecycle_relation,
+    segment_trade_day_count,previous_state_relation=None,
+) -> tuple[str,str]:
+    """Canonical bounded result/state preparation; no COPY, replacement or resource."""
+    formula_sql = build_stock_daily_trend_channel_repair_segment_sql(
+        source_relation,
+        segment_trade_day_count=segment_trade_day_count,
+        previous_state_relation=previous_state_relation,
+    )
+    connection.execute(
+        f"CREATE OR REPLACE TEMP TABLE trend_repair_observed AS {formula_sql}"
+    )
     seed_sql = (
-        "SELECT * FROM trend_repair_seed"
-        if has_seed
+        f"SELECT * FROM {_quote_relation(previous_state_relation)}"
+        if previous_state_relation is not None
         else _empty_trend_repair_seed_sql()
     )
     connection.execute(
@@ -2026,9 +1830,9 @@ def _compute_trend_repair_segment(
         ),
         valid_code_dates AS (
           SELECT DISTINCT codes.ts_code, dates.trade_date
-          FROM trend_repair_codes AS codes
-          CROSS JOIN trend_repair_segment_dates AS dates
-          JOIN trend_repair_lifecycle AS lifecycle USING (ts_code)
+          FROM {_quote_relation(codes_relation)} AS codes
+          CROSS JOIN {_quote_relation(dates_relation)} AS dates
+          JOIN {_quote_relation(lifecycle_relation)} AS lifecycle USING (ts_code)
           WHERE lifecycle.is_cny_stock
             AND lifecycle.list_date <= dates.trade_date
             AND (
@@ -2062,6 +1866,8 @@ def _compute_trend_repair_segment(
         ORDER BY grid.ts_code, grid.trade_date
         """
     )
+
+    return "trend_repair_observed","trend_repair_affected_state"
 
 
 def _read_parquet_paths_sql(paths: Sequence[Path]) -> str:
@@ -2681,3 +2487,227 @@ def _promote_paired_candidates(
                     pass
                 state_target_path.unlink()
         raise
+
+
+def trend_channel_result_counts_sql(*,result_sql,qfq_sql,date_expression) -> str:
+    """Shared original blocking-check SQL; also usable in a correlated batch query."""
+    return f"""
+        WITH result_rows AS (
+          SELECT * FROM {result_sql}
+        ),
+        duplicate_keys AS (
+          SELECT ts_code, trade_date
+          FROM result_rows
+          GROUP BY ts_code, trade_date
+          HAVING count(*) > 1
+        ),
+        missing_source_rows AS (
+          SELECT CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE)
+          FROM {qfq_sql}
+          EXCEPT
+          SELECT ts_code, trade_date FROM result_rows
+        ),
+        unexpected_result_rows AS (
+          SELECT ts_code, trade_date FROM result_rows
+          EXCEPT
+          SELECT CAST(ts_code AS VARCHAR), CAST(trade_date AS DATE)
+          FROM {qfq_sql}
+        )
+        SELECT
+          count(*) FILTER (
+            WHERE trade_date IS NULL OR trade_date != {date_expression}
+          ),
+          count(*) FILTER (
+            WHERE ts_code IS NULL OR trim(ts_code) = '' OR trade_date IS NULL
+          ),
+          (SELECT coalesce(sum(row_count), 0) FROM (
+            SELECT count(*) AS row_count FROM result_rows
+            GROUP BY ts_code, trade_date HAVING count(*) > 1
+          )),
+          count(*) FILTER (
+            WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+               OR NOT isfinite(open) OR NOT isfinite(high)
+               OR NOT isfinite(low) OR NOT isfinite(close)
+               OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+               OR low > least(open, close) OR greatest(open, close) > high
+          ),
+          count(*) FILTER (
+            WHERE short_upper IS NULL OR short_lower IS NULL
+               OR long_upper IS NULL OR long_lower IS NULL
+               OR NOT isfinite(short_upper) OR NOT isfinite(short_lower)
+               OR NOT isfinite(long_upper) OR NOT isfinite(long_lower)
+               OR short_upper <= 0 OR short_lower <= 0
+               OR long_upper <= 0 OR long_lower <= 0
+               OR short_upper < short_lower OR long_upper < long_lower
+          ),
+          count(*) FILTER (
+            WHERE short_position IS NULL OR long_position IS NULL
+               OR short_state IS NULL OR long_state IS NULL
+               OR combined_state IS NULL
+               OR short_position NOT IN ('ABOVE', 'INSIDE', 'BELOW')
+               OR long_position NOT IN ('ABOVE', 'INSIDE', 'BELOW')
+               OR short_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
+               OR long_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
+               OR combined_state NOT IN (
+                 'UNKNOWN', 'UP_UP', 'UP_DOWN', 'DOWN_UP', 'DOWN_DOWN'
+               )
+          ),
+          count(*) FILTER (
+            WHERE combined_state != CASE
+              WHEN short_state = 'UNKNOWN' OR long_state = 'UNKNOWN'
+                THEN 'UNKNOWN'
+              ELSE short_state || '_' || long_state
+            END
+          ),
+          count(*) FILTER (
+            WHERE formula_version IS NULL
+               OR formula_version != {duckdb_string(FORMULA_VERSION)}
+          ),
+          (SELECT count(*) FROM missing_source_rows),
+          (SELECT count(*) FROM unexpected_result_rows)
+        FROM result_rows
+        """
+
+
+def trend_channel_state_counts_sql(*,state_sql,lifecycle_sql,date_expression) -> str:
+    """Shared original blocking-check SQL; also usable in a correlated batch query."""
+    return f"""
+        WITH state_rows AS (
+          SELECT * FROM {state_sql}
+        ),
+        valid_lifecycle AS (
+          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+          FROM {lifecycle_sql}
+          WHERE CAST(is_cny_stock AS BOOLEAN)
+            AND CAST(list_date AS DATE) <= {date_expression}
+            AND (
+              delist_date IS NULL OR CAST(delist_date AS DATE) > {date_expression}
+            )
+        )
+        SELECT
+          count(*) FILTER (
+            WHERE trade_date IS NULL OR trade_date != {date_expression}
+          ),
+          count(*) FILTER (
+            WHERE ts_code IS NULL OR trim(ts_code) = '' OR trade_date IS NULL
+               OR state_source_trade_date IS NULL
+               OR observed_on_partition IS NULL
+               OR short_upper_raw IS NULL OR short_lower_raw IS NULL
+               OR short_state IS NULL OR long_upper_raw IS NULL
+               OR long_lower_raw IS NULL OR long_state IS NULL
+               OR combined_state IS NULL OR formula_version IS NULL
+          ),
+          (SELECT coalesce(sum(row_count), 0) FROM (
+            SELECT count(*) AS row_count FROM state_rows
+            GROUP BY ts_code, trade_date HAVING count(*) > 1
+          )),
+          count(*) FILTER (
+            WHERE NOT isfinite(short_upper_raw)
+               OR NOT isfinite(short_lower_raw)
+               OR NOT isfinite(long_upper_raw)
+               OR NOT isfinite(long_lower_raw)
+               OR short_upper_raw <= 0 OR short_lower_raw <= 0
+               OR long_upper_raw <= 0 OR long_lower_raw <= 0
+               OR short_upper_raw < short_lower_raw
+               OR long_upper_raw < long_lower_raw
+          ),
+          count(*) FILTER (
+            WHERE short_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
+               OR long_state NOT IN ('UNKNOWN', 'UP', 'DOWN')
+               OR combined_state NOT IN (
+                 'UNKNOWN', 'UP_UP', 'UP_DOWN', 'DOWN_UP', 'DOWN_DOWN'
+               )
+          ),
+          count(*) FILTER (
+            WHERE combined_state != CASE
+              WHEN short_state = 'UNKNOWN' OR long_state = 'UNKNOWN'
+                THEN 'UNKNOWN'
+              ELSE short_state || '_' || long_state
+            END
+          ),
+          count(*) FILTER (
+            WHERE state_source_trade_date > trade_date
+               OR (
+                 observed_on_partition
+                 AND state_source_trade_date != trade_date
+               )
+          ),
+          count(*) FILTER (
+            WHERE formula_version != {duckdb_string(FORMULA_VERSION)}
+          ),
+          count(*) FILTER (
+            WHERE NOT EXISTS (
+              SELECT 1 FROM valid_lifecycle
+              WHERE valid_lifecycle.ts_code = state_rows.ts_code
+            )
+          )
+        FROM state_rows
+        """
+
+
+def trend_channel_coverage_counts_sql(*,state_sql,qfq_sql,lifecycle_sql,previous_sql,date_expression) -> str:
+    """Shared original blocking-check SQL; also usable in a correlated batch query."""
+    return f"""
+        WITH valid_lifecycle AS (
+          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+          FROM {lifecycle_sql}
+          WHERE CAST(is_cny_stock AS BOOLEAN)
+            AND CAST(list_date AS DATE) <= {date_expression}
+            AND (
+              delist_date IS NULL OR CAST(delist_date AS DATE) > {date_expression}
+            )
+        ),
+        qfq_codes AS (
+          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+          FROM {qfq_sql}
+          WHERE CAST(trade_date AS DATE) = {date_expression}
+        ),
+        previous_codes AS (
+          SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+          FROM {previous_sql}
+        ),
+        expected_carry AS (
+          SELECT previous_codes.ts_code
+          FROM previous_codes
+          JOIN valid_lifecycle USING (ts_code)
+          LEFT JOIN qfq_codes USING (ts_code)
+          WHERE qfq_codes.ts_code IS NULL
+        ),
+        expected_state AS (
+          SELECT ts_code FROM qfq_codes
+          UNION
+          SELECT ts_code FROM expected_carry
+        ),
+        actual_state AS (
+          SELECT CAST(ts_code AS VARCHAR) AS ts_code,
+                 CAST(observed_on_partition AS BOOLEAN) AS observed_on_partition
+          FROM {state_sql}
+          WHERE CAST(trade_date AS DATE) = {date_expression}
+        ),
+        uninitialized AS (
+          SELECT valid_lifecycle.ts_code
+          FROM valid_lifecycle
+          LEFT JOIN expected_state USING (ts_code)
+          WHERE expected_state.ts_code IS NULL
+        ),
+        missing_state AS (
+          SELECT ts_code FROM expected_state
+          EXCEPT
+          SELECT ts_code FROM actual_state
+        ),
+        unexpected_state AS (
+          SELECT ts_code FROM actual_state
+          EXCEPT
+          SELECT ts_code FROM expected_state
+        )
+        SELECT
+          (SELECT count(*) FROM valid_lifecycle),
+          (SELECT count(*) FROM qfq_codes),
+          (SELECT count(*) FROM previous_codes),
+          (SELECT count(*) FROM expected_carry),
+          (SELECT count(*) FROM actual_state WHERE observed_on_partition),
+          (SELECT count(*) FROM actual_state WHERE NOT observed_on_partition),
+          (SELECT count(*) FROM uninitialized),
+          (SELECT count(*) FROM missing_state),
+          (SELECT count(*) FROM unexpected_state)
+        """

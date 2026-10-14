@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -62,6 +62,13 @@ MACD_SIGNAL_PERIOD = 9
 KDJ_PERIOD = 9
 KDJ_ALPHA = 1.0 / 3.0
 KDJ_SEED = 50.0
+
+
+@dataclass(frozen=True)
+class StkMinsQfqMacdKdjReplacementTables:
+    indicator_relation: str
+    state_relation: str
+    initialized_without_previous_state: bool
 
 
 @dataclass(frozen=True)
@@ -577,21 +584,25 @@ def _insert_macd_kdj_segment_rows(
     )
 
 
-def _populate_macd_kdj_indicator_work_rows(connection: duckdb.DuckDBPyConnection) -> int:
+def _populate_macd_kdj_indicator_work_rows(connection: duckdb.DuckDBPyConnection,
+    *,progress:Callable[[int],None]|None=None) -> int:
     row = connection.execute(
         "SELECT max(segment_index) FROM macd_kdj_calculation_rows"
     ).fetchone()
     if row is None or row[0] is None:
         return 0
     max_segment_index = int(row[0])
+    if progress:progress(0)
     for segment_index in range(max_segment_index + 1):
         _insert_macd_kdj_segment_rows(connection, segment_index=segment_index)
+        if progress:
+            progress(int(connection.execute('SELECT count(*) FROM macd_kdj_indicator_work_rows').fetchone()[0]))
     return int(
         connection.execute("SELECT count(*) FROM macd_kdj_indicator_work_rows").fetchone()[0]
     )
 
 
-def _create_macd_kdj_replacement_tables(
+def prepare_stk_mins_qfq_macd_kdj_replacement_tables(
     connection: duckdb.DuckDBPyConnection,
     *,
     source_qfq_paths: Sequence[Path],
@@ -599,7 +610,9 @@ def _create_macd_kdj_replacement_tables(
     previous_state_paths: Sequence[Path],
     freq: int,
     stock_codes: Sequence[str] = (),
-) -> bool:
+    progress: Callable[[int],None]|None = None,
+) -> StkMinsQfqMacdKdjReplacementTables:
+    """Prepare the canonical result/state relations without COPY or replacement."""
     initialized_without_previous_state = _create_macd_kdj_source_tables(
         connection,
         source_qfq_paths=source_qfq_paths,
@@ -608,7 +621,7 @@ def _create_macd_kdj_replacement_tables(
         freq=freq,
         stock_codes=stock_codes,
     )
-    _populate_macd_kdj_indicator_work_rows(connection)
+    _populate_macd_kdj_indicator_work_rows(connection,progress=progress)
     connection.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE macd_kdj_indicator_replacement_rows AS
@@ -699,7 +712,10 @@ def _create_macd_kdj_replacement_tables(
         ORDER BY ts_code
         """
     )
-    return initialized_without_previous_state
+    return StkMinsQfqMacdKdjReplacementTables(
+        "macd_kdj_indicator_replacement_rows", "macd_kdj_state_replacement_rows",
+        initialized_without_previous_state,
+    )
 
 
 def _existing_indicator_rows_select(target_path: Path) -> str:
@@ -927,7 +943,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
         raise FileNotFoundError("Missing source gold qfq files for MACD/KDJ computation.")
 
     with connect_configured_duckdb(duckdb_settings) as connection:
-        initialized_without_previous_state = _create_macd_kdj_replacement_tables(
+        replacement_tables = prepare_stk_mins_qfq_macd_kdj_replacement_tables(
             connection,
             source_qfq_paths=source_qfq_paths,
             target_trade_dates=normalized_trade_dates,
@@ -935,6 +951,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
             freq=normalized_freq,
             stock_codes=stock_codes,
         )
+        initialized_without_previous_state = replacement_tables.initialized_without_previous_state
         replacement_row_count = int(
             connection.execute(
                 "SELECT count(*) FROM macd_kdj_indicator_replacement_rows"

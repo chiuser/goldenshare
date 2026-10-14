@@ -48,7 +48,7 @@ def test_approved_scope_and_budget_are_exact():
     assert len(APPROVED_FACTOR_RANGES) == 25
     assert sum(r[3] for r in APPROVED_FACTOR_RANGES) == 2489
     assert asdict(RepairBudget()) == {
-        "memory_limit": "512MiB", "max_rss": 1024**3, "threads": 2,
+        "memory_limit": "2GiB", "max_rss": 4 * 1024**3, "threads": 2,
         "max_spill": 2 * 1024**3, "max_candidate_bytes": 10 * 1024**3,
         "max_stock_batch_rows": 100_000, "progress_interval": 30,
     }
@@ -438,7 +438,81 @@ def freeze_case(tmp_path, monkeypatch, repair_endpoints):
             "input_stats": stats, "target_paths": targets, "units": units, "writer_guard": lambda: None,
             "partition_validation":{"partition_set":"cn_a_stock_current_trade_days","checked_on":"2026-10-14",
                 "registered_keys":sorted({f"{r['trade_date'][:4]}-{r['trade_date'][4:6]}-{r['trade_date'][6:]}" for r in source})}}
+    complete_indicator_contract(args)
     return args, target
+
+
+def complete_indicator_contract(args):
+    """Complete metadata fixture; byte placeholders are never used as computed evidence."""
+    from dataclasses import replace
+    from datetime import date, timedelta
+
+    from orchestrator.defs import paths
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
+        indicator_repair_assets,
+        indicator_repair_target,
+        plan_repair_calculation_windows,
+    )
+    root=args['lake_root'];units={u['asset_key']:u for u in args['units']}
+    price_units=[u for a,u in units.items() if a=='gold_stock_daily_qfq' or (a.startswith('gold_stk_mins_qfq_') and a not in indicator_repair_assets())]
+    calendar={d for u in price_units for p in u['calculation_windows'] for d,n in p['trade_date_rows']}
+    for u in price_units:
+        for p in u['calculation_windows']:
+            day=date.fromisoformat(p['trade_date_rows'][0][0])-timedelta(days=1)
+            while day.weekday()>=5:day-=timedelta(days=1)
+            calendar.add(day.isoformat())
+    calendar=sorted(calendar)
+    for u in price_units:
+        for p in u['calculation_windows']:
+            first=p['trade_date_rows'][0][0];last=p['end_time'][:10];counts=dict(p['trade_date_rows'])
+            expected=[d for d in calendar if first<=d<=last]
+            p['trade_date_rows']=[[d,counts.get(d,0)] for d in expected]
+            p['windows']=[list(w) for w in plan_repair_calculation_windows(p['trade_date_rows'])]
+            index=next(i for i,e in enumerate(args['endpoints']) if e.asset_key==u['asset_key'] and e.ts_code==p['ts_code'])
+            args['endpoints'][index]=replace(args['endpoints'][index],expected_dates=tuple(expected))
+    for asset in indicator_repair_assets():
+        u=units[asset];u.update(calculation_windows=[],target_paths=[],validation_paths=[],calendar_dates=calendar)
+        freq=next((f for f in (1,5,15,30,60,90,120) if asset.endswith(f'_{f}m')),None)
+        for price in units['gold_stock_daily_qfq' if freq is None else f'gold_stk_mins_qfq_{freq}m']['calculation_windows']:
+            first=price['trade_date_rows'][0][0];expected=[d for d,n in price['trade_date_rows']]
+            previous=max(d for d in calendar if d<first)
+            state='_state' in asset
+            counts=[(d,1 if state else n) for d,n in price['trade_date_rows']]
+            observed=[d for d,n in counts if n]
+            end=price['end_time'][:10] if state or freq is None else price['end_time']
+            p={'ts_code':price['ts_code'],'freq':freq,'end_time':end,'trade_date_rows':counts,
+                'observed_dates':observed,'target_dates':expected if state else observed,
+                'windows':[list(w) for w in plan_repair_calculation_windows(counts,max_rows=RepairBudget().max_stock_batch_rows-(8 if 'macd_kdj' in asset else 0))]}
+            extra={}
+            if 'macd_kdj' in asset:
+                context=tuple(f'{previous} 14:{i:02}:00' for i in range(8))
+                extra={'previous_expected_date':previous,'context_times':context,'seed_last_trade_time':context[-1]};p.update(extra)
+            if 'trend_channel' in asset:
+                initial=price['ts_code']=='688689.SH' and price['previous_actual_date'] is None
+                seed=None if initial else str(paths.gold_stock_daily_trend_channel_state_path(root,previous))
+                p['daily_seed']={'initialized_from_listing':initial,'state_path':seed,
+                    'previous_expected_date':previous,'state_source_trade_date':price['previous_actual_date'] or previous}
+            if 'nineturn' in asset:p['full_history_input_rows']=sum(n for d,n in price['trade_date_rows'])
+            index=next(i for i,e in enumerate(args['endpoints']) if e.asset_key==asset and e.ts_code==p['ts_code'])
+            args['endpoints'][index]=replace(args['endpoints'][index],calculation_start_date=first,
+                expected_dates=tuple(expected),end_time=end,calculation_rows=sum(n for d,n in counts),**extra)
+            u['calculation_windows'].append(p)
+            u['target_paths'].extend(str(indicator_repair_target(root,asset,p['ts_code'],freq,d)) for d in p['target_dates'])
+        u['target_paths']=sorted(set(u['target_paths']));u['validation_paths']=u['target_paths']
+    args['partition_validation']['indicator_sets']={name:calendar for name in (
+        'cn_a_stock_daily_trend_channel_trade_days','cn_a_stock_trade_days','cn_a_stock_mins_silver_trade_days')}
+    inputs={Path(p) for p,size,mtime in args['input_stats']}
+    inputs.update(Path(p['daily_seed']['state_path']) for a,u in units.items() if 'trend_channel' in a
+        for p in u['calculation_windows'] if p['daily_seed']['state_path'])
+    inputs.update(paths.gold_stk_mins_qfq_macd_kdj_state_path(root,p['freq'],p['previous_expected_date'])
+        for a,u in units.items() if 'macd_kdj' in a for p in u['calculation_windows'])
+    for helper in (paths.silver_trade_calendar_path,paths.silver_stock_lifecycle_path):inputs.add(helper(root))
+    args['target_paths']=sorted({p for u in units.values() for p in u['target_paths']})
+    inputs.update(Path(p) for p in args['target_paths'])
+    for path in inputs:
+        path.parent.mkdir(parents=True,exist_ok=True)
+        if not path.exists():path.write_bytes(b'metadata-only fixture; not executable bars')
+    args['input_stats']=[(str(p),p.stat().st_size,p.stat().st_mtime_ns) for p in sorted(inputs)]
 
 
 def test_freeze_hash_and_inputs_are_complete_without_formal_write(freeze_case):
@@ -625,7 +699,8 @@ def test_frozen_units_preserve_price_dates_and_previous_source(freeze_case):
                  "observed_dates": e.expected_dates, "previous_actual_date": "2020-12-31",
                  "end_time": e.end_time, "trade_date_rows":[[d,1] for d in e.expected_dates],
                  "source_dates": ["2020-12-31",*e.expected_dates],"source_inventory_paths":[]} for e in args["endpoints"]]
-    units = repair_units_from_inspection({"target_paths": args["target_paths"], "profiles": profiles},
+    units = repair_units_from_inspection({"target_paths": args["target_paths"], "profiles": profiles,
+        "calendar_dates":args['units'][3]['calendar_dates']},
                                        lake_root=args["lake_root"])
     daily = next(u for u in units if u["asset_key"] == "gold_stock_daily_qfq")
     assert len(daily["calculation_windows"]) == 25
@@ -716,6 +791,7 @@ def test_explicit_no_price_impact_is_not_an_omitted_profile(freeze_case):
             args['endpoints'][index]=replace(endpoint,calculation_start_date='2026-10-12',expected_dates=('2026-10-12',),calculation_rows=1)
     unit['target_paths']=[p for p in unit['target_paths'] if '/ts_code=600016.SH/' not in p]
     args['target_paths']=sorted({p for u in args['units'] for p in u['target_paths']})
+    complete_indicator_contract(args)
     plan=freeze_stock_factor_repair(**args)
     frozen=next(u for u in plan['units'] if u['asset_key']==unit['asset_key'])
     assert len(frozen['calculation_windows'])==25
