@@ -3590,7 +3590,7 @@ def use_nested_resource(context):
             "def batch_silver_adj_factor_lake_readiness",
             "def batch_adj_factor_lake_readiness",
             "silver_stock_lifecycle_path",
-            "silver_cny_stock_lifecycle_select",
+            "adj_factor_current_listed_stock_select",
             "full_semantics: bool = True",
             "failed_check_names",
             "materialized = not missing_file_paths",

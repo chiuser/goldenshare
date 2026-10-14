@@ -5,8 +5,6 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_ASSETS,
     GOLD_STK_MINS_QFQ_DERIVED_ASSETS,
@@ -33,6 +31,8 @@ from orchestrator.defs.assets.stk_mins import (
     silver_stk_mins_30m,
     silver_stk_mins_60m,
 )
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
@@ -46,8 +46,8 @@ from orchestrator.defs.paths import (
     raw_stk_mins_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
-    silver_stock_lifecycle_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -63,7 +63,10 @@ from orchestrator.defs.stk_mins_qfq import (
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
     gold_stk_mins_qfq_source_freq,
 )
-
+from orchestrator.defs.stock_factor_price_checks import (
+    minute_qfq_counts_sql,
+    minute_qfq_identity_coverage_counts_sql,
+)
 
 RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
     "raw_stk_mins_file_exists_and_row_count_positive"
@@ -496,67 +499,6 @@ def _gold_qfq_schema_mismatch_count(
     return len(missing_columns) + len(type_mismatches), observed_schema, None
 
 
-def _gold_qfq_counts_sql(
-    *,
-    gold_source: str,
-    partition_key: str,
-    freq: int,
-) -> str:
-    partition_date_sql = duckdb_string(partition_key)
-    return f"""
-    WITH gold_rows AS (
-      SELECT
-        CAST(ts_code AS VARCHAR) AS ts_code,
-        CAST(freq AS INTEGER) AS freq,
-        CAST(trade_date AS DATE) AS trade_date,
-        CAST(trade_time AS TIMESTAMP) AS trade_time,
-        CAST(open AS DOUBLE) AS open,
-        CAST(high AS DOUBLE) AS high,
-        CAST(low AS DOUBLE) AS low,
-        CAST(close AS DOUBLE) AS close,
-        CAST(vol AS DOUBLE) AS vol,
-        CAST(amount AS DOUBLE) AS amount,
-        CAST(exchange AS VARCHAR) AS exchange,
-        CAST(filename AS VARCHAR) AS filename,
-        regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
-          AS path_ts_code,
-        regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
-          AS path_year
-      FROM {gold_source}
-    ),
-    target_rows AS (
-      SELECT *
-      FROM gold_rows
-      WHERE trade_date = CAST({partition_date_sql} AS DATE)
-    ),
-    duplicate_groups AS (
-      SELECT ts_code, trade_time, count(*) AS duplicate_count
-      FROM target_rows
-      GROUP BY ts_code, trade_time
-      HAVING count(*) > 1
-    )
-    SELECT
-      (SELECT count(*) FROM target_rows) AS gold_target_row_count,
-      count(*) FILTER (
-        WHERE freq != {freq}
-           OR ts_code != path_ts_code
-           OR strftime(trade_date, '%Y') != path_year
-           OR (
-             trade_date = CAST({partition_date_sql} AS DATE)
-             AND CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
-           )
-      ) AS path_mismatch_row_count,
-      (SELECT count(*) FROM duplicate_groups) AS duplicate_key_count,
-      (SELECT count(*)
-       FROM target_rows
-       WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
-          OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
-          OR high < low
-          OR open < low OR open > high
-          OR close < low OR close > high
-      ) AS invalid_price_row_count
-    FROM gold_rows
-    """
 
 
 def _gold_qfq_sample_queries(
@@ -629,52 +571,6 @@ def _gold_qfq_sample_queries(
     }
 
 
-def _gold_qfq_identity_coverage_counts_sql(
-    *,
-    gold_source: str,
-    expected_identity_sql: str,
-    partition_key: str,
-) -> str:
-    partition_date_sql = duckdb_string(partition_key)
-    return f"""
-    WITH gold_rows AS (
-      SELECT
-        CAST(ts_code AS VARCHAR) AS ts_code,
-        CAST(trade_time AS TIMESTAMP) AS trade_time,
-        CAST(exchange AS VARCHAR) AS exchange
-      FROM {gold_source}
-      WHERE CAST(trade_date AS DATE) = CAST({partition_date_sql} AS DATE)
-    ),
-    expected_rows AS (
-      SELECT
-        ts_code,
-        trade_time,
-        exchange
-      FROM ({expected_identity_sql})
-    ),
-    compared_rows AS (
-      SELECT
-        coalesce(gold_rows.ts_code, expected_rows.ts_code) AS ts_code,
-        coalesce(gold_rows.trade_time, expected_rows.trade_time) AS trade_time,
-        gold_rows.exchange AS gold_exchange,
-        expected_rows.exchange AS expected_exchange,
-        gold_rows.ts_code IS NULL AS missing_gold_row,
-        expected_rows.ts_code IS NULL AS unexpected_gold_row
-      FROM gold_rows
-      FULL OUTER JOIN expected_rows
-        ON gold_rows.ts_code = expected_rows.ts_code
-       AND gold_rows.trade_time = expected_rows.trade_time
-    )
-    SELECT
-      count(*) FILTER (WHERE missing_gold_row) AS missing_gold_row_count,
-      count(*) FILTER (WHERE unexpected_gold_row) AS unexpected_gold_row_count,
-      count(*) FILTER (
-        WHERE NOT missing_gold_row
-          AND NOT unexpected_gold_row
-          AND gold_exchange IS DISTINCT FROM expected_exchange
-      ) AS exchange_mismatch_row_count
-    FROM compared_rows
-    """
 
 
 def _gold_qfq_check_results(
@@ -1243,7 +1139,7 @@ def _gold_stk_mins_qfq_check_results(
             ) = (
                 int(value or 0)
                 for value in connection.execute(
-                    _gold_qfq_counts_sql(
+                    minute_qfq_counts_sql(
                         gold_source=gold_source,
                         partition_key=partition_key,
                         freq=normalized_freq,
@@ -1281,7 +1177,7 @@ def _gold_stk_mins_qfq_check_results(
                     partition_keys=[partition_key],
                 )
                 identity_counts = connection.execute(
-                    _gold_qfq_identity_coverage_counts_sql(
+                    minute_qfq_identity_coverage_counts_sql(
                         gold_source=gold_source,
                         expected_identity_sql=expected_identity_sql,
                         partition_key=partition_key,
@@ -1444,7 +1340,7 @@ def _gold_stk_mins_qfq_derived_check_results(
             ) = (
                 int(value or 0)
                 for value in connection.execute(
-                    _gold_qfq_counts_sql(
+                    minute_qfq_counts_sql(
                         gold_source=gold_source,
                         partition_key=partition_key,
                         freq=normalized_freq,
@@ -1474,7 +1370,7 @@ def _gold_stk_mins_qfq_derived_check_results(
                 samples[sample_name] = _sample_dicts(columns, rows)
 
             identity_counts = connection.execute(
-                _gold_qfq_identity_coverage_counts_sql(
+                minute_qfq_identity_coverage_counts_sql(
                     gold_source=gold_source,
                     expected_identity_sql=expected_identity_sql,
                     partition_key=partition_key,

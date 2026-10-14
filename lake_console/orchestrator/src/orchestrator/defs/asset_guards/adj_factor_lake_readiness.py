@@ -28,6 +28,9 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stock_lifecycle_path,
 )
+from orchestrator.defs.stock_factor_price_checks import (
+    ADJ_FACTOR_INVALID_VALUE_PREDICATE,
+)
 
 RAW_ADJ_FACTOR_FILE_EXISTS_CHECK = "raw_adj_factor_file_exists"
 RAW_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK = "raw_adj_factor_partition_date_matches"
@@ -225,7 +228,7 @@ def _raw_metrics_by_trade_date(
           coalesce(max(duplicate_keys.duplicate_failed_count), 0)
             AS duplicate_failed_count,
           count(*) FILTER (
-            WHERE raw_rows.adj_factor IS NULL OR raw_rows.adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE.replace('adj_factor', 'raw_rows.adj_factor')}
           ) AS positive_failed_count
         FROM raw_rows
         LEFT JOIN duplicate_keys USING (expected_trade_date)
@@ -327,7 +330,7 @@ def _silver_metrics_by_trade_date(
           coalesce(max(duplicate_keys.duplicate_failed_count), 0)
             AS duplicate_failed_count,
           count(*) FILTER (
-            WHERE silver_rows.adj_factor IS NULL OR silver_rows.adj_factor <= 0
+            WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE.replace('adj_factor', 'silver_rows.adj_factor')}
           ) AS positive_failed_count,
           count(*) FILTER (
             WHERE lifecycle.ts_code IS NULL

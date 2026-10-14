@@ -17,10 +17,8 @@ from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
-    adj_factor_current_listed_stock_select,
     count_parquet_query,
     describe_parquet_query,
-    duckdb_string,
     read_parquet,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
@@ -31,78 +29,27 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
+from orchestrator.defs.stock_factor_price_checks import (
+    ADJ_FACTOR_INVALID_VALUE_PREDICATE,
+    adj_factor_coverage_relations_sql,
+    adj_factor_duplicate_keys_sql,
+    adj_factor_invalid_lifecycle_sql,
+    adj_factor_partition_allowed_status,
+    adj_factor_partition_mismatch_predicate,
+)
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
-ADJ_FACTOR_MIN_TRADE_DATE = "2009-01-05"
-ADJ_FACTOR_INVALID_VALUE_PREDICATE = "adj_factor IS NULL OR adj_factor <= 0"
 
 
-def adj_factor_duplicate_keys_sql(path: Path) -> str:
-    return f"""SELECT ts_code,trade_date,count(*) AS duplicate_count
-               FROM {read_parquet(path, hive_partitioning=False)}
-               GROUP BY ts_code,trade_date HAVING count(*)>1"""
 
 
-def adj_factor_invalid_lifecycle_sql(path: Path, lifecycle_path: Path) -> str:
-    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
-    return f"""WITH stock_lifecycle AS ({lifecycle})
-      SELECT adj.ts_code,adj.trade_date,stock_lifecycle.list_date,
-             stock_lifecycle.delist_date,adj.adj_factor
-      FROM {read_parquet(path, hive_partitioning=False)} adj
-      LEFT JOIN stock_lifecycle ON adj.ts_code=stock_lifecycle.ts_code
-      WHERE stock_lifecycle.ts_code IS NULL OR adj.trade_date<stock_lifecycle.list_date
-         OR (stock_lifecycle.delist_date IS NOT NULL AND adj.trade_date>=stock_lifecycle.delist_date)
-    """
 
 
-def adj_factor_coverage_relations_sql(path: Path, lifecycle_path: Path, partition_key: str) -> str:
-    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
-    partition_date = f"DATE {duckdb_string(partition_key)}"
-    return f"""WITH expected AS (
-      SELECT DISTINCT ts_code FROM ({lifecycle}) stock_lifecycle
-      WHERE list_date<={partition_date} AND (delist_date IS NULL OR delist_date>{partition_date})
-    ),actual AS (
-      SELECT DISTINCT ts_code FROM {read_parquet(path, hive_partitioning=False)}
-      WHERE trade_date={partition_date}
-    )"""
 
 
-def adj_factor_partition_mismatch_predicate(partition_key: str, *, raw: bool) -> str:
-    """One partition rule for formal checks and historical candidates."""
-    partition_date = f"DATE {duckdb_string(partition_key)}"
-    expression = (
-        "CAST(try_strptime(trim(CAST(trade_date AS VARCHAR)), '%Y%m%d') AS DATE)"
-        if raw else "trade_date"
-    )
-    return f"{expression} IS NULL OR {expression} != {partition_date}"
 
 
-def audit_adj_factor_candidate_rules(connection, path: Path, partition_key: str, *, raw: bool,
-                                     lifecycle_path: Path) -> dict[str, int]:
-    """Pure existing checks semantics; no resources, instance or formal writes."""
-    source = read_parquet(path, hive_partitioning=False)
-    expected_schema = ADJ_FACTOR_RAW_COLUMN_TYPES if raw else ADJ_FACTOR_SILVER_COLUMN_TYPES
-    if dict(_describe_columns(connection, path)) != expected_schema:
-        raise ValueError("adj_factor candidate schema does not match contract")
-    summary = connection.execute(f"""
-        SELECT count(*),count(*) FILTER(WHERE {adj_factor_partition_mismatch_predicate(partition_key, raw=raw)}),
-          count(*) FILTER(WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}),
-          (SELECT count(*) FROM ({adj_factor_duplicate_keys_sql(path)}))
-        FROM {source}
-    """).fetchone()
-    result = dict(zip(("rows", "partition_mismatch", "nonpositive_factor", "duplicate_keys"),
-                      map(int, summary), strict=True))
-    if not raw:
-        coverage = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key)
-        summary = connection.execute(f"""
-            {coverage}
-            SELECT (SELECT count(*) FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})),
-              (SELECT count(*) FROM (SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual)),
-              (SELECT count(*) FROM (SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM expected))
-        """).fetchone()
-        result.update(zip(("lifecycle_invalid", "coverage_missing", "coverage_unexpected"),
-                          map(int, summary), strict=True))
-    return result
+
 
 
 def _describe_columns(connection, path: Path) -> list[tuple[str, str]]:
@@ -254,25 +201,6 @@ def _schema_check_result(
     )
 
 
-def _stock_current_partition_allowed_status(
-    *,
-    partition_key: str,
-    registered_keys: set[str],
-    today: str,
-) -> dict[str, Any]:
-    is_registered = partition_key in registered_keys
-    is_not_before_start = partition_key >= ADJ_FACTOR_MIN_TRADE_DATE
-    is_not_future = partition_key <= today
-    return {
-        "passed": is_registered and is_not_before_start and is_not_future,
-        "partition_key": partition_key,
-        "partition_set": cn_a_stock_current_trade_days.name,
-        "is_registered": is_registered,
-        "min_trade_date": ADJ_FACTOR_MIN_TRADE_DATE,
-        "is_not_before_start": is_not_before_start,
-        "today": today,
-        "is_not_future": is_not_future,
-    }
 
 
 def _stock_current_partition_key_allowed_result(
@@ -283,7 +211,7 @@ def _stock_current_partition_key_allowed_result(
     registered_keys = set(
         context.instance.get_dynamic_partitions(cn_a_stock_current_trade_days.name)
     )
-    status = _stock_current_partition_allowed_status(
+    status = adj_factor_partition_allowed_status(
         partition_key=partition_key,
         registered_keys=registered_keys,
         today=today,

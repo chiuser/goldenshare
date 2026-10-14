@@ -12,8 +12,8 @@ from orchestrator.defs.assets.stk_mins import (
     STK_MINS_SILVER_COLUMN_TYPES,
 )
 from orchestrator.defs.checks.stk_mins_checks import (
-    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK,
     GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK,
@@ -26,12 +26,9 @@ from orchestrator.defs.checks.stk_mins_checks import (
     SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
     GoldStkMinsQfqCheckCounts,
     GoldStkMinsQfqDerivedCheckCounts,
-    _gold_qfq_counts_sql,
     _gold_qfq_derived_expected_paths,
     _gold_qfq_expected_paths,
-    _gold_qfq_identity_coverage_counts_sql,
     _gold_qfq_schema_mismatch_count,
-    _gold_qfq_year_paths,
     _read_parquet_paths,
     _row_count,
 )
@@ -58,13 +55,17 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
+    _derived_window_completion_predicate,
+    _derived_window_rows_sql,
     build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
     build_daily_qfq_coverage_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
     build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql,
     gold_stk_mins_qfq_source_freq,
-    _derived_window_completion_predicate,
-    _derived_window_rows_sql,
+)
+from orchestrator.defs.stock_factor_price_checks import (
+    minute_qfq_counts_sql,
+    minute_qfq_identity_coverage_counts_sql,
 )
 
 
@@ -1881,7 +1882,7 @@ def _gold_qfq_native_counts_for_trade_date(
         ) = (
             int(value or 0)
             for value in connection.execute(
-                _gold_qfq_counts_sql(
+                minute_qfq_counts_sql(
                     gold_source=gold_source,
                     partition_key=trade_date,
                     freq=freq,
@@ -1903,7 +1904,7 @@ def _gold_qfq_native_counts_for_trade_date(
             ) = (
                 int(value or 0)
                 for value in connection.execute(
-                    _gold_qfq_identity_coverage_counts_sql(
+                    minute_qfq_identity_coverage_counts_sql(
                         gold_source=gold_source,
                         expected_identity_sql=expected_identity_sql,
                         partition_key=trade_date,
@@ -2451,7 +2452,7 @@ def _gold_qfq_derived_batch_counts(
     }
     for target_freq in derived_freqs:
         source_freq = gold_stk_mins_qfq_source_freq(target_freq)
-        for year, partition_keys in dates_by_year.items():
+        for partition_keys in dates_by_year.values():
             source_paths_by_date = {
                 trade_date: silver_stk_mins_path(
                     lake_root, source_freq, trade_date
@@ -2644,7 +2645,6 @@ def _gold_qfq_derived_counts_for_trade_date(
 ) -> tuple[GoldStkMinsQfqDerivedCheckCounts, tuple[Path, ...]]:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
-    year = trade_date[:4]
     source_path = silver_stk_mins_path(lake_root, source_freq, trade_date)
     trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
     missing_input_paths = tuple(
@@ -2735,7 +2735,7 @@ def _gold_qfq_derived_counts_for_trade_date(
         ) = (
             int(value or 0)
             for value in connection.execute(
-                _gold_qfq_counts_sql(
+                minute_qfq_counts_sql(
                     gold_source=gold_source,
                     partition_key=trade_date,
                     freq=normalized_freq,
@@ -2749,7 +2749,7 @@ def _gold_qfq_derived_counts_for_trade_date(
         ) = (
             int(value or 0)
             for value in connection.execute(
-                _gold_qfq_identity_coverage_counts_sql(
+                minute_qfq_identity_coverage_counts_sql(
                     gold_source=gold_source,
                     expected_identity_sql=expected_identity_sql,
                     partition_key=trade_date,

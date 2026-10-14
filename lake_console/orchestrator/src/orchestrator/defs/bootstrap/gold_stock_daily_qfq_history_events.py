@@ -17,10 +17,6 @@ from orchestrator.defs.bootstrap.gold_stock_daily_qfq_history import (
 )
 from orchestrator.defs.checks.stock_daily_qfq_checks import (
     GOLD_STOCK_DAILY_QFQ_CHECK_NAMES,
-    _column_names,
-    _contract_failure_samples,
-    _contract_rule_counts,
-    _row_count,
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -38,7 +34,12 @@ from orchestrator.defs.sensors.readiness import (
     asset_readiness_status,
 )
 from orchestrator.defs.stock_daily_qfq import GOLD_STOCK_DAILY_QFQ_COLUMNS
-
+from orchestrator.defs.stock_factor_price_checks import (
+    daily_qfq_column_names,
+    daily_qfq_contract_failure_samples,
+    daily_qfq_contract_rule_counts,
+    daily_qfq_row_count,
+)
 
 GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_WINDOW_SIZE = 20
 GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_EVENT_MAX_PARTITIONS = 21
@@ -412,8 +413,8 @@ def audit_gold_stock_daily_qfq_history_partition(
         )
 
     with duckdb_resource.connect() as connection:
-        observed_columns = tuple(_column_names(connection, qfq_path))
-        row_count = _row_count(connection, qfq_path)
+        observed_columns = tuple(daily_qfq_column_names(connection, qfq_path))
+        row_count = daily_qfq_row_count(connection, qfq_path)
         contract_check = _contract_check_audit(
             connection=connection,
             qfq_path=qfq_path,
@@ -455,14 +456,14 @@ def _contract_check_audit(
     if tuple(observed_columns) != expected_columns:
         failed_rule_names.append("schema_matches_contract")
     else:
-        rule_counts = _contract_rule_counts(connection, qfq_path, partition_key)
+        rule_counts = daily_qfq_contract_rule_counts(connection, qfq_path, partition_key)
         if rule_counts["partition_date_mismatch_count"]:
             failed_rule_names.append("partition_date_matches")
         if rule_counts["null_key_count"]:
             failed_rule_names.append("key_columns_non_null")
         if rule_counts["duplicate_key_count"]:
             failed_rule_names.append("unique_ts_code_trade_date")
-        samples = _contract_failure_samples(connection, qfq_path, partition_key)
+        samples = daily_qfq_contract_failure_samples(connection, qfq_path, partition_key)
     metadata = build_check_metadata(
         check_scope=CheckScope.SCHEMA,
         checked_row_count=row_count,
@@ -534,8 +535,8 @@ def _report_materialization_event(
     if not path.exists():
         raise FileNotFoundError(f"Missing gold_stock_daily_qfq file: {path}")
     with duckdb_resource.connect() as connection:
-        row_count = _row_count(connection, path)
-        observed_columns = tuple(_column_names(connection, path))
+        row_count = daily_qfq_row_count(connection, path)
+        observed_columns = tuple(daily_qfq_column_names(connection, path))
     instance.report_runless_asset_event(
         dg.AssetMaterialization(
             asset_key=GOLD_STOCK_DAILY_QFQ_ASSET_KEY,

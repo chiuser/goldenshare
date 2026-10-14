@@ -481,28 +481,28 @@ class AdjFactorCheckTests(unittest.TestCase):
 
     def test_stock_current_partition_allowed_status(self) -> None:
         self.assertTrue(
-            checks._stock_current_partition_allowed_status(
+            checks.adj_factor_partition_allowed_status(
                 partition_key=TARGET_TRADE_DATE,
                 registered_keys={TARGET_TRADE_DATE},
                 today=TARGET_TRADE_DATE,
             )["passed"]
         )
         self.assertFalse(
-            checks._stock_current_partition_allowed_status(
+            checks.adj_factor_partition_allowed_status(
                 partition_key=TARGET_TRADE_DATE,
                 registered_keys=set(),
                 today=TARGET_TRADE_DATE,
             )["passed"]
         )
         self.assertFalse(
-            checks._stock_current_partition_allowed_status(
+            checks.adj_factor_partition_allowed_status(
                 partition_key="2008-12-31",
                 registered_keys={"2008-12-31"},
                 today=TARGET_TRADE_DATE,
             )["passed"]
         )
         self.assertFalse(
-            checks._stock_current_partition_allowed_status(
+            checks.adj_factor_partition_allowed_status(
                 partition_key="2026-05-30",
                 registered_keys={"2026-05-30"},
                 today=TARGET_TRADE_DATE,

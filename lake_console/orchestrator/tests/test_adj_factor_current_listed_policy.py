@@ -14,7 +14,6 @@ from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     batch_silver_adj_factor_lake_readiness,
 )
 from orchestrator.defs.assets.adj_factor import write_silver_adj_factor_partition
-from orchestrator.defs.checks.adj_factor_checks import audit_adj_factor_candidate_rules
 from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     silver_cny_stock_lifecycle_select,
@@ -25,6 +24,7 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.stock_factor_price_checks import audit_adj_factor_candidate_rules
 from tests.test_adj_factor_checks import (
     _write_raw_adj_factor_file,
     _write_silver_adj_factor_file,

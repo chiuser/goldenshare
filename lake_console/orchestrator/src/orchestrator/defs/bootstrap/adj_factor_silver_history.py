@@ -687,7 +687,7 @@ def _rebuild_candidate_path(plan: AdjFactorSilverRebuildPlan, run_root: Path,
 
 def _rebuild_validate_candidate(connection, path: Path, unit: AdjFactorSilverRebuildUnit,
                                  plan: AdjFactorSilverRebuildPlan) -> None:
-    from orchestrator.defs.checks.adj_factor_checks import (
+    from orchestrator.defs.stock_factor_price_checks import (
         audit_adj_factor_candidate_rules,
     )
 

@@ -116,6 +116,14 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    "defs/stock_factor_price_checks.py",
+    "defs/bootstrap/stock_adj_factor_history_repair.py",
+    "defs/bootstrap/stock_adj_factor_history_repair_candidates.py",
+    "defs/bootstrap/stock_adj_factor_history_repair_cli.py",
+    "defs/bootstrap/stock_adj_factor_history_repair_execution.py",
+    # Existing weekly manual job is read by the unchanged AST reader audit.
+    "defs/jobs/stock_weekly_event_backfill.py",
+    "defs/ops/stock_weekly_bootstrap_checks.py",
     # Exact approved DC recovery imports; no broader filesystem capability.
     "defs/tushare_errors.py",
     "defs/run_contracts/dc_board_failures.py",
