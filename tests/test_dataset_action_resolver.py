@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import src.foundation.ingestion.unit_planner as unit_planner
 from src.foundation.dao.etf_basic_dao import (
     EtfRequestabilitySnapshot,
     EtfRequestTarget,
@@ -961,7 +962,9 @@ def test_stk_factor_pro_request_builder_supports_single_code_range_unit() -> Non
     assert params == {"ts_code": "000001.SZ", "start_date": "20250102", "end_date": "20260424"}
 
 
-def test_stk_factor_pro_requires_adj_factor_before_planning(mocker) -> None:
+@pytest.mark.parametrize("filters", ({}, {"ts_code": "000001.SZ"}), ids=("market", "stock"))
+@pytest.mark.parametrize("trade_date", (date(1991, 4, 3), date(2026, 4, 24)), ids=("early", "recent"))
+def test_stk_factor_pro_requires_adj_factor_before_planning(mocker, filters, trade_date) -> None:
     session = mocker.Mock()
     session.scalar.return_value = None
     mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=SimpleNamespace(trade_calendar=SimpleNamespace()))
@@ -969,13 +972,17 @@ def test_stk_factor_pro_requires_adj_factor_before_planning(mocker) -> None:
     request = DatasetActionRequest(
         dataset_key="stk_factor_pro",
         action="maintain",
-        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        time_input=DatasetTimeInput(mode="point", trade_date=trade_date),
+        filters=filters,
     )
 
     with pytest.raises(IngestionPlanningError, match="先更新复权因子") as exc_info:
         resolver.build_plan(request)
 
     assert exc_info.value.structured_error.error_code == "upstream_data_not_ready"
+    session.scalar.assert_called_once()
+    session.scalars.assert_not_called()
+    session.execute.assert_not_called()
 
 
 def test_stk_factor_pro_builds_point_unit_after_adj_factor_ready(mocker) -> None:
@@ -1087,11 +1094,17 @@ def test_stk_factor_pro_explicit_code_point_does_not_run_adj_factor_audit(mocker
 
     assert plan.planning.unit_count == 1
     assert plan.units[0].request_params == {"trade_date": "20260424", "ts_code": "000001.SZ"}
+    session.scalar.assert_called_once()
 
 
-def test_stk_factor_pro_range_fails_when_any_trade_date_lacks_adj_factor(mocker) -> None:
+@pytest.mark.parametrize("filters", ({}, {"ts_code": "000001.SZ"}), ids=("market", "stock"))
+@pytest.mark.parametrize("adj_factor_rows", ((None, None), ("000001.SZ", None)), ids=("all-missing", "partly-missing"))
+def test_stk_factor_pro_range_does_not_require_adj_factor(mocker, filters, adj_factor_rows) -> None:
     session = mocker.Mock()
-    session.scalar.side_effect = ["000001.SZ", None]
+    session.scalar.side_effect = adj_factor_rows
+    session.scalars.side_effect = AssertionError("range rebuild must not query adj_factor changes")
+    session.execute.side_effect = AssertionError("range rebuild must not query raw history")
+    readiness_check = mocker.spy(unit_planner, "_ensure_stk_factor_pro_adj_factor_ready")
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(
             get_open_dates=mocker.Mock(return_value=[date(2026, 4, 23), date(2026, 4, 24)])
@@ -1103,21 +1116,43 @@ def test_stk_factor_pro_range_fails_when_any_trade_date_lacks_adj_factor(mocker)
         dataset_key="stk_factor_pro",
         action="maintain",
         time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 23), end_date=date(2026, 4, 24)),
+        filters=filters,
     )
 
-    with pytest.raises(IngestionPlanningError, match="先更新复权因子"):
-        resolver.build_plan(request)
+    plan = resolver.build_plan(request)
 
-    fake_dao.trade_calendar.get_open_dates.assert_called_once()
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260423", **filters},
+        {"trade_date": "20260424", **filters},
+    ]
+    readiness_check.assert_not_called()
+    session.scalar.assert_not_called()
+    session.scalars.assert_not_called()
+    session.execute.assert_not_called()
+    fake_dao.trade_calendar.get_open_dates.assert_called_once_with("SSE", date(2026, 4, 23), date(2026, 4, 24))
 
 
-def test_stk_factor_pro_range_does_not_run_adj_factor_audit(mocker) -> None:
+@pytest.mark.parametrize("filters", ({}, {"ts_code": "000001.SZ"}), ids=("market", "stock"))
+@pytest.mark.parametrize(
+    "open_dates",
+    (
+        (date(1991, 4, 3), date(1991, 4, 5)),
+        (date(2026, 4, 23), date(2026, 4, 27)),
+        (date(1991, 4, 3),),
+        (date(2026, 4, 24),),
+    ),
+    ids=("early-range", "recent-range", "early-one-day-range", "recent-one-day-range"),
+)
+def test_stk_factor_pro_range_does_not_run_adj_factor_audit(mocker, filters, open_dates) -> None:
     session = mocker.Mock()
-    session.scalar.side_effect = ["000001.SZ", "000002.SZ"]
+    session.scalar.side_effect = AssertionError("range rebuild must not check adj_factor readiness")
     session.scalars.side_effect = AssertionError("range rebuild must not run full-market adj_factor audit")
+    session.execute.side_effect = AssertionError("range rebuild must not query raw history")
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(
-            get_open_dates=mocker.Mock(return_value=[date(2026, 4, 23), date(2026, 4, 24)]),
+            get_open_dates=mocker.Mock(return_value=list(open_dates)),
             get_latest_open_date=mocker.Mock(side_effect=AssertionError("range rebuild must not find previous trade date")),
         )
     )
@@ -1126,14 +1161,25 @@ def test_stk_factor_pro_range_does_not_run_adj_factor_audit(mocker) -> None:
     request = DatasetActionRequest(
         dataset_key="stk_factor_pro",
         action="maintain",
-        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 23), end_date=date(2026, 4, 24)),
+        time_input=DatasetTimeInput(mode="range", start_date=open_dates[0], end_date=open_dates[-1]),
+        filters=filters,
     )
 
     plan = resolver.build_plan(request)
 
-    assert plan.planning.unit_count == 2
-    assert [unit.request_params for unit in plan.units] == [{"trade_date": "20260423"}, {"trade_date": "20260424"}]
-    fake_dao.trade_calendar.get_open_dates.assert_called_once()
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == len(open_dates)
+    assert plan.writing.write_path == "raw_only_upsert"
+    assert [unit.trade_date for unit in plan.units] == list(open_dates)
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": value.strftime("%Y%m%d"), **filters} for value in open_dates
+    ]
+    assert all(unit.pagination_policy == "offset_limit" and unit.page_limit == 10000 for unit in plan.units)
+    session.scalar.assert_not_called()
+    session.scalars.assert_not_called()
+    session.execute.assert_not_called()
+    fake_dao.trade_calendar.get_latest_open_date.assert_not_called()
+    fake_dao.trade_calendar.get_open_dates.assert_called_once_with("SSE", open_dates[0], open_dates[-1])
 
 
 def test_dataset_action_resolver_reports_required_filter_with_display_label(mocker) -> None:

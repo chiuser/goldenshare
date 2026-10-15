@@ -998,7 +998,8 @@ def _build_stk_factor_pro_units(planner: DatasetUnitPlanner, request: ValidatedD
     )
     units: list[PlanUnitSnapshot] = []
     for anchor in anchors:
-        _ensure_stk_factor_pro_adj_factor_ready(planner, anchor)
+        if request.run_profile != "range_rebuild":
+            _ensure_stk_factor_pro_adj_factor_ready(planner, anchor)
         units.extend(
             build_plan_units(
                 request=request,
