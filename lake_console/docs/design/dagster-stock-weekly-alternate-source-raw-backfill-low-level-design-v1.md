@@ -1,162 +1,194 @@
-# DG 周线保留链与重复数据集物理清退 LLD v1
+# DG 周/月Raw直接源下载与更新共享 LLD v1
 
-更新：2026-10-15。第一条源码清退、隔离测试、正式重载和物理删除均已完成，逐项结果见第6节。R3获准随定义导入，仍暂停且未验收。删除不审查行情、不重算、不以Raw修订为前置。范围和阶段唯一引用[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线修订细节见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
-
-第1—3节记录继续保留的日常供数合同及预算，不是第一条删除任务的执行或重验清单。删除只执行第4节步骤和第6节针对性验收；月线数据修订另属第二条。
+更新：2026-10-16。已确认先删除两旧Raw根再直接源bootstrap，待开发与正式验收。当前周线仍由Prod闭合批供数，月线仅交付已完成月；不能把本LLD当成已部署。范围和顺序以[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)为准，月线差异见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。本轮主线包含Raw和随后Silver；本文聚焦Raw共享执行合同。本轮不改代码、配置或正式数据。
 
 <a id="adjusted-weekly-prod-refresh-lld"></a>
-## 1. 保留链的当前合同
+<a id="1-保留链的当前合同"></a>
+<a id="source-field-contract"></a>
+## 1. 源字段、请求和真实时间语义
 
-| 项 | 当前实现/保留决定 |
-| --- | --- |
-| asset/job | raw_tushare_stk_period_bar_adj_week / raw_stk_period_bar_adj_week_update_job |
-| 来源 | Tushare→Prod；DG首次读固定B0 Raw，日常只读core.stock_weekly_adj_delivery的闭合批 |
-| Parquet | /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=YYYY-MM-DD/part-000.parquet |
-| 业务键/分区 | (ts_code,trade_date,freq)，freq=week；cn_a_stock_week_ends自然周五坐标 |
-| 检查 | 原file_contract、key_partition、delivery_reconciliation三个blocking check及准确物化绑定 |
-| Run Config | StockWeeklyAdjProdConfig(contract_version=1,delivery_batch_id,closure_revision)；不接受code_list_path/automatic_intent_date等旧直拉参数 |
-| 幂等 | intent由合同版本/批ID/revision/资产决定，不用run_id或event storage id |
-| staging | /Volumes/datasource/data_lake_staging/stock_weekly_adj_delivery/{intent_id}；仅本次未完成意图使用 |
+源为stk_week_month_adj；不恢复独立未复权或备用weekly。原业务键(ts_code,trade_date,freq)、两个asset key及周/月路径保持，总方案列出完整路径。Raw仅保存源业务字段，不加入Prod搬运信息、规范证券身份、is_final或每日快照日期。
 
-Raw原21列顺序：ts_code,trade_date,end_date,freq,open,high,low,close,pre_close,open_qfq,high_qfq,low_qfq,close_qfq,open_hfq,high_hfq,low_hfq,close_hfq,vol,amount,change,pct_chg。
-日期/代码/freq为VARCHAR；价格、change及qfq/hfq为DECIMAL(18,4)，vol/amount为DECIMAL(20,4)，pct_chg为DECIMAL(10,4)。保留NULL、原始代码和源单位；不混入采集字段、交接信息或规范化身份字段。源字段事实见[Prod源字段合同](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#source-field-contract)。
-
-时间输入是周意图，执行unit是闭合批中的源unit及逐文件提交，freshness是周期覆盖与准确检查；revision仅为消费坐标，三者不混同。源end_date是计算版本，可晚于所属周。DG不能用本地计算价替换源qfq/hfq。
-
-## 2. 闭合批读取、候选与恢复
-
-1. next_closed_batch按revision升序取一条，不用MAX跳过中间批。sensor只读头及有界任务状态，不取payload、不扫历史Parquet。
-2. job用规定的psql包装和短READ ONLY事务逐unit读显式业务列及摘要；只读属于该闭合批的冻结payload，不拿当前可变Raw冒充旧批。
-3. 校验合同、单位集合、scope、行数、字节、摘要、freq、日期与唯一键。Decimal字符串严格转换，NULL保留；JSON使用严格typed转换/unnest，不做放大文档的相关json_each连接。
-4. 跨unit同键仅point_week与stock_history合法重叠可按已提交unit revision取新值；其他冲突拒绝，不按文件遍历顺序last-wins。
-5. 按年份一次处理本批全部股票，candidate=existing中未被输入选中的行 UNION ALL incoming完整21列。输入键和值完整对账，未选键值不变，无变化文件不替换。
-6. 当前年度候选校验通过后逐文件fsync、同卷os.replace、读回、checkpoint；关闭该年连接后处理下一年，不逐股票重复扫全年。
-7. replace后checkpoint前退出，目标等于候选则补完成；目标既非原件也非候选则拒绝覆盖。取消不领新文件，已提交文件保留。
-8. 文件完成而事件失败，只补缺失且准确绑定的事件，不回滚业务文件、不重复下载。历史周和anchor均登记真实物化/check；anchor是本批实际输入最大周，不是当前周。空行合法闭合批只推进水位，不造文件或绿色事件。
-
-交接表唯一合同见[Prod delivery-contract](../../../docs/datasets/stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)。DG不写Prod ack表，不新增永久summary asset，不把本次hash当永久历史证明。
-
-## 3. 配置审计与成本
-
-现有值是实现基线，不是本轮新增限制。来源均为StockWeeklyAdjProdConfig、WeeklyAdjProdDeliveryBudget、WeeklyBudget及现有连接设置；本次意图固化有效值，恢复不得静默改变。源模式/字段由代码唯一注册，无新env或数据库开关。
-
-| 配置 | 当前值/消费者/门禁 |
-| --- | --- |
-| unit/payload | 最多1,000unit；每unit12,000行/8MiB；整批256MiB，reader/合同及捕获消费，超量在写入前拒绝 |
-| 控制文件 | plan1MiB、头投影4KiB、closure256KiB；sensor不搬完整清单 |
-| 读取 | 现有包装脚本；SQL30秒、unit45秒、连接1；超时可取消，不泄露凭证 |
-| DuckDB | 512MiB、2线程、spill2GiB；年度独立连接，RSS上限1GiB，不把引擎buffer当RSS |
-| 合并 | 日常年度500,000行、54目标、源/候选≤128文件；运行≤1,000目标、staging4GiB |
-| bootstrap例外 | 历史B0年度上限1,000,000行仅限已批准首次替换，不扩为日常默认 |
-| 调度 | 上海19:30、既有sensor；cursor保存adjusted_delivery_revision/pending_adjusted，新代码加载不清水位 |
-
-新修订/Silver若超现有局部预算，先做代表性样本并记录读取量、输出量、RSS、spill及恢复成本后重评，不能逐股票拆绕门禁，也不擅加更紧上限。本轮没有新性能通过结论。
-
-## 4. 物理清退执行协议
-
-### 4.1 数据白名单
-
-仅以下三个数据集根及其已核实内容进入删除清单：
-
-| 待删根 | 2026-10-15数据文件/字节 |
-| --- | --- |
-| /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week | 859 / 89,782,798 |
-| /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_month | 201 / 22,484,192 |
-| /Volumes/datasource/data_lake/raw/tushare/weekly | 803 / 6,950,886 |
-
-清退写入口后，删除前一次确认三个根精确匹配、挂载正确、无symlink/越界及相关活动写者，再枚举目录清单，按清单删除文件和已空目录。只读目录元数据，不打开Parquet、不查行数/schema/价格/完整性、不计算文件hash。表中库存只作参考；正常新增的本数据集文件纳入当次清单，数量变化不自动阻断，未知归属和路径异常才停止。不跟随符号链接，不删除未核实staging意图或其他任务文件。
-
-保留两个复权根、全部共享父目录、月线复权staging、日线/分钟/因子/身份/日历、共享动态分区、25股候选和日志。Dagster历史event/run记录不删。删除不等待保留Raw修订或数值验收；已有覆盖结论复用，不重扫保留文件或日线。没有源请求、DuckDB计算、候选、COPY、原子提升、事件补录、备份或专用checkpoint；只记录实际删除结果，中断后确认目录边界和无写者，继续处理剩余内容。
-
-### 4.2 定义、入口和sensor
-
-| 文件/能力 | 要做的变更 | 必须保留 |
+| 源列 | 当前DG类型 | 保留语义 |
 | --- | --- | --- |
-| assets/stock_weekly.py、assets/stock_monthly.py | 移除两个独立未复权主源及备用weekly的活动定义/直拉入口 | 两个复权资产及现有key/路径 |
-| jobs/stock_weekly.py、jobs/stock_monthly.py | 删除raw_stk_period_bar_week_update_job、raw_stk_period_bar_month_update_job、raw_tushare_weekly_update_job | 两复权job及仍需的B0检查补录job |
-| checks/stock_weekly_checks.py、checks/stock_monthly_checks.py | 删除三个退役资产的9项checks | 两复权资产6项检查与准确绑定 |
-| 两个raw_stock_*_update_job_sensor.py | 删除旧源分支、旧job列表/双源等待/无效互锁 | 共享sensor、19:30窗口、周revision/pending、月frontier及真实取消恢复 |
-| stock_weekly_update*.py、stock_monthly_update*.py | 将active对象与ready判定收敛为保留源，迁移全部调用方 | monthly仍使用的weekly_event_binding等共享函数 |
-| catalog/lake_assets.py、catalog/name_mapping.py | 清零退役active登记，校准保留中文说明 | Prod/其他DG注册及保留资产来源合同 |
-| run_contracts、paths、schema、configs、partitions | 按全引用审计删除无消费者定义，不留旧新写入合同 | 共享schema/日期函数及cn_a_stock_week_ends/cn_a_stock_months |
-| 历史CLI/capture/promote/events/prod_db | 移除退役source的新写入入口、参数选择及仅其使用的实现 | 仍被复权交付、月线修订和必要检查使用的公共能力 |
+| ts_code | VARCHAR | 原始返回代码，不将旧码重命名为新码 |
+| trade_date, end_date | VARCHAR | YYYYMMDD；周期坐标与源计算截至日期分别保存 |
+| freq | VARCHAR | week或month，与数据集匹配 |
+| open, high, low, close | DECIMAL(18,4) | 未复权OHLC |
+| open_qfq, high_qfq, low_qfq, close_qfq | DECIMAL(18,4) | 源前复权OHLC |
+| open_hfq, high_hfq, low_hfq, close_hfq | DECIMAL(18,4) | 源后复权OHLC |
+| pre_close, change | DECIMAL(18,4) | 源除权参考前收、涨跌额，不自行从其他字段推算 |
+| vol, amount | DECIMAL(20,4) | 原源单位 |
+| pct_chg | DECIMAL(10,4) | 原源单位；样本0.77表示0.77%，不乘100 |
 
-两个sensor都承载保留分支，不能删除整个文件或调用stop_sensor。源码部署后重载定义，按批准的迁移校验cursor；本方案不要求启停sensor/服务。独立未复权专用sensor若执行预检另有发现，核实唯一归属后才加入精确清单，不按关键词批量清理。
+共21列，顺序沿doc365。当前小数4位是存储基线，不能当源最大精度；真实回包超出精度/范围或新增列时，保留原回包并显式解决合同，禁止静默舍入、截断或丢列。NULL按源保留。字段完整不等于全市场历史已核验。
 
-### 4.3 实施顺序
+2026-10-16凌晨MCP实测（000001.SZ）：
 
-1. 清退第4.2节的旧定义、调度分支和所有新写入入口，保留公共能力；不同时开发月线覆盖或新码修订。
-2. 按真实改动运行定义、sensor、旧参数拒绝和共享函数的隔离测试；删除边界只用临时目录验证，不请求源、不跑历史生成链。
-3. 部署并重载代码定义，只读确认三个退役asset/job及9项check不再active、两个保留sensor仍有复权分支且原状态/水位未重置；不提交正式job、不评价或启停正式sensor。
-4. 确认没有相关job和手动CLI写者，按第4.1节一次核对目录并物理删除；若仍有写者，等其退出后再执行，不影响其他任务和服务。
-5. 一次收尾确认旧目录和活动入口消失，保留根及共享对象未被误删，记录结果；不对行情内容或全湖文件重新对账。
+| 请求/返回 | 结果 |
+| --- | --- |
+| ts_code+freq=week，不传时间 | 1,782行，19910405至20261016，默认21列 |
+| trade_date=20261012或20261015，freq=week | 0行，不能用工作日当周K查询坐标 |
+| trade_date=20261016，freq=week | 1行，end_date=20261015；周五尚未开盘已有周中K |
+| start_date=20261009/end_date=20261016 | 两个周坐标；改为20261012—20261015则0行 |
+| ts_code+freq=month，不传时间 | 427行，19910430至20261031，包含未结束月 |
+| 历史周19910405、20261009 | end_date均为20261015，不能当各周最后交易日 |
 
-第一条可独立关闭，第二条Raw修订随后推进。仅隐藏UI或删源码不算物理删除完成，仅删文件却留写入口也不算完成；不清空Dagster数据库或全局staging。
+默认字段与成功的显式21字段请求一致。补充请求有4次超时/502，均不是空源，未反复重试。原始小范围证据位于/private/tmp/dg_period_source_semantics_complete_20261016.json；日常不依赖此临时文件。跨日连续更新尚无连续实测，必须由后续代表性日常验收覆盖。
 
-## 5. 消费者和改动范围
+单股全历史的业务参数仅含ts_code、freq，另显式指定全部fields；不传trade_date/start_date/end_date。分页属于传输参数，不改变单股完整历史范围。当前在线输入表未列limit/offset，MCP也未开放，但Prod已有针对同一接口的实现，DG按该实现方式设计，不重新发明分页框架；代码依据与本轮源实测状态分开记录。
 
-CodeGraph explore/callers/impact已覆盖入口、路径与StockWeeklySource/StockMonthlySource，分别影响99/44个符号；动态枚举分发另用当前源码搜索、60个相关DG模块AST引用及实例只读查询补足，不以图结果替代SQL/运行事实。
+### 1.1 分页规则与Prod依据
 
-活动定义、jobs/checks/sensors、period_status、schema/catalog/config/path、历史bootstrap/CLI、事件登记和Prod只读适配器均是消费者。definitions.py使用load_from_defs_folder，遗留@asset仍会加载，所以不能只从job或catalog移除。没有发现Wealth/QTF或业务API直接读取这些DG周期Raw；Prod同名Definition/模型、周线进度页及供数协议不是DG退役对象。
+1. 每页显式传limit=6000，offset从0开始。返回正好6000行则offset增加6000，继续同一股票、freq及fields的下一页；返回少于6000行即结束，含合法的空末页。
+2. 恰好6000或其整数倍行数时，必须再取一个空末页。满页本身不是失败，也不能因此截断或宣称完整；仅在达到本专项页数/行数/空间预算仍未见末页、请求失败或分页证据异常时，单元保持未完成。
+3. 页完成后保存请求参数、页号/offset、行数及源片段，恢复接未完成页；只有页链连续且观察到短页，整个股票×freq单元才完成。拒绝缺页、相邻页重复导致的业务键重复/冲突，以及把超时或无字段响应当空末页；不新增整库复查。
+4. 周线依据[DatasetSourceClient.iter_weekly_adj_pages](../../../src/foundation/ingestion/source_client.py)：追加limit/offset，页前后检查取消，短页返回，达到预算未见末页则拒绝完成。月线通过同文件iter_pages/_iter_request_pages/_fetch_page执行同样的满页续取、短页结束；两套DatasetDefinition的page_limit均为6000，见[market_equity.py](../../../src/foundation/datasets/definitions/market_equity.py)。
+5. [test_stock_weekly_adj_p2.py](../../../tests/test_stock_weekly_adj_p2.py)已有替身测试，覆盖整页后空末页及页预算耗尽拒绝。这是实现与测试依据，不冒充本轮真实分页通过。DG参考其分页和响应处理语义，不直接搬入Prod TaskRun依赖，也不机械套用Prod周线3页/12000行预算。
 
-复用已有引用审计，实施时只补核实际改动的符号和直接消费者，不重新审计全仓。最小回归以周/月definitions、两个sensor及改到的contract/catalog治理检查为主；原测试中期待旧对象存在的断言须同步移除或改成拒绝旧入口。仅当修改共享capture/delivery等行为时，增加相应直接消费者测试；不默认重跑inventory/planner/capture/candidates/events、bootstrap或整套历史链。月线仍使用的绑定函数及复权B0恢复能力必须保留，不能按文件名整块删除。
+Prod使用[自有HTTP客户端](../../../src/foundation/clients/tushare_client.py)，区别于上轮直接调用的SDK。SDK超时仅是当次路径失败，不能据此判断Prod路径不可用。分页设计已明确；首次代表性源验收合并确认相邻页、末页、连通性与耗时，成功结果复用，不再单独重复做一轮分页调研。
 
-## 6. 正反验收
+## 2. 对象、新代码和持久化单位
 
-| 必要检查 | 正向 | 反向 |
+首次固定当前确认仍上市集合、证券身份与北交所映射版本，复用现行silver/basic/stock_basic及confirmed身份事实；集合只准备一次，不能把stock_basic包含L/D/P/G全量代码直接当请求对象。退市股票在规划和出站请求两处均排除，bootstrap、日常、因子、手动及重试一致。对象池为空或身份未明不能退化为全市场请求或清空数据。请求代码按映射n_code归并；已经确认使用新码的新上市股票不要求伪造旧码映射。未确认的新旧关系阻止该对象出站。对北交所旧码的拒绝在请求builder前统一执行，bootstrap、日常、手动、重试和因子刷新共用，不让调用方自行拼码。
+
+正式Raw仅保留准入范围内的完整源行情；“全源保留”不覆盖退市对象。全市场回包用同一对象集合过滤，源总行数=准入行数+范围排除行数+异常行数，退市过滤数量与技术reject分别记录。首次旧存量随两个旧Raw根一并删除，不读旧文件逐行剔除或合并。仅代码换名、停牌或身份未知不证明退市，不据此误删仍上市证券历史。
+
+下载unit=(本次范围身份,有效ts_code,freq)，稳定标识不依赖run_id。单unit完整返回后保存请求参数、字段、源片段及receipt；技术失败、真实空源、预算耗尽仍未到末页、身份不符分别记录。真实空源须解释，不生成空文件、不从旧数据兜底；删除后的基线保持未完成，不能把缺失股票当成功跳过。日常更新源空则保留已验收的新基线并记录欠账。
+
+捕获文件只在run-scoped staging；每个成功unit可读回并独立续用。候选unit=(asset,周期分区)，汇集相关源片段后一次COPY；不按每股逐次重写全历史。控制记录保存删除阶段、完成源片段和提交事实；两根删除完成后才进入正式下载。进入正式下载后阶段不可退回清空根目录，不新建数据库表、永久版本库或第二套任务状态机。
+
+开始/完成源交易日及真实返回end_date分别留证，不能假定上万次请求是同一时刻快照。跨日、跨周/月时，在转日常前仅追平运行期间涉及周期的最后已发布值和实际因子变更对象；成功历史片段继续复用，补取也进入同一候选合并流程。已关闭周期不能因下载较早而残留周中/月中值；未来正常日常按消费坐标接续。
+
+## 3. 候选、提交与取消恢复
+
+所有批处理用DuckDB列式读取、SQL及COPY，不用Python逐行写Parquet或常驻全部历史。删除/下载/组装/提升/事件各阶段报告真实当前对象、完成量、总量与最后更新时间；无可靠ETA时明确不可估算，可见更新间隔沿性能治理要求不超过30秒。阻塞请求由现有可取消监督器控制。
+
+候选合并验证：21列/精度/NULL，代码及freq，trade_date对应分区，源页完整和源行守恒，同业务键无异值冲突。相同键不同值不能随意取最后一行；源记录及错误证据保留。Raw不做按规范证券代码合并，不把历史正常停牌当每日数据缺口，不扫描日线重算周/月价格。
+
+### 3.1 删除边界与数据空档
+
+删除白名单仅为/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week和/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month两个完整旧根。执行前一次确认挂载、规范路径、无符号链接越界及无冲突写者，只列目录元数据；不读待删Parquet、不做价格/行数检查、不计算旧文件hash，不备份或快照。共享父目录、其他Raw、Silver、staging、动态分区和Dagster历史记录均不删。删除不是空对象池或请求失败的自动处理；必须先完成程序验收及非空对象范围确认，并按正式执行清单进入该阶段。
+
+删除阶段完成记录先持久化，再进入正式下载。删除途中取消且尚未进入正式下载，可以核边界后继续剩余删除；进入下载后恢复只接本次未完成unit，禁止再次执行根目录清空。阶段或文件归属不清则停止，不把新输出误当旧存量。删除后到新基线验收前，旧事件不证明数据就绪；Raw可能缺失或部分完成，Silver生成与消费须受此状态约束，不提供旧行情回退。
+
+### 3.2 新基线提交及恢复
+
+首次候选仅来自本次成功捕获的完整源unit，不能读取旧DG价格、合并旧键或从旧Prod补洞。新下载没有的记录不保留旧版本；缺源或未完成对象显式留在未完成清单，整套基线不能因此写绿。不同源周期日期保留原值；不为对齐旧库存改写或去重。
+
+首次分区目标应不存在；恢复仅允许读回确认属于本次已提交的新文件。候选校验及同文件系统边界通过后，在目标锁内os.replace并fsync，提交一个记录一个；第三方文件或目标漂移阻止该单元提交，不擅自覆盖。源片段与候选身份只在建立/消费/提交这些必要边界检查，不每秒重算hash；正式checks只核本次文件事实和准确物化绑定，不长期依赖bootstrap材料。
+
+初次重建与日常更新分开：通过验收后的新基线，日常才按原始源键完整行upsert；后续确认退市按受影响分区清理Raw与Silver，不从旧bootstrap存量导入任何行。
+
+每次源请求、文件组装和提交前后检查取消，取消后不领新unit；协调器退出清理本任务worker，旧写者退出前不允许新写者接管。已完成源unit、候选和提升记录保留。恢复先核请求/输入身份，再读回完成单元；未变化的不下载、不重算；目标为第三方版本则停止冲突单元。
+
+replace后checkpoint失败，读回确认目标就是已校验候选后补记完成；事件失败只补准确事件，不再覆盖文件。事件不把未校验文件写绿，不回滚已提交业务文件。不运行Kopia或文件备份。
+
+## 4. 当前周期与因子变更
+
+日常按交易日执行，week请求本周自然周五，month请求自然月末，全市场周期请求统一处理。源尚未发布时保留当天欠账，不把旧结果当当天完成；不要求每只停牌股票的end_date都等于当天。源发布时间用最小真实样本核定，现有19:30窗口不是“必定已发布”的证明，不新增无界轮询。
+
+当前周期每日upsert同一业务键，允许trade_date晚于运行日。元数据/cursor分别表达最后成功刷新交易日、已结束周期、未完成任务；is_final不进入Raw。节假日不改trade_date为最后开市日。已结束周/month不因end_date变化自动全量刷新。
+
+日常因子触发只复用现有相邻交易日差异：stock_daily_qfq.py的build_stock_daily_qfq_factor_changed_codes_sql读取当日、上一交易日两份silver_adj_factor，输出变化代码。本次沿用该识别范围，记录自上次成功消费以来的对象及日期；同股week/month两unit，均用无时间请求重新下载。成功保存两频后才标完成，取消后只接未完成项。bootstrap及主动历史下载不依赖因子差异、因子blocking checks或日线qfq修复job成功，不做本地复权价格重算；不新增历史因子修订探测任务。回包即使end_date相同也不能跳过明确要求的历史下载。
+
+当前全市场回包与单股历史片段合并后，一个受影响分区只组装/提交一次。若两类片段对同键出现不同版本，不能任意按下载先后覆盖，应重取冲突对象的小范围或报告源变动，不重新下载整个市场。
+
+## 5. 唯一写者切换与影响面
+
+当前实现：weekly sensor→stock_weekly_adj_feed→Prod闭合批→stock_weekly_adj_run；monthly asset→deliver_month_intent，异值报revision_required，sensor只从下一已完成月推进。现有bootstrap均主要从Prod导出。三者不等于本设计，不能直接用旧CLI执行新bootstrap。上述仅是DG入口切换的现状，不要求改动Prod本身。
+
+拟以周/月共用的源捕获、候选和提交能力承接bootstrap/每日/因子三种意图；request builder负责所有出站参数。切换同一批次迁移assets/jobs/checks、sensor、run_contracts/configs/schema、catalog/readiness、相关历史CLI与测试，不保留双写、旧码兜底或旧Prod入口继续覆盖目标。共享能力先核消费者再移除，Prod内部的闭合批交付表不因DG切换被删除。
+
+正式删除前必须先完成唯一写者切换与旧入口封闭；重建期间所有日常、手动、重试写入口遵守同一重建阶段和写锁，不得趁目标不存在自行创建。两套新基线验收前不交接日常。正式切换保留两个共享sensor名称、RUNNING/STOPPED意图及原cursor证据；根据已验收的新文件和实际源刷新坐标迁移，不把旧revision=1785强行解释为源日期。遇正在运行的旧写者先等待，不启停其他服务。新鲜度/阻断检查改为当前周期及源交付事实，去掉对“必须已结束周/月”和整月日线扫描的依赖，须同步迁移全部直接消费者而非只删检查。
+
+CodeGraph explore及当前源码已覆盖weekly_column_specs/monthly_column_specs→schema/assets/导出消费者，以及evaluate_adjusted_feed→weekly sensor、deliver_month_intent→monthly asset；已补查config、CLI/check、catalog及其直接消费者，实施映射如下；分页实现依据已明确，源连通性、吞吐及数值预算尚待最小验收，不据此宣布开发门禁全部通过。未发现本次需要修改Foundation→Ops/Biz等依赖方向，Prod/API/Wealth/QTF不因本文发生变更。
+
+
+### 5.1 Raw实施文件与消费者清单
+
+下表路径相对orchestrator/src/orchestrator/defs；共用实现限定周/月，测试位于orchestrator/tests。不修改Prod供数实现或R3。本表列职责和退出边界，正式编码尚未开始。
+
+| 改动文件 | 要完成的迁移 | 直接消费者/验收 |
 | --- | --- | --- |
-| 旧入口清退 | 三个旧asset/job、9项check及catalog活动项消失；sensor不再等待旧源 | 旧source/CLI参数不能重新生成退役数据，不留fallback |
-| 共享能力保留 | 两复权定义/check/job、月线共享函数、分区及两个sensor保留；周revision/pending和月frontier沿用 | 误删公共函数、残留旧job引用或重置水位时，针对性定义/调用测试失败 |
-| 删除路径边界 | 临时目录内三个允许根可删除；正常新增文件纳入清单 | 错误根、越界、符号链接、未知归属和活动写者拒绝；保留根及共享父目录不删 |
-| 一次关闭 | 旧目录及活动入口已消失，保留对象仍在 | 残留旧目录、写入口或缺失保留对象不能报清退完成 |
+| run_contracts/stock_weekly.py、stock_monthly.py、configs.py、asset_column_schemas.py | 共用源请求/意图合同；保留21列及现有asset身份；月线不再固定丢20200229；旧Prod批参数退出DG写入口 | assets、schema、catalog、CLI、builder及contract测试同时迁移；保留仍被引用的通用类型 |
+| assets/stock_weekly.py、assets/stock_monthly.py；jobs/stock_weekly.py、jobs/stock_monthly.py | 两个原asset/job改由直接源执行，日常与主动历史意图清晰分开 | definitions、job selection与两个asset测试；job/key名称保留 |
+| sensors/raw_stock_weekly_update_job_sensor.py、raw_stock_monthly_update_job_sensor.py；stock_weekly_update.py、stock_monthly_update.py；stock_weekly_update_state.py、stock_monthly_update_state.py | 交易日刷新当前周期；共同重建准入；相邻因子变化只取变化股；明确新cursor版本及旧水位迁移，不清空重跑 | 两个sensor、update/state正反测试；历史下载不依赖因子判定 |
+| stock_weekly_adj_feed.py、stock_weekly_adj_run.py、run_contracts/stock_weekly_adj_delivery.py | 退出DG的Prod闭合批读取、revision推进及写入口；禁止旧参数/旧计划重建目标 | 当前引用来自weekly sensor、weekly asset、configs及weekly delivery测试；不删Prod自身交付表 |
+| stock_monthly_point.py；source_readiness/stock_weekly.py、source_readiness/stock_monthly.py；io/stock_weekly_raw.py、io/stock_monthly_raw.py | 月线退出create_or_identical限制与整月日线参考扫描；字段、日期、范围校验移到新源合同 | assets、checks、日常执行和候选组装；不把旧参考扫描照搬到新链 |
+| checks/stock_weekly_checks.py、checks/stock_monthly_checks.py、stock_weekly_file_checks.py | 保留现有check身份，改核本次文件/范围/绑定；同文件共享一次列式校验结果，多个check不各自重复执行完整扫描 | job选择、readiness、历史事件CLI和check测试一起迁移；结果只绑定同一文件版本 |
+| catalog/lake_assets.py、catalog/name_mapping.py | 来源统一为Tushare，移除Prod bootstrap、已完成周期和旧参考成本说明；名称、schema、路径一致 | catalog、metadata、definitions及schema测试；paths.py和partitions.py的既有身份/布局保留 |
+| bootstrap/stock_weekly_history_cli.py、stock_monthly_history_cli.py及直接调用的planner/capture/candidates/promote/history模块 | 两个旧Prod bootstrap写入口退出；新bootstrap只接上市/新码范围，先删后建且下载后禁止清根 | 相关history/planner/capture/candidates/promote/CLI测试；不保留旧计划写入兼容 |
+| bootstrap/stock_weekly_events_cli.py、stock_weekly_events.py、stock_weekly_event_files.py、stock_weekly_event_instance.py；bootstrap/stock_monthly_events_cli.py、stock_monthly_events.py；ops/stock_weekly_bootstrap_checks.py | 新源文件对应的物化/check绑定；事件失败仅补事件，退出旧B0搬运材料依赖 | 历史事件、check绑定、取消续跑测试；旧历史记录保留 |
+| 新的周/月共用请求、下载、候选及bootstrap实现（具体文件随数值预算定稿） | 统一参数builder、已上市/新码准入、唯一写锁、删除阶段记录、逐文件checkpoint；不增加长期状态表或全局配置 | 新正反测试覆盖先删后建、旧入口拒绝、取消恢复、源守恒；既有stock_weekly_source.py仅在实际语义可复用时使用 |
 
-删除不验行情行数、schema、价格、上市覆盖、源/Prod/DG数值或公式；不扫描全部保留Parquet算hash。新码、完整月份、源分页、候选读回及COPY/replace取消恢复属于第二条修订或保留链自身的测试，不列入第一条默认验收。
+新共享模块具体命名、CLI参数和配置默认值须随源验证与预算一起定稿，再进入编码；本表不授权一边编码一边选择这些合同。仅为Silver阶段保留后续接口，不提前实现Silver或迁移其他数据集。
 
-### 6.1 本次实现与实际验证（2026-10-15）
+## 6. 配置、容量和测量
 
-- 三个旧asset/job、9项check、catalog/path/schema/config活动项已从源码移除；旧source不再属于周/月枚举，旧周线point/update执行器和备用采集/规划入口已删除，旧库存/计划在创建目标或请求源前拒绝。两个复权key及21字段不变。
-- 两个共享sensor保留名称、默认状态、19:30窗口和水位字段。周线只消费原闭合批feed，不再查未复权日历/文件；月线只遍历复权源。月线依赖的请求监督、事件绑定及复权bootstrap能力保留。CodeGraph impact复核周/月99/44个符号，动态消费者用现有引用补核，无业务子系统依赖变化。
-- 最终针对性隔离验收214项通过、509子测试通过，9.33秒；未重跑历史全链。删除脚本只置于/private/tmp，固定三个根，5项临时目录边界/正常新增/部分删除续处理测试通过，0.006秒；获准后用于本节记录的正式删除。
-- 另补核直接迁移的月线事件/历史合同和保留周线候选、事件文件、旧事件scope拒绝：53项通过，4项旧双源夹具预期修正后复测通过；不与上述214项重复累加。退役未复权point/bootstrap成功路径的测试随对应实现退出，保留原复权B0替换/检查专项测试；没有将旧source改成复权而继续使用旧写入语义。
-- 11项未纳入最终测试：9项额外真实子进程时序测试不是本次共享监督逻辑变更；另外2项全局治理测试分别要求停牌专项隔离上下文，以及既有矩阵漏登记。后一问题用修改前HEAD源码内存加载复现17项缺口；本次删掉未复权月登记后剩16项，包括原有复权月/公告/资金流缺项。未放宽或修改这些门禁，不把全局治理说成全部通过。
-- 正式加载边界最初因R3未验收而暂停。管理员随后明确允许导入该模块，R3继续暂停且不算验收通过；仅重载orchestrator location一次，未重启服务。正式GraphQL确认删除的恰为三个旧asset、三个旧job及9项check，其余资产和检查定义保持一致。两个共享sensor目标均只剩复权job。
-- 正式操作前后没有在途run，相关进程清单未发现手动写者。两个sensor身份、RUNNING状态和lastRunKey保持一致；runtime_state完整保持：周verified/examined=2026-10-09、adjusted_delivery_revision=1785，月verified/examined=2026-09。运行中的系统自动tick更新cursor时间和说明，未人工改cursor或评价/启停sensor。
-- 23:52一次枚举目录元数据并删除：stk_period_bar_week为859文件/89,782,798字节，stk_period_bar_month为201文件/22,484,192字节，weekly为803文件/6,950,886字节。合计1,863文件/119,217,876字节，枚举与删除合计约0.35秒；不含前后定义核对耗时。三个旧根均已不存在，两个复权根的inode/device与操作前一致；未递归扫描保留数据。共享函数和分区沿用已通过的隔离证据，本次不修改其代码或正式分区注册。
-- 本轮执行前已有的全部未提交文件逐内容对照保持不变，包括R3源码/测试。没有源请求、行情内容读取/重算、候选生成、正式job提交、事件补录、staging清理或备份。Raw纠错、Silver和R3均未推进。
-- 日志位于/private/tmp/dg_period_retirement_fixed_version_20261015.log；正式加载快照为dg_period_retirement_loaded_location_20261015.json；基线复现脚本为dg_retirement_governance_baseline_20261015.py；一次性删除脚本为dg_period_retirement_delete_20261015.py。临时脚本不纳入生产主链，不依赖它们作为日常证明。原R3候选、receipt、checkpoint、计划/hash和未提交代码均保留。
+**2026-10-16准备状态：分页实现方式已明确；源连通性、吞吐和数值预算待最小验收，尚未正式编码。** 当前上市对象数一次读取得N=5576，最新上市代表301569.SZ，北交所样本920000.BJ。MCP对920000.BJ完整周线请求超时（>30秒）；MCP无limit/offset输入，因此分页另用项目现有SDK验证，000001.SZ/week/limit=3/offset=0首次请求20.0075秒ReadTimeout后即停止，没有后续页或重试。SDK仅使用现有环境中的TUSHARE_TOKEN，不记录token。证据在/private/tmp/dg_period_sdk_preflight_20261016/result.json；该证据证明本次访问失败，不证明空源、无权限、分页不支持或固定吞吐；Prod已有实现见§1.1，其自有HTTP路径未被这次SDK请求验证，不能据此修改超时/并发来宣称性能通过。
 
-正式操作证据保存于/private/tmp/dg_retirement_formal_20261015：before.json、after_reload.json、final.json记录定义/sensor/进程，deletion_inventory.json和deletion_result.json记录目录清单与删除结果，reconciliation.json为逐项对账。仅用于本次操作追溯，不成为日常运行依赖。
+| 测量项 | 已确认/成本模型 | 仍缺与处理 |
+| --- | --- | --- |
+| 对象、请求、页 | N=5576；bootstrap共2N=11152个单股频率unit；按Prod规则6000行/页，满页继续、短页结束；已成功样本week1782、month427行 | 分页方式已确定；当前历史与日常请求的首次真实验收合并验证页链和吞吐，不冒充本轮已通过 |
+| 行数与请求模型 | 单元实际行数r时，请求数为floor(r/6000)+1，含必要空末页；总请求数为各单元求和。只有全部单元不足6000行时才是2N次，且总行数小于66,912,000 | 6000是单页上限，不是整股或整任务行数上限；实际总量、预算、精度和文件量按代表样本确定，准入/排除/异常分别计数 |
+| 扫描/组装 | 成功单股源片段只在汇集阶段批量导入一次，再用DuckDB分区COPY按freq/周期输出；禁止“每个周/月再读取全部单股历史文件” | 临时分区COPY输出规范文件名，逐文件校验/提交；样本记录SQL数、扫描字节、输出文件和峰值内存，验证不是隐藏的周期×全历史循环 |
+| 写入与恢复 | 源unit持久化一次；分区候选一次组装、一次必要校验、一次原子提升及读回；复用成功事实，不因事件失败重算 | 校验结果只复用同一文件版本，漂移失效；取消/退出测试在临时目录执行 |
+| 时间、空间、配额 | 请求数公式已知；源片段+候选+spill+新正式文件共存；预算增量计量，不扫描累积目录 | 无成功新源样本，无法给实测吞吐、峰值或可靠ETA；现有1并发/512MiB等旧配置不自动沿用，暂不指定新数值 |
 
-第一条已独立关闭。第二条Raw修订及25股任务分别按已确认顺序另行推进；本次加载R3模块不改变其暂停、未验收状态。
+后续只做剩余最小验证：按既有Prod分页方式，在老上市、新码北交所、新上市代表的两频历史样本中合并观察页链、末页及耗时，再做同批次列式组装/读回；不单独重跑一套分页调研。成功结果可复用。一次补齐数值预算和配置审计后才编码；不重新跑日期/字段全套审计，不全量请求、不测正式删除或正式写湖。
 
-## 7. 后续Silver接口边界（未实施）
+| 项目 | 来源/消费者与处理 |
+| --- | --- |
+| api、fields、freq、有效代码 | run_contracts与统一builder，固定进意图/receipt；不在脚本、sensor各写一份 |
+| 源单页6000 | doc365及Prod实现；统一builder传limit/offset，满页续取、短页结束；分页预算在本专项执行policy中确定 |
+| 历史范围 | 由单股无时间请求返回决定；不套旧859/201分区数、2010起点或Prod年度导出范围 |
+| 请求期限/重试/间隔/并发 | 实施前审计现有请求policy、token额度和全部消费者；用代表样本确定本专项值并持久化，不擅改全局 |
+| 计算内存/threads/spill/批次 | 局部DuckDB连接与执行policy统一消费；先测源片段和单分区峰值，不把buffer上限冒充进程树RSS |
+| 空间 | 开工估算源片段+候选+spill+新正式文件共存峰值并检查一次，不含旧数据备份；实际新文件增量结算，必要写前查剩余空间，不反复递归扫描 |
+| 进度/取消 | 共用执行器与监督器，保存真实阶段和完成单元；观测不影响已提交数据 |
 
-拟新增silver_stock_weekly，依赖唯一保留周Raw，路径拟为silver/quote/stock_weekly/week_end=YYYY-MM-DD/part-000.parquet；月线对应规则见月线LLD。标准化日期、保留Decimal和三套OHLC；初次覆盖本轮批准的仍上市集合，不自行删除退市历史。
+原WeeklyBudget、StockMonthlyPolicy、MonthlyBootstrapIOPolicy和completed-period policy是旧链基线，不能把Prod导出、日线参考或“只创建/同值”限制无审计搬到新链。新增/变更配置必须列默认值、代码/env/文件等来源、持久化、消费者、相互依赖、生效方式和运维可见性；数值未实测前不得进入正式执行。
 
-confirmed身份只用于归一，不改变Raw。已有新码的请求只用新码；Raw旧码不是自动兜底。若同证券同周多行，必须证明新码和计算版本关系后选定整行；同优先级/身份未确认/新码缺失的冲突不得任意去重或拼字段。保留可追溯的输入归属，但不新增永久版本库。
+前次对象快照N=5576时基准2N=11152请求，重试/补页另记；每交易日基准当前周/月各一次，另加2C个变更股票历史请求及必要分页，C按有效代码去重。源片段可能覆盖更多早年周期，输出文件/空间按样本和实际回包估算，不从旧库存推完整性。串行2—5秒/请求对应6.2—15.5小时仅是假设，不能宣称已比局部修复实测更快；小样本校准后固定版本执行，避免每个小修从头跑全量。
 
-一次Prod闭合批会改多个历史周，Silver必须从本批准确物化/实际变更集合领取所有受影响周，不能仅用run-status的anchor。先确认触发/取消/幂等合同再开发；首次历史候选、物理生成、事件和日常增量分别验收，不默认全历史重算或重复深扫。
+<a id="acceptance"></a>
+## 7. 正反验收
 
-## 8. 历史事实与旧引用
+| 检查 | 正向 | 反向 |
+| --- | --- | --- |
+| 请求与北交所 | 单股业务请求为新码+freq并显式fields，技术分页参数limit/offset不裁业务时间；周/月历史都取回 | 旧码、未确认映射、失败后旧码兜底、偷偷加时间截断拒绝 |
+| 字段 | 默认/显式21列完整保留，NULL/Decimal守恒 | 丢列、超精度静默舍入、价格重算、擅改代码或日期拒绝 |
+| 时间 | 周中可请求未来周五、月中可请求未来月末，历史end_date晚于周期合法 | 按星期一查询当周、用请求end_date当版本、把周中刷新当整周完成不能通过 |
+| 跨日交接 | bootstrap跨周/月仅补运行期间涉及周期及因子对象，历史片段复用 | 把早期捕获的未完成周期当最终值，或为追平重下全部历史拒绝 |
+| 月版本 | 20200228和20200229两条源行原样保留，各自业务键明确 | 固定丢29日、把28改29、同键异值任意择一拒绝 |
+| 完整源unit/分页 | 不足6000行一页结束；整页后续页、恰好整倍数后空末页均完成；连续已完成页可恢复 | 满页直接截断/直接失败、缺页、重复页、预算耗尽未见末页、初始空源或超时/502冒充完整成功拒绝 |
+| 对象与退市 | 上市股完整源历史保留，退市规划/出站请求数及新Raw/Silver行情行数均为0，旧存量随旧根删除 | bootstrap/日常/因子/手动/重试请求退市股、从旧文件带回退市行、把换码或停牌误当退市拒绝 |
+| 先删后建 | 临时目录中仅两白名单旧根删除，删除完成后才进入正式下载，其他目录保持 | 错误路径、挂载异常、symlink越界、仍有写者、对象池为空或阶段不明时拒绝删除 |
+| 新基线范围 | 仅用新源片段，同一分区一次组装；未返回旧键不保留 | 读取/合并旧行情、用旧Prod补洞、缺源写空文件或整套写绿拒绝 |
+| 提交与就绪 | 首次目标不存在，本次已提交文件可认领；缺数窗口不就绪 | 第三方文件被覆盖、旧事件使未完成基线就绪、误删共享父目录或Silver拒绝 |
+| 复权刷新/历史直取 | 相邻交易日因子变化触发两频历史；bootstrap/主动历史下载无需因子变化，直接保存源价格 | 因子未变化就阻止主动历史下载、先重算复权价、因end_date变化刷全市场、未完成两频却消费变更拒绝 |
+| 取消恢复 | 删除途中可继续剩余删除；进入下载后仅续未完成源/文件单元，替换前后退出可恢复 | 下载后再次清空根、丢弃已完成新文件、取消后领新unit、旧worker继续写、第三方目标被覆盖拒绝 |
+| 事件/切换 | 文件及检查准确绑定，事件失败只补事件，sensor意图保留 | 未验收文件写绿、旧Prod与新源双写、cursor清空重跑拒绝 |
+
+先用独立字面金样本、替身和临时目录覆盖上述逻辑，删除/中断破坏测试不在正式Lake执行；真实样本只选必要代表，复用成功捕获。正式验收只查本次请求、输入/输出范围、候选、文件及事件事实，不默认通过同一公式全量重算，不重扫全湖。真正源矛盾保留证据并报告，不能靠放宽检查宣布完成。上市集合跨长任务发生变化时，只按变动对象追平准入/退市清理；按受影响文件汇集一次，不能每只退市股重扫全部历史。
+
+Raw通过后才生成周/月Silver。Silver与Raw共用确认上市集合，保留三套源价格、规范身份/日期并按完整版本择行；初次及历史变更所有周期均需传递，不能因Raw正确就宣称Silver完成。Silver字段、择版及执行/检查合同在该阶段开工前明确，验收仍要求退市行0，不重新向Tushare下载已保存Raw。
+
+## 8. 已完成清退与历史依据
+
+2026-10-15三个退役asset/job、9项check及目录清退完成，删除1,863文件/119,217,876字节，代码82e5c225、收尾2783789c。两复权根与sensor意图保留，正式重载曾获准导入未验收R3但未运行R3。隔离214测试/509子测试及5项删除边界测试只证明旧清退范围，不冒充新直接源验收；既有两项全局治理缺项未放宽。
+
+旧B0=1785、859周文件/3,028,907行是2026-10-13历史Prod搬运事实，不是新下载行数目标。详细历史见[结案记录](../../../reports/stock_period_raw_closeout_20261006.md)、Git及/private/tmp/dg_retirement_formal_20261015；不恢复旧命令卡、日常搬运证明依赖或重复清退流程。其他暂停专项的原现场不由本轮文档或执行器操作。
 
 <a id="adjusted-weekly-bootstrap-capture"></a>
 <a id="adjusted-weekly-bootstrap-replacement"></a>
 <a id="adjusted-weekly-formal-preflight-20261012"></a>
 <a id="adjusted-weekly-bootstrap-execution-20261013"></a>
 <a id="adjusted-weekly-bootstrap-event-replacement-20261013"></a>
-### 8.1 已完成的B0交付
-
-2026-10-13 Prod首批15565完成876周/3,028,907行；独立补刷15604完成9股/6,345行，B0=1785。DG859文件/3,028,907行、859新物化/2,577准确检查、27成功run，最终缺项/blocked/最新失败0，水位已迁移。原年度捕获、覆盖、事件及水位迁移阶段已结束，不重开旧执行卡。保留的raw_stk_period_bar_adj_week_event_backfill_job仅手动补检查，每批最多33周/99项，绑定已验收B0冻结计划及新物化，不生成行情、不接自动sensor。
-
 <a id="adjusted-weekly-d1-d2-implementation"></a>
 <a id="adjusted-weekly-d2-sql-memory"></a>
-### 8.2 有用的实现经验
-
-真实payload JSON相关连接曾放大内存，改typed转换/unnest；年度各独立连接并复用关系，避免按股反复读年。历史单股样本含取消/恢复和21字段对账，不能替代本轮清退或Silver验收。首次bootstrap固定B0捕获、检查全部业务revision稳定，按键覆盖保留DG独有键；这些能力保留用于受控恢复，不再复制成日常历史证明。
-
 <a id="weekly-factor-repair-alignment-20261012"></a>
-复权Raw供数和DG自主QFQ/指标修复是两条链；25股修复暂停后置，不作为本轮物理清退或周线供数已完成的替代证据。
-
 <a id="34-m9-更新机制每日1930与备用仅手动2026-10-04"></a>
 <a id="后续真实验收执行卡2026-10-06准备完成"></a>
-原两主源串行、备用仅手动及旧启用执行卡已被本轮单主源/物理清退决定替代。日期报告仅作历史证据，不作为当前命令。必要旧事实见[2026-10-09记录](../../../reports/stock_period_raw_closeout_20261006.md)。
+以上旧锚点只保留历史引用定位，不提供当前执行步骤。

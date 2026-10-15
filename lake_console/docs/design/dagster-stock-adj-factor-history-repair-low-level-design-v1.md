@@ -1,6 +1,6 @@
 # 25股修复LLD v1：已实现合同、暂停现场与后续优化
 
-更新：2026-10-15。状态：R1/R2已验收提交；R3未最终通过、已安全暂停、未提交。管理员要求先完成[周/月主线](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，本专项后置；本文不是恢复、正式freeze或写入许可。
+更新：2026-10-16。状态：R1/R2已验收提交；R3未最终通过、已安全暂停、未提交。管理员要求先完成[周/月Raw与Silver建设](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，待两层完成并验收后再重新确认本专项，不默认续跑旧R3；主线的源周/月K刷新与本专项自主QFQ/指标修复分开，本文不是恢复、正式freeze或写入许可。
 
 ## 1. 代码事实与复用边界
 

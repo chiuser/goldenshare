@@ -1,40 +1,36 @@
-# Prod复权周线交付与8月月线定向修订方案 v1
+# Prod复权周线现行交付与8月月线独立待办 v1
 
-更新：2026-10-15。周线既有交付机制继续使用；本轮新增的是已确认的2026年8月月线修订设计，尚未执行。不因DG删除重复数据集而删除Prod未复权数据、表或入口。
+更新：2026-10-16。本文维护Prod现行合同和未完成待办；DG新方案已改为Tushare直接源bootstrap，不再把Prod刷新或搬运作为DG前置。执行安排后置于DG周/月Raw与Silver均完成并验收之后；本轮不部署、不执行Prod维护。
 
-## 1. 当前事实和本轮范围
+## 1. 当前事实与边界
 
-2026-10-13正式周线首批15565完成876周/3,028,907行；独立补刷15604完成9股/6,345行，生成真实B0 revision1785。DG859周文件及859物化/2,577准确检查已完成并迁移水位。该首次交付不重复执行，原失败/恢复流水不是当前待办。
+2026-10-13周线15565/15604及B0=1785交付已完成，DG接收859周文件/3,028,907行；这是历史事实，不重开首次搬运任务。Prod周线Raw/Serving及不可变闭合批机制继续按现行实现运行。
 
-本轮主任务为[DG周/月收敛及Raw修订](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。Prod已有两套月线8月旧版本需定向修订；DG只保留两套复权主源。25股因子/自主QFQ及下游指标修复已暂停，排在主任务之后，不混入本轮。
+[DG总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)改为单股无时间参数历史下载、每日当前周期覆盖和因子变更单股历史刷新，尚未开发或切换。切换完成前DG仍是旧入口，之后不再消费Prod闭合批写这两个目标；不因DG退出消费而删除Prod交接表、数据集或入口。
 
-## 2. 保留的周线运行合同
+## 2. Prod保留的运行合同
 
-1. 维护意图仍经DatasetDefinition→DatasetActionResolver→DatasetExecutionPlan→ingestion request builder；Ops只保存意图，源参数不由页面/查询层拼装。
-2. 日常19:30提交最早未完成已结束周；比较本周每个交易日与前一交易日因子，取变化股票并集。新周一次全市场请求，历史修正每个变化股票一个区间请求，不做股票×周请求。
-3. 每unit完整拉取/归一化/校验，一个短事务提交Raw、Serving及交接unit；观测状态独立，不能回滚已提交业务。原批未完成必须沿冻结计划续跑，不能新意图绕过欠账。
-4. core.stock_weekly_adj_delivery保存不可变plan/unit/closure业务增量。DG按revision读取下一闭合批，不用TaskRun成功、fetched_at或可变Raw代替冻结值；合法空批不造行情/物化。
-5. 因子或复权历史对象请求使用已确认的新代码，历史日期不改；旧码入口当前可能保留滞后基准，禁止自动兜底。全市场回包同步审计新码选择和身份，不简单将旧码改写后upsert。该新码策略须迁移真实消费者并验收，不能声称现有通用builder已自动转换。
-6. 源21字段原样保留，不用本地计算价替换源价。纯精度/舍入差异不触发全市场因子修复；本地价比较只诊断，不单独阻断。目标基准不符、缺覆盖、未闭合及源失败仍拒绝。
+1. DatasetDefinition→DatasetActionResolver→DatasetExecutionPlan→ingestion builder/executor为现行执行链；Ops只保存意图与观测，不拼源参数。
+2. 已结束周规划、新周全市场及因子变化股票历史区间请求沿现行Prod策略；不能把DG无时间全历史请求或当前周期新设计自动当成已修改Prod。
+3. 每unit完整捕获、归一化、校验，一个短事务提交Raw、Serving及交接unit；观测失败不回滚业务。原批未完成沿冻结计划恢复，不用新意图绕过欠账。
+4. core.stock_weekly_adj_delivery保存不可变plan/unit/closure；当前DG按revision消费，待新链正式切换后退出该消费，不保留双写。合法空批不造行情或物化。
+5. 北交所因子/复权对象请求只能使用确认的新代码，历史日期不改，不回退旧码；新码策略仍须迁移实际消费者并验收，不能声称当前通用builder已自动完成。全市场回包保留原代码，不把旧行改名后upsert。
+6. 21业务字段及源精度/NULL保留，不用本地计算价覆盖源价；end_date是源计算截至日期，不是该历史K线内部的最后交易日。
 
-新码例：安徽凤凰旧832000.BJ的同一历史周仍返回20250910基准，新920000.BJ返回20261014基准，前复权5.58/5.51而原价同为7.16。不是两只股票或固定两个可任意选择的历史版本。
+现有单位、事务、并发、恢复、诊断和交接合同见[Prod LLD](stock-weekly-adj-refresh-low-level-design-v1.md)。不把旧局部256MiB/1,000unit等预算搬到DG直接源任务，也不擅自更改Prod预算。
 
-## 3. 8月月线修订
+## 3. 8月月线独立待办
 
-当前Prod及DG复权8月每源5,551行，trade_date均20260831，复权end_date大多仍20260828。已核实5,545只在旧截止后还有31日日线；MCP当前平安银行close=11.72，旧值11.65。原因和分组见[月线LLD](../../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#3-2026年8月的已确认修订)。
+2026-10-15证据：Prod复权8月5,551行、trade_date均20260831，大量end_date仍20260828；平安银行旧close=11.65，MCP当时为11.72。完整月份旧价格问题已确认，不能因为DG重新下载就宣称Prod也已修复。
 
-本次仅两个月线数据集、freq=month、trade_date=2026-08-31：raw_tushare.stk_period_bar→core_serving.stk_period_bar，raw_tushare.stk_period_bar_adj→core_serving.stk_period_bar_adj。沿现有Raw→Serving事务更新源返回键，未返回旧键保留并单列，绝不清表、删周线或改其他月份。DG只修留存的复权8月文件，不刷新将被删除的DG未复权文件。
+仅两个Prod月线数据集、freq=month、trade_date=2026-08-31：raw_tushare.stk_period_bar→core_serving.stk_period_bar，raw_tushare.stk_period_bar_adj→core_serving.stk_period_bar_adj。沿现行链短事务upsert本次源返回键，保留未返回旧键并解释；不清表、不删week或覆盖其他月份，不借用周线交接表建立月线旁路。
 
-源必须先完成单月分页、显式13/21字段、当前新码对象和实际全月日线覆盖核验，封存同批值。按现行日期模型形成month unit，不擅改Definition.date_model或把本轮修订扩成新的常驻自动任务。DG接收/候选/提升/事件沿月线LLD独立阶段执行。其他月份异常先只读确认和列清单，新范围再批准；健康月份保持不变，未核实不宣布全部修好。
+正式执行前只确认该月分页完整、显式13/21字段、有效新码与精确范围；记录本次源值并读回Raw/Serving。取消/进程退出保留已提交unit，状态和业务提交分开。异值/目标漂移、旧码兜底、分页截断和错误scope拒绝；其他月份若需维护另列已确认范围，不重扫全历史来证明8月写入。
 
-## 4. 性能、恢复和验收
+本待办未执行。DG旧8月及其他月份由其直接源bootstrap处理，不再承接本节源批到DG的搬运/逐月候选步骤。两个任务独立关闭，正式数据库写入、部署与执行卡另行确认。
 
-周线继续单元12,000行/3页/20秒源监督、短事务、256MiB源执行进程目标及1,000unit/256MiB日常批payload等既有局部预算。具体配置来源、consumer及生效见[LLD](stock-weekly-adj-refresh-low-level-design-v1.md)。不得用历史单股IO或源样本速度承诺端到端完成时间，也不追加任意紧的额度。
+## 4. 验收与后续
 
-月线仅8月，两数据集全市场分页而非逐股×历史月；代表样本校准实际请求/事务/RSS，单月候选逐文件完成，已完成复用，最终源/Prod/DG对账一次。不因每个小修复重跑全历史或整库。
+Prod最小验收：请求参数/新码正确，源完整页、Raw/Serving业务键与完整行一致，范围外不变，已提交可恢复，TaskRun和节点终态一致，观测失败不回滚业务。新共享合同或配置变更先审计所有消费者与模板，不恢复旧worker lane或增加通用状态机。
 
-验收必须证明：新码请求且旧码不兜底、源页尾与完整月、Raw/Serving同键一致、DG完整字段一致、范围外月份/week/未选旧键不变；取消/进程退出保留提交unit并续跑，TaskRun和活动节点终态一致，观测失败不回滚业务；目标/源/合同漂移、旧码快照、错误scope及页截断拒绝。正式调用、数据库写入和部署仍需精确执行卡，不由文档更新触发。
-
-## 5. 文档与阶段
-
-本轮只精简方案和[LLD](stock-weekly-adj-refresh-low-level-design-v1.md)，保留交接协议、现行日期/字段、事务与必要历史结果；删除重复失败流水及失效执行卡。历史详细任务日志从Git/日期报告追溯，不作运行依赖。后续顺序为DG保留Raw修订和物理清退完成→独立确认下一任务；25股专项不在本轮继续。
+DG和Prod各自保留真实执行证据，不互相冒充完成；先完成DG周/月Raw与Silver，再单独确认本Prod待办及其他后置任务，不默认沿用旧修复流程。详细历史从Git及日期报告追溯，不作日常运行依赖。

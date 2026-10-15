@@ -1,6 +1,6 @@
 # Prod周期行情供数LLD：既有周线合同与8月月线修订
 
-更新：2026-10-15。已实现的周线运行合同保留；新码请求策略及8月月线修订为本轮待实施范围。DG清退不删除Prod数据。任务/状态以[总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)为准，本轮仅文档。
+更新：2026-10-16。本文维护Prod已实现周线运行合同、新码策略及8月月线独立待办，不代表本轮执行授权。DG已改为[直接源bootstrap与每日更新设计](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，尚未开发或切换；不再把Prod搬运/8月修订作为DG重建前置。待DG周/月Raw与Silver均完成并验收后，再单独推进本Prod待办；本轮不改Prod现行链。
 
 ## 0. 当前入口与事实源
 
@@ -13,7 +13,7 @@ DatasetDefinition在src/foundation/datasets/definitions/market_equity.py；resol
 
 复权源21列：ts_code,trade_date,end_date,freq,open,high,low,close,pre_close,open_qfq,high_qfq,low_qfq,close_qfq,open_hfq,high_hfq,low_hfq,close_hfq,vol,amount,change,pct_chg。Prod日期DATE；价格/change/qfq/hfq Numeric(18,4)、vol/amount Numeric(20,4)、pct_chg Numeric(10,4)。Raw键(ts_code,trade_date,freq)，Raw→Serving同键upsert，不做全表删除。DG导出日期为YYYYMMDD业务文本、Decimal字符串/NULL；api_name/fetched_at/raw_payload和内部时间不进入Parquet。
 
-trade_date是业务周期，end_date是源计算版本，不能当采集时间或用请求截止覆盖。pre_close/pct_chg沿源除权参考口径，保留源单位。源doc365/336及MCP样本详见[月线LLD](../../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#1-数据卡来源与字段)。
+trade_date是业务周期，end_date是源计算截至日期，历史周/月也可能更新到当前，不能当该K线内部最后交易日、采集时间或用请求截止覆盖。pre_close/pct_chg沿源除权参考口径，保留源单位。doc365实测与完整字段见[DG共享源合同](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#source-field-contract)，Prod具体字段仍由本节及当前Definition约束，DG新设计不自动修改Prod。
 
 周线使用raw_tushare.stk_period_bar_adj和core_serving.stk_period_bar_adj的freq=week；月线复用同表freq=month，未复权月线为raw_tushare.stk_period_bar/core_serving.stk_period_bar的freq=month。不能仅凭write_path名raw_core_upsert虚构core行情表或跨频写入。
 
@@ -114,11 +114,11 @@ EOF/OSError按父进程真实IPC阶段记录；不能把清理信号当原故障
 
 ## 9. 本轮8月月线修订与数据删除边界
 
-按[月线LLD](../../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)仅处理两个Prod月线数据集的20260831/month源返回键，Raw及现行Serving同事务upsert；其余month/week键不变、未返回旧键保留/单列。不删除Prod两数据集，不修改表结构或扩大source参数，不沿用周线交接表作为月线新通道。
+按[Prod方案](stock-weekly-adj-refresh-plan-v1.md#3-8月月线独立待办)仅处理两个Prod月线数据集的20260831/month源返回键，Raw及现行Serving同事务upsert；其余month/week键不变、未返回旧键保留/单列。不删除Prod两数据集，不修改表结构或扩大source参数，不沿用周线交接表作为月线新通道。
 
-正式更新前完成单月完整源/新码/日线月末覆盖、计划及实际差异；沿现有维护入口，有界原unit恢复和TaskRun状态。DG复权月线异值目前会revision_required，必须先开发明确范围修订路径，不能假定重复提交自动覆盖。异常4月等先读源证实并列范围，未核实不自动重刷或宣布全部通过。
+Prod正式更新前确认单月源分页、13/21字段、新码请求、精确范围及实际差异；沿现有维护入口，有界原unit恢复和TaskRun状态。DG不再开发单独8月修补链，而由新直接源bootstrap接收历史；Prod其他月份若需维护另列实际范围，不能把DG重建当Prod完成证据，也不要求DG等待本项。
 
-DG物理删除仅其未复权三个数据集根/相关活动代码，Prod因子、全部行情表、交接表、Web进度页和Ops调度不在删除清单。执行命令、数据库写入和部署另行审批，不因文档精简触发。
+DG已完成三个重复数据集根及活动入口清退；新直接源bootstrap前删除两个旧复权Raw根，按DG总方案的独立范围和阶段执行。Prod因子、全部行情表、交接表、Web进度页和Ops调度均不在DG删除清单。执行命令、数据库写入和部署另行审批，不因文档更新触发。
 
 ## 10. 测试与当前未验事项
 
