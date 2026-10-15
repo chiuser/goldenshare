@@ -1,6 +1,6 @@
 # 股票技术面因子 stk_factor_pro 维护说明
 
-更新时间：2026-10-16。原 Raw 直出与复权变化历史重刷方案已合并到本文；§2–6 描述当前实现，§7 新增“历史区间回补不依赖本地复权因子”的待实施修改方案。本轮只更新文档，未改代码、部署或执行回补，不能按 §7 认定现有后台已解除检查。
+更新时间：2026-10-16。原 Raw 直出与复权变化历史重刷方案已合并到本文；§2–6 描述当前实现，§7 为“历史区间回补不依赖本地复权因子”的待实施修改方案。方案文档已提交；随后开工审计发现长任务执行合同不全，按 §7.6 暂停实施。尚未改代码、部署或执行回补，不能按 §7 认定现有后台已解除检查。
 
 ## 1. 范围与来源
 
@@ -102,7 +102,7 @@ Definition 仍保留 `target_table=core_serving.equity_factor_pro`、`core_dao_n
 
 ### 7.1 问题与修改目标
 
-本节接续已合并的复权门禁和历史重刷方案，记录本会话确定的最小修改方向；本次授权仅为同步文档，开发、部署及正式回补尚未执行。
+本节接续已合并的复权门禁和历史重刷方案，记录本会话确定的最小修改方向。用户先要求同步文档，随后要求提交方案、审计前置条件，并在满足时实施；方案已提交，实施因 §7.6 的前置缺口尚未开始。部署及正式回补不在本轮执行范围。
 
 Tushare `stk_factor_pro` 已提供 `close_qfq/close_hfq`、对应技术指标及 `adj_factor` 等源字段。当前 [request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)只生成代码、日期等请求参数，[normalizer](/Users/congming/github/goldenshare/src/foundation/ingestion/normalizer.py)做类型归一化，[writer](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)按主键直接 upsert；没有用本地 `core.equity_adj_factor` 重新计算这些复权指标。字段依据仍为 §1 的源资料与 Definition，本节不更改源端契约。
 
@@ -152,3 +152,23 @@ Tushare `stk_factor_pro` 已提供 `close_qfq/close_hfq`、对应技术指标及
 本次仅同步这一项方案，没有新增配置、数据表或旁路脚本。后续实际实施需按仓库数据集开发模板补齐本次变更对应的研发与验收记录，测试通过并按正式流程部署后，后台才具备上述区间行为。
 
 解除复权门禁不等于解决 §5 的全量分页内存、续跑和长任务观测限制，也不证明全部历史交易日历或源数据完整。大范围 Prod 历史回补仍须单独满足[数据集开发模板 §0.3.5](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)的长任务门禁；本方案不授权一次执行几十年全市场数据，不新增可靠执行改造范围。已完成的 HDD 迁移和用户延期的四组查询性能验收继续按[迁移记录](/Users/congming/github/goldenshare/docs/ops/factor-pro-full-hdd-migration-plan-v1.md)处理，不与本项修改混为同一次验收。
+
+### 7.6 提交后的开工前置审计：尚未满足，未编码
+
+方案提交为 `1a53b2616`（`docs(datasets): plan factor history backfill gate change`）。用户要求的推进条件是先审计，满足后才实现；本次审计不把旧实现能够运行视为满足现行开发门禁。
+
+| 审计项 | 当前证据与结果 |
+| --- | --- |
+| 改动范围与消费者 | 已确认。CodeGraph explore/callers 和当前代码显示，存在性检查由专用 `_build_stk_factor_pro_units` 调用；手动任务预检与 dispatcher 均复用 resolver。无需新增入口、配置或数据库结构；单日、区间的拟改边界见 §7.2 |
+| 当前分支、改动冲突与测试环境 | 当前 `dev-interface`；拟改 planner 和 resolver 测试无本任务外未提交改动。现有 `.venv` 可直接运行测试，无需安装依赖 |
+| 修改前回归基线 | `.venv/bin/python -m pytest -q tests/test_dataset_action_resolver.py -k stk_factor_pro`：9 passed，97 deselected。包含当前“区间缺复权因子失败”的旧行为，不代表新行为已通过 |
+| 是否触发 Prod 长任务规则 | 触发。方案拟解除正式 `stk_factor_pro` 历史区间的规划限制，仍允许按日期扩大范围；Definition 的 `max_units_per_execution=None`、`max_source_rows_per_unit=None`，单页 10,000 行并非单 unit 总量上限，不能用“本轮不执行生产”代替开发前的合同设计 |
+| 内存与规划持久化 | 尚未满足。`get_open_dates` 先返回完整日期列表，planner 汇集全部 units 后返回；source client 的 `fetch` 在 `rows_raw` 中汇集单 unit 的全部分页，`page_processing_mode` 默认 `buffer_all`。方案尚无具体批次/内存上限及长 PLAN 的分批持久化、冻结口径 |
+| 恢复、进度与取消合同 | 尚未满足。§5 记录的按 unit 提交、主键 upsert 和重新规划，不等于完整的持久化续跑设计。方案未按模板逐项明确续跑依据、业务进度更新上限、取消检查点及延迟、TaskRun/节点一致终态和最小真实运行—取消—续跑—读回验收设计 |
+| 数据集开发模板 | 尚未满足。§7 目前是行为差异方案与测试清单，尚未完成仓库根规则要求的完整模板及 §0.3.5 执行合同；不能把“后续补齐”作为开工通过依据 |
+
+阻断依据为[仓库根规则](/Users/congming/github/goldenshare/AGENTS.md)“Prod 数据集长任务可恢复性与可观测性门禁”一节：第 1 条明确“缺少任何一项必须停下，不能编码后再补”，第 9 条要求新增或修改 Prod 数据集前完成数据集开发模板。这是开发前置要求，不能降为仅在生产回补前检查。
+
+因此，本轮只完成方案提交、当前调用链审计及旧行为基线测试，没有修改 planner 或测试断言。§7.5 的“本次不新增可靠执行改造范围”不构成长任务规则豁免；当前方案不足以放行开发。
+
+下一步须在原方案内明确可实际执行的范围、unit/分页/内存上限、持久化及恢复边界，并按模板补全相应合同和验证设计；若超出现有通用能力，需要先确认新增改动范围。不能擅自扩大为执行框架改造、创建新 worker，也不能直接删检查或补虚假复权因子行绕过门禁。当前未开展这些额外设计或实现。
