@@ -1,0 +1,75 @@
+{
+  "status": "PASS",
+  "budgetRequests": 178,
+  "latestRequests": 4,
+  "serverStopped": true,
+  "maxSeconds": 3.240506208036095,
+  "maxComputeSeconds": 0.08072445774450898,
+  "maxBytes": 10779,
+  "periods": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "p95Seconds": 0.30851616710424423,
+      "maxSeconds": 0.5861258329823613,
+      "maxComputeSeconds": 0.07622795831412077,
+      "maxBytes": 7799
+    },
+    {
+      "mode": "cold",
+      "period": "m60",
+      "p95Seconds": 2.372590917162597,
+      "maxSeconds": 2.696939082816243,
+      "maxComputeSeconds": 0.01608666591346264,
+      "maxBytes": 1843
+    },
+    {
+      "mode": "cold",
+      "period": "m90",
+      "p95Seconds": 2.314315666910261,
+      "maxSeconds": 2.4842640408314764,
+      "maxComputeSeconds": 0.02285562502220273,
+      "maxBytes": 10779
+    },
+    {
+      "mode": "cold",
+      "period": "m120",
+      "p95Seconds": 1.913741416297853,
+      "maxSeconds": 2.338299584109336,
+      "maxComputeSeconds": 0.011537165846675634,
+      "maxBytes": 1720
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "p95Seconds": 0.26500091701745987,
+      "maxSeconds": 0.2912314999848604,
+      "maxComputeSeconds": 0.08072445774450898,
+      "maxBytes": 7799
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "p95Seconds": 0.5889391670934856,
+      "maxSeconds": 2.5253245406784117,
+      "maxComputeSeconds": 0.015927750151604414,
+      "maxBytes": 1843
+    },
+    {
+      "mode": "warm",
+      "period": "m90",
+      "p95Seconds": 0.5478739580139518,
+      "maxSeconds": 2.229843749664724,
+      "maxComputeSeconds": 0.022897666785866022,
+      "maxBytes": 10779
+    },
+    {
+      "mode": "warm",
+      "period": "m120",
+      "p95Seconds": 0.5011140420101583,
+      "maxSeconds": 2.1124468753114343,
+      "maxComputeSeconds": 0.011318124830722809,
+      "maxBytes": 1720
+    }
+  ]
+}

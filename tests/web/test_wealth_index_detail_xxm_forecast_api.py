@@ -66,7 +66,8 @@ def test_real_daily_route_query_dto_and_all_display_fields(source_db):
     assert v["activation"]["ranges"][0]["priceRange"]["lower"] < 3500
     assert len(v["relations"]) >= 2 and len(v["commonConditions"]) >= 2
     assert len(v["examples"]) == 3
-    assert "不要求收在这些示例点" in v["display"]["conditionsText"]
+    assert all(term in v["display"]["conditionsText"] for term in ("钝化触发", "未触发", "推算失效", "结构成立"))
+    assert not any(term in v["display"]["conditionsText"] for term in ("前置收盘", "目标收盘", "差异举例", "临界点"))
     assert "确认价" not in v["display"]["conditionsText"]
     assert "3764.1546" in v["display"]["conditionsText"] and "历史回放" in v["display"]["asOfText"]
     assert v["refreshAfterMs"] == 60000

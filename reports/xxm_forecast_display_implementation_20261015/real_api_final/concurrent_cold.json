@@ -1,0 +1,191 @@
+[
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 0,
+    "rows": {
+      "day": {
+        "seconds": 0.2929701250977814,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.25984295830130577,
+        "computeSeconds": 0.07630583364516497,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.4549787091091275,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.4225476253777742,
+        "computeSeconds": 0.013988917227834463,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 1,
+    "rows": {
+      "day": {
+        "seconds": 0.20089383283630013,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.1751751247793436,
+        "computeSeconds": 0.07654516585171223,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.1218130830675364,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 1.94029604177922,
+        "computeSeconds": 0.013933458365499973,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 2,
+    "rows": {
+      "day": {
+        "seconds": 0.2216365421190858,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.19138966733589768,
+        "computeSeconds": 0.07579295802861452,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.0143977920524776,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 1.9843761674128473,
+        "computeSeconds": 0.016251416876912117,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m60": {
+        "seconds": 3.0462311250157654,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.984227249864489,
+        "computeSeconds": 0.02825924986973405,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 3.0784842907451093,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.046810250263661,
+        "computeSeconds": 0.022338374983519316,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m60": {
+        "seconds": 2.9292083336040378,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.9035120829939842,
+        "computeSeconds": 0.014776958152651787,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 2.659208749886602,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.5459971660748124,
+        "computeSeconds": 0.041609291918575764,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m60": {
+        "seconds": 3.0277884588576853,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.909852333832532,
+        "computeSeconds": 0.013944542035460472,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 3.0039912089705467,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.8093884591944516,
+        "computeSeconds": 0.047900083009153605,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m90": {
+        "seconds": 2.707480166107416,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.6771127092652023,
+        "computeSeconds": 0.02286637481302023,
+        "displayContext": null
+      },
+      "m120": {
+        "seconds": 2.9805028750561178,
+        "bytes": 1720,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.9481148747727275,
+        "computeSeconds": 0.009571249596774578,
+        "displayContext": null
+      }
+    }
+  }
+]

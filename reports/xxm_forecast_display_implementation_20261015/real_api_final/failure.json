@@ -1,0 +1,14 @@
+{
+  "period": "m120",
+  "httpStatus": 503,
+  "body": {
+    "code": "XXMF_BUDGET_EXCEEDED",
+    "message": "研究指标查询超时。",
+    "request_id": null
+  },
+  "measurement": {
+    "buildSeconds": 4.000856041908264,
+    "computeSeconds": null
+  },
+  "seconds": 4.063010625075549
+}

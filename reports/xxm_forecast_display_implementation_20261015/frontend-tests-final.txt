@@ -1,0 +1,19 @@
+
+> wealth@0.1.0 test
+> vitest run src/features/index-detail/xxm-forecast src/features/index-detail/xxm src/pages/index-detail/IndexDetailPage.test.tsx --maxWorkers=2
+
+
+ RUN  v3.2.4 /Users/congming/github/goldenshare/wealth
+
+ ✓ src/features/index-detail/xxm/useIndexXxmLayer.test.tsx (3 tests) 119ms
+ ✓ src/features/index-detail/xxm-forecast/forecast.test.tsx (9 tests) 104ms
+ ✓ src/pages/index-detail/IndexDetailPage.test.tsx (29 tests) 862ms
+ ✓ src/features/index-detail/xxm/adapter.test.tsx (4 tests) 78ms
+ ✓ src/features/index-detail/xxm/markerGeometry.test.ts (6 tests) 55ms
+ ✓ src/features/index-detail/xxm/apiClient.test.ts (4 tests) 7ms
+ ✓ src/features/index-detail/xxm-forecast/apiClient.test.ts (2 tests) 5ms
+
+ Test Files  7 passed (7)
+      Tests  57 passed (57)
+   Start at  09:27:53
+   Duration  2.49s (transform 223ms, setup 444ms, collect 336ms, tests 1.23s, environment 1.82s, prepare 212ms)

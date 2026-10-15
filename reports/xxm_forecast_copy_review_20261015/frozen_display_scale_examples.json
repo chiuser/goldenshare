@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-15",
+  "purpose": "Offline formula illustration using frozen 2026-10-13 prefixes, not current quotes or acceptance of the unimplemented selector",
+  "samples": [
+    {
+      "period": "day",
+      "source": "reports/xxm_source_audit_20261013_213852/daily_source.csv",
+      "sourceSha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+      "through": "2026-10-13",
+      "currentClose": 3800.8644,
+      "barsAhead": 1,
+      "endpointClock": "15:00",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.01793484013066049,
+      "band": [
+        3732.696504627681,
+        3869.032295372319
+      ]
+    },
+    {
+      "period": "day",
+      "source": "reports/xxm_source_audit_20261013_213852/daily_source.csv",
+      "sourceSha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+      "through": "2026-10-13",
+      "currentClose": 3800.8644,
+      "barsAhead": 2,
+      "endpointClock": "15:00",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.02218496818189808,
+      "band": [
+        3716.542344222291,
+        3885.1864557777085
+      ]
+    },
+    {
+      "period": "m60",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_60_source.csv",
+      "sourceSha256": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 1,
+      "endpointClock": "10:30",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.013088382208526705,
+      "band": [
+        3751.1173327011793,
+        3850.6116672988214
+      ]
+    },
+    {
+      "period": "m60",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_60_source.csv",
+      "sourceSha256": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 2,
+      "endpointClock": "11:30",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.016437871647129954,
+      "band": [
+        3738.386377200867,
+        3863.3426227991326
+      ]
+    },
+    {
+      "period": "m90",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_90_source.csv",
+      "sourceSha256": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 1,
+      "endpointClock": "11:00",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.016831876731588147,
+      "band": [
+        3736.8888172625307,
+        3864.840182737469
+      ]
+    },
+    {
+      "period": "m90",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_90_source.csv",
+      "sourceSha256": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 2,
+      "endpointClock": "14:00",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.015586044650206077,
+      "band": [
+        3741.624056193617,
+        3860.1049438063833
+      ]
+    },
+    {
+      "period": "m120",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_120_source.csv",
+      "sourceSha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 1,
+      "endpointClock": "11:30",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.016437871647129954,
+      "band": [
+        3738.386377200867,
+        3863.3426227991326
+      ]
+    },
+    {
+      "period": "m120",
+      "source": "reports/xxm_source_audit_20261013_213852/minute_120_source.csv",
+      "sourceSha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+      "through": "2026-10-13 15:00:00",
+      "currentClose": 3800.8645,
+      "barsAhead": 2,
+      "endpointClock": "15:00",
+      "samples": 60,
+      "rank": 57,
+      "q": 0.01793483965822884,
+      "band": [
+        3732.696604629846,
+        3869.032395370154
+      ]
+    }
+  ]
+}

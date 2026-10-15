@@ -385,3 +385,11 @@ MACD 来源参数为 12、26、9，柱值采用 `H = 2 × (D − A)`。算法消
 用户查看第一版后反馈：单个参考收盘价被写成必须精确命中的前提，且“确认价”未解释后续收盘条件。已修正[预测技术方案及LLD](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)：完整求日线与60／90／120分钟的钝化收盘范围；保留不同前置收盘P对应的目标收盘C条件；说明未钝化、原钝化消失、未形成结构和前提改变的区别。每周期仍只有一个最近时点，文字优先给所列前置范围都成立的充分条件，否则明确列解释例子并在新收盘后重算。
 
 用户已确认并授权推进。R1原型范围/关联及源预算预检、原Figma文字同步完成，新模型与v0.2合同/页面消费已落码，原识别V0.1保持。用户已批准并完成读取优化及既有缓存的真实批次状态复用；最终152项回归及四周期正式160次冷暖/18次两并发预算通过。当前门禁、失败原文及计划对账见[实施记录](/Users/congming/github/goldenshare/reports/xxm_forecast_range_implementation_20261014/README.md)。正式四周期接口/预算已通过，用户页面验收未完成，旧单点或R1原型成绩不替代本次正式验收。详细规则只在预测方案维护，本节不另定算法参数或显示合同。
+
+### 11.3 近期关键条件的简明文案（2026-10-15，已确认实施）
+
+用户已确认：突出近期时间与触发点位，保留相邻未触发区间和失效条件，省略3457点一类过远边界；随后批准60样本／95分位规则及Figma，授权先预检再实现。四周期新展示策略已实现，190项后端／57项前端测试及最终产品接口预算通过，页面由用户验收；原识别内核及完整数学价格域不改。详细筛选规则、四周期时间、参数审计和验收矩阵统一见[预测方案§18](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15)，原识别层接口关系见[LLD§14.3](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#143-近期简明文案与展示筛选lld2026-10-15)。
+
+这是正文展示调整：完整数学范围、不同收盘条件、未确认精度域及原生命周期保留，不将被省略的边界从算法删除。近期筛选参数已确认并在四周期预检通过后落码；本轮无源数据、发布或评分变更，技术成绩仅以最终产品证据为准。
+
+本轮技术证据见[近期条件实施报告](/Users/congming/github/goldenshare/reports/xxm_forecast_display_implementation_20261015/README.md)。评分继续后置，未部署。

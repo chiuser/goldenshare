@@ -1,0 +1,10 @@
+{
+  "path": "/private/tmp/xxm_display_candidate_scope_20261015.py",
+  "sha256": "272dda29ddecdbd262b61a2dcb54472a2b1f73425ec9354be14eef37a712bf95",
+  "spec": {
+    "display_policy": "near_term_conditions_v1",
+    "display_move_samples": 60,
+    "display_move_quantile": 0.95,
+    "structure_text_places": 0
+  }
+}

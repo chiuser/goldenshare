@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "changed": [
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py",
+    "wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx",
+    "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx"
+  ],
+  "unchanged": [
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py",
+    "src/biz/services/wealth/market/index_detail_xxm/__init__.py",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py",
+    "src/biz/services/wealth/market/index_detail_xxm/runtime.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py",
+    "src/biz/queries/wealth/market/index_detail_xxm/__init__.py",
+    "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+    "src/biz/queries/wealth/market/index_detail_xxm/source.py",
+    "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts",
+    "wealth/src/features/index-detail/xxm-forecast/types.ts",
+    "wealth/src/features/index-detail/xxm-forecast/xxm-forecast.css",
+    "wealth/src/features/index-detail/xxm-forecast/adapter.ts",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.ts",
+    "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts"
+  ],
+  "measuredProductHashesMatch": true
+}

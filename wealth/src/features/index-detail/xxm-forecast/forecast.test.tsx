@@ -29,7 +29,7 @@ it("rejects another period, stale asOf and invalid successful fields", () => {
 it("displays four periods, complete text, independent failure and retry without scores", () => {
   const rows = Object.fromEntries(FORECAST_PERIODS.map(p=>[p,{phase:"ready",response:response(p),error:""}])) as ForecastRows;
   rows.m60={phase:"error",response:null,error:"网络异常"};
-  rows.day.response!.display.conditionsText="先看钝化：收盘在3423.8311～3764.1546点。\n前置收盘不同，目标结构成立的收盘条件也不同。";
+  rows.day.response!.display.conditionsText="钝化触发：10/15收盘不高于3764.1546点。\n未触发：10/15收在3764.1548～3950.9680点。\n推算失效：不低于3950.9681点。";
   const retry=vi.fn();
   const {container}=render(<XxmForecastCard rows={rows} retry={retry}/>);
   expect(container.querySelectorAll("article")).toHaveLength(4);
@@ -115,7 +115,7 @@ it("rejects legacy fields and accepts activation-only state without inventing a 
 });
 
 
-it("accepts final real v0.2 payloads for all four periods without frontend price reconstruction",()=>{
+it("accepts historical v0.2 math payloads and treats their display text as opaque",()=>{
   for(const period of FORECAST_PERIODS){
     for(const mode of ["latest","cold"]){
       const file=resolve(process.cwd(),"../reports/xxm_forecast_range_implementation_20261014",`http_${mode}_${period}.json`);
@@ -128,5 +128,37 @@ it("accepts final real v0.2 payloads for all four periods without frontend price
         expect(adapted.display.conditionsText).toContain("不要求收在这些示例点");
       }
     }
+  }
+});
+
+it("renders current real producer copy for four periods without dropping protected conditions or reconstructing prices",()=>{
+  for(const mode of ["latest","cold"]){
+    const rows=Object.fromEntries(FORECAST_PERIODS.map(period=>{
+      const file=resolve(process.cwd(),"../reports/xxm_forecast_display_implementation_20261015/real_api_recheck",`http_${mode}_${period}.json`);
+      const value=JSON.parse(readFileSync(file,"utf8")) as ForecastResponse;
+      const adapted=adaptForecast(value,period,value.requestedAsOf??undefined);
+      expect(adapted).toBe(value);
+      expect(adapted.display.conditionsText).not.toMatch(/前置收盘|目标收盘|充分条件|差异举例|临界点/);
+      return [period,{phase:"ready",response:adapted,error:""}];
+    })) as ForecastRows;
+    const view=render(<XxmForecastCard rows={rows} retry={vi.fn()}/>);
+    for(const period of FORECAST_PERIODS){
+      const row=view.container.querySelector(`[data-period="${period}"]`)!;
+      expect(row.querySelector("p")?.textContent).toBe(rows[period].response!.display.conditionsText);
+      expect(row.querySelector(".xxm-forecast-target")?.textContent).toBe(rows[period].response!.display.targetText);
+    }
+    const day=view.container.querySelector('[data-period="day"]')!;
+    expect(day).toHaveTextContent("钝化触发");
+    expect(day).toHaveTextContent("未触发");
+    expect(day).toHaveTextContent("推算失效");
+    expect(day).toHaveTextContent("结构成立");
+    expect(day).not.toHaveTextContent("3457");
+    expect(day).not.toHaveTextContent("4112");
+    expect(rows.m90.response!.status).toBe("CONDITIONAL_ENTRY");
+    expect(rows.m90.response!.display.statusLabel).toBe("近期暂无条件");
+    expect(rows.m90.response!.activation!.ranges.length).toBeGreaterThan(0);
+    expect(view.container.querySelector("footer")?.textContent).toBe("新收盘后更新本周期点位和时点。");
+    expect(view.container).not.toHaveTextContent(/评分|可信度|前置收盘/);
+    view.unmount();
   }
 });

@@ -1,0 +1,569 @@
+[
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 0,
+    "rows": {
+      "day": {
+        "seconds": 0.3040404999628663,
+        "bytes": 7811,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.266423000022769,
+        "computeSeconds": 0.0758909173309803,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-14",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.01793484013066049,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3732.696504627681,
+              "upper": 3869.032295372319,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-15",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.02218496818189808,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3716.542344222291,
+              "upper": 3885.1864557777085,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m60": {
+        "seconds": 2.4187981667928398,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.3851728751324117,
+        "computeSeconds": 0.013934416230767965,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 1,
+    "rows": {
+      "day": {
+        "seconds": 0.30293237464502454,
+        "bytes": 7811,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.2651221249252558,
+        "computeSeconds": 0.07598204212263227,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-14",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.01793484013066049,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3732.696504627681,
+              "upper": 3869.032295372319,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-15",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.02218496818189808,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3716.542344222291,
+              "upper": 3885.1864557777085,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m60": {
+        "seconds": 2.1766628748737276,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 1.963377291802317,
+        "computeSeconds": 0.01337920781224966,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 2,
+    "rows": {
+      "day": {
+        "seconds": 0.30257108388468623,
+        "bytes": 7811,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.18979962496086955,
+        "computeSeconds": 0.07594812521710992,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-14",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.01793484013066049,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3732.696504627681,
+              "upper": 3869.032295372319,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13",
+            "endpoint": "2026-10-15",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.02218496818189808,
+            "currentClose": 3800.8644,
+            "priceRange": {
+              "lower": 3716.542344222291,
+              "upper": 3885.1864557777085,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m60": {
+        "seconds": 2.3326637083664536,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.2164401672780514,
+        "computeSeconds": 0.01335254218429327,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m60": {
+        "seconds": 3.314404415898025,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1950022913515568,
+        "computeSeconds": 0.03284400003030896,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      },
+      "m90": {
+        "seconds": 3.434072207659483,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.4018689999356866,
+        "computeSeconds": 0.022265708073973656,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m60": {
+        "seconds": 3.265988374594599,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1512967497110367,
+        "computeSeconds": 0.01523820823058486,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      },
+      "m90": {
+        "seconds": 2.831322417128831,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.7200107499957085,
+        "computeSeconds": 0.023230707738548517,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m60": {
+        "seconds": 3.2726172083057463,
+        "bytes": 1855,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.237565082963556,
+        "computeSeconds": 0.01372166583314538,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      },
+      "m90": {
+        "seconds": 3.27180895768106,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.2259017918258905,
+        "computeSeconds": 0.02656183298677206,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m90": {
+        "seconds": 2.755999458953738,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.7188091673888266,
+        "computeSeconds": 0.02300566714257002,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m120": {
+        "seconds": 3.0201931670308113,
+        "bytes": 1732,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.9095300417393446,
+        "computeSeconds": 0.009631958324462175,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m90": {
+        "seconds": 2.8954479577951133,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.8636305001564324,
+        "computeSeconds": 0.02174158301204443,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m120": {
+        "seconds": 2.7124969577416778,
+        "bytes": 1732,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.601277458947152,
+        "computeSeconds": 0.022810750175267458,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m90": {
+        "seconds": 3.1604822920635343,
+        "bytes": 10791,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1257667909376323,
+        "computeSeconds": 0.021743583027273417,
+        "displayContext": {
+          "entry": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T11:00:00+08:00",
+            "barsAhead": 1,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.016831876731588147,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3736.8888172625307,
+              "upper": 3864.840182737469,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          },
+          "target": {
+            "through": "2026-10-13T15:00:00+08:00",
+            "endpoint": "2026-10-14T14:00:00+08:00",
+            "barsAhead": 2,
+            "samples": 60,
+            "reason": null,
+            "rank": 57,
+            "q": 0.015586044650206077,
+            "currentClose": 3800.8645,
+            "priceRange": {
+              "lower": 3741.624056193617,
+              "upper": 3860.1049438063833,
+              "lowerInclusive": true,
+              "upperInclusive": true
+            }
+          }
+        }
+      },
+      "m120": {
+        "seconds": 3.05213391687721,
+        "bytes": 1732,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.964893249794841,
+        "computeSeconds": 0.01683333283290267,
+        "displayContext": {
+          "entry": null,
+          "target": null
+        }
+      }
+    }
+  }
+]

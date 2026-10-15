@@ -9,7 +9,7 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, inactive_result
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
+from src.biz.services.wealth.market.index_detail_xxm.forecast_text import build_display_context, make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection, ProjectionPrecisionError
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from .query_service import IndexDetailXxmQueryService, XxmQueryError
@@ -92,7 +92,7 @@ class IndexDetailXxmForecastQueryService:
             result["confirmedDirection"] = confirmation["direction"] if confirmed and confirmation else None
             result["direction"] = result["confirmedDirection"] if confirmed else direction
             result["applicabilityText"] = (
-                "目标只适用于列出的前置收盘范围；例子不是必须命中的价格。"
+                "仅适用于本周期已计算的收盘条件；实际收盘后更新。"
                 if result["activation"] else "按当前真实状态与明确的中间走势假设计算。"
             )
             result["invalidationText"] = (
@@ -105,7 +105,9 @@ class IndexDetailXxmForecastQueryService:
                            computedThrough=through, requestedAsOf=as_of, mode=mode, dataStatus=data_status,
                            ordinaryState=ordinary, precisionPolicy="rounded3_guarded" if period == "day" else "full_float", **result)
             payload["forecastId"] = digest(payload)
-            payload["display"] = make_display(result, period, through, mode)
+            clocks = ("15:00",) if period == "day" else tuple(t.strftime("%H:%M") for t in ENDPOINTS[int(period[1:])])
+            context = build_display_context(bars, period, through, result, clocks, check)
+            payload["display"] = make_display(result, period, through, mode, context, check)
             payload["refreshAfterMs"] = FORECAST_SPEC.refresh_after_ms
             response = ForecastResponseDto(**payload)
             if len(response.model_dump_json().encode()) > FORECAST_SPEC.max_response_bytes:

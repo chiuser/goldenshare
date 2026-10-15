@@ -1,0 +1,90 @@
+[
+  {
+    "period": "day",
+    "equalFields": [
+      "status",
+      "ordinaryState",
+      "direction",
+      "targetEndpoint",
+      "barsAhead",
+      "activation",
+      "assumption",
+      "targetEntryRanges",
+      "targetEntryExclusions",
+      "relations",
+      "commonConditions",
+      "examples",
+      "detectorSpecHash",
+      "computedThrough",
+      "sourceInputId",
+      "calendarInputId",
+      "precisionPolicy"
+    ]
+  },
+  {
+    "period": "m60",
+    "equalFields": [
+      "status",
+      "ordinaryState",
+      "direction",
+      "targetEndpoint",
+      "barsAhead",
+      "activation",
+      "assumption",
+      "targetEntryRanges",
+      "targetEntryExclusions",
+      "relations",
+      "commonConditions",
+      "examples",
+      "detectorSpecHash",
+      "computedThrough",
+      "sourceInputId",
+      "calendarInputId",
+      "precisionPolicy"
+    ]
+  },
+  {
+    "period": "m90",
+    "equalFields": [
+      "status",
+      "ordinaryState",
+      "direction",
+      "targetEndpoint",
+      "barsAhead",
+      "activation",
+      "assumption",
+      "targetEntryRanges",
+      "targetEntryExclusions",
+      "relations",
+      "commonConditions",
+      "examples",
+      "detectorSpecHash",
+      "computedThrough",
+      "sourceInputId",
+      "calendarInputId",
+      "precisionPolicy"
+    ]
+  },
+  {
+    "period": "m120",
+    "equalFields": [
+      "status",
+      "ordinaryState",
+      "direction",
+      "targetEndpoint",
+      "barsAhead",
+      "activation",
+      "assumption",
+      "targetEntryRanges",
+      "targetEntryExclusions",
+      "relations",
+      "commonConditions",
+      "examples",
+      "detectorSpecHash",
+      "computedThrough",
+      "sourceInputId",
+      "calendarInputId",
+      "precisionPolicy"
+    ]
+  }
+]

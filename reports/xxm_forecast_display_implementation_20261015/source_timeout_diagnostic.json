@@ -1,0 +1,314 @@
+{
+  "purpose": "diagnostic, not formal HTTP acceptance",
+  "records": [
+    {
+      "attempt": 0,
+      "rows": [
+        {
+          "period": "m90",
+          "wallSeconds": 3.655964834149927,
+          "threadCpuSeconds": 2.2903825419999997,
+          "status": "CONDITIONAL_ENTRY",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.0777307921089232,
+              "threadCpuSeconds": 0.006507249999999999
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.2723815832287073,
+              "threadCpuSeconds": 0.167488417
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.24953483324497938,
+              "threadCpuSeconds": 0.14948858399999998
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 1.111808540765196,
+              "threadCpuSeconds": 0.669235459
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 1.1293861251324415,
+              "threadCpuSeconds": 0.9349959160000001
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 2.3484832919202745,
+              "threadCpuSeconds": 1.6752460830000002
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.03862520819529891,
+              "threadCpuSeconds": 0.019822374999999948
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.11766070919111371,
+              "threadCpuSeconds": 0.10340624999999992
+            }
+          ]
+        },
+        {
+          "period": "m120",
+          "wallSeconds": 3.539407457690686,
+          "threadCpuSeconds": 2.259417458,
+          "status": "NO_CANDIDATE",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.08037324994802475,
+              "threadCpuSeconds": 0.010897375
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.2634038748219609,
+              "threadCpuSeconds": 0.149056875
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.25428066588938236,
+              "threadCpuSeconds": 0.152696125
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 1.0941439578309655,
+              "threadCpuSeconds": 0.8598406249999999
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 1.0663948329165578,
+              "threadCpuSeconds": 0.8818058329999998
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 2.189863916952163,
+              "threadCpuSeconds": 1.7708711659999998
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.013343959115445614,
+              "threadCpuSeconds": 0.013339250000000025
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.1904429579153657,
+              "threadCpuSeconds": 0.08394495800000001
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "rows": [
+        {
+          "period": "m90",
+          "wallSeconds": 2.588375332765281,
+          "threadCpuSeconds": 2.0813328749999997,
+          "status": "CONDITIONAL_ENTRY",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.039051125291734934,
+              "threadCpuSeconds": 0.006505666000000243
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.09893862530589104,
+              "threadCpuSeconds": 0.09216895899999988
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.23251370899379253,
+              "threadCpuSeconds": 0.14535608399999989
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.7084261253476143,
+              "threadCpuSeconds": 0.597882292
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.9380926247686148,
+              "threadCpuSeconds": 0.9192497079999997
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 1.7571505829691887,
+              "threadCpuSeconds": 1.5865503750000003
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.03812266606837511,
+              "threadCpuSeconds": 0.019343457999999814
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.14041041722521186,
+              "threadCpuSeconds": 0.10731650000000048
+            }
+          ]
+        },
+        {
+          "period": "m120",
+          "wallSeconds": 2.5060592498630285,
+          "threadCpuSeconds": 1.9470278750000003,
+          "status": "NO_CANDIDATE",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.05722554121166468,
+              "threadCpuSeconds": 0.007844416999999826
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.2477162079885602,
+              "threadCpuSeconds": 0.14457254200000014
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.12856179056689143,
+              "threadCpuSeconds": 0.118786375
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.597759666852653,
+              "threadCpuSeconds": 0.5737693749999999
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.938372875098139,
+              "threadCpuSeconds": 0.9067924590000005
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 1.5803738329559565,
+              "threadCpuSeconds": 1.5060249159999994
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.0301408339291811,
+              "threadCpuSeconds": 0.012935582999999973
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.1613667500205338,
+              "threadCpuSeconds": 0.08223595800000005
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "rows": [
+        {
+          "period": "m90",
+          "wallSeconds": 2.541981457732618,
+          "threadCpuSeconds": 2.1359144169999995,
+          "status": "CONDITIONAL_ENTRY",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.03695679176598787,
+              "threadCpuSeconds": 0.006919000000000786
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.2592815412208438,
+              "threadCpuSeconds": 0.15322204200000034
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.2453130828216672,
+              "threadCpuSeconds": 0.14704179200000045
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.6758421659469604,
+              "threadCpuSeconds": 0.6504153749999997
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.9204779160209,
+              "threadCpuSeconds": 0.8960482500000007
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 1.6791427908465266,
+              "threadCpuSeconds": 1.5914407080000004
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.03295170841738582,
+              "threadCpuSeconds": 0.019417999999999935
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.10317462496459484,
+              "threadCpuSeconds": 0.1031682500000004
+            }
+          ]
+        },
+        {
+          "period": "m120",
+          "wallSeconds": 2.3576295827515423,
+          "threadCpuSeconds": 1.9389921250000004,
+          "status": "NO_CANDIDATE",
+          "error": null,
+          "phases": [
+            {
+              "stage": "calendar_dates",
+              "wallSeconds": 0.025643750093877316,
+              "threadCpuSeconds": 0.00639058299999995
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.24939904222264886,
+              "threadCpuSeconds": 0.150210167
+            },
+            {
+              "stage": "history_source_signature",
+              "wallSeconds": 0.24330991692841053,
+              "threadCpuSeconds": 0.1498158329999999
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.6205131658352911,
+              "threadCpuSeconds": 0.5808877079999997
+            },
+            {
+              "stage": "read_complete_history",
+              "wallSeconds": 0.8643163330852985,
+              "threadCpuSeconds": 0.852933417
+            },
+            {
+              "stage": "read_minutes",
+              "wallSeconds": 1.520256666932255,
+              "threadCpuSeconds": 1.4692145000000005
+            },
+            {
+              "stage": "assert_continuous",
+              "wallSeconds": 0.01304429117590189,
+              "threadCpuSeconds": 0.01303720900000016
+            },
+            {
+              "stage": "cache_size_and_put",
+              "wallSeconds": 0.14627916691824794,
+              "threadCpuSeconds": 0.07927233299999958
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

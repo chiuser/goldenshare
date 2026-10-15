@@ -16,6 +16,10 @@ class ForecastSpec:
     price_display_places: int = 2
     price_boundary_places: int = 4
     explanation_sample_count: int = 3
+    display_policy: str = "near_term_conditions_v1"
+    display_move_samples: int = 60
+    display_move_quantile: float = 0.95
+    structure_text_places: int = 0
     forecast_compute_budget_ms: int = 200
     max_response_bytes: int = 32768
     future_calendar_days: int = 90

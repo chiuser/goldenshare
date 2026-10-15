@@ -1,0 +1,1526 @@
+{
+  "mode": "product",
+  "records": [
+    {
+      "mode": "cold",
+      "period": "day",
+      "p95Seconds": 0.29628308303654194,
+      "maxSeconds": 0.5206852499395609,
+      "maxComputeSeconds": 0.07666570786386728,
+      "maxBytes": 7799,
+      "samples": [
+        {
+          "seconds": 0.5206852499395609,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.26501320907846093,
+          "computeSeconds": 0.07409983268007636,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.29628308303654194,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.20151845831423998,
+          "computeSeconds": 0.0729917916469276,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.26272341702133417,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.23554920824244618,
+          "computeSeconds": 0.07634358294308186,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.18365420820191503,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1514662499539554,
+          "computeSeconds": 0.0758742499165237,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17145879194140434,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14337408263236284,
+          "computeSeconds": 0.07478745793923736,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.23371679103001952,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15817858325317502,
+          "computeSeconds": 0.07666570786386728,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16767137497663498,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14066429110243917,
+          "computeSeconds": 0.07500766636803746,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.27515754103660583,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.24993404187262058,
+          "computeSeconds": 0.07632179092615843,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16830337466672063,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14238274982199073,
+          "computeSeconds": 0.07393974997103214,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17407908290624619,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1436573751270771,
+          "computeSeconds": 0.07411458296701312,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.2632692907936871,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15840554190799594,
+          "computeSeconds": 0.07550999987870455,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17905233381316066,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14445562474429607,
+          "computeSeconds": 0.07565945805981755,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.24548204196617007,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.2200492089614272,
+          "computeSeconds": 0.07449116604402661,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.19380866596475244,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1621830421499908,
+          "computeSeconds": 0.07399237481877208,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16950195794925094,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14111487474292517,
+          "computeSeconds": 0.0731190419755876,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.24116437509655952,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14128941670060158,
+          "computeSeconds": 0.07323724962770939,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.19342070817947388,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15009816689416766,
+          "computeSeconds": 0.0730756251141429,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.24872254207730293,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.2252235827036202,
+          "computeSeconds": 0.07434458332136273,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16642350004985929,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.13806745875626802,
+          "computeSeconds": 0.07412441680207849,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.18503266666084528,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15852175001055002,
+          "computeSeconds": 0.07425212487578392,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m60",
+      "p95Seconds": 2.22374862479046,
+      "maxSeconds": 2.254519916139543,
+      "maxComputeSeconds": 0.015552290715277195,
+      "maxBytes": 1843,
+      "samples": [
+        {
+          "seconds": 2.22374862479046,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.1037725410424173,
+          "computeSeconds": 0.014901916030794382,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.885725083295256,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8580000423826277,
+          "computeSeconds": 0.013870667200535536,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.136368582956493,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.1075304578989744,
+          "computeSeconds": 0.015552290715277195,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.254519916139543,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.224125416018069,
+          "computeSeconds": 0.013734499923884869,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.919703499879688,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8919422081671655,
+          "computeSeconds": 0.014222207944840193,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8449194999411702,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.814072041772306,
+          "computeSeconds": 0.01397091569378972,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.889783542137593,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8618900831788778,
+          "computeSeconds": 0.014178957790136337,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.015490333084017,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8919070842675865,
+          "computeSeconds": 0.013807583134621382,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9004013747908175,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8739133337512612,
+          "computeSeconds": 0.013536000158637762,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9653142499737442,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9364734161645174,
+          "computeSeconds": 0.013540124986320734,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.99522591708228,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9464920000173151,
+          "computeSeconds": 0.013838000129908323,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9615973341278732,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8571962919086218,
+          "computeSeconds": 0.01389050018042326,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8744260831736028,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8460123338736594,
+          "computeSeconds": 0.013809167314320803,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8628172082826495,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8353392500430346,
+          "computeSeconds": 0.01444283314049244,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8885568329133093,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8588142497465014,
+          "computeSeconds": 0.013950875028967857,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.948908958118409,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9222251665778458,
+          "computeSeconds": 0.013726084027439356,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8580607087351382,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8314211247488856,
+          "computeSeconds": 0.013471165671944618,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8700100420974195,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8412392497994006,
+          "computeSeconds": 0.013982041738927364,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8647185419686139,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8370322496630251,
+          "computeSeconds": 0.013931499794125557,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.926524749957025,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.898922875057906,
+          "computeSeconds": 0.013800582848489285,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m90",
+      "p95Seconds": 2.0990781667642295,
+      "maxSeconds": 2.1727040000259876,
+      "maxComputeSeconds": 0.02427687495946884,
+      "maxBytes": 10779,
+      "samples": [
+        {
+          "seconds": 2.1727040000259876,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.1425229581072927,
+          "computeSeconds": 0.02240683324635029,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8502409998327494,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.818699459079653,
+          "computeSeconds": 0.023954750038683414,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7926973327994347,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.7665840834379196,
+          "computeSeconds": 0.022962958086282015,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7395473746582866,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.713837459217757,
+          "computeSeconds": 0.021447124890983105,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.081424416974187,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.968804083764553,
+          "computeSeconds": 0.022034292109310627,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9257781249471009,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8938188329339027,
+          "computeSeconds": 0.02370366733521223,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9422472920268774,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9132387503050268,
+          "computeSeconds": 0.02427687495946884,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.0512469173409045,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8460879996418953,
+          "computeSeconds": 0.02213120786473155,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.0990781667642295,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.0726110409013927,
+          "computeSeconds": 0.02308025024831295,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7565268338657916,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.730496207717806,
+          "computeSeconds": 0.022004374768584967,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.0513226659968495,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.0204750830307603,
+          "computeSeconds": 0.021631333976984024,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7461431249976158,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.7197892498224974,
+          "computeSeconds": 0.021406750194728374,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.0101117910817266,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9769144589081407,
+          "computeSeconds": 0.021939416881650686,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8677172916941345,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8362036659382284,
+          "computeSeconds": 0.022531624883413315,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7265124591067433,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6984221669845283,
+          "computeSeconds": 0.02165262494236231,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9383518751710653,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.9079521247185767,
+          "computeSeconds": 0.022705750074237585,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7909604171290994,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.7633068333379924,
+          "computeSeconds": 0.021807124838232994,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.739252292085439,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.7112543331459165,
+          "computeSeconds": 0.024050666950643063,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8846313748508692,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8581020832061768,
+          "computeSeconds": 0.02200658293440938,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.9280236246995628,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8927597501315176,
+          "computeSeconds": 0.022204125300049782,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "cold",
+      "period": "m120",
+      "p95Seconds": 2.12107149977237,
+      "maxSeconds": 2.150956957601011,
+      "maxComputeSeconds": 0.011035332921892405,
+      "maxBytes": 1720,
+      "samples": [
+        {
+          "seconds": 2.12107149977237,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.094479584135115,
+          "computeSeconds": 0.0095529998652637,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.685038125142455,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6582105420529842,
+          "computeSeconds": 0.010142667219042778,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6278796656988561,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.593158290721476,
+          "computeSeconds": 0.009866916108876467,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7799625406041741,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6342748748138547,
+          "computeSeconds": 0.011035332921892405,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7045016661286354,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.5890959999524057,
+          "computeSeconds": 0.009732125326991081,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6596029996871948,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6306367916986346,
+          "computeSeconds": 0.010205500293523073,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6146880420856178,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.5883886250667274,
+          "computeSeconds": 0.009865500032901764,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6593480417504907,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6302995840087533,
+          "computeSeconds": 0.009604083839803934,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6451101670973003,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6144336657598615,
+          "computeSeconds": 0.009703417308628559,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.629654583055526,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.602413292042911,
+          "computeSeconds": 0.009550167247653008,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.8546098326332867,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.8251337907277048,
+          "computeSeconds": 0.009700292255729437,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6437141671776772,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6104356669820845,
+          "computeSeconds": 0.009507833048701286,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6520237498916686,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6238247081637383,
+          "computeSeconds": 0.00970075000077486,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.5811856659129262,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.5566045828163624,
+          "computeSeconds": 0.009776041842997074,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6621708748862147,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6353715411387384,
+          "computeSeconds": 0.010611666832119226,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7611590418964624,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.7337132496759295,
+          "computeSeconds": 0.009638916701078415,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6547356247901917,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.626420000102371,
+          "computeSeconds": 0.010038040578365326,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.7325590844266117,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.703209790866822,
+          "computeSeconds": 0.00964062474668026,
+          "displayContext": null
+        },
+        {
+          "seconds": 1.6706097503192723,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 1.6399692087434232,
+          "computeSeconds": 0.009696916677057743,
+          "displayContext": null
+        },
+        {
+          "seconds": 2.150956957601011,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.1250507910735905,
+          "computeSeconds": 0.009708500001579523,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "day",
+      "p95Seconds": 0.3166072922758758,
+      "maxSeconds": 0.3548005409538746,
+      "maxComputeSeconds": 0.08044054126366973,
+      "maxBytes": 7799,
+      "samples": [
+        {
+          "seconds": 0.24718579091131687,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15107716713100672,
+          "computeSeconds": 0.07565875025466084,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17151029082015157,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1451011672616005,
+          "computeSeconds": 0.07619116641581059,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.25035749981179833,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.21959137544035912,
+          "computeSeconds": 0.07376899989321828,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16886529186740518,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1385397082194686,
+          "computeSeconds": 0.07370999967679381,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16916016628965735,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.13891529198735952,
+          "computeSeconds": 0.07361195888370275,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.25217224983498454,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.1413080422207713,
+          "computeSeconds": 0.07404429232701659,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.19671762501820922,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.17045770911499858,
+          "computeSeconds": 0.07555095897987485,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16808379208669066,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.13853679178282619,
+          "computeSeconds": 0.0766397500410676,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.1916913753375411,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14863879093900323,
+          "computeSeconds": 0.07839858392253518,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17781191691756248,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14995324984192848,
+          "computeSeconds": 0.08044054126366973,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.25320150004699826,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.22724774992093444,
+          "computeSeconds": 0.07476112525910139,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.17344949999824166,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14461745787411928,
+          "computeSeconds": 0.07653137529268861,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.1948287906125188,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.16778225032612681,
+          "computeSeconds": 0.0758358333259821,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.23731441609561443,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.13832175033167005,
+          "computeSeconds": 0.07337395800277591,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.18451345898211002,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.15607224963605404,
+          "computeSeconds": 0.07551725022494793,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.3548005409538746,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.32813662476837635,
+          "computeSeconds": 0.07467900030314922,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.3166072922758758,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14276391733437777,
+          "computeSeconds": 0.07515995902940631,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.19651729194447398,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14303820906206965,
+          "computeSeconds": 0.07589245913550258,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.16768533270806074,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.14092137478291988,
+          "computeSeconds": 0.07673587510362267,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.2793747088871896,
+          "bytes": 7799,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13",
+          "buildSeconds": 0.2524435827508569,
+          "computeSeconds": 0.0756109170615673,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "m60",
+      "p95Seconds": 0.625231041572988,
+      "maxSeconds": 2.5490095829591155,
+      "maxComputeSeconds": 0.014642749913036823,
+      "maxBytes": 1843,
+      "samples": [
+        {
+          "seconds": 2.5490095829591155,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.5184081657789648,
+          "computeSeconds": 0.013192374724894762,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5421361662447453,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.5131335002370179,
+          "computeSeconds": 0.013215291779488325,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5113387499004602,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.48117912467569113,
+          "computeSeconds": 0.014074333012104034,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5237817079760134,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4916225830093026,
+          "computeSeconds": 0.014490708243101835,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5242597497999668,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.49289550026878715,
+          "computeSeconds": 0.013978791888803244,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5243048751726747,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.49405108392238617,
+          "computeSeconds": 0.014295208267867565,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5166678749956191,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.48405733285471797,
+          "computeSeconds": 0.013531666714698076,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5310963750816882,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4980938332155347,
+          "computeSeconds": 0.01319187507033348,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5225050002336502,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4913869174197316,
+          "computeSeconds": 0.01377512514591217,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4248284576460719,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.39665420912206173,
+          "computeSeconds": 0.013903541024774313,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.625231041572988,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.5175906252115965,
+          "computeSeconds": 0.014097125269472599,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5273908330127597,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.48509912518784404,
+          "computeSeconds": 0.014642749913036823,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.526685000397265,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.49695420917123556,
+          "computeSeconds": 0.014393666759133339,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5173829169943929,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.48560595884919167,
+          "computeSeconds": 0.013707791920751333,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5215709172189236,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.49041845789179206,
+          "computeSeconds": 0.014145874883979559,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5280101248063147,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.48598079197108746,
+          "computeSeconds": 0.013812624849379063,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5228265840560198,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.481947457883507,
+          "computeSeconds": 0.013764000032097101,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5259328330866992,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.49591204104945064,
+          "computeSeconds": 0.01331254094839096,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4273120826110244,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.39806383289396763,
+          "computeSeconds": 0.01388954184949398,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.6204435001127422,
+          "bytes": 1843,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.5193019169382751,
+          "computeSeconds": 0.014137959107756615,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "m90",
+      "p95Seconds": 0.6427693339064717,
+      "maxSeconds": 2.1722886660136282,
+      "maxComputeSeconds": 0.02320183301344514,
+      "maxBytes": 10779,
+      "samples": [
+        {
+          "seconds": 2.1722886660136282,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.143755333032459,
+          "computeSeconds": 0.022133416961878538,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4560166671872139,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4259320409037173,
+          "computeSeconds": 0.02228929102420807,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4204449588432908,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3900522496551275,
+          "computeSeconds": 0.021929332986474037,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4901345418766141,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3887222078628838,
+          "computeSeconds": 0.022452041041105986,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5613412079401314,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.44288408337160945,
+          "computeSeconds": 0.021810375154018402,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4929446247406304,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3953500841744244,
+          "computeSeconds": 0.021711499895900488,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5008272090926766,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38240341702476144,
+          "computeSeconds": 0.02320183301344514,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5519154579378664,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.5156660419888794,
+          "computeSeconds": 0.021628458984196186,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5107783325947821,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.39160904195159674,
+          "computeSeconds": 0.02283670799806714,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5032468331046402,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38255870807915926,
+          "computeSeconds": 0.021514291875064373,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5431650001555681,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.5128918751142919,
+          "computeSeconds": 0.022588541731238365,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.5233060410246253,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3987274169921875,
+          "computeSeconds": 0.021843875292688608,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.49317237501963973,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.37844674987718463,
+          "computeSeconds": 0.021599333733320236,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.45029224967584014,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4184430409222841,
+          "computeSeconds": 0.022494332864880562,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4656149158254266,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.43070412520319223,
+          "computeSeconds": 0.02188420807942748,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4115895419381559,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38125412492081523,
+          "computeSeconds": 0.021926541812717915,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.46053533302620053,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.42717220773920417,
+          "computeSeconds": 0.02240537479519844,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4827582910656929,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4459550827741623,
+          "computeSeconds": 0.02242079097777605,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.40665358304977417,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3742835419252515,
+          "computeSeconds": 0.021398957818746567,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.6427693339064717,
+          "bytes": 10779,
+          "status": "CONDITIONAL_ENTRY",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.525328999850899,
+          "computeSeconds": 0.022535625379532576,
+          "displayContext": null
+        }
+      ]
+    },
+    {
+      "mode": "warm",
+      "period": "m120",
+      "p95Seconds": 0.4560600002296269,
+      "maxSeconds": 2.076728915795684,
+      "maxComputeSeconds": 0.01051604188978672,
+      "maxBytes": 1720,
+      "samples": [
+        {
+          "seconds": 2.076728915795684,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 2.0467105000279844,
+          "computeSeconds": 0.009546583984047174,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4109580419026315,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38031345792114735,
+          "computeSeconds": 0.009667416103184223,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.441968500148505,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.32660945784300566,
+          "computeSeconds": 0.009541708044707775,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.3741808752529323,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3437336669303477,
+          "computeSeconds": 0.009935167152434587,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.42966620810329914,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4000369170680642,
+          "computeSeconds": 0.01029179198667407,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4455412500537932,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.41497945925220847,
+          "computeSeconds": 0.009601416997611523,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.35228279093280435,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3231123751029372,
+          "computeSeconds": 0.009421957656741142,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.3617178751155734,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.330702958162874,
+          "computeSeconds": 0.009383833967149258,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4109041248448193,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.374116416554898,
+          "computeSeconds": 0.010062875226140022,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4465743750333786,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4166950420476496,
+          "computeSeconds": 0.00983875012025237,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.35764087457209826,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.32864620769396424,
+          "computeSeconds": 0.00933466712012887,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.41562895802780986,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38616266706958413,
+          "computeSeconds": 0.010014958214014769,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.3609081250615418,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.3292508330196142,
+          "computeSeconds": 0.01051604188978672,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4392117499373853,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.4083300419151783,
+          "computeSeconds": 0.00992262503132224,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4072437919676304,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.37776525039225817,
+          "computeSeconds": 0.009441582951694727,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4560600002296269,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.33971591712906957,
+          "computeSeconds": 0.009893833193928003,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.37557416688650846,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.34613354224711657,
+          "computeSeconds": 0.009926208760589361,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.44270183285698295,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.41190520767122507,
+          "computeSeconds": 0.009885708801448345,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.4148921249434352,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.38327420921996236,
+          "computeSeconds": 0.009870958980172873,
+          "displayContext": null
+        },
+        {
+          "seconds": 0.36931524984538555,
+          "bytes": 1720,
+          "status": "NO_CANDIDATE",
+          "through": "2026-10-13T15:00:00+08:00",
+          "buildSeconds": 0.33708070777356625,
+          "computeSeconds": 0.009804542176425457,
+          "displayContext": null
+        }
+      ]
+    }
+  ],
+  "rssMaxBytes": 1089961984
+}

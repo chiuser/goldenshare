@@ -17,6 +17,6 @@ export function XxmForecastCard({ rows, retry }: { rows: ForecastRows; retry: (p
         {row.phase === "error" ? <button type="button" onClick={() => retry(period)} aria-label={`重试${PERIOD_LABELS[period]}关键点预判`}>重试</button> : null}
       </article>;
     })}
-    <footer>前置收盘不同，结构条件也会变化；新行情到达后重新计算。</footer>
+    <footer>新收盘后更新本周期点位和时点。</footer>
   </section>;
 }

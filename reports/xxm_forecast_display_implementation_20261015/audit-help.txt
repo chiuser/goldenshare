@@ -1,0 +1,13 @@
+usage: xxm_forecast_display_audit.py [-h] --output OUTPUT
+                                     [--candidate CANDIDATE]
+
+Read-only XXM HTTP budget audit; no app lifespan, jobs or page automation. Run
+from the repository root. Candidate code is an explicit local precheck input;
+product mode uses the normal query unchanged. Reports never contain
+credentials.
+
+options:
+  -h, --help            show this help message and exit
+  --output OUTPUT
+  --candidate CANDIDATE
+                        Explicit local candidate module, precheck only

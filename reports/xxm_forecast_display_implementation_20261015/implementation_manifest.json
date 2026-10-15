@@ -1,0 +1,153 @@
+{
+  "phase": "technical acceptance complete; user page acceptance pending",
+  "code": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "ed9bd2f9d35fa5562d63934795ecd53b3a60759d11dd2049fb2e443241cf89b5",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "5eed143f74daa5673991f82f86911717a44c07bc69ac7f2225ff6c6c29f6df0b",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "2d00cca4976ad77712652bf1a8672106adc413803aa597d20bbd4084317501e0",
+    "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx": "768210f279f8bf26e6f07659ad85dad2ccfe21ef361e4f20ed952b07ee0046f7"
+  },
+  "backendValidation": {
+    "passed": 190,
+    "warnings": 1,
+    "seconds": 16.62,
+    "log": "backend-tests-final.txt"
+  },
+  "precheck": {
+    "semanticTests": 38,
+    "frozenPeriods": 4,
+    "historicalStates": 24,
+    "budgetRequests": 178,
+    "latestRequests": 4,
+    "path": "reports/xxm_forecast_display_precheck_20261015/scope_final"
+  },
+  "browserAcceptance": "User will perform; no browser automation",
+  "publicContract": "Unchanged v0.2 fields and mathematical states",
+  "firstMeasuredProductCode": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "6ea3b9efbb63192a4170e70b68075bfc95dfd7083d69d8848b1972feb149f91f",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "5eed143f74daa5673991f82f86911717a44c07bc69ac7f2225ff6c6c29f6df0b",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "2d00cca4976ad77712652bf1a8672106adc413803aa597d20bbd4084317501e0",
+    "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx": "768210f279f8bf26e6f07659ad85dad2ccfe21ef361e4f20ed952b07ee0046f7"
+  },
+  "initialBackendValidation": {
+    "passed": 189,
+    "warnings": 1,
+    "seconds": 16.51
+  },
+  "retainedBudgetFailure": {
+    "path": "real_api_final/failure.json",
+    "period": "m120",
+    "httpStatus": 503,
+    "seconds": 4.063010625075549,
+    "modelNotStarted": true,
+    "diagnostic": "source_timeout_diagnostic.json",
+    "diagnosticRequests": 6,
+    "diagnosticErrors": 0,
+    "sourceOrBudgetChanged": false,
+    "soleCauseConfirmed": false
+  },
+  "frontendValidation": {
+    "passed": 57,
+    "typecheck": "PASS",
+    "build": "PASS",
+    "logs": [
+      "frontend-tests-final.txt",
+      "typecheck-final.txt",
+      "build.txt"
+    ]
+  },
+  "api": {
+    "status": "PASS",
+    "budgetRequests": 178,
+    "latestRequests": 4,
+    "serverStopped": true,
+    "maxSeconds": 3.240506208036095,
+    "maxComputeSeconds": 0.08072445774450898,
+    "maxBytes": 10779,
+    "periods": [
+      {
+        "mode": "cold",
+        "period": "day",
+        "p95Seconds": 0.30851616710424423,
+        "maxSeconds": 0.5861258329823613,
+        "maxComputeSeconds": 0.07622795831412077,
+        "maxBytes": 7799
+      },
+      {
+        "mode": "cold",
+        "period": "m60",
+        "p95Seconds": 2.372590917162597,
+        "maxSeconds": 2.696939082816243,
+        "maxComputeSeconds": 0.01608666591346264,
+        "maxBytes": 1843
+      },
+      {
+        "mode": "cold",
+        "period": "m90",
+        "p95Seconds": 2.314315666910261,
+        "maxSeconds": 2.4842640408314764,
+        "maxComputeSeconds": 0.02285562502220273,
+        "maxBytes": 10779
+      },
+      {
+        "mode": "cold",
+        "period": "m120",
+        "p95Seconds": 1.913741416297853,
+        "maxSeconds": 2.338299584109336,
+        "maxComputeSeconds": 0.011537165846675634,
+        "maxBytes": 1720
+      },
+      {
+        "mode": "warm",
+        "period": "day",
+        "p95Seconds": 0.26500091701745987,
+        "maxSeconds": 0.2912314999848604,
+        "maxComputeSeconds": 0.08072445774450898,
+        "maxBytes": 7799
+      },
+      {
+        "mode": "warm",
+        "period": "m60",
+        "p95Seconds": 0.5889391670934856,
+        "maxSeconds": 2.5253245406784117,
+        "maxComputeSeconds": 0.015927750151604414,
+        "maxBytes": 1843
+      },
+      {
+        "mode": "warm",
+        "period": "m90",
+        "p95Seconds": 0.5478739580139518,
+        "maxSeconds": 2.229843749664724,
+        "maxComputeSeconds": 0.022897666785866022,
+        "maxBytes": 10779
+      },
+      {
+        "mode": "warm",
+        "period": "m120",
+        "p95Seconds": 0.5011140420101583,
+        "maxSeconds": 2.1124468753114343,
+        "maxComputeSeconds": 0.011318124830722809,
+        "maxBytes": 1720
+      }
+    ]
+  },
+  "mathResponsesCompared": 12,
+  "equalFactFields": 17,
+  "unchangedCoreFiles": 20,
+  "scopeGuard": "Full selected activation domain required for unconditional structure wording",
+  "documentationValidation": {
+    "integrity": "PASS",
+    "localLinks": 212,
+    "documents": 8,
+    "whitespace": "PASS"
+  },
+  "codeGraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "status": "UP_TO_DATE",
+    "dependencyMatrixChanged": false
+  }
+}
