@@ -1,0 +1,2120 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                            [100%]
+=================================== FAILURES ===================================
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, CAST('NaN' AS DOUBLE) AS open] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c0')
+dataset = 'bars', invalid = ", CAST('NaN' AS DOUBLE) AS open", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c0/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('NaN' AS DOUBLE) AS open"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c0/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, CAST('Infinity' AS DOUBLE) AS close] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c1')
+dataset = 'bars', invalid = ", CAST('Infinity' AS DOUBLE) AS close", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c1/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('Infinity' AS DOUBLE) AS close"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c1/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, CAST(NULL AS DOUBLE) AS amount] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c2')
+dataset = 'bars', invalid = ', CAST(NULL AS DOUBLE) AS amount', freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c2/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(NULL AS DOUBLE) AS amount'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c2/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, '' AS exchange] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c3')
+dataset = 'bars', invalid = ", '' AS exchange", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c3/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS exchange"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c3/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, 1 AS freq] __
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c4')
+dataset = 'bars', invalid = ', 1 AS freq', freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c4/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 1 AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c4/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c5')
+dataset = 'bars', invalid = ", DATE '2026-08-12' AS trade_date", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c5/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c5/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c6')
+dataset = 'bars', invalid = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c6/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c6/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, CAST(1 AS SMALLINT) AS freq] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c7')
+dataset = 'indicators', invalid = ', CAST(1 AS SMALLINT) AS freq', freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c7/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(1 AS SMALLINT) AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c7/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c8')
+dataset = 'indicators', invalid = ", DATE '2026-08-12' AS trade_date", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c8/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c8/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c9')
+dataset = 'indicators'
+invalid = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c9/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c9/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, '' AS params_key] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c10')
+dataset = 'indicators', invalid = ", '' AS params_key", freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c10/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS params_key"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c10/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, 0 AS indicator_version] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c11')
+dataset = 'indicators', invalid = ', 0 AS indicator_version', freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c11/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS indicator_version'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c11/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[60-indicators-, 0 AS observation_count] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c12')
+dataset = 'indicators', invalid = ', 0 AS observation_count', freq = 60
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c12/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS observation_count'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c12/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, CAST('NaN' AS DOUBLE) AS open] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c13')
+dataset = 'bars', invalid = ", CAST('NaN' AS DOUBLE) AS open", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c13/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('NaN' AS DOUBLE) AS open"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c13/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, CAST('Infinity' AS DOUBLE) AS close] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c14')
+dataset = 'bars', invalid = ", CAST('Infinity' AS DOUBLE) AS close", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c14/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('Infinity' AS DOUBLE) AS close"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c14/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, CAST(NULL AS DOUBLE) AS amount] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c15')
+dataset = 'bars', invalid = ', CAST(NULL AS DOUBLE) AS amount', freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c15/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(NULL AS DOUBLE) AS amount'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c15/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, '' AS exchange] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c16')
+dataset = 'bars', invalid = ", '' AS exchange", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c16/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS exchange"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c16/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, 1 AS freq] __
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c17')
+dataset = 'bars', invalid = ', 1 AS freq', freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c17/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 1 AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c17/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c18')
+dataset = 'bars', invalid = ", DATE '2026-08-12' AS trade_date", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c18/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c18/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c19')
+dataset = 'bars', invalid = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c19/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c19/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, CAST(1 AS SMALLINT) AS freq] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c20')
+dataset = 'indicators', invalid = ', CAST(1 AS SMALLINT) AS freq', freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c20/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(1 AS SMALLINT) AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c20/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c21')
+dataset = 'indicators', invalid = ", DATE '2026-08-12' AS trade_date", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c21/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c21/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c22')
+dataset = 'indicators'
+invalid = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c22/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c22/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, '' AS params_key] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c23')
+dataset = 'indicators', invalid = ", '' AS params_key", freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c23/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS params_key"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c23/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, 0 AS indicator_version] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c24')
+dataset = 'indicators', invalid = ', 0 AS indicator_version', freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c24/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS indicator_version'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c24/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[90-indicators-, 0 AS observation_count] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c25')
+dataset = 'indicators', invalid = ', 0 AS observation_count', freq = 90
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c25/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS observation_count'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c25/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, CAST('NaN' AS DOUBLE) AS open] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c26')
+dataset = 'bars', invalid = ", CAST('NaN' AS DOUBLE) AS open", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c26/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('NaN' AS DOUBLE) AS open"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c26/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, CAST('Infinity' AS DOUBLE) AS close] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c27')
+dataset = 'bars', invalid = ", CAST('Infinity' AS DOUBLE) AS close", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c27/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", CAST('Infinity' AS DOUBLE) AS close"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c27/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, CAST(NULL AS DOUBLE) AS amount] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c28')
+dataset = 'bars', invalid = ', CAST(NULL AS DOUBLE) AS amount', freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c28/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(NULL AS DOUBLE) AS amount'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c28/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, '' AS exchange] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c29')
+dataset = 'bars', invalid = ", '' AS exchange", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c29/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS exchange"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c29/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, 1 AS freq] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c30')
+dataset = 'bars', invalid = ', 1 AS freq', freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c30/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 1 AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c30/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c31')
+dataset = 'bars', invalid = ", DATE '2026-08-12' AS trade_date", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c31/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c31/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c32')
+dataset = 'bars', invalid = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c32/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c32/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, CAST(1 AS SMALLINT) AS freq] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c33')
+dataset = 'indicators', invalid = ', CAST(1 AS SMALLINT) AS freq', freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c33/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ', CAST(1 AS SMALLINT) AS freq'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c33/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, DATE '2026-08-12' AS trade_date] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c34')
+dataset = 'indicators', invalid = ", DATE '2026-08-12' AS trade_date"
+freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c34/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", DATE '2026-08-12' AS trade_date"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c34/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c35')
+dataset = 'indicators'
+invalid = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c35/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c35/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, '' AS params_key] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c36')
+dataset = 'indicators', invalid = ", '' AS params_key", freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c36/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ", '' AS params_key"
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c36/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, 0 AS indicator_version] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c37')
+dataset = 'indicators', invalid = ', 0 AS indicator_version', freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c37/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS indicator_version'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c37/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+_ test_complete_history_checks_contract_of_other_indices[120-indicators-, 0 AS observation_count] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c38')
+dataset = 'indicators', invalid = ', 0 AS observation_count', freq = 120
+
+    @pytest.mark.parametrize('dataset,invalid', [
+        ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+        ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+        ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+        ('bars', ", '' AS exchange"),
+        ('bars', ", 1 AS freq"),
+        ('bars', ", DATE '2026-08-12' AS trade_date"),
+        ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+        ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+        ('indicators', ", DATE '2026-08-12' AS trade_date"),
+        ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+        ('indicators', ", '' AS params_key"),
+        ('indicators', ", 0 AS indicator_version"),
+        ('indicators', ", 0 AS observation_count"),
+    ])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+>       _rewrite_fixture_with_foreign_row(path, invalid)
+
+tests/test_major_index_mins_reader.py:513:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c38/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ', 0 AS observation_count'
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_checks_c38/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+______ test_complete_history_preserves_target_with_other_indices[60-bars] ______
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve0')
+dataset = 'bars', freq = 60
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+        before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+>       _rewrite_fixture_with_foreign_row(path, '')
+
+tests/test_major_index_mins_reader.py:529:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve0/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.parquet')
+replacement = ''
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve0/gold/quote/major_index_mins/freq=60/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+___ test_complete_history_preserves_target_with_other_indices[60-indicators] ___
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve1')
+dataset = 'indicators', freq = 60
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+>       before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_major_index_mins_reader.py:528:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/foundation/clients/local_lake/major_index_mins_reader.py:153: in read_complete_history
+    rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+connection = <_duckdb.DuckDBPyConnection object at 0x1224228b0>
+
+>   ???
+E   src.foundation.clients.local_lake.major_index_mins_reader.IndexMinuteSourceContractError: 指数分钟文件存在频率、日期、身份或版本合同错误。
+
+/private/tmp/xxm_reader_projection_candidate_20261015.py:134: IndexMinuteSourceContractError
+______ test_complete_history_preserves_target_with_other_indices[90-bars] ______
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve2')
+dataset = 'bars', freq = 90
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+        before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+>       _rewrite_fixture_with_foreign_row(path, '')
+
+tests/test_major_index_mins_reader.py:529:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve2/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.parquet')
+replacement = ''
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve2/gold/quote/major_index_mins/freq=90/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+___ test_complete_history_preserves_target_with_other_indices[90-indicators] ___
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve3')
+dataset = 'indicators', freq = 90
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+>       before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_major_index_mins_reader.py:528:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/foundation/clients/local_lake/major_index_mins_reader.py:153: in read_complete_history
+    rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+connection = <_duckdb.DuckDBPyConnection object at 0x1224fe670>
+
+>   ???
+E   src.foundation.clients.local_lake.major_index_mins_reader.IndexMinuteSourceContractError: 指数分钟文件存在频率、日期、身份或版本合同错误。
+
+/private/tmp/xxm_reader_projection_candidate_20261015.py:134: IndexMinuteSourceContractError
+_____ test_complete_history_preserves_target_with_other_indices[120-bars] ______
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve4')
+dataset = 'bars', freq = 120
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+        before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+>       _rewrite_fixture_with_foreign_row(path, '')
+
+tests/test_major_index_mins_reader.py:529:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve4/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.parquet')
+replacement = ''
+
+    def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+        """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+        candidate = path.with_suffix('.fixture.parquet')
+        connection = duckdb.connect(database=':memory:')
+        try:
+>           connection.execute(f"""COPY (
+                SELECT * FROM read_parquet(?)
+                UNION ALL
+                SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+                FROM read_parquet(?) LIMIT 4
+            ) TO ? (FORMAT PARQUET)""", [str(path), str(path), str(candidate)])
+E           _duckdb.IOException: IO Error: No files found that match the pattern "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve4/gold/quote/major_index_mins/freq=120/trade_date=2026-08-11/part-000.fixture.parquet"
+E
+E           LINE 5:             FROM read_parquet(?) LIMIT 4
+E                                    ^
+
+tests/test_major_index_mins_reader.py:484: IOException
+__ test_complete_history_preserves_target_with_other_indices[120-indicators] ___
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1722/test_complete_history_preserve5')
+dataset = 'indicators', freq = 120
+
+    @pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+    @pytest.mark.parametrize('freq', [60, 90, 120])
+    def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+        path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+        request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+        reader = MajorIndexMinsLakeReader(tmp_path)
+>       before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_major_index_mins_reader.py:528:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/foundation/clients/local_lake/major_index_mins_reader.py:153: in read_complete_history
+    rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+connection = <_duckdb.DuckDBPyConnection object at 0x1224fa8b0>
+
+>   ???
+E   src.foundation.clients.local_lake.major_index_mins_reader.IndexMinuteSourceContractError: 指数分钟文件存在频率、日期、身份或版本合同错误。
+
+/private/tmp/xxm_reader_projection_candidate_20261015.py:134: IndexMinuteSourceContractError
+=========================== short test summary info ============================
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, CAST('NaN' AS DOUBLE) AS open]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, CAST('Infinity' AS DOUBLE) AS close]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, CAST(NULL AS DOUBLE) AS amount]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, '' AS exchange]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, 1 AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, CAST(1 AS SMALLINT) AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, '' AS params_key]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, 0 AS indicator_version]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[60-indicators-, 0 AS observation_count]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, CAST('NaN' AS DOUBLE) AS open]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, CAST('Infinity' AS DOUBLE) AS close]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, CAST(NULL AS DOUBLE) AS amount]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, '' AS exchange]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, 1 AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, CAST(1 AS SMALLINT) AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, '' AS params_key]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, 0 AS indicator_version]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[90-indicators-, 0 AS observation_count]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, CAST('NaN' AS DOUBLE) AS open]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, CAST('Infinity' AS DOUBLE) AS close]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, CAST(NULL AS DOUBLE) AS amount]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, '' AS exchange]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, 1 AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-bars-, TIMESTAMP '2026-08-11 15:01:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, CAST(1 AS SMALLINT) AS freq]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, DATE '2026-08-12' AS trade_date]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, TIMESTAMP '2026-08-11 09:30:00' AS trade_time]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, '' AS params_key]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, 0 AS indicator_version]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_checks_contract_of_other_indices[120-indicators-, 0 AS observation_count]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[60-bars]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[60-indicators]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[90-bars]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[90-indicators]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[120-bars]
+FAILED tests/test_major_index_mins_reader.py::test_complete_history_preserves_target_with_other_indices[120-indicators]
+45 failed, 26 deselected in 1.36s

@@ -1,0 +1,434 @@
+[
+  {
+    "label": "before",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.7347716670483351,
+    "bytes": 7783
+  },
+  {
+    "label": "before",
+    "period": "day",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.29510745825245976,
+    "bytes": 1300
+  },
+  {
+    "label": "before",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 3.6739953751675785,
+    "bytes": 1804
+  },
+  {
+    "label": "before",
+    "period": "m60",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.5097263338975608,
+    "bytes": 1559
+  },
+  {
+    "label": "before",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 2.9182767500169575,
+    "bytes": 10742
+  },
+  {
+    "label": "before",
+    "period": "m90",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.39195779198780656,
+    "bytes": 1563
+  },
+  {
+    "label": "before",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 2.4808103749528527,
+    "bytes": 1681
+  },
+  {
+    "label": "before",
+    "period": "m120",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4335241666994989,
+    "bytes": 1090
+  },
+  {
+    "label": "last_second",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.1998912082053721,
+    "bytes": 7783
+  },
+  {
+    "label": "last_second",
+    "period": "day",
+    "kind": "signal",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.11363237490877509,
+    "bytes": 1300
+  },
+  {
+    "label": "last_second",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.5082046668976545,
+    "bytes": 1804
+  },
+  {
+    "label": "last_second",
+    "period": "m60",
+    "kind": "signal",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.46245549991726875,
+    "bytes": 1559
+  },
+  {
+    "label": "last_second",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.41922191716730595,
+    "bytes": 10742
+  },
+  {
+    "label": "last_second",
+    "period": "m90",
+    "kind": "signal",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.5428516669198871,
+    "bytes": 1563
+  },
+  {
+    "label": "last_second",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4377733748406172,
+    "bytes": 1681
+  },
+  {
+    "label": "last_second",
+    "period": "m120",
+    "kind": "signal",
+    "clock": "2026-10-15T19:59:59+08:00",
+    "httpStatus": 200,
+    "seconds": 0.3504847497679293,
+    "bytes": 1090
+  },
+  {
+    "label": "after",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.18323724996298552,
+    "bytes": 1210
+  },
+  {
+    "label": "after",
+    "period": "day",
+    "kind": "signal",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.17130520893260837,
+    "bytes": 1335
+  },
+  {
+    "label": "after",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4923206251114607,
+    "bytes": 1222
+  },
+  {
+    "label": "after",
+    "period": "m60",
+    "kind": "signal",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.432562040630728,
+    "bytes": 1609
+  },
+  {
+    "label": "after",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.483520332723856,
+    "bytes": 1222
+  },
+  {
+    "label": "after",
+    "period": "m90",
+    "kind": "signal",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.5433157081715763,
+    "bytes": 1613
+  },
+  {
+    "label": "after",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4305118750780821,
+    "bytes": 1226
+  },
+  {
+    "label": "after",
+    "period": "m120",
+    "kind": "signal",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.37837000004947186,
+    "bytes": 1140
+  },
+  {
+    "label": "rollback",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.28180362470448017,
+    "bytes": 7783
+  },
+  {
+    "label": "rollback",
+    "period": "day",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.16936545819044113,
+    "bytes": 1300
+  },
+  {
+    "label": "rollback",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4516744171269238,
+    "bytes": 1804
+  },
+  {
+    "label": "rollback",
+    "period": "m60",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4425738751888275,
+    "bytes": 1559
+  },
+  {
+    "label": "rollback",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.6074728751555085,
+    "bytes": 10742
+  },
+  {
+    "label": "rollback",
+    "period": "m90",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.3792657917365432,
+    "bytes": 1563
+  },
+  {
+    "label": "rollback",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.46588654117658734,
+    "bytes": 1681
+  },
+  {
+    "label": "rollback",
+    "period": "m120",
+    "kind": "signal",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4454952906817198,
+    "bytes": 1090
+  },
+  {
+    "label": "replay_before",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4013672498986125,
+    "bytes": 7807
+  },
+  {
+    "label": "replay_before",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.4533247919753194,
+    "bytes": 1843
+  },
+  {
+    "label": "replay_before",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.47933933418244123,
+    "bytes": 10781
+  },
+  {
+    "label": "replay_before",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.37335754185914993,
+    "bytes": 1720
+  },
+  {
+    "label": "replay_after",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.2548670000396669,
+    "bytes": 7807
+  },
+  {
+    "label": "replay_after",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.46384804183617234,
+    "bytes": 1843
+  },
+  {
+    "label": "replay_after",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.47068091621622443,
+    "bytes": 10781
+  },
+  {
+    "label": "replay_after",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T20:00:00+08:00",
+    "httpStatus": 200,
+    "seconds": 0.3805646668188274,
+    "bytes": 1720
+  },
+  {
+    "label": "future_rejected",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.2019897918216884,
+    "bytes": 103
+  },
+  {
+    "label": "public_clock_rejected",
+    "period": "day",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.03960729110985994,
+    "bytes": 92
+  },
+  {
+    "label": "future_rejected",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.48324816720560193,
+    "bytes": 103
+  },
+  {
+    "label": "public_clock_rejected",
+    "period": "m60",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.04350887471809983,
+    "bytes": 92
+  },
+  {
+    "label": "future_rejected",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.4017354999668896,
+    "bytes": 103
+  },
+  {
+    "label": "public_clock_rejected",
+    "period": "m90",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.03757004113867879,
+    "bytes": 92
+  },
+  {
+    "label": "future_rejected",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.3670428330078721,
+    "bytes": 103
+  },
+  {
+    "label": "public_clock_rejected",
+    "period": "m120",
+    "kind": "forecast",
+    "clock": "2026-10-15T11:15:00+08:00",
+    "httpStatus": 400,
+    "seconds": 0.12213779194280505,
+    "bytes": 92
+  }
+]

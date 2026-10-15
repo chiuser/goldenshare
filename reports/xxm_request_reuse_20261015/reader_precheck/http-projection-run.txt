@@ -1,0 +1,14 @@
+{"mode": "cold", "period": "day", "p95Seconds": 0.5685444590635598, "maxSeconds": 0.6891509997658432, "maxComputeSeconds": 0.10953716700896621, "maxBytes": 7799}
+{"mode": "cold", "period": "m60", "p95Seconds": 2.7747442917898297, "maxSeconds": 2.95125116687268, "maxComputeSeconds": 0.021909667178988457, "maxBytes": 1843}
+{"mode": "cold", "period": "m90", "p95Seconds": 2.807650832924992, "maxSeconds": 2.9448854168877006, "maxComputeSeconds": 0.039853041991591454, "maxBytes": 10779}
+Traceback (most recent call last):
+  File "/private/tmp/xxm_reader_projection_http_precheck_20261015.py", line 8, in <module>
+    main()
+    ~~~~^^
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_forecast_display_audit.py", line 149, in main
+    value,row=request(period,anchor)
+              ~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_forecast_display_audit.py", line 135, in request
+    assert value['dataStatus']=='READY' and duration<=4 and len(body)<=32768 and row['computeSeconds']<=.2,row
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'seconds': 4.015441874973476, 'bytes': 1720, 'status': 'NO_CANDIDATE', 'through': '2026-10-13T15:00:00+08:00', 'buildSeconds': 3.9808273753151298, 'computeSeconds': 0.022565833758562803, 'displayContext': None}

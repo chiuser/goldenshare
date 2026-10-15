@@ -1,0 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0,str(Path.cwd()));sys.path.insert(0,'/private/tmp')
+import xxm_reader_parallel_candidate_20261015 as candidate
+candidate.install()
+from scripts.research.index_market.xxm_forecast_display_audit import main
+main()

@@ -1,0 +1,832 @@
+[
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_implementation_20261013/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/docs/product/xxm-macd-structure-research-v1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_color_flip.py",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_range_selector_joint_20261013.json",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_full_timeline_20261013.json",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/threshold_constraint_audit.json",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/AGENTS.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_implementation_20261013/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_forecast_precheck_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_forecast_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_forecast_range_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#143-近期简明文案与展示筛选lld2026-10-15",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_forecast_display_implementation_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#19-统一业务日期与20点切换修正2026-10-15",
+    "exists": true
+  },
+  {
+    "source": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/showcase/market-overview-v4.html",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/showcase/market-overview-v1.1.html",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/design/03-design-tokens-v0.2.7.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/design/04-component-guidelines-v0.7.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/api/market-overview-api-v0.5.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/api/p0-data-dictionary-v0.5.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/codex/market-overview-codex-prompt-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./reference/review/market-overview-html-review-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/design-system-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/component-guidelines-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/wealth-system-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/engineering-architecture.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/module-incremental-delivery-spec-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/module-delivery-checklist-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/design-system-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/component-guidelines-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/exception-code-registry.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/strategy-config-center-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/strategy-config-center-m1-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/strategy-config-consumer-guide-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/detail-page-nine-turn-integration-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/detail-page-nine-turn-integration-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/detail-page-nine-turn-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./system/detail-page-nine-turn-m3-serving-publication-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "../../docs/product/wealth-data-center-announcements-product-plan-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/data-center/data-center-announcements-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/data-center/data-center-announcements-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/login/login-page-auth-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/login/login-page-auth-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/trading-assistant/trading-assistant-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/trading-assistant/trading-assistant-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/wealth-exploration/sector-analysis-product-interaction-baseline-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/wealth-exploration/sector-analysis-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/wealth-exploration/sector-analysis-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/wealth-exploration/sector-radar-product-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/api-contract-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-api-model-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-summary-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-summary-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-summary-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/leaderboard-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/leaderboard-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/leaderboard-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/major-indices-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/major-indices-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/major-indices-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/breadth-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/breadth-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/breadth-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-style-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-style-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-style-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/turnover-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/turnover-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/turnover-minute-snapshot-plan-v1.html",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/turnover-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/money-flow-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/money-flow-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/money-flow-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/sector-overview-benchmark-requirement-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/sector-overview-implementation-design-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/sector-overview-m2-coding-gate-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/sector-overview-low-level-design-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-news-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-news-reader-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-news-reader-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/homepage-stock-search-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/homepage-stock-search-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-grouping-product-requirement-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-grouping-interaction-design-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-grouping-implementation-design-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-grouping-low-level-design-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/watchlist/watchlist-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/implementation-prompt-baseline.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/implementation-architecture-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-figma-reconstruction-plan-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-figma-pixel-audit-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-figma-pixel-reconstruction-plan-v2.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-figma-pixel-verification-ledger-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/market-overview/market-overview-figma-pixel-execution-runbook-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-minutes-api-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-minutes-api-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-benchmark-requirement-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-implementation-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-low-level-design-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-api-contract-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-minutes-api-contract-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-m0-production-audit-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./pages/index-detail/index-detail-m2-coding-gate-v1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./templates/benchmark-requirement-template.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./templates/implementation-design-template.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/README.md",
+    "target": "./templates/coding-gate-template.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "./index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_source_audit_20261013_213852/daily_source.csv",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/docs/product/xxm-macd-structure-research-v1.md#830-历史-dif-峰与级别口径消失时间空间均依赖参照与运行速度",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_forecast_precheck_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_range_precheck_20261014/",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_range_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_minute_reader_optimization_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_range_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_display_precheck_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_display_implementation_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_business_date_alignment_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "target": "../../../../reports/xxm_request_reuse_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-benchmark-requirement-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_ui_revision_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/manifest.json",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "/Users/congming/github/goldenshare/reports/xxm_implementation_20261013/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_precheck_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#15-本轮冻结的预测-lld2026-10-14",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_range_implementation_20261014/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_forecast_display_implementation_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#19-统一业务日期与20点切换修正2026-10-15",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_business_date_alignment_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#205-实施结果与未通过的预算门禁",
+    "exists": true
+  },
+  {
+    "source": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "target": "../../../../reports/xxm_request_reuse_20261015/README.md",
+    "exists": true
+  },
+  {
+    "source": "reports/xxm_request_reuse_20261015/README.md",
+    "target": "../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施",
+    "exists": true
+  },
+  {
+    "source": "reports/xxm_request_reuse_20261015/README.md",
+    "target": "../../wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#145-整页调度与共享加载lld2026-10-15已授权",
+    "exists": true
+  }
+]

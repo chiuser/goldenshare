@@ -1,0 +1,14 @@
+"""Read-only XXM projection candidate. Full validation predicates unchanged."""
+import inspect
+from src.foundation.clients.local_lake import major_index_mins_reader as m
+ORIGINAL=m._query_rows
+source=inspect.getsource(ORIGINAL)
+start=source.index('        projection = """');end=source.index('        contract_predicate =',start)
+source=source[:start]+'''        projection = 'ts_code, freq, trade_date, trade_time, close'
+'''+source[end:]
+start=source.index('        projection = """');end=source.index('        contract_predicate =',start)
+source=source[:start]+'''        projection = 'ts_code, freq, trade_date, trade_time, macd_dif, macd_dea, macd'
+'''+source[end:]
+namespace=dict(vars(m));exec(compile(source,__file__,'exec'),namespace)
+CANDIDATE=namespace['_query_rows']
+def install():m._query_rows=CANDIDATE

@@ -140,12 +140,12 @@ def _write_gold(
         connection.execute(
             """
             INSERT INTO indicators VALUES (
-              '000001.SH', 5, DATE '2026-08-11', TIMESTAMP '2026-08-11 09:35:00',
+              '000001.SH', ?, DATE '2026-08-11', TIMESTAMP '2026-08-11 09:35:00',
               1, 2, 3, 4, 5, 6, NULL, 3, 4, 2, .1, .2, -.2,
               50, 45, 60, 120,
               'ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3', 1
             )
-            """
+            """, [freq]
         )
         connection.execute("COPY indicators TO ? (FORMAT PARQUET)", [str(target)])
     finally:
@@ -474,3 +474,151 @@ def test_prepared_history_rechecks_file_links_before_parquet_read(tmp_path):
     target.symlink_to(replacement)
     with pytest.raises(IndexMinuteSourceContractError, match='符号链接'):
         reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+
+
+def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:
+    """Only rewrite pytest's isolated fixture; never a formal Lake file."""
+    candidate = path.with_suffix('.fixture.parquet')
+    connection = duckdb.connect(database=':memory:')
+    try:
+        connection.execute(f"""COPY (
+            SELECT * FROM read_parquet($fixture, hive_partitioning=false)
+            UNION ALL
+            SELECT * REPLACE ('399001.SZ' AS ts_code {replacement})
+            FROM read_parquet($fixture, hive_partitioning=false) LIMIT 4
+        ) TO $output (FORMAT PARQUET)""", {"fixture": str(path), "output": str(candidate)})
+    finally:
+        connection.close()
+    candidate.replace(path)
+
+
+@pytest.mark.parametrize('dataset,invalid', [
+    ('bars', ", CAST('NaN' AS DOUBLE) AS open"),
+    ('bars', ", CAST('Infinity' AS DOUBLE) AS close"),
+    ('bars', ", CAST(NULL AS DOUBLE) AS amount"),
+    ('bars', ", '' AS exchange"),
+    ('bars', ", 1 AS freq"),
+    ('bars', ", DATE '2026-08-12' AS trade_date"),
+    ('bars', ", TIMESTAMP '2026-08-11 15:01:00' AS trade_time"),
+    ('indicators', ", CAST(1 AS SMALLINT) AS freq"),
+    ('indicators', ", DATE '2026-08-12' AS trade_date"),
+    ('indicators', ", TIMESTAMP '2026-08-11 09:30:00' AS trade_time"),
+    ('indicators', ", '' AS params_key"),
+    ('indicators', ", 0 AS indicator_version"),
+    ('indicators', ", 0 AS observation_count"),
+])
+@pytest.mark.parametrize('freq', [60, 90, 120])
+def test_complete_history_checks_contract_of_other_indices(tmp_path, dataset, invalid, freq):
+    path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+    _rewrite_fixture_with_foreign_row(path, invalid)
+    request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+    columns = ('close',) if dataset == 'bars' else ('macd_dif', 'macd_dea', 'macd')
+    for selection in (None, columns):
+        with pytest.raises(IndexMinuteSourceContractError):
+            MajorIndexMinsLakeReader(tmp_path).read_complete_history(request, dataset=dataset, timeout_seconds=5, value_columns=selection)
+    # A missing target must not hide corrupt rows belonging to another index.
+    with pytest.raises(IndexMinuteSourceContractError):
+        MajorIndexMinsLakeReader(tmp_path).read_complete_history(replace(request, ts_code='000300.SH'), dataset=dataset, timeout_seconds=5, value_columns=columns)
+
+
+@pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+@pytest.mark.parametrize('freq', [60, 90, 120])
+def test_complete_history_preserves_target_with_other_indices(tmp_path, dataset, freq):
+    path = (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+    request = IndexMinuteReadRequest('000001.SH', freq, None, None, 10, None)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    before = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+    _rewrite_fixture_with_foreign_row(path, '')
+    after = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+    assert after.rows == before.rows
+    assert reader.read_complete_history(replace(request, ts_code='000300.SH'), dataset=dataset, timeout_seconds=5).rows == ()
+
+
+@pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+@pytest.mark.parametrize('freq', [60, 90, 120])
+def test_complete_history_projection_preserves_all_keys_values_and_budget(tmp_path, dataset, freq):
+    from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError
+
+    (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path, freq=freq)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', freq, None, None, 1, None)
+    full = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+    values = ('close',) if dataset == 'bars' else ('macd_dif', 'macd_dea', 'macd')
+    keys = ('ts_code', 'freq', 'trade_date', 'trade_time', *values)
+    projected = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5, value_columns=values)
+    assert len(full.rows[0]) == (11 if dataset == 'bars' else 23)
+    assert projected.rows == tuple({key: row[key] for key in keys} for row in full.rows)
+    assert projected.count == full.count and projected.scanned_file_count == full.scanned_file_count
+    assert not projected.has_more and projected.next_cursor is None
+    if dataset == 'bars':
+        with pytest.raises(IndexMinuteHistoryBudgetError):
+            reader.read_complete_history(request, dataset=dataset, timeout_seconds=5, max_rows=2, value_columns=values)
+
+
+@pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+@pytest.mark.parametrize('columns', [('unknown',), ('vwap',), ('trade_date',), ('macd', 'macd'), ("close; DROP TABLE x",), ()])
+def test_complete_history_projection_rejects_invalid_columns_even_for_empty_source(tmp_path, dataset, columns):
+    with pytest.raises(IndexMinuteRequestError):
+        MajorIndexMinsLakeReader(tmp_path).read_complete_history(
+            IndexMinuteReadRequest('000001.SH', 60, None, None, 10, None),
+            dataset=dataset, timeout_seconds=5, value_columns=columns,
+        )
+
+
+@pytest.mark.parametrize('freq', [60, 90, 120])
+def test_complete_history_pair_matches_sequential_projection_with_halved_resources(tmp_path, monkeypatch, freq):
+    _write_gold_bars(tmp_path, freq=freq)
+    _write_gold(tmp_path, freq=freq)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', freq, None, None, 1, None)
+    expected = tuple(reader.read_complete_history(request, dataset=dataset, value_columns=columns, timeout_seconds=5)
+                     for dataset, columns in (('bars', ('close',)), ('indicators', ('macd_dif', 'macd_dea', 'macd'))))
+    original_connect = duckdb.connect
+    observed = []
+    def connect(*args, **kwargs):
+        connection = original_connect(*args, **kwargs)
+        observed.append(connection.execute("SELECT current_setting('threads'), current_setting('memory_limit')").fetchone())
+        return connection
+    monkeypatch.setattr(duckdb, 'connect', connect)
+    actual = reader.read_complete_history_pair(request, timeout_seconds=5,
+        bar_value_columns=('close',), indicator_value_columns=('macd_dif', 'macd_dea', 'macd'))
+    assert [page.rows for page in actual] == [page.rows for page in expected]
+    assert observed == [(1, '244.1 MiB'), (1, '244.1 MiB')]
+
+
+def test_complete_history_pair_overlaps_reads_and_waits_for_cleanup_on_error(tmp_path, monkeypatch):
+    from threading import Event
+
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    started = {dataset: Event() for dataset in ('bars', 'indicators')}
+    cleaned = {dataset: Event() for dataset in started}
+    marker = IndexMinuteSourceContractError('invalid bars')
+    timeouts = []
+    def read(*args, dataset, timeout_seconds, duckdb_config, **kwargs):
+        started[dataset].set()
+        try:
+            assert started['indicators' if dataset == 'bars' else 'bars'].wait(2)
+            assert duckdb_config == {'threads': '1', 'memory_limit': '256MB'}
+            timeouts.append(timeout_seconds)
+            if dataset == 'bars':
+                raise marker
+            raise IndexMinuteSourceContractError('invalid indicators')
+        finally:
+            cleaned[dataset].set()
+    monkeypatch.setattr(reader, '_read_complete_history', read)
+    with pytest.raises(IndexMinuteSourceContractError) as error:
+        reader.read_complete_history_pair(IndexMinuteReadRequest('000001.SH', 60, None, None, 10, None), timeout_seconds=3)
+    assert error.value is marker
+    assert all(event.is_set() for event in cleaned.values())
+    assert len(timeouts) == 2 and all(0 < timeout <= 3 for timeout in timeouts)
+
+
+def test_complete_history_pair_does_not_start_expired_reads(tmp_path, monkeypatch):
+    from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError
+
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    def forbidden(*args, **kwargs):
+        pytest.fail('expired pair must not open a connection')
+    monkeypatch.setattr(reader, '_read_complete_history', forbidden)
+    with pytest.raises(IndexMinuteHistoryBudgetError):
+        reader.read_complete_history_pair(IndexMinuteReadRequest('000001.SH', 60, None, None, 10, None), timeout_seconds=0)

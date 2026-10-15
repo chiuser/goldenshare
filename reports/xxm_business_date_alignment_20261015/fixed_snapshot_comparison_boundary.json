@@ -1,0 +1,26 @@
+[
+  {
+    "period": "day",
+    "computedThrough": "2026-10-14",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "period": "m60",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "period": "m90",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "period": "m120",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  }
+]

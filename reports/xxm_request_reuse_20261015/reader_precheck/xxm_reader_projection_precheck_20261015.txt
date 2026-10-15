@@ -1,0 +1,24 @@
+import sys,json,time,hashlib
+from pathlib import Path
+from datetime import date
+sys.path.insert(0,str(Path.cwd()))
+sys.path.insert(0,'/private/tmp')
+import xxm_reader_projection_candidate_20261015 as c
+from src.foundation.clients.local_lake import major_index_mins_reader as m
+from src.foundation.clients.local_lake.major_index_mins_contract import FORMAL_LAKE_ROOT
+rows=[]
+for attempt in range(3):
+ for freq in (60,90,120):
+  group=[]
+  for mode in (('original','candidate') if attempt%2==0 else ('candidate','original')):
+   m._query_rows=c.ORIGINAL if mode=='original' else c.CANDIDATE
+   reader=m.MajorIndexMinsLakeReader(FORMAL_LAKE_ROOT);request=m.IndexMinuteReadRequest('000001.SH',freq,None,date(2026,10,14),10000,None)
+   start=time.perf_counter();datasets=[]
+   for dataset in ('bars','indicators'):
+    sig=reader.history_source_signature(request,dataset=dataset)
+    page=reader.read_complete_history(request,dataset=dataset,timeout_seconds=4)
+    datasets.append(dict(dataset=dataset,count=page.count,files=page.scanned_file_count,signature=hashlib.sha256(repr(sig).encode()).hexdigest(),values=hashlib.sha256(repr(tuple({k:r[k] for k in (('ts_code','freq','trade_date','trade_time','close') if dataset=='bars' else ('ts_code','freq','trade_date','trade_time','macd_dif','macd_dea','macd'))} for r in page.rows)).encode()).hexdigest()))
+   item=dict(attempt=attempt,mode=mode,freq=freq,seconds=time.perf_counter()-start,datasets=datasets);group.append(item);rows.append(item)
+   print(json.dumps(item),flush=True)
+  assert group[0]['datasets']==group[1]['datasets'],group
+  Path('reports/xxm_request_reuse_20261015/reader_precheck/full_history_projection.json').write_text(json.dumps(dict(status='PASS',records=rows),indent=2)+'\n')

@@ -1,0 +1,18 @@
+{
+  "src/biz/queries/wealth/market/index_detail_xxm/query_service.py": "5d31e5e1d6414a24c6ba52dc2e03784cf9eaa3c796fc141658917e1d2ef30efc",
+  "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "20cbd49e7f070e32702f479ad03d0c9bf0ac3788595cbac24a5adedeadc15285",
+  "src/biz/queries/wealth/market/index_detail_xxm/source.py": "0d66c73c996a227718edcde6ffa00cd47ff610f414f3cc0b1331513aabcdacc0",
+  "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "00cb3967372ae50e47c83cd44f790203e076f161ef59dddc15ae37b519ba9333",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "5eed143f74daa5673991f82f86911717a44c07bc69ac7f2225ff6c6c29f6df0b",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "ed9bd2f9d35fa5562d63934795ecd53b3a60759d11dd2049fb2e443241cf89b5",
+  "src/foundation/clients/local_lake/major_index_mins_reader.py": "eabe8ee5a68744f2dff460b6d9ed7c615ab702f77c519331bc6611e37546c5ef",
+  "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts": "e2718baddbbcfbe85b74b022c09bfff543c8f9795f3a07f474465669c9178e66",
+  "wealth/src/features/index-detail/xxm-forecast/apiClient.ts": "2de184902a303fe9e7305b3404f76daff8be24a5a8dce284f771e41d12d88519",
+  "wealth/src/features/index-detail/xxm/apiClient.ts": "64a0b797ba589f6afc0822c9b166f7bd4d75f357bb8bbdbbbc60957984b7d768",
+  "wealth/src/features/index-detail/api/indexDetailApiClient.ts": "21bc98b575495263e75a3a81cbdae3ac978d47d93546a8e86b477f9d0906b1eb",
+  "wealth/src/pages/index-detail/IndexDetailPage.tsx": "364fd6bb659da50266aead3755d7699b15878e49bd028fec13e1df2e0f63f7a2",
+  "wealth/src/features/nine-turn/controller/useNineTurnSeriesRegistry.ts": "04ad1d5ce1d085a5eb902d68ed72df0dc2953d1632c28b44c542633706110265",
+  "wealth/src/shared/api/wealthApiClient.ts": "5273f0e3e1c23a1be502efa297b6c0289d29ab688321cf76ee6684e151decb35"
+}

@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "coldWarmRequests": 160,
+  "concurrentRequests": 18,
+  "latestRequests": 4,
+  "maxHttpSeconds": 2.9760541249997914,
+  "maxComputeSeconds": 0.0779840829782188,
+  "maxBytes": 10779,
+  "rssMaxBytes": 1076396032
+}

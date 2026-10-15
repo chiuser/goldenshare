@@ -1,0 +1,309 @@
+[
+  {
+    "path": "src/biz/api/wealth/market/context.py",
+    "calls": [
+      {
+        "line": 30,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/api/wealth/market/index_turnover_insight.py",
+    "calls": []
+  },
+  {
+    "path": "src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py",
+    "calls": [
+      {
+        "line": 78,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py",
+    "calls": [
+      {
+        "line": 62,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 139,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail/index_detail_weights_query_service.py",
+    "calls": [
+      {
+        "line": 65,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py",
+    "calls": [
+      {
+        "line": 86,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py",
+    "calls": [
+      {
+        "line": 63,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query_service.py",
+    "calls": [
+      {
+        "line": 60,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query_service.py",
+    "calls": [
+      {
+        "line": 66,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_turnover_insight/index_turnover_insight_query_service.py",
+    "calls": [
+      {
+        "line": 72,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/turnover_insight/turnover_insight_query_service.py",
+    "calls": [
+      {
+        "line": 62,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/watchlist/watchlist_query_service.py",
+    "calls": [
+      {
+        "line": 89,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py",
+    "calls": [
+      {
+        "line": 88,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 160,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 312,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_analysis_meta_query_service.py",
+    "calls": [
+      {
+        "line": 48,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_relative_rotation_query_service.py",
+    "calls": [
+      {
+        "line": 113,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 191,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_momentum_snapshot_query_service.py",
+    "calls": [
+      {
+        "line": 98,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_dual_momentum_query_service.py",
+    "calls": [
+      {
+        "line": 96,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 164,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_momentum_query_service.py",
+    "calls": [
+      {
+        "line": 593,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_daily_insight_query_service.py",
+    "calls": [
+      {
+        "line": 47,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "src/biz/queries/wealth/market/sector_analysis/sector_member_breadth_query_service.py",
+    "calls": [
+      {
+        "line": 100,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 182,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      },
+      {
+        "line": 352,
+        "args": 1,
+        "keywords": [
+          "market",
+          "requested_trade_date"
+        ]
+      }
+    ]
+  }
+]

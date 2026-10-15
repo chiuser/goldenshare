@@ -1,4 +1,5 @@
 import { useXxmForecast } from "../../features/index-detail/xxm-forecast/useXxmForecast";
+import { loadIndexNineTurnSeries } from "../../features/index-detail/api/indexNineTurnLoader";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -27,9 +28,7 @@ import {
   buildTopMarketTickersFromMajorIndices,
 } from "../../features/major-indices/api/marketMajorIndicesAdapter";
 import { fetchMarketMajorIndices } from "../../features/major-indices/api/marketMajorIndicesApi";
-import { fetchIndexNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
-import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
@@ -39,16 +38,6 @@ import "./index-detail-page.css";
 interface IndexDetailPageProps { search: string; tsCode: string; }
 
 const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
-const loadIndexNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
-  if (request.subjectType !== "index") throw new Error("指数九转请求对象不符合产品合同。");
-  return fetchIndexNineTurnSeries({
-    endDate: request.endDate,
-    limit: request.limit,
-    period: request.period,
-    tsCode: request.tsCode,
-  }, options);
-};
-
 export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const controller = useIndexDetailController(tsCode, search);
   const [activePeriod, setActivePeriod] = useState<IndexPeriodKey>("day");

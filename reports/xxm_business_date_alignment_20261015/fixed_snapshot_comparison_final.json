@@ -1,0 +1,86 @@
+[
+  {
+    "mode": "cold",
+    "period": "day",
+    "computedThrough": "2026-10-13",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m60",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m90",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m120",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "day",
+    "computedThrough": "2026-10-13",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m60",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m90",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m120",
+    "computedThrough": "2026-10-13T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "latest",
+    "period": "day",
+    "computedThrough": "2026-10-14",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "latest",
+    "period": "m60",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "latest",
+    "period": "m90",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "latest",
+    "period": "m120",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "allFieldsEqual": true,
+    "differingFields": []
+  }
+]

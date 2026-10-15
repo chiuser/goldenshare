@@ -42,11 +42,12 @@ class MarketPageContextQuery:
         *,
         market: str,
         requested_trade_date: date | None,
+        now: datetime | None = None,
     ) -> MarketPageContext:
         if market != "CN_A":
             raise ValueError(f"unsupported market: {market}")
 
-        local_now = _now_cn()
+        local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
         source = "explicit" if requested_trade_date is not None else "default"
 
         latest_open_date = (

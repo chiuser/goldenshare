@@ -1,0 +1,17 @@
+"""Read-only paired-read precheck, total per request 512MB and 2 threads."""
+import inspect
+from concurrent.futures import ThreadPoolExecutor
+import xxm_reader_projection_candidate_20261015 as projection
+from src.foundation.clients.local_lake import major_index_mins_reader as m
+from src.biz.queries.wealth.market.index_detail_xxm import source,query_service
+
+def install():
+ projection.install()
+ m.INDEX_MINUTE_HISTORY_DUCKDB_CONFIG={'memory_limit':'256MB','threads':'1'}
+ text=inspect.getsource(source.read_minutes)
+ text=text.replace('    bars = reader.read_complete_history(request, dataset="bars", timeout_seconds=deadline())\n    indicators = reader.read_complete_history(request, dataset="indicators", timeout_seconds=deadline())', '''    with ThreadPoolExecutor(max_workers=2) as pool:
+        reads = [pool.submit(reader.read_complete_history, request, dataset=dataset, timeout_seconds=deadline()) for dataset in ('bars', 'indicators')]
+        bars, indicators = (future.result() for future in reads)''')
+ namespace=dict(vars(source));namespace['ThreadPoolExecutor']=ThreadPoolExecutor
+ exec(compile(text,__file__,'exec'),namespace)
+ source.read_minutes=query_service.read_minutes=namespace['read_minutes']

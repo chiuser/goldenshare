@@ -1,0 +1,66 @@
+{
+  "reference": "reader_precheck/http_parallel",
+  "status": "PASS",
+  "records": [
+    {
+      "path": "http_cold_day.json",
+      "period": "day",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_cold_m120.json",
+      "period": "m120",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_cold_m60.json",
+      "period": "m60",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_cold_m90.json",
+      "period": "m90",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_latest_day.json",
+      "period": "day",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_latest_m120.json",
+      "period": "m120",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_latest_m60.json",
+      "period": "m60",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_latest_m90.json",
+      "period": "m90",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_warm_day.json",
+      "period": "day",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_warm_m120.json",
+      "period": "m120",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_warm_m60.json",
+      "period": "m60",
+      "allFieldsEqual": true
+    },
+    {
+      "path": "http_warm_m90.json",
+      "period": "m90",
+      "allFieldsEqual": true
+    }
+  ]
+}

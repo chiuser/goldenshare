@@ -1,0 +1,10 @@
+usage: xxm_history_projection_audit.py [-h] --output OUTPUT --through THROUGH
+
+Compare complete minute history with its XXM field projection, read-only. Run
+from the repository root. Reads the formal Lake, never writes source files;
+all output goes to a new explicitly selected report directory.
+
+options:
+  -h, --help         show this help message and exit
+  --output OUTPUT
+  --through THROUGH

@@ -1,0 +1,245 @@
+[
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 0,
+    "rows": {
+      "day": {
+        "seconds": 0.32163141714408994,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.28608391573652625,
+        "computeSeconds": 0.0764902918599546,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.589593540877104,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.553518374916166,
+        "computeSeconds": 0.014407749753445387,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 1,
+    "rows": {
+      "day": {
+        "seconds": 0.44682316621765494,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.20522645907476544,
+        "computeSeconds": 0.07657662499696016,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.1659372500143945,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.131866792216897,
+        "computeSeconds": 0.013855415862053633,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "day",
+      "m60"
+    ],
+    "attempt": 2,
+    "rows": {
+      "day": {
+        "seconds": 0.32100662495940924,
+        "bytes": 7799,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13",
+        "buildSeconds": 0.20540608325973153,
+        "computeSeconds": 0.07655933406203985,
+        "displayContext": null
+      },
+      "m60": {
+        "seconds": 2.1978782918304205,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.081841125153005,
+        "computeSeconds": 0.013902625069022179,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m60": {
+        "seconds": 3.2957819998264313,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.2645996250212193,
+        "computeSeconds": 0.01404987508431077,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 3.2706131669692695,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1607687077485025,
+        "computeSeconds": 0.04290612507611513,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m60": {
+        "seconds": 3.228124416898936,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1940354998223484,
+        "computeSeconds": 0.015959790907800198,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 3.1401728745549917,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.0081417500041425,
+        "computeSeconds": 0.04921508301049471,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m60",
+      "m90"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m60": {
+        "seconds": 3.1887396248057485,
+        "bytes": 1843,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.1581699158996344,
+        "computeSeconds": 0.01346475025638938,
+        "displayContext": null
+      },
+      "m90": {
+        "seconds": 3.149424542207271,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.0282086660154164,
+        "computeSeconds": 0.039967124816030264,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 0,
+    "rows": {
+      "m90": {
+        "seconds": 2.7515767496079206,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.7212788332253695,
+        "computeSeconds": 0.022277541924268007,
+        "displayContext": null
+      },
+      "m120": {
+        "seconds": 3.027132541872561,
+        "bytes": 1720,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.9992834581062198,
+        "computeSeconds": 0.009570959024131298,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 1,
+    "rows": {
+      "m90": {
+        "seconds": 3.1572751658968627,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 3.12007891619578,
+        "computeSeconds": 0.022123584058135748,
+        "displayContext": null
+      },
+      "m120": {
+        "seconds": 2.684999832883477,
+        "bytes": 1720,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.6487940829247236,
+        "computeSeconds": 0.009473791811615229,
+        "displayContext": null
+      }
+    }
+  },
+  {
+    "group": [
+      "m90",
+      "m120"
+    ],
+    "attempt": 2,
+    "rows": {
+      "m90": {
+        "seconds": 2.988547000102699,
+        "bytes": 10779,
+        "status": "CONDITIONAL_ENTRY",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.9539955416694283,
+        "computeSeconds": 0.021670457907021046,
+        "displayContext": null
+      },
+      "m120": {
+        "seconds": 2.9095779582858086,
+        "bytes": 1720,
+        "status": "NO_CANDIDATE",
+        "through": "2026-10-13T15:00:00+08:00",
+        "buildSeconds": 2.787464292254299,
+        "computeSeconds": 0.01575708296149969,
+        "displayContext": null
+      }
+    }
+  }
+]

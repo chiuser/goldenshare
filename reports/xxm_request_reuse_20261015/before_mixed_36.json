@@ -1,0 +1,2972 @@
+[
+  {
+    "label": "single_cold",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 3.6282318751327693,
+    "bytes": 1804,
+    "buildSeconds": 3.3703827909193933,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.5827827155590057e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.021268624812364578,
+        "threadCpuSeconds": 0.007472124999999996
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.05914445919916034,
+        "threadCpuSeconds": 0.007952958000000003
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.500375896692276e-06,
+        "threadCpuSeconds": 3.2909999999886086e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.2491580001078546,
+        "threadCpuSeconds": 0.161547291,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.5683408747427166,
+        "threadCpuSeconds": 0.18089491700000002,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.2855145833455026,
+        "threadCpuSeconds": 0.22442066700000002
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5938472081907094,
+        "threadCpuSeconds": 0.40569175
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.9889531247317791,
+        "threadCpuSeconds": 0.739530917,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.026228333823382854,
+        "threadCpuSeconds": 0.02603087500000001
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8687841249629855,
+        "threadCpuSeconds": 0.6093046659999999
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0489409579895437,
+        "threadCpuSeconds": 0.787870166,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 2.092501333914697,
+        "threadCpuSeconds": 1.581932
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02618149993941188,
+        "threadCpuSeconds": 0.0261302499999998
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.126783249899745,
+        "threadCpuSeconds": 0.12666179100000008
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.00820870790630579,
+        "threadCpuSeconds": 0.0082081249999999
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003433333244174719,
+        "threadCpuSeconds": 0.003433750000000124
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.9581057131290436e-06,
+        "threadCpuSeconds": 1.8329999997845903e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 8.124858140945435e-06,
+        "threadCpuSeconds": 8.12499999991445e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "single_warm_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.6279592500068247,
+    "bytes": 1804,
+    "buildSeconds": 0.5211755000054836,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.5003606677055359e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.015739249996840954,
+        "threadCpuSeconds": 0.0013560420000000004
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.0852702921256423,
+        "threadCpuSeconds": 0.006705709000000001
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 5.417037755250931e-06,
+        "threadCpuSeconds": 5.165999999999157e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.12789324996992946,
+        "threadCpuSeconds": 0.12780866600000002,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.0960397501476109,
+        "threadCpuSeconds": 0.0959815,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02677995804697275,
+        "threadCpuSeconds": 0.02673837500000001
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.14356800029054284,
+        "threadCpuSeconds": 0.14330845799999997
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008601707872003317,
+        "threadCpuSeconds": 0.008582790999999979
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0036735408939421177,
+        "threadCpuSeconds": 0.0036676250000000077
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.3748725652694702e-06,
+        "threadCpuSeconds": 2.0420000000354044e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.708091288805008e-06,
+        "threadCpuSeconds": 7.707999999995163e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "single_warm_2",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.4664015406742692,
+    "bytes": 1804,
+    "buildSeconds": 0.43624987499788404,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.375097781419754e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013027916196733713,
+        "threadCpuSeconds": 0.0011813330000003397
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03071033302694559,
+        "threadCpuSeconds": 0.006806166000000058
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.875008016824722e-06,
+        "threadCpuSeconds": 4.6659999997089585e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09796312497928739,
+        "threadCpuSeconds": 0.09784012500000028,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.0997884999960661,
+        "threadCpuSeconds": 0.09965391699999993,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02547595789656043,
+        "threadCpuSeconds": 0.025449542000000047
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.14261208288371563,
+        "threadCpuSeconds": 0.14236245899999966
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.009032499976456165,
+        "threadCpuSeconds": 0.009031583000000065
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003553125075995922,
+        "threadCpuSeconds": 0.003553584000000054
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.1248124539852142e-06,
+        "threadCpuSeconds": 1.8750000001510614e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.666647434234619e-06,
+        "threadCpuSeconds": 7.708000000050674e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "single_cold",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.434472874738276,
+    "bytes": 10742,
+    "buildSeconds": 2.404160208068788,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.7080456018447876e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.012098541017621756,
+        "threadCpuSeconds": 0.0010958340000000177
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03765112487599254,
+        "threadCpuSeconds": 0.006913166999999998
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.458932042121887e-06,
+        "threadCpuSeconds": 3.250000000010189e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.13575033331289887,
+        "threadCpuSeconds": 0.135520584,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.15577995777130127,
+        "threadCpuSeconds": 0.14799425,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014729749877005816,
+        "threadCpuSeconds": 0.014435832999999954
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.579096875153482,
+        "threadCpuSeconds": 0.38704220899999997
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7004804578609765,
+        "threadCpuSeconds": 0.5080320419999999,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.024415915831923485,
+        "threadCpuSeconds": 0.024250708999999926
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8303999579511583,
+        "threadCpuSeconds": 0.6029927499999999
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0306830839253962,
+        "threadCpuSeconds": 0.800903208,
+        "dataset": "indicators",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.8059704578481615,
+        "threadCpuSeconds": 1.3836257500000002
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.019258541986346245,
+        "threadCpuSeconds": 0.01924316699999995
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.10684470925480127,
+        "threadCpuSeconds": 0.10675004199999982
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.00623695831745863,
+        "threadCpuSeconds": 0.006236832999999997
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.009711207821965218,
+        "threadCpuSeconds": 0.009711499999999873
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.00030570803210139275,
+        "threadCpuSeconds": 0.0003056670000001205
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.591660737991333e-05,
+        "threadCpuSeconds": 5.600000000027805e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "single_warm_1",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.514834166970104,
+    "bytes": 10742,
+    "buildSeconds": 0.48544558323919773,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.6246922314167023e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.1010164157487452,
+        "threadCpuSeconds": 0.001167249999999953
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.030758084263652563,
+        "threadCpuSeconds": 0.006444083999999961
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.875008016824722e-06,
+        "threadCpuSeconds": 4.70800000007543e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09780620783567429,
+        "threadCpuSeconds": 0.09772562499999982,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09875404089689255,
+        "threadCpuSeconds": 0.09867408299999969,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.01915699988603592,
+        "threadCpuSeconds": 0.019137042000000104
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.10736520821228623,
+        "threadCpuSeconds": 0.1071452909999997
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.006613125093281269,
+        "threadCpuSeconds": 0.00661304199999968
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.009695624932646751,
+        "threadCpuSeconds": 0.009696040999999767
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.00034283287823200226,
+        "threadCpuSeconds": 0.00034283400000001407
+      },
+      {
+        "stage": "displayText",
+        "seconds": 4.9791764467954636e-05,
+        "threadCpuSeconds": 4.995900000004383e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "single_warm_2",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.5178606659173965,
+    "bytes": 10742,
+    "buildSeconds": 0.4869628753513098,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.166015863418579e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.0976112917996943,
+        "threadCpuSeconds": 0.0011015840000001553
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.030747249722480774,
+        "threadCpuSeconds": 0.007036416000000045
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.125293344259262e-06,
+        "threadCpuSeconds": 4.125000000243517e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09522620914503932,
+        "threadCpuSeconds": 0.09509120800000037,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09931912505999207,
+        "threadCpuSeconds": 0.0992236249999996,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.01938437530770898,
+        "threadCpuSeconds": 0.01938154199999964
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1108691249974072,
+        "threadCpuSeconds": 0.11069233400000034
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.006699792109429836,
+        "threadCpuSeconds": 0.006699499999999858
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.009674958419054747,
+        "threadCpuSeconds": 0.009675583000000376
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.00034808414056897163,
+        "threadCpuSeconds": 0.00034808400000008177
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.091587081551552e-05,
+        "threadCpuSeconds": 5.108299999978527e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "single_cold",
+    "period": "m120",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.5626301248557866,
+    "bytes": 1681,
+    "buildSeconds": 2.531432791147381,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.3746321201324463e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.09997741738334298,
+        "threadCpuSeconds": 0.0011203750000001733
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03865395812317729,
+        "threadCpuSeconds": 0.006770291999999678
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.7499703466892242e-06,
+        "threadCpuSeconds": 3.5420000004116048e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.1604669587686658,
+        "threadCpuSeconds": 0.15959208300000016,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.15083741676062346,
+        "threadCpuSeconds": 0.14088762499999996,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014592709019780159,
+        "threadCpuSeconds": 0.01441354199999978
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5914498339407146,
+        "threadCpuSeconds": 0.3827334160000002
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7126303329132497,
+        "threadCpuSeconds": 0.5036346250000001,
+        "dataset": "bars",
+        "sourceRows": 8632,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.024014582857489586,
+        "threadCpuSeconds": 0.023852666999999883
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8356322920881212,
+        "threadCpuSeconds": 0.5781116250000005
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0146534168161452,
+        "threadCpuSeconds": 0.7568718749999999,
+        "dataset": "indicators",
+        "sourceRows": 8632,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.7566702077165246,
+        "threadCpuSeconds": 1.2898562079999998
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.013414667453616858,
+        "threadCpuSeconds": 0.013414917000000415
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.07789925020188093,
+        "threadCpuSeconds": 0.07785841699999985
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.0043795001693069935,
+        "threadCpuSeconds": 0.004379040999999972
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.002249165903776884,
+        "threadCpuSeconds": 0.002249374999999887
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.708976924419403e-06,
+        "threadCpuSeconds": 1.624999999449983e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.875263690948486e-06,
+        "threadCpuSeconds": 7.87500000054564e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "786ba1fed5800f6cee8574ba1ad4900811b9eb3e6f0452fec923b4c08232dbab"
+  },
+  {
+    "label": "single_warm_1",
+    "period": "m120",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.3705909578129649,
+    "bytes": 1681,
+    "buildSeconds": 0.34293566597625613,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.1245720088481903e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.0109628327190876,
+        "threadCpuSeconds": 0.0012020829999999094
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.028485750313848257,
+        "threadCpuSeconds": 0.006557041999999846
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.707835614681244e-06,
+        "threadCpuSeconds": 4.541000000024553e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09860062506049871,
+        "threadCpuSeconds": 0.09850479099999987,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09569012513384223,
+        "threadCpuSeconds": 0.09559545800000002,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.01277695782482624,
+        "threadCpuSeconds": 0.012767042000000117
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.07576733315363526,
+        "threadCpuSeconds": 0.07573912500000013
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.004376166965812445,
+        "threadCpuSeconds": 0.004371208000000237
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0024902080185711384,
+        "threadCpuSeconds": 0.0024845830000002067
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.62515789270401e-06,
+        "threadCpuSeconds": 1.5420000001320489e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.2498805820941925e-06,
+        "threadCpuSeconds": 7.249999999903167e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "786ba1fed5800f6cee8574ba1ad4900811b9eb3e6f0452fec923b4c08232dbab"
+  },
+  {
+    "label": "single_warm_2",
+    "period": "m120",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.4039812907576561,
+    "bytes": 1681,
+    "buildSeconds": 0.37402824964374304,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.0416842997074127e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.011270209215581417,
+        "threadCpuSeconds": 0.000992291999999395
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.02391079207882285,
+        "threadCpuSeconds": 0.006767542000000404
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.292000085115433e-06,
+        "threadCpuSeconds": 4.083000000321135e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09606616571545601,
+        "threadCpuSeconds": 0.09594537499999944,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.13058608304709196,
+        "threadCpuSeconds": 0.13044516700000042,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.013035916723310947,
+        "threadCpuSeconds": 0.013032459000000607
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.08021583314985037,
+        "threadCpuSeconds": 0.0801627500000004
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.004313624929636717,
+        "threadCpuSeconds": 0.004304875000000763
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.002277499996125698,
+        "threadCpuSeconds": 0.0022695419999996247
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.00001522898674e-06,
+        "threadCpuSeconds": 1.7500000000225668e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 6.750226020812988e-06,
+        "threadCpuSeconds": 6.79099999967292e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "786ba1fed5800f6cee8574ba1ad4900811b9eb3e6f0452fec923b4c08232dbab"
+  },
+  {
+    "label": "two_forecasts_0",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 3.165733083151281,
+    "bytes": 1804,
+    "buildSeconds": 3.138353125192225,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.2093223631381989e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.01082283305004239,
+        "threadCpuSeconds": 0.001036917
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03419312462210655,
+        "threadCpuSeconds": 0.007037458999999999
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.874992787837982e-06,
+        "threadCpuSeconds": 2.749999999999281e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.1054524159990251,
+        "threadCpuSeconds": 0.103791833,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.23470570798963308,
+        "threadCpuSeconds": 0.145620833,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.01750320801511407,
+        "threadCpuSeconds": 0.01735270900000002
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.6780144167132676,
+        "threadCpuSeconds": 0.46113104200000005
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0086300410330296,
+        "threadCpuSeconds": 0.67340625,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.03313858387991786,
+        "threadCpuSeconds": 0.03299383299999992
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 1.1154965842142701,
+        "threadCpuSeconds": 0.7040055
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.3723408747464418,
+        "threadCpuSeconds": 0.960193208,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 2.438141915947199,
+        "threadCpuSeconds": 1.690718625
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02555570797994733,
+        "threadCpuSeconds": 0.025422499999999904
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1398666249588132,
+        "threadCpuSeconds": 0.13971495899999997
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008549999911338091,
+        "threadCpuSeconds": 0.008549665999999956
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003381500020623207,
+        "threadCpuSeconds": 0.003381791000000245
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.832617610692978e-06,
+        "threadCpuSeconds": 2.7499999997182556e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 8.999835699796677e-06,
+        "threadCpuSeconds": 8.958000000003352e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "two_forecasts_0",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.7351712910458446,
+    "bytes": 10742,
+    "buildSeconds": 2.6168735828250647,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.4998950064182281e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.014958875253796577,
+        "threadCpuSeconds": 0.0011157090000000203
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.060021250043064356,
+        "threadCpuSeconds": 0.006912999999999947
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 6.875023245811462e-06,
+        "threadCpuSeconds": 6.707999999910896e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.24061733298003674,
+        "threadCpuSeconds": 0.15092412499999996,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.14183312468230724,
+        "threadCpuSeconds": 0.13290329099999987,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.013990417122840881,
+        "threadCpuSeconds": 0.01398837499999983
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.41506104078143835,
+        "threadCpuSeconds": 0.4123371250000001
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.580737791955471,
+        "threadCpuSeconds": 0.5687666250000003,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.03062970796599984,
+        "threadCpuSeconds": 0.030569958000000064
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.9283037087880075,
+        "threadCpuSeconds": 0.6690569160000002
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.1803615409880877,
+        "threadCpuSeconds": 0.9183352920000001,
+        "dataset": "indicators",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.8465435830876231,
+        "threadCpuSeconds": 1.57102625
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.024977625347673893,
+        "threadCpuSeconds": 0.024832625000000164
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.12254433427006006,
+        "threadCpuSeconds": 0.11212458299999994
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.006574792321771383,
+        "threadCpuSeconds": 0.00657420799999997
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.010357417166233063,
+        "threadCpuSeconds": 0.010352916000000434
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.000673624686896801,
+        "threadCpuSeconds": 0.0006737499999998064
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.27501106262207e-05,
+        "threadCpuSeconds": 5.29169999996526e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "same_period_chart_forecast_0",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 200,
+    "seconds": 2.403922999743372,
+    "bytes": 135283,
+    "buildSeconds": 2.3680794998072088,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.8611505841836333
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.01906654192134738,
+        "threadCpuSeconds": 0.0011076669999994238
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.11606620764359832,
+        "threadCpuSeconds": 0.006532082999999744
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.37488779425621e-06,
+        "threadCpuSeconds": 4.2499999999279225e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09642125014215708,
+        "threadCpuSeconds": 0.09632599999999947,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.10127737512812018,
+        "threadCpuSeconds": 0.10116062500000034,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02562304073944688,
+        "threadCpuSeconds": 0.025622957999999585
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.14176254207268357,
+        "threadCpuSeconds": 0.14152279099999987
+      }
+    ],
+    "error": null,
+    "status": "READY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "a5b725ac3ff7c24aaa10c13a5399fa32b5eea8bd8c7e497b68e06df63ac9f587"
+  },
+  {
+    "label": "same_period_chart_forecast_0",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 1.893579833675176,
+    "bytes": 1804,
+    "buildSeconds": 1.8624593340791762,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.3746321201324463e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013167958240956068,
+        "threadCpuSeconds": 0.0013051669999999405
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.030767166055738926,
+        "threadCpuSeconds": 0.0067544169999997905
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.9578804969787598e-06,
+        "threadCpuSeconds": 2.7499999997182556e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09426354104653001,
+        "threadCpuSeconds": 0.09418316700000018,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09786075027659535,
+        "threadCpuSeconds": 0.09776775000000004,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014487666077911854,
+        "threadCpuSeconds": 0.014483833000000335
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.3794663748703897,
+        "threadCpuSeconds": 0.37832212499999995
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.49804437486454844,
+        "threadCpuSeconds": 0.4963522079999998,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.023317957762628794,
+        "threadCpuSeconds": 0.023313166999999968
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.560570334084332,
+        "threadCpuSeconds": 0.558738709
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.740598417352885,
+        "threadCpuSeconds": 0.7372719999999999,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.3207192923873663,
+        "threadCpuSeconds": 1.315626166
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.025960790924727917,
+        "threadCpuSeconds": 0.025961042000000045
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.13548066560178995,
+        "threadCpuSeconds": 0.1353439999999999
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008585374802350998,
+        "threadCpuSeconds": 0.008573709000000207
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.00337629159912467,
+        "threadCpuSeconds": 0.0033765829999996555
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.2081658244132996e-06,
+        "threadCpuSeconds": 1.958000000357174e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 1.074979081749916e-05,
+        "threadCpuSeconds": 1.0792000000314772e-05
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "chart_plus_two_forecasts_0",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 200,
+    "seconds": 2.3709200001321733,
+    "bytes": 135283,
+    "buildSeconds": 2.2470383746549487,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.8491939580999315
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.010513958055526018,
+        "threadCpuSeconds": 0.00108875
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.02615537540987134,
+        "threadCpuSeconds": 0.006536750000000001
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.292000085115433e-06,
+        "threadCpuSeconds": 7.208999999999341e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09500187495723367,
+        "threadCpuSeconds": 0.094936042,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09936970891430974,
+        "threadCpuSeconds": 0.099229417,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02509874990209937,
+        "threadCpuSeconds": 0.02509045800000001
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.13593399990350008,
+        "threadCpuSeconds": 0.13580829199999997
+      }
+    ],
+    "error": null,
+    "status": "READY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "a5b725ac3ff7c24aaa10c13a5399fa32b5eea8bd8c7e497b68e06df63ac9f587"
+  },
+  {
+    "label": "chart_plus_two_forecasts_0",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 1.9695385000668466,
+    "bytes": 1804,
+    "buildSeconds": 1.850204082671553,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.458916813135147e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.01262066699564457,
+        "threadCpuSeconds": 0.001110999999999862
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.02448708424344659,
+        "threadCpuSeconds": 0.006592207999999822
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.125052899122238e-06,
+        "threadCpuSeconds": 2.9579999996087736e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.10102079203352332,
+        "threadCpuSeconds": 0.09994779200000004,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09513779124245048,
+        "threadCpuSeconds": 0.09509587500000016,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.013886000029742718,
+        "threadCpuSeconds": 0.01388604200000021
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.37466891668736935,
+        "threadCpuSeconds": 0.37356216600000014
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.49772620759904385,
+        "threadCpuSeconds": 0.495003584,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.023365875240415335,
+        "threadCpuSeconds": 0.023343041999999592
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5849579591304064,
+        "threadCpuSeconds": 0.5821457499999996
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7535798749886453,
+        "threadCpuSeconds": 0.7505942920000006,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.3092796672135592,
+        "threadCpuSeconds": 1.3034382080000002
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.025523667223751545,
+        "threadCpuSeconds": 0.025523916000000035
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.13385291630402207,
+        "threadCpuSeconds": 0.13369741700000048
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.009467834141105413,
+        "threadCpuSeconds": 0.009439957999999748
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0033989171497523785,
+        "threadCpuSeconds": 0.00340166700000033
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.9581057131290436e-06,
+        "threadCpuSeconds": 3.7920000002245047e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.583294063806534e-06,
+        "threadCpuSeconds": 7.583999999560831e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "chart_plus_two_forecasts_0",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 0.1992427078075707,
+    "bytes": 107,
+    "buildSeconds": 1.3499986380338669e-05,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "two_tabs_same_forecast_0",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.0242913332767785,
+    "bytes": 1804,
+    "buildSeconds": 1.9899324579164386,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.4170072972774506e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013027625158429146,
+        "threadCpuSeconds": 0.0008842500000003639
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.08198733301833272,
+        "threadCpuSeconds": 0.006495791999999945
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.1671876311302185e-06,
+        "threadCpuSeconds": 2.0830000000415794e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.19291599979624152,
+        "threadCpuSeconds": 0.12406775000000003,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09866387536749244,
+        "threadCpuSeconds": 0.09858162499999956,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014468417037278414,
+        "threadCpuSeconds": 0.014457500000000678
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.3807769170962274,
+        "threadCpuSeconds": 0.379547541
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.5007860832847655,
+        "threadCpuSeconds": 0.49944495899999986,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.023202833253890276,
+        "threadCpuSeconds": 0.023202541999999937
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5711107919923961,
+        "threadCpuSeconds": 0.5681758329999997
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7449912503361702,
+        "threadCpuSeconds": 0.7409314580000004,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.3032478750683367,
+        "threadCpuSeconds": 1.2978347920000006
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.02641820814460516,
+        "threadCpuSeconds": 0.02633087499999931
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.12809991603717208,
+        "threadCpuSeconds": 0.12802612500000077
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008222916163504124,
+        "threadCpuSeconds": 0.00822258400000031
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003327708225697279,
+        "threadCpuSeconds": 0.00332812499999946
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.8328428268432617e-06,
+        "threadCpuSeconds": 1.7090000001829253e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.333233952522278e-06,
+        "threadCpuSeconds": 7.33400000019202e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "two_tabs_same_forecast_0",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 503,
+    "seconds": 0.2043442502617836,
+    "bytes": 106,
+    "buildSeconds": 1.0665971785783768e-05,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "two_tabs_same_forecast_0",
+    "period": "day",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.20557633321732283,
+    "bytes": 7783,
+    "buildSeconds": 0.17155558289960027,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.458916813135147e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013813000172376633,
+        "threadCpuSeconds": 0.0010500000000002174
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.030558208003640175,
+        "threadCpuSeconds": 0.007528500000000271
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.1667219698429108e-06,
+        "threadCpuSeconds": 2.0830000000415794e-06
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.00041675008833408356,
+        "threadCpuSeconds": 0.00041591699999976584
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.004926458932459354,
+        "threadCpuSeconds": 0.004918291000000075
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.0006579593755304813,
+        "threadCpuSeconds": 0.000657457999999167
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.06734879175201058,
+        "threadCpuSeconds": 0.06584512500000006
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 8.770870044827461e-05,
+        "threadCpuSeconds": 8.770899999976933e-05
+      },
+      {
+        "stage": "displayText",
+        "seconds": 6.645778194069862e-05,
+        "threadCpuSeconds": 6.658299999973138e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14",
+    "bodySha256": "2c567407651c8da15ac9432b18f91a443be20463c846617a395bdd4744f3c9b3"
+  },
+  {
+    "label": "two_tabs_same_forecast_0",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 0.0449544582515955,
+    "bytes": 107,
+    "buildSeconds": 9.416602551937103e-06,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "two_forecasts_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.6748242089524865,
+    "bytes": 1804,
+    "buildSeconds": 2.5369386672973633,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.291278749704361e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013947291765362024,
+        "threadCpuSeconds": 0.0008117920000003664
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.0627932078205049,
+        "threadCpuSeconds": 0.00791795800000017
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.1669624149799347e-06,
+        "threadCpuSeconds": 3.0839999993759193e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.28479904076084495,
+        "threadCpuSeconds": 0.15278354199999988,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.22201129095628858,
+        "threadCpuSeconds": 0.14655225000000005,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.02153929229825735,
+        "threadCpuSeconds": 0.02150808300000051
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.42365804174914956,
+        "threadCpuSeconds": 0.42186199999999996
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.6048053749836981,
+        "threadCpuSeconds": 0.5876321659999997,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.029965125024318695,
+        "threadCpuSeconds": 0.029940625000000054
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.6695917081087828,
+        "threadCpuSeconds": 0.6531855000000002
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.8759739580564201,
+        "threadCpuSeconds": 0.8589640420000002,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.538506833370775,
+        "threadCpuSeconds": 1.504256667
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.03423704206943512,
+        "threadCpuSeconds": 0.027684791999999625
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.18843920901417732,
+        "threadCpuSeconds": 0.14476366700000032
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.014887707773596048,
+        "threadCpuSeconds": 0.008635416999998924
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003402582835406065,
+        "threadCpuSeconds": 0.0034027920000010425
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.7923302948474884e-06,
+        "threadCpuSeconds": 1.624999999449983e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 1.0250136256217957e-05,
+        "threadCpuSeconds": 1.0291000000606232e-05
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "two_forecasts_1",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.8544024587608874,
+    "bytes": 10742,
+    "buildSeconds": 2.82527583418414,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.4998950064182281e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.011526791844516993,
+        "threadCpuSeconds": 0.0010238750000004515
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03197491727769375,
+        "threadCpuSeconds": 0.006979541999999839
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.625398337841034e-06,
+        "threadCpuSeconds": 2.4170000001433323e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.2434142092242837,
+        "threadCpuSeconds": 0.17008670799999948,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.25281666591763496,
+        "threadCpuSeconds": 0.15464991699999953,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.020843792241066694,
+        "threadCpuSeconds": 0.020583124999999924
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.6443196660839021,
+        "threadCpuSeconds": 0.4417312080000002
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.872893207706511,
+        "threadCpuSeconds": 0.6223568750000004,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.03726212494075298,
+        "threadCpuSeconds": 0.03700608300000052
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.7716339160688221,
+        "threadCpuSeconds": 0.6269454999999997
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0150096248835325,
+        "threadCpuSeconds": 0.863322417,
+        "dataset": "indicators",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.9689513752236962,
+        "threadCpuSeconds": 1.5337664170000007
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.03308850014582276,
+        "threadCpuSeconds": 0.02045462500000017
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1141503332182765,
+        "threadCpuSeconds": 0.11343841700000024
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.006820458918809891,
+        "threadCpuSeconds": 0.006820124999999955
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.009769582655280828,
+        "threadCpuSeconds": 0.00977024999999987
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.0003392905928194523,
+        "threadCpuSeconds": 0.0003392080000006459
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.2166637033224106e-05,
+        "threadCpuSeconds": 5.2250000000420016e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "same_period_chart_forecast_1",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 200,
+    "seconds": 2.0063748750835657,
+    "bytes": 135283,
+    "buildSeconds": 1.9756350829266012,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.1669471859931946e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.011607415974140167,
+        "threadCpuSeconds": 0.0009990000000001942
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.037427665665745735,
+        "threadCpuSeconds": 0.0067771250000001615
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.707835614681244e-06,
+        "threadCpuSeconds": 4.500000000184912e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09313470777124166,
+        "threadCpuSeconds": 0.09309870799999942,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09749724995344877,
+        "threadCpuSeconds": 0.09736600000000006,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.015299167018383741,
+        "threadCpuSeconds": 0.015125166999999884
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5242600003257394,
+        "threadCpuSeconds": 0.3967277919999992
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.6389632914215326,
+        "threadCpuSeconds": 0.5111289159999997,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.02480966690927744,
+        "threadCpuSeconds": 0.024753125000000153
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5736361248418689,
+        "threadCpuSeconds": 0.5711460000000006
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7569831251166761,
+        "threadCpuSeconds": 0.7503113750000008,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.4504446666687727,
+        "threadCpuSeconds": 1.315813167
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.025898458901792765,
+        "threadCpuSeconds": 0.025898959000000943
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1356584168970585,
+        "threadCpuSeconds": 0.1355456670000006
+      }
+    ],
+    "error": null,
+    "status": "READY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "a5b725ac3ff7c24aaa10c13a5399fa32b5eea8bd8c7e497b68e06df63ac9f587"
+  },
+  {
+    "label": "same_period_chart_forecast_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.483123749960214,
+    "bytes": 1804,
+    "buildSeconds": 2.4507079580798745,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.9747709156945348
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.014945042319595814,
+        "threadCpuSeconds": 0.0012233330000004372
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03400025004521012,
+        "threadCpuSeconds": 0.006311207999999624
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.00003045797348e-06,
+        "threadCpuSeconds": 3.7910000001417643e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.13487687474116683,
+        "threadCpuSeconds": 0.13473612499999987,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09843895817175508,
+        "threadCpuSeconds": 0.0982822910000003,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.026190957985818386,
+        "threadCpuSeconds": 0.026126499999999275
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.13866783306002617,
+        "threadCpuSeconds": 0.1383936669999999
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008998583070933819,
+        "threadCpuSeconds": 0.008990417000000583
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.003364624921232462,
+        "threadCpuSeconds": 0.0033649170000007445
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.6666017472743988e-06,
+        "threadCpuSeconds": 1.5409999996052193e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 6.875023245811462e-06,
+        "threadCpuSeconds": 6.9160000002455035e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "chart_plus_two_forecasts_1",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 503,
+    "seconds": 0.042102291248738766,
+    "bytes": 106,
+    "buildSeconds": 8.292030543088913e-06,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "chart_plus_two_forecasts_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.962377500254661,
+    "bytes": 1804,
+    "buildSeconds": 2.9319854169152677,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.7499551177024841e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.011638166848570108,
+        "threadCpuSeconds": 0.001121292
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.028770084027200937,
+        "threadCpuSeconds": 0.007519791999999999
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.5830231606960297e-06,
+        "threadCpuSeconds": 2.5410000000000016e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.23747395863756537,
+        "threadCpuSeconds": 0.144658041,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.24108670884743333,
+        "threadCpuSeconds": 0.147188083,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014361124951392412,
+        "threadCpuSeconds": 0.01436062499999996
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.45492625003680587,
+        "threadCpuSeconds": 0.44203654099999995
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.6761302496306598,
+        "threadCpuSeconds": 0.632643084,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.02537499973550439,
+        "threadCpuSeconds": 0.025319458000000017
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.7954231663607061,
+        "threadCpuSeconds": 0.7016213339999999
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0825295001268387,
+        "threadCpuSeconds": 0.9677255410000001,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.8811299167573452,
+        "threadCpuSeconds": 1.66052175
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.04925112519413233,
+        "threadCpuSeconds": 0.02662537499999984
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.18895499967038631,
+        "threadCpuSeconds": 0.14066870799999975
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008802957832813263,
+        "threadCpuSeconds": 0.008754542000000143
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0034030829556286335,
+        "threadCpuSeconds": 0.0034033749999999863
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.8747523427009583e-06,
+        "threadCpuSeconds": 1.6669999998164542e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.458031177520752e-06,
+        "threadCpuSeconds": 7.457999999793685e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "chart_plus_two_forecasts_1",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.9037857498042285,
+    "bytes": 10742,
+    "buildSeconds": 2.80363916605711,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.2917444109916687e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.010408124886453152,
+        "threadCpuSeconds": 0.0008410829999991876
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03496045898646116,
+        "threadCpuSeconds": 0.006610458000000818
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.2496096789836884e-06,
+        "threadCpuSeconds": 2.0840000001243197e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.2442426672205329,
+        "threadCpuSeconds": 0.14777941700000063,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.24069575034081936,
+        "threadCpuSeconds": 0.14709737499999953,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014595749787986279,
+        "threadCpuSeconds": 0.014431290999999291
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.44267474999651313,
+        "threadCpuSeconds": 0.4355840830000002
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.6429528337903321,
+        "threadCpuSeconds": 0.613343540999999,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.02464949991554022,
+        "threadCpuSeconds": 0.02463387499999925
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.7707274160347879,
+        "threadCpuSeconds": 0.7172050830000014
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.0418374589644372,
+        "threadCpuSeconds": 0.9728664580000004,
+        "dataset": "indicators",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.7296509579755366,
+        "threadCpuSeconds": 1.6309816669999986
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.036659667268395424,
+        "threadCpuSeconds": 0.019406999999999286
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.24685479188337922,
+        "threadCpuSeconds": 0.11632370799999947
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.012914666905999184,
+        "threadCpuSeconds": 0.0066603749999991635
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.016169666312634945,
+        "threadCpuSeconds": 0.00991062499999984
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.00042012520134449005,
+        "threadCpuSeconds": 0.00041987500000040257
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.38751482963562e-05,
+        "threadCpuSeconds": 5.39580000005202e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "two_tabs_same_forecast_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.3045056662522256,
+    "bytes": 1804,
+    "buildSeconds": 2.2676607500761747,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.6670674085617065e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013925374951213598,
+        "threadCpuSeconds": 0.001043582999999515
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.02993016690015793,
+        "threadCpuSeconds": 0.00741299999999967
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.5830231606960297e-06,
+        "threadCpuSeconds": 2.375000001109129e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.18100033374503255,
+        "threadCpuSeconds": 0.09388200000000069,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.12393787503242493,
+        "threadCpuSeconds": 0.12386908300000066,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014539625030010939,
+        "threadCpuSeconds": 0.014532874999998668
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.45491483388468623,
+        "threadCpuSeconds": 0.38519770799999975
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.577588832937181,
+        "threadCpuSeconds": 0.5077222500000005,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.02327983407303691,
+        "threadCpuSeconds": 0.02307862500000013
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8078314997255802,
+        "threadCpuSeconds": 0.5853531669999992
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.9772029998712242,
+        "threadCpuSeconds": 0.754356542,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.6079653329215944,
+        "threadCpuSeconds": 1.3152201249999997
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.0256672496907413,
+        "threadCpuSeconds": 0.025651542000000305
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1329718749038875,
+        "threadCpuSeconds": 0.1328162920000011
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.00877337483689189,
+        "threadCpuSeconds": 0.00876512500000004
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0034374999813735485,
+        "threadCpuSeconds": 0.0034376659999999504
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.250075340270996e-06,
+        "threadCpuSeconds": 2.0840000001243197e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 1.1125113815069199e-05,
+        "threadCpuSeconds": 1.1124999998557428e-05
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "two_tabs_same_forecast_1",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 503,
+    "seconds": 0.05089479172602296,
+    "bytes": 106,
+    "buildSeconds": 8.33394005894661e-06,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "two_tabs_same_forecast_1",
+    "period": "day",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.20355245796963573,
+    "bytes": 7783,
+    "buildSeconds": 0.16506925038993359,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.125037670135498e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013386041857302189,
+        "threadCpuSeconds": 0.0008224160000001035
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.035484666004776955,
+        "threadCpuSeconds": 0.006530707999999663
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 1.7909333109855652e-06,
+        "threadCpuSeconds": 1.666999999372365e-06
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.00042329216375947,
+        "threadCpuSeconds": 0.00042066700000020774
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.004946750123053789,
+        "threadCpuSeconds": 0.004942665999999818
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.0006126249209046364,
+        "threadCpuSeconds": 0.0006123329999994098
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.06520645786076784,
+        "threadCpuSeconds": 0.06453483399999982
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 8.916575461626053e-05,
+        "threadCpuSeconds": 8.916700000050071e-05
+      },
+      {
+        "stage": "displayText",
+        "seconds": 6.033293902873993e-05,
+        "threadCpuSeconds": 6.0458999998402874e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14",
+    "bodySha256": "2c567407651c8da15ac9432b18f91a443be20463c846617a395bdd4744f3c9b3"
+  },
+  {
+    "label": "two_tabs_same_forecast_1",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 0.05144533375278115,
+    "bytes": 107,
+    "buildSeconds": 1.1417083442211151e-05,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "warm_seed",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 1.890980999916792,
+    "bytes": 1804,
+    "buildSeconds": 1.8613698342815042,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.3331882655620575e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013345249928534031,
+        "threadCpuSeconds": 0.0011982079999999229
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.03236841689795256,
+        "threadCpuSeconds": 0.006950500000000304
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 6.459187716245651e-06,
+        "threadCpuSeconds": 6.334000000052242e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09853333374485373,
+        "threadCpuSeconds": 0.09840408300000014,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09566937480121851,
+        "threadCpuSeconds": 0.095655292,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.013963208999484777,
+        "threadCpuSeconds": 0.013962750000001023
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.38618974993005395,
+        "threadCpuSeconds": 0.3826207919999991
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.5029778750613332,
+        "threadCpuSeconds": 0.4993014999999996,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.024026458151638508,
+        "threadCpuSeconds": 0.024009167000000886
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5737277083098888,
+        "threadCpuSeconds": 0.5703063339999996
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7403965839184821,
+        "threadCpuSeconds": 0.7367666249999996,
+        "dataset": "indicators",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.323649125173688,
+        "threadCpuSeconds": 1.3163216250000005
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.0265861670486629,
+        "threadCpuSeconds": 0.026502500000001206
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.12786304205656052,
+        "threadCpuSeconds": 0.1278112079999989
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.008316458202898502,
+        "threadCpuSeconds": 0.008316541999999316
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0035163750872015953,
+        "threadCpuSeconds": 0.003516624999999607
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 2.00001522898674e-06,
+        "threadCpuSeconds": 1.8330000006727687e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 9.20938327908516e-06,
+        "threadCpuSeconds": 9.249999999738634e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "warm_seed",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 2.250814334023744,
+    "bytes": 10742,
+    "buildSeconds": 2.2190391668118536,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.4170072972774506e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.01224370812997222,
+        "threadCpuSeconds": 0.001099500000000475
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.02358508389443159,
+        "threadCpuSeconds": 0.0071875419999987145
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.4580007195472717e-06,
+        "threadCpuSeconds": 3.3750000003607283e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09798712516203523,
+        "threadCpuSeconds": 0.09785337499999969,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.09660004172474146,
+        "threadCpuSeconds": 0.09648224999999933,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014934167265892029,
+        "threadCpuSeconds": 0.014754375000000763
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.6060678749345243,
+        "threadCpuSeconds": 0.38840937500000017
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.7293845829553902,
+        "threadCpuSeconds": 0.510925125,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.022979542147368193,
+        "threadCpuSeconds": 0.022826624999998657
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8026039591059089,
+        "threadCpuSeconds": 0.5725838339999996
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 0.9637878751382232,
+        "threadCpuSeconds": 0.7334945000000008,
+        "dataset": "indicators",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 1.7356562921777368,
+        "threadCpuSeconds": 1.286854
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.019632291980087757,
+        "threadCpuSeconds": 0.019632624999999848
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.11374991619959474,
+        "threadCpuSeconds": 0.11354925000000016
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.0065737501718103886,
+        "threadCpuSeconds": 0.0065657080000001145
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.009850124828517437,
+        "threadCpuSeconds": 0.009850375000000966
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.000607833731919527,
+        "threadCpuSeconds": 0.0006079169999999579
+      },
+      {
+        "stage": "displayText",
+        "seconds": 5.991710349917412e-05,
+        "threadCpuSeconds": 5.9999999999504894e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  },
+  {
+    "label": "warm_chart_plus_two_forecasts",
+    "period": "m60",
+    "kind": "signal",
+    "httpStatus": 503,
+    "seconds": 0.04951045894995332,
+    "bytes": 106,
+    "buildSeconds": 8.834060281515121e-06,
+    "phases": [],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。"
+    },
+    "response": {
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标查询繁忙，请稍后重试。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "warm_chart_plus_two_forecasts",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 0.9626531670801342,
+    "bytes": 1804,
+    "buildSeconds": 0.8617292921990156,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.4998950064182281e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.012889625038951635,
+        "threadCpuSeconds": 0.001093707999999971
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.08129804162308574,
+        "threadCpuSeconds": 0.05250791599999971
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 7.416587322950363e-06,
+        "threadCpuSeconds": 7.207999999980785e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.2522569168359041,
+        "threadCpuSeconds": 0.1534939590000004,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.2553685000166297,
+        "threadCpuSeconds": 0.156963792,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.026470249984413385,
+        "threadCpuSeconds": 0.026170958000000244
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.1444850843399763,
+        "threadCpuSeconds": 0.14319683400000027
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.014764958061277866,
+        "threadCpuSeconds": 0.00845991700000015
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.0034200833179056644,
+        "threadCpuSeconds": 0.0034204159999999817
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 1.9581057131290436e-06,
+        "threadCpuSeconds": 1.7079999996560957e-06
+      },
+      {
+        "stage": "displayText",
+        "seconds": 7.125083357095718e-06,
+        "threadCpuSeconds": 7.166999999697055e-06
+      }
+    ],
+    "error": null,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "2c18ac212eb420340d62327ea6c43bb072bed535a3851d1d2687c094a8d4d215"
+  },
+  {
+    "label": "warm_chart_plus_two_forecasts",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 200,
+    "seconds": 1.006240624934435,
+    "bytes": 10742,
+    "buildSeconds": 0.9634367497637868,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.458916813135147e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.012205374892801046,
+        "threadCpuSeconds": 0.000825457999999557
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.08684570901095867,
+        "threadCpuSeconds": 0.006491375000001298
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.041233867406845e-06,
+        "threadCpuSeconds": 3.040999999370797e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.25312691600993276,
+        "threadCpuSeconds": 0.1524252079999986,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.42930829199030995,
+        "threadCpuSeconds": 0.15497908300000063,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "continuity",
+        "seconds": 0.019068167079240084,
+        "threadCpuSeconds": 0.019068458000001343
+      },
+      {
+        "stage": "cacheSizeAndPut",
+        "seconds": 0.13095587491989136,
+        "threadCpuSeconds": 0.11495787499999999
+      },
+      {
+        "stage": "projection",
+        "seconds": 0.0067558749578893185,
+        "threadCpuSeconds": 0.006713707999999485
+      },
+      {
+        "stage": "forecastMath",
+        "seconds": 0.01069183275103569,
+        "threadCpuSeconds": 0.010660207999999116
+      },
+      {
+        "stage": "displayContext",
+        "seconds": 0.00028837472200393677,
+        "threadCpuSeconds": 0.00028833300000030704
+      },
+      {
+        "stage": "displayText",
+        "seconds": 4.9625057727098465e-05,
+        "threadCpuSeconds": 5.058300000015947e-05
+      }
+    ],
+    "error": null,
+    "status": "CONDITIONAL_ENTRY",
+    "through": "2026-10-14T15:00:00+08:00",
+    "bodySha256": "8186df2aceacadcc2860f31408aeeb2fa9519e3e889ef5b44f9a9797ae702c1c"
+  }
+]

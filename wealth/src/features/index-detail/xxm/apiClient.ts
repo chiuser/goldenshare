@@ -1,9 +1,15 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
+import { indexDetailRequests } from "../api/indexDetailRequestScheduler";
 import type { XxmPeriod, XxmResponse } from "./types";
 
 export const XXM_TIMEOUT_MS = 5000;
 
-export async function fetchXxm(params: { tsCode: string; period: XxmPeriod; startDate: string; endDate: string; limit: number },
+export function fetchXxm(params: { tsCode: string; period: XxmPeriod; startDate: string; endDate: string; limit: number },
+  signal: AbortSignal): Promise<XxmResponse> {
+  return indexDetailRequests.run("xxm", () => sendXxm(params, signal), signal);
+}
+
+async function sendXxm(params: { tsCode: string; period: XxmPeriod; startDate: string; endDate: string; limit: number },
   signal: AbortSignal): Promise<XxmResponse> {
   const minute = params.period !== "day";
   const endpoint = minute ? "minute-xxm-signals" : "xxm-signals";

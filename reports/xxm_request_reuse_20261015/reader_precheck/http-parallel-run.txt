@@ -1,0 +1,22 @@
+{"mode": "cold", "period": "day", "p95Seconds": 0.33887012489140034, "maxSeconds": 0.6035616658627987, "maxComputeSeconds": 0.1003120830282569, "maxBytes": 7799}
+{"mode": "cold", "period": "m60", "p95Seconds": 1.9890773752704263, "maxSeconds": 2.7913569579832256, "maxComputeSeconds": 0.018071957863867283, "maxBytes": 1843}
+{"mode": "cold", "period": "m90", "p95Seconds": 2.1510832919739187, "maxSeconds": 2.2193447086028755, "maxComputeSeconds": 0.024611500091850758, "maxBytes": 10779}
+{"mode": "cold", "period": "m120", "p95Seconds": 1.7612636657431722, "maxSeconds": 2.1034728749655187, "maxComputeSeconds": 0.011930583044886589, "maxBytes": 1720}
+{"mode": "warm", "period": "day", "p95Seconds": 0.2923923749476671, "maxSeconds": 0.2996099996380508, "maxComputeSeconds": 0.07451541721820831, "maxBytes": 7799}
+{"mode": "warm", "period": "m60", "p95Seconds": 0.4875813750550151, "maxSeconds": 2.8635153751820326, "maxComputeSeconds": 0.013851792085915804, "maxBytes": 1843}
+{"mode": "warm", "period": "m90", "p95Seconds": 0.4610240417532623, "maxSeconds": 2.3081857920624316, "maxComputeSeconds": 0.02317262487486005, "maxBytes": 10779}
+{"mode": "warm", "period": "m120", "p95Seconds": 0.4613793338648975, "maxSeconds": 1.7691497500054538, "maxComputeSeconds": 0.009787417016923428, "maxBytes": 1720}
+{"group": ["day", "m60"], "attempt": 0, "maxSeconds": 2.1130745420232415}
+{"group": ["day", "m60"], "attempt": 1, "maxSeconds": 1.783364042174071}
+{"group": ["day", "m60"], "attempt": 2, "maxSeconds": 1.8820864167064428}
+{"group": ["m60", "m90"], "attempt": 0, "maxSeconds": 2.975067666731775}
+{"group": ["m60", "m90"], "attempt": 1, "maxSeconds": 2.929230040870607}
+{"group": ["m60", "m90"], "attempt": 2, "maxSeconds": 2.727781457826495}
+{"group": ["m90", "m120"], "attempt": 0, "maxSeconds": 2.8603596673347056}
+{"group": ["m90", "m120"], "attempt": 1, "maxSeconds": 2.2726421668194234}
+{"group": ["m90", "m120"], "attempt": 2, "maxSeconds": 2.4423070419579744}
+{"latest": "day", "measurement": {"seconds": 0.27070545917376876, "bytes": 7783, "status": "CONDITIONAL_ENTRY", "through": "2026-10-14", "buildSeconds": 0.2367049576714635, "computeSeconds": 0.06478550005704165, "displayContext": null}}
+{"latest": "m60", "measurement": {"seconds": 1.993188333697617, "bytes": 1804, "status": "NO_CANDIDATE", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.9664559583179653, "computeSeconds": 0.012328749988228083, "displayContext": null}}
+{"latest": "m90", "measurement": {"seconds": 1.571699167136103, "bytes": 10742, "status": "CONDITIONAL_ENTRY", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.5401277500204742, "computeSeconds": 0.018307958263903856, "displayContext": null}}
+{"latest": "m120", "measurement": {"seconds": 1.3747792500071228, "bytes": 1681, "status": "NO_CANDIDATE", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.3471719580702484, "computeSeconds": 0.007011666893959045, "displayContext": null}}
+{"status": "PASS", "budgetRequests": 178, "latestRequests": 4, "serverStopped": true}

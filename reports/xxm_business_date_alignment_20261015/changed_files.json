@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/biz/queries/wealth/market/context/market_page_context_query.py",
+    "sha256": "ca1c4900eb6c0291cdf3c6b1819d935bb7a937435a7862c85ac12e3f61d56702"
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+    "sha256": "5d31e5e1d6414a24c6ba52dc2e03784cf9eaa3c796fc141658917e1d2ef30efc"
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py",
+    "sha256": "20cbd49e7f070e32702f479ad03d0c9bf0ac3788595cbac24a5adedeadc15285"
+  },
+  {
+    "path": "tests/test_wealth_market_page_context_query.py",
+    "sha256": "f7729d6e448b75291447b82ee0e0de2a19813eec2228d83c096d7f57a08f3638"
+  },
+  {
+    "path": "tests/web/test_wealth_index_detail_xxm_api.py",
+    "sha256": "7009e2c82805d74b134aa9c1d1bc4e3ad59c59cbc2e44982c3ce41c119b906d1"
+  },
+  {
+    "path": "tests/web/test_wealth_index_detail_xxm_forecast_api.py",
+    "sha256": "94ca1109adc921e9f6491da594af600ab625928108eb85ca89625a5b86e380d1"
+  },
+  {
+    "path": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "sha256": "7283d7bf50ab131c90b2a0317f5ab05a87ffbc6933d0d29569197100564ae0a7"
+  },
+  {
+    "path": "wealth/docs/README.md",
+    "sha256": "944a78ba344eb97a17dad96804c119fbe818db77bd40b5e00f5b68d0288e73a6"
+  },
+  {
+    "path": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "sha256": "4e29069eca78e52caf359812a92e8da181a5f82f3b5985c634426a6027ed03d3"
+  },
+  {
+    "path": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "sha256": "0745e09536b8fd30d8fe8db22c8b7e4e93b27babca7da005fff8583335c2223e"
+  }
+]

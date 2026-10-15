@@ -1,0 +1,22 @@
+{"mode": "cold", "period": "day", "p95Seconds": 0.43818233301863074, "maxSeconds": 0.6905646249651909, "maxComputeSeconds": 0.0779840829782188, "maxBytes": 7799}
+{"mode": "cold", "period": "m60", "p95Seconds": 1.9192882077768445, "maxSeconds": 2.2535571670159698, "maxComputeSeconds": 0.014614874962717295, "maxBytes": 1843}
+{"mode": "cold", "period": "m90", "p95Seconds": 1.8911320422776043, "maxSeconds": 1.9945728750899434, "maxComputeSeconds": 0.025208333041518927, "maxBytes": 10779}
+{"mode": "cold", "period": "m120", "p95Seconds": 1.8718303749337792, "maxSeconds": 1.8972104578278959, "maxComputeSeconds": 0.012195332907140255, "maxBytes": 1720}
+{"mode": "warm", "period": "day", "p95Seconds": 0.2358190412633121, "maxSeconds": 0.2802276252768934, "maxComputeSeconds": 0.07582166697829962, "maxBytes": 7799}
+{"mode": "warm", "period": "m60", "p95Seconds": 0.4426126671023667, "maxSeconds": 2.0727618327364326, "maxComputeSeconds": 0.013458707835525274, "maxBytes": 1843}
+{"mode": "warm", "period": "m90", "p95Seconds": 0.44196887500584126, "maxSeconds": 1.9011812503449619, "maxComputeSeconds": 0.02242204174399376, "maxBytes": 10779}
+{"mode": "warm", "period": "m120", "p95Seconds": 0.4447930408641696, "maxSeconds": 1.820989541709423, "maxComputeSeconds": 0.010050832759588957, "maxBytes": 1720}
+{"group": ["day", "m60"], "attempt": 0, "maxSeconds": 2.0818780828267336}
+{"group": ["day", "m60"], "attempt": 1, "maxSeconds": 1.6423196252435446}
+{"group": ["day", "m60"], "attempt": 2, "maxSeconds": 1.6802970422431827}
+{"group": ["m60", "m90"], "attempt": 0, "maxSeconds": 2.9760541249997914}
+{"group": ["m60", "m90"], "attempt": 1, "maxSeconds": 2.7718065418303013}
+{"group": ["m60", "m90"], "attempt": 2, "maxSeconds": 2.697965665720403}
+{"group": ["m90", "m120"], "attempt": 0, "maxSeconds": 2.7073161667212844}
+{"group": ["m90", "m120"], "attempt": 1, "maxSeconds": 2.3727011252194643}
+{"group": ["m90", "m120"], "attempt": 2, "maxSeconds": 2.38419337477535}
+{"latest": "day", "measurement": {"seconds": 0.2786600417457521, "bytes": 7783, "status": "CONDITIONAL_ENTRY", "through": "2026-10-14", "buildSeconds": 0.24630179116502404, "computeSeconds": 0.06792879197746515, "displayContext": null}}
+{"latest": "m60", "measurement": {"seconds": 1.961692291777581, "bytes": 1804, "status": "NO_CANDIDATE", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.9314077501185238, "computeSeconds": 0.013593583833426237, "displayContext": null}}
+{"latest": "m90", "measurement": {"seconds": 1.4397897920571268, "bytes": 10742, "status": "CONDITIONAL_ENTRY", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.4102530418895185, "computeSeconds": 0.0175972911529243, "displayContext": null}}
+{"latest": "m120", "measurement": {"seconds": 1.5012307912111282, "bytes": 1681, "status": "NO_CANDIDATE", "through": "2026-10-14T15:00:00+08:00", "buildSeconds": 1.3826995827257633, "computeSeconds": 0.0069259582087397575, "displayContext": null}}
+{"status": "PASS", "budgetRequests": 178, "latestRequests": 4, "serverStopped": true}

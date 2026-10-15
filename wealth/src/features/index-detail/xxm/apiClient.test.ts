@@ -33,7 +33,7 @@ describe("XXM HTTP client", () => {
     pendingUntilAbort();
     const controller = new AbortController();
     const promise = fetchXxm(params, controller.signal);
-    const failure = expect(promise).rejects.toThrow("Aborted");
+    const failure = expect(promise).rejects.toMatchObject({ name: "AbortError" });
     controller.abort();
     await failure;
   });

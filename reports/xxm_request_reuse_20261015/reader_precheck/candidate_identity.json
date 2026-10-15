@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/private/tmp/xxm_reader_projection_candidate_20261015.py",
+    "sha256": "a207ff5e7d863aae406d0c46b535a0b13b775548ac27d3604800bfcfde29e14c"
+  },
+  {
+    "path": "/private/tmp/xxm_reader_projection_precheck_20261015.py",
+    "sha256": "ffdace30e104bcab22225eb2c52fba33d92adabfdf15a386bd7a25d621cca550"
+  },
+  {
+    "path": "/private/tmp/xxm_reader_projection_http_precheck_20261015.py",
+    "sha256": "539aa40f35cdb37dd0382f17d5e8c24c6a6d48bb7e3ac23f817a6dcb57bfa6fa"
+  },
+  {
+    "path": "src/foundation/clients/local_lake/major_index_mins_reader.py",
+    "sha256": "eabe8ee5a68744f2dff460b6d9ed7c615ab702f77c519331bc6611e37546c5ef"
+  },
+  {
+    "path": "src/biz/queries/wealth/market/index_detail_xxm/source.py",
+    "sha256": "0d66c73c996a227718edcde6ffa00cd47ff610f414f3cc0b1331513aabcdacc0"
+  },
+  {
+    "path": "tests/test_major_index_mins_reader.py",
+    "sha256": "7619348267fffb8d9eb1f478f98bc56a3b49560515d0dab4f7c79f5e68a570eb"
+  }
+]

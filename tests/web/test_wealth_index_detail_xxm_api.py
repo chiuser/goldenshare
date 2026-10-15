@@ -35,10 +35,10 @@ def source_db(monkeypatch, request):
 
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE core_serving.index_factor_pro (ts_code TEXT,trade_date DATE,close FLOAT,macd_dif_bfq FLOAT,macd_dea_bfq FLOAT,macd_bfq FLOAT)"))
-        conn.execute(text("CREATE TABLE core_serving.trade_calendar (exchange TEXT,trade_date DATE,is_open BOOLEAN)"))
+        conn.execute(text("CREATE TABLE core_serving.trade_calendar (exchange TEXT,trade_date DATE,is_open BOOLEAN,pretrade_date DATE)"))
         begin = date(2020, 1, 1)
         now = datetime.now(ZONE).date()
-        conn.execute(text("INSERT INTO core_serving.trade_calendar VALUES (:exchange,:date,:open)"),
+        conn.execute(text("INSERT INTO core_serving.trade_calendar (exchange,trade_date,is_open) VALUES (:exchange,:date,:open)"),
                      [{"exchange": "SSE", "date": (begin + timedelta(days=i)).isoformat(), "open": True} for i in range((now - begin).days + 1)])
         conn.execute(text("INSERT INTO core_serving.index_factor_pro VALUES (:code,:date,:close,:dif,:dea,:hist)"),
                      [{"code": "000001.SH", "date": (begin + timedelta(days=i)).isoformat(), "close": c,
@@ -206,10 +206,15 @@ def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(sourc
     assert any(e["type"] == "STRUCTURE" for e in data["events"])
     for bad in ("freq=30", "freq=60&freq=90", "freq=120&dif_turn_pct=1"):
         assert api.get(path+"?tsCode=000001.SH&"+bad).status_code == 400
-    # The future completed source rows must not become confirmed markers early.
+    # Even a full current-day file must not enter the page before the 20:00 switch.
     with Session(source_db) as session:
+        service = IndexDetailXxmQueryService(lake_root=tmp_path, cache=XxmCache())
+        full_at_20 = service.build(session, period=f"m{freq}", start_date=None, end_date=end, limit=500,
+                                   now=datetime.combine(end, datetime.min.time().replace(hour=20), ZONE))
+        assert len(full_at_20.points) == len(values)
         before = datetime.combine(end,endpoints[-1],ZONE) - timedelta(minutes=1)
-        partial = IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache()).build(session,
+        partial = service.build(session,
             period=f"m{freq}",start_date=None,end_date=end,limit=500,now=before)
-    assert len(partial.points) == len(values)-1
+    assert len(partial.points) == len(values)-len(endpoints)
+    assert partial.dataStatus.status == "READY"
     assert all(e.time <= partial.source.computedThrough for e in partial.events)

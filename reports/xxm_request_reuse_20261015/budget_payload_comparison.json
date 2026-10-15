@@ -1,0 +1,50 @@
+[
+  {
+    "mode": "cold",
+    "period": "day",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m60",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m90",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "cold",
+    "period": "m120",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "day",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m60",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m90",
+    "allFieldsEqual": true,
+    "differingFields": []
+  },
+  {
+    "mode": "warm",
+    "period": "m120",
+    "allFieldsEqual": true,
+    "differingFields": []
+  }
+]

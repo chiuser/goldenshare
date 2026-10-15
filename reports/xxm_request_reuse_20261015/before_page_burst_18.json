@@ -1,0 +1,486 @@
+[
+  {
+    "label": "page_read_burst_0",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 5.447043292224407,
+    "bytes": 101,
+    "buildSeconds": 4.228629374876618,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.959037035703659e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.01575466711074114,
+        "threadCpuSeconds": 0.0011493329999999954
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.160886415746063,
+        "threadCpuSeconds": 0.007185874999999994
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 2.209097146987915e-06,
+        "threadCpuSeconds": 2.04200000000071e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.704822207801044,
+        "threadCpuSeconds": 0.138915125,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.5576790417544544,
+        "threadCpuSeconds": 0.15746620800000002,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.014904292300343513,
+        "threadCpuSeconds": 0.014802749999999976
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5935986246913671,
+        "threadCpuSeconds": 0.57203225
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.2099375003017485,
+        "threadCpuSeconds": 0.8435735000000001,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.0292004169896245,
+        "threadCpuSeconds": 0.028999750000000102
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8043032079003751,
+        "threadCpuSeconds": 0.6800596249999997
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.5794130419380963,
+        "threadCpuSeconds": 1.022400459,
+        "dataset": "indicators"
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 2.7893714997917414,
+        "threadCpuSeconds": 1.8659923750000003
+      }
+    ],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 5.54620154062286,
+    "bytes": 101,
+    "buildSeconds": 4.250185624696314,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.5827827155590057e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.021684333216398954,
+        "threadCpuSeconds": 0.007701167000000002
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.158375000115484,
+        "threadCpuSeconds": 0.007820124999999997
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 5.582813173532486e-06,
+        "threadCpuSeconds": 5.416000000001142e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.7053108750842512,
+        "threadCpuSeconds": 0.1413685,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.5453418749384582,
+        "threadCpuSeconds": 0.159848041,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.01679100003093481,
+        "threadCpuSeconds": 0.016097666999999982
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.5589387905783951,
+        "threadCpuSeconds": 0.5435101250000001
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.1720784162171185,
+        "threadCpuSeconds": 0.807971333,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.028982082847505808,
+        "threadCpuSeconds": 0.028774999999999995
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8357594162225723,
+        "threadCpuSeconds": 0.7566413339999998
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.6472122920677066,
+        "threadCpuSeconds": 1.1273529169999998,
+        "dataset": "indicators"
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 2.819312083069235,
+        "threadCpuSeconds": 1.9353431669999999
+      }
+    ],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m60",
+    "kind": "minutes",
+    "httpStatus": 200,
+    "seconds": 2.3534882497042418,
+    "bytes": 113708
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m60",
+    "kind": "minute-indicators",
+    "httpStatus": 200,
+    "seconds": 2.351923458278179,
+    "bytes": 316725
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m15",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 6.150844125077128,
+    "bytes": 54577
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m30",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 6.263829750008881,
+    "bytes": 54432
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m60",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 5.806704458780587,
+    "bytes": 56279
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m90",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 6.0713468748144805,
+    "bytes": 56755
+  },
+  {
+    "label": "page_read_burst_0",
+    "period": "m120",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 5.626721332781017,
+    "bytes": 57115
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m60",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 4.547609749715775,
+    "bytes": 101,
+    "buildSeconds": 4.19405149994418,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.708976924419403e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.016124041751027107,
+        "threadCpuSeconds": 0.0013646249999998972
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.07520541688427329,
+        "threadCpuSeconds": 0.011217083000000017
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 3.1660310924053192e-06,
+        "threadCpuSeconds": 2.959000000135603e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.7039651246741414,
+        "threadCpuSeconds": 0.17314258299999974,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.3870695000514388,
+        "threadCpuSeconds": 0.16534716700000018,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.017179707996547222,
+        "threadCpuSeconds": 0.017046500000000187
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.8043302083387971,
+        "threadCpuSeconds": 0.47559095799999973
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.4252707501873374,
+        "threadCpuSeconds": 0.7359792500000002,
+        "dataset": "bars",
+        "sourceRows": 17264,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.027928458992391825,
+        "threadCpuSeconds": 0.027858791999999966
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.9312043753452599,
+        "threadCpuSeconds": 0.7422675419999996
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.586269250139594,
+        "threadCpuSeconds": 1.055269833,
+        "dataset": "indicators"
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 3.0115577918477356,
+        "threadCpuSeconds": 1.7912640839999998
+      }
+    ],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m90",
+    "kind": "forecast",
+    "httpStatus": 503,
+    "seconds": 4.332436917349696,
+    "bytes": 101,
+    "buildSeconds": 4.158501875121146,
+    "phases": [
+      {
+        "stage": "seriesLockWait",
+        "seconds": 1.7499551177024841e-06
+      },
+      {
+        "stage": "businessDate",
+        "seconds": 0.013319416902959347,
+        "threadCpuSeconds": 0.0013166659999999109
+      },
+      {
+        "stage": "historyCalendar",
+        "seconds": 0.13569349981844425,
+        "threadCpuSeconds": 0.07223558299999988
+      },
+      {
+        "stage": "cacheGet",
+        "seconds": 4.083849489688873e-06,
+        "threadCpuSeconds": 3.834000000146887e-06
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.7350951251573861,
+        "threadCpuSeconds": 0.1793556249999999,
+        "dataset": "bars",
+        "files": 4316
+      },
+      {
+        "stage": "sourceSignature",
+        "seconds": 0.42392987478524446,
+        "threadCpuSeconds": 0.16341012499999996,
+        "dataset": "indicators",
+        "files": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.017135292291641235,
+        "threadCpuSeconds": 0.01676687500000007
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.7960401251912117,
+        "threadCpuSeconds": 0.4523824169999999
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.4317043339833617,
+        "threadCpuSeconds": 0.7036424579999998,
+        "dataset": "bars",
+        "sourceRows": 12948,
+        "scannedFiles": 4316
+      },
+      {
+        "stage": "schema",
+        "seconds": 0.030935584101825953,
+        "threadCpuSeconds": 0.030631540999999984
+      },
+      {
+        "stage": "queryRows",
+        "seconds": 0.7811462078243494,
+        "threadCpuSeconds": 0.5876270000000003
+      },
+      {
+        "stage": "completeRead",
+        "seconds": 1.41758649982512,
+        "threadCpuSeconds": 0.8712296249999998,
+        "dataset": "indicators"
+      },
+      {
+        "stage": "readMinutesTotal",
+        "seconds": 2.8503127079457045,
+        "threadCpuSeconds": 1.5749015410000002
+      }
+    ],
+    "error": {
+      "type": "XxmQueryError",
+      "code": "XXM_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。"
+    },
+    "response": {
+      "code": "XXMF_BUDGET_EXCEEDED",
+      "message": "研究指标来源超过读取预算。",
+      "request_id": null
+    }
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m60",
+    "kind": "minutes",
+    "httpStatus": 200,
+    "seconds": 0.9094729172065854,
+    "bytes": 113708
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m60",
+    "kind": "minute-indicators",
+    "httpStatus": 200,
+    "seconds": 1.016051665879786,
+    "bytes": 316725
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m15",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 4.122441041748971,
+    "bytes": 54577
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m30",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 4.783905208110809,
+    "bytes": 54432
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m60",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 4.936325749848038,
+    "bytes": 56279
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m90",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 4.690738708712161,
+    "bytes": 56755
+  },
+  {
+    "label": "page_read_burst_1",
+    "period": "m120",
+    "kind": "minute-nine-turn",
+    "httpStatus": 200,
+    "seconds": 4.505941249895841,
+    "bytes": 57115
+  }
+]

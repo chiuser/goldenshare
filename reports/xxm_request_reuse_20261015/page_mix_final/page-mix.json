@@ -1,0 +1,3354 @@
+{
+  "rounds": [
+    {
+      "label": "day-1tabs-cold",
+      "selected": "day",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 12,
+      "pageSeconds": 10.5097855,
+      "maxHttpSeconds": 2.3320342920000012,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.06823570793494582,
+        "cacheBytes": 42199161,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "day-1tabs-warm",
+      "selected": "day",
+      "tabCount": 1,
+      "mode": "warm",
+      "requests": 12,
+      "pageSeconds": 4.242580333,
+      "maxHttpSeconds": 1.1066498329999994,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0005574580281972885,
+        "cacheBytes": 42199161,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "day-2tabs-cold",
+      "selected": "day",
+      "tabCount": 2,
+      "mode": "cold",
+      "requests": 24,
+      "pageSeconds": 15.130278999999998,
+      "maxHttpSeconds": 3.8613558330000015,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.07391300005838275,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "day-2tabs-warm",
+      "selected": "day",
+      "tabCount": 2,
+      "mode": "warm",
+      "requests": 24,
+      "pageSeconds": 7.698004916999995,
+      "maxHttpSeconds": 3.1657819579999957,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0004008747637271881,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "selected": "m60",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 13,
+      "pageSeconds": 9.917606083000006,
+      "maxHttpSeconds": 2.2468325419999964,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.06589370826259255,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "selected": "m60",
+      "tabCount": 1,
+      "mode": "warm",
+      "requests": 13,
+      "pageSeconds": 4.269839,
+      "maxHttpSeconds": 1.0371491250000036,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.00043795909732580185,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "selected": "m60",
+      "tabCount": 2,
+      "mode": "cold",
+      "requests": 26,
+      "pageSeconds": 14.342941625000007,
+      "maxHttpSeconds": 2.8489402500000067,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.11826441623270512,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "selected": "m60",
+      "tabCount": 2,
+      "mode": "warm",
+      "requests": 26,
+      "pageSeconds": 8.358077250000003,
+      "maxHttpSeconds": 2.8963555420000047,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0003897082060575485,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "selected": "m90",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 13,
+      "pageSeconds": 10.067446792000002,
+      "maxHttpSeconds": 2.359780832999997,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.06557087507098913,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "selected": "m90",
+      "tabCount": 1,
+      "mode": "warm",
+      "requests": 13,
+      "pageSeconds": 4.380989541999996,
+      "maxHttpSeconds": 1.0703814169999968,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.00041575031355023384,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "selected": "m90",
+      "tabCount": 2,
+      "mode": "cold",
+      "requests": 26,
+      "pageSeconds": 13.883792000000001,
+      "maxHttpSeconds": 2.8678027500000027,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.13394158286973834,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "selected": "m90",
+      "tabCount": 2,
+      "mode": "warm",
+      "requests": 26,
+      "pageSeconds": 8.31968920899999,
+      "maxHttpSeconds": 3.019200291000001,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0004425416700541973,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "selected": "m120",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 13,
+      "pageSeconds": 9.90024541599999,
+      "maxHttpSeconds": 2.4114131250000064,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.06559558399021626,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "selected": "m120",
+      "tabCount": 1,
+      "mode": "warm",
+      "requests": 13,
+      "pageSeconds": 4.859219541999992,
+      "maxHttpSeconds": 1.0123286660000013,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0005375412292778492,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "selected": "m120",
+      "tabCount": 2,
+      "mode": "cold",
+      "requests": 26,
+      "pageSeconds": 14.002696667000011,
+      "maxHttpSeconds": 2.9381792080000015,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.13458470813930035,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "selected": "m120",
+      "tabCount": 2,
+      "mode": "warm",
+      "requests": 26,
+      "pageSeconds": 9.437089584,
+      "maxHttpSeconds": 2.9267807080000057,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0.0005252920091152191,
+        "cacheBytes": 42199033,
+        "cacheEntries": 8
+      },
+      "errors": []
+    }
+  ],
+  "requests": [
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 375.0155,
+      "httpStatus": 200,
+      "seconds": 0.41527470800000005,
+      "bytes": 165447
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 375.668458,
+      "httpStatus": 200,
+      "seconds": 0.263791917,
+      "bytes": 27661
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 640.168792,
+      "httpStatus": 200,
+      "seconds": 0.95495925,
+      "bytes": 54577
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 791.424167,
+      "httpStatus": 200,
+      "seconds": 0.906071875,
+      "bytes": 54432
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 1595.446625,
+      "httpStatus": 200,
+      "seconds": 0.9732464169999998,
+      "bytes": 56279
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 1697.801125,
+      "httpStatus": 200,
+      "seconds": 1.3355215830000002,
+      "bytes": 56755
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 2569.015208,
+      "httpStatus": 200,
+      "seconds": 0.7521704590000003,
+      "bytes": 57115
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 3321.597708,
+      "httpStatus": 200,
+      "seconds": 0.3090736670000001,
+      "bytes": 41726
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 3631.082708,
+      "httpStatus": 200,
+      "seconds": 0.4305324169999999,
+      "bytes": 7783
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 4062.365417,
+      "httpStatus": 200,
+      "seconds": 2.331793833,
+      "bytes": 1804
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 6394.375958,
+      "httpStatus": 200,
+      "seconds": 2.3320342920000012,
+      "bytes": 10742
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 8726.67425,
+      "httpStatus": 200,
+      "seconds": 2.122658083,
+      "bytes": 1681
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 10909.686958,
+      "httpStatus": 200,
+      "seconds": 0.0838214169999992,
+      "bytes": 165447
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 10909.833708,
+      "httpStatus": 200,
+      "seconds": 0.055723374999999575,
+      "bytes": 27661
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 10965.769333,
+      "httpStatus": 200,
+      "seconds": 0.8937166249999992,
+      "bytes": 54577
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 10994.430375,
+      "httpStatus": 200,
+      "seconds": 1.0327800000000007,
+      "bytes": 54432
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 11859.74775,
+      "httpStatus": 200,
+      "seconds": 0.8680230419999989,
+      "bytes": 56279
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 12027.4475,
+      "httpStatus": 200,
+      "seconds": 1.1066498329999994,
+      "bytes": 56755
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 12728.030542,
+      "httpStatus": 200,
+      "seconds": 0.9255433749999993,
+      "bytes": 57115
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 13653.816833,
+      "httpStatus": 200,
+      "seconds": 0.2614241669999992,
+      "bytes": 41726
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 13915.490708,
+      "httpStatus": 200,
+      "seconds": 0.12867212500000097,
+      "bytes": 7783
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 14044.395167,
+      "httpStatus": 200,
+      "seconds": 0.37609120799999984,
+      "bytes": 1804
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 14420.673333,
+      "httpStatus": 200,
+      "seconds": 0.34186183399999936,
+      "bytes": 10742
+    },
+    {
+      "label": "day-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 14762.83875,
+      "httpStatus": 200,
+      "seconds": 0.3584719169999989,
+      "bytes": 1681
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 15197.500542,
+      "httpStatus": 200,
+      "seconds": 0.16162662500000077,
+      "bytes": 165447
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 15197.631792,
+      "httpStatus": 200,
+      "seconds": 0.13514195800000015,
+      "bytes": 27661
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 15197.844583,
+      "httpStatus": 200,
+      "seconds": 0.3416188750000001,
+      "bytes": 165447
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 15198.140167,
+      "httpStatus": 200,
+      "seconds": 0.30728816600000025,
+      "bytes": 27661
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 15332.942375,
+      "httpStatus": 200,
+      "seconds": 2.267506124999998,
+      "bytes": 54577
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 15359.996167,
+      "httpStatus": 200,
+      "seconds": 3.4079247080000004,
+      "bytes": 54432
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 15505.70525,
+      "httpStatus": 200,
+      "seconds": 3.4386441670000005,
+      "bytes": 54577
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 15540.45275,
+      "httpStatus": 200,
+      "seconds": 3.8613558330000015,
+      "bytes": 54432
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 17600.867,
+      "httpStatus": 200,
+      "seconds": 2.6271292920000016,
+      "bytes": 56279
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 18768.190292,
+      "httpStatus": 200,
+      "seconds": 2.7023634579999998,
+      "bytes": 56755
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 18944.635042,
+      "httpStatus": 200,
+      "seconds": 2.663906082999998,
+      "bytes": 56279
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 19402.093583,
+      "httpStatus": 200,
+      "seconds": 2.59397625,
+      "bytes": 56755
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 20228.271333,
+      "httpStatus": 200,
+      "seconds": 2.1689655839999977,
+      "bytes": 57115
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 21608.821625,
+      "httpStatus": 200,
+      "seconds": 1.176633833,
+      "bytes": 57115
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 22397.546375,
+      "httpStatus": 200,
+      "seconds": 0.2556318749999991,
+      "bytes": 41726
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 22653.453625,
+      "httpStatus": 200,
+      "seconds": 0.305838667,
+      "bytes": 7783
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 22785.882,
+      "httpStatus": 200,
+      "seconds": 0.24774958299999708,
+      "bytes": 41726
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 22959.510958,
+      "httpStatus": 200,
+      "seconds": 2.496954375000001,
+      "bytes": 1804
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 23033.9635,
+      "httpStatus": 200,
+      "seconds": 0.32350162499999713,
+      "bytes": 7783
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 23358.153417,
+      "httpStatus": 200,
+      "seconds": 2.098678874999998,
+      "bytes": 1804
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 25456.617125,
+      "httpStatus": 200,
+      "seconds": 2.519154208,
+      "bytes": 10742
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 25456.935,
+      "httpStatus": 200,
+      "seconds": 2.5183807500000004,
+      "bytes": 10742
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 27975.549833,
+      "httpStatus": 200,
+      "seconds": 2.3190324169999985,
+      "bytes": 1681
+    },
+    {
+      "label": "day-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 27975.896,
+      "httpStatus": 200,
+      "seconds": 2.3190766669999974,
+      "bytes": 1681
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 30359.296583,
+      "httpStatus": 200,
+      "seconds": 0.18522545900000115,
+      "bytes": 165447
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 30359.428458,
+      "httpStatus": 200,
+      "seconds": 0.15211645900000076,
+      "bytes": 27661
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 30359.512125,
+      "httpStatus": 200,
+      "seconds": 0.18621749999999884,
+      "bytes": 165447
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 30359.575792,
+      "httpStatus": 200,
+      "seconds": 0.16880070799999886,
+      "bytes": 27661
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 30511.722333,
+      "httpStatus": 200,
+      "seconds": 2.232606334,
+      "bytes": 54577
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 30528.55375,
+      "httpStatus": 200,
+      "seconds": 2.265727583,
+      "bytes": 54577
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 30545.411708,
+      "httpStatus": 200,
+      "seconds": 2.5993959590000015,
+      "bytes": 54432
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 30546.54775,
+      "httpStatus": 200,
+      "seconds": 3.1657819579999957,
+      "bytes": 54432
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 32744.550667,
+      "httpStatus": 200,
+      "seconds": 2.500208957999999,
+      "bytes": 56279
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 32794.509917,
+      "httpStatus": 200,
+      "seconds": 2.182356749999999,
+      "bytes": 56279
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 33145.045583,
+      "httpStatus": 200,
+      "seconds": 2.7466499170000023,
+      "bytes": 56755
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 33712.584083,
+      "httpStatus": 200,
+      "seconds": 2.3949351249999964,
+      "bytes": 56755
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 34977.100875,
+      "httpStatus": 200,
+      "seconds": 1.4165315420000042,
+      "bytes": 57115
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 35244.982167,
+      "httpStatus": 200,
+      "seconds": 1.4492980830000015,
+      "bytes": 57115
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 36393.882083,
+      "httpStatus": 200,
+      "seconds": 0.16522762500000682,
+      "bytes": 41726
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 36559.380958,
+      "httpStatus": 200,
+      "seconds": 0.2555073340000017,
+      "bytes": 7783
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 36694.538333,
+      "httpStatus": 200,
+      "seconds": 0.2926045840000006,
+      "bytes": 41726
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 36815.1875,
+      "httpStatus": 200,
+      "seconds": 0.4912883329999968,
+      "bytes": 1804
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 36987.360542,
+      "httpStatus": 200,
+      "seconds": 0.14108350000000064,
+      "bytes": 7783
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 37128.695042,
+      "httpStatus": 200,
+      "seconds": 0.17819620800000122,
+      "bytes": 1804
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 37306.641292,
+      "httpStatus": 200,
+      "seconds": 0.3026863749999975,
+      "bytes": 10742
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 37306.969458,
+      "httpStatus": 200,
+      "seconds": 0.3018965840000019,
+      "bytes": 10742
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 37609.06975,
+      "httpStatus": 200,
+      "seconds": 0.4133445829999982,
+      "bytes": 1681
+    },
+    {
+      "label": "day-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 37609.511375,
+      "httpStatus": 200,
+      "seconds": 0.413240082999997,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 38099.805667,
+      "httpStatus": 200,
+      "seconds": 0.29032424999999784,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 38099.960042,
+      "httpStatus": 200,
+      "seconds": 0.2914537909999999,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 38390.563042,
+      "httpStatus": 200,
+      "seconds": 0.06158629099999962,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 38392.278458,
+      "httpStatus": 200,
+      "seconds": 0.6668718749999971,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 38452.371958,
+      "httpStatus": 200,
+      "seconds": 0.9481680419999975,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 39059.429458,
+      "httpStatus": 200,
+      "seconds": 1.0149500840000036,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 39400.795917,
+      "httpStatus": 200,
+      "seconds": 0.9902652079999971,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 40074.621917,
+      "httpStatus": 200,
+      "seconds": 0.6889433330000029,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 40763.803583,
+      "httpStatus": 200,
+      "seconds": 2.2468325419999964,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 43011.074917,
+      "httpStatus": 200,
+      "seconds": 0.33790662500000324,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 43349.189667,
+      "httpStatus": 200,
+      "seconds": 0.3570902500000011,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 43706.429667,
+      "httpStatus": 200,
+      "seconds": 2.206806500000006,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 45913.432708,
+      "httpStatus": 200,
+      "seconds": 2.0721333339999983,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 48046.36675,
+      "httpStatus": 200,
+      "seconds": 0.27935191699999995,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 48046.495208,
+      "httpStatus": 200,
+      "seconds": 0.28779550000000015,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 48326.118167,
+      "httpStatus": 200,
+      "seconds": 0.05787483300000167,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 48335.431333,
+      "httpStatus": 200,
+      "seconds": 0.6723271249999961,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 48384.157208,
+      "httpStatus": 200,
+      "seconds": 0.9315825840000034,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 49007.96425,
+      "httpStatus": 200,
+      "seconds": 0.9494923330000019,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 49315.972167,
+      "httpStatus": 200,
+      "seconds": 1.0371491250000036,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 49957.695167,
+      "httpStatus": 200,
+      "seconds": 0.725241833,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 50683.20575,
+      "httpStatus": 200,
+      "seconds": 0.2993846249999988,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 50983.001542,
+      "httpStatus": 200,
+      "seconds": 0.22798504099999992,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 51211.159375,
+      "httpStatus": 200,
+      "seconds": 0.43981499999999507,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 51651.118875,
+      "httpStatus": 200,
+      "seconds": 0.3349865419999987,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 51986.286292,
+      "httpStatus": 200,
+      "seconds": 0.30132387500000185,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 52354.813833,
+      "httpStatus": 200,
+      "seconds": 0.517890542000001,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 52354.929333,
+      "httpStatus": 200,
+      "seconds": 0.5834960419999988,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 52355.009333,
+      "httpStatus": 200,
+      "seconds": 0.5822057920000007,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 52355.12075,
+      "httpStatus": 200,
+      "seconds": 0.5849307919999992,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 52873.415208,
+      "httpStatus": 200,
+      "seconds": 0.16591391699999802,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 52937.607542,
+      "httpStatus": 200,
+      "seconds": 0.18406874999999853,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 52939.211917,
+      "httpStatus": 200,
+      "seconds": 2.3485821660000004,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 52940.788167,
+      "httpStatus": 200,
+      "seconds": 2.633292708000001,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 53039.54575,
+      "httpStatus": 200,
+      "seconds": 2.3523198330000015,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 53121.867167,
+      "httpStatus": 200,
+      "seconds": 2.8489402500000067,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 55287.995333,
+      "httpStatus": 200,
+      "seconds": 2.2382506670000004,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 55392.113208,
+      "httpStatus": 200,
+      "seconds": 2.580200291999994,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 55574.297833,
+      "httpStatus": 200,
+      "seconds": 2.6002678340000056,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 55971.041625,
+      "httpStatus": 200,
+      "seconds": 2.4541820829999996,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 57526.463375,
+      "httpStatus": 200,
+      "seconds": 1.355570249999997,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 58174.790125,
+      "httpStatus": 200,
+      "seconds": 1.0669809999999997,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 58882.300083,
+      "httpStatus": 200,
+      "seconds": 2.4675395419999986,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 59242.028417,
+      "httpStatus": 200,
+      "seconds": 2.1086897499999977,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 61350.382708,
+      "httpStatus": 200,
+      "seconds": 0.4228709589999999,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 61351.110417,
+      "httpStatus": 200,
+      "seconds": 0.42262420799999384,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 61773.521708,
+      "httpStatus": 200,
+      "seconds": 0.39369462499999647,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 61773.948083,
+      "httpStatus": 200,
+      "seconds": 0.3929417919999978,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 62167.032,
+      "httpStatus": 200,
+      "seconds": 2.2494522500000023,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 62167.280667,
+      "httpStatus": 200,
+      "seconds": 2.249615875000003,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 64416.692792,
+      "httpStatus": 200,
+      "seconds": 2.2481657080000006,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 64417.011625,
+      "httpStatus": 200,
+      "seconds": 2.2481965829999973,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 66729.224458,
+      "httpStatus": 200,
+      "seconds": 0.6123576250000042,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 66729.324458,
+      "httpStatus": 200,
+      "seconds": 0.6428492089999926,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 66729.381708,
+      "httpStatus": 200,
+      "seconds": 0.6260802919999987,
+      "bytes": 113708
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 66729.42775,
+      "httpStatus": 200,
+      "seconds": 0.6439930829999939,
+      "bytes": 316725
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 67341.960375,
+      "httpStatus": 200,
+      "seconds": 0.08659487500000979,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 67356.181875,
+      "httpStatus": 200,
+      "seconds": 0.07194283300000825,
+      "bytes": 27661
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 67372.965375,
+      "httpStatus": 200,
+      "seconds": 2.750612792,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 67374.212667,
+      "httpStatus": 200,
+      "seconds": 2.574029125000001,
+      "bytes": 54577
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 67428.308833,
+      "httpStatus": 200,
+      "seconds": 2.2199044169999977,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 67428.6745,
+      "httpStatus": 200,
+      "seconds": 2.3811489170000133,
+      "bytes": 54432
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 69648.419208,
+      "httpStatus": 200,
+      "seconds": 1.9554323339999973,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 69810.091042,
+      "httpStatus": 200,
+      "seconds": 2.4112683329999998,
+      "bytes": 56279
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 69948.476708,
+      "httpStatus": 200,
+      "seconds": 2.891824041999993,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 70123.811083,
+      "httpStatus": 200,
+      "seconds": 2.8963555420000047,
+      "bytes": 56755
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 71604.04575,
+      "httpStatus": 200,
+      "seconds": 1.6996915000000008,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 72221.575375,
+      "httpStatus": 200,
+      "seconds": 1.3668394580000023,
+      "bytes": 57115
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 73303.966417,
+      "httpStatus": 200,
+      "seconds": 0.4609541659999959,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=60",
+      "started": 73588.641958,
+      "httpStatus": 200,
+      "seconds": 0.17528887500001292,
+      "bytes": 135283
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 73764.359125,
+      "httpStatus": 200,
+      "seconds": 0.1289174170000042,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 73765.270417,
+      "httpStatus": 200,
+      "seconds": 0.12762616599998727,
+      "bytes": 7783
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 73893.083,
+      "httpStatus": 200,
+      "seconds": 0.4486447920000064,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 73893.379583,
+      "httpStatus": 200,
+      "seconds": 0.4487341250000027,
+      "bytes": 1804
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 74341.880583,
+      "httpStatus": 200,
+      "seconds": 0.3812121669999906,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 74342.179125,
+      "httpStatus": 200,
+      "seconds": 0.3813290830000042,
+      "bytes": 10742
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 74723.30525,
+      "httpStatus": 200,
+      "seconds": 0.3317564999999886,
+      "bytes": 1681
+    },
+    {
+      "label": "m60-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 74723.622042,
+      "httpStatus": 200,
+      "seconds": 0.3317632080000039,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 75128.909875,
+      "httpStatus": 200,
+      "seconds": 0.38064916699999596,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 75129.059958,
+      "httpStatus": 200,
+      "seconds": 0.38176550000000864,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 75509.938417,
+      "httpStatus": 200,
+      "seconds": 0.1132403750000085,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 75511.609167,
+      "httpStatus": 200,
+      "seconds": 0.9100430829999968,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 75623.368417,
+      "httpStatus": 200,
+      "seconds": 0.9487764159999933,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 76421.884292,
+      "httpStatus": 200,
+      "seconds": 0.8903174159999908,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 76572.347417,
+      "httpStatus": 200,
+      "seconds": 1.0511244580000056,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 77312.398417,
+      "httpStatus": 200,
+      "seconds": 0.673231832999998,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 77985.865458,
+      "httpStatus": 200,
+      "seconds": 1.8438454999999958,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 79830.148625,
+      "httpStatus": 200,
+      "seconds": 0.29341770799999356,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 80123.819417,
+      "httpStatus": 200,
+      "seconds": 2.359780832999997,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 82483.740125,
+      "httpStatus": 200,
+      "seconds": 0.45251316699999733,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 82936.500458,
+      "httpStatus": 200,
+      "seconds": 2.152612875000006,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 85228.822458,
+      "httpStatus": 200,
+      "seconds": 0.28874716700000863,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 85228.930708,
+      "httpStatus": 200,
+      "seconds": 0.2875170840000064,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 85517.270667,
+      "httpStatus": 200,
+      "seconds": 0.06786720799999603,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 85517.938417,
+      "httpStatus": 200,
+      "seconds": 0.8494808330000088,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 85585.343292,
+      "httpStatus": 200,
+      "seconds": 0.9356142909999907,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 86367.660458,
+      "httpStatus": 200,
+      "seconds": 0.8966567919999943,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 86521.167875,
+      "httpStatus": 200,
+      "seconds": 1.0703814169999968,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 87264.564333,
+      "httpStatus": 200,
+      "seconds": 0.6976402499999967,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 87962.44125,
+      "httpStatus": 200,
+      "seconds": 0.36062179199999084,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 88323.443833,
+      "httpStatus": 200,
+      "seconds": 0.15314258400000108,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 88476.749708,
+      "httpStatus": 200,
+      "seconds": 0.30253595900000074,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 88779.442542,
+      "httpStatus": 200,
+      "seconds": 0.4300585829999909,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 89209.69,
+      "httpStatus": 200,
+      "seconds": 0.36933670800000257,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 89734.073833,
+      "httpStatus": 200,
+      "seconds": 0.5661995000000024,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 89734.173083,
+      "httpStatus": 200,
+      "seconds": 0.5415455419999926,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 89734.232625,
+      "httpStatus": 200,
+      "seconds": 0.5825911669999914,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 89734.294542,
+      "httpStatus": 200,
+      "seconds": 0.5572527499999996,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 90276.496625,
+      "httpStatus": 200,
+      "seconds": 0.06480745799999568,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 90292.378917,
+      "httpStatus": 200,
+      "seconds": 0.0633851660000073,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 90300.645875,
+      "httpStatus": 200,
+      "seconds": 2.176732541999998,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 90317.231208,
+      "httpStatus": 200,
+      "seconds": 2.213140667,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 90341.474708,
+      "httpStatus": 200,
+      "seconds": 2.4402892090000097,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 90355.955333,
+      "httpStatus": 200,
+      "seconds": 2.8081887089999946,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 92477.585625,
+      "httpStatus": 200,
+      "seconds": 2.4931129169999915,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 92530.564625,
+      "httpStatus": 200,
+      "seconds": 2.190241041999994,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 92781.987625,
+      "httpStatus": 200,
+      "seconds": 2.8678027500000027,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 93164.372625,
+      "httpStatus": 200,
+      "seconds": 2.7267149999999964,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 94721.009708,
+      "httpStatus": 200,
+      "seconds": 1.4412570839999972,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 94970.909125,
+      "httpStatus": 200,
+      "seconds": 1.771969082999989,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 96162.500667,
+      "httpStatus": 200,
+      "seconds": 2.299279125000001,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 96743.093375,
+      "httpStatus": 200,
+      "seconds": 1.7193801670000102,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 98462.170417,
+      "httpStatus": 200,
+      "seconds": 0.37240875000000234,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 98463.060583,
+      "httpStatus": 200,
+      "seconds": 0.37196825000000533,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 98834.801375,
+      "httpStatus": 200,
+      "seconds": 2.284543000000005,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 98835.141125,
+      "httpStatus": 200,
+      "seconds": 2.2845230830000074,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 101119.476417,
+      "httpStatus": 200,
+      "seconds": 0.41762058299999627,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 101119.725792,
+      "httpStatus": 200,
+      "seconds": 0.41699199999999836,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 101536.8985,
+      "httpStatus": 200,
+      "seconds": 2.052421125000008,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 101537.216542,
+      "httpStatus": 200,
+      "seconds": 2.051809166000006,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 103644.757708,
+      "httpStatus": 200,
+      "seconds": 0.6000253749999974,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 103644.852958,
+      "httpStatus": 200,
+      "seconds": 0.5730432089999958,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 103644.90775,
+      "httpStatus": 200,
+      "seconds": 0.5991774169999989,
+      "bytes": 113810
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 103644.947125,
+      "httpStatus": 200,
+      "seconds": 0.5893297079999902,
+      "bytes": 316362
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 104218.765125,
+      "httpStatus": 200,
+      "seconds": 0.06878416699999071,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 104235.059125,
+      "httpStatus": 200,
+      "seconds": 0.07559795799999847,
+      "bytes": 27661
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 104244.45175,
+      "httpStatus": 200,
+      "seconds": 2.322062417000008,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 104245.124708,
+      "httpStatus": 200,
+      "seconds": 2.0942699589999973,
+      "bytes": 54577
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 104287.74525,
+      "httpStatus": 200,
+      "seconds": 2.5990485419999896,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 104310.812667,
+      "httpStatus": 200,
+      "seconds": 3.019200291000001,
+      "bytes": 54432
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 106339.623083,
+      "httpStatus": 200,
+      "seconds": 2.1700033750000003,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 106566.706417,
+      "httpStatus": 200,
+      "seconds": 2.356874708000003,
+      "bytes": 56279
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 106887.044542,
+      "httpStatus": 200,
+      "seconds": 2.678787666000004,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 107330.246417,
+      "httpStatus": 200,
+      "seconds": 2.428959833000001,
+      "bytes": 56755
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 108509.859458,
+      "httpStatus": 200,
+      "seconds": 1.5290451669999894,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 108923.788167,
+      "httpStatus": 200,
+      "seconds": 1.5289562079999888,
+      "bytes": 57115
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 110039.129125,
+      "httpStatus": 200,
+      "seconds": 0.4828442919999943,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=90",
+      "started": 110453.003,
+      "httpStatus": 200,
+      "seconds": 0.32387041699999825,
+      "bytes": 129100
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 110522.366208,
+      "httpStatus": 200,
+      "seconds": 0.22339120899999398,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 110746.008125,
+      "httpStatus": 200,
+      "seconds": 0.4863428750000021,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 110777.238583,
+      "httpStatus": 200,
+      "seconds": 0.2770961249999964,
+      "bytes": 7783
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 111054.526125,
+      "httpStatus": 200,
+      "seconds": 0.17741612499998882,
+      "bytes": 1804
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 111232.087875,
+      "httpStatus": 200,
+      "seconds": 0.3120842499999999,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 111232.433833,
+      "httpStatus": 200,
+      "seconds": 0.3113481250000041,
+      "bytes": 10742
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 111543.97975,
+      "httpStatus": 200,
+      "seconds": 0.30737420800000836,
+      "bytes": 1681
+    },
+    {
+      "label": "m90-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 111544.285833,
+      "httpStatus": 200,
+      "seconds": 0.30734670900000494,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 112008.83825,
+      "httpStatus": 200,
+      "seconds": 0.3741689579999947,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 112008.975583,
+      "httpStatus": 200,
+      "seconds": 0.37508929199998964,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 112383.407208,
+      "httpStatus": 200,
+      "seconds": 0.13400762499999838,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 112384.804542,
+      "httpStatus": 200,
+      "seconds": 0.8794893750000047,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 112517.570625,
+      "httpStatus": 200,
+      "seconds": 0.8432458750000078,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 113264.518917,
+      "httpStatus": 200,
+      "seconds": 0.9972598330000038,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 113361.014708,
+      "httpStatus": 200,
+      "seconds": 1.1040281669999967,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 114261.980958,
+      "httpStatus": 200,
+      "seconds": 0.6696188750000002,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 114931.806625,
+      "httpStatus": 200,
+      "seconds": 1.7384687080000003,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 116670.611875,
+      "httpStatus": 200,
+      "seconds": 0.21324845800000183,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 116884.039333,
+      "httpStatus": 200,
+      "seconds": 2.4114131250000064,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 119295.599542,
+      "httpStatus": 200,
+      "seconds": 2.1330654159999978,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 121428.888125,
+      "httpStatus": 200,
+      "seconds": 0.36688733300000603,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 121940.701375,
+      "httpStatus": 200,
+      "seconds": 0.31923470799998904,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 121940.799542,
+      "httpStatus": 200,
+      "seconds": 0.32991825000000247,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 122260.394542,
+      "httpStatus": 200,
+      "seconds": 0.07591400000000431,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 122271.504333,
+      "httpStatus": 200,
+      "seconds": 0.7318304589999898,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 122336.46875,
+      "httpStatus": 200,
+      "seconds": 1.0103384170000063,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 123003.549042,
+      "httpStatus": 200,
+      "seconds": 0.9720436659999978,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 123347.040292,
+      "httpStatus": 200,
+      "seconds": 1.0123286660000013,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 123975.826958,
+      "httpStatus": 200,
+      "seconds": 0.7202876249999972,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 124696.475625,
+      "httpStatus": 200,
+      "seconds": 0.4481887499999866,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 125145.027958,
+      "httpStatus": 200,
+      "seconds": 0.23134129199999734,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 125376.622042,
+      "httpStatus": 200,
+      "seconds": 0.4194352910000016,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 125796.2295,
+      "httpStatus": 200,
+      "seconds": 0.45904899999999904,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-1tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 126255.468,
+      "httpStatus": 200,
+      "seconds": 0.5112354170000035,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 126865.288208,
+      "httpStatus": 200,
+      "seconds": 0.6904547089999978,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 126865.42925,
+      "httpStatus": 200,
+      "seconds": 0.6882052079999994,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 126865.499375,
+      "httpStatus": 200,
+      "seconds": 0.6891822919999977,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 126865.602542,
+      "httpStatus": 200,
+      "seconds": 0.6378653750000085,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 127504.727708,
+      "httpStatus": 200,
+      "seconds": 0.16248712499999965,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 127554.429667,
+      "httpStatus": 200,
+      "seconds": 0.1449919579999987,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 127555.449125,
+      "httpStatus": 200,
+      "seconds": 2.253848125000004,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 127556.063792,
+      "httpStatus": 200,
+      "seconds": 2.9381792080000015,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 127667.362667,
+      "httpStatus": 200,
+      "seconds": 2.2960190410000068,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 127699.59125,
+      "httpStatus": 200,
+      "seconds": 2.563982375000007,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 129809.50875,
+      "httpStatus": 200,
+      "seconds": 1.9738504580000154,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 129963.575417,
+      "httpStatus": 200,
+      "seconds": 2.461593291000012,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 130263.804292,
+      "httpStatus": 200,
+      "seconds": 2.3117444579999864,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 130494.47525,
+      "httpStatus": 200,
+      "seconds": 2.433745458000005,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 131783.594708,
+      "httpStatus": 200,
+      "seconds": 1.4627735000000102,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 132575.764958,
+      "httpStatus": 200,
+      "seconds": 0.9853824999999778,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 133246.597292,
+      "httpStatus": 200,
+      "seconds": 2.2508205410000226,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 133561.355542,
+      "httpStatus": 200,
+      "seconds": 1.9365944160000073,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 135497.718583,
+      "httpStatus": 200,
+      "seconds": 0.3181152920000022,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 135498.167,
+      "httpStatus": 200,
+      "seconds": 0.3173019580000255,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 135815.649375,
+      "httpStatus": 200,
+      "seconds": 2.3893594169999997,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 135815.955708,
+      "httpStatus": 200,
+      "seconds": 2.3887417920000154,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 138204.824708,
+      "httpStatus": 200,
+      "seconds": 2.235531209000008,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 138205.069292,
+      "httpStatus": 200,
+      "seconds": 2.234856166000012,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 140440.11075,
+      "httpStatus": 200,
+      "seconds": 0.3946048330000194,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-2tabs-cold",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 140440.489958,
+      "httpStatus": 200,
+      "seconds": 0.3939491670000134,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 140899.711375,
+      "httpStatus": 200,
+      "seconds": 0.573934041999979,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 140899.787875,
+      "httpStatus": 200,
+      "seconds": 0.5753644579999964,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minutes",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 140899.836042,
+      "httpStatus": 200,
+      "seconds": 0.5731228750000009,
+      "bytes": 114376
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-indicators",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 140899.875125,
+      "httpStatus": 200,
+      "seconds": 0.5849750000000058,
+      "bytes": 316807
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 141473.340625,
+      "httpStatus": 200,
+      "seconds": 0.1573723749999772,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 141473.974,
+      "httpStatus": 200,
+      "seconds": 0.06776108300001943,
+      "bytes": 27661
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 141476.111542,
+      "httpStatus": 200,
+      "seconds": 2.5087026250000055,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 141485.644167,
+      "httpStatus": 200,
+      "seconds": 2.6834702910000052,
+      "bytes": 54577
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 141541.912458,
+      "httpStatus": 200,
+      "seconds": 2.3818736250000074,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 141630.858,
+      "httpStatus": 200,
+      "seconds": 2.9267807080000057,
+      "bytes": 54432
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 143923.986208,
+      "httpStatus": 200,
+      "seconds": 2.239016500000027,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 143985.0335,
+      "httpStatus": 200,
+      "seconds": 2.579359625000012,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 144169.337333,
+      "httpStatus": 200,
+      "seconds": 2.579711917000008,
+      "bytes": 56279
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 144557.859,
+      "httpStatus": 200,
+      "seconds": 2.6265440830000153,
+      "bytes": 56755
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 146163.202625,
+      "httpStatus": 200,
+      "seconds": 1.374459750000009,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 146749.254542,
+      "httpStatus": 200,
+      "seconds": 1.2753708329999935,
+      "bytes": 57115
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 147537.888208,
+      "httpStatus": 200,
+      "seconds": 0.44314604200000757,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 147981.346375,
+      "httpStatus": 200,
+      "seconds": 0.2602493330000143,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/minute-xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&freq=120",
+      "started": 148024.844917,
+      "httpStatus": 200,
+      "seconds": 0.585345874999999,
+      "bytes": 90893
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 148241.88175,
+      "httpStatus": 200,
+      "seconds": 0.5099219169999997,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 148610.496042,
+      "httpStatus": 200,
+      "seconds": 0.15633924999999,
+      "bytes": 7783
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 148751.940958,
+      "httpStatus": 200,
+      "seconds": 0.7642918340000033,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 148767.003583,
+      "httpStatus": 200,
+      "seconds": 0.7489136249999865,
+      "bytes": 1804
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 149516.046875,
+      "httpStatus": 200,
+      "seconds": 0.3828792919999978,
+      "bytes": 10742
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 149516.373083,
+      "httpStatus": 200,
+      "seconds": 0.786037416999985,
+      "bytes": 1681
+    },
+    {
+      "label": "m120-2tabs-warm",
+      "tab": 2,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 149899.090167,
+      "httpStatus": 200,
+      "seconds": 0.40359654100000625,
+      "bytes": 1681
+    }
+  ]
+}

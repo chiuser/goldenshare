@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "rounds": 16,
+  "requests": 306,
+  "maxHttpSeconds": 2.859413084,
+  "maxForecastHttpSeconds": 2.463424457999994,
+  "maxComputeSeconds": 0.13671708339825273,
+  "maxCacheBytes": 42199161,
+  "maxCacheEntries": 8,
+  "all96ResponsesEqual": true,
+  "pageSeconds": {
+    "cold": {
+      "min": 8.292575666999998,
+      "max": 12.925193916999996
+    },
+    "warm": {
+      "min": 4.394399583,
+      "max": 11.157683874999995
+    }
+  }
+}

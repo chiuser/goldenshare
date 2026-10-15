@@ -4,25 +4,28 @@ from bisect import bisect_right
 from collections import OrderedDict
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass, replace
 from datetime import date, datetime
 import hashlib
 from pathlib import Path
 import sys
-from threading import BoundedSemaphore, Lock, RLock
+from threading import BoundedSemaphore, RLock
 import time
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
 from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmTopHistoryDto
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod
 from .source import (CN_ZONE, INDICATOR_VERSION, XxmSourceError, assert_continuous, calendar_dates,
                      expected_through, minute_reader, minute_request, read_daily, read_minutes)
+from .shared_loads import SharedLoads
 
 
 class XxmQueryError(RuntimeError):
@@ -49,7 +52,7 @@ def _deep_size(value: Any, seen: set[int] | None = None) -> int:
     return size
 
 
-@dataclass
+@dataclass(frozen=True)
 class SeriesEntry:
     raw: tuple[XxmBar, ...]
     signature: tuple
@@ -60,6 +63,8 @@ class SeriesEntry:
     histories: dict[str, dict]
     fingerprints: list[str]
     checkpoints: dict[int, dict]
+    open_dates: tuple[date, ...] = ()
+    validated_through: str | None = None
 
     def calculator_at(self, count: int, check) -> XxmCalculator:
         """Independent real prefix state; no hypothetical/future state is cached."""
@@ -90,17 +95,18 @@ class SeriesEntry:
 class XxmCache:
     def __init__(self, *, max_bytes: int = BUDGET.cache_max_bytes, max_series: int = BUDGET.cache_max_series) -> None:
         self.max_bytes, self.max_series = max_bytes, max_series
-        self.entries: OrderedDict[tuple, tuple[SeriesEntry, int]] = OrderedDict()
+        self.entries: OrderedDict[tuple, tuple[SeriesEntry | ForecastResponseDto, int]] = OrderedDict()
         self.lock = RLock()
+        self.loads = SharedLoads(max_entries=max_series)
 
-    def get(self, key: tuple) -> SeriesEntry | None:
+    def get(self, key: tuple) -> SeriesEntry | ForecastResponseDto | None:
         with self.lock:
             if key not in self.entries:
                 return None
             self.entries.move_to_end(key)
             return self.entries[key][0]
 
-    def put(self, key: tuple, entry: SeriesEntry) -> None:
+    def put(self, key: tuple, entry: SeriesEntry | ForecastResponseDto) -> None:
         size = _deep_size(entry)
         with self.lock:
             self.entries.pop(key, None)
@@ -109,10 +115,17 @@ class XxmCache:
             while self.entries and (len(self.entries) > self.max_series or sum(v[1] for v in self.entries.values()) > self.max_bytes):
                 self.entries.popitem(last=False)
 
+    def get_forecast(self, key: tuple) -> ForecastResponseDto | None:
+        response = self.get(("forecast", *key))
+        return response.model_copy(deep=True) if response is not None else None
+
+    def put_forecast(self, key: tuple, response: ForecastResponseDto) -> None:
+        self.put(("forecast", *key), response.model_copy(deep=True))
+
 
 _CACHE = XxmCache()
 _REQUEST_SLOTS = BoundedSemaphore(BUDGET.max_concurrent_requests)
-_SERIES_LOCKS = {period: Lock() for period in ("day", "m60", "m90", "m120")}
+_PERIODS = ("day", "m60", "m90", "m120")
 
 
 class IndexDetailXxmQueryService:
@@ -123,10 +136,11 @@ class IndexDetailXxmQueryService:
 
     def build(self, session: Session, *, period: XxmPeriod, start_date: date | None, end_date: date | None,
               limit: int, now: datetime | None = None) -> XxmResponseDto:
-        if period not in _SERIES_LOCKS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
+        if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
-        with self.load_entry(session, period=period, now=now) as (entry, current, open_dates, remaining):
-            expected = expected_through(period, open_dates, current, end_date)
+        with self.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
+            upper = min(end_date or context.trade_date, context.trade_date)
+            expected = expected_through(period, open_dates, context.generated_at, upper)
             response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit)
             if len(response.model_dump_json().encode()) > BUDGET.max_response_bytes:
                 raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标响应超过预算。", 503)
@@ -135,11 +149,8 @@ class IndexDetailXxmQueryService:
 
     @contextmanager
     def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None):
-        """Shared real-data cache entry under the existing slots, lock and deadline.
-
-        Consumers must never mutate this entry with hypothetical bars.
-        """
-        if period not in _SERIES_LOCKS:
+        """Publish a validated real prefix; consumers never hold a source slot."""
+        if period not in _PERIODS:
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标周期不合法。", 400)
         if period != "day" and self.reader is None:
             raise XxmQueryError("XXM_QUERY_FAILED", "本地分钟来源未配置。", 503)
@@ -151,61 +162,33 @@ class IndexDetailXxmQueryService:
                 raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
             return left
 
-        if not _REQUEST_SLOTS.acquire(blocking=False):
-            raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询繁忙，请稍后重试。", 503)
-        acquired = False
         try:
-            acquired = _SERIES_LOCKS[period].acquire(timeout=remaining())
-            if not acquired:
-                raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
             now = (now or datetime.now(CN_ZONE)).astimezone(CN_ZONE)
-            open_dates = calendar_dates(session, end=now.date())
-            completed = expected_through(period, open_dates, now, None)
+            context = MarketPageContextQuery().resolve_context(
+                session, market="CN_A", requested_trade_date=None, now=now,
+            )
+            remaining()
             key = (id(session.get_bind()), self.lake_identity, period, MAIN_SPEC.spec_hash)
-            entry = self.cache.get(key)
-            if period == "day":
-                raw = read_daily(session, completed=completed, check=remaining)
-                signature = ()
-            else:
-                assert self.reader is not None
-                freq = int(period[1:])
-                request = minute_request(freq, now.date())
-                signature = tuple(self.reader.history_source_signature(request, dataset=dataset) for dataset in ("bars", "indicators"))
-                remaining()
-                raw = entry.raw if entry is not None and signature == entry.signature else read_minutes(
-                    self.reader, freq=freq, end=now.date(), deadline=remaining)
+            # Before/after the cutover and different calendar coverages cannot
+            # join the same flight, even when their latest physical bar matches.
+            completed_hint = expected_through(period, (context.trade_date,), now, context.trade_date)
+            flight_key = (*key, context.trade_date, now.date(), completed_hint)
+            def load():
+                if not _REQUEST_SLOTS.acquire(timeout=remaining()):
+                    raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
+                try:
+                    return self._load_series(session, key=key, period=period, now=now,
+                                             business_date=context.trade_date, remaining=remaining)
+                finally:
+                    _REQUEST_SLOTS.release()
+            entry, open_dates = self.cache.loads.load(flight_key, load, remaining)
             remaining()
-            processed = tuple(bar for bar in raw if completed is not None and bar.time <= completed)
-            assert_continuous(processed, period=period, open_dates=open_dates)
-            origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
-            if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
-                entry = SeriesEntry(raw, signature, XxmCalculator(period=period, source_identity=origin), (), [], [], {}, [], {})
-            offset = len(entry.processed)
-            if offset != len(processed):
-                calculator = XxmCalculator(period=period, source_identity=origin)
-                calculator.restore(entry.calculator.snapshot())
-                entry = SeriesEntry(raw, signature, calculator, entry.processed, list(entry.points),
-                                    list(entry.events), dict(entry.histories), list(entry.fingerprints), dict(entry.checkpoints))
-            for index in range(offset, len(processed)):
-                if index % BUDGET.source_batch_rows == 0:
-                    remaining()
-                bar = processed[index]
-                step = entry.calculator.step(bar)
-                if (index + 1) % BUDGET.source_batch_rows == 0:
-                    entry.checkpoints[index + 1] = entry.calculator.snapshot()
-                entry.points.append(step.point)
-                entry.events.extend(step.events)
-                entry.histories.update({history["id"]: history for history in step.histories})
-                previous_hash = entry.fingerprints[-1] if entry.fingerprints else origin
-                numeric = "|".join(float(v).hex() for v in (bar.close, bar.dif, bar.dea, bar.hist))
-                entry.fingerprints.append(hashlib.sha256(f"{previous_hash}|{bar.time}|{numeric}".encode()).hexdigest())
-            entry.processed, entry.raw, entry.signature = processed, raw, signature
-            remaining()
-            self.cache.put(key, entry)
-            yield entry, now, open_dates, remaining
+            yield entry, context, open_dates, remaining
             remaining()
         except XxmQueryError:
             raise
+        except TimeoutError as exc:
+            raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503) from exc
         except (IndexMinuteHistoryBudgetError, OverflowError) as exc:
             raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标来源超过读取预算。", 503) from exc
         except (XxmSourceError, IndexMinuteSourceContractError, ValueError, TypeError) as exc:
@@ -213,10 +196,56 @@ class IndexDetailXxmQueryService:
         except Exception as exc:
             remaining()
             raise XxmQueryError("XXM_QUERY_FAILED", "研究指标查询失败，请重试。") from exc
-        finally:
-            if acquired:
-                _SERIES_LOCKS[period].release()
-            _REQUEST_SLOTS.release()
+
+    def _load_series(self, session, *, key, period, now, business_date, remaining):
+        open_dates = calendar_dates(session, end=now.date())
+        completed = expected_through(period, open_dates, now, business_date)
+        entry = self.cache.get(key)
+        if period == "day":
+            raw = read_daily(session, completed=completed, check=remaining)
+            signature = ()
+        else:
+            assert self.reader is not None
+            freq = int(period[1:])
+            request = minute_request(freq, business_date)
+            signature = tuple(self.reader.history_source_signature(request, dataset=dataset) for dataset in ("bars", "indicators"))
+            remaining()
+            raw = entry.raw if entry is not None and signature == entry.signature else read_minutes(
+                self.reader, freq=freq, end=business_date, deadline=remaining)
+        remaining()
+        if (entry is not None and signature == entry.signature and raw == entry.raw
+                and completed == entry.validated_through and open_dates == entry.open_dates):
+            return entry, open_dates
+        processed = tuple(bar for bar in raw if completed is not None and bar.time <= completed)
+        assert_continuous(processed, period=period, open_dates=open_dates)
+        origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
+        if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
+            entry = SeriesEntry(raw, signature, XxmCalculator(period=period, source_identity=origin), (), [], [], {}, [], {})
+        offset = len(entry.processed)
+        if offset != len(processed):
+            calculator = XxmCalculator(period=period, source_identity=origin)
+            calculator.restore(entry.calculator.snapshot())
+            entry = SeriesEntry(raw, signature, calculator, entry.processed, list(entry.points),
+                                list(entry.events), dict(entry.histories), list(entry.fingerprints), dict(entry.checkpoints))
+        for index in range(offset, len(processed)):
+            if index % BUDGET.source_batch_rows == 0:
+                remaining()
+            bar = processed[index]
+            step = entry.calculator.step(bar)
+            if (index + 1) % BUDGET.source_batch_rows == 0:
+                entry.checkpoints[index + 1] = entry.calculator.snapshot()
+            entry.points.append(step.point)
+            entry.events.extend(step.events)
+            entry.histories.update({history["id"]: history for history in step.histories})
+            previous_hash = entry.fingerprints[-1] if entry.fingerprints else origin
+            numeric = "|".join(float(v).hex() for v in (bar.close, bar.dif, bar.dea, bar.hist))
+            entry.fingerprints.append(hashlib.sha256(f"{previous_hash}|{bar.time}|{numeric}".encode()).hexdigest())
+        entry = replace(entry, processed=processed, raw=raw, signature=signature,
+                        open_dates=open_dates, validated_through=completed)
+        remaining()
+        self.cache.put(key, entry)
+        remaining()
+        return entry, open_dates
 
     @staticmethod
     def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,

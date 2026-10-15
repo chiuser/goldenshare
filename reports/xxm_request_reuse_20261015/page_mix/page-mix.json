@@ -1,0 +1,148 @@
+{
+  "rounds": [
+    {
+      "label": "day-1tabs-cold",
+      "selected": "day",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 12,
+      "pageSeconds": 11.568053542,
+      "maxHttpSeconds": 2.769901832999999,
+      "metrics": {
+        "completeReads": {
+          "60": 2,
+          "90": 2,
+          "120": 2
+        },
+        "maxComputeSeconds": 0.06725749978795648,
+        "cacheBytes": 42199161,
+        "cacheEntries": 8
+      },
+      "errors": [
+        "ReferenceError: period is not defined"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-14&limit=300",
+      "started": 377.3055,
+      "httpStatus": 200,
+      "seconds": 0.29429400000000006,
+      "bytes": 165447
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-14&limit=300",
+      "started": 377.997291,
+      "httpStatus": 200,
+      "seconds": 0.24476091699999994,
+      "bytes": 27661
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-14&limit=500",
+      "started": 623.360833,
+      "httpStatus": 200,
+      "seconds": 0.9936004170000001,
+      "bytes": 54577
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-14&limit=500",
+      "started": 672.653333,
+      "httpStatus": 200,
+      "seconds": 1.067849958,
+      "bytes": 54432
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-14&limit=500",
+      "started": 1617.301541,
+      "httpStatus": 200,
+      "seconds": 0.876286625,
+      "bytes": 56279
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-14&limit=500",
+      "started": 1740.804958,
+      "httpStatus": 200,
+      "seconds": 1.233091083,
+      "bytes": 56755
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-14&limit=500",
+      "started": 2493.918541,
+      "httpStatus": 200,
+      "seconds": 0.804089625,
+      "bytes": 57115
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=2026-01-01&endDate=2026-10-14&limit=500&period=day",
+      "started": 3298.468166,
+      "httpStatus": 200,
+      "seconds": 0.3063620419999997,
+      "bytes": 41726
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 3605.253333,
+      "httpStatus": 200,
+      "seconds": 0.4020760419999997,
+      "bytes": 7783
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m60",
+      "started": 4008.080125,
+      "httpStatus": 200,
+      "seconds": 2.738289708,
+      "bytes": 1804
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m90",
+      "started": 6746.5865,
+      "httpStatus": 200,
+      "seconds": 2.769901832999999,
+      "bytes": 10742
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=m120",
+      "started": 9516.762791,
+      "httpStatus": 200,
+      "seconds": 2.400178834,
+      "bytes": 1681
+    }
+  ]
+}

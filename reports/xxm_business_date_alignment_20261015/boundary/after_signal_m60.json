@@ -1,0 +1,69 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "source": {
+    "kind": "minute_gold",
+    "inputId": "bb0d5bdde61c77b26312c25400d5a61d85a71aa6dcec49fd244eaba10a6d7b5a",
+    "startTime": "2009-01-05T10:30:00+08:00",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "initialHistoryIncomplete": true,
+    "indicatorVersion": 1
+  },
+  "points": [
+    {
+      "time": "2026-10-14T14:00:00+08:00",
+      "close": 3772.8335,
+      "dif": -16.368787787393103,
+      "dea": -18.503287973302875,
+      "hist": 4.269000371819544,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+    },
+    {
+      "time": "2026-10-14T15:00:00+08:00",
+      "close": 3767.227,
+      "dif": -17.519737711723792,
+      "dea": -18.30657792098706,
+      "hist": 1.5736804185265356,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+    }
+  ],
+  "events": [],
+  "topHistories": [
+    {
+      "id": "efbdc80bb7924c05f4db38be",
+      "confirmedAt": "2026-08-19T10:30:00+08:00",
+      "confirmationRoute": "color_flip",
+      "pricePeak": 3990.3037,
+      "pricePeakAt": "2026-08-18T15:00:00+08:00",
+      "originalReference": {
+        "startTime": "2026-07-31T10:30:00+08:00",
+        "endTime": "2026-08-11T15:00:00+08:00",
+        "price": 3966.5935,
+        "dif": 33.04114229355082
+      },
+      "status": "PENDING",
+      "endedAt": null,
+      "endReason": null,
+      "observedThrough": "2026-10-14T15:00:00+08:00",
+      "ageBars": 139
+    }
+  ],
+  "meta": {
+    "count": 2,
+    "responseStart": "2026-10-14T14:00:00+08:00",
+    "responseEnd": "2026-10-14T15:00:00+08:00"
+  },
+  "dataStatus": {
+    "status": "DELAYED",
+    "message": "研究指标数据截至 2026-10-14T15:00:00+08:00",
+    "asOf": "2026-10-14T15:00:00+08:00"
+  }
+}

@@ -1,0 +1,21 @@
+{"attempt": 0, "mode": "original", "freq": 60, "seconds": 2.7567585413344204, "datasets": [{"dataset": "bars", "count": 17264, "files": 4316, "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8", "values": "2d8317e72ec62399196b66c25a2f521d8e625462d9424dfeaa0f1b94e7d9a8eb"}, {"dataset": "indicators", "count": 17264, "files": 4316, "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5", "values": "6639f6f1eb845cd21a5ef416ac7faea6fe74e5db209be1a570c782d276dcf49b"}]}
+Traceback (most recent call last):
+  File "/private/tmp/xxm_reader_candidate_20261015.py", line 132, in _query_rows
+_duckdb.BinderException: Binder Error: No function matches the given name and argument types 'read_parquet(INTEGER)'. You might need to add explicit type casts.
+	Candidate functions:
+	read_parquet(VARCHAR, hive_types_autocast : BOOLEAN, hive_partitioning : BOOLEAN, hive_types : ANY, compression : VARCHAR, explicit_cardinality : UBIGINT, union_by_name : BOOLEAN, debug_use_openssl : BOOLEAN, binary_as_string : BOOLEAN, filename : ANY, parquet_version : VARCHAR, schema : ANY, file_row_number : BOOLEAN, encryption_config : ANY, can_have_nan : BOOLEAN)
+	read_parquet(VARCHAR[], can_have_nan : BOOLEAN, encryption_config : ANY, file_row_number : BOOLEAN, schema : ANY, parquet_version : VARCHAR, filename : ANY, binary_as_string : BOOLEAN, debug_use_openssl : BOOLEAN, union_by_name : BOOLEAN, explicit_cardinality : UBIGINT, compression : VARCHAR, hive_types : ANY, hive_partitioning : BOOLEAN, hive_types_autocast : BOOLEAN)
+
+
+LINE 23:           FROM read_parquet(?, filename=true, hive_partitioning=false)
+                        ^
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/private/tmp/xxm_reader_precheck_20261015.py", line 19, in <module>
+    page=reader.read_complete_history(request,dataset=dataset,timeout_seconds=4)
+  File "/Users/congming/github/goldenshare/src/foundation/clients/local_lake/major_index_mins_reader.py", line 153, in read_complete_history
+    rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+  File "/private/tmp/xxm_reader_candidate_20261015.py", line 138, in _query_rows
+src.foundation.clients.local_lake.major_index_mins_reader.IndexMinuteQueryError: 指数分钟 Lake 查询失败。

@@ -1,0 +1,69 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "source": {
+    "kind": "daily_factor",
+    "inputId": "dcbdc36ed34648dc44abe188d5421687e0931cd0e1d3cf5e8da9b5a8e5abbb2e",
+    "startTime": "2023-01-03",
+    "computedThrough": "2026-10-14",
+    "initialHistoryIncomplete": true,
+    "indicatorVersion": null
+  },
+  "points": [
+    {
+      "time": "2026-10-13",
+      "close": 3800.8644,
+      "dif": -30.792,
+      "dea": -19.804,
+      "hist": -21.978,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+    },
+    {
+      "time": "2026-10-14",
+      "close": 3767.2271,
+      "dif": -34.747,
+      "dea": -22.792,
+      "hist": -23.91,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+    }
+  ],
+  "events": [],
+  "topHistories": [
+    {
+      "id": "ec1734f776caf1a452ba6c13",
+      "confirmedAt": "2026-05-14",
+      "confirmationRoute": "dif_turn",
+      "pricePeak": 4242.572,
+      "pricePeakAt": "2026-05-13",
+      "originalReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "status": "PENDING",
+      "endedAt": null,
+      "endReason": null,
+      "observedThrough": "2026-10-14",
+      "ageBars": 102
+    }
+  ],
+  "meta": {
+    "count": 2,
+    "responseStart": "2026-10-13",
+    "responseEnd": "2026-10-14"
+  },
+  "dataStatus": {
+    "status": "DELAYED",
+    "message": "研究指标数据截至 2026-10-14",
+    "asOf": "2026-10-14"
+  }
+}

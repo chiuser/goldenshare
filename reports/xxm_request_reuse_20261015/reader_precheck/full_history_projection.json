@@ -1,0 +1,401 @@
+{
+  "status": "PASS",
+  "records": [
+    {
+      "attempt": 0,
+      "mode": "original",
+      "freq": 60,
+      "seconds": 2.365974291227758,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 0,
+      "mode": "candidate",
+      "freq": 60,
+      "seconds": 1.3650374580174685,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 0,
+      "mode": "original",
+      "freq": 90,
+      "seconds": 1.9705306673422456,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 0,
+      "mode": "candidate",
+      "freq": 90,
+      "seconds": 1.2979760002344847,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 0,
+      "mode": "original",
+      "freq": 120,
+      "seconds": 1.9230902502313256,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    },
+    {
+      "attempt": 0,
+      "mode": "candidate",
+      "freq": 120,
+      "seconds": 1.2646583341993392,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "candidate",
+      "freq": 60,
+      "seconds": 1.7774244588799775,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "original",
+      "freq": 60,
+      "seconds": 1.6661692499183118,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "candidate",
+      "freq": 90,
+      "seconds": 1.7298391251824796,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "original",
+      "freq": 90,
+      "seconds": 1.5600161249749362,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "candidate",
+      "freq": 120,
+      "seconds": 1.6364715420641005,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "mode": "original",
+      "freq": 120,
+      "seconds": 1.6474232082255185,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "original",
+      "freq": 60,
+      "seconds": 2.139043166767806,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "candidate",
+      "freq": 60,
+      "seconds": 1.3248974587768316,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 17264,
+          "files": 4316,
+          "signature": "146f7f7a221ff1fa8344fd8b16bcf136aef2edbc88c05f56bb809dea6cd030e8",
+          "values": "3c8db95c591271976629ea7046887654cb39cf7be39db3acf38a4c6c54b4d1d7"
+        },
+        {
+          "dataset": "indicators",
+          "count": 17264,
+          "files": 4316,
+          "signature": "e15dc8467c2551e0cebf10161c1417552feb600b14257750e36cdd0dbe44cba5",
+          "values": "fc0874be373d1417b0e0b8c514f21774fef4c747bc9e6409ea1ad15a5eaebe7e"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "original",
+      "freq": 90,
+      "seconds": 1.934121625032276,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "candidate",
+      "freq": 90,
+      "seconds": 1.3074249159544706,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 12948,
+          "files": 4316,
+          "signature": "5006dbf73430827760062119ac15941bd829c437a407b286f4966ab58f592530",
+          "values": "8938f1dce0e6d49beb79be18cb015cb81e289e4bc84858e14f3a7d9534a393b9"
+        },
+        {
+          "dataset": "indicators",
+          "count": 12948,
+          "files": 4316,
+          "signature": "bb0e5b9bf69f79c44031051262a37549d253a83b87d55bbf00102dd0c5bba26d",
+          "values": "50b55f46d9d785ac2094e1b56dbb9ec1c29b8460a55c224388457c2152507606"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "original",
+      "freq": 120,
+      "seconds": 1.9145717909559608,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "mode": "candidate",
+      "freq": 120,
+      "seconds": 1.3332507079467177,
+      "datasets": [
+        {
+          "dataset": "bars",
+          "count": 8632,
+          "files": 4316,
+          "signature": "69c81651253628152255436b4514a6a4dd65dc9b567ce662a9a139039cf9bcbb",
+          "values": "ee68bc1c64da1b937f1767245d8cefa0aa0589ac27969ed9f88b6b3cec148813"
+        },
+        {
+          "dataset": "indicators",
+          "count": 8632,
+          "files": 4316,
+          "signature": "929b53bc64b21c47ccee351ed6882302a9dfe0a2cc1e924fce7dca392137a60d",
+          "values": "e306bedcac4822810506ebfdaa1416598dab62fd2df19ad15ffd16cda93f4664"
+        }
+      ]
+    }
+  ]
+}

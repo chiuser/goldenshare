@@ -52,9 +52,10 @@ class IndexDetailXxmForecastQueryService:
 
     def build(self, session, *, period, as_of=None, now=None):
         mode = "REPLAY" if as_of is not None else "LATEST"
-        with self.source.load_entry(session, period=period, now=now) as (entry, current, open_dates, remaining):
+        with self.source.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
             end_date = date.fromisoformat(as_of[:10]) if as_of else None
-            expected = expected_through(period, open_dates, current, end_date)
+            upper = min(end_date or context.trade_date, context.trade_date)
+            expected = expected_through(period, open_dates, context.generated_at, upper)
             if as_of is not None:
                 if expected is None or as_of > expected or end_date not in open_dates:
                     raise XxmQueryError("XXM_REQUEST_INVALID", "asOf 必须是已完成的开市端点。", 400)
@@ -69,12 +70,22 @@ class IndexDetailXxmForecastQueryService:
             hist = entry.points[n - 1]["hist"] if n else 0
             direction = "TOP" if hist > 0 else "BOTTOM" if hist < 0 else None
             confirmation = next((e for e in reversed(entry.events) if e["time"] <= through and e["type"] == "STRUCTURE"), None) if through else None
+            is_confirmed = data_status == "READY" and (ordinary == "STRUCTURE" or confirmation and confirmation["time"] == through)
+            endpoints = ()
+            if data_status == "READY" and not is_confirmed:
+                endpoints, calendar_id = future_calendar(session, period, through, remaining)
+            cache_key = (id(session.get_bind()), self.source.lake_identity, period, MAIN_SPEC.spec_hash,
+                         FORECAST_SPEC.spec_hash, entry.fingerprints[n - 1] if n else None,
+                         expected, as_of, calendar_id)
+            cached = self.source.cache.get_forecast(cache_key)
+            if cached is not None:
+                remaining()
+                return cached
             compute_start = None
             check = remaining
-            if data_status == "READY" and (ordinary == "STRUCTURE" or confirmation and confirmation["time"] == through):
+            if is_confirmed:
                 result = inactive_result("CONFIRMED")
             elif data_status == "READY":
-                endpoints, calendar_id = future_calendar(session, period, through, remaining)
                 compute_start = time.perf_counter()
                 def check():
                     remaining()
@@ -112,5 +123,6 @@ class IndexDetailXxmForecastQueryService:
             response = ForecastResponseDto(**payload)
             if len(response.model_dump_json().encode()) > FORECAST_SPEC.max_response_bytes:
                 raise XxmQueryError("XXM_BUDGET_EXCEEDED", "预测响应超过预算。", 503)
+            self.source.cache.put_forecast(cache_key, response)
             check()
             return response

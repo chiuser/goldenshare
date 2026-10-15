@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchForecast } from "./apiClient";
 import { FORECAST_PERIODS, type ForecastPeriod, type ForecastRows } from "./types";
 
-// UI scheduling only; detector/projection settings and refresh timing come from the API.
-export const FORECAST_MAX_PARALLEL_REQUESTS = 2;
+// Clients use the page-wide scheduler; this hook owns row identity and refresh.
 function initial(minutes: boolean): ForecastRows {
   return Object.fromEntries(FORECAST_PERIODS.map(p => [p, { phase: p !== "day" && !minutes ? "unsupported" : "idle", response: null, error: "" }])) as ForecastRows;
 }
@@ -41,7 +40,7 @@ export function useXxmForecast({ active, tsCode, historicalDate, minutes }: {
       }
     };
     const pump = () => {
-      while (visible() && running < FORECAST_MAX_PARALLEL_REQUESTS && queue.length) {
+      while (visible() && queue.length) {
         const p = queue.shift()!;
         const controller = new AbortController();
         const current = generation;

@@ -1,0 +1,11 @@
+{
+  "rounds": 16,
+  "requests": 306,
+  "maxHttpSeconds": 3.8613558330000015,
+  "maxForecastHttpSeconds": 2.519154208,
+  "maxComputeSeconds": 0.13458470813930035,
+  "maxCacheBytes": 42199161,
+  "maxCacheEntries": 8,
+  "all96ResponsesEqual": true,
+  "maxPageSeconds": 15.130278999999998
+}

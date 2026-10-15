@@ -1,0 +1,223 @@
+{
+  "checkedAt": "2026-10-15T11:15:13.125548+08:00",
+  "formalLakeRoot": "/Volumes/datasource/data_lake",
+  "chart": [
+    {
+      "freq": 60,
+      "requestedEnd": "2026-10-14",
+      "barsCount": 4,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      },
+      "indicatorsCount": 4,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      }
+    },
+    {
+      "freq": 60,
+      "requestedEnd": "2026-10-15",
+      "barsCount": 4,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      },
+      "indicatorsCount": 4,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      }
+    },
+    {
+      "freq": 90,
+      "requestedEnd": "2026-10-14",
+      "barsCount": 3,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      },
+      "indicatorsCount": 3,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      }
+    },
+    {
+      "freq": 90,
+      "requestedEnd": "2026-10-15",
+      "barsCount": 3,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      },
+      "indicatorsCount": 3,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      }
+    },
+    {
+      "freq": 120,
+      "requestedEnd": "2026-10-14",
+      "barsCount": 2,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      },
+      "indicatorsCount": 2,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "READY",
+        "code": null,
+        "expectedEndDate": "2026-10-14",
+        "observedEndDate": "2026-10-14",
+        "message": null
+      }
+    },
+    {
+      "freq": 120,
+      "requestedEnd": "2026-10-15",
+      "barsCount": 2,
+      "barsLast": "2026-10-14T15:00:00+08:00",
+      "barDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      },
+      "indicatorsCount": 2,
+      "indicatorsLast": "2026-10-14T15:00:00+08:00",
+      "indicatorDataStatus": {
+        "status": "DELAYED",
+        "code": "IM_SOURCE_NOT_READY",
+        "expectedEndDate": "2026-10-15",
+        "observedEndDate": "2026-10-14",
+        "message": "指数分钟数据尚未覆盖期望交易日。"
+      }
+    }
+  ],
+  "physicalPartitions": [
+    {
+      "freq": 60,
+      "dataset": "bars",
+      "todayExists": false,
+      "yesterdayExists": true
+    },
+    {
+      "freq": 60,
+      "dataset": "indicators",
+      "todayExists": false,
+      "yesterdayExists": true
+    },
+    {
+      "freq": 90,
+      "dataset": "bars",
+      "todayExists": false,
+      "yesterdayExists": true
+    },
+    {
+      "freq": 90,
+      "dataset": "indicators",
+      "todayExists": false,
+      "yesterdayExists": true
+    },
+    {
+      "freq": 120,
+      "dataset": "bars",
+      "todayExists": false,
+      "yesterdayExists": true
+    },
+    {
+      "freq": 120,
+      "dataset": "indicators",
+      "todayExists": false,
+      "yesterdayExists": true
+    }
+  ],
+  "forecast": [
+    {
+      "period": "m60",
+      "expectedThrough": "2026-10-15T10:30:00+08:00",
+      "status": "DELAYED",
+      "dataStatus": "DELAYED",
+      "computedThrough": "2026-10-14T15:00:00+08:00",
+      "reasonCode": "SOURCE_DELAYED",
+      "display": {
+        "statusLabel": "数据滞后",
+        "targetText": "行情尚未更新",
+        "conditionsText": "等待新的已完成行情。",
+        "asOfText": "截至 10/14 15:00 收盘"
+      },
+      "seconds": 2.4688659589737654
+    },
+    {
+      "period": "m90",
+      "expectedThrough": "2026-10-15T11:00:00+08:00",
+      "status": "DELAYED",
+      "dataStatus": "DELAYED",
+      "computedThrough": "2026-10-14T15:00:00+08:00",
+      "reasonCode": "SOURCE_DELAYED",
+      "display": {
+        "statusLabel": "数据滞后",
+        "targetText": "行情尚未更新",
+        "conditionsText": "等待新的已完成行情。",
+        "asOfText": "截至 10/14 15:00 收盘"
+      },
+      "seconds": 2.070773791987449
+    },
+    {
+      "period": "m120",
+      "expectedThrough": "2026-10-14T15:00:00+08:00",
+      "status": "NO_CANDIDATE",
+      "dataStatus": "READY",
+      "computedThrough": "2026-10-14T15:00:00+08:00",
+      "reasonCode": "NO_ENTRY_RANGE",
+      "display": {
+        "statusLabel": "暂无条件",
+        "targetText": "暂无结构条件",
+        "conditionsText": "当前没有可形成钝化的收盘条件。\n本周期新收盘后重新判断。",
+        "asOfText": "截至 10/14 15:00 收盘"
+      },
+      "seconds": 2.097715999931097
+    }
+  ]
+}

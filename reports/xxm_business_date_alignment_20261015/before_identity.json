@@ -1,0 +1,13 @@
+{
+  "src/biz/queries/wealth/market/context/market_page_context_query.py": "78b99093527f997a3b745b8dd64031a9716e82d655eb4b02b703ffef1476b56f",
+  "src/biz/queries/wealth/market/index_detail_xxm/query_service.py": "16570e88b5481440ec5fa509ecba327fd39d0e4c8222406d58d2bcf0ab8f865b",
+  "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "2d00cca4976ad77712652bf1a8672106adc413803aa597d20bbd4084317501e0",
+  "src/biz/queries/wealth/market/index_detail_xxm/source.py": "0d66c73c996a227718edcde6ffa00cd47ff610f414f3cc0b1331513aabcdacc0",
+  "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "00cb3967372ae50e47c83cd44f790203e076f161ef59dddc15ae37b519ba9333",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "5eed143f74daa5673991f82f86911717a44c07bc69ac7f2225ff6c6c29f6df0b",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "ed9bd2f9d35fa5562d63934795ecd53b3a60759d11dd2049fb2e443241cf89b5",
+  "src/foundation/clients/local_lake/major_index_mins_reader.py": "eabe8ee5a68744f2dff460b6d9ed7c615ab702f77c519331bc6611e37546c5ef",
+  "wealth/src/features/index-detail/xxm-forecast/XxmForecastCard.tsx": "768210f279f8bf26e6f07659ad85dad2ccfe21ef361e4f20ed952b07ee0046f7"
+}

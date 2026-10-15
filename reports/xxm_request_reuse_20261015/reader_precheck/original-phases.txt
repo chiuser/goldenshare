@@ -1,0 +1,18 @@
+_enumerate_partitions 0.1027
+signature bars 0.1054
+_enumerate_partitions 0.1023
+signature indicators 0.1047
+_validate_combined_schema 0.2548
+_query_rows 0.591
+_validate_combined_schema 0.0286
+_query_rows 0.6793
+TOTAL 17260 2.1499
+_enumerate_partitions 0.0973
+signature bars 0.0995
+_enumerate_partitions 0.1009
+signature indicators 0.1036
+_validate_combined_schema 0.0147
+_query_rows 0.3941
+_validate_combined_schema 0.0235
+_query_rows 0.6783
+TOTAL 17260 1.6506

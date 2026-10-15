@@ -136,6 +136,37 @@ def test_default_at_20_uses_latest_open_day_in_one_statement(db_session, monkeyp
     assert result.session_status == "CLOSED"
 
 
+@pytest.mark.parametrize("utc_hour,utc_second,expected", [(11, 59, date(2026, 8, 26)), (12, 0, date(2026, 8, 27))])
+def test_injected_request_clock_reuses_the_same_shanghai_cutover(db_session, monkeypatch, utc_hour, utc_second, expected):
+    _seed_standard_calendar(db_session)
+    def forbidden_clock():
+        raise AssertionError("A request must not read a second wall clock")
+    monkeypatch.setattr(context_query_module, "_now_cn", forbidden_clock)
+    stamp = datetime(2026, 8, 27, utc_hour, 59 if utc_hour == 11 else 0, utc_second, tzinfo=ZoneInfo("UTC"))
+    result = MarketPageContextQuery().resolve_context(db_session, market="CN_A", requested_trade_date=None, now=stamp)
+    assert result.trade_date == expected
+    assert result.generated_at == stamp.astimezone(CN_TIMEZONE)
+
+
+@pytest.mark.parametrize("stamp,expected", [
+    ("2026-01-01T10:00:00+08:00", date(2025, 12, 31)),
+    ("2026-01-01T20:00:00+08:00", date(2025, 12, 31)),
+    ("2026-01-05T19:59:59+08:00", date(2025, 12, 31)),
+    ("2026-01-05T20:00:00+08:00", date(2026, 1, 5)),
+])
+def test_injected_clock_follows_calendar_across_year_boundary(db_session, stamp, expected):
+    db_session.add_all([
+        _calendar_row(date(2025, 12, 31), is_open=True, pretrade_date=date(2025, 12, 30)),
+        _calendar_row(date(2026, 1, 1), is_open=False, pretrade_date=date(2025, 12, 31)),
+        _calendar_row(date(2026, 1, 5), is_open=True, pretrade_date=date(2025, 12, 31)),
+    ])
+    db_session.commit()
+    result = MarketPageContextQuery().resolve_context(
+        db_session, market="CN_A", requested_trade_date=None, now=datetime.fromisoformat(stamp),
+    )
+    assert result.trade_date == expected
+
+
 def test_default_weekend_keeps_latest_open_day_semantics(db_session, monkeypatch) -> None:
     _seed_standard_calendar(db_session)
     local_now = datetime(2026, 8, 29, 10, 0, tzinfo=CN_TIMEZONE)

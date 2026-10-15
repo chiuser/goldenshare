@@ -1,0 +1,50 @@
+[1m
+Impact of changing "read_complete_history_pair" — 40 affected symbols:
+[0m
+[36msrc/foundation/clients/local_lake/major_index_mins_reader.py[0m
+  [2mmethod      [0mread_complete_history_pair[2m:133[0m
+  [2mclass       [0mMajorIndexMinsLakeReader[2m:90[0m
+  [2mmethod      [0m__init__[2m:91[0m
+  [2mmethod      [0mread_bars[2m:95[0m
+  [2mmethod      [0mread_indicators[2m:98[0m
+  [2mmethod      [0mhistory_source_signature[2m:101[0m
+  [2mmethod      [0mread_complete_history[2m:123[0m
+  [2mmethod      [0m_read_complete_history[2m:163[0m
+  [2mfunction    [0mread[2m:145[0m
+  [2mmethod      [0m_read[2m:215[0m
+  [2mfile        [0mmajor_index_mins_reader.py[2m:1[0m
+
+[36msrc/biz/queries/wealth/market/index_detail_xxm/source.py[0m
+  [2mfunction    [0mread_minutes[2m:81[0m
+  [2mfile        [0msource.py[2m:1[0m
+  [2mfunction    [0mminute_reader[2m:122[0m
+
+[36mscripts/research/index_market/xxm_history_projection_audit.py[0m
+  [2mfunction    [0mmain[2m:23[0m
+  [2mfile        [0mxxm_history_projection_audit.py[2m:1[0m
+
+[36mtests/test_major_index_mins_reader.py[0m
+  [2mfunction    [0mtest_complete_history_pair_matches_sequential_projection_with_halved_resources[2m:569[0m
+  [2mfile        [0mtest_major_index_mins_reader.py[2m:1[0m
+  [2mfunction    [0mtest_complete_history_pair_overlaps_reads_and_waits_for_cleanup_on_error[2m:589[0m
+  [2mfunction    [0mtest_complete_history_pair_does_not_start_expired_reads[2m:616[0m
+  [2mfunction    [0mtest_complete_history_preserves_paging_and_rejects_clipping[2m:405[0m
+  [2mfunction    [0mtest_prepared_history_rechecks_file_links_before_parquet_read[2m:466[0m
+  [2mfunction    [0mtest_complete_history_checks_contract_of_other_indices[2m:511[0m
+  [2mfunction    [0mtest_complete_history_preserves_target_with_other_indices[2m:526[0m
+  [2mfunction    [0mtest_complete_history_projection_preserves_all_keys_values_and_budget[2m:539[0m
+  [2mfunction    [0mtest_complete_history_projection_rejects_invalid_columns_even_for_empty_source[2m:560[0m
+  [2mfunction    [0mtest_reader_reads_gold_bar_schema_and_partition_date[2m:156[0m
+  [2mfunction    [0mtest_reader_supports_all_frozen_frequencies[2m:182[0m
+  [2mfunction    [0mtest_reader_does_not_fall_back_to_silver_bar_files[2m:192[0m
+  [2mfunction    [0mtest_reader_rejects_forbidden_non_one_minute_times[2m:209[0m
+  [2mfunction    [0mtest_reader_cursor_is_dataset_and_request_bound[2m:238[0m
+  [2mfunction    [0mtest_reader_reads_gold_indicators_and_preserves_nulls[2m:256[0m
+  [2mfunction    [0mtest_reader_rejects_partition_date_mismatch_and_duplicate_time_key[2m:267[0m
+  [2mfunction    [0mtest_reader_rejects_null_or_non_finite_required_bar_values[2m:293[0m
+  [2mfunction    [0mtest_reader_ignores_staging_and_rejects_symlink_escape[2m:320[0m
+  [2mfunction    [0mtest_reader_rejects_symlink_even_when_target_stays_inside_lake[2m:346[0m
+  [2mfunction    [0mtest_reader_rejects_invalid_schema_and_request[2m:365[0m
+  [2mfunction    [0mtest_reader_rejects_queries_that_require_more_than_5000_partitions[2m:396[0m
+  [2mfunction    [0mtest_history_signature_detects_atomic_revision_and_ignores_staging[2m:430[0m
+  [2mfunction    [0mtest_history_signature_checks_each_file_once_and_refreshes_next_request[2m:445[0m

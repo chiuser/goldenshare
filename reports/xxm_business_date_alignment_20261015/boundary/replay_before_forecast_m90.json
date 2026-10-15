@@ -1,0 +1,667 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m90",
+  "forecastVersion": "xxm-key-point-forecast-v0.2",
+  "forecastSpecHash": "13f482f5af9eb87cca80c59af89ad383ada61f00f1a18713eb300a6f1d2204c4",
+  "detectorSpecHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceInputId": "025f25cf7f65921ac1951e04db9e4b7ded2d63f71bc2ff5b9fbe122788094d07",
+  "calendarInputId": "4e5d24d9a899fbedf76c5759c9c0ff9b4dc071aabc804f30fb66b625b88b7878",
+  "computedThrough": "2026-10-14T15:00:00+08:00",
+  "requestedAsOf": "2026-10-14T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "direction": "TOP",
+  "status": "CONDITIONAL_ENTRY",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "77ff69ae72c419e853440756f11803fa8c0ba4d29cd47d7e9fa1b4be06ca9a75",
+  "targetEndpoint": "2026-10-15T14:00:00+08:00",
+  "barsAhead": 2,
+  "activation": {
+    "endpoint": "2026-10-15T11:00:00+08:00",
+    "ranges": [
+      {
+        "entryRangeId": "entry-2",
+        "priceRange": {
+          "lower": 3960.0872,
+          "upper": 3988.543,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reference": {
+          "startTime": "2026-09-17T15:00:00+08:00",
+          "endTime": "2026-09-24T11:00:00+08:00",
+          "price": 3960.0872,
+          "dif": 10.686418044416314
+        }
+      },
+      {
+        "entryRangeId": "entry-1",
+        "priceRange": {
+          "lower": 3988.543,
+          "upper": 4305.040990850795,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2026-08-26T14:00:00+08:00",
+          "endTime": "2026-09-02T14:00:00+08:00",
+          "price": 3988.543,
+          "dif": 18.556113681828265
+        }
+      }
+    ],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3772.723081049773,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      },
+      {
+        "priceRange": {
+          "lower": 3772.723081049773,
+          "upper": 3960.0872,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "PRICE_NOT_EXTREME"
+      },
+      {
+        "priceRange": {
+          "lower": 4305.040990850795,
+          "upper": 4305.040990850886,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "PRECISION_UNRESOLVED"
+      },
+      {
+        "priceRange": {
+          "lower": 4305.040990850886,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      }
+    ]
+  },
+  "assumption": {
+    "policy": "entry_range_then_flat",
+    "activationEndpoint": "2026-10-15T11:00:00+08:00",
+    "intermediateEndpoints": [
+      "2026-10-15T11:00:00+08:00"
+    ],
+    "intermediateCloseExpression": {
+      "op": "affine",
+      "pCoefficient": 1.0,
+      "cCoefficient": 0.0,
+      "constant": 0.0
+    }
+  },
+  "targetEntryRanges": [
+    {
+      "entryRangeIds": [
+        "entry-2"
+      ],
+      "priceRange": {
+        "lower": 3960.0872,
+        "upper": 3988.543,
+        "lowerInclusive": false,
+        "upperInclusive": true
+      }
+    },
+    {
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "priceRange": {
+        "lower": 3988.543,
+        "upper": 4305.040990850795,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      }
+    }
+  ],
+  "targetEntryExclusions": [],
+  "relations": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [
+        "entry-2"
+      ],
+      "entryDomain": {
+        "lower": 3960.0872,
+        "upper": 3988.543,
+        "lowerInclusive": false,
+        "upperInclusive": true
+      },
+      "reference": {
+        "startTime": "2026-09-17T15:00:00+08:00",
+        "endTime": "2026-09-24T11:00:00+08:00",
+        "price": 3960.0872,
+        "dif": 10.686418044416314
+      },
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -557.0412940012579
+            },
+            "factor": 1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 10.686418044416314
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -756.7067321638899
+            },
+            "factor": 1.0
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07977207977207978,
+              "cCoefficient": 0.0,
+              "constant": -324.8659596624025
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.06159040916875674,
+                  "cCoefficient": 0.07977207977207978,
+                  "constant": -557.0412940012579
+                },
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.07977207977207978,
+                  "cCoefficient": 0.0,
+                  "constant": -324.8659596624025
+                }
+              ]
+            },
+            "factor": -1.0
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07977207977207978,
+                "cCoefficient": 0.0,
+                "constant": -324.8659596624025
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [
+        "entry-2"
+      ],
+      "entryDomain": {
+        "lower": 3960.0872,
+        "upper": 3988.543,
+        "lowerInclusive": false,
+        "upperInclusive": true
+      },
+      "reference": {
+        "startTime": "2026-09-17T15:00:00+08:00",
+        "endTime": "2026-09-24T11:00:00+08:00",
+        "price": 3960.0872,
+        "dif": 10.686418044416314
+      },
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -557.0412940012579
+            },
+            "factor": 1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 10.686418044416314
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -756.7067321638899
+            },
+            "factor": 1.0
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-3",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3988.543,
+        "upper": 4305.040990850795,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-08-26T14:00:00+08:00",
+        "endTime": "2026-09-02T14:00:00+08:00",
+        "price": 3988.543,
+        "dif": 18.556113681828265
+      },
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -557.0412940012579
+            },
+            "factor": 1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 18.556113681828265
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -756.7067321638899
+            },
+            "factor": 1.0
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07977207977207978,
+              "cCoefficient": 0.0,
+              "constant": -324.8659596624025
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.06159040916875674,
+                  "cCoefficient": 0.07977207977207978,
+                  "constant": -557.0412940012579
+                },
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.07977207977207978,
+                  "cCoefficient": 0.0,
+                  "constant": -324.8659596624025
+                }
+              ]
+            },
+            "factor": -1.0
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07977207977207978,
+                "cCoefficient": 0.0,
+                "constant": -324.8659596624025
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-4",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3988.543,
+        "upper": 4305.040990850795,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-08-26T14:00:00+08:00",
+        "endTime": "2026-09-02T14:00:00+08:00",
+        "price": 3988.543,
+        "dif": 18.556113681828265
+      },
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -557.0412940012579
+            },
+            "factor": 1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 18.556113681828265
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -756.7067321638899
+            },
+            "factor": 1.0
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "commonConditions": [
+    {
+      "entryRangeIds": [
+        "entry-2"
+      ],
+      "entryDomain": {
+        "lower": 3960.0872,
+        "upper": 3988.543,
+        "lowerInclusive": false,
+        "upperInclusive": true
+      },
+      "reference": {
+        "startTime": "2026-09-17T15:00:00+08:00",
+        "endTime": "2026-09-24T11:00:00+08:00",
+        "price": 3960.0872,
+        "dif": 10.686418044416314
+      },
+      "route": "dif_turn",
+      "closeRanges": [
+        {
+          "lower": 3663.176337509882,
+          "upper": 3811.9442361552356,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3663.18,
+          "displayUpper": 3811.94,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "entryRangeIds": [
+        "entry-2"
+      ],
+      "entryDomain": {
+        "lower": 3960.0872,
+        "upper": 3988.543,
+        "lowerInclusive": false,
+        "upperInclusive": true
+      },
+      "reference": {
+        "startTime": "2026-09-17T15:00:00+08:00",
+        "endTime": "2026-09-24T11:00:00+08:00",
+        "price": 3960.0872,
+        "dif": 10.686418044416314
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 0.0,
+          "upper": 3646.8973499315343,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 0.01,
+          "displayUpper": 3646.89,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3988.543,
+        "upper": 4305.040990850795,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-08-26T14:00:00+08:00",
+        "endTime": "2026-09-02T14:00:00+08:00",
+        "price": 3988.543,
+        "dif": 18.556113681828265
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 0.0,
+          "upper": 3465.8352514619055,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 0.01,
+          "displayUpper": 3465.83,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "preClose": 3960.09,
+      "entryRangeId": "entry-2",
+      "closeRanges": [
+        {
+          "lower": 3663.1747356865203,
+          "upper": 3811.9449023318743,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3663.18,
+          "displayUpper": 3811.94,
+          "displayPlaces": 2
+        },
+        {
+          "lower": 0.0,
+          "upper": 3663.1747356865203,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 0.01,
+          "displayUpper": 3663.17,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "preClose": 3988.55,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 3646.89334537313,
+          "upper": 3818.7161120184833,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3646.9,
+          "displayUpper": 3818.71,
+          "displayPlaces": 2
+        },
+        {
+          "lower": 0.0,
+          "upper": 3646.89334537313,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 0.01,
+          "displayUpper": 3646.89,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "preClose": 3974.32,
+      "entryRangeId": "entry-2",
+      "closeRanges": [
+        {
+          "lower": 3655.0340405298252,
+          "upper": 3815.3305071751793,
+          "lowerInclusive": false,
+          "upperInclusive": true,
+          "route": "dif_turn",
+          "displayLower": 3655.04,
+          "displayUpper": 3815.33,
+          "displayPlaces": 2
+        },
+        {
+          "lower": 0.0,
+          "upper": 3655.0340405298252,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 0.01,
+          "displayUpper": 3655.03,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "applicabilityText": "仅适用于本周期已计算的收盘条件；实际收盘后更新。",
+  "invalidationText": "原钝化消失、零柱或前序走势变化时重新计算；未达结构条件不等于钝化已消失。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "近期暂无条件",
+    "targetText": "10/15 11:00 收盘后更新结构条件",
+    "conditionsText": "近期触发：暂无近期顶钝化条件。\n推算失效：10/15 11:00 收盘不高于3772.7230点，MACD柱色改变或出现零柱，需重新判断。\n未触发：10/15 11:00 收盘3772.7231～3960.0871点，顶钝化条件不成立。\n当前暂无近期结构条件，10/15 11:00 收盘后更新。",
+    "asOfText": "历史回放 · 截至 10/14 15:00 收盘"
+  },
+  "refreshAfterMs": 60000
+}

@@ -1,0 +1,19 @@
+
+> wealth@0.1.0 test
+> vitest run src/features/index-detail/api/indexDetailRequestScheduler.test.ts src/features/index-detail/xxm-forecast/forecast.test.tsx src/features/index-detail/xxm-forecast/apiClient.test.ts src/features/index-detail/xxm/apiClient.test.ts src/pages/index-detail/IndexDetailPage.test.tsx src/features/index-detail/controller/useIndexMinuteSeries.test.tsx src/features/index-detail/xxm/useIndexXxmLayer.test.tsx --maxWorkers=2
+
+
+ RUN  v3.2.4 /Users/congming/github/goldenshare/wealth
+
+ ✓ src/features/index-detail/controller/useIndexMinuteSeries.test.tsx (5 tests) 340ms
+ ✓ src/features/index-detail/api/indexDetailRequestScheduler.test.ts (4 tests) 5ms
+ ✓ src/pages/index-detail/IndexDetailPage.test.tsx (29 tests) 879ms
+ ✓ src/features/index-detail/xxm/useIndexXxmLayer.test.tsx (3 tests) 121ms
+ ✓ src/features/index-detail/xxm-forecast/forecast.test.tsx (9 tests) 103ms
+ ✓ src/features/index-detail/xxm/apiClient.test.ts (4 tests) 8ms
+ ✓ src/features/index-detail/xxm-forecast/apiClient.test.ts (3 tests) 6ms
+
+ Test Files  7 passed (7)
+      Tests  57 passed (57)
+   Start at  13:35:56
+   Duration  2.58s (transform 215ms, setup 470ms, collect 318ms, tests 1.46s, environment 1.90s, prepare 213ms)

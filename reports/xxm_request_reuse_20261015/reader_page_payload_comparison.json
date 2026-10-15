@@ -1,0 +1,386 @@
+[
+  {
+    "path": "page-day-1tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-1tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-cold-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-day-2tabs-warm-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-1tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-cold-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m120-2tabs-warm-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-1tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-cold-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m60-2tabs-warm-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-1tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-cold-tab2-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab1-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab1-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab1-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab1-m90.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab2-day.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab2-m120.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab2-m60.json",
+    "allFieldsEqual": true
+  },
+  {
+    "path": "page-m90-2tabs-warm-tab2-m90.json",
+    "allFieldsEqual": true
+  }
+]

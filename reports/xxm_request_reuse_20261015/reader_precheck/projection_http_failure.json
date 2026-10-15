@@ -1,0 +1,15 @@
+{
+  "httpStatus": 200,
+  "budgetStatus": "FAIL",
+  "measurement": {
+    "seconds": 4.015441874973476,
+    "bytes": 1720,
+    "status": "NO_CANDIDATE",
+    "through": "2026-10-13T15:00:00+08:00",
+    "buildSeconds": 3.9808273753151298,
+    "computeSeconds": 0.022565833758562803,
+    "displayContext": null
+  },
+  "source": "http-projection-run.txt",
+  "note": "No product code changed; candidate not promoted"
+}

@@ -8,6 +8,7 @@ import os
 import stat
 import time
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime
 from datetime import time as clock_time
@@ -78,6 +79,8 @@ class _PartitionFile:
 
 MAX_INDEX_MINUTE_HISTORY_ROWS = 20_000
 INDEX_MINUTE_HISTORY_DUCKDB_CONFIG = {"memory_limit": "512MB", "threads": "2"}
+# Two independent streams share the original per-request resource envelope.
+INDEX_MINUTE_HISTORY_PAIR_DUCKDB_CONFIG = {"memory_limit": "256MB", "threads": "1"}
 
 
 class IndexMinuteHistoryBudgetError(IndexMinuteReaderError):
@@ -120,10 +123,51 @@ class MajorIndexMinsLakeReader:
     def read_complete_history(
         self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset,
         max_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS, timeout_seconds: float,
+        value_columns: Sequence[str] | None = None,
     ) -> IndexMinuteReadPage:
         """Read one bounded prefix without changing the public paging contract."""
+        return self._read_complete_history(request, dataset=dataset, max_rows=max_rows,
+            timeout_seconds=timeout_seconds, value_columns=value_columns,
+            duckdb_config=INDEX_MINUTE_HISTORY_DUCKDB_CONFIG)
+
+    def read_complete_history_pair(
+        self, request: IndexMinuteReadRequest, *, timeout_seconds: float,
+        max_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS,
+        bar_value_columns: Sequence[str] | None = None,
+        indicator_value_columns: Sequence[str] | None = None,
+    ) -> tuple[IndexMinuteReadPage, IndexMinuteReadPage]:
+        """Read bars and indicators with one deadline and the single-read total budget."""
+        started = time.perf_counter()
+        selections = (("bars", bar_value_columns), ("indicators", indicator_value_columns))
+        for dataset, values in selections:
+            _history_columns(dataset, values)
+
+        def read(dataset, values):
+            remaining = timeout_seconds - (time.perf_counter() - started)
+            if remaining <= 0:
+                raise IndexMinuteHistoryBudgetError("完整历史读取超时。")
+            return self._read_complete_history(request, dataset=dataset, max_rows=max_rows,
+                timeout_seconds=remaining, value_columns=values,
+                duckdb_config=INDEX_MINUTE_HISTORY_PAIR_DUCKDB_CONFIG)
+
+        with ThreadPoolExecutor(max_workers=len(selections)) as pool:
+            pending = [pool.submit(read, dataset, values) for dataset, values in selections]
+            try:
+                # Preserve bars-first error precedence. The executor closes only
+                # after both bounded readers have released their connections.
+                return pending[0].result(), pending[1].result()
+            finally:
+                for future in pending:
+                    future.cancel()
+
+    def _read_complete_history(
+        self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset,
+        max_rows: int, timeout_seconds: float, value_columns: Sequence[str] | None,
+        duckdb_config: dict[str, str],
+    ) -> IndexMinuteReadPage:
         started = time.perf_counter()
         normalized, _ = _normalize_request(request, dataset=dataset)
+        columns = _history_columns(dataset, value_columns)
         if normalized.cursor is not None:
             raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
         if isinstance(max_rows, bool) or not 1 <= max_rows <= MAX_INDEX_MINUTE_HISTORY_ROWS or timeout_seconds <= 0:
@@ -142,7 +186,7 @@ class MajorIndexMinsLakeReader:
             return _empty_page(started, scanned_file_count=0)
         import duckdb
 
-        connection = duckdb.connect(database=":memory:", config=INDEX_MINUTE_HISTORY_DUCKDB_CONFIG)
+        connection = duckdb.connect(database=":memory:", config=duckdb_config)
         timer = Timer(max(0.001, timeout_seconds - (time.perf_counter() - started)), connection.interrupt)
         timer.daemon = True
         timer.start()
@@ -150,7 +194,8 @@ class MajorIndexMinsLakeReader:
             _validate_combined_schema(connection, tuple(part.path for part in parts), dataset=dataset)
             query_request = IndexMinuteReadRequest(normalized.ts_code, normalized.freq, normalized.start_date,
                                                   normalized.end_date, max_rows, None)
-            rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request, decoded_cursor=None)
+            rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request,
+                               decoded_cursor=None, columns=columns)
             if len(rows) > max_rows:
                 raise IndexMinuteHistoryBudgetError("完整历史超过行数预算，不能截取后计算。")
             rows.reverse()
@@ -411,6 +456,19 @@ def _normalize_duckdb_type(value: Any) -> str:
     return normalized
 
 
+def _history_columns(dataset: IndexMinuteDataset, values: Sequence[str] | None) -> tuple[str, ...] | None:
+    if values is None:
+        return None
+    specs = GOLD_BAR_COLUMN_SPECS[:-1] if dataset == "bars" else GOLD_INDICATOR_COLUMN_SPECS
+    keys = tuple(name for name, _ in specs[:4])
+    allowed = {name for name, _ in specs[4:]}
+    requested = tuple(values)
+    if (not requested or not all(isinstance(name, str) and name in allowed for name in requested)
+            or len(set(requested)) != len(requested)):
+        raise IndexMinuteRequestError("完整历史值字段不符合原数据集输出合同。")
+    return (*keys, *requested)
+
+
 def _query_rows(
     connection: Any,
     *,
@@ -418,6 +476,7 @@ def _query_rows(
     dataset: IndexMinuteDataset,
     request: IndexMinuteReadRequest,
     decoded_cursor: dict[str, Any] | None,
+    columns: tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
     paths = list(map(str, (item.path for item in partitions)))
     if dataset == "bars":
@@ -481,6 +540,8 @@ def _query_rows(
             request.freq,
         ]
 
+    if columns is not None:
+        projection = ", ".join(columns)
     filters = [identity_predicate]
     if request.start_date is not None:
         filters.append("trade_date >= ?")

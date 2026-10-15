@@ -1,0 +1,10 @@
+usage: xxm_page_request_audit.py [-h] --output OUTPUT
+
+Read-only mixed-page/multi-tab acceptance with actual TypeScript clients. No
+browser automation, app lifespan, account configuration or formal data writes.
+Uses the already installed Node/esbuild; no dependency installation or
+download.
+
+options:
+  -h, --help       show this help message and exit
+  --output OUTPUT

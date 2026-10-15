@@ -1,0 +1,31 @@
+{"label":"day-1tabs-cold","selected":"day","tabCount":1,"mode":"cold","requests":12,"pageSeconds":11.568053542,"maxHttpSeconds":2.769901832999999,"metrics":{"completeReads":{"60":2,"90":2,"120":2},"maxComputeSeconds":0.06725749978795648,"cacheBytes":42199161,"cacheEntries":8},"errors":["ReferenceError: period is not defined"]}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"label":"day-1tabs-cold","selected":"day","tabCount":1,"mode":"cold","requests":12,"pageSeconds":11.568053542,"maxHttpSeconds":2.769901832999999,"metrics":{"completeReads":{"60":2,"90":2,"120":2},"maxComputeSeconds":0.06725749978795648,"cacheBytes":42199161,"cacheEntries":8},"errors":["ReferenceError: period is not defined"]}
+
+1 !== 0
+
+    at file:///Users/congming/github/goldenshare/scripts/research/index_market/xxm_page_request_audit.mjs:84:14 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual'
+}
+
+Node.js v24.5.0
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_page_request_audit.py", line 102, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_page_request_audit.py", line 95, in main
+    subprocess.run([node,str(Path(__file__).with_suffix('.mjs')),base,str(out)],check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/miniconda3/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/opt/homebrew/bin/node', '/Users/congming/github/goldenshare/scripts/research/index_market/xxm_page_request_audit.mjs', 'http://127.0.0.1:59251', '/Users/congming/github/goldenshare/reports/xxm_request_reuse_20261015/page_mix']' returned non-zero exit status 1.

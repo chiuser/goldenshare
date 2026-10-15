@@ -1,0 +1,50 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "source": {
+    "kind": "minute_gold",
+    "inputId": "bce3bfad7fd529919f3a988c22330d83dec719ca5685a198b7cb110594f74304",
+    "startTime": "2009-01-05T11:30:00+08:00",
+    "computedThrough": "2026-10-14T15:00:00+08:00",
+    "initialHistoryIncomplete": true,
+    "indicatorVersion": 1
+  },
+  "points": [
+    {
+      "time": "2026-10-14T11:30:00+08:00",
+      "close": 3801.1287,
+      "dif": -29.183659339592396,
+      "dea": -27.35712398307136,
+      "hist": -3.6530707130420694,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": null
+    },
+    {
+      "time": "2026-10-14T15:00:00+08:00",
+      "close": 3767.227,
+      "dif": -30.78704012678054,
+      "dea": -28.0431072118132,
+      "hist": -5.487865829934677,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": null
+    }
+  ],
+  "events": [],
+  "topHistories": [],
+  "meta": {
+    "count": 2,
+    "responseStart": "2026-10-14T11:30:00+08:00",
+    "responseEnd": "2026-10-14T15:00:00+08:00"
+  },
+  "dataStatus": {
+    "status": "DELAYED",
+    "message": "研究指标数据截至 2026-10-14T15:00:00+08:00",
+    "asOf": "2026-10-14T15:00:00+08:00"
+  }
+}

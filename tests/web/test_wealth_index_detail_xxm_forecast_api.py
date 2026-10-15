@@ -33,8 +33,8 @@ def source_db(monkeypatch):
     days = {r["trade_date"]: r["is_open"] for r in past + future}
     with engine.begin() as c:
         c.execute(text("CREATE TABLE core_serving.index_factor_pro (ts_code TEXT,trade_date DATE,close FLOAT,macd_dif_bfq FLOAT,macd_dea_bfq FLOAT,macd_bfq FLOAT)"))
-        c.execute(text("CREATE TABLE core_serving.trade_calendar (exchange TEXT,trade_date DATE,is_open BOOLEAN)"))
-        c.execute(text("INSERT INTO core_serving.trade_calendar VALUES ('SSE',:date,:open)"), [{"date": k,"open":v} for k,v in days.items()])
+        c.execute(text("CREATE TABLE core_serving.trade_calendar (exchange TEXT,trade_date DATE,is_open BOOLEAN,pretrade_date DATE)"))
+        c.execute(text("INSERT INTO core_serving.trade_calendar (exchange,trade_date,is_open) VALUES ('SSE',:date,:open)"), [{"date": k,"open":v} for k,v in days.items()])
         c.execute(text("INSERT INTO core_serving.index_factor_pro VALUES ('000001.SH',:date,:close,:dif,:dea,:hist)"),
                   [dict(date=b.time,close=b.close,dif=b.dif,dea=b.dea,hist=b.hist) for b in frozen("day")])
     monkeypatch.setattr(query_service, "_CACHE", XxmCache())
@@ -101,7 +101,7 @@ def test_quote_auth_is_enforced_before_source(source_db,status):
 def test_latest_delayed_and_past_source_revision_causality(source_db):
     service = IndexDetailXxmForecastQueryService(cache=XxmCache())
     with Session(source_db) as s:
-        delayed = service.build(s,period="day",now=datetime(2026,10,14,16,tzinfo=CN_ZONE))
+        delayed = service.build(s,period="day",now=datetime(2026,10,14,20,tzinfo=CN_ZONE))
         assert delayed.status == "DELAYED" and delayed.targetEndpoint is None and delayed.relations == []
         old = service.build(s,period="day",as_of="2026-10-12",now=datetime(2026,10,14,16,tzinfo=CN_ZONE))
         # Isolated fixture only; future price cannot affect an earlier prefix.
@@ -236,7 +236,7 @@ def test_batch_checkpoints_equal_full_prefix_and_reset_on_revision(source_db,tmp
     monkeypatch.setattr(query_service,'minute_reader',lambda root:FrozenReader())
     monkeypatch.setattr(query_service,'read_minutes',lambda *args,**kwargs:values['bars'])
     cache=XxmCache();source=query_service.IndexDetailXxmQueryService(lake_root=tmp_path,cache=cache)
-    current=datetime(2026,10,13,16,tzinfo=CN_ZONE)
+    current=datetime(2026,10,13,20,tzinfo=CN_ZONE)
     with Session(source_db) as session:
         with source.load_entry(session,period=period,now=current) as (entry,*rest):
             assert len(entry.checkpoints)==len(values['bars'])//1000<=20
@@ -262,3 +262,239 @@ def test_batch_checkpoints_equal_full_prefix_and_reset_on_revision(source_db,tmp
             expected=XxmCalculator(period=period,source_identity=revised.calculator.source_identity)
             for bar in revised.processed[:1001]:expected.step(bar)
             assert revised.calculator_at(1001,lambda:None).snapshot()==expected.snapshot()
+
+
+BUSINESS_PERIODS = ("day", "m60", "m90", "m120")
+
+
+@pytest.fixture
+def business_source(source_db, tmp_path, monkeypatch, request):
+    """Real SQLite source and detector; minute transport is an isolated prefix fixture."""
+    from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection
+    publication = getattr(request, "param", "complete")
+    values, records = {}, []
+    revisions = {day: 1 for day in ("2026-10-14", "2026-10-15", "2026-10-16")}
+    for period in BUSINESS_PERIODS:
+        bars = list(frozen(period))
+        state = recover_projection(tuple(bars), period, lambda: None)
+        if publication != "missing":
+            for day in (date(2026, 10, 14), date(2026, 10, 15), date(2026, 10, 16)):
+                clocks = (None,) if period == "day" else ENDPOINTS[int(period[1:])]
+                for clock in clocks:
+                    if publication == "partial" and (period == "day" or day != date(2026, 10, 14) or clock != clocks[0]):
+                        continue
+                    stamp = day.isoformat() if clock is None else datetime.combine(day, clock, CN_ZONE).isoformat()
+                    bar, state = state.project(bars[-1].close + 3, stamp, period, guard=False)
+                    bars.append(bar)
+        values[period] = tuple(bars)
+    # Only this test's in-memory SQLite fixture is written; no formal source is accessed.
+    with source_db.begin() as connection:
+        extra = [b for b in values["day"] if b.time > "2026-10-13"]
+        if extra:
+            connection.execute(text("INSERT INTO core_serving.index_factor_pro VALUES ('000001.SH',:date,:close,:dif,:dea,:hist)"),
+                               [dict(date=b.time, close=b.close, dif=b.dif, dea=b.dea, hist=b.hist) for b in extra])
+    class PrefixReader:
+        def history_source_signature(self, request, *, dataset):
+            records.append(("signature", request.freq, dataset, request.end_date))
+            return ((dataset, request.end_date.isoformat(), tuple((day, version) for day, version in revisions.items() if day <= request.end_date.isoformat())),)
+    def read(_reader, *, freq, end, deadline, start=None):
+        deadline()
+        records.append(("read", freq, None, end))
+        return tuple(b for b in values[f"m{freq}"] if b.time[:10] <= end.isoformat())
+    monkeypatch.setattr(query_service, "minute_reader", lambda _: PrefixReader())
+    monkeypatch.setattr(query_service, "read_minutes", read)
+    return dict(engine=source_db, root=tmp_path, values=values, records=records, revisions=revisions)
+
+
+def business_service(source):
+    return IndexDetailXxmForecastQueryService(lake_root=source["root"], cache=XxmCache())
+
+
+def close_stamp(period, day):
+    return day if period == "day" else day + "T15:00:00+08:00"
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+@pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+    source = business_source
+    with Session(source["engine"]) as session:
+        value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+    assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+    assert value.computedThrough == close_stamp(period, "2026-10-13")
+    assert value.mode == "LATEST" and value.requestedAsOf is None
+    assert "历史回放" not in value.display.asOfText and "数据滞后" != value.display.statusLabel
+    assert all(record[-1] == date(2026, 10, 13) for record in source["records"])
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_business_date_at_20_switches_the_real_snapshot_and_cache_without_future_leak(business_source, period):
+    source = business_source; service = business_service(source)
+    before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+    with Session(source["engine"]) as session:
+        old = service.build(session, period=period, now=before)
+        current = service.build(session, period=period, now=before + timedelta(seconds=1))
+        restored = service.build(session, period=period, now=before)
+    assert current.dataStatus == "READY" and current.status not in ("DELAYED", "EMPTY", "PRECISION_PENDING")
+    assert current.computedThrough == close_stamp(period, "2026-10-14")
+    assert current.sourceInputId != old.sourceInputId
+    assert restored == old
+
+
+@pytest.mark.parametrize("business_source", ["missing", "partial"], indirect=True)
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_business_date_after_20_missing_or_partial_current_day_is_not_a_ready_fallback(business_source, period):
+    with Session(business_source["engine"]) as session:
+        value = business_service(business_source).build(session, period=period, now=datetime(2026, 10, 14, 20, tzinfo=CN_ZONE))
+    assert value.dataStatus == value.status == "DELAYED"
+    assert value.targetEndpoint is None and not value.activation and not value.relations
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_future_revision_cannot_change_the_before_20_snapshot_or_its_forecast(business_source, period):
+    from dataclasses import replace
+    source = business_source; service = business_service(source)
+    now = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+    with Session(source["engine"]) as session:
+        first = service.build(session, period=period, now=now)
+        if period == "day":
+            session.execute(text("UPDATE core_serving.index_factor_pro SET close=close+1000 WHERE trade_date>='2026-10-14'"))
+            session.commit()
+        else:
+            source["values"][period] = tuple(replace(b, close=b.close+1000, dif=b.dif+1000) if b.time[:10] >= "2026-10-14" else b for b in source["values"][period])
+        source["revisions"]["2026-10-14"] += 1
+        after = service.build(session, period=period, now=now)
+    assert after == first
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_replay_is_bounded_by_business_day_and_stable_across_cutover(business_source, period):
+    source = business_source; service = business_service(source)
+    before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+    past = close_stamp(period, "2026-10-12")
+    with Session(source["engine"]) as session:
+        first = service.build(session, period=period, as_of=past, now=before)
+        after = service.build(session, period=period, as_of=past, now=before + timedelta(seconds=1))
+        with pytest.raises(query_service.XxmQueryError) as error:
+            service.build(session, period=period, as_of=close_stamp(period, "2026-10-14"), now=before)
+    assert first == after and first.mode == "REPLAY"
+    assert error.value.status == 400
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+@pytest.mark.parametrize("now,expected", [
+    ("2026-10-17T10:00:00+08:00", "2026-10-16"),
+    ("2026-10-17T20:00:00+08:00", "2026-10-16"),
+    ("2026-10-19T10:00:00+08:00", "2026-10-16"),
+    ("2026-10-01T10:00:00+08:00", "2026-09-30"),
+    ("2026-10-01T20:00:00+08:00", "2026-09-30"),
+])
+def test_four_periods_reuse_weekend_holiday_and_previous_open_day(business_source, period, now, expected):
+    with Session(business_source["engine"]) as session:
+        value = business_service(business_source).build(session, period=period, now=datetime.fromisoformat(now))
+    assert value.computedThrough == close_stamp(period, expected)
+    assert value.dataStatus == "READY"
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_overlapping_forecasts_share_one_validated_load(business_source, monkeypatch, period):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, current_thread
+    source = business_source; cache = XxmCache()
+    entered, release, waiting = Event(), Event(), Event()
+    actual = query_service.read_daily if period == "day" else query_service.read_minutes
+    reads = []
+    def paused(*args, **kwargs):
+        reads.append(1); entered.set()
+        assert release.wait(3)
+        return actual(*args, **kwargs)
+    monkeypatch.setattr(query_service, "read_daily" if period == "day" else "read_minutes", paused)
+    original_load = cache.loads.load
+    def observed(key, loader, remaining):
+        def budget():
+            if current_thread().name.endswith("_1"): waiting.set()
+            return remaining()
+        return original_load(key, loader, budget)
+    monkeypatch.setattr(cache.loads, "load", observed)
+    def build():
+        with Session(source["engine"]) as session:
+            return IndexDetailXxmForecastQueryService(lake_root=source["root"],cache=cache).build(
+                session,period=period,now=datetime(2026,10,14,11,15,tzinfo=CN_ZONE))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(build)
+        assert entered.wait(3)
+        second = pool.submit(build)
+        assert waiting.wait(3)
+        # One actual load owns a slot; the waiting caller owns none.
+        assert query_service._REQUEST_SLOTS.acquire(blocking=False)
+        query_service._REQUEST_SLOTS.release()
+        release.set()
+        a,b = first.result(),second.result()
+    assert a == b and a.dataStatus == "READY" and reads == [1]
+    assert not cache.loads._pending
+    assert sum(r[0] == "signature" for r in source["records"]) == (0 if period == "day" else 2)
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_unchanged_source_reuses_validation_and_response_but_revision_invalidates(business_source, monkeypatch, period):
+    from dataclasses import replace
+    from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as fq
+    source = business_source; cache = XxmCache()
+    service = IndexDetailXxmForecastQueryService(lake_root=source["root"],cache=cache)
+    validations, forecasts = [], []
+    original_continuity, original_forecast = query_service.assert_continuous, fq.forecast
+    def continuity(*args,**kwargs):
+        validations.append(1); return original_continuity(*args,**kwargs)
+    def calculate(*args,**kwargs):
+        forecasts.append(1); return original_forecast(*args,**kwargs)
+    monkeypatch.setattr(query_service,"assert_continuous",continuity)
+    monkeypatch.setattr(fq,"forecast",calculate)
+    now=datetime(2026,10,14,11,15,tzinfo=CN_ZONE)
+    with Session(source["engine"]) as session:
+        first=service.build(session,period=period,now=now)
+        original=first.model_copy(deep=True)
+        first.display.conditionsText="caller mutation"
+        after=service.build(session,period=period,now=now)
+        assert after==original and validations==[1]
+        assert len(forecasts)==1
+        # Every independent minute request still checks both signatures.
+        assert sum(r[0]=="signature" for r in source["records"])==(0 if period=="day" else 4)
+        if period=="day":
+            session.execute(text("UPDATE core_serving.index_factor_pro SET close=close+1 WHERE trade_date='2026-10-13'"))
+            session.commit()
+        else:
+            source["values"][period]=tuple(replace(b,close=b.close+1) if b.time==close_stamp(period,"2026-10-13") else b for b in source["values"][period])
+            source["revisions"]["2026-10-13"]=2
+        revised=service.build(session,period=period,now=now)
+        assert revised.sourceInputId!=original.sourceInputId and revised.forecastId!=original.forecastId
+        assert len(validations)==2
+
+
+@pytest.mark.parametrize("period", BUSINESS_PERIODS)
+def test_published_entry_is_not_mutated_when_another_request_appends(business_source,period):
+    source=business_source; cache=XxmCache()
+    service=query_service.IndexDetailXxmQueryService(lake_root=source["root"],cache=cache)
+    with Session(source["engine"]) as session:
+        with service.load_entry(session,period=period,now=datetime(2026,10,14,19,59,59,tzinfo=CN_ZONE)) as (old,*_):
+            state=old.calculator.snapshot(); count=len(old.processed); last=old.processed[-1]
+            with service.load_entry(session,period=period,now=datetime(2026,10,14,20,tzinfo=CN_ZONE)) as (new,*_):
+                assert len(new.processed)>count and new is not old
+            assert len(old.processed)==count and old.processed[-1]==last and old.calculator.snapshot()==state
+
+
+def test_response_cache_includes_future_calendar_and_obeys_shared_lru_limit(source_db,monkeypatch):
+    cache=XxmCache(max_series=2)
+    service=IndexDetailXxmForecastQueryService(cache=cache)
+    now=datetime(2026,10,14,11,15,tzinfo=CN_ZONE)
+    with Session(source_db) as session:
+        first=service.build(session,period="day",now=now)
+        session.execute(text("UPDATE core_serving.trade_calendar SET is_open=false WHERE trade_date='2026-10-15'"));session.commit()
+        changed=service.build(session,period="day",now=now)
+        assert changed.calendarInputId!=first.calendarInputId and changed.forecastId!=first.forecastId
+        for as_of in ("2026-10-09","2026-10-12","2026-10-13"):
+            service.build(session,period="day",now=now,as_of=as_of)
+            assert len(cache.entries)<=2
+            assert sum(size for _,size in cache.entries.values())<=cache.max_bytes
+    tiny=XxmCache(max_bytes=1)
+    tiny.put_forecast(("day",),first)
+    assert tiny.get_forecast(("day",)) is None and not tiny.entries

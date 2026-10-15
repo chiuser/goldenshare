@@ -39,17 +39,15 @@ it("displays four periods, complete text, independent failure and retry without 
   expect(screen.queryByText(/评分|可信度|买入|卖出/)).not.toBeInTheDocument();
 });
 
-it("loads only after activation, caps concurrency at two, ignores unchanged rerenders and retries one row", async () => {
+it("loads only after activation, delegates concurrency to clients and retries one row", async () => {
   const pending: Array<{p:ForecastPeriod;resolve:(v:ForecastResponse)=>void;reject:(e:Error)=>void}> = [];
   mocked.mockImplementation(p=>new Promise((resolve,reject)=>pending.push({p,resolve,reject})));
   const {result,rerender}=renderHook((props)=>useXxmForecast(props),{initialProps:{active:false,tsCode:"000001.SH",minutes:true}});
   expect(mocked).not.toHaveBeenCalled();
   rerender({active:true,tsCode:"000001.SH",minutes:true});
-  await waitFor(()=>expect(pending).toHaveLength(2));
-  await act(async()=>pending[0].resolve(response(pending[0].p)));
-  await waitFor(()=>expect(pending).toHaveLength(3));
-  await act(async()=>pending[1].reject(new Error("failed")));
   await waitFor(()=>expect(pending).toHaveLength(4));
+  await act(async()=>pending[0].resolve(response(pending[0].p)));
+  await act(async()=>pending[1].reject(new Error("failed")));
   await act(async()=>{pending[2].resolve(response(pending[2].p));pending[3].resolve(response(pending[3].p));});
   expect(result.current.rows.day.phase).toBe("ready");
   expect(result.current.rows.m60.phase).toBe("error");
@@ -92,17 +90,17 @@ it("cancels hidden/outgoing requests and ignores old responses on object change"
   const pending:Array<{p:ForecastPeriod;signal:AbortSignal;resolve:(v:ForecastResponse)=>void}>=[];
   mocked.mockImplementation((p,a,signal)=>new Promise(resolve=>pending.push({p,signal,resolve})));
   const {result,rerender}=renderHook((props)=>useXxmForecast(props),{initialProps:{active:true,tsCode:"000001.SH",minutes:true}});
-  expect(pending).toHaveLength(2);
+  expect(pending).toHaveLength(4);
   hidden=true;
   act(()=>document.dispatchEvent(new Event("visibilitychange")));
   expect(pending.every(p=>p.signal.aborted)).toBe(true);
   hidden=false;
   act(()=>document.dispatchEvent(new Event("visibilitychange")));
-  expect(pending).toHaveLength(4);
+  expect(pending).toHaveLength(8);
   rerender({active:true,tsCode:"399001.SZ",minutes:true});
   await act(async()=>{for(const p of pending)p.resolve(response(p.p));});
   expect(result.current.rows.day.response).toBeNull();
-  expect(mocked).toHaveBeenCalledTimes(4);
+  expect(mocked).toHaveBeenCalledTimes(8);
 });
 
 

@@ -1,0 +1,42 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_injected_request_clock_reuses_the_same_shanghai_cutover[11-59-expected0] _
+
+db_session = <sqlalchemy.orm.session.Session object at 0x103d22e40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103c3fce0>
+utc_hour = 11, utc_second = 59, expected = datetime.date(2026, 8, 26)
+
+    @pytest.mark.parametrize("utc_hour,utc_second,expected", [(11, 59, date(2026, 8, 26)), (12, 0, date(2026, 8, 27))])
+    def test_injected_request_clock_reuses_the_same_shanghai_cutover(db_session, monkeypatch, utc_hour, utc_second, expected):
+        _seed_standard_calendar(db_session)
+        def forbidden_clock():
+            raise AssertionError("A request must not read a second wall clock")
+        monkeypatch.setattr(context_query_module, "_now_cn", forbidden_clock)
+        stamp = datetime(2026, 8, 27, utc_hour, 59 if utc_hour == 11 else 0, utc_second, tzinfo=ZoneInfo("UTC"))
+>       result = MarketPageContextQuery().resolve_context(db_session, market="CN_A", requested_trade_date=None, now=stamp)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: MarketPageContextQuery.resolve_context() got an unexpected keyword argument 'now'
+
+tests/test_wealth_market_page_context_query.py:146: TypeError
+_ test_injected_request_clock_reuses_the_same_shanghai_cutover[12-0-expected1] _
+
+db_session = <sqlalchemy.orm.session.Session object at 0x102973620>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103c3f6f0>
+utc_hour = 12, utc_second = 0, expected = datetime.date(2026, 8, 27)
+
+    @pytest.mark.parametrize("utc_hour,utc_second,expected", [(11, 59, date(2026, 8, 26)), (12, 0, date(2026, 8, 27))])
+    def test_injected_request_clock_reuses_the_same_shanghai_cutover(db_session, monkeypatch, utc_hour, utc_second, expected):
+        _seed_standard_calendar(db_session)
+        def forbidden_clock():
+            raise AssertionError("A request must not read a second wall clock")
+        monkeypatch.setattr(context_query_module, "_now_cn", forbidden_clock)
+        stamp = datetime(2026, 8, 27, utc_hour, 59 if utc_hour == 11 else 0, utc_second, tzinfo=ZoneInfo("UTC"))
+>       result = MarketPageContextQuery().resolve_context(db_session, market="CN_A", requested_trade_date=None, now=stamp)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: MarketPageContextQuery.resolve_context() got an unexpected keyword argument 'now'
+
+tests/test_wealth_market_page_context_query.py:146: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_wealth_market_page_context_query.py::test_injected_request_clock_reuses_the_same_shanghai_cutover[11-59-expected0]
+FAILED tests/test_wealth_market_page_context_query.py::test_injected_request_clock_reuses_the_same_shanghai_cutover[12-0-expected1]
+2 failed, 11 deselected in 0.21s

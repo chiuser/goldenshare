@@ -1,0 +1,391 @@
+.FFF.FFFFFFFFFFFFFFF                                                     [100%]
+=================================== FAILURES ===================================
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m60] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 60, 'bars', datetime.date(2026, 10, 14)), ('signature', 60, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i1'), ...}
+period = 'm60', clock = '10:45:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T10:30:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^  ^ ^
+E         + 2026-10-14T10:30:00+08:00
+E         ?          ^  ^ ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m90] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 90, 'bars', datetime.date(2026, 10, 14)), ('signature', 90, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i2'), ...}
+period = 'm90', clock = '10:45:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+        assert value.computedThrough == close_stamp(period, "2026-10-13")
+        assert value.mode == "LATEST" and value.requestedAsOf is None
+        assert "历史回放" not in value.display.asOfText and "数据滞后" != value.display.statusLabel
+>       assert all(record[-1] == date(2026, 10, 13) for record in source["records"])
+E       assert False
+E        +  where False = all(<generator object test_business_date_before_20_ignores_intraday_completion_and_early_published_source.<locals>.<genexpr> at 0x10c472890>)
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:327: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m120] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 120, 'bars', datetime.date(2026, 10, 14)), ('signature', 120, .../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i3'), ...}
+period = 'm120', clock = '10:45:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+        assert value.computedThrough == close_stamp(period, "2026-10-13")
+        assert value.mode == "LATEST" and value.requestedAsOf is None
+        assert "历史回放" not in value.display.asOfText and "数据滞后" != value.display.statusLabel
+>       assert all(record[-1] == date(2026, 10, 13) for record in source["records"])
+E       assert False
+E        +  where False = all(<generator object test_business_date_before_20_ignores_intraday_completion_and_early_published_source.<locals>.<genexpr> at 0x10c4715d0>)
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:327: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m60] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 60, 'bars', datetime.date(2026, 10, 14)), ('signature', 60, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i5'), ...}
+period = 'm60', clock = '11:15:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T10:30:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^  ^ ^
+E         + 2026-10-14T10:30:00+08:00
+E         ?          ^  ^ ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m90] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 90, 'bars', datetime.date(2026, 10, 14)), ('signature', 90, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i6'), ...}
+period = 'm90', clock = '11:15:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T11:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^  ^
+E         + 2026-10-14T11:00:00+08:00
+E         ?          ^  ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m120] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 120, 'bars', datetime.date(2026, 10, 14)), ('signature', 120, .../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i7'), ...}
+period = 'm120', clock = '11:15:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+        assert value.computedThrough == close_stamp(period, "2026-10-13")
+        assert value.mode == "LATEST" and value.requestedAsOf is None
+        assert "历史回放" not in value.display.asOfText and "数据滞后" != value.display.statusLabel
+>       assert all(record[-1] == date(2026, 10, 13) for record in source["records"])
+E       assert False
+E        +  where False = all(<generator object test_business_date_before_20_ignores_intraday_completion_and_early_published_source.<locals>.<genexpr> at 0x10d3032e0>)
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:327: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-day] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [], 'revisions': {'2026-10-14': 1, '2026-10-15': 1, '2026-10-16': 1}, 'root':.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i8'), ...}
+period = 'day', clock = '15:00:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14' == '2026-10-13'
+E
+E         - 2026-10-13
+E         ?          ^
+E         + 2026-10-14
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m60] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 60, 'bars', datetime.date(2026, 10, 14)), ('signature', 60, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i9'), ...}
+period = 'm60', clock = '15:00:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m90] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 90, 'bars', datetime.date(2026, 10, 14)), ('signature', 90, 'i...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i10'), ...}
+period = 'm90', clock = '15:00:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m120] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 120, 'bars', datetime.date(2026, 10, 14)), ('signature', 120, ...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i11'), ...}
+period = 'm120', clock = '15:00:00'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-day] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [], 'revisions': {'2026-10-14': 1, '2026-10-15': 1, '2026-10-16': 1}, 'root':...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i12'), ...}
+period = 'day', clock = '19:59:59'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14' == '2026-10-13'
+E
+E         - 2026-10-13
+E         ?          ^
+E         + 2026-10-14
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m60] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 60, 'bars', datetime.date(2026, 10, 14)), ('signature', 60, 'i...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i13'), ...}
+period = 'm60', clock = '19:59:59'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m90] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 90, 'bars', datetime.date(2026, 10, 14)), ('signature', 90, 'i...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i14'), ...}
+period = 'm90', clock = '19:59:59'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+_ test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m120] _
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 120, 'bars', datetime.date(2026, 10, 14)), ('signature', 120, ...var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_business_date_before_20_i15'), ...}
+period = 'm120', clock = '19:59:59'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    @pytest.mark.parametrize("clock", ["10:45:00", "11:15:00", "15:00:00", "19:59:59"])
+    def test_business_date_before_20_ignores_intraday_completion_and_early_published_source(business_source, period, clock):
+        source = business_source
+        with Session(source["engine"]) as session:
+            value = business_service(source).build(session, period=period, now=datetime.fromisoformat("2026-10-14T" + clock + "+08:00"))
+        assert value.dataStatus == "READY" and value.status not in ("DELAYED", "EMPTY")
+>       assert value.computedThrough == close_stamp(period, "2026-10-13")
+E       AssertionError: assert '2026-10-14T15:00:00+08:00' == '2026-10-13T15:00:00+08:00'
+E
+E         - 2026-10-13T15:00:00+08:00
+E         ?          ^
+E         + 2026-10-14T15:00:00+08:00
+E         ?          ^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:324: AssertionError
+____ test_replay_is_bounded_by_business_day_and_stable_across_cutover[day] _____
+
+business_source = {'engine': Engine(sqlite://), 'records': [], 'revisions': {'2026-10-14': 1, '2026-10-15': 1, '2026-10-16': 1}, 'root':.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_replay_is_bounded_by_busi0'), ...}
+period = 'day'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    def test_replay_is_bounded_by_business_day_and_stable_across_cutover(business_source, period):
+        source = business_source; service = business_service(source)
+        before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+        past = close_stamp(period, "2026-10-12")
+        with Session(source["engine"]) as session:
+            first = service.build(session, period=period, as_of=past, now=before)
+            after = service.build(session, period=period, as_of=past, now=before + timedelta(seconds=1))
+>           with pytest.raises(query_service.XxmQueryError) as error:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'src.biz.queries.wealth.market.index_detail_xxm.query_service.XxmQueryError'>
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:378: Failed
+____ test_replay_is_bounded_by_business_day_and_stable_across_cutover[m60] _____
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 60, 'bars', datetime.date(2026, 10, 14)), ('signature', 60, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_replay_is_bounded_by_busi1'), ...}
+period = 'm60'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    def test_replay_is_bounded_by_business_day_and_stable_across_cutover(business_source, period):
+        source = business_source; service = business_service(source)
+        before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+        past = close_stamp(period, "2026-10-12")
+        with Session(source["engine"]) as session:
+            first = service.build(session, period=period, as_of=past, now=before)
+            after = service.build(session, period=period, as_of=past, now=before + timedelta(seconds=1))
+>           with pytest.raises(query_service.XxmQueryError) as error:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'src.biz.queries.wealth.market.index_detail_xxm.query_service.XxmQueryError'>
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:378: Failed
+____ test_replay_is_bounded_by_business_day_and_stable_across_cutover[m90] _____
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 90, 'bars', datetime.date(2026, 10, 14)), ('signature', 90, 'i.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_replay_is_bounded_by_busi2'), ...}
+period = 'm90'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    def test_replay_is_bounded_by_business_day_and_stable_across_cutover(business_source, period):
+        source = business_source; service = business_service(source)
+        before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+        past = close_stamp(period, "2026-10-12")
+        with Session(source["engine"]) as session:
+            first = service.build(session, period=period, as_of=past, now=before)
+            after = service.build(session, period=period, as_of=past, now=before + timedelta(seconds=1))
+>           with pytest.raises(query_service.XxmQueryError) as error:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'src.biz.queries.wealth.market.index_detail_xxm.query_service.XxmQueryError'>
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:378: Failed
+____ test_replay_is_bounded_by_business_day_and_stable_across_cutover[m120] ____
+
+business_source = {'engine': Engine(sqlite://), 'records': [('signature', 120, 'bars', datetime.date(2026, 10, 14)), ('signature', 120, .../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1716/test_replay_is_bounded_by_busi3'), ...}
+period = 'm120'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    def test_replay_is_bounded_by_business_day_and_stable_across_cutover(business_source, period):
+        source = business_source; service = business_service(source)
+        before = datetime(2026, 10, 14, 19, 59, 59, tzinfo=CN_ZONE)
+        past = close_stamp(period, "2026-10-12")
+        with Session(source["engine"]) as session:
+            first = service.build(session, period=period, as_of=past, now=before)
+            after = service.build(session, period=period, as_of=past, now=before + timedelta(seconds=1))
+>           with pytest.raises(query_service.XxmQueryError) as error:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'src.biz.queries.wealth.market.index_detail_xxm.query_service.XxmQueryError'>
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:378: Failed
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/congming/github/goldenshare/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m60]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m90]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[10:45:00-m120]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m60]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m90]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[11:15:00-m120]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-day]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m60]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m90]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[15:00:00-m120]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-day]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m60]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m90]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_business_date_before_20_ignores_intraday_completion_and_early_published_source[19:59:59-m120]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_replay_is_bounded_by_business_day_and_stable_across_cutover[day]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_replay_is_bounded_by_business_day_and_stable_across_cutover[m60]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_replay_is_bounded_by_business_day_and_stable_across_cutover[m90]
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_replay_is_bounded_by_business_day_and_stable_across_cutover[m120]
+18 failed, 2 passed, 63 deselected, 1 warning in 8.51s

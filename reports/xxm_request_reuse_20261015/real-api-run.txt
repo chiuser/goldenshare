@@ -1,0 +1,35 @@
+{"mode": "cold", "period": "day", "p95Seconds": 0.4350564586929977, "maxSeconds": 0.6281257499940693, "maxComputeSeconds": 0.07725183432921767, "maxBytes": 7799}
+{"mode": "cold", "period": "m60", "p95Seconds": 2.1366927921772003, "maxSeconds": 2.1893856250680983, "maxComputeSeconds": 0.01728950021788478, "maxBytes": 1843}
+{"mode": "cold", "period": "m90", "p95Seconds": 2.278389166109264, "maxSeconds": 2.4061327911913395, "maxComputeSeconds": 0.02542004082351923, "maxBytes": 10779}
+{"mode": "cold", "period": "m120", "p95Seconds": 1.9146142504177988, "maxSeconds": 2.301075999625027, "maxComputeSeconds": 0.01240033283829689, "maxBytes": 1720}
+{"mode": "warm", "period": "day", "p95Seconds": 0.3169112498871982, "maxSeconds": 0.35471345903351903, "maxComputeSeconds": 0.07683466700837016, "maxBytes": 7799}
+{"mode": "warm", "period": "m60", "p95Seconds": 0.45930358255282044, "maxSeconds": 2.5373493330553174, "maxComputeSeconds": 0.014627749565988779, "maxBytes": 1843}
+{"mode": "warm", "period": "m90", "p95Seconds": 0.6244752500206232, "maxSeconds": 2.139874500222504, "maxComputeSeconds": 0.022125791758298874, "maxBytes": 10779}
+{"mode": "warm", "period": "m120", "p95Seconds": 0.5248606661334634, "maxSeconds": 2.051913166884333, "maxComputeSeconds": 0.009553874842822552, "maxBytes": 1720}
+{"group": ["day", "m60"], "attempt": 0, "maxSeconds": 2.482783082872629}
+{"group": ["day", "m60"], "attempt": 1, "maxSeconds": 2.196212792303413}
+{"group": ["day", "m60"], "attempt": 2, "maxSeconds": 2.0837251250632107}
+{"group": ["m60", "m90"], "attempt": 0, "maxSeconds": 3.714144750032574}
+{"group": ["m60", "m90"], "attempt": 1, "maxSeconds": 2.9464400419965386}
+{"group": ["m60", "m90"], "attempt": 2, "maxSeconds": 3.0287438752129674}
+{"group": ["m90", "m120"], "attempt": 0, "maxSeconds": 2.7593474593013525}
+{"group": ["m90", "m120"], "attempt": 1, "maxSeconds": 2.7614162918180227}
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_forecast_display_audit.py", line 180, in <module>
+    main()
+    ~~~~^^
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_forecast_display_audit.py", line 163, in main
+    rows={p:f.result()[1] for p,f in pending.items()}
+            ~~~~~~~~^^
+  File "/Users/congming/miniconda3/lib/python3.13/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/congming/miniconda3/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/congming/miniconda3/lib/python3.13/concurrent/futures/thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/Users/congming/github/goldenshare/scripts/research/index_market/xxm_forecast_display_audit.py", line 130, in request
+    raise RuntimeError(f'HTTP audit failed: {period} {error.code}') from None
+RuntimeError: HTTP audit failed: m90 503

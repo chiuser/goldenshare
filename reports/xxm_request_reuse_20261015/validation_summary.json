@@ -1,0 +1,135 @@
+{
+  "status": "TECHNICAL_GATES_PASS_PAGE_USER_ACCEPTANCE_PENDING",
+  "implemented": true,
+  "backendRelevantTests": 385,
+  "frontendFullTests": 1172,
+  "frontendFiles": 165,
+  "typecheck": "PASS",
+  "build": "PASS",
+  "fixedSnapshotEquality": {
+    "mixedFullResponses": 96,
+    "coldWarmFullResponses": 8,
+    "readerProductVsPrecheck": 12,
+    "readerProductVsOriginalMixed": 96
+  },
+  "pageAcceptance": "USER_PENDING",
+  "committed": false,
+  "deployed": false,
+  "sourceDiagnostic": {
+    "requests": 6,
+    "allSucceeded": true,
+    "minSeconds": 2.779597334098071,
+    "maxSeconds": 3.877548999618739,
+    "replacesFailedGate": false
+  },
+  "docsIntegrity": "PASS",
+  "scopedDiffCheck": "PASS",
+  "localLinksChecked": 217,
+  "codegraph": "synced and current",
+  "nextAction": "User page acceptance; scoped commit authorized",
+  "readerScopeApproved": true,
+  "budgetGateBeforeReader": {
+    "status": "FAIL",
+    "coldWarmPassedRequests": 160,
+    "completedConcurrentPairs": 8,
+    "completedConcurrentRequests": 16,
+    "lastPair": "m90+m120",
+    "failure": {
+      "period": "m90",
+      "httpStatus": 503,
+      "body": {
+        "code": "XXMF_BUDGET_EXCEEDED",
+        "message": "研究指标查询超时。",
+        "request_id": null
+      },
+      "measurement": {
+        "buildSeconds": 4.00952870817855,
+        "computeSeconds": null
+      },
+      "seconds": 4.0541357500478625
+    },
+    "latestFourRequests": "NOT_RUN"
+  },
+  "budgetGate": {
+    "status": "PASS",
+    "coldWarmRequests": 160,
+    "concurrentRequests": 18,
+    "latestRequests": 4,
+    "maxHttpSeconds": 2.9760541249997914,
+    "maxComputeSeconds": 0.0779840829782188,
+    "maxBytes": 10779,
+    "rssMaxBytes": 1076396032
+  },
+  "mixedBeforeReader": {
+    "rounds": 16,
+    "requests": 306,
+    "maxHttpSeconds": 3.8613558330000015,
+    "maxForecastHttpSeconds": 2.519154208,
+    "maxComputeSeconds": 0.13458470813930035,
+    "maxCacheBytes": 42199161,
+    "maxCacheEntries": 8,
+    "all96ResponsesEqual": true,
+    "maxPageSeconds": 15.130278999999998
+  },
+  "mixed": {
+    "status": "PASS",
+    "rounds": 16,
+    "requests": 306,
+    "maxHttpSeconds": 2.859413084,
+    "maxForecastHttpSeconds": 2.463424457999994,
+    "maxComputeSeconds": 0.13671708339825273,
+    "maxCacheBytes": 42199161,
+    "maxCacheEntries": 8,
+    "all96ResponsesEqual": true,
+    "pageSeconds": {
+      "cold": {
+        "min": 8.292575666999998,
+        "max": 12.925193916999996
+      },
+      "warm": {
+        "min": 4.394399583,
+        "max": 11.157683874999995
+      }
+    }
+  },
+  "readerPrecheck": {
+    "status": "PASS",
+    "budgetRequests": 178,
+    "latestRequests": 4,
+    "path": "reader_precheck/http_parallel",
+    "fullHistoryParity": "PASS",
+    "nonTargetContractTests": 45,
+    "earlierProjectionFailure": "reader_precheck/projection_http_failure.json"
+  },
+  "readerProductParity": {
+    "status": "PASS",
+    "path": "reader_product_parity/parity.json",
+    "counts": {
+      "m60": 17264,
+      "m90": 12948,
+      "m120": 8632
+    },
+    "filesPerStream": 4316
+  },
+  "unchangedCoreFilesBeforeReader": [
+    "src/biz/queries/wealth/market/index_detail_xxm/source.py",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py",
+    "src/foundation/clients/local_lake/major_index_mins_reader.py",
+    "wealth/src/features/nine-turn/controller/useNineTurnSeriesRegistry.ts",
+    "wealth/src/shared/api/wealthApiClient.ts"
+  ],
+  "unchangedCoreFiles": [
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py",
+    "wealth/src/features/nine-turn/controller/useNineTurnSeriesRegistry.ts",
+    "wealth/src/shared/api/wealthApiClient.ts"
+  ],
+  "recordContext": "Technical validation snapshot before the user-authorized commit; historical measurements remain unchanged"
+}

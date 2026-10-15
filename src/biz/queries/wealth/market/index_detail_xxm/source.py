@@ -81,8 +81,8 @@ def minute_request(freq: int, end: date, start: date | None = None) -> IndexMinu
 def read_minutes(reader: MajorIndexMinsLakeReader, *, freq: int, end: date, deadline: Callable[[], float],
                  start: date | None = None) -> tuple[XxmBar, ...]:
     request = minute_request(freq, end, start)
-    bars = reader.read_complete_history(request, dataset="bars", timeout_seconds=deadline())
-    indicators = reader.read_complete_history(request, dataset="indicators", timeout_seconds=deadline())
+    bars, indicators = reader.read_complete_history_pair(request, timeout_seconds=deadline(),
+        bar_value_columns=("close",), indicator_value_columns=("macd_dif", "macd_dea", "macd"))
     key = lambda row: (row["ts_code"], row["freq"], row["trade_date"], row["trade_time"])
     if tuple(map(key, bars.rows)) != tuple(map(key, indicators.rows)):
         raise XxmSourceError("分钟价格与指标的完整时间集合不一致。")

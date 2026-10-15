@@ -1,9 +1,14 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
+import { indexDetailRequests } from "../api/indexDetailRequestScheduler";
 import { XXM_TIMEOUT_MS } from "../xxm/apiClient";
 import { adaptForecast } from "./adapter";
 import type { ForecastPeriod, ForecastResponse } from "./types";
 
-export async function fetchForecast(period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal): Promise<ForecastResponse> {
+export function fetchForecast(period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal): Promise<ForecastResponse> {
+  return indexDetailRequests.run("forecast", () => sendForecast(period, asOf, signal), signal);
+}
+
+async function sendForecast(period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal): Promise<ForecastResponse> {
   const params = new URLSearchParams({ tsCode: "000001.SH", period });
   if (asOf) params.set("asOf", asOf);
   const controller = new AbortController();

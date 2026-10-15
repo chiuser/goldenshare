@@ -1,4 +1,5 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
+import { indexDetailRequests } from "./indexDetailRequestScheduler";
 import type {
   IndexDetailKlineResponseDto,
   IndexDetailMinuteFrequency,
@@ -48,7 +49,7 @@ export function fetchIndexDetailMinutes(
   },
   options: FetchOptions = {},
 ): Promise<IndexMinutesResponseDto> {
-  return fetchIndexDetail<IndexMinutesResponseDto>("minutes", params, options);
+  return indexDetailRequests.run("chart", () => fetchIndexDetail<IndexMinutesResponseDto>("minutes", params, options), options.signal);
 }
 
 export function fetchIndexDetailMinuteIndicators(
@@ -62,7 +63,7 @@ export function fetchIndexDetailMinuteIndicators(
   },
   options: FetchOptions = {},
 ): Promise<IndexMinuteIndicatorsResponseDto> {
-  return fetchIndexDetail<IndexMinuteIndicatorsResponseDto>("minute-indicators", params, options);
+  return indexDetailRequests.run("chart", () => fetchIndexDetail<IndexMinuteIndicatorsResponseDto>("minute-indicators", params, options), options.signal);
 }
 
 export function fetchIndexDetailWeights(

@@ -1,0 +1,26 @@
+{
+  "backendRelevantTests": 301,
+  "frontendRelevantTests": 57,
+  "focusedSubsetTests": 116,
+  "typecheck": "PASS",
+  "build": "PASS",
+  "realBoundaryRequests": 48,
+  "budgets": {
+    "budgetRequests": 178,
+    "latestRequests": 4,
+    "maxSeconds": 3.2957819998264313,
+    "maxComputeSeconds": 0.07993591669946909,
+    "maxBytes": 10779,
+    "allPassed": true
+  },
+  "unchangedExistingContextCalls": 26,
+  "unchangedExistingContextImportFiles": 20,
+  "sameSnapshotFullResponsesEqual": 12,
+  "docsIntegrity": "PASS",
+  "localLinksChecked": 160,
+  "scopedDiffCheck": "PASS",
+  "codegraph": "synced and current",
+  "pageAcceptance": "USER_PENDING",
+  "committed": false,
+  "deployed": false
+}

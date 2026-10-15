@@ -1,0 +1,5 @@
+{
+  "code": "XXMF_REQUEST_INVALID",
+  "message": "asOf 必须是已完成的开市端点。",
+  "request_id": null
+}
