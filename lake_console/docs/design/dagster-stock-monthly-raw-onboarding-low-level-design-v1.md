@@ -1,6 +1,6 @@
 # DG 月线单主源与定向历史修订 LLD v1
 
-更新：2026-10-15。月线源码已清退独立未复权定义及写入口，保留复权单源；正式重载和物理删除因同一location的未验收R3改动而暂停。8月修订尚未开发或执行，未评价或启停正式sensor。范围及实际状态见[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享清退LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。
+更新：2026-10-15。独立未复权月线定义及写入口已清退，正式location重载成功，旧月线目录201文件已物理删除；保留复权月线单源及RUNNING状态、水位2026-09。8月修订尚未开发或执行，未人工评价或启停正式sensor。R3仅获准随定义导入，继续暂停且未验收。范围及实际状态见[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享清退LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。
 
 任务已拆开：先独立完成重复数据集的代码清退和物理删除，再推进保留Raw补齐纠错。本文源/身份/覆盖/候选及预算要求用于第二条或日常月线合同，不是删除未复权月线的前置检查；8月修订和其他月份异常不阻塞第一条关闭。
 
@@ -25,7 +25,7 @@
 
 ## 2. 当前代码事实与缺口
 
-- assets/stock_monthly.py、jobs/stock_monthly.py、checks/stock_monthly_checks.py及sensor源码已仅保留复权源；source枚举拒绝未复权，正式实例仍待安全重载和旧目录删除，不能称物理清退已完成。
+- assets/stock_monthly.py、jobs/stock_monthly.py、checks/stock_monthly_checks.py及sensor已仅保留复权源；source枚举拒绝未复权，正式定义及旧目录清退均完成。月线共享请求监督、事件绑定及cn_a_stock_months分区保留。
 - stock_monthly_point.py以逐页CSV/Parquet/receipt、意图、source-month锁和候选持久化；既有create_or_identical遇异值产生revision_required，不能用重复提交或强改hash实现覆盖。
 - source_readiness/stock_monthly.py对新交付按原Raw日线实际日期、confirmed身份和上游准确checks检查完整性；历史bootstrap只保真复制，未验证每股月末覆盖，是8月旧版本漏过的原因。
 - checks只读当前分区及物化路径/行数，不再读取历史搬运材料。sensor从next_month(frontier)继续，不回查8月，也没有历史复权自动修订通道。

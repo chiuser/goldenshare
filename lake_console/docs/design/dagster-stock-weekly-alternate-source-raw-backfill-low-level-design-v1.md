@@ -1,6 +1,6 @@
 # DG 周线保留链与重复数据集物理清退 LLD v1
 
-更新：2026-10-15。管理员已批准精简计划；源码清退和隔离测试已完成，正式重载及物理删除尚未执行，原因见第6节。删除不审查行情、不重算、不以Raw修订为前置。范围和阶段唯一引用[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线修订细节见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
+更新：2026-10-15。第一条源码清退、隔离测试、正式重载和物理删除均已完成，逐项结果见第6节。R3获准随定义导入，仍暂停且未验收。删除不审查行情、不重算、不以Raw修订为前置。范围和阶段唯一引用[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线修订细节见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
 
 第1—3节记录继续保留的日常供数合同及预算，不是第一条删除任务的执行或重验清单。删除只执行第4节步骤和第6节针对性验收；月线数据修订另属第二条。
 
@@ -116,13 +116,18 @@ CodeGraph explore/callers/impact已覆盖入口、路径与StockWeeklySource/Sto
 
 - 三个旧asset/job、9项check、catalog/path/schema/config活动项已从源码移除；旧source不再属于周/月枚举，旧周线point/update执行器和备用采集/规划入口已删除，旧库存/计划在创建目标或请求源前拒绝。两个复权key及21字段不变。
 - 两个共享sensor保留名称、默认状态、19:30窗口和水位字段。周线只消费原闭合批feed，不再查未复权日历/文件；月线只遍历复权源。月线依赖的请求监督、事件绑定及复权bootstrap能力保留。CodeGraph impact复核周/月99/44个符号，动态消费者用现有引用补核，无业务子系统依赖变化。
-- 最终针对性隔离验收214项通过、509子测试通过，9.33秒；未重跑历史全链。删除脚本只置于/private/tmp，固定三个根，5项临时目录边界/正常新增/部分删除续处理测试通过，0.006秒；未对正式目录运行预览或apply。
+- 最终针对性隔离验收214项通过、509子测试通过，9.33秒；未重跑历史全链。删除脚本只置于/private/tmp，固定三个根，5项临时目录边界/正常新增/部分删除续处理测试通过，0.006秒；获准后用于本节记录的正式删除。
 - 另补核直接迁移的月线事件/历史合同和保留周线候选、事件文件、旧事件scope拒绝：53项通过，4项旧双源夹具预期修正后复测通过；不与上述214项重复累加。退役未复权point/bootstrap成功路径的测试随对应实现退出，保留原复权B0替换/检查专项测试；没有将旧source改成复权而继续使用旧写入语义。
 - 11项未纳入最终测试：9项额外真实子进程时序测试不是本次共享监督逻辑变更；另外2项全局治理测试分别要求停牌专项隔离上下文，以及既有矩阵漏登记。后一问题用修改前HEAD源码内存加载复现17项缺口；本次删掉未复权月登记后剩16项，包括原有复权月/公告/资金流缺项。未放宽或修改这些门禁，不把全局治理说成全部通过。
-- 正式只读GraphQL确认orchestrator仍加载本工作区orchestrator.definitions，列出原五项周期Raw。隔离调用同一defs入口确认递归导入当前未验收R3 execution模块；按批准边界停在重载前。未重启、未评价/启停sensor、未提交job或写事件，三个正式目录未删。
+- 正式加载边界最初因R3未验收而暂停。管理员随后明确允许导入该模块，R3继续暂停且不算验收通过；仅重载orchestrator location一次，未重启服务。正式GraphQL确认删除的恰为三个旧asset、三个旧job及9项check，其余资产和检查定义保持一致。两个共享sensor目标均只剩复权job。
+- 正式操作前后没有在途run，相关进程清单未发现手动写者。两个sensor身份、RUNNING状态和lastRunKey保持一致；runtime_state完整保持：周verified/examined=2026-10-09、adjusted_delivery_revision=1785，月verified/examined=2026-09。运行中的系统自动tick更新cursor时间和说明，未人工改cursor或评价/启停sensor。
+- 23:52一次枚举目录元数据并删除：stk_period_bar_week为859文件/89,782,798字节，stk_period_bar_month为201文件/22,484,192字节，weekly为803文件/6,950,886字节。合计1,863文件/119,217,876字节，枚举与删除合计约0.35秒；不含前后定义核对耗时。三个旧根均已不存在，两个复权根的inode/device与操作前一致；未递归扫描保留数据。共享函数和分区沿用已通过的隔离证据，本次不修改其代码或正式分区注册。
+- 本轮执行前已有的全部未提交文件逐内容对照保持不变，包括R3源码/测试。没有源请求、行情内容读取/重算、候选生成、正式job提交、事件补录、staging清理或备份。Raw纠错、Silver和R3均未推进。
 - 日志位于/private/tmp/dg_period_retirement_fixed_version_20261015.log；正式加载快照为dg_period_retirement_loaded_location_20261015.json；基线复现脚本为dg_retirement_governance_baseline_20261015.py；一次性删除脚本为dg_period_retirement_delete_20261015.py。临时脚本不纳入生产主链，不依赖它们作为日常证明。原R3候选、receipt、checkpoint、计划/hash和未提交代码均保留。
 
-下一步仅为解决同一code location的未验收改动加载边界，然后继续第4.3节步骤3—5；不因源码提交宣布第一条已关闭，也不进入Raw修订、Silver或25股修复。
+正式操作证据保存于/private/tmp/dg_retirement_formal_20261015：before.json、after_reload.json、final.json记录定义/sensor/进程，deletion_inventory.json和deletion_result.json记录目录清单与删除结果，reconciliation.json为逐项对账。仅用于本次操作追溯，不成为日常运行依赖。
+
+第一条已独立关闭。第二条Raw修订及25股任务分别按已确认顺序另行推进；本次加载R3模块不改变其暂停、未验收状态。
 
 ## 7. 后续Silver接口边界（未实施）
 

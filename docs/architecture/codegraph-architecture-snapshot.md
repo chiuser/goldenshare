@@ -50,7 +50,7 @@ Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
 2. `orchestrator/defs/paths.py` 决定正式 Lake 三层与独立 staging 根，不使用旧 config.local.toml 或 Kopia。
 3. reports 和两项 ClickHouse bin 工具保留；本机 ignored 环境不作为可用的旧产品入口。
 
-2026-10-15周线局部复核：`raw_tushare_stk_period_bar_adj_week` → `stock_weekly_adj_run` → `prod_db.stock_weekly_adj_delivery`（唯一psql只读入口）/`stock_weekly_adj_delivery`（有界捕获、年度SQL）→既有promoter。历史分区准确绑定三检查，anchor最后交由原check节点；单文件检查由`stock_weekly_file_checks`共用。共享weekly sensor通过`stock_weekly_adj_feed`消费独立revision。10月13日B0=1785交付、859文件及对应物化/检查和cursor迁移已完成，不再列作待启用。当前源码已仅留复权周/月主源；正式location尚未安全重载，重复数据集物理删除及Raw修订尚未实施，重载会导入未验收R3改动的边界见LLD，边界见[本轮总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，保留链见[DG LLD](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。CodeGraph explore/impact及实际引用审计覆盖入口、builder、checks/job、catalog和共享消费者；业务子系统依赖矩阵不变。
+2026-10-15周线局部复核：`raw_tushare_stk_period_bar_adj_week` → `stock_weekly_adj_run` → `prod_db.stock_weekly_adj_delivery`（唯一psql只读入口）/`stock_weekly_adj_delivery`（有界捕获、年度SQL）→既有promoter。历史分区准确绑定三检查，anchor最后交由原check节点；单文件检查由`stock_weekly_file_checks`共用。共享weekly sensor通过`stock_weekly_adj_feed`消费独立revision。10月13日B0=1785交付、859文件及对应物化/检查和cursor迁移已完成，不再列作待启用。源码和正式location均仅留复权周/月主源；重复三目录1,863文件已物理删除，共享sensor状态和水位保持。管理员仅允许导入未验收R3模块，R3继续暂停；Raw修订尚未实施。范围见[本轮总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，保留链及正式操作证据见[DG LLD](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。CodeGraph explore/impact及实际引用审计覆盖入口、builder、checks/job、catalog和共享消费者；业务子系统依赖矩阵不变。
 
 ## 关键调用链
 
