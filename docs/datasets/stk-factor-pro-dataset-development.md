@@ -1,6 +1,6 @@
 # 股票技术面因子 stk_factor_pro 维护说明
 
-更新时间：2026-09-10。合并原 Raw 直出与复权变化历史重刷两份方案，描述当前代码及已知限制；不改变字段、执行行为或生产数据。本轮未重新请求 Tushare、执行迁移或验收生产历史数据。
+更新时间：2026-10-16。原 Raw 直出与复权变化历史重刷方案已合并到本文；§2–6 描述当前实现，§7 新增“历史区间回补不依赖本地复权因子”的待实施修改方案。本轮只更新文档，未改代码、部署或执行回补，不能按 §7 认定现有后台已解除检查。
 
 ## 1. 范围与来源
 
@@ -27,11 +27,11 @@
 
 ## 3. 复权门禁与历史重刷
 
-### 目标日存在性门禁
+### 目标日存在性门禁（当前实现）
 
 [planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)的 `_ensure_stk_factor_pro_adj_factor_ready` 对每个计划目标交易日查询 `core.equity_adj_factor`，只要存在至少一行就通过；完全没有数据则以 `upstream_data_not_ready` 失败，提示“先更新复权因子”。
 
-这不是全市场完整性检查，也不保证显式选择的那只股票已有复权因子。区间中任一目标交易日缺少数据，整个计划构建失败；没有“早于可用起点只提示、不报错”的通用保证。
+这不是全市场完整性检查，也不保证显式选择的那只股票已有复权因子。区间中任一目标交易日缺少数据，整个计划构建失败；没有“早于可用起点只提示、不报错”的通用保证。历史区间解除这项检查的修改方案见 §7，尚未实施。
 
 ### 先规划，再执行
 
@@ -97,3 +97,58 @@ Definition 仍保留 `target_table=core_serving.equity_factor_pro`、`core_dao_n
 - [字段常量测试](/Users/congming/github/goldenshare/tests/test_fields_constants.py)、[运行注册测试](/Users/congming/github/goldenshare/tests/test_dataset_runtime_registry.py)及 [Ops 工作流测试](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)：相应字段入口、运行注册和目录约束；按实际改动范围选用，不把文件存在当作全部验收已通过。
 
 原三份文档全文可从 Git 提交 `08216be3` 追溯。本次保留当前机制与必要历史依据，不以离线测试推断真实源端响应、生产全量覆盖或长任务可靠性已验收。
+
+## 7. 历史区间回补解除复权因子前置检查（2026-10-16，待实施）
+
+### 7.1 问题与修改目标
+
+本节接续已合并的复权门禁和历史重刷方案，记录本会话确定的最小修改方向；本次授权仅为同步文档，开发、部署及正式回补尚未执行。
+
+Tushare `stk_factor_pro` 已提供 `close_qfq/close_hfq`、对应技术指标及 `adj_factor` 等源字段。当前 [request builder](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)只生成代码、日期等请求参数，[normalizer](/Users/congming/github/goldenshare/src/foundation/ingestion/normalizer.py)做类型归一化，[writer](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)按主键直接 upsert；没有用本地 `core.equity_adj_factor` 重新计算这些复权指标。字段依据仍为 §1 的源资料与 Definition，本节不更改源端契约。
+
+本地复权因子的实际用途是 §3 的默认全市场单日维护：比较 T/P 两日，判断哪些股票需要重新从源端获取历史技术因子。区间维护原本不运行该变化审计，却同样被逐日存在性检查阻断。因此，本次只解除区间维护的这项无关依赖，不能据此删除单日维护的检查或历史重刷能力。
+
+### 7.2 修改后的硬口径
+
+| 正式维护输入 | 归一化执行模式 | 本地复权因子存在性检查 | 复权变化历史重刷 |
+| --- | --- | --- | --- |
+| 单日、无股票过滤 | `point_incremental` | 保留；缺失仍报 `upstream_data_not_ready` / “先更新复权因子” | 保留现有 T/P 比较和 Raw 历史起点规则 |
+| 单日、指定股票 | `point_incremental` | 保留当前按目标日至少一行的口径，不新增指定股票完整性要求 | 仍不追加 |
+| 区间、无股票过滤 | `range_rebuild` | 不执行，不要求先补本地复权因子 | 仍不追加，不扩大区间 |
+| 区间、指定股票 | `range_rebuild` | 不执行，不要求先补本地复权因子 | 仍不追加，不扩大代码或区间 |
+
+1. 分支依据必须是 [resolver](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py)从正式时间输入生成的 `run_profile`，不能按日期是否早于 2009 年、是否手动触发或区间天数判断。起止相同的一天区间仍按 `range_rebuild` 处理，与单日输入区别明确。
+2. 在 `_build_stk_factor_pro_units` 中仅对 `range_rebuild` 跳过 `_ensure_stk_factor_pro_adj_factor_ready`；其他现有路径保持原样。不得全局删除 helper、吞掉异常或新增 `skip/bypass` 参数、配置项和前端开关。
+3. 区间仍按正式交易日历展开，每个开市日一个 unit，源请求仍为 `trade_date`，可带原有 `ts_code`。不改成单次宽区间拉全市场，不改变分页、字段、主键或事务口径。
+4. 只调整 `stk_factor_pro` 的规划条件；不修改 `DatasetDefinition`、日期模型、API/CLI 输入、前端控件、自动工作流顺序、指数因子逻辑或已有 HDD 存储规则。
+
+### 7.3 改动位置与影响范围
+
+| 位置或消费者 | 后续实施要求 |
+| --- | --- |
+| [unit planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) | 唯一业务逻辑改动点：按 `range_rebuild` 限定跳过范围；保留单日检查和历史追加逻辑 |
+| [resolver 测试](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py) | 替换现有“区间缺复权因子必须失败”的旧断言，新增下表正向、反向用例，不保留新旧双轨 |
+| [手动任务服务](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py)、[dispatcher](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py) | 创建时预检与 worker 执行时均通过同一个 resolver/planner 生效，不在 Ops 层另设绕过逻辑 |
+| [运营手动任务页](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx) | 继续提交原有日期区间和股票过滤，不新增参数或独立下载入口 |
+| 本文 §3、§6 | 实施并验证后再同步为新现状；在此之前保留当前检查的真实描述 |
+
+本次已使用仓库根 CodeGraph 的 `codegraph_explore`、`codegraph_callers`、`codegraph_impact` 核查影响面。helper 的直接调用方为 `_build_stk_factor_pro_units`；静态 impact 对字符串注册的 planner 分派覆盖有限，已补读 resolver、手动任务预检、dispatcher、前端区间请求构建及相关测试。修改范围不改变子系统边界或依赖矩阵；真实入口和数据验收仍是后续待验证项。
+
+### 7.4 后续验收要求（本轮未执行）
+
+| 必须覆盖的用例 | 通过条件 |
+| --- | --- |
+| 全市场区间，复权因子全缺失或部分日期缺失 | 两种情况均可生成完整日期 units；断言不调用存在性检查，也不查询复权变化或 Raw 历史起点 |
+| 指定股票区间、起止相同的一天区间 | 同样不依赖本地复权因子；代码过滤、日期和源请求参数精确保持原输入 |
+| 全市场单日、指定股票单日，目标日复权因子缺失 | 两种输入仍失败，错误码与提示不变，不能被区间分支误放行 |
+| 单日复权因子就绪及变化股票历史重刷 | 保留现有单日成功、T/P 变化追加、无 Raw 历史不追加、指定股票不追加的回归行为 |
+| 区间不越界、原输入校验继续有效 | 非开市日不生成 unit，不增加区间外日期或其它股票；非法时间输入仍由原合同拒绝 |
+| 最小真实验证，另行获准后执行 | 选择本地复权因子缺失的 1–2 个历史交易日和一个明确股票，走正式维护入口；记录实际源请求、源端/归一化/写入行数、reject 原因及 Raw/view 按键读回结果，核验在 HDD，不要求上游 `adj_factor` 写入 |
+
+源码测试修改后先运行相关 resolver、Definition 和 writer 回归，再核验正式入口。真实样本中的重复执行按现有 upsert 语义核对，写入量不误当新增量；不能仅凭规划成功宣称历史已补齐。
+
+### 7.5 交付和执行边界
+
+本次仅同步这一项方案，没有新增配置、数据表或旁路脚本。后续实际实施需按仓库数据集开发模板补齐本次变更对应的研发与验收记录，测试通过并按正式流程部署后，后台才具备上述区间行为。
+
+解除复权门禁不等于解决 §5 的全量分页内存、续跑和长任务观测限制，也不证明全部历史交易日历或源数据完整。大范围 Prod 历史回补仍须单独满足[数据集开发模板 §0.3.5](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)的长任务门禁；本方案不授权一次执行几十年全市场数据，不新增可靠执行改造范围。已完成的 HDD 迁移和用户延期的四组查询性能验收继续按[迁移记录](/Users/congming/github/goldenshare/docs/ops/factor-pro-full-hdd-migration-plan-v1.md)处理，不与本项修改混为同一次验收。
