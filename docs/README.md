@@ -117,6 +117,7 @@ docs/
 - [`kpl_list` 次日发布适配与自动维护方案 v1（现行链路与配置缺口；历史生产验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)
 - [指数日线完整性审计、补漏与激活池说明（现行机制；历史生产验收未独立核实）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 - [生产 PostgreSQL HDD 历史迁移记录（分钟线与筹码迁移合并；非当前操作手册）](/Users/congming/github/goldenshare/docs/ops/prod-postgresql-hdd-migration-history-v1.md)
+- [指数与股票技术因子全量迁至 HDD 方案 v1（待确认；仅迁移后验收 300/2000 查询；未执行迁移）](/Users/congming/github/goldenshare/docs/ops/factor-pro-full-hdd-migration-plan-v1.md)
 - [Ops 实时流监控：页面与健康状态（三组接口、轮询及异常边界）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.md)
 - [Ops 实时流配置中心：配置、发布与生效（已合并 M1–M8 有效清单与原型要求；历史验收单列）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)
 - [ETF 异动监控重入方案（已合并撤销 LLD；保留现行监控/归档，不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
