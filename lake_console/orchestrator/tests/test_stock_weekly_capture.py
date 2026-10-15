@@ -10,12 +10,7 @@ from orchestrator.defs.bootstrap.stock_weekly_capture import (
     WeeklyCaptureStore,
 )
 
-from .stock_weekly_capture_test_support import (
-    alternate_frame,
-    prod_frame,
-    prod_plan,
-    weekly_plan,
-)
+from .stock_weekly_capture_test_support import (prod_frame, prod_plan)
 
 
 def test_exact_decimal_null_and_receipt_replay(tmp_path):
@@ -131,42 +126,7 @@ def test_lock_path_and_foreign_unit_rejected(tmp_path):
             first.begin_attempt(replace(plan.units[0], max_rows=1))
 
 
-def test_durable_request_attempt_and_file_caps(tmp_path):
-    plan = weekly_plan()
-    plan = replace(plan, budget=replace(plan.budget, max_phase_files=1))
-    store = WeeklyCaptureStore(tmp_path, plan)
-    with store.locked(), duckdb.connect() as connection:
-        unit = plan.units[0]
-        attempt = store.begin_attempt(unit)
-        store.reserve_request()
-        store.request_ended()
-        store.write_chunk(connection, alternate_frame(), unit, attempt, 0)
-        with pytest.raises(WeeklyCaptureError, match="phase_file_budget"):
-            store.write_chunk(connection, alternate_frame(), unit, attempt, 1)
-    with WeeklyCaptureStore(tmp_path, plan).locked() as reopened:
-        with pytest.raises(WeeklyCaptureError, match="phase_request_budget"):
-            reopened.reserve_request()
-        with pytest.raises(WeeklyCaptureError, match="unit_attempt_budget"):
-            reopened.begin_attempt(plan.units[0])
-
-
-@pytest.mark.parametrize("value", [float("inf"), "bad"])
-def test_alternate_invalid_numeric_rejected(tmp_path, value):
-    plan = weekly_plan()
-    frame = alternate_frame()
-    frame["close"] = value
-    store = WeeklyCaptureStore(tmp_path, plan)
-    with store.locked(), duckdb.connect() as connection:
-        attempt = store.begin_attempt(plan.units[0])
-        with pytest.raises(WeeklyCaptureError, match="source_numeric_invalid"):
-            store.write_chunk(connection, frame, plan.units[0], attempt, 0)
-
-
 def test_mixed_source_manifest_rejected(tmp_path):
-    from orchestrator.defs.run_contracts.stock_weekly import StockWeeklySource
-
     plan = prod_plan()
-    with pytest.raises(WeeklyCaptureError, match="manifest_source_mismatch"):
-        WeeklyCaptureStore(
-            tmp_path, replace(plan, source=StockWeeklySource.PRIMARY_ADJUSTED)
-        )
+    with pytest.raises(ValueError):
+        replace(plan, source="primary_unadjusted")

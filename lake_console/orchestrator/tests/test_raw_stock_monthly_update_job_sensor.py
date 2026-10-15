@@ -10,7 +10,6 @@ import pytest
 from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
-    monthly_job_name,
 )
 from orchestrator.defs.sensors import raw_stock_monthly_update_job_sensor as module
 
@@ -87,12 +86,12 @@ def test_stopped_exact_request_and_stable_daily_key(tmp_path, monkeypatch):
     result = module.evaluate_stock_monthly_update(ctx, NOW)
     request = result.run_requests[0]
     assert (
-        request.job_name == "raw_stk_period_bar_month_update_job"
+        request.job_name == "raw_stk_period_bar_adj_month_update_job"
         and request.partition_key == "2026-10"
     )
     assert request.run_config == {
         "ops": {
-            "raw_tushare_stk_period_bar_month": {
+            "raw_tushare_stk_period_bar_adj_month": {
                 "config": {"automatic_intent_date": "2026-11-01"}
             }
         }
@@ -131,17 +130,6 @@ def test_current_month_not_requested(tmp_path, monkeypatch):
         ctx, datetime.fromisoformat("2026-10-05T19:30:00+08:00")
     )
     assert reason(result) == "already_verified" and not result.run_requests
-
-
-def test_same_day_failure_allows_other_source_then_waits(tmp_path, monkeypatch):
-    ctx, _ = context(tmp_path, monkeypatch)
-    ctx.instance.tried = {monthly_job_name(SOURCES[0])}
-    result = module.evaluate_stock_monthly_update(ctx, NOW)
-    assert result.run_requests[0].job_name == monthly_job_name(SOURCES[1])
-    ctx.instance.tried = {monthly_job_name(s) for s in SOURCES}
-    again = module.evaluate_stock_monthly_update(ctx, NOW)
-    assert reason(again) == "daily_intent_already_submitted" and not again.run_requests
-    assert len(again.cursor.encode()) < 2048
 
 
 def test_verified_month_advances_one_debt_only(tmp_path, monkeypatch):

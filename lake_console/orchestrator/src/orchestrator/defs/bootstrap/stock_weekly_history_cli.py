@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import os
 import signal
 from dataclasses import asdict
 from pathlib import Path
@@ -34,93 +32,8 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     ProdWeeklyScope,
     ProdYearInventory,
     StockWeeklySource,
-    WeeklyAvailability,
-    WeeklyBudget,
-    WeeklyCandidate,
-    WeeklyHistoryScope,
 )
-from orchestrator.defs.stock_weekly_planner import (
-    freeze_prod_weekly_plan,
-    freeze_weekly_history_plan,
-)
-from orchestrator.defs.stock_weekly_source import WeeklySdkWorker
-
-
-def read_inventory_csv(reference, columns):
-    path = Path(reference["path"])
-    check_capture_path(path)
-    if path.stat().st_size > 16 * 1024 * 1024:
-        raise WeeklyCaptureError("inventory_evidence_budget_exceeded")
-    if capture_file_hash(path) != reference["sha256"]:
-        raise WeeklyCaptureError("source_evidence_hash_mismatch")
-    with path.open(newline="") as stream:
-        reader = csv.DictReader(stream)
-        if reader.fieldnames != list(columns):
-            raise WeeklyCaptureError("inventory_columns_invalid")
-        rows = []
-        for row in reader:
-            if len(rows) >= WeeklyBudget().max_candidate_keys:
-                raise WeeklyCaptureError("candidate_key_budget_exceeded")
-            if None in row or any(value is None for value in row.values()):
-                raise WeeklyCaptureError("inventory_row_invalid")
-            rows.append(row)
-    return rows
-
-
-def load_weekly_inventory(payload):
-    rows = read_inventory_csv(
-        payload["candidates"],
-        (
-            "ts_code",
-            "week_key",
-            "availability",
-            "source_evidence_ref",
-            "source_evidence_hash",
-        ),
-    )
-    candidates = tuple(
-        WeeklyCandidate(
-            row["ts_code"],
-            row["week_key"],
-            row["availability"],
-            row["source_evidence_ref"] or None,
-            row["source_evidence_hash"] or None,
-        )
-        for row in rows
-    )
-    for reference, digest in {
-        (candidate.source_evidence_ref, candidate.source_evidence_hash)
-        for candidate in candidates
-        if candidate.source_evidence_ref or candidate.source_evidence_hash
-    }:
-        if not reference or not digest:
-            raise WeeklyCaptureError("inventory_source_reference_invalid")
-        proof = Path(reference)
-        check_capture_path(proof)
-        if not proof.is_file() or capture_file_hash(proof) != digest:
-            raise WeeklyCaptureError("source_evidence_hash_mismatch")
-    expected = read_inventory_csv(payload["expected"], ("ts_code", "week_key"))
-    keys = [(row["ts_code"], row["week_key"]) for row in expected]
-    available = {
-        (candidate.ts_code, candidate.week_key)
-        for candidate in candidates
-        if candidate.availability is WeeklyAvailability.AVAILABLE
-        and candidate.week_key not in payload["excluded_week_keys"]
-    }
-    if len(keys) != len(set(keys)) or set(keys) != available:
-        raise WeeklyCaptureError("expected_key_identity_mismatch")
-    manifest = freeze_weekly_history_plan(
-        WeeklyHistoryScope(
-            payload["anchor_start"],
-            payload["anchor_end"],
-            candidates,
-            payload["expected"]["path"],
-            payload["expected"]["sha256"],
-            tuple(payload["excluded_week_keys"]),
-        )
-    )
-    verify_weekly_plan_evidence(manifest)
-    return manifest
+from orchestrator.defs.stock_weekly_planner import freeze_prod_weekly_plan
 
 
 def load_inventory(path: Path):
@@ -130,13 +43,9 @@ def load_inventory(path: Path):
     payload = json.loads(path.read_text())
     if payload.get("version") != 1:
         raise WeeklyCaptureError("inventory_evidence_invalid")
-    if payload.get("kind") == "weekly_history_inventory":
-        return load_weekly_inventory(payload)
     if payload.get("kind") != "prod_weekly_inventory":
         raise WeeklyCaptureError("inventory_evidence_invalid")
     source = StockWeeklySource(payload["source"])
-    if source is StockWeeklySource.ALTERNATE_WEEKLY:
-        raise WeeklyCaptureError("alternate_has_no_prod_bootstrap")
     validate_bootstrap_inventory(payload)
     manifest = freeze_prod_weekly_plan(
         ProdWeeklyScope(
@@ -197,8 +106,6 @@ def main(argv=None):
         parser.error("dry-run cannot apply")
     if args.mode == "build" and args.year not in {
         unit.source_date_start.year
-        if manifest.source is not StockWeeklySource.ALTERNATE_WEEKLY
-        else int(unit.anchor_start[:4])
         for unit in manifest.units
     }:
         parser.error("--year must be in frozen anchor years")
@@ -222,15 +129,10 @@ def main(argv=None):
                 "instance_writes": 0,
             }
         elif args.mode == "capture":
-            alternate = manifest.source is StockWeeklySource.ALTERNATE_WEEKLY
-            token = os.environ.get("TUSHARE_TOKEN", "").strip() if alternate else ""
-            if alternate and not token:
-                raise WeeklyCaptureError("weekly_token_required")
             result = capture_weekly_history(
                 manifest,
                 capture_root=args.capture_root,
-                prod_exporter=None if alternate else PsqlWeeklyExporter(),
-                worker=WeeklySdkWorker(token) if alternate else None,
+                prod_exporter=PsqlWeeklyExporter(),
                 cancel=canceled.is_set,
                 bootstrap_guard=AdjustedWeeklyBootstrapGuard(manifest)
                 if boundary is not None

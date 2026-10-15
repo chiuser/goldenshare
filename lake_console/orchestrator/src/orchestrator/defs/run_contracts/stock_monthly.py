@@ -12,7 +12,6 @@ from enum import Enum
 
 
 class StockMonthlySource(str, Enum):
-    PRIMARY_UNADJUSTED = "primary_unadjusted"
     PRIMARY_ADJUSTED = "primary_adjusted"
 
 
@@ -60,12 +59,9 @@ def classify_month_date(value: str) -> tuple[str, MonthlyDateDisposition]:
     return month, MonthlyDateDisposition.ACCEPTED
 
 
-def monthly_source_api(source: StockMonthlySource) -> str:
-    return (
-        "stk_weekly_monthly"
-        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_UNADJUSTED
-        else "stk_week_month_adj"
-    )
+def monthly_source_api(source):
+    StockMonthlySource(source)
+    return "stk_week_month_adj"
 
 
 def monthly_column_specs(source: StockMonthlySource) -> tuple[tuple[str, str], ...]:
@@ -249,11 +245,8 @@ STOCK_MONTHLY_PARTITIONS = "cn_a_stock_months"
 
 
 def monthly_dataset_id(source):
-    return (
-        "stk_period_bar_adj_month"
-        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
-        else "stk_period_bar_month"
-    )
+    StockMonthlySource(source)
+    return "stk_period_bar_adj_month"
 
 
 def monthly_asset_key(source):
@@ -276,12 +269,8 @@ def monthly_data_contract(source):
 
 
 def monthly_source_doc(source):
-    doc = (
-        365
-        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
-        else 336
-    )
-    return f"https://tushare.pro/document/2?doc_id={doc}"
+    StockMonthlySource(source)
+    return "https://tushare.pro/document/2?doc_id=365"
 
 
 @dataclass(frozen=True, slots=True)

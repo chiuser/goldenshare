@@ -26,10 +26,7 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     WeeklyPlanManifest,
 )
-from orchestrator.defs.stock_weekly_source import (
-    WeeklySourceWorker,
-    capture_weekly_source_unit,
-)
+from orchestrator.defs.stock_weekly_source import WeeklySourceWorker
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
@@ -93,6 +90,7 @@ def capture_weekly_history(
     bootstrap_guard=None,
 ) -> dict:
     """Validated receipts are the sole completion facts; partial captures remain."""
+    StockWeeklySource(manifest.source)
     verify_weekly_plan_evidence(manifest)
     adjusted = manifest.source is StockWeeklySource.PRIMARY_ADJUSTED
     if adjusted != (bootstrap_guard is not None):
@@ -186,17 +184,6 @@ def capture_weekly_history(
                             progress=lambda rows, unit_id=unit.unit_id: emit(
                                 unit_id, rows
                             ),
-                        )
-                    else:
-                        if worker is None:
-                            raise WeeklyCaptureError("weekly_worker_required")
-                        receipt = capture_weekly_source_unit(
-                            connection,
-                            unit,
-                            worker=worker,
-                            store=store,
-                            cancel=cancel,
-                            progress=lambda unit_id=unit.unit_id: emit(unit_id),
                         )
                 if bootstrap_guard is not None:
                     bootstrap_guard.check(

@@ -1,4 +1,4 @@
-"""Two independent source-preserving monthly Raw assets."""
+"""Adjusted monthly Raw preserving all three source price forms."""
 
 from pathlib import Path
 from time import monotonic
@@ -16,7 +16,6 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import LakeRootResource, TushareResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA,
-    RAW_STK_PERIOD_BAR_MONTH_SCHEMA,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
@@ -75,7 +74,7 @@ def _deliver(context, config, lake_root, tushare, source):
             progress=lambda p: context.log.info(str(p)),
         )
     except (ValueError, OSError) as error:
-        label = "复权" if source is StockMonthlySource.PRIMARY_ADJUSTED else "未复权"
+        label = "复权"
         raise dg.Failure(
             description=f"{context.partition_key}股票{label}月线交付停止：{error}。核查日线、身份checks及冻结的源页证明；源未就绪等待下一日19:30，或使用原配置显式续跑。异值须单独审阅并批准修订，备用源不自动调用。"
         ) from None
@@ -85,38 +84,6 @@ def _deliver(context, config, lake_root, tushare, source):
             row_count=result["rows"],
             observed_columns=tuple(n for n, _ in monthly_column_specs(source)),
         )
-    )
-
-
-@dg.asset(
-    partitions_def=cn_a_stock_months,
-    group_name="quote",
-    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
-    metadata=build_asset_definition_metadata(
-        dataset_id=monthly_dataset_id(StockMonthlySource.PRIMARY_UNADJUSTED),
-        source_system=SourceSystem.TUSHARE,
-        data_contract=monthly_data_contract(StockMonthlySource.PRIMARY_UNADJUSTED),
-        column_schema=RAW_STK_PERIOD_BAR_MONTH_SCHEMA,
-        path_template=lake_path_template(
-            raw_stock_monthly_path(
-                PATH_TEMPLATE_LAKE_ROOT,
-                StockMonthlySource.PRIMARY_UNADJUSTED,
-                PATH_TEMPLATE_PARTITION_KEY,
-            )
-        ),
-        source_api=monthly_source_api(StockMonthlySource.PRIMARY_UNADJUSTED),
-        source_category_path="股票数据/行情数据",
-        source_doc=monthly_source_doc(StockMonthlySource.PRIMARY_UNADJUSTED),
-    ),
-)
-def raw_tushare_stk_period_bar_month(
-    context: dg.AssetExecutionContext,
-    config: StockMonthlyRawConfig,
-    lake_root: LakeRootResource,
-    tushare: TushareResource,
-) -> dg.MaterializeResult:
-    return _deliver(
-        context, config, lake_root, tushare, StockMonthlySource.PRIMARY_UNADJUSTED
     )
 
 

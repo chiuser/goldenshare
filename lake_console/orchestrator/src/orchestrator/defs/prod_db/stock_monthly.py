@@ -23,11 +23,8 @@ from orchestrator.defs.run_contracts.stock_monthly import (
 
 
 def prod_monthly_table(source) -> str:
-    return "raw_tushare.stk_period_bar" + (
-        "_adj"
-        if StockMonthlySource(source) is StockMonthlySource.PRIMARY_ADJUSTED
-        else ""
-    )
+    StockMonthlySource(source)
+    return "raw_tushare.stk_period_bar_adj"
 
 
 def validate_prod_monthly_unit(unit, policy) -> None:

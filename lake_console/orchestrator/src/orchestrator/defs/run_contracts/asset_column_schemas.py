@@ -26,17 +26,9 @@ from orchestrator.defs.run_contracts.stock_weekly import (
 
 RAW_DAILY_BASIC_SCHEMA = tuple(ColumnContract(*spec) for spec in DAILY_BASIC_COLUMN_SPECS)
 
-RAW_STK_PERIOD_BAR_WEEK_SCHEMA = tuple(
-    ColumnContract(*spec)
-    for spec in weekly_column_specs(StockWeeklySource.PRIMARY_UNADJUSTED)
-)
 RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA = tuple(
     ColumnContract(*spec)
     for spec in weekly_column_specs(StockWeeklySource.PRIMARY_ADJUSTED)
-)
-RAW_TUSHARE_WEEKLY_SCHEMA = tuple(
-    ColumnContract(*spec)
-    for spec in weekly_column_specs(StockWeeklySource.ALTERNATE_WEEKLY)
 )
 
 RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA = tuple(
@@ -1000,7 +992,6 @@ def _monthly_schema(source):
     return tuple(ColumnContract(n, t, descriptions[n]) for n, t in monthly_column_specs(source))
 
 
-RAW_STK_PERIOD_BAR_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_UNADJUSTED)
 RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA = _monthly_schema(StockMonthlySource.PRIMARY_ADJUSTED)
 
 
@@ -1081,7 +1072,6 @@ SILVER_MONEYFLOW_IND_THS_SCHEMA = tuple(
 )
 
 
-
 RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA = (
     ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
     ColumnContract("ts_code", "VARCHAR", "同花顺概念代码，不得为空，与交易日组成唯一键"),
@@ -1102,7 +1092,6 @@ SILVER_MONEYFLOW_CNT_THS_SCHEMA = tuple(
     if column.name == "trade_date" else column
     for column in RAW_TUSHARE_MONEYFLOW_CNT_THS_SCHEMA
 )
-
 
 
 RAW_TUSHARE_MONEYFLOW_THS_SCHEMA = (

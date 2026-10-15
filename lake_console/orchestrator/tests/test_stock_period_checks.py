@@ -86,11 +86,11 @@ def test_period_status_requires_file_and_bound_checks_only(
     tmp_path, monkeypatch, frequency
 ):
     if frequency == "week":
-        source, period = StockWeeklySource.PRIMARY_UNADJUSTED, "2026-10-02"
+        source, period = StockWeeklySource.PRIMARY_ADJUSTED, "2026-10-02"
         path = partition_path(tmp_path, source, period)
         status = weekly_state.weekly_period_status
     else:
-        source, period = StockMonthlySource.PRIMARY_UNADJUSTED, "2026-09"
+        source, period = StockMonthlySource.PRIMARY_ADJUSTED, "2026-09"
         path = raw_stock_monthly_path(tmp_path, source, period)
         status = monthly_period_status
     r = record(

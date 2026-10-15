@@ -434,32 +434,11 @@ def test_reader_deadline_terminates_the_child_without_hanging():
     assert time.monotonic() - started < 3 and children[0].poll() is not None
 
 
-def test_old_adjusted_source_and_automatic_date_contract_are_rejected_before_io(
-    tmp_path,
-):
-    from orchestrator.defs.run_contracts.configs import (
-        build_stock_weekly_update_job_run_config,
-    )
-    from orchestrator.defs.stock_weekly_point import (
-        StockWeeklyPointWorker,
-        deliver_stock_weekly_point,
-    )
-    from orchestrator.defs.stock_weekly_update import weekly_update_intent
-
-    with pytest.raises(WeeklyCaptureError, match="requires_prod_closed_batch"):
-        deliver_stock_weekly_point(
-            SOURCE,
-            "2026-10-09",
-            target_root=tmp_path / "lake",
-            staging_root=tmp_path / "stage",
-            worker=None,
-        )
-    with pytest.raises(WeeklyCaptureError, match="requires_prod_closed_batch"):
-        StockWeeklyPointWorker("offline", SOURCE)({}, (), 1)
-    with pytest.raises(ValueError, match="requires_prod_closed_batch"):
-        build_stock_weekly_update_job_run_config(SOURCE, "2026-10-11")
-    with pytest.raises(ValueError, match="requires_prod_closed_batch"):
-        weekly_update_intent(SOURCE, "2026-10-09", "2026-10-11")
+def test_old_adjusted_source_and_automatic_date_contract_are_rejected_before_io(tmp_path):
+    import importlib.util
+    from orchestrator.defs.run_contracts import configs
+    assert importlib.util.find_spec("orchestrator.defs.stock_weekly_point") is None
+    assert not hasattr(configs, "build_stock_weekly_update_job_run_config")
     assert not (tmp_path / "stage").exists()
 
 

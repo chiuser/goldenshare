@@ -12,7 +12,6 @@ from orchestrator.defs.bootstrap.stock_weekly_event_files import (
     audit_weekly_event_files,
 )
 from orchestrator.defs.run_contracts.stock_weekly import StockWeeklySource
-from orchestrator.defs.stock_weekly_point import deliver_stock_weekly_point
 
 from .test_stock_weekly_definitions import frame_for
 
@@ -38,18 +37,6 @@ def test_annual_proof_matches_real_file_and_rejects_changes(tmp_path, source):
         promote_weekly_candidates(audit, apply=True)
         result = {"audit_path": str(audit),
                   "path": str(partition_path(tmp_path / "lake", source, "2020-02-28"))}
-    else:
-        result = deliver_stock_weekly_point(
-        source,
-        "2020-02-28",
-        target_root=tmp_path / "lake",
-        staging_root=tmp_path / "stage",
-        worker=None,
-        code_list_path=str(codes)
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else None,
-        fetch=lambda *args: frame_for(source),
-        )
     path = Path(result["audit_path"])
     refs = [{"path": str(path), "sha256": fingerprint(path)}]
     entries = audit_weekly_event_files(refs)

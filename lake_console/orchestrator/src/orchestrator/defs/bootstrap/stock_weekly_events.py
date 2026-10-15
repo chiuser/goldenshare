@@ -309,7 +309,7 @@ def audit_weekly_readiness_samples(instance, entries):
         )
         if group:
             selected.append(group[0])
-            if source is not StockWeeklySource.ALTERNATE_WEEKLY and len(group) > 1:
+            if len(group) > 1:
                 selected.append(group[-1])
     state, _ = read_weekly_event_state(instance, selected)
     samples = []

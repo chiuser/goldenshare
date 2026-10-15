@@ -1,4 +1,4 @@
-"""Bounded adjusted feed decisions; caller preserves the independent unadjusted branch."""
+"""Bounded adjusted feed decisions for the single retained weekly source."""
 
 from dataclasses import dataclass
 
@@ -123,7 +123,7 @@ def evaluate_adjusted_feed(context, runtime, *, reader=None):
     if revision is None:
         return AdjustedFeedDecision(
             "adjusted_bootstrap_required",
-            "复权周线尚未设置新bootstrap交接边界B0；该分支暂停，未复权继续独立更新。",
+            "复权周线尚未设置新bootstrap交接边界B0；等待该边界，不提交任务。",
         )
     try:
         revision = delivery_revision(revision)
@@ -157,7 +157,7 @@ def evaluate_adjusted_feed(context, runtime, *, reader=None):
             if run.status is not dg.DagsterRunStatus.SUCCESS:
                 return AdjustedFeedDecision(
                     "adjusted_manual_retry_required",
-                    "复权批失败、取消或尚未完成；在该run页面重试同批配置，未复权仍可独立推进。",
+                    "复权批失败、取消或尚未完成；在该run页面重试同批配置，保留原批，不领取新批。",
                     week=pending["anchor"],
                 )
             if not _completed_run(context.instance, run, pending):

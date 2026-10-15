@@ -45,7 +45,7 @@ def context(tmp_path):
     lake.mkdir()
     stage.mkdir()
     refs = []
-    for source in ("primary_unadjusted", "primary_adjusted"):
+    for source in ("primary_adjusted",):
         child = tmp_path / source
         child.mkdir()
         plan, _, _, exporter = fixture(child, source)
@@ -74,13 +74,13 @@ def apply_all(ctx, **kwargs):
     return apply_monthly_events(instance, plan, checkpoint=checkpoint, **kwargs)
 
 
-def test_two_sources_full_semantics_and_idempotent_replay(context):
+def test_retained_source_full_semantics_and_idempotent_replay(context):
     instance, plan, _, metrics = context
-    assert plan["counts"]["materializations"] == 4 and plan["counts"]["checks"] == 12
+    assert plan["counts"]["materializations"] == 2 and plan["counts"]["checks"] == 6
     assert len(plan["missing_registrations"]) == 2
-    assert sum(m["year_scans"] for m in metrics) == 2
-    assert apply_all(context)["writes"] == 16
-    assert apply_all(context) == {"writes": 0, "skipped": 16, "records_returned": 28}
+    assert sum(m["year_scans"] for m in metrics) == 1
+    assert apply_all(context)["writes"] == 8
+    assert apply_all(context) == {"writes": 0, "skipped": 8, "records_returned": 14}
     samples = audit_monthly_readiness_samples(
         instance, plan["entries"], Path(plan["evidence"]["lake_root"])
     )
@@ -125,7 +125,7 @@ def test_cancel_after_committed_event_resumes_from_database(context, monkeypatch
             instance, plan, checkpoint=checkpoint, cancel=lambda: called
         )
     monkeypatch.setattr(instance, "report_runless_asset_event", original)
-    assert apply_all(context)["writes"] == 15
+    assert apply_all(context)["writes"] == 7
 
 
 def test_checkpoint_failure_does_not_undo_event(context, monkeypatch):
@@ -142,7 +142,7 @@ def test_checkpoint_failure_does_not_undo_event(context, monkeypatch):
     with pytest.raises(RuntimeError, match="exit"):
         apply_monthly_events(instance, plan, checkpoint=checkpoint)
     monkeypatch.setattr(module, "write_monthly_json", original)
-    assert apply_all(context)["writes"] == 15
+    assert apply_all(context)["writes"] == 7
 
 
 @pytest.mark.parametrize("count", [0, 26, 101, True])
@@ -283,13 +283,13 @@ def test_sample_scope_only_selected_complete_asset_partitions(context):
         apply_monthly_events(instance, plan, checkpoint=checkpoint, months=["2020-02"])[
             "writes"
         ]
-        == 8
+        == 4
     )
     state, _ = read_monthly_event_state(instance, plan["entries"])
     assert all(
         v["mat"] is None for (_, month), v in state.items() if month == "2020-01"
     )
-    assert apply_all(context)["writes"] == 8
+    assert apply_all(context)["writes"] == 4
 
 
 def test_actual_process_exit_keeps_events_and_resumes(context, tmp_path):
@@ -365,8 +365,8 @@ def test_yearly_event_state_is_three_queries_per_source_not_per_check(
 
         monkeypatch.setattr(owner, attr, wrap)
     state, returned = read_monthly_event_state(instance, plan["entries"])
-    assert len(state) == 4 and returned == 28
-    assert counts == {"mats": 2, "index": 2, "bodies": 2}
+    assert len(state) == 2 and returned == 14
+    assert counts == {"mats": 1, "index": 1, "bodies": 1}
 
 
 def test_logical_hash_drift_rejected_even_with_rehashed_plan(context):
@@ -424,7 +424,7 @@ def test_finished_bootstrap_checks_survive_removed_proofs(context):
     from orchestrator.defs.stock_monthly_update_state import monthly_period_status
 
     instance, plan, _, _ = context
-    assert apply_all(context)["writes"] == 16
+    assert apply_all(context)["writes"] == 8
     lake = Path(plan["evidence"]["lake_root"])
     shutil.rmtree(Path(plan["evidence"]["staging_root"]))
     for ref in plan["evidence"]["history_plans"]:

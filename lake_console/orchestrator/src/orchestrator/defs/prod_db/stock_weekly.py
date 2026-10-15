@@ -29,12 +29,8 @@ from orchestrator.defs.run_contracts.stock_weekly import (
 
 
 def prod_weekly_table(source: StockWeeklySource) -> str:
-    source = StockWeeklySource(source)
-    if source is StockWeeklySource.PRIMARY_UNADJUSTED:
-        return "raw_tushare.stk_period_bar"
-    if source is StockWeeklySource.PRIMARY_ADJUSTED:
-        return "raw_tushare.stk_period_bar_adj"
-    raise WeeklyCaptureError("alternate_has_no_prod_bootstrap")
+    StockWeeklySource(source)
+    return "raw_tushare.stk_period_bar_adj"
 
 
 def build_prod_weekly_query(

@@ -1,17 +1,15 @@
 """Pure weekly update policy and completed-period intent planning."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import date, time, timedelta
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     normalize_week_key,
-    stable_weekly_hash,
 )
 
 AUTOMATIC_WEEKLY_SOURCES = (
-    StockWeeklySource.PRIMARY_UNADJUSTED,
     StockWeeklySource.PRIMARY_ADJUSTED,
 )
 
@@ -68,26 +66,6 @@ def weekly_open_dates(week, calendar):
     return tuple(day for day in expected if calendar[day] == 1)
 
 
-def weekly_update_intent(source, week, intent_date, policy=WEEKLY_UPDATE_POLICY):
-    source = StockWeeklySource(source)
-    if source not in AUTOMATIC_WEEKLY_SOURCES:
-        raise ValueError("alternate_automatic_forbidden")
-    if source is StockWeeklySource.PRIMARY_ADJUSTED:
-        raise ValueError("adjusted_weekly_requires_prod_closed_batch")
-    normalize_week_key(week)
-    parsed = date.fromisoformat(intent_date)
-    if parsed.isoformat() != intent_date or parsed < date.fromisoformat(week):
-        raise ValueError("invalid_weekly_intent_date")
-    payload = {
-        "source": source.value,
-        "week": week,
-        "daily_intent_date": intent_date,
-        "policy": asdict(policy),
-    }
-    return {**payload, "unit_id": stable_weekly_hash(payload)}
-
-
 def weekly_manual_next_action(source):
-    if source is StockWeeklySource.PRIMARY_UNADJUSTED:
-        return "查看主源证据；必要时明确代码和周范围手动运行备用weekly，仅写独立Raw；当前未执行备用。"
-    return "查看Prod闭合批与本run摘要；失败按同批ID及revision重试，备用weekly不能替代复权资产。"
+    StockWeeklySource(source)
+    return "核对Prod闭合批；按原批ID和revision恢复复权交付。"

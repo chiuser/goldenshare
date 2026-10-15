@@ -22,7 +22,6 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     ProdWeeklyUnit,
     StockWeeklySource,
     WeeklyPlanManifest,
-    WeeklySourceUnit,
     stable_weekly_hash,
     weekly_column_specs,
     weekly_key_columns,
@@ -31,7 +30,7 @@ from orchestrator.defs.run_contracts.stock_weekly import (
 )
 
 CancelProbe = Callable[[], bool]
-SourceUnit = ProdWeeklyUnit | WeeklySourceUnit
+SourceUnit = ProdWeeklyUnit
 
 
 class WeeklyCaptureError(RuntimeError):
@@ -87,6 +86,8 @@ def validate_weekly_capture_relation(
 ) -> int:
     """Transport identity/shape checks, preserving business NULL values."""
     source = StockWeeklySource(unit.source)
+    if not isinstance(unit, ProdWeeklyUnit):
+        raise WeeklyCaptureError("weekly_unit_invalid")
     required = weekly_required_columns(source)
     nulls = " OR ".join(f'"{name}" IS NULL' for name in required)
     if connection.execute(f"SELECT count(*) FROM {relation} WHERE {nulls}").fetchone()[
@@ -118,22 +119,6 @@ def validate_weekly_capture_relation(
                 unit.source_date_end.strftime("%Y%m%d"),
             ],
         ).fetchone()[0]
-    else:
-        bad = connection.execute(
-            f"""SELECT count(*) FROM {relation} WHERE ts_code != ?
-            OR trade_date < ? OR trade_date > ?""",
-            [
-                unit.ts_code,
-                unit.request_start.strftime("%Y%m%d"),
-                unit.request_end.strftime("%Y%m%d"),
-            ],
-        ).fetchone()[0]
-        # This source promises one observation per code/week. Do not silently merge.
-        weeks = connection.execute(
-            f"SELECT count(DISTINCT date_trunc('week', strptime(trade_date,'%Y%m%d'))) FROM {relation}"
-        ).fetchone()[0]
-        if weeks != count:
-            raise WeeklyCaptureError("source_week_conflict")
     if bad:
         raise WeeklyCaptureError("source_range_mismatch")
     if count > unit.max_rows:
@@ -143,6 +128,7 @@ def validate_weekly_capture_relation(
 
 def verify_weekly_plan_evidence(manifest: WeeklyPlanManifest) -> None:
     """Verify frozen external inputs before acquiring any source work."""
+    StockWeeklySource(manifest.source)
     repo = Path(__file__).resolve().parents[6]
     temporary = Path(tempfile.gettempdir()).resolve()
     allowed = (
@@ -152,12 +138,6 @@ def verify_weekly_plan_evidence(manifest: WeeklyPlanManifest) -> None:
         Path("/private/tmp"),
     )
     references = {(manifest.evidence_ref, manifest.evidence_hash)}
-    for unit in manifest.units:
-        if isinstance(unit, WeeklySourceUnit):
-            if unit.expected_key_ref != manifest.evidence_ref:
-                raise WeeklyCaptureError("expected_key_reference_mismatch")
-            # unit.expected_key_hash hashes the sorted selected week keys, not file bytes.
-            references.update(unit.source_evidence)
     for reference, expected_hash in sorted(references):
         path = Path(reference)
         if not path.is_absolute():

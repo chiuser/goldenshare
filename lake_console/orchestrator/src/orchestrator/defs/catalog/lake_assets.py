@@ -9,7 +9,10 @@ from orchestrator.defs.anns_d_contract import (
     ANNOUNCEMENT_SOURCE_DOC,
 )
 from orchestrator.defs.catalog.name_mapping import get_dataset_chinese_name
-from orchestrator.defs.daily_basic_contract import DAILY_BASIC_ASSET, DAILY_BASIC_CHECKS
+from orchestrator.defs.daily_basic_contract import (
+    DAILY_BASIC_ASSET,
+    DAILY_BASIC_CHECKS,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -57,12 +60,10 @@ from orchestrator.defs.paths import (
     raw_stk_mins_path,
     raw_stk_nineturn_path,
     raw_stk_period_bar_adj_week_path,
-    raw_stk_period_bar_week_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
     raw_suspend_d_path,
     raw_trade_calendar_path,
-    raw_tushare_weekly_path,
     silver_adj_factor_path,
     silver_dc_daily_path,
     silver_dc_index_path,
@@ -124,7 +125,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_MAJOR_INDEX_MINS_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
-    RAW_STK_PERIOD_BAR_WEEK_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
@@ -147,7 +147,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
-    RAW_TUSHARE_WEEKLY_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_DC_DAILY_SCHEMA,
     SILVER_DC_INDEX_SCHEMA,
@@ -320,12 +319,9 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_MONEYFLOW_IND_THS = "trade_date_partition_silver_moneyflow_ind_ths"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW_MKT_DC = "trade_date_partition_raw_moneyflow_mkt_dc"
     TRADE_DATE_PARTITION_SILVER_MONEYFLOW_MKT_DC = "trade_date_partition_silver_moneyflow_mkt_dc"
-    MONTH_PARTITION_RAW_STK_PERIOD_BAR_MONTH = "month_partition_raw_stk_period_bar_month"
     MONTH_PARTITION_RAW_STK_PERIOD_BAR_ADJ_MONTH = "month_partition_raw_stk_period_bar_adj_month"
     ANN_DATE_PARTITION_RAW_ANNS_D = "ann_date_partition_raw_anns_d"
-    WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK = "week_end_partition_raw_stk_period_bar_week"
     WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK = "week_end_partition_raw_stk_period_bar_adj_week"
-    WEEK_END_PARTITION_RAW_TUSHARE_WEEKLY = "week_end_partition_raw_tushare_weekly"
     FULL_FILE_SILVER_STOCK_SUSPEND_CONFIRMED = "full_file_silver_stock_suspend_confirmed"
     FULL_FILE_RAW_TRADE_CALENDAR = "full_file_raw_trade_calendar"
     FULL_FILE_SILVER_TRADE_CALENDAR = "full_file_silver_trade_calendar"
@@ -3784,26 +3780,12 @@ LAKE_ASSET_CATALOG += (
 )
 
 
-_WEEKLY_CATALOG_SPECS = (
-    (
-        StockWeeklySource.PRIMARY_UNADJUSTED,
-        PartitionModel.WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_WEEK,
-        RAW_STK_PERIOD_BAR_WEEK_SCHEMA,
-        raw_stk_period_bar_week_path,
-    ),
-    (
-        StockWeeklySource.PRIMARY_ADJUSTED,
-        PartitionModel.WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK,
-        RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
-        raw_stk_period_bar_adj_week_path,
-    ),
-    (
-        StockWeeklySource.ALTERNATE_WEEKLY,
-        PartitionModel.WEEK_END_PARTITION_RAW_TUSHARE_WEEKLY,
-        RAW_TUSHARE_WEEKLY_SCHEMA,
-        raw_tushare_weekly_path,
-    ),
-)
+_WEEKLY_CATALOG_SPECS = ((
+    StockWeeklySource.PRIMARY_ADJUSTED,
+    PartitionModel.WEEK_END_PARTITION_RAW_STK_PERIOD_BAR_ADJ_WEEK,
+    RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
+    raw_stk_period_bar_adj_week_path,
+),)
 PARTITION_MODEL_DEFINITIONS += tuple(
     _model(
         model,
@@ -3832,27 +3814,17 @@ LAKE_ASSET_CATALOG += tuple(
         partition_model=model,
         source_api=weekly_source_api(source),
         source_doc=weekly_source_doc(source),
-        ingestion_sources=(IngestionSource.TUSHARE_API,)
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else (IngestionSource.PROD_DB_READONLY,)
-        if source is StockWeeklySource.PRIMARY_ADJUSTED
-        else (IngestionSource.PROD_DB_READONLY, IngestionSource.TUSHARE_API),
-        default_daily_ingestion_source=None
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else IngestionSource.PROD_DB_READONLY
-        if source is StockWeeklySource.PRIMARY_ADJUSTED
-        else IngestionSource.TUSHARE_API,
-        bootstrap_sources=(IngestionSource.TUSHARE_API,)
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else (IngestionSource.PROD_DB_READONLY,),
+        ingestion_sources=(IngestionSource.PROD_DB_READONLY,),
+        default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
         blocking_check_names=weekly_check_names(source),
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(
-            batch_grain="closed_batch/year" if source is StockWeeklySource.PRIMARY_ADJUSTED else "source/week_end",
+            batch_grain="closed_batch/year",
             compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="immutable_prod_closed_batch_explicit_columns" if source is StockWeeklySource.PRIMARY_ADJUSTED else "bounded_single_week_explicit_fields",
-            notes=("备用weekly仅手动；禁止自动诊断、fallback或修复。" if source is StockWeeklySource.ALTERNATE_WEEKLY else "仅从Prod闭合批接收新增及历史修正；每unit12000行/8MiB、整批256MiB；年度最多54目标/128文件，DuckDB512MiB、2线程；同键21列覆盖，未返回旧键保留。" if source is StockWeeklySource.PRIMARY_ADJUSTED else "年度bootstrap；每日19:30更新已结束周，两主源串行；6000/页、4页、每页最多3次调用；完整周日线覆盖门禁与持久化receipt续跑，禁止历史逐周源扫描。"),
+            source_request_policy="immutable_prod_closed_batch_explicit_columns",
+            notes="仅从Prod闭合批接收新增及历史修正；每unit12000行/8MiB、整批256MiB；年度最多54目标/128文件，DuckDB512MiB、2线程；同键21列覆盖，未返回旧键保留。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3862,7 +3834,6 @@ LAKE_ASSET_CATALOG += tuple(
 from orchestrator.defs.paths import raw_stock_monthly_path
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA,
-    RAW_STK_PERIOD_BAR_MONTH_SCHEMA,
 )
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
@@ -3875,7 +3846,6 @@ from orchestrator.defs.run_contracts.stock_monthly import (
 )
 
 _MONTHLY_CATALOG_SPECS = (
-    (StockMonthlySource.PRIMARY_UNADJUSTED, PartitionModel.MONTH_PARTITION_RAW_STK_PERIOD_BAR_MONTH, RAW_STK_PERIOD_BAR_MONTH_SCHEMA),
     (StockMonthlySource.PRIMARY_ADJUSTED, PartitionModel.MONTH_PARTITION_RAW_STK_PERIOD_BAR_ADJ_MONTH, RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA),
 )
 PARTITION_MODEL_DEFINITIONS += tuple(
@@ -3896,7 +3866,7 @@ LAKE_ASSET_CATALOG += tuple(
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="source/month", compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="bounded_complete_month_explicit_fields",
-            notes="年度bootstrap；每日19:30只处理完整月，两源串行；6000行/页、4页、每页3次；31日线文件/320000参考行向量化审计；2020-02仅28日；备用不自动使用。"),
+            notes="年度bootstrap；每日19:30只处理完整月，复权单源；6000行/页、4页、每页3次；31日线文件/320000参考行向量化审计；2020-02仅28日；备用不自动使用。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 

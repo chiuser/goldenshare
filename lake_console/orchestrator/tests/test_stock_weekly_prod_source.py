@@ -13,7 +13,7 @@ from orchestrator.defs.prod_db.stock_weekly import (
     build_prod_weekly_export_sql,
     build_prod_weekly_query,
 )
-from orchestrator.defs.run_contracts.stock_weekly import StockWeeklySource, WeeklyBudget
+from orchestrator.defs.run_contracts.stock_weekly import WeeklyBudget
 
 from .stock_weekly_capture_test_support import (
     prod_plan,
@@ -35,9 +35,9 @@ def test_sql_preserves_business_columns_and_half_open_source_year():
         "IS NOT NULL",
     ):
         assert forbidden not in sql
-    with pytest.raises(WeeklyCaptureError):
+    with pytest.raises(ValueError):
         build_prod_weekly_query(
-            replace(plan.units[0], source=StockWeeklySource.ALTERNATE_WEEKLY),
+            replace(plan.units[0], source="weekly"),
             plan.budget,
         )
     with pytest.raises(WeeklyCaptureError):

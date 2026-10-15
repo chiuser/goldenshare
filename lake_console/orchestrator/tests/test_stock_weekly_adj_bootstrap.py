@@ -31,7 +31,7 @@ from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
 )
 
 from .stock_weekly_adj_delivery_test_support import delivery_fixture, source_row
-from .stock_weekly_capture_test_support import FakePsqlExporter, prod_plan
+from .stock_weekly_capture_test_support import FakePsqlExporter
 
 SOURCE = StockWeeklySource.PRIMARY_ADJUSTED
 
@@ -138,8 +138,8 @@ def test_inventory_requires_actual_bootstrap_header(change):
     elif change == "version":
         payload["bootstrap_boundary"]["contract_version"] = 2
     else:
-        payload["source"] = StockWeeklySource.PRIMARY_UNADJUSTED.value
-    with pytest.raises(WeeklyCaptureError):
+        payload["source"] = "primary_unadjusted"
+    with pytest.raises((WeeklyCaptureError, ValueError)):
         validate_bootstrap_inventory(payload)
 
 
@@ -253,8 +253,8 @@ def test_guard_missing_or_foreign_stops_before_creating_capture(tmp_path):
         AdjustedWeeklyBootstrapGuard(
             plan, reader=OfflineBoundaryReader()
         ).validate_manifest(replace(plan, plan_hash="c" * 64))
-    unadjusted = prod_plan()
-    assert validate_bootstrap_inventory({"source": unadjusted.source.value}) is None
+    with pytest.raises(ValueError):
+        validate_bootstrap_inventory({"source": "primary_unadjusted"})
 
 
 @pytest.mark.parametrize("mode", ["build", "promote"])

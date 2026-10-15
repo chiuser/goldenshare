@@ -13,7 +13,6 @@ from orchestrator.defs.duckdb_connection import (
 )
 from orchestrator.defs.jobs.stock_monthly import (
     raw_stk_period_bar_adj_month_update_job,
-    raw_stk_period_bar_month_update_job,
 )
 from orchestrator.defs.partitions import cn_a_stock_months
 from orchestrator.defs.run_contracts.configs import (
@@ -142,7 +141,7 @@ def evaluate_stock_monthly_update(context, now):
             ):
                 return result(
                     "writer_pending",
-                    "已有主源月线任务排队或运行；两主源保持串行。",
+                    "已有主源月线任务排队或运行；复权月线任务保持串行。",
                     source=source,
                 )
         root = context.resources.lake_root.root()
@@ -227,7 +226,7 @@ def evaluate_stock_monthly_update(context, now):
         frontier = examined = month
         return result(
             "period_verified",
-            f"{month}两主源文件与checks均已验证；下次tick推进下个月。",
+            f"{month}复权文件与checks已验证；下次tick推进下个月。",
             month=month,
         )
     except (ValueError, OSError, KeyError):
@@ -238,7 +237,7 @@ def evaluate_stock_monthly_update(context, now):
 
 
 @dg.sensor(
-    jobs=[raw_stk_period_bar_month_update_job, raw_stk_period_bar_adj_month_update_job],
+    jobs=[raw_stk_period_bar_adj_month_update_job],
     minimum_interval_seconds=MONTHLY_UPDATE_POLICY.tick_min_seconds,
     default_status=dg.DefaultSensorStatus.STOPPED,
     required_resource_keys={"lake_root"},

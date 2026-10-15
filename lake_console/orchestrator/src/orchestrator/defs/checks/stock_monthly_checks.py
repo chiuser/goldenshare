@@ -8,7 +8,6 @@ import duckdb
 
 from orchestrator.defs.assets.stock_monthly import (
     raw_tushare_stk_period_bar_adj_month,
-    raw_tushare_stk_period_bar_month,
 )
 from orchestrator.defs.bootstrap.stock_monthly_files import monthly_file_hash
 from orchestrator.defs.io.stock_monthly_raw import (
@@ -127,7 +126,6 @@ def _build_check(asset, source, name, kind):
 
 
 for _asset, _source in (
-    (raw_tushare_stk_period_bar_month, StockMonthlySource.PRIMARY_UNADJUSTED),
     (raw_tushare_stk_period_bar_adj_month, StockMonthlySource.PRIMARY_ADJUSTED),
 ):
     for _index, _name in enumerate(monthly_check_names(_source)):

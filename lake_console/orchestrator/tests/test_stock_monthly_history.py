@@ -25,7 +25,7 @@ from orchestrator.defs.run_contracts.stock_monthly import monthly_contract_hash
 from tests.test_stock_monthly_bootstrap import FixtureExporter, fixture_rows
 
 
-def fixture(tmp_path, source="primary_unadjusted"):
+def fixture(tmp_path, source="primary_adjusted"):
     lake, stage = tmp_path / "lake", tmp_path / "stage"
     lake.mkdir(); stage.mkdir()
     records = [
@@ -40,7 +40,7 @@ def fixture(tmp_path, source="primary_unadjusted"):
     return plan, lake, stage, FixtureExporter(fixture_rows(source))
 
 
-@pytest.mark.parametrize("source", ["primary_unadjusted", "primary_adjusted"])
+@pytest.mark.parametrize("source", ["primary_adjusted"])
 def test_complete_history_and_replay_reconcile_every_field(tmp_path, source):
     plan, lake, stage, exporter = fixture(tmp_path, source)
     before = set(stage.rglob("*"))
@@ -230,7 +230,7 @@ def test_orphan_inventory_date_is_not_silently_dropped(tmp_path):
     plan, _, _, _ = fixture(tmp_path)
     path = Path(plan.inventory_ref)
     records = [json.loads(r) for r in path.read_text().splitlines()]
-    records.append({"section": "date", "table": "stk_period_bar", "date": "2021-01-31", "rows": 1})
+    records.append({"section": "date", "table": "stk_period_bar_adj", "date": "2021-01-31", "rows": 1})
     path.write_text("".join(json.dumps(r) + "\n" for r in records))
     with pytest.raises(ValueError, match="unaccounted_date"):
         freeze_monthly_history_plan(path, plan.source, "2020-01", "2020-02")

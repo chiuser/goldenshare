@@ -35,32 +35,13 @@ class Instance:
         return False
 
 
-def context(tmp_path, monkeypatch, statuses=None, days=("2026-09-30",)):
-    from contextlib import nullcontext
-
+def context(tmp_path, monkeypatch):
     instance = Instance()
-    ctx = SimpleNamespace(
-        cursor=None,
-        instance=instance,
-        resources=SimpleNamespace(lake_root=SimpleNamespace(root=lambda: tmp_path)),
-    )
-    observed = []
-
-    def status(instance, root, source, week):
-        observed.append((source, week))
-        if week == "2026-09-25":
-            pytest.fail("completed bootstrap baseline must not be reread")
-        return (statuses or {}).get(source, "missing")
-
-    monkeypatch.setattr(module, "weekly_period_status", status)
-    monkeypatch.setattr(module, "weekly_upstream_events_ready", lambda *args: True)
-    monkeypatch.setattr(
-        module, "connect_configured_duckdb", lambda *args, **kwargs: nullcontext(None)
-    )
-    monkeypatch.setattr(
-        module, "load_weekly_calendar", lambda connection, root, week: (days, {})
-    )
-    return ctx, observed
+    class ForbiddenLake:
+        def root(self):
+            pytest.fail("adjusted sensor must not scan Lake")
+    ctx = SimpleNamespace(cursor=None, instance=instance, resources=SimpleNamespace(lake_root=ForbiddenLake()))
+    return ctx, []
 
 
 def reason(result):
@@ -79,30 +60,6 @@ def test_before_window_has_no_external_reads():
     assert reason(result) == "before_daily_start" and not result.run_requests
 
 
-def test_exact_primary_selection_stopped_and_one_run(tmp_path, monkeypatch):
-    ctx, observed = context(tmp_path, monkeypatch)
-    result = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert len(result.run_requests) == 1
-    request = result.run_requests[0]
-    assert request.job_name == "raw_stk_period_bar_week_update_job"
-    assert request.partition_key == "2026-10-02"
-    assert request.run_config == {
-        "ops": {
-            "raw_tushare_stk_period_bar_week": {
-                "config": {"automatic_intent_date": "2026-10-04"}
-            }
-        }
-    }
-    assert all(source in AUTOMATIC_WEEKLY_SOURCES for source, week in observed)
-    assert result.dynamic_partitions_requests[0].partition_keys == ["2026-10-02"]
-    assert (
-        module.raw_stock_weekly_update_job_sensor.default_status
-        is dg.DefaultSensorStatus.STOPPED
-    )
-    repeated = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert repeated.run_requests[0].run_key == request.run_key
-
-
 def test_pending_blocks_before_physical_queries(tmp_path, monkeypatch):
     ctx, observed = context(tmp_path, monkeypatch)
     ctx.instance.pending = True
@@ -118,60 +75,8 @@ def test_old_cursor_cannot_start_adjusted_without_bootstrap(tmp_path, monkeypatc
     assert not result.run_requests
     assert "B0" in load_sensor_cursor(result.cursor)["details"]["next_action"]
     again = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert not again.run_requests and reason(again) == "daily_intent_already_submitted"
+    assert not again.run_requests and reason(again) == "adjusted_bootstrap_required"
     assert len(again.cursor.encode()) <= 2048
-
-
-@pytest.mark.parametrize(
-    "status", ["checks_failed_or_stale", "orphan_file", "formal_file_changed"]
-)
-def test_bad_file_is_not_auto_overwritten_or_replaced_by_alternate(
-    tmp_path, monkeypatch, status
-):
-    ctx, observed = context(
-        tmp_path, monkeypatch, dict.fromkeys(AUTOMATIC_WEEKLY_SOURCES, status)
-    )
-    result = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert reason(result) == status and not result.run_requests
-    assert all(source in AUTOMATIC_WEEKLY_SOURCES for source, week in observed)
-
-
-def test_two_verified_sources_advance_only_one_period(tmp_path, monkeypatch):
-    ctx, observed = context(
-        tmp_path, monkeypatch, dict.fromkeys(AUTOMATIC_WEEKLY_SOURCES, "ready")
-    )
-    result = module.evaluate_stock_weekly_update(ctx, NOW)
-    runtime = load_sensor_cursor(result.cursor)["details"]["runtime_state"]
-    assert runtime["verified_through"] == "2026-10-02"
-    assert len(observed) == 1 and not result.run_requests
-    ctx.cursor = result.cursor
-    again = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert reason(again) == "adjusted_bootstrap_required" and not again.run_requests
-
-
-def test_closed_week_keeps_real_file_baseline(tmp_path, monkeypatch):
-    ctx, _ = context(tmp_path, monkeypatch, days=())
-    result = module.evaluate_stock_weekly_update(ctx, NOW)
-    runtime = load_sensor_cursor(result.cursor)["details"]["runtime_state"]
-    assert reason(result) == "no_trading_week"
-    assert runtime == {
-        "verified_through": "2026-09-25",
-        "examined_through": "2026-10-02",
-        "policy_version": "completed-week-v1",
-    }
-    ctx.cursor = result.cursor
-    assert reason(module.evaluate_stock_weekly_update(ctx, NOW)) == "adjusted_bootstrap_required"
-
-
-def test_calendar_missing_fail_closed(tmp_path, monkeypatch):
-    ctx, _ = context(tmp_path, monkeypatch)
-
-    def missing(*args):
-        raise ValueError("calendar_incomplete")
-
-    monkeypatch.setattr(module, "load_weekly_calendar", missing)
-    result = module.evaluate_stock_weekly_update(ctx, NOW)
-    assert reason(result) == "weekly_readiness_blocked" and not result.run_requests
 
 
 def seed_adjusted_cursor(ctx, **updates):
@@ -199,7 +104,6 @@ def test_adjusted_backlog_requests_actual_anchor_without_lake_scan(tmp_path, mon
     seed_adjusted_cursor(ctx)
     observed.clear()
     ctx.instance.calls.clear()
-    monkeypatch.setattr(module, "connect_configured_duckdb", lambda *a, **k: pytest.fail("adjusted feed scanned Lake"))
     header, _ = delivery_fixture(historical_only=True)
     reader = FeedReader(header)
     result = module.evaluate_stock_weekly_update(ctx, NOW, delivery_reader=reader)
@@ -231,7 +135,7 @@ def test_empty_batch_advances_only_revision_without_fake_events_or_files(tmp_pat
     assert reader.calls == [("head", 1), ("empty", header.revision)]
 
 
-def test_failed_adjusted_batch_preserved_for_manual_retry_unadjusted_continues(tmp_path, monkeypatch):
+def test_failed_adjusted_batch_preserved_without_other_source(tmp_path, monkeypatch):
     from orchestrator.defs.run_contracts.configs import (
         build_stock_weekly_adj_prod_run_config,
     )
@@ -254,7 +158,8 @@ def test_failed_adjusted_batch_preserved_for_manual_retry_unadjusted_continues(t
     ctx.instance.get_runs = get_runs
     reader = FeedReader(header)
     result = module.evaluate_stock_weekly_update(ctx, NOW, delivery_reader=reader)
-    assert result.run_requests[0].job_name == "raw_stk_period_bar_week_update_job"
+    assert not result.run_requests
+    assert reason(result) == "adjusted_manual_retry_required"
     state = load_sensor_cursor(result.cursor)["details"]["runtime_state"]
     assert state["pending_adjusted"] == pending and state["adjusted_delivery_revision"] == 1
     assert not reader.calls

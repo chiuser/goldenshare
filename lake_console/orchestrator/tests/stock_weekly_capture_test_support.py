@@ -6,53 +6,24 @@ from dataclasses import dataclass
 import pandas as pd
 
 from orchestrator.defs.run_contracts.stock_weekly import (
-    ALTERNATE_WEEKLY_FIELDS,
-    PRIMARY_WEEKLY_FIELDS,
+    ADJUSTED_WEEKLY_FIELDS,
     ProdWeeklyScope,
     ProdYearInventory,
     StockWeeklySource,
-    WeeklyAvailability,
     WeeklyBudget,
-    WeeklyCandidate,
-    WeeklyHistoryScope,
 )
-from orchestrator.defs.stock_weekly_planner import (
-    freeze_prod_weekly_plan,
-    freeze_weekly_history_plan,
-)
+from orchestrator.defs.stock_weekly_planner import freeze_prod_weekly_plan
 
 
 def prod_plan(codes=("000005.SZ",), budget=None):
     budget = budget or WeeklyBudget()
     return freeze_prod_weekly_plan(
         ProdWeeklyScope(
-            StockWeeklySource.PRIMARY_UNADJUSTED,
+            StockWeeklySource.PRIMARY_ADJUSTED,
             (ProdYearInventory(2020, codes, len(codes) * 52),),
             "reports/inventory.csv",
             "a" * 64,
             budget,
-        )
-    )
-
-
-def weekly_plan(budget=None):
-    budget = budget or WeeklyBudget(max_retries=0)
-    return freeze_weekly_history_plan(
-        WeeklyHistoryScope(
-            "2020-01-03",
-            "2020-12-25",
-            (
-                WeeklyCandidate(
-                    "000005.SZ",
-                    "2020-02-28",
-                    WeeklyAvailability.AVAILABLE,
-                    "reports/source.json",
-                    "b" * 64,
-                ),
-            ),
-            "reports/keys.csv",
-            "c" * 64,
-            budget=budget,
         )
     )
 
@@ -70,35 +41,14 @@ def prod_frame(code="000005.SZ", trade_date="20200228"):
                 "9.0000",
                 None,
                 "10.0000",
+                *["10.0000"] * 8,
                 "500.0000",
                 "600.0000",
                 None,
                 None,
             ]
         ],
-        columns=PRIMARY_WEEKLY_FIELDS,
-        dtype=object,
-    )
-
-
-def alternate_frame():
-    return pd.DataFrame(
-        [
-            [
-                "000005.SZ",
-                "20200228",
-                10.0,
-                10.0,
-                11.0,
-                9.0,
-                None,
-                None,
-                None,
-                500.0,
-                600.0,
-            ]
-        ],
-        columns=ALTERNATE_WEEKLY_FIELDS,
+        columns=ADJUSTED_WEEKLY_FIELDS,
         dtype=object,
     )
 
@@ -116,7 +66,7 @@ class StaticWorker:
             return pd.DataFrame(columns=fields, dtype=object)
         if self.mode == "zero_columns":
             return pd.DataFrame()
-        return alternate_frame()
+        return pd.DataFrame([{name: "offline" for name in fields}], columns=fields)
 
 
 @dataclass

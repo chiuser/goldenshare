@@ -163,7 +163,6 @@ from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_ma
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_monthly import (
     raw_tushare_stk_period_bar_adj_month,
-    raw_tushare_stk_period_bar_month,
 )
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
@@ -172,11 +171,7 @@ from orchestrator.defs.assets.stock_return_distribution import (
 from orchestrator.defs.assets.stock_suspend_confirmed import (
     silver_stock_suspend_confirmed,
 )
-from orchestrator.defs.assets.stock_weekly import (
-    raw_tushare_stk_period_bar_adj_week,
-    raw_tushare_stk_period_bar_week,
-    raw_tushare_weekly,
-)
+from orchestrator.defs.assets.stock_weekly import raw_tushare_stk_period_bar_adj_week
 from orchestrator.defs.assets.suspend_d import (
     SUSPEND_D_RAW_COLUMN_TYPES,
     raw_tushare_suspend_d,
@@ -310,9 +305,9 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_moneyflow_ind_ths,
     raw_tushare_moneyflow_mkt_dc,
     silver_moneyflow_mkt_dc,
-    raw_tushare_stk_period_bar_month, raw_tushare_stk_period_bar_adj_month,
+    raw_tushare_stk_period_bar_adj_month,
     raw_tushare_anns_d,
-    raw_tushare_stk_period_bar_week, raw_tushare_stk_period_bar_adj_week, raw_tushare_weekly,
+    raw_tushare_stk_period_bar_adj_week,
     raw_tushare_daily_basic,
     raw_tushare_trade_calendar,
     silver_trade_calendar,

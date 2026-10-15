@@ -2,11 +2,7 @@
 
 import dagster as dg
 
-from orchestrator.defs.assets.stock_weekly import (
-    raw_tushare_stk_period_bar_adj_week,
-    raw_tushare_stk_period_bar_week,
-    raw_tushare_weekly,
-)
+from orchestrator.defs.assets.stock_weekly import raw_tushare_stk_period_bar_adj_week
 from orchestrator.defs.bootstrap.stock_weekly_candidates import (
     partition_path,
 )
@@ -80,20 +76,6 @@ def _build_check(asset, source, name, kind):
 
 
 (
-    raw_tushare_stk_period_bar_week_file_contract_check,
-    raw_tushare_stk_period_bar_week_key_partition_check,
-    raw_tushare_stk_period_bar_week_delivery_reconciliation_check,
-) = tuple(
-    _build_check(
-        raw_tushare_stk_period_bar_week, StockWeeklySource.PRIMARY_UNADJUSTED, n, k
-    )
-    for n, k in zip(
-        weekly_check_names(StockWeeklySource.PRIMARY_UNADJUSTED),
-        ("file_contract", "key_partition", "delivery_reconciliation"),
-        strict=True,
-    )
-)
-(
     raw_tushare_stk_period_bar_adj_week_file_contract_check,
     raw_tushare_stk_period_bar_adj_week_key_partition_check,
     raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check,
@@ -103,18 +85,6 @@ def _build_check(asset, source, name, kind):
     )
     for n, k in zip(
         weekly_check_names(StockWeeklySource.PRIMARY_ADJUSTED),
-        ("file_contract", "key_partition", "delivery_reconciliation"),
-        strict=True,
-    )
-)
-(
-    raw_tushare_weekly_file_contract_check,
-    raw_tushare_weekly_key_partition_check,
-    raw_tushare_weekly_delivery_reconciliation_check,
-) = tuple(
-    _build_check(raw_tushare_weekly, StockWeeklySource.ALTERNATE_WEEKLY, n, k)
-    for n, k in zip(
-        weekly_check_names(StockWeeklySource.ALTERNATE_WEEKLY),
         ("file_contract", "key_partition", "delivery_reconciliation"),
         strict=True,
     )

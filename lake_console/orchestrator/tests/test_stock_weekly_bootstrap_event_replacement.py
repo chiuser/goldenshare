@@ -552,19 +552,21 @@ def test_real_job_rejects_wrong_instance_and_source_scope(
         else:
             other = deepcopy(entry)
             other.update(
-                source=StockWeeklySource.PRIMARY_UNADJUSTED.value,
+                source="primary_unadjusted",
                 bootstrap_identity=None,
             )
             other.update(
                 previous_mat_id=None,
                 previous_check_ids={
                     name: None
-                    for name in events.weekly_check_names(
-                        StockWeeklySource.PRIMARY_UNADJUSTED
+                    for name in (
+                        "raw_tushare_stk_period_bar_week_" + kind + "_check"
+                        for kind in ("file_contract", "key_partition", "delivery_reconciliation")
                     )
                 },
                 missing_checks=list(
-                    events.weekly_check_names(StockWeeklySource.PRIMARY_UNADJUSTED)
+                    "raw_tushare_stk_period_bar_week_" + kind + "_check"
+                    for kind in ("file_contract", "key_partition", "delivery_reconciliation")
                 ),
                 missing_mat=True,
                 blocked_checks=[],

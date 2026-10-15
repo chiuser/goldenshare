@@ -886,13 +886,6 @@ def _parse_hms_time(value: str) -> datetime_time:
     return datetime.strptime(value, "%H:%M:%S").time()
 
 
-class StockWeeklyRawConfig(dg.Config):
-    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    write_mode: Literal["create_or_identical"] = "create_or_identical"
-    code_list_path: str | None = None
-    automatic_intent_date: str | None = None
-
-
 class StockWeeklyAdjProdConfig(dg.Config):
     """A closed Prod batch, never a direct-source request or an overwrite switch."""
 
@@ -947,28 +940,6 @@ def build_stock_weekly_adj_prod_run_config(batch_id, closure_revision):
     )
 
     return {"ops": {ADJUSTED_DELIVERY_ASSET: {"config": config.model_dump()}}}
-
-
-def build_stock_weekly_update_job_run_config(source, intent_date):
-    from datetime import date
-
-    from orchestrator.defs.run_contracts.stock_weekly import (
-        StockWeeklySource,
-        weekly_asset_key,
-    )
-
-    source = StockWeeklySource(source)
-    if source is StockWeeklySource.ALTERNATE_WEEKLY:
-        raise ValueError("alternate_automatic_forbidden")
-    if source is StockWeeklySource.PRIMARY_ADJUSTED:
-        raise ValueError("adjusted_weekly_requires_prod_closed_batch")
-    if date.fromisoformat(intent_date).isoformat() != intent_date:
-        raise ValueError("invalid_weekly_intent_date")
-    return {
-        "ops": {
-            weekly_asset_key(source): {"config": {"automatic_intent_date": intent_date}}
-        }
-    }
 
 
 class StockMonthlyRawConfig(dg.Config):

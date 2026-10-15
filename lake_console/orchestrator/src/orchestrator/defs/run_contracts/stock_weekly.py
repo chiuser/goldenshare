@@ -12,9 +12,7 @@ from enum import Enum
 
 
 class StockWeeklySource(str, Enum):
-    PRIMARY_UNADJUSTED = "primary_unadjusted"
     PRIMARY_ADJUSTED = "primary_adjusted"
-    ALTERNATE_WEEKLY = "weekly"
 
 
 STOCK_WEEKLY_PARTITIONS = "cn_a_stock_week_ends"
@@ -45,54 +43,25 @@ ADJUSTED_WEEKLY_FIELDS = (
     "close_hfq",
     *PRIMARY_WEEKLY_FIELDS[9:],
 )
-ALTERNATE_WEEKLY_FIELDS = (
-    "ts_code",
-    "trade_date",
-    "close",
-    "open",
-    "high",
-    "low",
-    "pre_close",
-    "change",
-    "pct_chg",
-    "vol",
-    "amount",
-)
 
 
-def weekly_dataset_id(source: StockWeeklySource) -> str:
-    source = StockWeeklySource(source)
-    if source is StockWeeklySource.PRIMARY_UNADJUSTED:
-        return "stk_period_bar_week"
-    if source is StockWeeklySource.PRIMARY_ADJUSTED:
-        return "stk_period_bar_adj_week"
-    return "weekly"
+def weekly_dataset_id(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return "stk_period_bar_adj_week"
 
 
-def weekly_source_api(source: StockWeeklySource) -> str:
-    source = StockWeeklySource(source)
-    if source is StockWeeklySource.PRIMARY_UNADJUSTED:
-        return "stk_weekly_monthly"
-    if source is StockWeeklySource.PRIMARY_ADJUSTED:
-        return "stk_week_month_adj"
-    return "weekly"
+def weekly_source_api(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return "stk_week_month_adj"
 
 
 def weekly_column_specs(source: StockWeeklySource) -> tuple[tuple[str, str, str], ...]:
     source = StockWeeklySource(source)
-    fields = (
-        PRIMARY_WEEKLY_FIELDS
-        if source is StockWeeklySource.PRIMARY_UNADJUSTED
-        else ADJUSTED_WEEKLY_FIELDS
-        if source is StockWeeklySource.PRIMARY_ADJUSTED
-        else ALTERNATE_WEEKLY_FIELDS
-    )
+    fields = ADJUSTED_WEEKLY_FIELDS
     specs = []
     for field in fields:
         if field in ("ts_code", "trade_date", "end_date", "freq"):
             type_name = "VARCHAR"
-        elif source is StockWeeklySource.ALTERNATE_WEEKLY:
-            type_name = "DOUBLE"
         elif field in ("vol", "amount"):
             type_name = "DECIMAL(20,4)"
         elif field == "pct_chg":
@@ -136,28 +105,13 @@ def weekly_schema_hash(source: StockWeeklySource) -> str:
     )
 
 
-def weekly_key_columns(source: StockWeeklySource) -> tuple[str, ...]:
-    source = StockWeeklySource(source)
-    return (
-        ("ts_code", "trade_date")
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else ("ts_code", "trade_date", "freq")
-    )
+def weekly_key_columns(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return ("ts_code", "trade_date", "freq")
 
 
-def weekly_required_columns(source: StockWeeklySource) -> tuple[str, ...]:
-    source = StockWeeklySource(source)
-    if source is StockWeeklySource.ALTERNATE_WEEKLY:
-        return (
-            "ts_code",
-            "trade_date",
-            "close",
-            "open",
-            "high",
-            "low",
-            "vol",
-            "amount",
-        )
+def weekly_required_columns(source: StockWeeklySource):
+    StockWeeklySource(source)
     return weekly_key_columns(source)
 
 
@@ -174,15 +128,6 @@ def normalize_weekly_code(value: str) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[0-9]{6}\.(SH|SZ|BJ)", value):
         raise ValueError("invalid_source_ts_code")
     return value
-
-
-class WeeklyAvailability(str, Enum):
-    AVAILABLE = "source_available"
-    EMPTY_CONFIRMED = "source_empty_confirmed"
-    FAILED = "source_failed"
-    UNCHECKED = "source_unchecked"
-    IDENTITY_UNRESOLVED = "identity_unresolved"
-    CONTRACT_BLOCKED = "source_contract_blocked"
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,71 +188,6 @@ class WeeklyBudget:
 
 
 @dataclass(frozen=True, slots=True)
-class WeeklyCandidate:
-    ts_code: str
-    week_key: str
-    availability: WeeklyAvailability
-    source_evidence_ref: str | None = None
-    source_evidence_hash: str | None = None
-
-    def __post_init__(self) -> None:
-        normalize_weekly_code(self.ts_code)
-        normalize_week_key(self.week_key)
-        object.__setattr__(self, "availability", WeeklyAvailability(self.availability))
-        if self.availability in (
-            WeeklyAvailability.AVAILABLE,
-            WeeklyAvailability.EMPTY_CONFIRMED,
-        ) and (
-            not self.source_evidence_ref
-            or not isinstance(self.source_evidence_hash, str)
-            or not re.fullmatch(r"[a-f0-9]{64}", self.source_evidence_hash)
-        ):
-            raise ValueError("availability_requires_source_evidence")
-
-
-@dataclass(frozen=True, slots=True)
-class WeeklyHistoryScope:
-    anchor_start: str
-    anchor_end: str
-    candidates: tuple[WeeklyCandidate, ...]
-    expected_key_ref: str
-    expected_key_hash: str
-    excluded_week_keys: tuple[str, ...] = ()
-    budget: WeeklyBudget = WeeklyBudget()
-
-    def __post_init__(self) -> None:
-        normalize_week_key(self.anchor_start)
-        normalize_week_key(self.anchor_end)
-        if self.anchor_start > self.anchor_end:
-            raise ValueError("reversed_week_scope")
-        if not self.expected_key_ref or not re.fullmatch(
-            r"[a-f0-9]{64}", self.expected_key_hash
-        ):
-            raise ValueError("expected_evidence_required")
-        candidates = tuple(self.candidates)
-        if len(candidates) > self.budget.max_candidate_keys:
-            raise ValueError("candidate_key_budget_exceeded")
-        if len({c.ts_code for c in candidates}) > self.budget.max_codes:
-            raise ValueError("code_budget_exceeded")
-        keys = [(c.ts_code, c.week_key) for c in candidates]
-        if len(keys) != len(set(keys)):
-            raise ValueError("duplicate_candidate_key")
-        if any(
-            not self.anchor_start <= c.week_key <= self.anchor_end for c in candidates
-        ):
-            raise ValueError("candidate_outside_scope")
-        excluded = tuple(sorted(set(self.excluded_week_keys)))
-        for key in excluded:
-            normalize_week_key(key)
-        object.__setattr__(
-            self,
-            "candidates",
-            tuple(sorted(candidates, key=lambda c: (c.ts_code, c.week_key))),
-        )
-        object.__setattr__(self, "excluded_week_keys", excluded)
-
-
-@dataclass(frozen=True, slots=True)
 class ProdYearInventory:
     year: int
     codes: tuple[str, ...]
@@ -346,8 +226,6 @@ class ProdWeeklyScope:
 
     def __post_init__(self) -> None:
         source = StockWeeklySource(self.source)
-        if source is StockWeeklySource.ALTERNATE_WEEKLY:
-            raise ValueError("alternate_has_no_prod_bootstrap")
         if not self.inventory_ref or not re.fullmatch(
             r"[a-f0-9]{64}", self.inventory_hash
         ):
@@ -361,23 +239,6 @@ class ProdWeeklyScope:
             raise ValueError("phase_row_budget_exceeded")
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "inventories", inventories)
-
-
-@dataclass(frozen=True, slots=True)
-class WeeklySourceUnit:
-    unit_id: str
-    source: StockWeeklySource
-    ts_code: str
-    anchor_start: str
-    anchor_end: str
-    request_start: date
-    request_end: date
-    expected_key_ref: str
-    expected_key_hash: str
-    expected_key_count: int
-    max_rows: int
-    excluded_week_keys: tuple[str, ...]
-    source_evidence: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,20 +258,26 @@ class WeeklyPlanManifest:
     source: StockWeeklySource
     evidence_ref: str
     evidence_hash: str
-    units: tuple[WeeklySourceUnit | ProdWeeklyUnit, ...]
+    units: tuple[ProdWeeklyUnit, ...]
     budget: WeeklyBudget
     request_cap: int
     planned_key_count: int
     skipped_key_count: int
     skipped_reason_counts: tuple[tuple[str, int], ...]
 
+    def __post_init__(self):
+        object.__setattr__(self, "source", StockWeeklySource(self.source))
+        if any(
+            not isinstance(unit, ProdWeeklyUnit)
+            or StockWeeklySource(unit.source) is not self.source
+            for unit in self.units
+        ):
+            raise ValueError("weekly_manifest_source_invalid")
 
-def weekly_asset_key(source: StockWeeklySource) -> str:
-    return {
-        StockWeeklySource.PRIMARY_UNADJUSTED: "raw_tushare_stk_period_bar_week",
-        StockWeeklySource.PRIMARY_ADJUSTED: "raw_tushare_stk_period_bar_adj_week",
-        StockWeeklySource.ALTERNATE_WEEKLY: "raw_tushare_weekly",
-    }[source]
+
+def weekly_asset_key(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return "raw_tushare_stk_period_bar_adj_week"
 
 
 def weekly_check_names(source: StockWeeklySource) -> tuple[str, ...]:
@@ -424,34 +291,18 @@ def weekly_check_names(source: StockWeeklySource) -> tuple[str, ...]:
     )
 
 
-def weekly_job_name(source: StockWeeklySource) -> str:
+def weekly_job_name(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return "raw_stk_period_bar_adj_week_update_job"
+
+
+def weekly_data_contract(source: StockWeeklySource):
+    StockWeeklySource(source)
+    return "tushare_stk_period_bar_adj_week"
+
+
+def weekly_source_doc(source: StockWeeklySource):
+    StockWeeklySource(source)
     return (
-        f"raw_{weekly_dataset_id(source)}_update_job"
-        if source is not StockWeeklySource.ALTERNATE_WEEKLY
-        else "raw_tushare_weekly_update_job"
+        "docs/sources/tushare/股票数据/行情数据/0365_股票周_月线行情(复权--每日更新).md"
     )
-
-
-def weekly_data_contract(source: StockWeeklySource) -> str:
-    return (
-        "tushare_weekly_source_mirror"
-        if source is StockWeeklySource.ALTERNATE_WEEKLY
-        else f"tushare_{weekly_dataset_id(source)}"
-    )
-
-
-def weekly_source_doc(source: StockWeeklySource) -> str:
-    return (
-        "docs/sources/tushare/股票数据/行情数据/"
-        + {
-            StockWeeklySource.PRIMARY_UNADJUSTED: "0336_股票周_月线行情(每日更新).md",
-            StockWeeklySource.PRIMARY_ADJUSTED: "0365_股票周_月线行情(复权--每日更新).md",
-            StockWeeklySource.ALTERNATE_WEEKLY: "0144_周线行情.md",
-        }[source]
-    )
-
-
-@dataclass(frozen=True)
-class StockWeeklyPointPolicy:
-    page_limit: int = 6000
-    page_call_cap: int = 4

@@ -82,7 +82,7 @@ def test_feb29_is_explicit_exclusion_not_remapped_or_accepted():
 @pytest.mark.parametrize(
     "source,api,columns",
     [
-        (StockMonthlySource.PRIMARY_UNADJUSTED, "stk_weekly_monthly", 13),
+
         (StockMonthlySource.PRIMARY_ADJUSTED, "stk_week_month_adj", 21),
     ],
 )
