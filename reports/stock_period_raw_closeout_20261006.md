@@ -1,4 +1,6 @@
-# 股票周/月线 Raw：结案与后续运行验收
+# 周/月线历史交付记录（2026-10-06—10-09）
+
+> 历史记录：只证明当时的搬运、分区和事件结果，不作为当前完整性或执行卡。2026-10-15已确认修订Raw并物理清退DG重复数据集，现行范围与顺序见[周/月总方案](../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)；25股专项暂停后置。下文日期状态不代表本轮已完成。
 
 <a id="2026-10-09-closeout"></a>
 

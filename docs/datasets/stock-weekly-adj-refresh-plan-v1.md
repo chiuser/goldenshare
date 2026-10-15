@@ -1,138 +1,40 @@
-# Prod 股票复权周线刷新与 DG 交付方案 v1
+# Prod复权周线交付与8月月线定向修订方案 v1
 
-> 最新执行状态（2026-10-13）：Prod 全市场原批 **15565** 完成 876/876 周、3,028,907 行及一次完整对账；独立补刷 **15604** 完成 9 股/6,345 行，真实 **B0 revision 1785** 已生成。DG 2010—2026 年 **859 个正式复权周文件、3,028,907 行**已覆盖并通过文件验收。真实检查补录机制及相关隔离验收193项通过；859个新物化、2,577个准确绑定检查已登记，27个成功运行，最终缺项/blocked/最新失败均0。B0水位已初始化为1785，未复权2026-10-09进度与RUNNING状态保留；19:30后的下一批自动接收仍待实际交付验证。最新结果见 DG LLD A20—A21；较早状态保留为历史记录。
+更新：2026-10-15。周线既有交付机制继续使用；本轮新增的是已确认的2026年8月月线修订设计，尚未执行。不因DG删除重复数据集而删除Prod未复权数据、表或入口。
 
-最新设计与范围见 [LLD §13.17](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-factor-precision-policy-20261012) 和 [两边修正范围](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012)。
+## 1. 当前事实和本轮范围
 
-DG 自主 QFQ 修复还必须覆盖七频 MACD/KDJ 结果及每日状态、四频分钟九转，以及日线趋势/九转；范围、顺序和验收按[联合方案 §3.1](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md)和[专项 LLD §14](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-low-level-design-v1.md#indicator-repair-audit-20261012)。这是独立修复链，不改 Prod 周线源字段或把指标完成设为 B0 门禁。
+2026-10-13正式周线首批15565完成876周/3,028,907行；独立补刷15604完成9股/6,345行，生成真实B0 revision1785。DG859周文件及859物化/2,577准确检查已完成并迁移水位。该首次交付不重复执行，原失败/恢复流水不是当前待办。
 
+本轮主任务为[DG周/月收敛及Raw修订](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)。Prod已有两套月线8月旧版本需定向修订；DG只保留两套复权主源。25股因子/自主QFQ及下游指标修复已暂停，排在主任务之后，不混入本轮。
 
-## 源异常诊断修复（2026-10-12，历史部署前记录）
+## 2. 保留的周线运行合同
 
-管理员已确认先修复异常信息记录和文案，再恢复全量首批。目标是下次失败时能知道实际异常类型、HTTP状态、发生阶段和请求上下文；本次没有证据确定15447或15451的历史失败一定是超时，不能补造旧诊断。
+1. 维护意图仍经DatasetDefinition→DatasetActionResolver→DatasetExecutionPlan→ingestion request builder；Ops只保存意图，源参数不由页面/查询层拼装。
+2. 日常19:30提交最早未完成已结束周；比较本周每个交易日与前一交易日因子，取变化股票并集。新周一次全市场请求，历史修正每个变化股票一个区间请求，不做股票×周请求。
+3. 每unit完整拉取/归一化/校验，一个短事务提交Raw、Serving及交接unit；观测状态独立，不能回滚已提交业务。原批未完成必须沿冻结计划续跑，不能新意图绕过欠账。
+4. core.stock_weekly_adj_delivery保存不可变plan/unit/closure业务增量。DG按revision读取下一闭合批，不用TaskRun成功、fetched_at或可变Raw代替冻结值；合法空批不造行情/物化。
+5. 因子或复权历史对象请求使用已确认的新代码，历史日期不改；旧码入口当前可能保留滞后基准，禁止自动兜底。全市场回包同步审计新码选择和身份，不简单将旧码改写后upsert。该新码策略须迁移真实消费者并验收，不能声称现有通用builder已自动转换。
+6. 源21字段原样保留，不用本地计算价替换源价。纯精度/舍入差异不触发全市场因子修复；本地价比较只诊断，不单独阻断。目标基准不符、缺覆盖、未闭合及源失败仍拒绝。
 
-改动限定于共用有界Tushare调用的异常传递、周线与公告两处包装，以及错误码建议文案。保留现有错误码与retryable语义；周线每页一次实际请求，公告最多三次重试；不调整超时、请求/内存预算、业务事务、冻结计划或DG交付合同。周线调用总期限以当前Definition的20秒为准，HTTP连接和读取各为min(5,total)秒，原执行清单的45秒是文档错误。本次不新增配置、表、前端字段或reports依赖。
+新码例：安徽凤凰旧832000.BJ的同一历史周仍返回20250910基准，新920000.BJ返回20261014基准，前复权5.58/5.51而原价同为7.16。不是两只股票或固定两个可任意选择的历史版本。
 
-代码落点、安全字段、测试和恢复顺序统一见[LLD §13.16](stock-weekly-adj-refresh-low-level-design-v1.md#bounded-tushare-source-diagnostics)；公告消费者同步要求见[公告LLD](anns-d-sync-low-level-design-v1.md#bounded-source-diagnostics-consumer)。实施顺序：诊断传递与文案 → 两处包装和隔离验收 → 提交、部署 → 从15451原详情恢复原冻结批 → 首批一次完整对账 → 独立因子补刷批及B0 → DG年度覆盖、事件和水位迁移。方案与LLD已先提交c49a81cc，诊断代码及隔离验收随后完成，见LLD §13.16.5；修复代码待部署，尚未恢复Prod任务。
+## 3. 8月月线修订
 
-历史执行状态（2026-10-12午前，最新状态见文首）：P3/D3修改已提交`a3c2c750`，只读确认Prod部署HEAD `57b459f2`包含该提交，Web/worker/scheduler均active。全量首批TaskRun `15447`源调用失败后原批恢复为`15450`，主动取消验收通过后由`15451`续跑，于12:12再次源调用失败，已提交492/876周、1,172,725行，首批未闭合；范围2010-01-01—2026-10-09、全市场，冻结876周；第二补刷批、B0和DG全量覆盖尚未执行。取消/续跑及完整对账结果以[Prod LLD §13.15.4](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-formal-20261012)为准。下文较早的未执行描述保留为历史状态。
+当前Prod及DG复权8月每源5,551行，trade_date均20260831，复权end_date大多仍20260828。已核实5,545只在旧截止后还有31日日线；MCP当前平安银行close=11.72，旧值11.65。原因和分组见[月线LLD](../../lake_console/docs/design/dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#3-2026年8月的已确认修订)。
 
-起草：2026-10-09；更新：2026-10-12。状态：P0/D0核验完成，P1已提交7d32163d，P2已提交018168fc，日期纠偏及PG/Ops验收已提交12f5ddde；内存优化已提交cc7c528e；依据现有验证及管理员决定，内存工作收口，不再追加专门复测或优化。12000行单元及真实源连续执行的父进程峰值均低于原256MiB目标；同时进程树总占用另列，不声称总量低于256MiB，见LLD §13.7。管理员已将cc7c528e部署Prod；本轮只读确认正式迁移到186、表/trigger/索引有效，正式双周15368及两只单股15375/15378的21字段对账通过；15378时序观察父/源进程均低于256MiB，取消续跑、同批零请求重放及页面验收留到全量执行前合并完成，不阻断DG D1/D2开发，见LLD §13.9—13.12；全量刷新及DG来源切换未执行。本文只处理股票复权周线。
+本次仅两个月线数据集、freq=month、trade_date=2026-08-31：raw_tushare.stk_period_bar→core_serving.stk_period_bar，raw_tushare.stk_period_bar_adj→core_serving.stk_period_bar_adj。沿现有Raw→Serving事务更新源返回键，未返回旧键保留并单列，绝不清表、删周线或改其他月份。DG只修留存的复权8月文件，不刷新将被删除的DG未复权文件。
 
-## 1. 问题与目标
+源必须先完成单月分页、显式13/21字段、当前新码对象和实际全月日线覆盖核验，封存同批值。按现行日期模型形成month unit，不擅改Definition.date_model或把本轮修订扩成新的常驻自动任务。DG接收/候选/提升/事件沿月线LLD独立阶段执行。其他月份异常先只读确认和列清单，新范围再批准；健康月份保持不变，未核实不宣布全部修好。
 
-本次修改前，正式 Prod 的股票复权周线只更新请求范围内的记录。股票发生除权后，源站会重新计算历史前复权价格，但已经存入 Prod 和 DG 的旧周线不会自动刷新。因此，新旧周线可能使用不同的复权基准。
+## 4. 性能、恢复和验收
 
-管理员已确认：
+周线继续单元12,000行/3页/20秒源监督、短事务、256MiB源执行进程目标及1,000unit/256MiB日常批payload等既有局部预算。具体配置来源、consumer及生效见[LLD](stock-weekly-adj-refresh-low-level-design-v1.md)。不得用历史单股IO或源样本速度承诺端到端完成时间，也不追加任意紧的额度。
 
-1. 首次重新下载已有历史范围，覆盖更新，不先清空。源站无法重新获取的旧记录保留并记录原因，不计为已刷新。
-2. 后续复权周线统一走 Tushare → Prod → DG。Prod 下载新周并刷新因子变化股票的历史；DG 接收这两种更新，不再独立下载复权周线。
-3. 每天上海时间19:30开始检查；历史修正在已结束周范围内进行，未结束周不作为新增完整周交付。
-4. 首次刷新及 bootstrap 做一次完整对账，通过即结束。后续只检查本次新增、修正的数据；reports 不作运行依赖。
-5. 未复权周线、月线、备用源、Silver/Gold、财势乾坤页面和远程 Prod 的按钮行为均不附带修改。
+月线仅8月，两数据集全市场分页而非逐股×历史月；代表样本校准实际请求/事务/RSS，单月候选逐文件完成，已完成复用，最终源/Prod/DG对账一次。不因每个小修复重跑全历史或整库。
 
-源站21个行情字段全部保留，包括未复权、qfq、hfq、成交量和成交额；“复权周线”是现有数据集 stk_period_bar_adj_week，不是另建只有前复权价格的表。
+验收必须证明：新码请求且旧码不兜底、源页尾与完整月、Raw/Serving同键一致、DG完整字段一致、范围外月份/week/未选旧键不变；取消/进程退出保留提交unit并续跑，TaskRun和活动节点终态一致，观测失败不回滚业务；目标/源/合同漂移、旧码快照、错误scope及页截断拒绝。正式调用、数据库写入和部署仍需精确执行卡，不由文档更新触发。
 
-## 2. 当前实现与需要改动的地方
+## 5. 文档与阶段
 
-| 核验位置 | 当前行为 | 本次设计 |
-| --- | --- | --- |
-| src/foundation/datasets/definitions/market_equity.py | 周、月复权共用 raw_tushare.stk_period_bar_adj 和 core_serving.stk_period_bar_adj，freq 区分 | 所有刷新、交接和校验固定 freq=week，不清表、不改月线 |
-| ingestion/unit_planner.py、request_builders.py | 全市场区间按周五展开；带代码的区间也沿通用锚点规划 | 首次全市场按周；定向历史修正按单股票历史区间，不展开股票×周 |
-| ingestion/executor.py、dao/base_dao.py | 每 unit upsert/commit；通用进度与最终摘要不提供完整、独立的周线交付记录 | 保留主执行链，补具名周线策略及最小持久化交接合同 |
-| core.equity_adj_factor | 已有日度复权因子，模型数值精度20,8；已有 stk_factor_pro 日度比较实现 | 核对实际日历及因子覆盖后，逐交易日取变化代码并集；不复制其私有函数 |
-| DG assets/stock_weekly.py | 复权和未复权都直接下载 Tushare 新周 | 只将复权分支切换到 Prod，未复权维持当前行为 |
-| DG io/stock_weekly_raw.py | 相同键不同值阻断，现有文件保留 | 复权分支允许本次已批准记录覆盖；其他来源继续使用原合同 |
-
-本轮使用 CodeGraph explore 分析 resolver/planner/executor、复权周线 asset/sensor/readiness，impact 分析复权 request builder。动态注册、SQL、DAO、源字段、TaskRun 和模板中未被图覆盖的部分直接读当前实现。索引关系不作为真实同步和性能验收证据。
-
-## 3. 执行流程
-
-### 首次历史刷新
-
-冻结当前 Prod 最早周线日期、最后已结束周及已有键集合。2026-10-03证据的最早日期是2010-01-01，执行前重新核验，不把2010写死为永久起点。
-
-按周请求全市场复权周线，完整分页、字段及键校验后，一个周 unit 内提交 Raw、Serving 和本次业务完成记录。源端未返回的已有键不删除，分别记录部分缺失、空响应、请求失败等原因。只有确认空结果的记录可列为“保留但未刷新”；失败和源未就绪保留待处理任务。
-
-恢复执行跳过同一冻结意图中已经提交的 unit。首次批完成后，逐单元做一次源摘要、Prod写入及保留旧值对账，持久化结果后闭合第一批。管理员2026-10-12确认：另提交覆盖原范围的全市场maintain，冻结独立补刷批，只含新增完整周和仍需更新复权基准的股票历史；不临时追加第一批单元。第二批无变化时允许零源请求，完整对账及基准核验通过才生成B0。两批的取消/退出都恢复各自原计划，不依赖reports。代码级规则与验收见[LLD §13.15](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-closeout-execution)。
-
-### 后续更新
-
-1. 每天19:30由现有 Ops 调度提交维护意图；Foundation resolver 选择最早尚未完成的已结束周。
-2. 校验交易日历、该周日线以及因子数据。以每个交易日与前一个交易日比较因子，取变化股票并集；新股缺少上市前因子不是除权变化。
-3. 下载全市场新周；对变化股票请求从该股票 Prod 现有最早周线至本次截止周的历史区间。此前未完成意图先恢复，不能用新周覆盖欠账。
-4. 每个 unit 完整校验后提交。源返回的 end_date 原样保留，不能用请求结束日期覆盖它，也不能仅因它早于行情周或刷新截止日就判价格错误。以源基准因子与本次目标因子判断是否覆盖变化；源日期较早但目标因子相同可通过。用 Prod 因子计算并对比源价只作本次诊断，价格不相等不再单独阻断；较大或不能用精度解释的差异另行核查历史因子，不改写源价。冻结目标不符、源基准因子未覆盖目标仍拒绝。缺少核验依据明确记录：bootstrap保留历史源值但不称价格已验证，日常需要核验的股票保持未完成。
-5. 本批全部 unit 成功或有明确的“保留未刷新”结果后，发布闭合交付批次。DG 只接收闭合批次，按批次顺序交付。
-
-19:30不等于源已经完整。源未就绪时不发布该批次；保留已提交 unit，允许手动重试或下一日19:30恢复。不新增等待进程、worker lane 或高频轮询源站。
-
-时间策略以上海时间周五19:30为本周可提交意图的边界：此前取上周五，此后及周末取本周五，周一至周四取最近周五。它只生成候选周意图，不能证明源已发布；实际欠账、因子及完整性由P2执行器判定。
-
-## 4. 最小交接设计及取舍
-
-不能用 TaskRun 的 SUCCESS 或 progress_json 作为唯一交接事实：当前摘要会截断，观测写入可能失败，也不能保证所读 Raw 是当时提交的版本。仅用 fetched_at 水位存在提交顺序和历史范围判断问题。仅查当前 Raw 能验证当前值，不能告诉 DG 哪些旧周需要重写。
-
-LLD 提出一个 Foundation 侧专用交接表 core.stock_weekly_adj_delivery，保存冻结意图、已提交 unit 和闭合批次。日常 unit 保存本次交付的标准化行情值，DG 读取后不会被后续 Prod 更新改变。首次历史刷新只存 unit 范围与完成摘要，DG 从 Prod Raw 做一次 bootstrap，避免复制一整份历史进交接表。
-
-2026-10-11管理员确认：交接头的“最后一周”取本批实际写入的最大行情周，空批为null；任务截止周单独保留。源码修正及69项P1/P2隔离验证已完成并提交`b49d9cdc`，尚未部署，不改写旧闭合批。详见[LLD §13.13](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-delivery-anchor-correction)。
-
-P0技术评审已保留这一专用交接设计：可变Raw不能稳定重放旧批，日常增量容量在当前预算内；不复制全历史payload。评审结果和实施缺口见[LLD §11](stock-weekly-adj-refresh-low-level-design-v1.md#p0-d0-review)。尚未执行建表或迁移。它不承载第二套 TaskRun 状态机、不生成 DG summary asset、不存入 Raw 行情列、不保存永久 bootstrap 证明。完整字段、事务及读写白名单唯一维护在 [Prod LLD §5.4](stock-weekly-adj-refresh-low-level-design-v1.md#delivery-contract)。
-
-Ops 状态写入使用独立观测边界。观测失败不回滚或阻断已提交行情；交接表保存的是本次必须送到 DG 的业务数据，与行情同时提交，不能由 Ops 事后补一条“成功”代替。
-
-## 5. 性能与成本
-
-| 项目 | 当前证据或设计预算 |
-| --- | --- |
-| 当前库存 | P0实查Prod Raw周线2,896,821行/858源日期，2010-01-01至2026-10-09；DG859文件/2,902,386行/158,233,993字节。差5565行来自Prod尚缺2026-10-02，首次刷新处理，不删除DG旧键 |
-| 首次源请求 | 2010-01-01至2026-10-09有876个周五；约876个首请求，另计分页、终空页和失败重试 |
-| 定向源请求 | P0当前HTTP connector：000001.SZ、20100101—20261009为851行、约0.306秒；全市场20261009为5559行、约0.477秒。分页10+3及10+0通过，每股历史通常一个首请求 |
-| 请求模型 | 首次按周，后续1个新周请求加 K 个股票历史请求；禁止 K×历史周数 |
-| 内存/事务 | 单 unit 不超过12,000源行、3页、256MiB；单事务最多24,000行情层写入加一条交接记录 |
-| 初次时长 | 前轮容量估算按3—5秒/首请求约44—73分钟，预留1—2小时；本轮并行MCP延时含服务端排队，不作为串行SDK SLA |
-| DG 历史修正 | D0临时IO样本：读取859文件约158MB，改单股涉及851候选文件，约5.961秒、峰值RSS647.8MiB；不含正式提升、事件、远程传输，不是端到端耗时 |
-| 超量处理 | 行数/页数/内存/文件数及整批256MiB payload超预算先拒绝，说明范围并等待获准调整；不自行拆自动批次或提高全局配置掩盖问题 |
-
-账户配额沿管理员此前确认，不重新调查。P0实测Raw全市场单周走全表扫描，P1仅拟增加Raw的week日期部分索引，Serving已有日期索引不重复建。源延迟和隔离IO不包含写库/正式替换；这些吞吐、取消恢复及端到端耗时仍由P2/D2验证。
-
-## 6. 开发与验收阶段
-
-| 阶段 | 交付 | 放行条件 |
-| --- | --- | --- |
-| P0/D0 | 已完成：源分页、Prod库存/索引、静态消费者、交接必要性/容量、隔离DG事件与IO | 2026-10-10通过；实施缺口已写回LLD §11，不代表新表实存或正式写入验收 |
-| P1 | 已实现：Definition模型/builder/linter、具名规划/冻结/恢复、交接ORM/DAO、迁移源码及排程消费者 | P1提交时Definition保留旧绑定；支持合同验证见LLD §12；未执行正式DDL |
-| P2 | 已提交018168fc；Prod因子/欠账规划、有界抓取、原子发布、批闭合、取消续跑及页面进度已实现；源码Definition已绑定 | 真实隔离PG及两历史周全市场源对账通过；日期纠偏已提交12f5ddde；内存优化已提交cc7c528e，隔离执行达到单进程256MiB目标；进程树同时占用另列，正式版本和迁移只读核验通过；正式双周15368及两只单股15375/15378的21字段对账通过；单股时序观察父/源均低于256MiB；管理员确认内存工作收口；取消续跑、同批零请求重放及页面留到P3全量执行前合并验收，可推进DG D1/D2开发，见LLD §13.9—13.12 |
-| D1/D2 | DG 复权来源切换、历史覆盖、事件/check、sensor | 本批数据对账、未选键保留、取消/恢复、零Tushare请求及热路径预算通过 |
-| P3 | Prod 全量刷新 | 正常小样本已通过；正式取消续跑、同批零请求重放和页面进度验收通过并另获全量执行授权；刷新键/保留键/失败键清晰 |
-| D3 | DG 全量 bootstrap及事件补录；稳定捕获切片已开发，年度覆盖及事件/B0迁移继续推进 | 绑定真实B0、捕获版本稳定、完整一次对账；文件和事件分阶段执行，见[DG LLD A16](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-capture) |
-| J1 | 两边新增周+因子变化联调，自动切换 | 新旧来源写入口清零，首批端到端交付及失败恢复通过；再批准启用 |
-
-P/D是本次新增阶段，既有DG的M0—M10结案记录保留，不重新标为未完成。先完成设计与小样本代码，再执行全量，不把“写好方案”当作执行批准。
-
-P1先交付支持合同，提交时注册Definition尚未绑定。P2已一次性绑定`weekly_adj_policy`、`stock_weekly_adj_refresh`和`raw_core_upsert_with_delivery`，清零本数据集旧写路径。加载正式新代码前必须先暂停现有id=14复权排程并执行迁移185/186，不能让未迁移的正式库进入新执行器。这是开发切片顺序，未增加开关、旧新执行器双轨或新的运营输入。正式来源和19:30排程切换仍在J1执行。
-
-## 7. 文档与依赖
-
-- [Prod代码级LLD](stock-weekly-adj-refresh-low-level-design-v1.md)：按Prod数据集开发模板0—10完整填写。
-- [DG原方案：新增复权周线交付阶段](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#adjusted-weekly-prod-refresh)：维护DG改动范围。
-- [DG原LLD：Prod刷新接收合同](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-prod-refresh-lld)：维护文件/事件/调度及模板对账。
-
-原有子系统依赖矩阵不变。Foundation 仅依赖自身，Ops 只传意图、记录观测；DG 通过已批准只读入口读取 Prod，不导入 Ops 实现，也不写 Prod。当前工作区源码已实现Prod新路径；Prod cc7c528e已部署；DG来源迁移和19:30启用尚未执行，最终自动切换在J1获准后进行。
-
-## 8. 2026-10-12 精度差异与有限因子修正
-
-管理员已确认：保留仅小数精度变化的历史因子；周线照收源原值；不能用舍入解释的变化另行核查和定向修正。不做全市场因子重同步，不用本地计算价替换源 qfq/hfq，也不把 23 只周线价差股票误当成全部因子修复股票。
-
-本轮重新用 MCP 获取 25 只股票的差异区间，返回 2,489 行；同范围 Prod Raw/Core 与 DG Raw/Silver 均仍为旧值、没有缺行、没有 Raw/Core 或 Raw/Silver 不一致。25 只均存在不能用旧值舍入到三位解释的变化。最新范围表、DG 下游影响和待冻结事项唯一维护在[历史修正方案 §2](../../lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md#joint-repair-scope-20261012)。三位舍入只是本次实测分类，不是源端永久精度合同。
-
-实现顺序：先调整本数据集价格诊断并验收 → 用既有 adj_factor 维护入口修正 25 只限定日期并读回 → 从 15471 原详情恢复 523 个完成单元之外的 353 周 → 第一批一次完整对账 → 按原规则冻结独立补刷批 → 对账并生成 B0 → DG 年度覆盖/一次对账/事件/水位。历史因子修正只写 raw_tushare.adj_factor、core.equity_adj_factor；不因此重算或覆盖 Prod 未复权日线、月线和其他源行情。源周线仍按既有首次全市场刷新范围完成，不能缩成 23 只。
-
-DG 因子和自主 QFQ 修复是另一条链，可在 Prod 周线续跑期间完成只读规划与获准候选构建，不以 DG 下游修复完成作为 Prod 周线接收门禁。正式执行分别获准；不新增永久历史检查。代码、测试、诊断字段、恢复和预算见 LLD §13.17。
-
-2026-10-12 正式执行：通过现有后台服务创建 22 条因子任务（15536—15557），逐条记录 ID、相同参数查重，全部成功。源、Raw、Core 在批准的 25 股/2,489 键上完全一致，0 拒绝、0 缺行、0 重复提交。约 7 分 54 秒完成因子任务处理；随后用同一后台重试服务从 15471 原意图恢复为 15558，原批身份和范围不变，已核验完成单元继续增长。逐条任务映射见 [LLD §13.17.6](stock-weekly-adj-refresh-low-level-design-v1.md#factor-repair-manual-tasks-20261012)，验收和后续边界见 [LLD §13.17.7](stock-weekly-adj-refresh-low-level-design-v1.md#factor-repair-execution-20261012)。周线首批闭合/完整对账、独立补刷批、B0 和 DG 接收尚未完成。
-
-2026-10-13 收尾：15565 沿原批完成全市场 876 周/3,028,907 行及一次完整对账；15604 完成刷新期间因子变化的 9 股历史补刷/6,345 行及本批对账，B0 revision 1785 已生成。后续 DG 捕获、年度文件、事件及水位仍按分阶段验收；详见 [LLD §13.17.8](stock-weekly-adj-refresh-low-level-design-v1.md#weekly-bootstrap-closeout-20261013)。
-
-2026-10-13 DG 的全量复权 Raw 周线文件已接收并完成一次文件验收；事件和 B0 水位另按已批准的 [DG LLD A21](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013) 收尾，Prod 本批不重新同步。
-
-2026-10-13 DG已完成本批859周文件、859新物化及2,577检查，27个成功真实检查run；最终缺项/blocked/最新失败均0，B0 cursor=1785已迁移。完整运行ID、耗时及边界见[DG LLD A21.4](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013)。后续新批19:30运行验收和DG自主因子/QFQ/指标专项仍单独安排。
+本轮只精简方案和[LLD](stock-weekly-adj-refresh-low-level-design-v1.md)，保留交接协议、现行日期/字段、事务与必要历史结果；删除重复失败流水及失效执行卡。历史详细任务日志从Git/日期报告追溯，不作运行依赖。后续顺序为DG保留Raw修订和物理清退完成→独立确认下一任务；25股专项不在本轮继续。
