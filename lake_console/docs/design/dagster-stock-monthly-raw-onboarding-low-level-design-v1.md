@@ -2,6 +2,8 @@
 
 更新：2026-10-15。管理员已确认保留复权月线、物理清退独立未复权及定向修正8月。当前代码尚未改，本轮不写数据、不评价或启停sensor。总范围及删除协议见[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享清退LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。
 
+任务已拆开：先独立完成重复数据集的代码清退和物理删除，再推进保留Raw补齐纠错。本文源/身份/覆盖/候选及预算要求用于第二条或日常月线合同，不是删除未复权月线的前置检查；8月修订和其他月份异常不阻塞第一条关闭。
+
 ## 1. 数据卡、来源与字段
 
 | 项 | 保留合同 |
@@ -93,13 +95,14 @@ Prod的8月维护入口按现行Definition和参数消费审计，不改数据�
 
 ## 7. 正反验收与实施顺序
 
+第一条删除沿共享LLD，只做旧定义/写入口清退、共享sensor/函数保留、目录边界及删除结果核对；不读取待删月线内容。下列步骤仅为第二条Raw修订验收，不要求为删除先执行：
+
 1. 隔离验证单月源封存、同值重放、新码选择、精确覆盖和取消恢复；字面金样本独立于实现。
 2. 源未完整、旧码兜底、页尾缺失、身份无确认、字段精度损失、20200229、月底实际交易遗漏、未知新增月份、目标漂移、候选篡改均拒绝。
 3. 先完成同批源/Prod Raw及Serving读回，再生成DG候选；前后双向比较输入完整行及未选旧行，8月以外两个Prod表freq/month和week范围保持。
 4. 获准提升后逐文件读回并登记准确事件；进程退出/replace后未记状态可续跑，观测错误不回滚，已完成不重算/重下载。
-5. 清退未复权asset/job/check及写入口后，按共享LLD物理删除目录。sensor继续只检查复权一源，原RUNNING意图/有效frontier保留。原文件只用于核对，正式删除前不以备份/快照替代检查。
 
-相关测试：test_stock_monthly_contract/definitions/update/history/events、test_raw_stock_monthly_update_job_sensor、test_stock_period_checks、资产治理及共享周线绑定消费者；新增修订测试覆盖异值更新/保留行/未知范围拒绝，删除测试只用临时目录，不拿正式文件制造故障。
+第二条相关测试为test_stock_monthly_contract/definitions/update/history/events、test_stock_period_checks及实际改到的直接消费者，新增修订测试覆盖异值更新/保留行/未知范围拒绝。第一条只选定义、sensor、旧参数拒绝和共享函数的针对性测试，不默认跑上述全部修订或历史生成测试。删除测试只用临时目录，不拿正式文件制造故障。
 
 ## 8. 后续Silver设计边界
 

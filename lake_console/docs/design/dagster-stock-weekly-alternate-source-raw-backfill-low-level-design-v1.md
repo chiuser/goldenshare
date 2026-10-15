@@ -1,6 +1,8 @@
 # DG 周线保留链与重复数据集物理清退 LLD v1
 
-更新：2026-10-15。目标已由管理员确认；本轮仅文档，代码与正式数据尚未清退。范围和阶段唯一引用[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线修订细节见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
+更新：2026-10-15。管理员已确认精简删除任务：不审查待删行情、不重算、不以Raw修订为前置。本轮只改文档，实施步骤待review，代码与正式数据尚未清退。范围和阶段唯一引用[周/月总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线修订细节见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。
+
+第1—3节记录继续保留的日常供数合同及预算，不是第一条删除任务的执行或重验清单。删除只执行第4节步骤和第6节针对性验收；月线数据修订另属第二条。
 
 <a id="adjusted-weekly-prod-refresh-lld"></a>
 ## 1. 保留链的当前合同
@@ -62,9 +64,9 @@ Raw原21列顺序：ts_code,trade_date,end_date,freq,open,high,low,close,pre_clo
 | /Volumes/datasource/data_lake/raw/tushare/stk_period_bar_month | 201 / 22,484,192 |
 | /Volumes/datasource/data_lake/raw/tushare/weekly | 803 / 6,950,886 |
 
-执行前一次枚举完整相对路径、类型、大小和必要身份；校验根精确相等、无symlink/越界/挂载变化、无活动writer和新增文件。实际清单单独审阅，不把表中目录表达式直接变成rm -rf；先逐白名单文件删除，再删已空子目录及这三个根。未知文件、未核实staging意图和其他任务文件不删除。
+清退写入口后，删除前一次确认三个根精确匹配、挂载正确、无symlink/越界及相关活动写者，再枚举目录清单，按清单删除文件和已空目录。只读目录元数据，不打开Parquet、不查行数/schema/价格/完整性、不计算文件hash。表中库存只作参考；正常新增的本数据集文件纳入当次清单，数量变化不自动阻断，未知归属和路径异常才停止。不跟随符号链接，不删除未核实staging意图或其他任务文件。
 
-保留两个复权根、全部共享父目录、月线复权staging、日线/分钟/因子/身份/日历、共享动态分区、25股候选和日志。Dagster历史event/run记录不删。删除本身不触发重下载、materialize或备份。清退验收先确认保留源覆盖与修订通过，再实施不可撤销的删除；失败时保留剩余白名单和已删记录，不“回滚”到备份或扩大清理。
+保留两个复权根、全部共享父目录、月线复权staging、日线/分钟/因子/身份/日历、共享动态分区、25股候选和日志。Dagster历史event/run记录不删。删除不等待保留Raw修订或数值验收；已有覆盖结论复用，不重扫保留文件或日线。没有源请求、DuckDB计算、候选、COPY、原子提升、事件补录、备份或专用checkpoint；只记录实际删除结果，中断后确认目录边界和无写者，继续处理剩余内容。
 
 ### 4.2 定义、入口和sensor
 
@@ -83,7 +85,13 @@ Raw原21列顺序：ts_code,trade_date,end_date,freq,open,high,low,close,pre_clo
 
 ### 4.3 实施顺序
 
-修订范围和保留源验收→清退代码/隔离回归→部署重载及在途writer核实→按白名单物理删除→一次范围/剩余入口/保留文件对账。仅删除源码或隐藏UI不算清退完成；仅删除文件但留写入口也不算完成。禁止清空Dagster数据库或全局staging。
+1. 清退第4.2节的旧定义、调度分支和所有新写入入口，保留公共能力；不同时开发月线覆盖或新码修订。
+2. 按真实改动运行定义、sensor、旧参数拒绝和共享函数的隔离测试；删除边界只用临时目录验证，不请求源、不跑历史生成链。
+3. 部署并重载代码定义，只读确认三个退役asset/job及9项check不再active、两个保留sensor仍有复权分支且原状态/水位未重置；不提交正式job、不评价或启停正式sensor。
+4. 确认没有相关job和手动CLI写者，按第4.1节一次核对目录并物理删除；若仍有写者，等其退出后再执行，不影响其他任务和服务。
+5. 一次收尾确认旧目录和活动入口消失，保留根及共享对象未被误删，记录结果；不对行情内容或全湖文件重新对账。
+
+第一条可独立关闭，第二条Raw修订随后推进。仅隐藏UI或删源码不算物理删除完成，仅删文件却留写入口也不算完成；不清空Dagster数据库或全局staging。
 
 ## 5. 消费者和改动范围
 
@@ -91,16 +99,18 @@ CodeGraph explore/callers/impact已覆盖入口、路径与StockWeeklySource/Sto
 
 活动定义、jobs/checks/sensors、period_status、schema/catalog/config/path、历史bootstrap/CLI、事件登记和Prod只读适配器均是消费者。definitions.py使用load_from_defs_folder，遗留@asset仍会加载，所以不能只从job或catalog移除。没有发现Wealth/QTF或业务API直接读取这些DG周期Raw；Prod同名Definition/模型、周线进度页及供数协议不是DG退役对象。
 
-既有回归至少覆盖test_stock_weekly_contract/definitions/update、test_raw_stock_weekly_update_job_sensor、test_stock_period_checks、inventory/planner/capture/candidates/events、复权delivery/bootstrap replacement、asset_governance和incremental_governance。月线回归见其LLD。删除公共实现前要以全引用和实际剩余用途为准，不能删除仍在使用的月线绑定函数或复权B0恢复工具。
+复用已有引用审计，实施时只补核实际改动的符号和直接消费者，不重新审计全仓。最小回归以周/月definitions、两个sensor及改到的contract/catalog治理检查为主；原测试中期待旧对象存在的断言须同步移除或改成拒绝旧入口。仅当修改共享capture/delivery等行为时，增加相应直接消费者测试；不默认重跑inventory/planner/capture/candidates/events、bootstrap或整套历史链。月线仍使用的绑定函数及复权B0恢复能力必须保留，不能按文件名整块删除。
 
 ## 6. 正反验收
 
-- 保留源上市键不丢，三套OHLC合同/精度保持，异常修订的源/Prod/DG一致，其他月份/资产指纹不变；退市数据缺口不补。
-- 三个退役资产/job及9项check不再active，sensor不再等待旧源；旧CLI不能新写回已删除目录，不能遗留兼容双轨或自动fallback。
-- 删除精确白名单全部完成；保留根和共享父目录完整；symlink、新增文件、活动writer、未知归属均拒绝删除。
-- 保留周线闭合批按顺序推进，合法空批不造事件，历史修正和anchor都准确物化；旧revision/pending不因清退丢失。
-- 取消/TERM/退出发生在COPY、replace或checkpoint前后，已提交保留，可读回续跑；观测失败不回滚业务。
-- 不把物理存在、行数、cursor或旧check当成当前数据已正确。公式金样本与运行真实输入/持久化检查分工，一次收尾后不永久扫描全历史。
+| 必要检查 | 正向 | 反向 |
+| --- | --- | --- |
+| 旧入口清退 | 三个旧asset/job、9项check及catalog活动项消失；sensor不再等待旧源 | 旧source/CLI参数不能重新生成退役数据，不留fallback |
+| 共享能力保留 | 两复权定义/check/job、月线共享函数、分区及两个sensor保留；周revision/pending和月frontier沿用 | 误删公共函数、残留旧job引用或重置水位时，针对性定义/调用测试失败 |
+| 删除路径边界 | 临时目录内三个允许根可删除；正常新增文件纳入清单 | 错误根、越界、符号链接、未知归属和活动写者拒绝；保留根及共享父目录不删 |
+| 一次关闭 | 旧目录及活动入口已消失，保留对象仍在 | 残留旧目录、写入口或缺失保留对象不能报清退完成 |
+
+删除不验行情行数、schema、价格、上市覆盖、源/Prod/DG数值或公式；不扫描全部保留Parquet算hash。新码、完整月份、源分页、候选读回及COPY/replace取消恢复属于第二条修订或保留链自身的测试，不列入第一条默认验收。
 
 ## 7. 后续Silver接口边界（未实施）
 
