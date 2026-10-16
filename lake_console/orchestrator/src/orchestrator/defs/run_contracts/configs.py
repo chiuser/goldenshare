@@ -886,77 +886,63 @@ def _parse_hms_time(value: str) -> datetime_time:
     return datetime.strptime(value, "%H:%M:%S").time()
 
 
-class StockWeeklyAdjProdConfig(dg.Config):
-    """A closed Prod batch, never a direct-source request or an overwrite switch."""
+class StockPeriodRawConfig(dg.Config):
+    """Two retained Raw assets only; retired Prod-batch and overwrite parameters are rejected."""
 
     model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    contract_version: int = Field(default=1, strict=True)
-    delivery_batch_id: str
-    closure_revision: int = Field(strict=True, gt=0)
+    intent: Literal["daily", "history"] = "daily"
+    automatic_intent_date: str | None = None
+    stock_codes: list[str] = Field(default_factory=list)
+    request_id: str | None = None
 
-    @field_validator("contract_version")
+    @model_validator(mode="after")
+    def validate_history_intent(self):
+        from orchestrator.defs.run_contracts.stock_period import intent_id
+
+        if self.intent == "history":
+            intent_id(self.request_id)
+        return self
+
+    @field_validator("request_id")
     @classmethod
-    def validate_contract_version(cls, value):
-        if value != 1:
-            raise ValueError("unknown_adjusted_delivery_version")
+    def validate_request_id(cls, value):
+        from orchestrator.defs.run_contracts.stock_period import intent_id
+
+        return intent_id(value) if value is not None else None
+
+    @field_validator("automatic_intent_date")
+    @classmethod
+    def validate_intent_date(cls, value):
+        from datetime import date
+
+        if value is not None and date.fromisoformat(value).isoformat() != value:
+            raise ValueError("period_intent_date_invalid")
         return value
-
-    @field_validator("delivery_batch_id")
-    @classmethod
-    def validate_batch_id(cls, value):
-        from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
-            delivery_batch_id,
-        )
-
-        return delivery_batch_id(value)
 
 
 class StockWeeklyBootstrapEventChecksConfig(dg.Config):
-    """An approved frozen B0 event slice; no external run ID or source parameters."""
+    """Only the new direct-source execution receipt; retired B0 plans are rejected."""
 
     model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    plan_path: str = Field(description="本次已验收 B0 的 version 2 事件计划绝对路径。")
-    expected_plan_hash: str = Field(description="冻结事件计划 SHA256，由 CLI 读回后传入。")
-    checkpoint_path: str = Field(description="本批 staging checkpoint 路径，不是行情目标。")
-    start: int = Field(default=0, strict=True, ge=0)
-    count: int = Field(default=33, strict=True, ge=1, le=33)
+    run_id: str
 
-    @field_validator("expected_plan_hash")
+    @field_validator("run_id")
     @classmethod
-    def validate_plan_hash(cls, value):
-        from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
-            delivery_digest,
-        )
+    def validate_run_id(cls, value):
+        import re
 
-        return delivery_digest(value)
-
-
-def build_stock_weekly_adj_prod_run_config(batch_id, closure_revision):
-    config = StockWeeklyAdjProdConfig(
-        delivery_batch_id=batch_id, closure_revision=closure_revision
-    )
-    from orchestrator.defs.run_contracts.stock_weekly_adj_delivery import (
-        ADJUSTED_DELIVERY_ASSET,
-    )
-
-    return {"ops": {ADJUSTED_DELIVERY_ASSET: {"config": config.model_dump()}}}
+        if not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise ValueError("period_execution_id_invalid")
+        return value
 
 
-class StockMonthlyRawConfig(dg.Config):
-    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    write_mode: Literal["create_or_identical"] = "create_or_identical"
-    automatic_intent_date: str | None = None
+def build_stock_period_run_config(freq, intent_date):
+    from orchestrator.defs.run_contracts.stock_period import frequency
 
-
-def build_stock_monthly_update_job_run_config(source, intent_date):
-    from datetime import date
-
-    from orchestrator.defs.run_contracts.stock_monthly import monthly_asset_key
-
-    if date.fromisoformat(intent_date).isoformat() != intent_date:
-        raise ValueError("invalid_monthly_intent_date")
+    frequency(freq)
+    config = StockPeriodRawConfig(automatic_intent_date=intent_date)
     return {
         "ops": {
-            monthly_asset_key(source): {"config": {"automatic_intent_date": intent_date}}
+            f"raw_tushare_stk_period_bar_adj_{freq}": {"config": config.model_dump()}
         }
     }

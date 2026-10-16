@@ -40,8 +40,6 @@ def month_window(month: str) -> tuple[date, date]:
 
 def request_date_for_month(month: str) -> str:
     normalize_month_key(month)
-    if month == "2020-02":
-        return "20200228"
     first = date.fromisoformat(month + "-01")
     day = calendar.monthrange(first.year, first.month)[1]
     return f"{first.year:04d}{first.month:02d}{day:02d}"
@@ -52,10 +50,6 @@ def classify_month_date(value: str) -> tuple[str, MonthlyDateDisposition]:
         raise ValueError("source_date_must_be_yyyymmdd")
     parsed = date(int(value[:4]), int(value[4:6]), int(value[6:]))
     month = f"{parsed.year:04d}-{parsed.month:02d}"
-    if value == "20200229":
-        return month, MonthlyDateDisposition.EXCLUDED_VERSION
-    if value != request_date_for_month(month):
-        raise ValueError("unexpected_month_source_date")
     return month, MonthlyDateDisposition.ACCEPTED
 
 

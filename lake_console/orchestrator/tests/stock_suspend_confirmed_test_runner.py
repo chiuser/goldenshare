@@ -66,7 +66,7 @@ RESOURCE_SOURCE_FILES = (
     "defs/run_contracts/stock_monthly.py",
     "defs/anns_d_contract.py", "defs/run_contracts/dc_board.py",
     "defs/run_contracts/requests.py", "defs/run_contracts/run_keys.py",
-    "defs/run_contracts/stock_weekly_adj_delivery.py",
+
     "defs/run_contracts/configs.py",
     "defs/run_contracts/cn_a_derived_minute_bars.py",
     "seeds/__init__.py", "seeds/market/__init__.py", "seeds/market/major_indices.py",
@@ -116,6 +116,14 @@ INTEGRATION_SOURCE_FILES = (
 )
 # Frozen exact source inventory for full consumer/governance discovery.
 CONSUMER_SOURCE_FILES = (
+    # Direct-source weekly/monthly Raw import closure; source reads only.
+    "defs/run_contracts/stock_period.py",
+    "defs/stock_period_source.py",
+    "defs/io/stock_period_raw.py",
+    "defs/stock_period_update.py",
+    "defs/bootstrap/stock_period_history.py",
+    "defs/bootstrap/stock_period_history_cli.py",
+
     "defs/stock_factor_price_checks.py",
     "defs/bootstrap/stock_adj_factor_history_repair.py",
     "defs/bootstrap/stock_adj_factor_history_repair_candidates.py",
@@ -832,27 +840,27 @@ CONSUMER_SOURCE_FILES = (
     "defs/jobs/stock_weekly.py",
     "defs/stock_weekly_update.py",
     "defs/run_contracts/stock_monthly.py",
-    "defs/stock_monthly_planner.py",
-    "defs/stock_monthly_point.py",
+
+
     "defs/stock_monthly_update.py",
     "defs/stock_monthly_update_state.py",
-    "defs/source_readiness/stock_monthly.py",
+
     "defs/assets/stock_monthly.py",
     "defs/checks/stock_monthly_checks.py",
     "defs/jobs/stock_monthly.py",
     "defs/sensors/raw_stock_monthly_update_job_sensor.py",
 
-    "defs/bootstrap/stock_monthly_files.py",
-    "defs/bootstrap/stock_monthly_capture.py",
-    "defs/bootstrap/stock_monthly_promote.py",
-    "defs/bootstrap/stock_monthly_delivery.py",
-    "defs/bootstrap/stock_monthly_history.py",
-    "defs/bootstrap/stock_monthly_history_plan.py",
+
+
+
+
+
+
     "defs/bootstrap/stock_monthly_history_cli.py",
-    "defs/bootstrap/stock_monthly_events.py",
+
     "defs/bootstrap/stock_monthly_events_cli.py",
-    "defs/io/stock_monthly_raw.py",
-    "defs/prod_db/stock_monthly.py",
+
+
     "defs/bootstrap/anns_d_event_files.py",
     "defs/bootstrap/anns_d_event_instance.py",
     "defs/bootstrap/anns_d_event_state.py",
@@ -860,20 +868,20 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/anns_d_events_cli.py",
     "defs/stock_weekly_update_state.py",
     "defs/stock_period_checks.py",
-    "defs/source_readiness/stock_weekly.py",
+
     "defs/sensors/raw_stock_weekly_update_job_sensor.py",
-    "defs/stock_weekly_planner.py",
-    "defs/stock_weekly_source.py",
-    "defs/bootstrap/stock_weekly_capture.py",
-    "defs/bootstrap/stock_weekly_candidates.py",
-    "defs/bootstrap/stock_weekly_promote.py",
-    "defs/io/stock_weekly_raw.py",
+
+
+
+
+
+
     # Closed weekly delivery imports from b49d9cdc; exact source reads only.
-    "defs/prod_db/stock_weekly_adj_delivery.py",
-    "defs/run_contracts/stock_weekly_adj_delivery.py",
-    "defs/stock_weekly_adj_delivery.py",
-    "defs/stock_weekly_adj_feed.py",
-    "defs/stock_weekly_adj_run.py",
+
+
+
+
+
     "defs/stock_weekly_file_checks.py",
 
 )

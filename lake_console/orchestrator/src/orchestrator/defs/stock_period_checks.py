@@ -24,4 +24,9 @@ def verify_period_materialization(record, partition, path, *, rows=None):
         or (rows is not None and recorded_rows != rows)
     ):
         raise ValueError("period_materialization_partition_path_or_rows_invalid")
+    from orchestrator.defs.io.stock_period_raw import file_version
+
+    version = getattr(metadata.get("goldenshare/period_file_version"), "value", None)
+    if version != file_version(path):
+        raise ValueError("period_materialization_file_version_invalid")
     return recorded_rows

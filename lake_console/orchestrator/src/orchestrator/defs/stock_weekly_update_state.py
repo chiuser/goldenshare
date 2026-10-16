@@ -7,9 +7,7 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     asset_check_record_evaluation,
     asset_check_record_succeeded,
 )
-from orchestrator.defs.bootstrap.stock_weekly_candidates import (
-    partition_path,
-)
+from orchestrator.defs.paths import raw_stk_period_bar_adj_week_path
 from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_asset_key,
     weekly_check_names,
@@ -107,7 +105,7 @@ def weekly_daily_intent_submitted(instance, source, run_key):
 
 
 def weekly_period_status(instance, root, source, week):
-    path = partition_path(root, source, week)
+    path = raw_stk_period_bar_adj_week_path(root, week)
     record, ready = weekly_event_binding(
         instance,
         dg.AssetKey(weekly_asset_key(source)),

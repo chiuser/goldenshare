@@ -1,25 +1,20 @@
-"""Retired identities fail before source, target creation or frozen-plan reuse."""
+"""Retired datasets, old plans and write parameters are rejected before doing any IO."""
 
-from dataclasses import replace
-import json
 import pytest
-from orchestrator.defs.bootstrap.stock_weekly_history_cli import load_inventory
-from orchestrator.defs.bootstrap.stock_weekly_capture import WeeklyCaptureError
-from orchestrator.defs.run_contracts.stock_weekly import (
-    StockWeeklySource,
-    weekly_asset_key,
-)
+
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
     monthly_asset_key,
 )
-from orchestrator.defs.stock_monthly_point import deliver_month_intent
-from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
-from .stock_weekly_capture_test_support import prod_plan
+from orchestrator.defs.run_contracts.stock_weekly import (
+    StockWeeklySource,
+    weekly_asset_key,
+)
 
 
-@pytest.mark.parametrize("source", ["primary_unadjusted", "weekly"])
-def test_retired_source_rejected_before_work(tmp_path, source):
+@pytest.mark.parametrize("source", ["primary_unadjusted", "weekly", "monthly"])
+def test_retired_source_rejected(source):
     for resolve in (
         StockWeeklySource,
         StockMonthlySource,
@@ -28,55 +23,28 @@ def test_retired_source_rejected_before_work(tmp_path, source):
     ):
         with pytest.raises(ValueError):
             resolve(source)
-    with pytest.raises(ValueError):
-        replace(prod_plan(), source=source)
-    with pytest.raises(ValueError):
-        deliver_month_intent(
-            source,
-            "2026-08",
-            target_root=tmp_path / "lake",
-            staging_root=tmp_path / "stage",
-            worker=None,
-            execution_id="offline",
-            upstream_bindings=lambda _: pytest.fail("upstream called"),
-            fetch=lambda *_: pytest.fail("source called"),
-        )
-    assert not (tmp_path / "lake").exists() and not (tmp_path / "stage").exists()
 
 
-@pytest.mark.parametrize(
-    "kind,source",
-    [
-        ("weekly_history_inventory", "weekly"),
-        ("prod_weekly_inventory", "primary_unadjusted"),
-    ],
-)
-def test_retired_inventory_is_rejected_before_old_proofs_are_read(
-    tmp_path, kind, source
-):
-    inventory = tmp_path / "inventory.json"
-    inventory.write_text(
-        json.dumps(
-            {
-                "kind": kind,
-                "version": 1,
-                "source": source,
-                "candidates": {"path": "/not-read"},
-            }
-        )
-    )
-    with pytest.raises((ValueError, WeeklyCaptureError)):
-        load_inventory(inventory)
+def test_all_old_mutating_cli_parameters_reject_before_io(tmp_path):
+    from orchestrator.defs.bootstrap.stock_monthly_events_cli import main as monthevents
+    from orchestrator.defs.bootstrap.stock_monthly_history_cli import main as monthly
+    from orchestrator.defs.bootstrap.stock_weekly_events_cli import main as weekevents
+    from orchestrator.defs.bootstrap.stock_weekly_history_cli import main as weekly
+
+    for entry in (weekly, monthly, weekevents, monthevents):
+        with pytest.raises(ValueError, match="retired"):
+            entry(["apply", "--plan", str(tmp_path / "does-not-exist.json")])
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_catalog_contains_only_retained_period_sources():
-    keys = {x.asset_key for x in LAKE_ASSET_CATALOG}
+def test_catalog_retains_only_the_two_direct_source_period_datasets():
+    entries = {e.asset_key: e for e in LAKE_ASSET_CATALOG}
     assert {
         "raw_tushare_stk_period_bar_week",
         "raw_tushare_stk_period_bar_month",
         "raw_tushare_weekly",
-    }.isdisjoint(keys)
-    assert {
-        "raw_tushare_stk_period_bar_adj_week",
-        "raw_tushare_stk_period_bar_adj_month",
-    } <= keys
+    }.isdisjoint(entries)
+    for freq in ("week", "month"):
+        entry = entries["raw_tushare_stk_period_bar_adj_" + freq]
+        assert entry.source_api == "stk_week_month_adj"
+        assert len(entry.ingestion_sources) == 1

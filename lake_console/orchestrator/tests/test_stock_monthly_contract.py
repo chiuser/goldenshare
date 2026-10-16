@@ -23,7 +23,7 @@ from orchestrator.defs.run_contracts.stock_monthly import (
 @pytest.mark.parametrize(
     "month,anchor",
     [
-        ("2020-02", "20200228"),
+        ("2020-02", "20200229"),
         ("2024-02", "20240229"),
         ("2026-05", "20260531"),
         ("2026-09", "20260930"),
@@ -31,7 +31,7 @@ from orchestrator.defs.run_contracts.stock_monthly import (
         ("0001-01", "00010131"),
     ],
 )
-def test_month_anchor_preserves_exception_and_calendar_month_end(month, anchor):
+def test_request_anchor_is_calendar_month_end(month, anchor):
     assert request_date_for_month(month) == anchor
     assert classify_month_date(anchor) == (month, MonthlyDateDisposition.ACCEPTED)
 
@@ -61,28 +61,27 @@ def test_year_end_window_is_half_open():
 
 @pytest.mark.parametrize(
     "value",
-    ["20260529", "20240228", "20200227", "20260229", "2026-05-31", "２０２６０５３１"],
+    ["20260229", "2026-05-31", "２０２６０５３１"],
 )
 def test_unapproved_date_variants_are_rejected(value):
     with pytest.raises(ValueError):
         classify_month_date(value)
 
 
-def test_feb29_is_explicit_exclusion_not_remapped_or_accepted():
+def test_feb29_and_28_are_both_preserved():
     assert classify_month_date("20200229") == (
         "2020-02",
-        MonthlyDateDisposition.EXCLUDED_VERSION,
+        MonthlyDateDisposition.ACCEPTED,
     )
     inventory = MonthlyYearInventory(
         2020, ("000001.SZ",), (("20200228", 1), ("20200229", 1))
     )
-    assert (inventory.source_rows, inventory.excluded_rows) == (2, 1)
+    assert (inventory.source_rows, inventory.excluded_rows) == (2, 0)
 
 
 @pytest.mark.parametrize(
     "source,api,columns",
     [
-
         (StockMonthlySource.PRIMARY_ADJUSTED, "stk_week_month_adj", 21),
     ],
 )
@@ -123,7 +122,7 @@ def test_request_builder_owns_frequency_anchor_and_offset():
     policy = StockMonthlyPolicy(page_limit=5)
     assert monthly_point_request("2020-02", 1, policy) == {
         "freq": "month",
-        "trade_date": "20200228",
+        "trade_date": "20200229",
         "limit": 5,
         "offset": 5,
     }

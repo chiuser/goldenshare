@@ -1,13 +1,9 @@
 """Adjusted weekly Raw delivered by immutable Prod batches."""
 
-from pathlib import Path
-from time import monotonic
-
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_week_ends
 from orchestrator.defs.paths import (
-    DEFAULT_LAKE_STAGING_ROOT,
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
@@ -22,7 +18,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.configs import StockWeeklyAdjProdConfig
+from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -34,23 +30,7 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     weekly_source_api,
     weekly_source_doc,
 )
-from orchestrator.defs.stock_weekly_adj_run import deliver_closed_adjusted_batch
-
-
-def _cancel_probe(context):
-    checked_at, canceled = 0.0, False
-
-    def cancel():
-        nonlocal checked_at, canceled
-        if monotonic() - checked_at >= 2:
-            checked_at = monotonic()
-            run = context.instance.get_run_by_id(context.run.run_id)
-            canceled = run is not None and run.status in (
-                dg.DagsterRunStatus.CANCELING, dg.DagsterRunStatus.CANCELED,
-            )
-        return canceled
-
-    return cancel
+from orchestrator.defs.stock_period_update import deliver_asset
 
 
 @dg.asset(
@@ -74,13 +54,7 @@ def _cancel_probe(context):
 )
 def raw_tushare_stk_period_bar_adj_week(
     context: dg.AssetExecutionContext,
-    config: StockWeeklyAdjProdConfig,
+    config: StockPeriodRawConfig,
     lake_root: LakeRootResource,
-):
-    """从Prod接收已闭合复权周线批；同键覆盖全部源字段，保留未返回的历史行。"""
-    lake_root.ensure_available_for_run()
-    yield from deliver_closed_adjusted_batch(
-        context, config, target_root=lake_root.root(),
-        staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
-        cancel=_cancel_probe(context), progress=lambda p: context.log.info(str(p)),
-    )
+) -> dg.MaterializeResult:
+    return deliver_asset(context, config, lake_root, "week")

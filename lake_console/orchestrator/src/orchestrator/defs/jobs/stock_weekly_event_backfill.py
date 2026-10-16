@@ -2,7 +2,7 @@
 
 import dagster as dg
 
-from orchestrator.defs.bootstrap.stock_weekly_events import BOOTSTRAP_CHECKS_JOB_NAME
+BOOTSTRAP_CHECKS_JOB_NAME = "raw_stk_period_bar_adj_week_event_backfill_job"
 from orchestrator.defs.ops.stock_weekly_bootstrap_checks import (
     report_stock_weekly_bootstrap_checks,
 )
@@ -11,7 +11,7 @@ from orchestrator.defs.ops.stock_weekly_bootstrap_checks import (
 @dg.job(
     name=BOOTSTRAP_CHECKS_JOB_NAME,
     executor_def=dg.in_process_executor,
-    description="手动补录已验收复权周线B0检查，每批最多33周；保留旧记录，可按同计划续跑。",
+    description="手动补录新直接源执行receipt的周线物化/checks；保留旧记录，只补缺失事件。",
 )
 def raw_stk_period_bar_adj_week_event_backfill_job():
     report_stock_weekly_bootstrap_checks()

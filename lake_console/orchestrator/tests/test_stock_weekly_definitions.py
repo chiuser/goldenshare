@@ -1,34 +1,34 @@
 """Retained weekly definitions and rejected retired write entries, entirely offline."""
 
 import importlib.util
+
 import dagster as dg
 import pytest
 from pydantic import ValidationError
+
 from orchestrator.defs.assets import stock_weekly as assets
 from orchestrator.defs.checks import stock_weekly_checks as checks
 from orchestrator.defs.jobs import stock_weekly as jobs
-from orchestrator.defs.run_contracts.configs import StockWeeklyAdjProdConfig
+from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_check_names,
 )
-from .stock_weekly_capture_test_support import prod_frame
-
-
-def frame_for(source):
-    StockWeeklySource(source)
-    return prod_frame()
 
 
 def definition_for(tmp_path, source):
     from orchestrator.defs.resources import LakeRootResource
-    from orchestrator.defs.run_contracts.stock_weekly import weekly_asset_key, weekly_job_name
+    from orchestrator.defs.run_contracts.stock_weekly import (
+        weekly_asset_key,
+        weekly_job_name,
+    )
 
     StockWeeklySource(source)
     asset = getattr(assets, weekly_asset_key(source))
     check_defs = [getattr(checks, name) for name in weekly_check_names(source)]
     definitions = dg.Definitions(
-        assets=[asset], asset_checks=check_defs,
+        assets=[asset],
+        asset_checks=check_defs,
         jobs=[getattr(jobs, weekly_job_name(source))],
         resources={"lake_root": LakeRootResource(root_path=str(tmp_path / "lake"))},
     )
@@ -74,15 +74,11 @@ def test_retired_point_writer_modules_and_config_are_removed():
 @pytest.mark.parametrize(
     "extra",
     [
+        {"delivery_batch_id": "old", "closure_revision": 1},
         {"code_list_path": "x"},
-        {"automatic_intent_date": "2026-10-15"},
         {"write_mode": "force"},
     ],
 )
-def test_retained_job_rejects_old_direct_source_options(extra):
+def test_retained_job_rejects_old_prod_options(extra):
     with pytest.raises(ValidationError):
-        StockWeeklyAdjProdConfig(
-            delivery_batch_id="95fd234a-e4fb-40d1-9c37-5c7ef88c6d55",
-            closure_revision=1,
-            **extra,
-        )
+        StockPeriodRawConfig(**extra)

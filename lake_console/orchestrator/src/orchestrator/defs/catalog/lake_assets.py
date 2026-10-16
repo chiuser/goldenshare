@@ -3814,17 +3814,17 @@ LAKE_ASSET_CATALOG += tuple(
         partition_model=model,
         source_api=weekly_source_api(source),
         source_doc=weekly_source_doc(source),
-        ingestion_sources=(IngestionSource.PROD_DB_READONLY,),
-        default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
-        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
         blocking_check_names=weekly_check_names(source),
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(
-            batch_grain="closed_batch/year",
+            batch_grain="stock/frequency; period",
             compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="immutable_prod_closed_batch_explicit_columns",
-            notes="仅从Prod闭合批接收新增及历史修正；每unit12000行/8MiB、整批256MiB；年度最多54目标/128文件，DuckDB512MiB、2线程；同键21列覆盖，未返回旧键保留。",
+            source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
+            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前周；单股历史无日期过滤、两频下载；21列原样保存，分区一次组装原子替换。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3860,13 +3860,13 @@ LAKE_ASSET_CATALOG += tuple(
         data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT, column_schema=schema,
         path_template=lake_path_template(raw_stock_monthly_path(PATH_TEMPLATE_LAKE_ROOT, source, PATH_TEMPLATE_PARTITION_KEY)),
         partition_model=model, source_api=monthly_source_api(source), source_doc=monthly_source_doc(source),
-        ingestion_sources=(IngestionSource.PROD_DB_READONLY, IngestionSource.TUSHARE_API),
-        default_daily_ingestion_source=IngestionSource.TUSHARE_API, bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API, bootstrap_sources=(IngestionSource.TUSHARE_API,),
         blocking_check_names=monthly_check_names(source), write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-        performance_contract=_perf(batch_grain="source/month", compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="bounded_complete_month_explicit_fields",
-            notes="年度bootstrap；每日19:30只处理完整月，复权单源；6000行/页、4页、每页3次；31日线文件/320000参考行向量化审计；2020-02仅28日；备用不自动使用。"),
+        performance_contract=_perf(batch_grain="stock/frequency; period", compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
+            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前月；保留20200228和20200229源记录，不扫描整月日线；历史刷新完整替换目标股票。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 

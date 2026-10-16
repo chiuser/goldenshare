@@ -1,143 +1,141 @@
-"""Actual isolated monthly jobs with three blocking checks and correct partitions."""
+"""Actual retained jobs and blocking checks against only temporary files/instances."""
+
+import json
 
 import dagster as dg
 import pytest
-from pydantic import ValidationError
 
-from orchestrator.defs.assets import stock_monthly as assets
-from orchestrator.defs.checks import stock_monthly_checks as checks
-from orchestrator.defs.jobs import stock_monthly as jobs
-from orchestrator.defs.partitions import cn_a_stock_months
-from orchestrator.defs.resources import LakeRootResource, TushareResource
-from orchestrator.defs.run_contracts.configs import StockMonthlyRawConfig
-from orchestrator.defs.run_contracts.stock_monthly import (
-    StockMonthlySource,
-    monthly_asset_key,
-    monthly_check_names,
-    monthly_job_name,
+from orchestrator.defs.io.stock_period_raw import atomic_json, connection
+from orchestrator.defs.run_contracts.stock_period import FIELDS
+
+
+@pytest.mark.parametrize(
+    "freq,partition,today,prior,days",
+    [
+        (
+            "month",
+            "2020-02",
+            "2020-02-28",
+            "2020-01",
+            ["2020-02-27", "2020-02-28", "2020-03-02"],
+        ),
+        (
+            "week",
+            "2026-10-16",
+            "2026-10-16",
+            "2026-10-09",
+            ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"],
+        ),
+    ],
 )
-from orchestrator.defs.stock_monthly_point import deliver_month_intent
-from orchestrator.defs.stock_monthly_update_state import monthly_period_status
+def test_actual_job_check_events_and_partition(
+    tmp_path, monkeypatch, freq, partition, today, prior, days
+):
+    from orchestrator.defs import paths
+    from orchestrator.defs.assets import stock_monthly, stock_weekly
+    from orchestrator.defs.bootstrap import stock_period_history
+    from orchestrator.defs.checks import stock_monthly_checks, stock_weekly_checks
+    from orchestrator.defs.jobs import stock_monthly as monthly_jobs
+    from orchestrator.defs.jobs import stock_weekly as weekly_jobs
+    from orchestrator.defs.resources import LakeRootResource
+    from orchestrator.defs.run_contracts.configs import build_stock_period_run_config
 
-from .test_stock_monthly_update import frame_for, setup_reference
-
-
-@pytest.mark.parametrize("source", tuple(StockMonthlySource))
-def test_actual_job_check_events_and_partition(tmp_path, monkeypatch, source):
-    lake, staging, _ = setup_reference(tmp_path)
+    root = tmp_path / "lake"
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    monkeypatch.setattr(paths, "DEFAULT_LAKE_STAGING_ROOT", str(staging))
+    monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda self: None)
+    with connection(tmp_path / "fixtures") as con:
+        for p, sql, args in [
+            (
+                paths.silver_stock_basic_path(root),
+                "SELECT '000001.SZ' ts_code,'L' list_status,'CNY' curr_type",
+                [],
+            ),
+            (
+                paths.silver_stock_identity_map_path(root),
+                "SELECT '000001.SZ' source_ts_code,'000001.SZ' latest_ts_code,'confirmed' confidence",
+                [],
+            ),
+            (
+                paths.silver_trade_calendar_path(root),
+                "SELECT unnest(?)::DATE cal_date,'SSE' exchange,1 is_open",
+                [days],
+            ),
+        ]:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            con.sql(sql, params=args).write_parquet(str(p))
+    atomic_json(
+        staging / "stock_period" / "baseline.json",
+        {"status": "ready", "listed": ["000001.SZ"]},
+    )
+    atomic_json(
+        staging / "stock_period" / "daily.json",
+        {
+            "completed_through": {freq: prior},
+            "last_refresh": {},
+            "factor_through": today,
+        },
+    )
     calls = []
 
-    def fetch(worker, params, *args):
+    def transport(params):
         calls.append(params)
-        return frame_for(source)
+        dates = ["20200228", "20200229"] if freq == "month" else ["20261016"]
+        return json.dumps(
+            {
+                "code": 0,
+                "data": {
+                    "fields": list(FIELDS),
+                    "items": [
+                        ["000001.SZ", d, today.replace("-", ""), freq] + [1.25] * 17
+                        for d in dates
+                    ],
+                },
+            }
+        ).encode()
 
-    def deliver(*args, **kwargs):
-        kwargs["staging_root"] = staging
-        kwargs["fetch"] = fetch
-        return deliver_month_intent(*args, **kwargs)
-
-    monkeypatch.setattr(assets, "deliver_month_intent", deliver)
-    monkeypatch.setattr(
-        assets, "monthly_upstream_bindings", lambda instance, days: {"ids": list(days)}
+    monkeypatch.setattr(stock_period_history, "HttpPage", lambda **_: transport)
+    asset = getattr(
+        stock_weekly if freq == "week" else stock_monthly,
+        "raw_tushare_stk_period_bar_adj_" + freq,
     )
-    monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda self: None)
-    asset = getattr(assets, monthly_asset_key(source))
-    check_defs = [getattr(checks, name) for name in monthly_check_names(source)]
+    cm = stock_weekly_checks if freq == "week" else stock_monthly_checks
+    check_defs = [
+        getattr(cm, asset.key.path[0] + "_" + s + "_check")
+        for s in ("file_contract", "key_partition", "delivery_reconciliation")
+    ]
+    job = getattr(
+        weekly_jobs if freq == "week" else monthly_jobs,
+        "raw_stk_period_bar_adj_" + freq + "_update_job",
+    )
     definitions = dg.Definitions(
         assets=[asset],
         asset_checks=check_defs,
-        jobs=[getattr(jobs, monthly_job_name(source))],
-        resources={
-            "lake_root": LakeRootResource(root_path=str(lake)),
-            "tushare": TushareResource(token="offline-test"),
-        },
+        jobs=[job],
+        resources={"lake_root": LakeRootResource(root_path=str(root))},
     )
-    with dg.DagsterInstance.ephemeral() as instance:
-        instance.add_dynamic_partitions(cn_a_stock_months.name, ["2020-02"])
-        job = definitions.resolve_job_def(monthly_job_name(source))
-        result = job.execute_in_process(instance=instance, partition_key="2020-02")
+    instance_dir = tmp_path / "instance"
+    instance_dir.mkdir()
+    monkeypatch.setenv("DAGSTER_HOME", str(instance_dir))
+    (instance_dir / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
+    with dg.DagsterInstance.local_temp(str(instance_dir)) as instance:
+        instance.add_dynamic_partitions(
+            "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months",
+            [partition],
+        )
+        result = definitions.resolve_job_def(job.name).execute_in_process(
+            instance=instance,
+            partition_key=partition,
+            run_config=build_stock_period_run_config(freq, today),
+        )
         assert result.success
-        evaluations = [
+        checks = [
             e.event_specific_data
             for e in result.all_events
             if e.event_type_value == "ASSET_CHECK_EVALUATION"
         ]
-        assert len(evaluations) == 3 and all(
-            e.passed and e.blocking and e.partition == "2020-02" for e in evaluations
+        assert len(checks) == 3 and all(
+            c.passed and c.blocking and c.partition == partition for c in checks
         )
-        for name in monthly_check_names(source):
-            history = instance.event_log_storage.get_asset_check_execution_history(
-                dg.AssetCheckKey(asset.key, name), limit=1
-            )
-            assert history[0].partition == "2020-02"
-        assert all(c.partitions_def == cn_a_stock_months for c in check_defs)
-        assert job.asset_layer.executable_asset_keys == {asset.key}
-        assert monthly_period_status(instance, lake, source, "2020-02") == "ready"
-    assert calls == [
-        {"freq": "month", "trade_date": "20200228", "limit": 6000, "offset": 0}
-    ]
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {"write_mode": "overwrite"},
-        {"code_list_path": "/tmp/codes.csv"},
-        {"fallback": True},
-        {"source": "weekly"},
-    ],
-)
-def test_forbidden_config_rejected(kwargs):
-    with pytest.raises(ValidationError):
-        StockMonthlyRawConfig(**kwargs)
-
-
-@pytest.mark.parametrize("source", tuple(StockMonthlySource))
-def test_bootstrap_delivery_retains_null_cutoff_without_daily_reconstruction(
-    tmp_path, source
-):
-    import json
-
-    from orchestrator.defs.bootstrap.stock_monthly_delivery import (
-        read_month_bootstrap_delivery,
-    )
-    from orchestrator.defs.bootstrap.stock_monthly_promote import (
-        promote_month_candidates,
-    )
-
-    from .test_stock_monthly_bootstrap import prepared
-
-    store, lake, _, path, digest = prepared(tmp_path, source=source)
-    promote_month_candidates(store, path, digest)
-    audit = json.loads(path.read_text())
-    month = "2020-02"
-    item = next(r for r in audit["records"] if r["month"] == month)
-    from orchestrator.defs.paths import raw_stock_monthly_path
-
-    delivery = {
-        "delivery_method": "prod_month_bootstrap",
-        "audit_path": str(path),
-        "audit_hash": digest,
-        "source": source.value,
-        "month": month,
-        "path": str(raw_stock_monthly_path(lake, source, month)),
-        "rows": item["rows"],
-    }
-    with store.connection() as con:
-        proof = read_month_bootstrap_delivery(
-            delivery, lake, source, month, connection=con
-        )
-        assert (
-            proof["annual_captured_rows"] == 6
-            and proof["annual_excluded_rows"] == 2
-            and proof["rows"] == 2
-        )
-        assert (
-            con.execute(
-                "SELECT count(*) FROM monthly_candidate WHERE end_date IS NULL"
-            ).fetchone()[0]
-            == 2
-        )
-    path.write_text(path.read_text() + "changed")
-    with pytest.raises(ValueError, match="monthly_bootstrap_audit_changed"):
-        read_month_bootstrap_delivery(delivery, lake, source, month)
+    assert len(calls) == 1

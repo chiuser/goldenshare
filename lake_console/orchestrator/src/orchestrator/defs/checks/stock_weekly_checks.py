@@ -3,13 +3,8 @@
 import dagster as dg
 
 from orchestrator.defs.assets.stock_weekly import raw_tushare_stk_period_bar_adj_week
-from orchestrator.defs.bootstrap.stock_weekly_candidates import (
-    partition_path,
-)
-from orchestrator.defs.bootstrap.stock_weekly_capture import (
-    WeeklyCaptureError,
-)
 from orchestrator.defs.partitions import cn_a_stock_week_ends
+from orchestrator.defs.paths import raw_stk_period_bar_adj_week_path
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stock_weekly import (
@@ -39,7 +34,7 @@ def _build_check(asset, source, name, kind):
                 verify_period_materialization(
                     records[0] if records else None,
                     week,
-                    partition_path(lake_root.root(), source, week),
+                    raw_stk_period_bar_adj_week_path(lake_root.root(), week),
                     rows=rows,
                 )
             return dg.AssetCheckResult(
@@ -59,9 +54,7 @@ def _build_check(asset, source, name, kind):
             )
         except Exception as error:  # noqa: BLE001 -- Emit a bounded check failure without source/secret text.
             reason = (
-                str(error)
-                if isinstance(error, WeeklyCaptureError)
-                else "formal_file_invalid"
+                str(error) if isinstance(error, ValueError) else "formal_file_invalid"
             )
         return dg.AssetCheckResult(
             passed=False,
