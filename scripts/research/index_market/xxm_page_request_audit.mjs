@@ -16,6 +16,8 @@ const entry = [
   ["api/indexDetailApiClient.ts", "fetchIndexDetailMinutes, fetchIndexDetailMinuteIndicators, fetchIndexDetailKline"],
   ["api/indexNineTurnLoader.ts", "loadIndexNineTurnSeries"],
   ["api/indexDetailRequestScheduler.ts", "indexDetailRequests"],
+  ["xxm/adapter.ts", "buildXxmViewModel"],
+  ["api/indexMinuteViewModelAdapter.ts", "buildIndexMinuteChartViewModel"],
   ["xxm/apiClient.ts", "fetchXxm"], ["xxm-forecast/apiClient.ts", "fetchForecast"],
 ].map(([path, names]) => `export { ${names} } from ${JSON.stringify(prefix + path)};`).join("\n");
 const compiled = await build({ stdin: { contents: entry, resolveDir: root, sourcefile: "xxm-page-audit.ts" },
@@ -44,9 +46,9 @@ globalThis.fetch = async (input, options) => {
 };
 const persist = () => writeFile(resolve(output, "page-mix.json"), JSON.stringify({ rounds, requests }, null, 2) + "\n");
 const periods = ["day", "m60", "m90", "m120"];
-const endDate = "2026-10-14";
-async function runTab(tab, selected, label, tabIndex) {
+async function runTab(tab, selected, label, tabIndex, auditContext) {
   return context.run({ label, tab: tabIndex }, async () => {
+    const endDate = auditContext.businessDate;
     const signal = new AbortController().signal;
     // Enqueue predictions first: the real scheduler must prioritize chart reads.
     const predictions = periods.map(period => tab.fetchForecast(period, undefined, signal));
@@ -56,31 +58,49 @@ async function runTab(tab, selected, label, tabIndex) {
         tab.fetchIndexDetailMinuteIndicators({ tsCode: "000001.SH", freq: Number(selected.slice(1)), endDate, limit: 500 })]);
     const nine = ["day", "15", "30", "60", "90", "120"].map(period => tab.loadIndexNineTurnSeries(
       { subjectType: "index", tsCode: "000001.SH", period, endDate, limit: period === "day" ? 300 : 500 }, { signal }));
-    const layer = tab.fetchXxm({ tsCode: "000001.SH", period: selected, startDate: "2026-01-01", endDate, limit: 500 }, signal);
+    const layer = tab.fetchXxm({ tsCode: "000001.SH", period: selected, startDate: "1990-01-01", endDate, limit: 500 }, signal);
     const values = await Promise.all([...predictions, chart, ...nine, layer]);
     for (let i = 0; i < periods.length; i++) {
       const value = values[i], period = periods[i];
+      assert.equal(value.detectorSpecHash, auditContext.specHash);
       assert.equal(value.period, periods[i]); assert.equal(value.dataStatus, "READY");
       assert.equal(value.computedThrough, periods[i] === "day" ? endDate : `${endDate}T15:00:00+08:00`);
       assert(value.display.targetText && value.display.conditionsText && value.display.asOfText);
       await writeFile(resolve(output, `page-${label}-tab${tabIndex}-${period}.json`), JSON.stringify(value, null, 2) + "\n");
     }
+    const chartValue = values[periods.length], layerValue = values.at(-1);
+    assert.equal(layerValue.algorithmVersion, auditContext.algorithmVersion);
+    assert.equal(layerValue.specHash, auditContext.specHash);
+    assert(Array.isArray(layerValue.bottomHistories));
+    const chartModel = selected === "day" ? null : tab.buildIndexMinuteChartViewModel(chartValue[0], chartValue[1]);
+    const chartPoints = chartModel ? chartModel.points.map(p => ({ time:p.time,close:p.close,dif:p.dif,dea:p.dea,macd:p.macd }))
+      : chartValue.bars.map(b => ({time:b.tradeDate,close:b.close,dif:b.factors.macd.dif,dea:b.factors.macd.dea,macd:b.factors.macd.macd}));
+    const vm = tab.buildXxmViewModel(layerValue,chartPoints,selected,"000001.SH",chartModel?.indicatorVersion ?? null);
+    await writeFile(resolve(output,`layer-${label}-tab${tabIndex}.json`),JSON.stringify(layerValue,null,2)+"\n");
+    await writeFile(resolve(output,`view-${label}-tab${tabIndex}.json`),JSON.stringify({markers:vm.markers,byTime:Array.from(vm.byTime.entries())},null,2)+"\n");
   });
 }
 for (const selected of periods) {
   for (const tabCount of [1, 2]) {
     for (const mode of ["cold", "warm"]) {
       const label = `${selected}-${tabCount}tabs-${mode}`;
+      const contextStart = performance.now();
+      const contextResponse = await nativeFetch(`${base}/__audit__/context`); assert(contextResponse.ok);
+      const auditContext = await contextResponse.json();
+      const contextSeconds = (performance.now()-contextStart)/1000;
       const reset = await nativeFetch(`${base}/__audit__/reset?fresh=${mode === "cold" ? 1 : 0}`);
       assert(reset.ok);
       const before = requests.length, started = performance.now();
-      const settled = await Promise.allSettled(tabs.slice(0, tabCount).map((tab, index) => runTab(tab, selected, label, index + 1)));
+      const settled = await Promise.allSettled(tabs.slice(0, tabCount).map((tab, index) => runTab(tab, selected, label, index + 1, auditContext)));
       const metrics = await (await nativeFetch(`${base}/__audit__/metrics`)).json();
+      const contextAfter = await (await nativeFetch(`${base}/__audit__/context`)).json();
+      const dateCutover = auditContext.businessDate !== contextAfter.businessDate;
       const batch = requests.slice(before);
       const row = { label, selected, tabCount, mode, requests: batch.length,
-        pageSeconds: (performance.now() - started) / 1000, maxHttpSeconds: Math.max(...batch.map(r => r.seconds)), metrics,
+        pageSeconds: (performance.now() - started) / 1000, contextSeconds, auditContext, contextAfter, dateCutover, maxHttpSeconds: Math.max(...batch.map(r => r.seconds)), metrics,
         errors: settled.filter(r => r.status === "rejected").map(r => String(r.reason)) };
       rounds.push(row); await persist(); console.log(JSON.stringify(row));
+      assert.equal(dateCutover,false,"Business date cutover: repeat in a new output batch");
       assert.equal(row.errors.length, 0, JSON.stringify(row));
       assert(batch.every(r => r.httpStatus === 200 && r.seconds <= 4), JSON.stringify(row));
       assert(metrics.maxComputeSeconds <= .2);

@@ -1,0 +1,5 @@
+[PASS] dead-absolute-links
+[PASS] ds-store-noise
+[PASS] tushare-index-consistency
+
+Docs integrity check passed.

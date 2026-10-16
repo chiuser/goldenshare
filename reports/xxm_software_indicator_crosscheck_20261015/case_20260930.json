@@ -1,0 +1,161 @@
+{
+  "recordedAt": "2026-10-15T20:00:54.656178+08:00",
+  "scope": "上证2026-09-30日线与60分钟新软件截图数值核对；不改算法／参数／正式数据",
+  "symbol": "000001.SH",
+  "date": "2026-09-30",
+  "codeCommit": "14d52e1549ab86a51bf48f873a66c3a71b9129f9",
+  "sourceCodeSha256": "52fe53e1bcd09ccbfb424e2b1510e5912d2b1e724743fa8ca551d4bdd1de379c",
+  "images": {
+    "day": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png",
+      "originalAttachmentName": "codex-clipboard-e0fb3bcc-9818-40dd-a207-2bb951f8ad0b.png",
+      "sha256": "3be7916e40673b97b080832f40e82705abd06ec26ee07cc5253719fdc556273e",
+      "dateDirectlyVisible": "2026/09/30",
+      "periodDirectlyVisible": "日线",
+      "indicatorLabel": "定量结构(12,26,9)",
+      "readingMethod": "Manual transcription after viewing original-resolution image; histogram read directly, never inferred from rounded DIF/DEA",
+      "originalBytesPreserved": true
+    },
+    "m60": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png",
+      "originalAttachmentName": "codex-clipboard-f9495c81-e275-4fda-9b32-d6ba255cb9ba.png",
+      "sha256": "543f073ab859e8ae761e889ecb1fcce33e0b04c2e7770adb495a12c61aa4cb70",
+      "dateDirectlyVisible": "2026/09/30",
+      "periodDirectlyVisible": "60分钟",
+      "indicatorLabel": "定量结构(12,26,9)",
+      "readingMethod": "Manual transcription after viewing original-resolution image; histogram read directly, never inferred from rounded DIF/DEA",
+      "originalBytesPreserved": true
+    }
+  },
+  "preregistration": {
+    "path": "reports/xxm_software_indicator_crosscheck_20261015/pre_registered_nodes.json",
+    "sha256": "ef4ef44264ca171c76f2652343be6174f4150559f5f06b36e5eb2b991009269f",
+    "selectionMadeBeforeTheseImages": true,
+    "selectedDatePeriods": 12
+  },
+  "sourceEvidence": {
+    "path": "reports/xxm_software_indicator_crosscheck_20261015/live_probe_20260930.json",
+    "sha256": "bafea9e7d762a14673340b05f0ad420ab1226abd79e3370661e50cf5fbe71c66",
+    "databaseReadOnly": true,
+    "minuteReadOnly": true,
+    "dailyRelation": "core_serving.index_factor_pro",
+    "dailyFields": [
+      "macd_dif_bfq",
+      "macd_dea_bfq",
+      "macd_bfq"
+    ],
+    "minuteRelation": "formal Gold bars + technical indicators",
+    "minuteTimeVisible": false,
+    "minuteTimeAlignment": "2026-09-30 15:00 inferred from date, rightmost bar, unique high/low/close match among 8 real 60-minute bars; NOT an explicit timestamp read from the image"
+  },
+  "comparisons": [
+    {
+      "date": "2026-09-30",
+      "period": "day",
+      "sourceTime": "2026-09-30",
+      "indicator": "dif",
+      "softwareDisplayed": "-17.809",
+      "ourActual": "-17.809",
+      "ourShownAt3Decimals": "-17.809",
+      "softwareMinusOurs": "0.000",
+      "sameAt3Decimals": true,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png"
+    },
+    {
+      "date": "2026-09-30",
+      "period": "day",
+      "sourceTime": "2026-09-30",
+      "indicator": "dea",
+      "softwareDisplayed": "-8.633",
+      "ourActual": "-8.633",
+      "ourShownAt3Decimals": "-8.633",
+      "softwareMinusOurs": "0.000",
+      "sameAt3Decimals": true,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png"
+    },
+    {
+      "date": "2026-09-30",
+      "period": "day",
+      "sourceTime": "2026-09-30",
+      "indicator": "hist",
+      "softwareDisplayed": "-18.353",
+      "ourActual": "-18.352",
+      "ourShownAt3Decimals": "-18.352",
+      "softwareMinusOurs": "-0.001",
+      "sameAt3Decimals": false,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png"
+    },
+    {
+      "date": "2026-09-30",
+      "period": "m60",
+      "sourceTime": "2026-09-30T15:00:00",
+      "indicator": "dif",
+      "softwareDisplayed": "-20.710",
+      "ourActual": "-20.708305690352972",
+      "ourShownAt3Decimals": "-20.708",
+      "softwareMinusOurs": "-0.001694309647028",
+      "sameAt3Decimals": false,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png"
+    },
+    {
+      "date": "2026-09-30",
+      "period": "m60",
+      "sourceTime": "2026-09-30T15:00:00",
+      "indicator": "dea",
+      "softwareDisplayed": "-20.684",
+      "ourActual": "-20.665156261485517",
+      "ourShownAt3Decimals": "-20.665",
+      "softwareMinusOurs": "-0.018843738514483",
+      "sameAt3Decimals": false,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png"
+    },
+    {
+      "date": "2026-09-30",
+      "period": "m60",
+      "sourceTime": "2026-09-30T15:00:00",
+      "indicator": "hist",
+      "softwareDisplayed": "-0.053",
+      "ourActual": "-0.08629885773490997",
+      "ourShownAt3Decimals": "-0.086",
+      "softwareMinusOurs": "0.03329885773490997",
+      "sameAt3Decimals": false,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png"
+    }
+  ],
+  "findings": [
+    {
+      "type": "OBSERVED",
+      "period": "day",
+      "text": "OHLC显示到2位均相同；DIF/DEA显示到3位相同，柱值软件-18.353、我方-18.352，差-0.001，不能记作三项全部通过。"
+    },
+    {
+      "type": "POSSIBLE_EXPLANATION_NOT_PROVEN",
+      "period": "day",
+      "text": "两边显示/来源精度的隐藏小数或舍入可解释1个末位单位，但软件内部原值未知，未证明具体原因。"
+    },
+    {
+      "type": "OBSERVED",
+      "period": "m60",
+      "text": "三项均不一致；DEA差约-0.018844、柱值差约+0.033299，超出单次三位小数显示舍入或截断的范围；柱色仍均为负。"
+    },
+    {
+      "type": "OBSERVED",
+      "period": "m60",
+      "text": "H/L/C两位相同；软件O3845.29等于我方14:00前柱C3845.285显示值；我方当前O3845.7373等于14:01一分钟开盘。"
+    },
+    {
+      "type": "HYPOTHESIS_NOT_CONFIRMED",
+      "period": "m60",
+      "text": "软件可能以前一根收盘作为新柱开盘，具体规则尚未确认；开盘差异本身不能解释基于收盘价的MACD差异。后续需核查历史收盘/分钟端点、历史起点和EMA初始化。"
+    }
+  ],
+  "status": "NUMERIC_DIFFERENCES_CONFIRMED_CAUSE_UNRESOLVED",
+  "pendingPeriods": [
+    "m90",
+    "m120"
+  ],
+  "historicalEventLabelsAligned": false,
+  "algorithmChanged": false,
+  "formalDataWritten": false,
+  "nextUsefulEvidence": "优先同周期连续日期，例如2026-09-29收盘60分钟；不要求先补齐90/120分钟。"
+}

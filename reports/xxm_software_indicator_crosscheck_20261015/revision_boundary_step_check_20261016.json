@@ -1,0 +1,67 @@
+{
+  "auditDate": "2026-10-16",
+  "purpose": "Existing-kernel read-only boundary versus one-point simulation step; not revised-kernel acceptance",
+  "periods": {
+    "m120": {
+      "prefixBars": 8510,
+      "slope": 0.07977207977207978,
+      "constant": -346.5187808378664,
+      "referenceDIF": -35.908539098328674,
+      "rawModelBoundary": 3893.7212446634903,
+      "simulationStep": 1,
+      "simulationInput": 3892.79,
+      "priceDifferenceIsNotProvenCalculationError": true,
+      "stepwiseOperatorSequenceObserved": false,
+      "probes": [
+        {
+          "close": 3893.79,
+          "dif": -35.90305434213951,
+          "events": [],
+          "state": "DULL",
+          "softwareObserved": false
+        },
+        {
+          "close": 3892.79,
+          "dif": -35.982826421911795,
+          "events": [
+            "CANCEL"
+          ],
+          "state": "NONE",
+          "softwareObserved": true
+        }
+      ]
+    },
+    "m90": {
+      "prefixBars": 12765,
+      "slope": 0.07977207977207978,
+      "constant": -343.5245770736192,
+      "referenceDIF": -28.912374527460997,
+      "rawModelBoundary": 3943.888681917911,
+      "simulationStep": 1,
+      "simulationInput": 3944.79,
+      "priceDifferenceIsNotProvenCalculationError": true,
+      "stepwiseOperatorSequenceObserved": false,
+      "probes": [
+        {
+          "close": 3943.79,
+          "dif": -28.92024658928858,
+          "events": [
+            "CANCEL"
+          ],
+          "state": "NONE",
+          "softwareObserved": false
+        },
+        {
+          "close": 3944.79,
+          "dif": -28.840474509516298,
+          "events": [],
+          "state": "DULL",
+          "softwareObserved": true
+        }
+      ]
+    }
+  },
+  "oldEvidencePreserved": true,
+  "productCodeChanged": false,
+  "userVisualConfirmationSha256": "c6428261d1f0951c798fba690bcb9e3a855c5f4c9d5f9701c53be48b548239f4"
+}

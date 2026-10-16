@@ -1,0 +1,23 @@
+{
+  "frozenRows": 39747,
+  "bottomEvents": 95,
+  "prefixRestoreCuts": 75,
+  "forecasts": 356,
+  "calibrationProtected": 18,
+  "pythonTests": 209,
+  "wealthTests": 1179,
+  "architectureTests": 16,
+  "formalForecastRounds": 160,
+  "pairedRecognitionRequests": 160,
+  "latestRequests": 4,
+  "formalMaxHttpSeconds": 2.622464708983898,
+  "formalMaxModelEnvelopeMs": 94.49808299541473,
+  "mixedRequests": 306,
+  "mixedRounds": 16,
+  "mixedMaxHttpSeconds": 2.823452374999997,
+  "mixedModelEnvelopeMs": 17.762708012014627,
+  "mixedMaxCacheBytes": 42478077,
+  "mixedRawLayerResponses": 24,
+  "mixedAdaptedViews": 24,
+  "mixedForecastResponses": 96
+}

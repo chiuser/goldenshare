@@ -1,0 +1,1165 @@
+{
+  "recordedAt": "2026-10-15T22:27:01.555401+08:00",
+  "caseDate": "2024-08-05",
+  "symbol": "000001.SH",
+  "period": "day",
+  "files": [
+    {
+      "kind": "day_image",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-814ab706-e3fa-4aa7-8d47-b766a06db473.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240805_day.png",
+      "sha256": "0f7c1ed2d08de3ba77634f29078f780b99c746ee08287b009607bbda77aeae23",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "full_user_transcript",
+      "originalPath": "/Users/congming/.codex/attachments/3e356fca-23a9-486c-a0d0-92a756deb38c/Pasted text.txt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240805_user_transcript.txt",
+      "sha256": "f041939e7be212cfaa13c39d2000c11495c78ed52c55c313ba2db73863621dca",
+      "originalBytesPreserved": true
+    }
+  ],
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "calculatorSha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "periods": {
+    "day": {
+      "prefixStart": "2023-01-03",
+      "prefixRows": 385,
+      "through": "2024-08-05",
+      "endpoint": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "sourceCsvSha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+      "softwareScope": "New daily chart/caption"
+    },
+    "m60": {
+      "prefixStart": "2009-01-05T10:30:00+08:00",
+      "prefixRows": 15152,
+      "through": "2024-08-05T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-05T15:00:00+08:00",
+        "close": 2860.6978,
+        "dif": -7.450311723024697,
+        "dea": -1.732342431910576,
+        "hist": -11.435938582228243,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-22T10:30:00+08:00",
+          "endTime": "2024-07-29T10:30:00+08:00",
+          "price": 2876.3333,
+          "dif": -21.461599420911625
+        },
+        "pendingTopHistoryId": null
+      },
+      "sourceCsvSha256": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+      "softwareScope": "Caption closingDULL only; no chart/event timestamp or sequence validation"
+    },
+    "m90": {
+      "prefixStart": "2009-01-05T11:00:00+08:00",
+      "prefixRows": 11364,
+      "through": "2024-08-05T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-05T15:00:00+08:00",
+        "close": 2860.6978,
+        "dif": -9.40687678235372,
+        "dea": -5.830029081100458,
+        "hist": -7.153695402506525,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-22T14:00:00+08:00",
+          "endTime": "2024-07-30T15:00:00+08:00",
+          "price": 2871.629,
+          "dif": -22.116414726835956
+        },
+        "pendingTopHistoryId": null
+      },
+      "sourceCsvSha256": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+      "softwareScope": "Caption closingDULL only; no chart/event timestamp or sequence validation"
+    },
+    "m120": {
+      "prefixStart": "2009-01-05T11:30:00+08:00",
+      "prefixRows": 7576,
+      "through": "2024-08-05T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-05T15:00:00+08:00",
+        "close": 2860.6978,
+        "dif": -12.397225904134302,
+        "dea": -12.13718952969161,
+        "hist": -0.5200727488853829,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "sourceCsvSha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+      "softwareScope": "Trading/invalidation discussion only; no matching chart/event claim"
+    }
+  },
+  "recentTimeline": [
+    {
+      "bar": {
+        "time": "2024-07-05",
+        "close": 2949.9333,
+        "dif": -29.213,
+        "dea": -28.911,
+        "hist": -0.604,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-05",
+        "close": 2949.9333,
+        "dif": -29.213,
+        "dea": -28.911,
+        "hist": -0.604,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-08",
+        "close": 2922.4498,
+        "dif": -31.67,
+        "dea": -29.463,
+        "hist": -4.413,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-08",
+        "close": 2922.4498,
+        "dif": -31.67,
+        "dea": -29.463,
+        "hist": -4.413,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": [
+        {
+          "id": "47506530d37e60918fd36911",
+          "time": "2024-07-08",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2024-07-09",
+        "close": 2959.3724,
+        "dif": -30.288,
+        "dea": -29.628,
+        "hist": -1.32,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-09",
+        "close": 2959.3724,
+        "dif": -30.288,
+        "dea": -29.628,
+        "hist": -1.32,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": [
+        {
+          "id": "2bff8a171e68aff466151a5e",
+          "time": "2024-07-09",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2024-07-10",
+        "close": 2939.3636,
+        "dif": -30.457,
+        "dea": -29.794,
+        "hist": -1.325,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-10",
+        "close": 2939.3636,
+        "dif": -30.457,
+        "dea": -29.794,
+        "hist": -1.325,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-11",
+        "close": 2970.3874,
+        "dif": -27.767,
+        "dea": -29.388,
+        "hist": 3.243,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-11",
+        "close": 2970.3874,
+        "dif": -27.767,
+        "dea": -29.388,
+        "hist": 3.243,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-12",
+        "close": 2971.295,
+        "dif": -25.27,
+        "dea": -28.565,
+        "hist": 6.589,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-12",
+        "close": 2971.295,
+        "dif": -25.27,
+        "dea": -28.565,
+        "hist": 6.589,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-15",
+        "close": 2974.0107,
+        "dif": -22.81,
+        "dea": -27.414,
+        "hist": 9.208,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-15",
+        "close": 2974.0107,
+        "dif": -22.81,
+        "dea": -27.414,
+        "hist": 9.208,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-16",
+        "close": 2976.3043,
+        "dif": -20.439,
+        "dea": -26.019,
+        "hist": 11.159,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-16",
+        "close": 2976.3043,
+        "dif": -20.439,
+        "dea": -26.019,
+        "hist": 11.159,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-17",
+        "close": 2962.8549,
+        "dif": -19.422,
+        "dea": -24.7,
+        "hist": 10.555,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-17",
+        "close": 2962.8549,
+        "dif": -19.422,
+        "dea": -24.7,
+        "hist": 10.555,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-18",
+        "close": 2977.1334,
+        "dif": -17.265,
+        "dea": -23.213,
+        "hist": 11.896,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-18",
+        "close": 2977.1334,
+        "dif": -17.265,
+        "dea": -23.213,
+        "hist": 11.896,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-19",
+        "close": 2982.3086,
+        "dif": -14.965,
+        "dea": -21.563,
+        "hist": 13.197,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-19",
+        "close": 2982.3086,
+        "dif": -14.965,
+        "dea": -21.563,
+        "hist": 13.197,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-22",
+        "close": 2964.2155,
+        "dif": -14.436,
+        "dea": -20.137,
+        "hist": 11.404,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-22",
+        "close": 2964.2155,
+        "dif": -14.436,
+        "dea": -20.137,
+        "hist": 11.404,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-23",
+        "close": 2915.3685,
+        "dif": -17.753,
+        "dea": -19.661,
+        "hist": 3.815,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-23",
+        "close": 2915.3685,
+        "dif": -17.753,
+        "dea": -19.661,
+        "hist": 3.815,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-24",
+        "close": 2901.9518,
+        "dif": -21.22,
+        "dea": -19.973,
+        "hist": -2.496,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-24",
+        "close": 2901.9518,
+        "dif": -21.22,
+        "dea": -19.973,
+        "hist": -2.496,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-25",
+        "close": 2886.7416,
+        "dif": -24.908,
+        "dea": -20.96,
+        "hist": -7.897,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-25",
+        "close": 2886.7416,
+        "dif": -24.908,
+        "dea": -20.96,
+        "hist": -7.897,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": [
+        {
+          "id": "afb971bbb77ca8add037661f",
+          "time": "2024-07-25",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2024-07-26",
+        "close": 2890.8973,
+        "dif": -27.182,
+        "dea": -22.204,
+        "hist": -9.956,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-26",
+        "close": 2890.8973,
+        "dif": -27.182,
+        "dea": -22.204,
+        "hist": -9.956,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-29",
+        "close": 2891.8453,
+        "dif": -28.579,
+        "dea": -23.479,
+        "hist": -10.199,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-29",
+        "close": 2891.8453,
+        "dif": -28.579,
+        "dea": -23.479,
+        "hist": -10.199,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-30",
+        "close": 2879.2996,
+        "dif": -30.348,
+        "dea": -24.853,
+        "hist": -10.99,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-30",
+        "close": 2879.2996,
+        "dif": -30.348,
+        "dea": -24.853,
+        "hist": -10.99,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-07-31",
+        "close": 2938.7493,
+        "dif": -26.646,
+        "dea": -25.211,
+        "hist": -2.868,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-07-31",
+        "close": 2938.7493,
+        "dif": -26.646,
+        "dea": -25.211,
+        "hist": -2.868,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": [
+        {
+          "id": "38a6a49f1177508462e7a03b",
+          "time": "2024-07-31",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2024-08-01",
+        "close": 2932.3871,
+        "dif": -23.949,
+        "dea": -24.959,
+        "hist": 2.02,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-08-01",
+        "close": 2932.3871,
+        "dif": -23.949,
+        "dea": -24.959,
+        "hist": 2.02,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-08-02",
+        "close": 2905.3375,
+        "dif": -23.721,
+        "dea": -24.711,
+        "hist": 1.981,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-08-02",
+        "close": 2905.3375,
+        "dif": -23.721,
+        "dea": -24.711,
+        "hist": 1.981,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "completed": true
+      },
+      "point": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "events": []
+    }
+  ],
+  "dailySnapshot": {
+    "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+    "tsCode": "000001.SH",
+    "period": "day",
+    "sourceIdentity": "day|2023-01-03|bfq",
+    "processed": 385,
+    "wave": {
+      "sign": -1,
+      "start": "2024-08-05",
+      "end": "2024-08-05",
+      "count": 1,
+      "price": 2860.6978,
+      "dif": -26.833,
+      "price_at": "2024-08-05",
+      "dif_at": "2024-08-05"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-23",
+          "count": 9,
+          "price": 2982.3086,
+          "dif": -14.436,
+          "price_at": "2024-07-19",
+          "dif_at": "2024-07-22"
+        },
+        {
+          "sign": 1,
+          "start": "2024-08-01",
+          "end": "2024-08-02",
+          "count": 2,
+          "price": 2932.3871,
+          "dif": -23.721,
+          "price_at": "2024-08-01",
+          "dif_at": "2024-08-02"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-31",
+          "count": 6,
+          "price": 2879.2996,
+          "dif": -30.348,
+          "price_at": "2024-07-30",
+          "dif_at": "2024-07-30"
+        }
+      ]
+    },
+    "state": "NONE",
+    "reference": null,
+    "previous": {
+      "time": "2024-08-05",
+      "close": 2860.6978,
+      "dif": -26.833,
+      "dea": -25.136,
+      "hist": -3.395,
+      "completed": true
+    },
+    "pending": {
+      "id": "06da1397e737454b22c1d261",
+      "confirmedAt": "2024-05-22",
+      "confirmationRoute": "dif_turn",
+      "pricePeak": 3171.1451,
+      "pricePeakAt": "2024-05-20",
+      "originalReference": {
+        "startTime": "2024-02-08",
+        "endTime": "2024-03-18",
+        "price": 3084.9262,
+        "dif": 48.288
+      },
+      "status": "PENDING",
+      "endedAt": null,
+      "endReason": null,
+      "observedThrough": "2024-08-05",
+      "ageBars": 52,
+      "negativeBars": 38,
+      "zeroBars": 0,
+      "colorChanges": 7
+    }
+  },
+  "numeric": [
+    {
+      "field": "close",
+      "softwareDisplayed": "2860.70",
+      "sourceValue": 2860.6978,
+      "sourceDisplayed": "2860.70",
+      "displayMatch": true
+    },
+    {
+      "field": "dif",
+      "softwareDisplayed": "-26.833",
+      "sourceValue": -26.833,
+      "sourceDisplayed": "-26.833",
+      "displayMatch": true
+    },
+    {
+      "field": "dea",
+      "softwareDisplayed": "-25.136",
+      "sourceValue": -25.136,
+      "sourceDisplayed": "-25.136",
+      "displayMatch": true
+    },
+    {
+      "field": "hist",
+      "softwareDisplayed": "-3.394",
+      "sourceValue": -3.395,
+      "sourceDisplayed": "-3.395",
+      "displayMatch": false
+    }
+  ],
+  "projectionGuard": {
+    "status": "CALIBRATION_FAILED",
+    "usedForPricePrediction": false,
+    "scope": "Currenthistoricalprefix rejected; do not relax guards or claim next-day price-range proof",
+    "diagnosticMismatches": [
+      {
+        "time": "2023-07-26",
+        "computed": [
+          -6.954508789328884,
+          -8.902288809103455,
+          3.8955600395491423
+        ],
+        "source": [
+          -6.954,
+          -8.902,
+          3.895
+        ],
+        "deltas": [
+          -0.0005087893288839851,
+          -0.00028880910345563393,
+          0.0005600395491422994
+        ]
+      },
+      {
+        "time": "2023-07-27",
+        "computed": [
+          -5.374313610532681,
+          -8.1966937693893,
+          5.644760317713239
+        ],
+        "source": [
+          -5.374,
+          -8.196,
+          5.645
+        ],
+        "deltas": [
+          -0.0003136105326815297,
+          -0.000693769389300769,
+          -0.00023968228676096714
+        ]
+      },
+      {
+        "time": "2023-07-28",
+        "computed": [
+          0.6518554168492301,
+          -6.426983932141594,
+          14.157678697981648
+        ],
+        "source": [
+          0.652,
+          -6.427,
+          14.157
+        ],
+        "deltas": [
+          -0.000144583150769928,
+          1.606785840557734e-05,
+          0.000678697981648213
+        ]
+      },
+      {
+        "time": "2023-07-31",
+        "computed": [
+          6.571467556058451,
+          -3.8272936345015856,
+          20.797522381120075
+        ],
+        "source": [
+          6.572,
+          -3.827,
+          20.797
+        ],
+        "deltas": [
+          -0.0005324439415490545,
+          -0.00029363450158559345,
+          0.0005223811200743
+        ]
+      },
+      {
+        "time": "2023-08-08",
+        "computed": [
+          15.784392567332361,
+          10.159383117135352,
+          11.250018900394018
+        ],
+        "source": [
+          15.785,
+          10.16,
+          11.25
+        ],
+        "deltas": [
+          -0.000607432667639074,
+          -0.0006168828646480051,
+          1.8900394017862254e-05
+        ]
+      },
+      {
+        "time": "2023-08-10",
+        "computed": [
+          12.623319105554401,
+          11.210450099567247,
+          2.825738011974309
+        ],
+        "source": [
+          12.623,
+          11.211,
+          2.826
+        ],
+        "deltas": [
+          0.00031910555440184396,
+          -0.0005499004327536028,
+          -0.0002619880256911067
+        ]
+      },
+      {
+        "time": "2023-08-23",
+        "computed": [
+          -32.86397386646877,
+          -16.15255729632829,
+          -33.42283314028096
+        ],
+        "source": [
+          -32.864,
+          -16.152,
+          -33.423
+        ],
+        "deltas": [
+          2.613353122882245e-05,
+          -0.0005572963282887144,
+          0.0001668597190445098
+        ]
+      },
+      {
+        "time": "2023-09-07",
+        "computed": [
+          -16.778515489123947,
+          -22.933909232399056,
+          12.310787486550218
+        ],
+        "source": [
+          -16.778,
+          -22.934,
+          12.311
+        ],
+        "deltas": [
+          -0.0005154891239484982,
+          9.076760094473002e-05,
+          -0.00021251344978168163
+        ]
+      }
+    ]
+  },
+  "threeOriginalCases": [
+    {
+      "date": "2024-07-23",
+      "lastStructure": {
+        "id": "2bff8a171e68aff466151a5e",
+        "time": "2024-07-09",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "dif_turn",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "relatedTopHistoryId": null
+      },
+      "bar": {
+        "time": "2024-07-23",
+        "close": 2915.3685,
+        "dif": -17.753,
+        "dea": -19.661,
+        "hist": 3.815,
+        "completed": true
+      },
+      "previousDif": -14.436,
+      "structureWaveLow": 2922.4498,
+      "priceBelowStructureLow": true,
+      "oldDullReferenceNotBroken": true,
+      "difReversePct": 22.97727902466057,
+      "currentKernelEvents": []
+    },
+    {
+      "date": "2024-08-05",
+      "lastStructure": {
+        "id": "38a6a49f1177508462e7a03b",
+        "time": "2024-07-31",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "dif_turn",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2024-05-23",
+          "endTime": "2024-07-01",
+          "price": 2945.8524,
+          "dif": -35.168
+        },
+        "relatedTopHistoryId": null
+      },
+      "bar": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "completed": true
+      },
+      "previousDif": -23.721,
+      "structureWaveLow": 2879.2996,
+      "priceBelowStructureLow": true,
+      "oldDullReferenceNotBroken": true,
+      "difReversePct": 13.1191771004595,
+      "currentKernelEvents": []
+    },
+    {
+      "date": "2024-08-22",
+      "lastStructure": {
+        "id": "f34826c07bbc2c59da21c4b1",
+        "time": "2024-08-15",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "color_flip",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        },
+        "relatedTopHistoryId": null
+      },
+      "bar": {
+        "time": "2024-08-22",
+        "close": 2848.7718,
+        "dif": -22.277,
+        "dea": -24.394,
+        "hist": 4.234,
+        "completed": true
+      },
+      "previousDif": -21.807,
+      "structureWaveLow": 2850.6539,
+      "priceBelowStructureLow": true,
+      "oldDullReferenceNotBroken": true,
+      "difReversePct": 2.155271243178807,
+      "currentKernelEvents": []
+    }
+  ],
+  "separatePostEventCheck": {
+    "date": "2024-08-06",
+    "prefixRows": 386,
+    "bar": {
+      "time": "2024-08-06",
+      "close": 2867.2837,
+      "dif": -28.44,
+      "dea": -25.797,
+      "hist": -5.287,
+      "completed": true
+    },
+    "events": [
+      {
+        "id": "d49733d50afd8925795c8862",
+        "time": "2024-08-06",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        },
+        "relatedTopHistoryId": null
+      }
+    ],
+    "notUsedInAug5Replay": true,
+    "notASoftwareAug6Observation": true
+  },
+  "captionEvidence": [
+    {
+      "lines": [
+        20,
+        22
+      ],
+      "time": "2:36-2:51",
+      "meaning": "Chart1 SSE; firstnegativehistogrambar today, possible newdullness tomorrow; ASR red/green self-correction retained."
+    },
+    {
+      "lines": [
+        28,
+        33
+      ],
+      "time": "3:37-4:20",
+      "meaning": "First says exit on dailystructure disappearance, then says no dullness disappearance yet; must read later correction."
+    },
+    {
+      "lines": [
+        39,
+        42
+      ],
+      "time": "5:10-5:36",
+      "meaning": "Explicit self-correction of trading invalidation criterion to dullness disappearance; do not cite3:46 as direct naming ofgreen label."
+    },
+    {
+      "lines": [
+        43,
+        50
+      ],
+      "time": "5:44-6:41",
+      "meaning": "Otherindices simulations must not become SSE conditions."
+    },
+    {
+      "lines": [
+        87,
+        90
+      ],
+      "time": "11:42-12:08",
+      "meaning": "60/90-minute dullness stated; only closingstate compatible, no exact eventor sequence validation."
+    }
+  ],
+  "evidenceGrades": {
+    "greenAug5": "Visibleatrightmostdailybar; structure-layer interpretation supported by surroundinglabels and explicit absence ofdullnessdisappearance; not a direct verbal namingofthisgreen label.",
+    "firstNegativeBar": "Chart, explicitcaption andsource agree.",
+    "nextDayDull": "Conditionalcaption; next-day source checked separately andnot independentsoftwareobservation.",
+    "threeOriginalFormula": "Allthree pricebreakand DIFreverse overlap; no unique formula established."
+  },
+  "scope": {
+    "productCodeChanged": false,
+    "formalDataReadLive": false,
+    "formalDataWritten": false,
+    "ruleAdopted": false,
+    "priorCandidateApproved": false
+  },
+  "priorEvidenceHashes": {
+    "event_recognition_review_20261015.json": "1a5ad9dd416da37be8013891d1ec8672a0d85d63cddd51ea618934f9235fea8f",
+    "bottom_rule_sufficiency_20261015.json": "bb4a854cdc4c28776614cfadc090937dfb837b8df304474b31a31fe23f597882",
+    "case_20240822_semantics_20261015.json": "ca8e167641dcb39b3aa08709e1fccaa44ceddebbdb6e4c98e7b16176ff7dc87d",
+    "case_20260803_events_20261015.json": "74c6d56529e7c02fe0ae4f3f58a17eb006f991317787c9e90c46e13b86005ad0",
+    "case_20260710_structure_disappearance_20261015.json": "1615a61bbf9cd2a810673895cf68ceca63c015cfb8d131bdb79c5015cc90fa36"
+  }
+}

@@ -7,7 +7,7 @@ import json
 
 @dataclass(frozen=True, slots=True)
 class XxmSpec:
-    algorithm_version: str = "xxm-direction-v0.1"
+    algorithm_version: str = "xxm-direction-v0.1-h1"
     dif_turn_pct: float = 1.0
     max_refs: int = 2
     min_bars: int = 2
@@ -18,6 +18,7 @@ class XxmSpec:
     flip_requires_turn: bool = False
     historical_price_only: bool = True
     fixed_expiry: None = None
+    bottom_history_policy: str = "closed_origin_close_break_v1"
 
     def __post_init__(self) -> None:
         if self.dif_turn_pct not in (0.75, 1.0, 1.2):

@@ -1,0 +1,231 @@
+
+> wealth@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.4 /Users/congming/github/goldenshare/wealth
+
+ ✓ src/features/watchlist/model/useStockWatchlistGroups.test.tsx (11 tests) 882ms
+ ✓ src/features/watchlist/model/useWatchlistItemsController.test.tsx (15 tests) 928ms
+ ✓ src/pages/index-detail/IndexDetailPage.test.tsx (29 tests) 938ms
+ ✓ src/test/market-overview-news-real-api.test.tsx (6 tests) 1037ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/model/useSectorDailyInsightController.test.tsx (16 tests) 874ms
+ ✓ src/test/market-overview-stock-search-real-api.test.tsx (3 tests) 756ms
+   ✓ market overview stock search real API smoke > drives the homepage UI through stockSearchApi and wealthFetch  734ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/ui/DailyInsightWorkspace.test.tsx (20 tests) 1178ms
+ ✓ src/pages/watchlist/WatchlistGroupingPage.test.tsx (5 tests) 3048ms
+   ✓ watchlist grouping page coordination > retains the create draft when a definite limit failure is followed by a failed groups reread  341ms
+   ✓ watchlist grouping page coordination > refreshes groups, sorted first page and search exactly once after one successful add  713ms
+   ✓ watchlist grouping page coordination > auto-reconciles unknown add, falls back to single-stock membership when search omits it, and retries reads only  672ms
+   ✓ watchlist grouping page coordination > does not convert successful add into failure or replay PUT when groups refresh fails  692ms
+   ✓ watchlist grouping page coordination > creates then selects the server group, recolors without selecting stocks and deletes only the current group  629ms
+ ✓ src/features/trading-assistant/model/useRecords.test.ts (7 tests) 749ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/ui/RelativeRotationWorkspace.test.tsx (13 tests) 2159ms
+   ✓ RelativeRotationWorkspace > requests all five scopes and the frozen period/trail controls through URL state  508ms
+   ✓ RelativeRotationWorkspace > renders Small Group objectively and opens the shared-scale dialog without requests  455ms
+ ✓ src/pages/watchlist/WatchlistPage.test.tsx (13 tests) 2400ms
+   ✓ watchlist page > renders the approved columns, units, independent colors and freezing classes without homepage search  483ms
+   ✓ watchlist page > loads cursors, freezes editing tabs, removes only after confirmation and never navigates from an editing row  1102ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/ui/PriceVolumeWorkspace.test.tsx (15 tests) 2352ms
+   ✓ PriceVolumeWorkspace > requests every comparison scope and preserves frozen parent closure  575ms
+   ✓ PriceVolumeWorkspace > retains a selected industry with a missing coordinate without inventing a plot point  340ms
+ ✓ src/pages/wealth-exploration/SectorAnalysisPage.test.tsx (15 tests) 2591ms
+   ✓ SectorAnalysisPage > renders the real momentum contract with a full ranking and two linked SVG charts  429ms
+   ✓ SectorAnalysisPage > keeps selection, direction, range, and drill-down in the frozen URL/request boundaries  358ms
+   ✓ SectorAnalysisPage > supports all five comparison scopes and exposes parent selectors only where required  426ms
+   ✓ SectorAnalysisPage > keeps member failure local and retries only the member request  310ms
+ ✓ src/features/index-detail/controller/useIndexMinuteSeries.test.tsx (5 tests) 356ms
+ ✓ src/features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace.test.tsx (15 tests) 2851ms
+   ✓ DualMomentumWorkspace > keeps result view, selection, sorting and enlarge local with zero requests  400ms
+   ✓ DualMomentumWorkspace > requests all five scopes with only their active parent facts  469ms
+   ✓ DualMomentumWorkspace > renders no-qualified, partial, missing-coordinate and small-group as Ready content states  422ms
+ ✓ src/test/market-overview-money-flow-real-api.test.tsx (3 tests) 1508ms
+   ✓ market-overview money-flow real api > renders money-flow values from the module api without falling back to mock  750ms
+   ✓ market-overview money-flow real api > uses the page-level debug switch for money-flow  560ms
+ ✓ src/features/trading-assistant/model/useWriteSession.test.tsx (6 tests) 394ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace.test.tsx (19 tests) 3182ms
+   ✓ MemberBreadthWorkspace > mounts only the fourth controller and resolves the first eligible sector before the first Details request  440ms
+   ✓ MemberBreadthWorkspace > keeps trend inspection local, preserves it for ranking metric changes and clears it for every Details identity change  945ms
+   ✓ MemberBreadthWorkspace > supports all scopes, independent missing MA facts and null trend breaks  545ms
+ ✓ src/test/market-news-reader-controller.test.tsx (5 tests) 462ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingTable.test.tsx (1 test) 581ms
+   ✓ MomentumRankingTable > renders the complete level-two pool in one native scroll viewport  580ms
+ ✓ src/features/trading-assistant/model/useReturnRead.test.ts (7 tests) 311ms
+ ✓ src/features/auth/ui/LoginPage.test.tsx (18 tests) 700ms
+ ✓ src/features/trading-assistant/ui/AccountLedgerFlow.test.tsx (2 tests) 676ms
+   ✓ shared account ledger recovery across entry points > restores a cash correction with note  and retains its request and target  418ms
+ ✓ src/pages/market-overview/MarketOverviewPage.test.tsx (31 tests) 5666ms
+   ✓ MarketOverviewPage > keeps leaderboard Top10 columns and range switching behavior  416ms
+   ✓ MarketOverviewPage > navigates major indices to index detail while keeping sector entries on overview  303ms
+   ✓ MarketOverviewPage > summary module smoke supports both 5-card and 6-card layouts  331ms
+   ✓ MarketOverviewPage > shows loading before real major indices are returned, without rendering mock index cards  327ms
+   ✓ MarketOverviewPage > uses page-level debug switch for summary, major-indices, breadth, style, turnover and leaderboards modules  514ms
+ ✓ src/test/market-overview-streak-ladder-real-api.smoke.test.tsx (3 tests) 980ms
+   ✓ market-overview streak-ladder real api smoke > renders-streak-ladder-panel  307ms
+   ✓ market-overview streak-ladder real api smoke > collapses-first-board-to-two-rows-and-expands-on-click  391ms
+ ✓ src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx (26 tests) 886ms
+ ✓ src/test/market-overview-limit-up-real-api.smoke.test.tsx (2 tests) 957ms
+   ✓ market-overview limit-up real api smoke > renders-limit-up-panel  701ms
+ ✓ src/features/trading-assistant/ui/RobotConfigurationDialog.test.tsx (5 tests) 834ms
+   ✓ robot configuration without save recovery > shows required name and address errors inline without a request  526ms
+ ✓ src/features/watchlist/model/useWatchlistGroupsController.test.tsx (4 tests) 247ms
+ ✓ src/features/trading-assistant/model/useTradingAccounts.test.ts (4 tests) 299ms
+ ✓ src/pages/stock-detail/StockDetailPage.test.tsx (14 tests) 4935ms
+   ✓ StockDetailPage > renders stock detail route for authenticated users  441ms
+   ✓ StockDetailPage > loads membership, adds once and preserves default day/forward and other placeholders  861ms
+   ✓ StockDetailPage > allows already-added stock to reopen and keeps membership errors local to the action  1162ms
+   ✓ StockDetailPage > loads stock trend channel only after first selection and keeps the base chart alive  365ms
+   ✓ StockDetailPage > requests minute nine-turn for supported period 30分  349ms
+ ✓ src/features/trading-assistant/model/useHoldingAnalysis.test.ts (3 tests) 273ms
+ ✓ src/features/data-center/ui/QueryPanel.test.tsx (4 tests) 449ms
+   ✓ buttons stay enabled during observation; terminal failure stops GETs and manual retry creates a new query  331ms
+ ✓ src/features/trading-assistant/ui/AccountSetupDialog.test.tsx (3 tests) 480ms
+ ✓ src/pages/wealth-exploration/SectorDailyInsightPage.test.tsx (8 tests) 577ms
+   ✓ Daily Insight routing and inactive-method isolation > direct URL restores level/date, uses only two daily endpoints, and ordinary navigation keeps only date  333ms
+ ✓ src/features/trading-assistant/ui/InitializationCorrectionDialog.test.tsx (3 tests) 476ms
+   ✓ initialization correction review > retains the date and rejects corrections after first initialization before requesting a preview  305ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SectorMemberPanel.test.tsx (2 tests) 382ms
+   ✓ SectorMemberPanel > renders the complete member list in one local scroll viewport  365ms
+ ✓ src/features/data-center/model/useAnnouncementQuery.test.tsx (3 tests) 192ms
+ ✓ src/features/watchlist/ui/WatchlistGrouping.test.tsx (6 tests) 426ms
+ ✓ src/features/wealth-exploration/turnover-insight/model/useIndexTurnoverInsightController.test.tsx (3 tests) 199ms
+ ✓ src/features/trading-assistant/ui/RecordMaintenanceForm.test.tsx (3 tests) 387ms
+   ✓ record maintenance confirmation > reads a preview without saving, preserves edits on back, and saves only after confirmation  310ms
+ ✓ src/test/news-reader-dialog.test.tsx (14 tests) 320ms
+ ✓ src/features/data-center/ui/HistoryPanel.test.tsx (1 test) 320ms
+   ✓ latest reloads page one and selects its current server result  319ms
+ ✓ src/pages/wealth-exploration/WealthExplorationLandingPage.test.tsx (2 tests) 204ms
+ ✓ src/test/market-overview-sector-overview-real-api.test.tsx (36 tests) 7893ms
+   ✓ market-overview sector-overview V2 real api > renders the formal industry 3x5 workspace and omits tradeDate on the default request  404ms
+   ✓ market-overview sector-overview V2 real api > S13-A15-P01 keeps the stable 'CONCEPT' workspace for 'DELAYED'  497ms
+   ✓ market-overview sector-overview V2 real api > S13-A15-P01 keeps the stable 'CONCEPT' workspace for 'EMPTY'  319ms
+   ✓ market-overview sector-overview V2 real api > S13-A15-P01 keeps the stable 'REGION' workspace for 'FORBIDDEN'  588ms
+   ✓ market-overview sector-overview V2 real api > S13-A10-A11-P01 keeps seven rows scrollable and four approved detail metrics  487ms
+   ✓ market-overview sector-overview V2 real api > S13-A14-A16-PN01 keeps sector selection separate from keyboard-accessible stock navigation  493ms
+   ✓ market-overview sector-overview V2 real api > S13-A05-A15-P01 retains ready facts while refreshing and reports a failed refresh without mock fallback  479ms
+ ✓ src/shared/api/wealthApiClient.test.ts (14 tests) 188ms
+ ✓ src/features/watchlist/ui/AddWatchlistDialog.test.tsx (3 tests) 331ms
+ ✓ src/features/trading-assistant/ui/PositionDetailDialog.test.tsx (2 tests) 213ms
+ ✓ src/pages/wealth-exploration/TurnoverInsightPage.test.tsx (2 tests) 224ms
+ ✓ src/features/data-center/model/useDownloads.test.tsx (4 tests) 150ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthTrendChart.test.tsx (6 tests) 298ms
+ ✓ src/features/data-center/ui/TaskProgress.test.tsx (6 tests) 191ms
+ ✓ src/features/stock-search/ui/StockSearch.test.tsx (4 tests) 213ms
+ ✓ src/features/trading-assistant/model/usePositions.test.ts (2 tests) 127ms
+ ✓ src/test/wealth-exploration-index-turnover-real-api.smoke.test.tsx (1 test) 196ms
+ ✓ src/features/index-detail/xxm/useIndexXxmLayer.test.tsx (4 tests) 238ms
+ ✓ src/features/trading-assistant/model/useRules.test.ts (2 tests) 127ms
+ ✓ src/features/wealth-exploration/turnover-insight/model/useTurnoverInsightController.test.tsx (2 tests) 127ms
+ ✓ src/shared/ui/top-market-bar/TopMarketBar.test.tsx (2 tests) 173ms
+ ✓ src/features/trading-assistant/ui/RuleConditionEditor.test.tsx (2 tests) 131ms
+ ✓ src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx (6 tests) 203ms
+ ✓ src/features/trading-assistant/ui/PositionsCharts.test.tsx (3 tests) 230ms
+ ✓ src/features/trading-assistant/ui/HoldingAnalysisPanel.test.tsx (2 tests) 131ms
+ ✓ src/features/index-detail/xxm-forecast/forecast.test.tsx (9 tests) 161ms
+ ✓ src/features/stock-detail/news/StockDetailNewsPanel.test.tsx (3 tests) 170ms
+ ✓ src/features/data-center/ui/CompanySearch.test.tsx (2 tests) 189ms
+ ✓ src/features/trading-assistant/ui/ReturnCalendarGrid.test.tsx (1 test) 132ms
+ ✓ src/features/trading-assistant/ui/RecordFilters.test.tsx (1 test) 183ms
+ ✓ src/features/index-detail/sidebar/IndexTechnicalTab.test.tsx (2 tests) 228ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/IndexTurnoverInsightGrid.test.tsx (3 tests) 237ms
+ ✓ src/features/index-detail/xxm/adapter.test.tsx (10 tests) 247ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.test.tsx (9 tests) 201ms
+ ✓ src/pages/data-center/DataCenterPage.test.tsx (4 tests) 138ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumCharts.test.tsx (2 tests) 115ms
+ ✓ src/features/nine-turn/ui/NineTurnLayerStatus.test.tsx (8 tests) 164ms
+ ✓ src/features/index-detail/state/IndexDetailState.test.tsx (4 tests) 136ms
+ ✓ src/shared/ui/shortcut-bar/ShortcutBar.test.tsx (2 tests) 165ms
+ ✓ src/features/trading-assistant/ui/ReturnDates.test.tsx (1 test) 147ms
+ ✓ src/features/trading-assistant/ui/WriteRecoveryDialog.test.tsx (1 test) 114ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightPanel.test.tsx (3 tests) 145ms
+ ✓ src/shared/charts/detail-workspace/DetailChartZoomControls.test.tsx (2 tests) 160ms
+ ✓ src/shared/ui/page-breadcrumb/PageBreadcrumb.test.tsx (2 tests) 146ms
+ ✓ src/shared/ui/detail-return-home/DetailReturnHomeButton.test.tsx (1 test) 132ms
+ ✓ src/features/data-center/model/useObserver.test.tsx (5 tests) 112ms
+ ✓ src/features/stock-detail/chart/StockChartWorkspace.test.tsx (3 tests) 95ms
+ ✓ src/features/trading-assistant/api/tradingAssistantApi.test.ts (7 tests) 68ms
+ ✓ src/shared/charts/detail-workspace/NineTurnMarkerPrimitive.test.ts (6 tests) 102ms
+ ✓ src/shared/charts/detail-workspace/VisibleExtremaPrimitive.test.ts (6 tests) 65ms
+ ✓ src/features/index-detail/xxm/markerGeometry.test.ts (6 tests) 102ms
+ ✓ src/features/index-detail/chart/IndexChartWorkspace.test.tsx (2 tests) 47ms
+ ✓ src/features/stock-search/model/useStockSearchController.test.tsx (6 tests) 61ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/api/sectorDailyInsightAdapter.test.ts (33 tests) 45ms
+ ✓ src/features/auth/model/AuthProvider.test.tsx (8 tests) 69ms
+ ✓ src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx (2 tests) 24ms
+ ✓ src/features/watchlist/api/watchlistApi.test.ts (24 tests) 32ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SelectedSectorSummary.test.tsx (1 test) 23ms
+ ✓ src/features/trading-assistant/ui/FeeFields.test.tsx (1 test) 25ms
+ ✓ src/features/nine-turn/controller/useNineTurnSeriesRegistry.test.tsx (4 tests) 25ms
+ ✓ src/features/trading-assistant/api/roundContracts.test.ts (7 tests) 23ms
+ ✓ src/features/trading-assistant/api/returnsApi.test.ts (5 tests) 44ms
+ ✓ src/features/trading-assistant/model/positionsReader.test.ts (6 tests) 52ms
+ ✓ src/features/data-center/api/companyCandidates.test.tsx (4 tests) 39ms
+ ✓ src/features/trading-assistant/model/entryDraft.test.ts (8 tests) 16ms
+ ✓ src/features/watchlist/model/useWatchlistEditController.test.tsx (9 tests) 52ms
+ ✓ src/features/stock-detail/trend-channel/controller/useStockTrendChannel.test.tsx (2 tests) 17ms
+ ✓ src/test/wealthDocumentMetadata.test.ts (4 tests) 15ms
+ ✓ src/features/trading-assistant/api/recordContracts.test.ts (21 tests) 16ms
+ ✓ src/features/data-center/model/presentation.test.ts (18 tests) 16ms
+ ✓ src/features/stock-detail/news/api/stockDetailNewsViewModelAdapter.test.ts (2 tests) 13ms
+ ✓ src/features/index-detail/api/indexDetailViewModelAdapter.test.ts (2 tests) 13ms
+ ✓ src/features/trading-assistant/model/positionPresentation.test.ts (3 tests) 11ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/api/sectorMemberBreadthAdapter.test.ts (26 tests) 16ms
+ ✓ src/features/data-center/api/dataCenterApi.test.ts (8 tests) 13ms
+ ✓ src/features/trading-assistant/api/positionContracts.test.ts (16 tests) 18ms
+ ✓ src/features/nine-turn/model/nineTurnAdapter.test.ts (6 tests) 10ms
+ ✓ src/app/routes/routerState.test.ts (14 tests) 9ms
+ ✓ src/features/wealth-exploration/sector-analysis/daily-insight/model/sectorDailyInsightUrlState.test.ts (14 tests) 25ms
+ ✓ src/features/index-detail/xxm/apiClient.test.ts (4 tests) 17ms
+ ✓ src/features/wealth-exploration/sector-analysis/dual-momentum/api/sectorDualMomentumAdapter.test.ts (19 tests) 11ms
+ ✓ src/features/trading-assistant/api/contractValidation.test.ts (20 tests) 9ms
+ ✓ src/features/index-detail/xxm-forecast/apiClient.test.ts (3 tests) 10ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/api/sectorRelativeRotationAdapter.test.ts (12 tests) 7ms
+ ✓ src/features/auth/api/authApi.test.ts (9 tests) 7ms
+ ✓ src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts (3 tests) 6ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/api/sectorPriceVolumeAdapter.test.ts (6 tests) 6ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightApi.test.ts (2 tests) 5ms
+ ✓ src/features/watchlist/model/watchlistGroupName.test.ts (26 tests) 5ms
+ ✓ src/features/stock-search/api/stockSearchApi.test.ts (4 tests) 5ms
+ ✓ src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumUrlState.test.ts (25 tests) 5ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.ts (11 tests) 5ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/api/sectorMomentumAdapter.test.ts (6 tests) 4ms
+ ✓ src/features/index-detail/api/indexDetailRequestScheduler.test.ts (4 tests) 5ms
+ ✓ src/features/trading-assistant/model/recordsQuery.test.ts (3 tests) 9ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/model/sectorRelativeRotationUrlState.test.ts (12 tests) 4ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeUrlState.test.ts (10 tests) 4ms
+ ✓ src/features/stock-detail/api/stockDetailMockAdapter.test.ts (1 test) 7ms
+ ✓ src/features/wealth-exploration/sector-analysis/momentum-ranking/model/sectorMomentumUrlState.test.ts (11 tests) 4ms
+ ✓ src/features/wealth-exploration/sector-analysis/member-breadth/model/sectorMemberBreadthUrlState.test.ts (8 tests) 4ms
+ ✓ src/shared/charts/detail-workspace/detailChartViewport.test.ts (29 tests) 4ms
+ ✓ src/features/stock-detail/api/stockMinuteViewModelAdapter.test.ts (4 tests) 7ms
+ ✓ src/features/index-detail/api/indexMinuteViewModelAdapter.test.ts (4 tests) 3ms
+ ✓ src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts (5 tests) 5ms
+ ✓ src/shared/charts/detail-workspace/detailChartIndicatorRange.test.ts (9 tests) 3ms
+ ✓ src/features/trading-assistant/model/ruleWriteOperation.test.ts (2 tests) 3ms
+ ✓ src/features/trading-assistant/model/accountPreference.test.ts (6 tests) 3ms
+ ✓ src/features/auth/model/authStorage.test.ts (5 tests) 3ms
+ ✓ src/features/trading-assistant/model/ruleDeepLink.test.ts (6 tests) 2ms
+ ✓ src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.test.ts (2 tests) 3ms
+ ✓ src/features/wealth-exploration/sector-analysis/price-volume/model/sectorPriceVolumeGeometry.test.ts (2 tests) 3ms
+ ✓ src/features/watchlist/model/watchlistViewModelAdapter.test.ts (11 tests) 2ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/indexTurnoverInsightAdapter.test.ts (2 tests) 4ms
+ ✓ src/shared/charts/detail-workspace/visibleExtremaGeometry.test.ts (7 tests) 4ms
+ ✓ src/shared/charts/detail-workspace/detailChartVisibleExtrema.test.ts (6 tests) 5ms
+ ✓ src/features/wealth-exploration/sector-analysis/relative-rotation/model/relativeRotationPlotGeometry.test.ts (3 tests) 2ms
+ ✓ src/features/trading-assistant/model/writeRecovery.test.ts (8 tests) 2ms
+ ✓ src/features/trading-assistant/model/returnSelection.test.ts (2 tests) 2ms
+ ✓ src/features/trading-assistant/model/returnChart.test.ts (2 tests) 5ms
+ ✓ src/features/data-center/api/clientPolicy.test.ts (1 test) 2ms
+ ✓ src/features/index-detail/api/trendChannelAdapter.test.ts (1 test) 2ms
+ ✓ src/shared/charts/trend-channel/trendChannelGeometry.test.ts (2 tests) 2ms
+ ✓ src/features/nine-turn/model/nineTurnChartAdapter.test.ts (2 tests) 3ms
+ ✓ src/features/major-indices/api/marketMajorIndicesAdapter.test.ts (1 test) 3ms
+ ✓ src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.test.ts (1 test) 2ms
+ ✓ src/shared/charts/trend-channel/TrendChannelPanePrimitive.test.ts (1 test) 2ms
+ ✓ src/features/market-context/api/marketPageContextAdapter.test.ts (1 test) 1ms
+
+ Test Files  165 passed (165)
+      Tests  1179 passed (1179)
+   Start at  10:09:03
+   Duration  15.97s (transform 4.02s, setup 19.14s, collect 25.02s, tests 66.63s, environment 64.32s, prepare 6.89s)
+

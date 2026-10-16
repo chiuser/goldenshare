@@ -1,0 +1,460 @@
+--- before/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md
++++ after/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md
+@@ -1,6 +1,8 @@
+ # 上证徐小明研究指标 V0.1 实施方案与 LLD
+ 
+ 日期：2026-10-14。状态：**用户已批准规则、Figma、完整历史读取调整及仅指数详情页的 1280／1440px 适配；M0/M1/M2 技术验收完成，10 月 14 日标记视觉修订已同步四周期并通过技术验收，M3 等用户复看；未部署。**
++
++代码级设计补充（2026-10-16）：**已审计现有完整调用链；函数级修改、类型、执行顺序、快照、过去查询、严格合同、消费者和测试见§17，设计待本轮Review，未编码。§16的已确认业务规则及B1研究成绩不变。**
+ 
+ 最新研究状态（2026-10-16）：**用户已确认§16的B组工作规则，四周期独立候选的逻辑、预测不变及单请求预算预检完成，见§16.10。产品／正式合同／页面尚未修改，原页面三漏仍在；A组同段问题继续待审。**
+ 
+@@ -641,7 +643,7 @@
+ | `XxmPoint.pendingBottomHistoryId` | 新增必有可空字段，指向截至本根仍PENDING的底部记录；可与独立顶部记录共存，不改变普通state不变量 |
+ | `XxmEvent.relatedBottomHistoryId` | 新增必有可空字段；BOTTOM结构和相应底部历史消失关联，其他不相关事件为null；单事件不得同时指向顶、底两份历史 |
+ | `RESEARCH_HISTORICAL_WITHDRAWAL` | 复用原历史事件type及historical_price_break route；原TOP必须关联topHistories，新BOTTOM必须关联bottomHistories；不能仅放宽direction而省关联校验 |
+-| `XxmStep.bottomHistories`／响应`bottomHistories` | 内核只交变化，查询交窗口相关记录；无记录为空数组。底部历史消失在图上仍标“消失”，详情标明“底部结构消失” |
++| `XxmStep.bottom_histories`／响应`bottomHistories` | 内核只交变化，查询交窗口相关记录；无记录为空数组。底部历史消失在图上仍标“消失”，详情标明“底部结构消失” |
+ | snapshot | 新增唯一`pendingBottomHistory`的独立深拷贝；restore校验Spec、来源、对象、周期、原段及时间次序；旧Spec快照不续接 |
+ 
+ 当前事件type集合不增加A组的STRUCTURE_DISAPPEARED，本轮也不新增pendingRearmId、rearmRecords、rearmContext。普通源指标及历史池不从BottomHistory反推或重置。
+@@ -711,7 +713,7 @@
+ 
+ | 清单项 | 适用性、落点及验证 |
+ | --- | --- |
+-| 2.1 事实链 | 适用；原已确认Figma视觉＋V0.1§12.10＋本节待审。用户确认前不编码，B01—B08为门禁 |
++| 2.1 事实链 | 适用；原已确认Figma视觉＋V0.1§12.10及本节B组规则已确认；函数级细化§17待Review，B01—B08和T01—T16为门禁 |
+ | 2.2 后端事实 | 适用；16.3—16.5产出事件／关联，adapter只展示；B03／B05和下述真实API核心字段断言 |
+ | 2.3 页面状态／超时 | 适用；保留两hook的loading／ready／empty／delayed／error及撤销旧请求；API实际发送后5秒前端超时，识别“研究指标加载超时，请重试”、预测“关键点预判加载超时，请重试”；后端总预算4秒。B08及现有client／hook测试，队列等待仍按原调度，不擅改计时边界 |
+ | 2.4 显示语义 | 适用；event的type／direction／关联驱动图上绿色“消失”和底部历史详情；B05，禁止按文案猜方向 |
+@@ -762,3 +764,386 @@
+ | B08 预算负载 | 正式源每周期20冷＋20暖单请求共160次研究包络，均小于4秒；356组模型最慢93.196ms；原始拟议识别最大775180字节 | 真实新HTTP／严格DTO／共享LRU，两并发、整页混合和双标签页；60分钟首冷3.895秒须重点复测，不能把本轮包络当全部验收 |
+ 
+ 原普通内核、源校验、20点逻辑、预测Spec、原4秒／200ms均未变。本轮只读事务读取正常配置PostgreSQL白名单字段与正式Lake，四周期输入逐值等于冻结来源；不启动服务、不复用原进程密钥，不写数据库或Lake。页面仍由用户自验。B2及B3未开展，最初三漏只在独立候选中补中，正式页面仍未修复。
++
++<a id="xxm-bottom-history-code-lld"></a>
++
++## 17 B组代码级LLD：唯一内核及全链迁移（2026-10-16，设计待Review，未编码）
++
++### 17.1 本节权限、依据与审计结论
++
++用户要求审计现有代码并给出函数级编码方案。本节细化已确认的§16／算法方案§12.10，不改变H1—S2—E1工作规则；本次只交文档供Review，不修改产品、测试、Figma、数据库或Lake。B0规则确认及B1研究预检已完成，不等于本节设计细节已Review或B2已实现。A组7/10同段循环、重新激活及顶部疑报继续排除。
++
++审计使用仓库根CodeGraph `codegraph_search`、`codegraph_explore(XxmCalculator)`、`codegraph_impact(XxmCalculator, depth=2)`；影响分析返回68个符号，其中包含历史研究脚本，不能把68解释为68个生产改动点。再核当前完整calculator、query／schema、三个路由、预测克隆、严格adapter、两图表调用和现有测试。事实与设计分开：
++
++| 编号 | 当前代码事实／缺口 | 编码决策 |
++| --- | --- | --- |
++| K1 | calculator.py:93—126只维护TOP历史，普通变色分支清state／reference | 普通及TOP分支原样保留，增加独立BOTTOM记录及后处理；不导入研究CandidateCalculator或启动第二个在线引擎 |
++| K2 | types.py的XxmStep只有point／events／histories | 增加必传的内部bottom_histories；histories继续只指TOP，不改名混合 |
++| K3 | query_service.py:223、228两处SeriesEntry位置参数构造；新历史没有账本落点 | 增加独立bottom_histories，改这两处为显式关键字构造，增量时复制容器再发布 |
++| K4 | _response只投影TOP；旧记录最终ENDED状态不能直接用于过去查询 | 新增BOTTOM专用过去投影与窗口选择，返回集合覆盖point／event关联，保留窗口外原结构身份 |
++| K5 | Python DTO未定义BOTTOM记录，Wealth adapter历史事件必须relatedTopHistoryId非空，eventLabel还断言TOP | 后端字段、方向关联校验、TS类型／adapter／详情一次迁移；只改calculator会在当前消费者处失败 |
++| K6 | forecast_detector.clone及calculator_at都实例化同一XxmCalculator再restore | 函数签名和数学不变；新snapshot／restore自动携带底部状态，补克隆隔离与过去恢复测试，不写第二条克隆逻辑 |
++| K7 | 识别adapter固定algorithmVersion旧值；预测adapter固定forecastVersion v0.2，但detectorSpecHash仅校验64位十六进制格式 | 识别改为唯一h1版本；预测版本／hash格式合同保持，实际API断言其detectorSpecHash等于新MAIN_SPEC，不虚称前端已有精确hash白名单 |
++| K8 | 原冻结回归最后统计所有RESEARCH_HISTORICAL_WITHDRAWAL，与TOP旧manifest比较 | 普通断言保持，旧TOP统计显式限定direction=TOP；另新增BOTTOM95条基线，不改旧manifest来掩盖差异 |
++
++审计证据及源文件SHA见[代码级LLD审计记录](/Users/congming/github/goldenshare/reports/xxm_bottom_history_code_lld_audit_20261016/README.md)。下述签名、字段和伪代码为计划代码，不是当前源码；行号仅用于定位审计基线，实施以函数名为准。
++
++### 17.2 文件级改动清单与不改边界
++
++下表统一定位：S=`src/biz/services/wealth/market/index_detail_xxm/`，Q=`src/biz/queries/wealth/market/index_detail_xxm/`，D=`src/biz/schemas/wealth/market/`，W=`wealth/src/features/index-detail/`。
++
++| 文件／对象 | 具体修改或核验 | 下游及对应测试 |
++| --- | --- | --- |
++| S/types.py | 新XxmBottomHistory类型；XxmStep新增bottom_histories | calculator、Q账本；T01—T04 |
++| S/spec.py | 修改algorithm_version默认h1，增加不可变bottom_history_policy；原参数与hash算法不变 | ID／snapshot／cache／响应；T05 |
++| S/calculator.py | __init__、step、snapshot、restore及17.4私有函数 | 识别与预测共享唯一内核；T01—T06 |
++| Q/query_service.py | SeriesEntry字段；_load_series两构造和底部upsert；_response及新增底部投影helper | 两识别API／预测calculator_at；T06—T09 |
++| D/index_detail_xxm.py | 新XxmBottomHistoryDto及point／event／response字段；方向关联、时间和窗口校验 | 日线与分钟共同DTO；T08—T10 |
++| S/forecast_detector.py、Q/forecast_query_service.py | 默认不改算法代码；验证clone／calculator_at恢复、确认事件筛选、新Spec缓存及响应身份 | 预测schema／adapter；T11—T12 |
++| W/xxm/types.ts、adapter.ts | 新底部类型／明细集合，唯一新版本，严格关联与文字分支 | primitive／详情；T13—T15 |
++| W/xxm/XxmLayerUi.tsx | 独立渲染底部原结构／低点／离段／结束原因；TOP详情不改 | 两tooltip共用；T14 |
++| W/xxm/xxmFixtures.test-support.ts及相关测试 | 每个point／event补必有可空字段，response补bottomHistories，版本改h1；加真实新类型case | adapter／hook／geometry；T13—T15 |
++| scripts/research/index_market/xxm/acceptance.py、新bottom_history_acceptance.py及scripts/research/index_market/README.md | 收集底部账本和新差异，保留原TOP对照；新增验收入口说明，输出到新版本目录，保持acceptance.py原参数名 | 冻结四周期及真实API样本；T16 |
++| scripts/research/index_market/xxm_page_request_audit.py／.mjs | 保留现有306请求实际TS调度与只读真实HTTP；去掉硬编码历史日期，加底部合同／adapter断言及身份记录，不新造另一套混合runner | T16／17.11 |
++| 现有六个Python测试文件及Wealth相关测试 | 按17.10增补／调整断言；不删除旧普通／TOP断言 | 正反例与全链门禁 |
++
++以下为审计过的调用方，**本轮设计无需生产代码修改**：三个Biz路由index_detail_xxm.py／index_detail_minute_xxm.py／index_detail_xxm_forecast.py、App装配src/app/api/v1/router.py、Q/source.py／shared_loads.py、S/runtime.py／projection.py／forecast_spec.py／forecast_math.py／forecast_entry.py／forecast_joint.py／forecast_text.py、W/xxm/{apiClient,useIndexXxmLayer,XxmMacdPrimitive,markerGeometry}.ts及IndexChartWorkspace.tsx／IndexMinuteChartWorkspace.tsx、W/xxm-forecast的生产类型／adapter／hook／卡片及页面请求调度。若实现必须修改这些文件的行为，应先说明原因和影响，不能借B组改来源、日期、数学、鉴权、布局或调度。
++
++Biz仍只读Foundation，Wealth仍经HTTP消费；不把计算搬进QTF、Foundation或前端，不新增SQL、DB表／迁移、env／Settings、运营开关或依赖。原内部Spec配置审计沿用§16.6；新增策略只有一个固定值，不提供旧／新算法切换。
++
++### 17.3 类型、身份与原字段兼容边界
++
++**S/types.py。** 新增`XxmBottomHistory(TypedDict)`，字段完整对应§16.4的BottomHistory；不是Pydantic模型，不依赖API层。`originalReference`为原四字段参照的独立深拷贝。`status`固定PENDING／ENDED，`endReason`固定四种原因或null；原结构／段／低点字段建立后不再修改。TOP继续使用既有dict及histories。
++
++```python
++# 新签名；无默认空值以迫使所有生产构造方迁移
++@dataclass(frozen=True, slots=True)
++class XxmStep:
++    point: dict[str, Any]
++    events: tuple[dict[str, Any], ...]
++    histories: tuple[dict[str, Any], ...]       # 原TOP变化
++    bottom_histories: tuple[XxmBottomHistory, ...]
++```
++
++此前§16及研究候选的`XxmStep.bottomHistories`在正式Python实现中统一拼写为`bottom_histories`；**外部JSON仍是bottomHistories**。这只是内部命名细化，不增加别名，不同时保留两种内部属性。旧研究候选、脚本和报告原样保留；正式代码及测试不得import研究CandidateCalculator。
++
++**S/spec.py。** 在唯一XxmSpec中设`algorithm_version="xxm-direction-v0.1-h1"`并增`bottom_history_policy="closed_origin_close_break_v1"`。保持现有fields／asdict不可变校验、允许的三个研究dif_turn_pct值及spec_hash规范化算法。默认主Spec的值集合与B1候选相同，应得到候选hash `b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5`；若不同先对账字段和值，不修改旧证据或忽略差异。测试可用候选hash核身份，生产消费者不得各自硬编码这份hash作配置。
++
++身份生成明确复用`_id`：
++
++| 对象 | 构造 |
++| --- | --- |
++| 原普通／TOP事件和TOP历史 | 原_id参数顺序原样保留，只因新Spec自然换ID |
++| 新BOTTOM记录 | `_id("bottom-history", structure_event["id"])` |
++| 新BOTTOM历史消失事件 | `_id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", history_id)` |
++
++所有事件新增必有可空`relatedBottomHistoryId`，默认null；只有BOTTOM STRUCTURE和其BOTTOM历史消失填底部ID，其他事件为null。TOP原关联保持，单个事件禁止双向关联。每个point新增必有可空`pendingBottomHistoryId`，与普通状态独立。不增加A组事件枚举、等待字段或预测字段。
++
++### 17.4 calculator.py逐函数修改
++
++#### 17.4.1 __init__及step的插入位置
++
++`__init__`仅新增`self.pending_bottom_history: XxmBottomHistory | None = None`。保留`pending`作为原TOP状态，不重命名、不改其含义；每周期至多一条待跟踪BOTTOM记录。结束记录交调用方账本，内核不保存全量历史。
++
++`step(bar)`保持当前31—85行的输入校验、段池更新、普通状态转换和选参照顺序，尤其不改72—73行dif_return。保留现有`old_wave`引用即可：变色后它指向旧段，新段另建；创建底部记录时复制标量与参照。**不复制整颗calculator，不每根深拷贝完整wave来取得一个未使用的旧段**。本优化只去掉研究wrapper成本，不改变采样时点。
++
++固定执行顺序：
++
++```text
++校验bar → 保存old_wave/old_state → 原普通分支
++→ 创建原普通event（新增relatedBottomHistoryId=null）
++→ 执行原TOP历史分支和TOP记录创建，保持事件原顺序
++→ 处理此前pending_bottom_history（DIF优先、新BOTTOM信号其次、价格最后）
++→ 若本根普通event为BOTTOM STRUCTURE，创建并关联新的底部记录
++→ point加入本根最终pendingBottomHistoryId
++→ previous/processed更新 → 返回XxmStep四个字段
++```
++
++`ordinary_event = events[0] if event_type else None`在普通事件生成后固定，不从已追加的历史事件中猜“第一条”。BOTTOM历史事件排在原普通／TOP事件之后；同柱TOP、BOTTOM各自独立。新增后处理不得修改`state/reference/history/wave`或任何原普通事件字段（新增底部关联除外）。
++
++#### 17.4.2 新增私有函数及精确职责
++
++| 签名 | 读取／修改 | 返回及限制 |
++| --- | --- | --- |
++| `_advance_bottom_history(self, bar: XxmBar, ordinary_event: dict[str, Any] | None) -> tuple[list[dict[str, Any]], list[XxmBottomHistory]]` | 只读bar、原普通事件和普通state；只修改pending_bottom_history | 返回本根新增历史事件及旧记录变化；不创建新结构记录 |
++| `_start_bottom_history(self, bar: XxmBar, structure_event: dict[str, Any], negative_wave: Wave) -> XxmBottomHistory` | 读取已确认普通BOTTOM结构和选定原负段；设置新pending，填structure_event.relatedBottomHistoryId | 返回新记录深拷贝；要求negative_wave.sign==-1、eventReference非空 |
++| `_validate_bottom_history_snapshot(self, raw: Any, *, previous: XxmBar | None, wave: Wave | None, processed: int) -> XxmBottomHistory | None` | 校验并独立复制，不修改self | 无效抛ValueError；不靠assert作运行校验，不补缺字段或修正数值 |
++
++`_advance_bottom_history`伪代码：
++
++```python
++if pending is None:
++    return [], []
++r = pending
++r["observedThrough"] = bar.time
++r["ageBars"] += 1
++if r["leftOriginAt"] is None and bar.hist >= 0:
++    r["leftOriginAt"] = bar.time
++reason = None
++if bar.dif < r["originalReference"]["dif"]:
++    reason = "original_reference_break"
++elif ordinary_event and ordinary_event["direction"] == "BOTTOM" and ordinary_event["type"] in ("DULL", "STRUCTURE"):
++    reason = "new_bottom_" + ordinary_event["type"]
++elif r["leftOriginAt"] is not None and bar.time > r["confirmedAt"] and bar.close < r["priceLow"]:
++    reason = "historical_price_break"
++    append_one_bottom_history_event(r)  # 原state，不是CANCEL/DULL
++if reason is not None:
++    r.update(status="ENDED", endedAt=bar.time, endReason=reason)
++    self.pending_bottom_history = None
++return new_events, [deepcopy(r)]
++```
++
++`append_one_bottom_history_event`只是伪代码动作，不另建公共API：在函数内构造当前type／historical_price_break route、direction=BOTTOM、fromState=self.state、eventReference=deepcopy(r.originalReference)、relatedTopHistoryId=null、relatedBottomHistoryId=r.id及17.3的ID。没有价格等号epsilon、额外DIF相邻跌幅或TTL。精确零柱登记离段；若同根还满足价格和优先级条件，可以触发价格事件，零柱本身不能单独触发。
++
++创建规则由step明确选段：`negative_wave = wave if sign == -1 else old_wave`，仅在已知普通BOTTOM STRUCTURE时调用。dif_turn含当前确认负柱已更新的最低收盘；color_flip取刚结束负段，**不纳入确认红柱收盘**，并令leftOriginAt=bar.time。填originSegmentStart、priceLow／priceLowAt、结构ID／时点／route和独立原参照，ageBars=0、observedThrough=confirmedAt、PENDING／null结束信息。创建当根不再执行价格消失；同柱旧记录结束、新记录创建时返回两份不同ID的底部变化。
++
++#### 17.4.3 snapshot与restore
++
++`snapshot()`在原完整快照中增加必有`pendingBottomHistory`，值为新pending的深拷贝或null；原TOP pending及history两池定义不变。保存的只有一条未结束记录，不能把调用方底部账本塞进每1000根检查点。
++
++`restore(snapshot)`先核原四元身份，再把原wave／history／previous等解码到局部变量，沿用原段池上限校验；用新私有校验器检查底部，全部通过后再赋给self，避免无效底部快照使一个已有calculator处于半恢复状态。新增key缺失、旧Spec、字段错误均ValueError，不使用`.get(..., None)`兼容旧快照。
++
++底部快照至少校验：字段集合完整且无多余项；状态只能PENDING且结束信息为空；低点有限且大于零、原参照有限、age为非负整数且不超过processed；previous存在、observedThrough等于previous.time；originSegmentStart≤priceLowAt≤confirmedAt≤observedThrough；参照start≤end<originSegmentStart；leftOriginAt为空或confirmedAt≤leftOriginAt≤observedThrough。时间按对应period的现有XxmBar时间规则校验，不在services反向import查询层ENDPOINTS。未离段时快照wave必须是同一起点负段；离段信息在单次前向step中不得回退，但合法的过去快照允许恢复到离段前，不能拿恢复前self的最终状态拒绝它。记录ID与structureEventId非空并符合17.3派生关系。没有完整源数据时不猜age或低点是否为真实极值，完整真实性由前缀重放测试证明。
++
++### 17.5 query_service.py：底部账本、发布与过去查询
++
++#### 17.5.1 SeriesEntry及_load_series
++
++在`SeriesEntry`新增必传`bottom_histories: dict[str, XxmBottomHistory]`；既有`histories`继续只保存TOP。calculator、points、events及checkpoints仍只有一套。两处构造必须按关键字显式填写全部已有字段和新字段，不能在旧位置参数末尾随意插值：
++
++- 全量重建分支（当前223行）：bottom_histories={}，沿用原source_identity及processed空前缀；不从旧TOP账本派生底部记录。
++- 增量分支（当前228行）：新calculator从旧完整snapshot恢复；points／events／histories／fingerprints／checkpoints按原方式复制，增加`bottom_histories=dict(entry.bottom_histories)`，不能让另一个请求看到容器被原地追加。
++- 逐根循环：原TOP upsert不动，新增`entry.bottom_histories.update({h["id"]: h for h in step.bottom_histories})`。这些h都是step交出的独立副本；后续只替换账本同ID的值，不能原地修改已发布记录或嵌套参照。
++- 每1000根checkpoint仍取`calculator.snapshot()`；新pending自动包含，不能额外保存整份底部账本。`replace(entry, processed=..., ...)`仍在完整验证后发布，失败路径不发布半成品。
++- 来源修订、原点改变和已处理前缀不匹配时，沿用原全量重建条件，底部账本随同重建，不残留旧来源的记录。相同signature／raw／完成端点／日历可复用的早返条件保持原样。
++
++`calculator_at(count, check)`签名及两条恢复路径保持：最新从当前snapshot克隆，过去从`floor(count/1000)*1000`检查点重放最多999根；新增pending由唯一restore处理。不从最终bottom_histories倒灌过去calculator，不为了修图绕过source prefix或重新选峰。
++
++`_deep_size`已递归dataclass字段／dict，不加第二套估算器；新字段会自动纳入64MiB／16项LRU。单条内核状态有限不代表总账本不占内存；缓存超限沿用现有不缓存／淘汰行为，不靠TTL删除历史事实。
++
++#### 17.5.2 _response与新增底部投影helper
++
++内部`_response`增加必传`check`回调，`build`现有唯一生产调用传入remaining。保留原points、events、sourceInputId、dataStatus和TOP集合的输出语义；在TOP和BOTTOM账本遍历中每1000项检查预算，最后仍校验1MiB及remaining，不改变4秒起点或前端5秒起点。
++
++新增两个静态私有函数，放在同一query_service.py，不引入新通用历史框架：
++
++```python
++_project_bottom_history(record: XxmBottomHistory, *, through: str,
++                        times: list[str]) -> dict[str, Any] | None
++_bottom_histories_for_response(entry: SeriesEntry, *, points: list[dict],
++    events: list[dict], first: str | None, last: str | None,
++    through: str | None, times: list[str], check) -> list[dict[str, Any]]
++```
++
++`_project_bottom_history`定义：
++
++1. `record.confirmedAt > through`返回None。
++2. 独立深拷贝；若leftOriginAt在through之后，清为null。
++3. 若endedAt在through之后，投影为PENDING并清endedAt／endReason；已在through或之前结束则保留ENDED。
++4. observedThrough设为有效endedAt或through；ageBars=`bisect_right(times, observedThrough)-bisect_right(times, confirmedAt)`，计完整来源柱，不按日历天数或可见窗口长度计算。
++5. 只取XxmBottomHistoryDto定义字段返回；不改entry内记录。
++
++`_bottom_histories_for_response`：first／last／through任一无值时返回[]，保持“有来源但请求窗口无柱”的现有行为；否则先收集所返point的pendingBottomHistoryId和event的relatedBottomHistoryId。记录确认不晚于through，且满足以下任一项才返回：被上述ID引用；截至through仍PENDING；或有效结束时间在[first,last]内。判断PENDING时先考虑未来endedAt应被隐藏；只对入选记录深拷贝投影，避免每次响应复制整本无关历史。按`(confirmedAt,id)`稳定排序。
++
++原结构在窗口外不要求把窗口外STRUCTURE事件塞进events；BottomHistory自身携带structureEventId、confirmedAt、原段低点和原参照。响应中的全部关联必须能解析到对应集合；不存在记录时由DTO严格失败，不能删掉关联或绿字兜底。
++
++注意：**point.pendingBottomHistoryId表示该point当时的状态，而记录status按整个请求through投影。** 因而前一根point合法引用一条在窗口后面已经结束的记录；校验应要求`confirmedAt <= point.time < endedAt`（未结束时无右界），不能要求该记录在整个响应末尾仍PENDING。
++
++#### 17.5.3 原缓存和共享加载保持
++
++load_entry的key已含MAIN_SPEC.spec_hash，flight_key还含业务日期、now日期和完成端点；预测key也含检测器Spec、预测Spec、来源指纹和未来日历。新Spec自然隔离旧结果，不加bottom_history_policy之外的第二组配置、不省略源校验，也不新增一个B专用在线cache。部署换进程时重建；同进程不可命中旧Spec记录，旧项按原LRU回收，禁止回退旧引擎结果。
++
++完整历史仍按1000根计算，源读取层／两并发槽位／SharedLoads／统一20点语义保持。共享leader完成发布后才向waiter交entry；waiter超时不得取消leader。正式计时需覆盖排队、源检查和完整读取、普通与底部计算、快照、缓存计费及响应构造。
++
++### 17.6 Python API合同：新增字段与拒绝条件
++
++D/index_detail_xxm.py保持XxmDto的extra=forbid／禁止NaN。新增必有字段，不给None或[]默认值来接受旧响应；同一URL以新algorithmVersion明示语义变化。
++
++| 类／方法 | 必须修改 |
++| --- | --- |
++| XxmPointDto | 新`pendingBottomHistoryId: str | None`；consistent_state原NONE／活动参照约束不变，底部历史存在不能使NONE携带activeReference |
++| XxmEventDto | 新`relatedBottomHistoryId: str | None`；新增事件关联validator，规则见下表 |
++| 新XxmBottomHistoryDto | 按§16.4全部14项字段：id、structureEventId、confirmedAt、confirmationRoute、originSegmentStart、leftOriginAt、priceLow、priceLowAt、originalReference、status、endedAt、endReason、observedThrough、ageBars；以此显式字段列表为准 |
++| XxmResponseDto | 新`bottomHistories: list[XxmBottomHistoryDto]`；consistent_window新增版本／两集合关联和时间校验，保留原窗口约束 |
++
++上表BottomHistory字段以列出的**14个字段名**为准，不包含方向字段，也不复制TOP的negativeBars／zeroBars／colorChanges。底部方向由集合和事件关联表达。`priceLow > 0`且有限，ageBars为非负整数；status／endReason、原段与时间顺序和snapshot一致。PENDING要求结束字段均null；ENDED要求endedAt／endReason都非null且observedThrough=endedAt，不能用空字符串代替null。
++
++| 事件 | relatedTopHistoryId | relatedBottomHistoryId | 额外条件 |
++| --- | --- | --- | --- |
++| TOP STRUCTURE | 对应TOP记录ID | null | 保留现有创建／关联 |
++| BOTTOM STRUCTURE | null | 对应BOTTOM记录ID | 记录structureEventId=事件id、confirmedAt=事件time |
++| TOP历史消失 | 必有TOP ID | null | type为RESEARCH_HISTORICAL_WITHDRAWAL且route=historical_price_break |
++| BOTTOM历史消失 | null | 必有BOTTOM ID | 同type／route，记录ENDED／historical_price_break／endedAt=事件time，eventReference等于该记录originalReference |
++| 其他普通事件 | null | null | 不把普通CANCEL伪装成历史消失；新增两个方向各自历史事件仍可同柱 |
++
++`consistent_window()`在原约束后校验：
++
++1. algorithmVersion等于MAIN_SPEC.algorithm_version，specHash等于MAIN_SPEC.spec_hash（来自唯一Spec，不维护第二份后端版本配置）。
++2. 两集合ID各自唯一且不交叉；event ID唯一；空ID、悬空ID、双关联、错误方向或historical_price_break配普通type均拒绝。
++3. 每条底部记录confirmedAt／leftOriginAt／endedAt／observedThrough不晚于source.computedThrough；先由query作过去投影，再校验，schema不负责自动修正未来字段。记录originalReference和低点时间顺序合法。
++4. point引用底部记录时，记录已在该point形成且未在该point或更早结束；TOP原语义保留。不能只检查ID存在，也不能以最后status=ENDED否定早先合法point。
++5. STRUCTURE事件位于窗口内时，记录必须反向对应id／时点／route；位于窗口外时允许仅记录自带身份，不要求events越界。
++6. 截至through最多一条PENDING底部记录。PENDING.observedThrough=through；ENDED.observedThrough=endedAt。年龄精确值由完整源计算，DTO不能靠可见窗口虚算。
++7. dataStatus为EMPTY时points／events及顶底历史集合全空、computedThrough=null；普通READY且零事件仍合法。完成源非空但窗口无柱时，两历史集合空，不改成SOURCE_EMPTY。
++
++两个识别路由的response_model自然使用新DTO，URL／请求参数／权限／错误码／分钟能力门禁保持；App装配不改。非法关联或投影经既有load_entry的ValueError捕获映射XXM_SOURCE_CONTRACT_INVALID，不吞字段继续返回READY。新增validator必须用ValueError，不能将assert当合同保护。
++
++### 17.7 预测链的具体保持点与回归
++
++S/forecast_detector.py的`clone(c)`继续用唯一XxmCalculator及`restore(c.snapshot())`，不加CandidateCalculator工厂、模块级替换或另一套历史克隆。`event_options`按指定type＋direction查普通事件，`confirmed_options`仍只以普通state／reference及CANCEL／STRUCTURE决定情景是否继续；新历史事件不得冒充普通事件。
++
++Q/forecast_query_service.py的`build`继续按当前ordinaryState或当根真实STRUCTURE判CONFIRMED，不从bottom_histories找一条旧结构充数；调用calculator_at时自动取得完整底部状态。cache_key、响应detectorSpecHash采用新MAIN_SPEC；forecastVersion及ForecastSpec hash保持，forecastId可因检测器身份变化而不同。D/index_detail_xxm_forecast.py、W/xxm-forecast/adapter.ts的字段及v0.2合同不加新字段，不新增精确检测器hash白名单或rearmContext。
++
++需要迁移的是测试／fixture和恢复保证，不是另写预测数学：
++
++- 新pending有无、是否已离段、结构确认当根及历史消失当根，分别验证clone前后真实snapshot不变；候选结束只发生在独立克隆中。
++- 继续用完整snapshot作状态去重，不能删掉底部状态来降低计时；新增state可能改变去重成本，因此纳入200ms。
++- 原356组场景对照完整数学结果和display。只允许detectorSpecHash、forecastId及识别事件／记录ID等声明过的身份差异；参考段、status、目标日期、区间、排除原因、文案不能忽略。
++- 原18个日线历史校准失败仍返回原PRECISION_PENDING／CALIBRATION_FAILED；不能把失败数减少当作B组收益，不能调MACD参数或容差来补绿字。
++
++### 17.8 Wealth严格消费与可见结果
++
++#### 17.8.1 types.ts与buildXxmViewModel
++
++保留现有`XxmHistory`名称及TOP定义，新增`XxmBottomHistory`对应JSON的14字段；在XxmPoint／XxmEvent／XxmResponse分别增加必有可空底部ID／必有可空底部关联／必有底部数组。`XxmDetail.histories`仍只存TOP，新增`bottomHistories: XxmBottomHistory[]`，不把两个形状不同的记录塞进无方向union。
++
++`buildXxmViewModel`按以下位置迁移，不改`timeKey`的日线字符串／分钟秒时间映射，也不改当前图表原值逐根对账：
++
++1. algorithmVersion的唯一允许值由旧v0.1改h1，不写`old || new`；specHash仍校验格式。显式断言新增字段存在且类型正确，不能以`?? []`／`?? null`接受旧响应。
++2. EMPTY分支要求两历史集合均为空；所有point按原顺序校验close／DIF／DEA／hist与主图原值，底部历史不能掩盖源指标不一致。
++3. 与原TOP map并列创建BOTTOM map。依17.6的时间／状态／唯一性／关联条件验证；两个ID域不交叉。**对所有response.points校验底部引用后**再按chartByTime选择可见明细，不能因API窗口含更早的分钟端点而略过合同校验。
++4. byTime初始化同时带histories和bottomHistories；按各自pending ID加入。结束于窗口内的底部记录也加入其结束时点明细，采用ID去重；同柱旧记录结束、新记录创建时两份都保留。
++5. events循环保留event ID唯一、route／方向／参照及窗口检查，历史事件改为按方向解析对应集合，禁止双关联；事件所在端点在API窗口但早于当前已加载图表时保持原“验证后跳过绘制”逻辑。
++6. BOTTOM STRUCTURE及其历史消失加入对应底部详情；marker仍使用事件当根point.dif和chart time，不能用priceLow作MACD坐标。markers按后端原事件次序生成，不由前端补“消失”、重新配最近结构或去掉同柱其他事件。
++
++#### 17.8.2 标签、详情及原视觉
++
++`eventLabel`保留原普通事件和TOP历史文字；增加BOTTOM历史显式返回“底部结构消失”。`eventMarkerLabel`对**新增BOTTOM历史**显式返回“消失”，其他事件保持当前逻辑，避免机械去“底”后剩“部结构消失”。本轮不顺手改变现有TOP图上标签或其他普通标签。
++
++`XxmLayerUi.tsx`的XxmResearchDetails在原TOP详情后单独渲染bottomHistories：关联底部结构confirmedAt、保存最低收盘priceLow及priceLowAt、已知时的离开原柱段leftOriginAt、跟踪状态／原因、结束时间及截至／ageBars。新增底部私有状态文字函数，不给现有historyStatus硬塞TOP没有的字段：
++
++| 底部记录状态／原因 | 详情文字 |
++| --- | --- |
++| PENDING | 仍在跟踪 |
++| original_reference_break | 已结束 · 原DIF参照失效 |
++| new_bottom_DULL | 已结束 · 新底部钝化接替 |
++| new_bottom_STRUCTURE | 已结束 · 新底部结构接替 |
++| historical_price_break | 已结束 · 收盘跌破原低点 |
++
++这些均为历史记录状态，不替代“普通状态”，不把无价格绿字的接替写成“钝化失效”。已确认详情容器、样式和坐标保持，不新增配置或常驻说明。
++
++`XxmMacdPrimitive.color`现已按type给历史消失绿色，方向无关，原则上无需改；`markerGeometry`现已支持按同柱分组避让和紧凑+N，保持圆点半径4、字号12／字重700及左侧优先。新增BOTTOM事件由adapter正确进入markers后自然绘制。日线和分钟两个Workspace都复用同一hook／primitive／XxmResearchDetails，调用签名不变，不分别重写实现。
++
++`useIndexXxmLayer`现有缓存身份含algorithmVersion|specHash。新adapter会拒绝旧版本响应并清掉本hook旧缓存后按原逻辑重取，不能放宽校验来显示旧结果。请求取消、指标未就绪、loading／ready／empty／delayed／error和重试保持。技术面卡片只验证新检测器响应仍符合v0.2合同，不新增文案／评分或历史消失预测。
++
++### 17.9 当前消费者全集及逐项处置
++
++| 消费组／真实入口 | 实施处置与必须证明的结果 |
++| --- | --- |
++| 识别HTTP：三个路由文件中的日线／分钟识别两个handler | 使用同一新DTO和唯一query；日线走xxm-signals，分钟走minute-xxm-signals；参数、鉴权及分钟能力判断不改 |
++| App：src/app/api/v1/router.py的三路由装配 | 无实现修改；依赖注入／现有本机分钟开放边界保持，禁止为了验收开启新能力 |
++| 预测HTTP：index_detail_xxm_forecast.py的get_forecast | 同一load_entry和calculator_at；错误前缀仍XXMF_，不接第二套来源或额外预测字段 |
++| Q：完整／增量SeriesEntry、两个识别API共用的_response、预测state恢复、共享LRU | 所有构造／复制／checkpoint／source revision／淘汰路径都带底部，不能只在冷重建有结果 |
++| W：xxm types、adapter、fixture、hook、两Workspace、tooltip、primitive和geometry | 改类型／adapter／详情及fixture，其他逐项回归；不在图表消费者推导事实 |
++| W：xxm-forecast types／adapter／client／hook／card | 生产合同不变，验证新detectorSpecHash和旧预测数学可消费；不因预测hash格式校验而声称软件规则已验证 |
++| 研究：acceptance.py、原calculator／forecast／display测试 | 原TOP基线显式按方向统计；新增底部账本与同源差异，写新OUT；不改旧报告或import旧研究wrapper在线运行 |
++| 历史reports下的CandidateCalculator／原回放和预检脚本 | 冻结保留，无生产迁移，不批量改这些脚本的构造或旧版本字符串；需要复现旧版本时记录其原源码／hash条件 |
++
++引用审计至少覆盖`XxmStep(`、`SeriesEntry(`、`.histories`、`topHistories`、`pendingTopHistoryId`、`relatedTopHistoryId`、旧algorithmVersion及RESEARCH_HISTORICAL_WITHDRAWAL。生产XxmStep现有一处构造、SeriesEntry现有两处构造，全部迁移；旧版本字面量保留在旧报告和明确拒绝旧版本的测试是正确行为，不要求全仓盲目清零。
++
++### 17.10 函数级正反例与测试落点
++
++T01—T16是拟新增或扩展的测试组，不是本轮已运行成绩。采用现有测试文件，不把临时研究probe当作正式回归。日期例子只在测试数据和验收期望中出现，生产算法禁止日期特判。
++
++| 组 | 文件／目标函数 | 正向与负向断言 |
++| --- | --- | --- |
++| T01 | scripts/research/index_market/tests/test_xxm_calculator.py：step／_start_bottom_history | 日线7/9锁7/8的2922.4498；dif_turn包含确认负柱已知低点，color_flip排除确认红柱；后续新低不回写；字段不可与确认收盘或原背离参照价混用 |
++| T02 | 同文件：_advance_bottom_history | 五处已知绿字对齐；相等／高于不触发、严格破低触发一次；仅DIF转弱未破价不触发；价格破低且DIF改善仍按工作规则触发 |
++| T03 | 同文件：step优先级与段边界 | 原段未结束不判B；红／零登记离段、不单独结束；再负柱仍按历史观察；原DIF严格突破优先、等号未突破；新BOTTOM DULL／STRUCTURE优先，TOP不接替BOTTOM；旧结束和新创建同柱保留两记录 |
++| T04 | 同文件：普通／TOP不变及范围 | 四周期普通state／reference／两池／TOP历史语义与原基线相同；TOP普通＋BOTTOM历史事件可共存；不修改7/10现有dif_return行为；非上证／非法周期／未完成bar继续拒绝 |
++| T05 | 同文件：Spec／_id／snapshot | 默认h1及固定policy计算预期hash；改策略值拒绝；原Spec快照／其他来源／对象／周期拒绝；新ID稳定且两个方向关联独立；不靠日期分支命中 |
++| T06 | 同文件和tests/web/test_wealth_index_detail_xxm_forecast_api.py：restore／calculator_at | 有／无pending、未离段／已离段、超过24根恢复等于完整前缀；缺字段／ENDED pending／未来时间／错误派生ID拒绝且不污染旧实例；999／1000／1001切点及来源修订后重建 |
++| T07 | tests/web/test_wealth_index_detail_xxm_forecast_api.py：_load_series增量发布 | 保留test_published_entry_is_not_mutated_when_another_request_appends并断言旧bottom_histories／nested reference／checkpoint均未变；冷／追加／复用／来源修订／淘汰重建的底部输出一致 |
++| T08 | tests/web/test_wealth_index_detail_xxm_api.py：_response／helper | through分别7/9、7/11、7/22、7/23；隐藏未来离段／结束，年龄按全历史柱计数；只返消失一根仍带窗口外原结构记录；旧记录末尾ENDED时前序pending引用仍合法 |
++| T09 | 同文件和预测API测试：DTO／数据状态 | 必有新增字段；EMPTY全空；READY零事件合法；有源但请求窗口无柱保持原READY语义且无历史；DELAYED不伪装最新；原20点四周期边界测试全部保留 |
++| T10 | 同文件：XxmEventDto／XxmResponseDto校验 | 悬空／重复／双向／错方向／错版本／未来时点拒绝；BOTTOM历史对应ENDED记录及同参照；结构事件可见时反向ID／time／route一致；记录在窗口外可自带身份；不要求point引用记录在末尾仍PENDING |
++| T11 | scripts/research/index_market/tests/test_xxm_key_point_forecast.py：clone／event_options／forecast | 结构前后和历史消失前后克隆包含底部且不改真实状态；历史事件不当普通STRUCTURE／CANCEL；相同输入完整数学／日期／范围一致；默认最近单时点规则不变 |
++| T12 | scripts/research/index_market/tests/test_xxm_forecast_display.py及预测API测试 | display全文和远端筛选不变；18个既有日线校准失败保护保留；实际API新detectorSpecHash=MAIN_SPEC，forecastVersion／Spec hash不变；forecast cache由新检测器身份隔离 |
++| T13 | wealth/.../xxm/adapter.test.tsx、xxmFixtures.test-support.ts | 旧响应／缺bottom字段／悬空／双关联／错误方向／未来结束拒绝；图表原值不符仍拒绝；新增底部历史正确出marker与详情；API较早分钟端点验证后才跳过绘制 |
++| T14 | 同adapter.test.tsx：eventLabel／eventMarkerLabel／XxmResearchDetails | 详情“底部结构消失”，图上“消失”，无“部结构消失”；低点及结构日期来自记录；接替不是钝化失效；TOP旧详情／普通标签保持 |
++| T15 | wealth/.../xxm/{useIndexXxmLayer.test.tsx,markerGeometry.test.ts,apiClient.test.ts}和xxm-forecast测试 | 新版本刷新／旧结果取消、超时／失败／独立重试；双方向同柱避让与+N／点大小字重不变；预测新hash被当前v0.2严格字段合同接受，仍拒绝额外字段与错周期 |
++| T16 | scripts/research/index_market/xxm/acceptance.py及新bottom_history_acceptance.py | 39747根普通／TOP语义、五处映射、95条完整新增清单、356组预测结果；旧TOP与新BOTTOM分别统计，旧manifest／源SHA／研究报告不修改；正式API／预算见17.11 |
++
++原`test_entire_frozen_ordinary_and_historical_baseline`最后的TOP历史数量断言必须加direction=TOP过滤，期望仍取原manifest；不是删除断言或把manifest数字改成新合计。原普通事件比较保持。新增BOTTOM另核已冻结95条发生时点、原结构、低点和结束原因；60／90没有软件正观察的事实仍注明，不能把95条当95条软件正确率样本。
++
++### 17.11 验收脚本、命令和计时边界
++
++新增**仅供开发验收**的`scripts/research/index_market/xxm/bottom_history_acceptance.py`，与产品代码同轮Review。只import正式XxmCalculator、query／schema和真实路由，不import或注入B1 CandidateCalculator／FastReader。支持`--mode frozen|api|budget --source <冻结源目录> --output <新报告目录>`；budget显式加`--formal-source`才可访问正常配置DB和正式Lake；mixed复用现有xxm_page_request_audit入口，不复制其后端和JS调度器。source目录／输出目录是审计输入，不是用户或运营配置；预算、对象、周期、批次、重复次数都取本节固定口径／原预算，不提供改预算、截历史、关闭校验或换policy的参数。新增输出目录不得等于旧证据目录。 `--mode/--source/--output`均必传、无隐含默认；`--formal-source`默认false，仅budget可设true，budget缺此标记或其他模式误带时拒绝。来源必须含有效manifest，OUT必须尚不存在；不持久化参数到env／Settings／数据库，生效范围仅本次验收进程，输出记录参数及来源SHA。
++
++| 模式 | 调用与记录 | 判定 |
++| --- | --- | --- |
++| frozen | 校验源manifest，正式内核回放完整四周期；与冻结旧普通／TOP及B1底部逐项对照；75个前缀、边界／恢复及356组预测 | 所有语义断言通过；ID变化按原结构／事件键映射后核关联，不全局删掉关联字段了事 |
++| api | 真实日线／分钟／预测Biz路由、query和Pydantic DTO；冻结源在隔离测试资源中装配；负向鉴权另覆盖 | 实际序列化响应断言底部关键字段与版本；fixture路由成绩不冒充正式源预算 |
++| budget --formal-source | 正常配置只读session、正式完整源、真实路由与严格DTO；日线及三分钟每周期20冷＋20暖，共160次；另最新业务日期四请求 | 每次后端总耗时≤4s、预测模型≤200ms，不能只看平均／P95；请求超时保存失败阶段后停止门禁，不放宽预算 |
++| 现有xxm_page_request_audit | 现有Python隔离真实路由／只读DB／正式Reader＋实际TS客户端／调度器，按下述函数级修订；无B1 CandidateCalculator或FastReader注入 | 两并发、16组整页／双标签原306请求全部无预算错误；新旧普通／TOP及预测对照，新增底部差异另解释；共享源复用及LRU总量不超预算 |
++
++budget和既有mixed入口通过正常应用依赖取DB连接，先SET TRANSACTION READ ONLY，结束关闭会话；不装App lifespan／worker、不触发任务和写入。鉴权保留正常配置／现有授权会话，不读取其他进程密钥、不新建账号或改权限。若只能在隔离ASGI fixture注入测试身份，必须在报告注明并独立验证拒绝鉴权分支，不能称已通过现有受保护服务验收；正常访问条件不足的部分记为未验收，不能用B1直接服务包络替代。
++
++已审计实际入口`xxm_page_request_audit.py/.mjs`及[原混合验收记录](/Users/congming/github/goldenshare/reports/xxm_request_reuse_20261015/README.md)。实际清单为：四行预测＋所选周期K线（日线一路、分钟价格／指标两路）＋日线及15／30／60／90／120六路九转＋所选周期XXM识别。日线每页12请求、分钟每页13请求；四周期×单／双标签×冷暖16组，总306请求。Python现有包装只做计数、只读会话、明确正式源装配和计时，并未注入研究FastReader；不能把它误认为旧临时prototype。带FastReader的旧reports/http_precheck.py继续冻结，禁止拿来当新正式验收。
++
++对现有负载入口的计划修改限定为验收本身，命令仍只接受原`--output`，不改产品路由或CLI参数：
++
++1. Python main的隔离app新增受原require_quote_access保护的`/__audit__/context`，在readonly_session中调用原MarketPageContextQuery.resolve_context，返回businessDate／generatedAt及新MAIN_SPEC版本／hash，不返回账号或密钥。每轮前后记录上下文；跨20点导致业务日期变化的轮次显式记为日期切换，不能把旧日期强行当READY。
++2. `.mjs`去掉`const endDate="2026-10-14"`；每轮从上述真实上下文取日期，传入runTab作本轮endDate，原四行预测仍LATEST。期望computedThrough按本轮日期判断，来源未更新仍失败／DELAYED，不注入假行情或放宽20点规则。上下文／reset／metrics属于审计控制请求，不计入原306业务请求。
++3. `.mjs`现有entry打包增加导出真实`xxm/adapter.ts:buildXxmViewModel`和`api/indexMinuteViewModelAdapter.ts:buildIndexMinuteChartViewModel`；API客户端、两个独立模块实例与调度器不替换。runTab取得values中chart和最后的layer，保存原始识别响应，断言版本／hash等于audit context并校验bottomHistories、关联与null策略。
++4. 分钟图用真实buildIndexMinuteChartViewModel合并原bars／indicators，取其time／close／dif／dea／macd传给buildXxmViewModel并传真实indicatorVersion；日线从K线bars投影tradeDate、close、factors.macd三原值作相同对照。此处只投影测试所需原字段，不重算指标／历史事件，也不得用XXM响应本身伪造chart输入。其他DetailChartPoint展示字段不参与该适配器校验，不为测试修改生产Workspace。
++5. 将真实adapter产出的markers和byTime明细序列化到新OUT，对照底部历史事件／关联；最新窗口没有底部事件时允许零marker，五处正观察另由api模式的历史窗口覆盖。预测96份响应继续保存并只排除声明过的身份差异作对照。
++6. 原计数Reader、实际客户端取消／超时、两独立标签模块、每路完整读取次数、最大cache／compute及HTTP计时保持。新增上下文读取开销单列，不能把整页含排队时长误写成每HTTP4秒；保留所有慢样本与失败。
++
++budget对当前真实源保留完整历史，不要求最新尾部行数仍等于10/13冻结文件；记录实际根数／through／指纹，已冻结重叠区逐值对账。若源修订改变重叠值须单列差异，不能硬改旧CSV或把有效新增行当错误；356组模型基准仍以冻结源重放为准。
++
++冷指应用series／forecast缓存清空，保留OS与DB buffer cache；暖指同源重复，第一请求建缓存计入原统计，不删除慢样本。4秒从后端原load_entry开始计，覆盖源槽位排队、来源检查／全读、内核／底部账本、checkpoint、cache大小、DTO序列化；另记录HTTP全程（连接／鉴权等开销），不能混作模型耗时。模型200ms沿用forecast_query_service中原compute_start范围，包含calculator_at／投影校准／求解／文案；**完整历史的源加载／全量识别不冒充200ms预测模型**。前端队列调度保持，5秒客户端计时从实际发送开始。
++
++响应≤2000根、识别≤1MiB／预测≤32KiB、共享LRU≤64MiB／16项、两槽位、1000根批次、完整源和全部校验不变；全历史新增记录及快照深拷贝／状态去重成本计入。B1的60分钟首冷3.895s余量很小，应保存冷读分阶段耗时；若正式新路径不达标，说明测量差异并回评审，不能截历史或把页面超时调大。
++
++实施后基础命令（本轮不执行）：
++
++```sh
++.venv/bin/python -m pytest scripts/research/index_market/tests/test_xxm_calculator.py scripts/research/index_market/tests/test_xxm_key_point_forecast.py scripts/research/index_market/tests/test_xxm_forecast_display.py tests/web/test_wealth_index_detail_xxm_api.py tests/web/test_wealth_index_detail_xxm_forecast_api.py tests/web/test_xxm_shared_loads.py
++npm --prefix wealth run typecheck
++npm --prefix wealth run test -- src/features/index-detail/xxm src/features/index-detail/xxm-forecast
++npm --prefix wealth run build
++.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output reports/xxm_bottom_history_h1_page_<本轮唯一批次>
++.venv/bin/python scripts/research/index_market/xxm/bottom_history_acceptance.py --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_acceptance_<本轮唯一批次>
++```
++
++api／budget使用新runner，mixed使用既有入口；各自新OUT。两个正式源入口需正常访问权限，不在本次文档任务执行。页面仍由用户验收：7/23等绿字、原结构关联／低点和四周期技术面内容为核对点；不重新要求用户为自动化浏览器配置服务，不以截图代替API／算法验收。
++
++### 17.12 编码顺序、门禁映射与停点
++
++| 顺序 | 可Review成果 | 必须先通过 |
++| --- | --- | --- |
++| C0 本次文档 | 本节函数级方案、真实消费者、测试矩阵及审计报告 | 本轮只做文档／引用／保护哈希检查，未运行新产品代码 |
++| C1 内核与回归 | types／Spec／calculator及T01—T06，单一h1内核 | 五处映射、严格边界／优先级、快照、旧普通／TOP；不接受只复制研究wrapper |
++| C2 查询与合同 | SeriesEntry／过去投影／DTO及T07—T10，fixture同步 | 全量／增量／来源修订／过去请求、全部关联、真实路由关键字段；不能发布只有后端新字段而前端仍拒绝的半版本 |
++| C3 预测与消费 | 同一内核克隆、严格adapter／底部详情及T11—T15 | 预测数学及文案不变、原视觉／取消／超时保持，两Workspace使用同一事实 |
++| C4 完整技术验收 | T16及17.11各模式新证据，文档逐条对账 | 新正式接口四周期冷暖／并发／混合／双标签、4s／200ms及源保护；页面待用户验收单独列 |
++
++这些为同一B组原子发布范围中的Review顺序，不是多套在线实现；C1／C2中间态不可作为交付。最终替换唯一Spec／内核及全部消费者，旧报告保留，不保留线上旧算法fallback。若需回退，整套代码／合同／前端版本一起回退并重建缓存，不进行新旧结果拼接。
++
++§16.7门禁与代码级测试明确对应如下，不能只按列表位置猜映射：
++
++| 原门禁 | 本节落点／测试 |
++| --- | --- |
++| B01 锁定原段低点 | 17.4.2；T01 |
++| B02 原段结束后检查 | 17.4.1—17.4.2；T03 |
++| B03 纯价格严格比较 | 17.4.2；T02 |
++| B04 结束优先级及普通独立 | 17.4.1—17.4.2；T03—T04 |
++| B05 关联及过去时点 | 17.5.2、17.6、17.8；T05、T08—T10、T13—T14 |
++| B06 恢复与因果 | 17.4.3、17.5.1、17.7；T05—T07、T11 |
++| B07 行为及预测不变 | 17.4.1、17.7；T04、T11—T12 |
++| B08 正式负载与预算 | 17.11；T15—T16 |
++
++§16完整通用交付矩阵仍适用：后端事实与合同见17.4—17.6，UI状态／显示见17.8，配置身份见17.3／16.6，排序／因果见17.5，性能／异常／可见结果见17.10—17.11；没有新增例外或省略项。旧矩阵“本节待审／用户确认前”指原§16评审阶段，已由B0确认；**本次§17的设计细化仍待用户Review，产品未修改**。
++
++剩余未知仍是软件公式可信度边界：附加DIF门槛、精确零柱／OHLC依赖及软件寿命，并非本节隐含参数。A组同段重钝化以后若实施，必须重新审计其是否先结束同一历史记录，防止A／B重复消失；本轮不预先写等待分支或预测r1。发现源／方案冲突、普通或TOP变化、预测价格变化、预算失败，应保留证据并回评审，禁止日期补丁或降低校验。
+--- before/docs/product/xxm-direction-algorithm-plan-v0.1.md
++++ after/docs/product/xxm-direction-algorithm-plan-v0.1.md
+@@ -651,6 +651,8 @@
+ 
+ B1若出现与已知软件图文冲突的新标记、普通事件变化、预测范围变化或预算失败，应先说明差异并回到方案评审，不按日期特判掩盖。通过后只能称本工作版本已覆盖已知漏项，不能称原软件算法已完全还原；原三漏当前仍未修复。
+ 
++**代码级设计入口（2026-10-16补充）：** 用户要求逐函数审计后，已在[识别LLD§17](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#xxm-bottom-history-code-lld)细化types／Spec／step／snapshot／restore、SeriesEntry／过去投影、严格DTO、全部前端消费及T01—T16测试。仅补编码设计，未改H1—S2—E1业务规则；设计待Review，B2未实施，B1成绩不变。
++
+ #### 12.10.6 本轮B1只读预检结果（2026-10-16）
+ 
+ **已确认的B组工作规则通过本次独立候选预检，产品仍未修改。** [完整报告及可复现脚本](/Users/congming/github/goldenshare/reports/xxm_bottom_history_precheck_20261016/README.md)保留本轮新证据，原软件图文及旧报告没有覆盖。
+@@ -671,7 +673,7 @@
+ | B2 本次 | 明确原段结束后的跟踪 | 红柱／零柱只登记离开原段，历史记录继续；原段内不加新价格判断 | 变色清普通状态时丢掉全部旧结构上下文；与同段A组混用 | 7/11红柱后到7/23，变色确认结构、零柱及恢复 |
+ | B3 本次 | 已完成收盘破锁定低点触发 | 不追加DIF反向比例，一次触发后结束；普通状态不变 | 补原三日线及两分钟历史绿色；避免只看DIF过早消耗旧记录 | 五处映射、严格等号、价格与DIF独立反例；软件附加门槛仍未知 |
+ | B4 本次 | 原参照／新底部信号优先 | 原DIF突破、新DULL／STRUCTURE先结束旧记录，顶部事件独立 | 新钝化出现时再多报旧绿色，或把历史结束伪造为钝化失效 | 9/2新黄无额外旧绿、9/4原CANCEL；E1为暂定工作选择 |
+-| B5 本次 | 迁移底部关联及版本 | 新增底部集合、关联与过去时点投影，单一新版Spec作废旧缓存 | 只补画绿字、错误塞进顶部记录、未来结束状态泄漏 | 全部schema／adapter／图层、历史查询及快照恢复 |
++| B5 本次 | 迁移底部关联及版本 | 新增底部集合、关联与过去时点投影，单一新版Spec作废旧缓存；代码落点详见LLD§17 | 只补画绿字、错误塞进顶部记录、未来结束状态泄漏 | 全部schema／adapter／图层、历史查询及快照恢复 |
+ | B6 本次 | 保持预测的普通状态依据 | 同一内核克隆保留新历史；不以旧结构或其低点替代真实DULL和合法参照 | 历史消失被误当新钝化、旧低点污染结构预测 | 四周期状态／日期／范围／文案与原版语义对照，检测器hash更新 |
+ | B7 本次 | 新差异及预算验收 | 冻结原普通／顶部账本，逐项解释新版底部差异 | 补中一个点就宣称修复全部、用旧预算成绩代替新版本 | 先7/23再其余四处、反例、4秒／200ms、混合／双标签页 |
+ | C1 | 区分同段底部结构消失与再次钝化 | 底部 `STRUCTURE → DULL` 改为独立结构消失事件，普通状态先回NONE | 7/10漏绿色、提前报新钝化 | 日线及60／90／120分钟；120分钟当日图和讲解回放 |
+--- before/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md
++++ after/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md
+@@ -873,3 +873,5 @@
+ 用户已确认B组并完成本次B1只读研究，见[完整报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_precheck_20261016/README.md)。四周期共356组截止时点的status、最近日期、激活／结构范围、排除条件及display全文完全一致，候选克隆保留底部状态且不污染真实记录，模型最慢93.196ms；18个历史日线截止点CALIBRATION_FAILED保护原样保留，不能计为生成有效预测。原未来日历只用于端点，不读未来价格。
+ 
+ 正式源每周期20冷＋20暖共160次单请求研究包络均小于4秒；冷请求最大依次1.188／3.895／3.524／2.759秒。60分钟首次冷读余量约105ms，正式实现后必须再测。该包络沿用真实加载并额外计算候选，不是新正式HTTP／严格DTO或整页／双标签验收。预测原版本及Spec保持，仅候选检测器hash不同；正式query／schema／Wealth尚未迁移，最初三漏仍未在页面修复。A组同段问题及顶部疑报继续保留，本轮确认不包含其实施。
++
++代码级设计补充（2026-10-16）：[识别LLD§17.7](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#xxm-bottom-history-code-lld)已核实clone(c)、calculator_at(count,check)和forecast build的当前实现。保持同一XxmCalculator的snapshot／restore即可携带新增底部状态，无需研究工厂或第二套克隆；预测schema／v0.2生产adapter和数学不加字段。识别adapter按唯一新algorithmVersion迁移，预测detectorSpecHash当前只校验格式，不能写成已有精确hash白名单；真实API必须断言它来自新MAIN_SPEC。具体源码、测试与正式验收范围见LLD§17.9—§17.11，整页沿用实际TS调度并修正审计脚本硬编码日期。此处只细化实现／验证，不改变B组业务口径、不运行新预测，B1的356组对照和160次包络仍只是原次研究成绩。
+--- before/docs/product/xxm-macd-structure-research-v1.md
++++ after/docs/product/xxm-macd-structure-research-v1.md
+@@ -2996,3 +2996,13 @@
+ 356组预测数学、日期、范围及display全文一致，候选模型最大93.196ms；18个日线校准失败保护保持，不放宽容差。正常数据库配置的只读事务及正式Lake四周期完整输入，与冻结来源逐值一致；每周期20冷＋20暖共160次单请求研究包络通过4秒，冷最大1.188／3.895／3.524／2.759秒。60分钟首冷余量约105ms，后续正式接口重点复测。包络包含当前真实加载加候选重放，不等于新HTTP／严格DTO／共享LRU或混合双标签验收。
+ 
+ 算法方案§12.10.6、识别LLD§16.10、预测方案§22同步批准状态及本轮证据；核心修改表仍位于V0.1文末。无产品／前端代码、依赖矩阵、数据库／Lake写入或部署变化。B2及B3未开展，原页面三漏未修复；不要求用户继续随机找图，不把本轮通过升级为原软件唯一公式。完整输出及复现脚本见[本轮B1报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_precheck_20261016/README.md)，保护哈希与文档检查另记录。
++
++### 8.67 B组代码级LLD审计与落档（2026年10月16日）
++
++用户要求审计当前实现，提供颗粒度到文件／类／函数的编码LLD；本轮只改四份原文档，未实施内核。CodeGraph search／explore／impact及真实源码核对覆盖唯一calculator、两个识别路由和预测、SeriesEntry、schema、TS adapter／hook／两图表／详情、冻结测试及实际整页验收入口；影响返回68符号，含研究／测试，不是68个生产改动。
++
++[识别LLD§17](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#xxm-bottom-history-code-lld)新增逐函数签名、step插入顺序、独立底部类型、单一Spec身份、快照先校验后赋值、全量／增量容器复制、过去投影和point时点引用规则、严格DTO与全部消费者、16组测试及固定验收入口。原普通／TOP规则、来源与20点日期、预测数学及4秒／200ms保持；A组和顶部疑报继续排除。内部XxmStep属性统一bottom_histories，外部JSON仍bottomHistories，不新增别名；研究候选原样保留，不导入产品。
++
++审计特别记录：当前前端只接TOP历史且详情标签直接删前缀会产生“部结构消失”；原全冻结测试将全部历史事件与TOP manifest比较；预测adapter只校验detectorSpecHash格式；实际xxm_page_request_audit使用真实源／客户端／调度器，但mjs硬编码2026/10/14且未验证新增底部adapter。新LLD分别规定方向关联、专用标签、旧TOP统计与新BOTTOM基线分开、正常新hash的API断言、从统一上下文取审计日期及真实图表输入校验。只作为待Review设计，不声称这些生产问题已经修复。
++
++本轮另对328份B1底部记录核对拟定快照的“原参照结束早于原段开始”不变量，全部相容；不是重跑B1算法或预算。文档完整性、引用／代码保护另记于[本轮审计报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_code_lld_audit_20261016/README.md)。不新增主文档或依赖／配置，不改写原130份证据与来源，核心修改表仍为V0.1文末。

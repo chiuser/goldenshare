@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import math
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 
 XxmPeriod = Literal["day", "m60", "m90", "m120"]
@@ -47,8 +47,26 @@ class Wave:
         return {"startTime": self.start, "endTime": self.end, "price": self.price, "dif": self.dif}
 
 
+class XxmBottomHistory(TypedDict):
+    id: str
+    structureEventId: str
+    confirmedAt: str
+    confirmationRoute: Literal["dif_turn", "color_flip"]
+    originSegmentStart: str
+    leftOriginAt: str | None
+    priceLow: float
+    priceLowAt: str
+    originalReference: dict[str, Any]
+    status: Literal["PENDING", "ENDED"]
+    endedAt: str | None
+    endReason: Literal["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break"] | None
+    observedThrough: str
+    ageBars: int
+
+
 @dataclass(frozen=True, slots=True)
 class XxmStep:
     point: dict[str, Any]
     events: tuple[dict[str, Any], ...]
     histories: tuple[dict[str, Any], ...]
+    bottom_histories: tuple[XxmBottomHistory, ...]

@@ -1,0 +1,115 @@
+{
+  "scope": "B-group only; current dev-interface workspace; uncommitted",
+  "files": [
+    {
+      "path": "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+      "sha256": "e5c51efad9b2b01cae8473d6bbffc76a5786dfeca6a73285b535b4397cbfbc48"
+    },
+    {
+      "path": "docs/product/xxm-macd-structure-research-v1.md",
+      "sha256": "9b042b139b039fa88184012fd1cd67c11b9d3f3388f1294f3f5b99215a3729bf"
+    },
+    {
+      "path": "scripts/research/index_market/README.md",
+      "sha256": "d28a28cb33d381f7c3a1789ca4c2e3abff5ed8a36793d88e0a80c73c74b2f02a"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_calculator.py",
+      "sha256": "af5983894689fab581525079ee8fa4689725f595a3db1a198506646e6122d6ed"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_key_point_forecast.py",
+      "sha256": "688d71475360c5258cb7cb398e2d5c31ee2a26890dabe51cb722755030e3bd99"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/acceptance.py",
+      "sha256": "703505175baf42a15286cefa86320c9fd42b4334bdfff962657a5ef959961def"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/bottom_history_acceptance.py",
+      "sha256": "6fb17b352bd60617ca5719eb35b5408ef2c095ee90b0ca28bf6cd5a14f87290c"
+    },
+    {
+      "path": "scripts/research/index_market/xxm_page_request_audit.mjs",
+      "sha256": "c44d5f32b21b5c0b596696b53a6f0a909b9c4082985abbeed3ad129c747171ad"
+    },
+    {
+      "path": "scripts/research/index_market/xxm_page_request_audit.py",
+      "sha256": "d5181f5dbe13c92ac050b481a53aeb415d656d20600804609f4050167dc6d811"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+      "sha256": "92ebea29c43247156a6836d80cb2506d87d22774c1d6aa2a50274a5181cc514e"
+    },
+    {
+      "path": "src/biz/schemas/wealth/market/index_detail_xxm.py",
+      "sha256": "c0efc3a8a13c9fd063e70e74f8967db542d90bdbe5d385b62e2ea1a8939e4ba3"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+      "sha256": "5c05f1b9da31b33481e63208ee2ccc3b16f78294384e7763fdc6b9e7be4d338f"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+      "sha256": "292bbe99ef7ca49855c6f5e07c17cfb3cc74a32b224f6a469b88936398d5a903"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/types.py",
+      "sha256": "26bc1af6dbeef3a449654d7bbbb8f9fb7118daf1ceb68e4449fd5efe32627da9"
+    },
+    {
+      "path": "tests/web/test_wealth_index_detail_xxm_api.py",
+      "sha256": "dd068bd7deab310b868c25f20b90a58caf09ceec1f5f357401f8aa998821a2fe"
+    },
+    {
+      "path": "tests/web/test_wealth_index_detail_xxm_forecast_api.py",
+      "sha256": "c14ff79acbea1ceab68de86c586835f8d090b1d6afac0311da8969c97afea6e4"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+      "sha256": "4ea409e3b6a0c6d7c9380c70ac15136843227d00ded3664aeb49944b24ca4639"
+    },
+    {
+      "path": "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+      "sha256": "e17146f5b0a70fbeb93801b0fd99c3608e97d2f17288b0f8cfcfa94baeb9760f"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/XxmLayerUi.tsx",
+      "sha256": "342f49ae2ddca26b52b905648383c0fbe88615bc2183814b1c2a60eb80f59c3a"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/adapter.test.tsx",
+      "sha256": "cac0bf7cca8a710e9939e96416d9c3307d168ffe5ff4dca6ebdc14cec1c3d5c1"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/adapter.ts",
+      "sha256": "113059cfbf88451b0348cb4fa08ab1a45f996bd792471e4d8fb8848e8839346c"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/types.ts",
+      "sha256": "3d8f59312f5de03a43e9d02c5ab0162357d15e9a8e033a71dc760d9593c5dae8"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx",
+      "sha256": "76bf17aa2733e7ab2231f7ef11f786d35f0ea6c50de7f94076d92a8940107e9f"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm/xxmFixtures.test-support.ts",
+      "sha256": "b20e354639305f690e94d16adc548f3767cf6e705487d21740f97eea5154a036"
+    }
+  ],
+  "evidenceFilesUnchanged": 130,
+  "unchangedAuditedCode": 43,
+  "ordinaryBranchByteIdentical": true,
+  "docLinksValid": true,
+  "coreTableIsLast": true,
+  "codegraphTools": [
+    "codegraph_explore(XxmCalculator)",
+    "codegraph_impact(XxmCalculator,depth=2)",
+    "codegraph sync",
+    "codegraph status"
+  ],
+  "dependencyMatrixChanged": false,
+  "databaseLakeWrites": false,
+  "userPageAcceptance": "pending"
+}

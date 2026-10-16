@@ -218,3 +218,106 @@ def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(sourc
     assert len(partial.points) == len(values)-len(endpoints)
     assert partial.dataStatus.status == "READY"
     assert all(e.time <= partial.source.computedThrough for e in partial.events)
+
+
+def bottom_entry(period='day', stop=None):
+    from scripts.research.index_market.xxm.acceptance import load_source
+    from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+    from src.biz.queries.wealth.market.index_detail_xxm.query_service import SeriesEntry
+    source = Path(__file__).resolve().parents[2] / 'reports/xxm_source_audit_20261013_213852'
+    raw = tuple(load_source(source, period))
+    values = raw if stop is None else tuple(b for b in raw if b.time <= stop)
+    calc = XxmCalculator(period=period, source_identity='B-api-test')
+    points, events, histories, bottom, checkpoints = [], [], {}, {}, {}
+    for n, bar in enumerate(values, 1):
+        step = calc.step(bar); points.append(step.point); events.extend(step.events)
+        histories.update({h['id']: h for h in step.histories})
+        bottom.update({h['id']: h for h in step.bottom_histories})
+        if n % 1000 == 0: checkpoints[n] = calc.snapshot()
+    return SeriesEntry(raw=raw, signature=(), calculator=calc, processed=values, points=points,
+                       events=events, histories=histories, bottom_histories=bottom,
+                       fingerprints=['a'*64]*len(values), checkpoints=checkpoints)
+
+
+@pytest.mark.parametrize('period', ['day', 'm60', 'm90', 'm120'])
+def test_bottom_asof_restore_past_window_and_single_bar_external_structure(period):
+    service = IndexDetailXxmQueryService
+    entry = bottom_entry(period)
+    for day in ('2024-07-09', '2024-07-11', '2024-07-22', '2024-07-23'):
+        through = day if period == 'day' else day+'T15:00:00+08:00'
+        actual = service._response(entry, period=period, expected=through, start_date=None, limit=2000, check=lambda: None)
+        prefix = bottom_entry(period, through)
+        independent = service._response(prefix, period=period, expected=through, start_date=None, limit=2000, check=lambda: None)
+        assert actual.model_dump() == independent.model_dump()
+        child = entry.calculator_at(len(prefix.processed), lambda: None)
+        assert child.snapshot() == prefix.calculator.snapshot()
+        before = entry.calculator.snapshot()
+        if child.pending_bottom_history:
+            child.pending_bottom_history['originalReference']['dif'] = -999
+        assert entry.calculator.snapshot() == before
+    event = next(e for e in entry.events if e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL')
+    response = service._response(entry, period=period, expected=event['time'], start_date=None, limit=1, check=lambda: None)
+    h = next(h for h in response.bottomHistories if h.id == event['relatedBottomHistoryId'])
+    assert h.confirmedAt < response.meta.responseStart and h.structureEventId not in {e.id for e in response.events}
+    assert h.status == 'ENDED' and h.endReason == 'historical_price_break'
+    empty = service._response(entry, period=period, expected=event['time'], start_date=date(2099,1,1), limit=1, check=lambda: None)
+    assert empty.dataStatus.status == 'READY' and empty.points == [] and empty.bottomHistories == []
+
+
+def test_bottom_strict_dto_rejects_partial_contracts_and_accepts_old_point_pending():
+    from copy import deepcopy
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
+    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+    entry = bottom_entry()
+    response = IndexDetailXxmQueryService._response(entry, period='day', expected='2024-07-23',
+                                                   start_date=date(2024,7,22), limit=2, check=lambda: None)
+    payload = response.model_dump()
+    assert payload['points'][0]['pendingBottomHistoryId'] and payload['bottomHistories'][0]['status'] == 'ENDED'
+    assert XxmResponseDto.model_validate(payload).algorithmVersion == MAIN_SPEC.algorithm_version
+    changes = [lambda r:r.pop('bottomHistories'), lambda r:r['points'][0].pop('pendingBottomHistoryId'),
+               lambda r:r['events'][0].pop('relatedBottomHistoryId'), lambda r:r.update(algorithmVersion='xxm-direction-v0.1'),
+               lambda r:r.update(specHash='a'*64), lambda r:r.update(bottomHistories=[]),
+               lambda r:r['bottomHistories'][0].update(extra=True),
+               lambda r:r['bottomHistories'][0].update(ageBars=True),
+               lambda r:r['bottomHistories'][0].update(leftOriginAt='2024-07-24'),
+               lambda r:r['bottomHistories'][0].update(priceLow=float('inf')),
+               lambda r:r['bottomHistories'][0].update(endedAt='2024-07-24'),
+               lambda r:r['events'][0].update(relatedTopHistoryId='other'),
+               lambda r:r['events'][0].update(direction='TOP'),
+               lambda r:r['events'][0].update(type='DULL',relatedBottomHistoryId=None),
+               lambda r:r['events'][0].update(eventReference={**r['events'][0]['eventReference'],'dif':-999}),
+               lambda r:r['points'][1].update(pendingBottomHistoryId=r['bottomHistories'][0]['id']),
+               lambda r:r['dataStatus'].update(status='EMPTY')]
+    for mutate in changes:
+        changed = deepcopy(payload); mutate(changed)
+        with pytest.raises(ValidationError): XxmResponseDto.model_validate(changed)
+
+
+def test_bottom_increment_copy_revision_and_eviction(source_db, monkeypatch):
+    from copy import deepcopy
+    from scripts.research.index_market.xxm.acceptance import load_source
+    source = Path(__file__).resolve().parents[2] / 'reports/xxm_source_audit_20261013_213852'
+    full = tuple(load_source(source, 'day'))
+    actual = [tuple(b for b in full if b.time <= '2024-07-22')]
+    monkeypatch.setattr(query_service, 'read_daily', lambda *a, **kw: actual[0])
+    monkeypatch.setattr(query_service, 'calendar_dates', lambda *a, **kw: tuple(date.fromisoformat(b.time) for b in full))
+    cache = XxmCache(); service = IndexDetailXxmQueryService(cache=cache)
+    now = datetime(2026,10,14,21,tzinfo=ZONE)
+    with Session(source_db) as session:
+        first, _ = service._load_series(session, key=('B',), period='day', now=now,
+                      business_date=date(2026,10,13), remaining=lambda: 4)
+        before = deepcopy(first.bottom_histories); old_snapshot = first.calculator.snapshot()
+        actual[0] = tuple(b for b in full if b.time <= '2024-07-23')
+        next_entry, _ = service._load_series(session, key=('B',), period='day', now=now,
+                      business_date=date(2026,10,13), remaining=lambda: 4)
+        assert first.bottom_histories == before and first.calculator.snapshot() == old_snapshot
+        assert first.bottom_histories is not next_entry.bottom_histories
+        assert any(h['endReason']=='historical_price_break' and h['endedAt']=='2024-07-23' for h in next_entry.bottom_histories.values())
+        actual[0] = (replace(actual[0][0], close=actual[0][0].close+.1), *actual[0][1:])
+        revised, _ = service._load_series(session, key=('B',), period='day', now=now,
+                      business_date=date(2026,10,13), remaining=lambda: 4)
+        assert revised.points[0]['close'] != next_entry.points[0]['close']
+        assert revised.bottom_histories is not next_entry.bottom_histories
+    tiny = XxmCache(max_bytes=1); tiny.put(('B',), next_entry)
+    assert tiny.get(('B',)) is None

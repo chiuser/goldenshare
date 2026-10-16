@@ -1,0 +1,196 @@
+{
+  "scope": "B1 scratch precheck; unchanged product calculator; source snapshot through 2026-10-13",
+  "candidateSpec": {
+    "algorithm_version": "xxm-direction-v0.1-h1",
+    "dif_turn_pct": 1.0,
+    "max_refs": 2,
+    "min_bars": 2,
+    "reference_policy": "strongest_eligible",
+    "macd_parameters": [
+      12,
+      26,
+      9
+    ],
+    "histogram_multiplier": 2,
+    "color_flip": true,
+    "flip_requires_turn": false,
+    "historical_price_only": true,
+    "fixed_expiry": null,
+    "bottom_history_policy": "closed_origin_close_break_v1"
+  },
+  "candidateSpecHash": "b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5",
+  "periods": {
+    "day": {
+      "rows": 912,
+      "start": "2023-01-03",
+      "end": "2026-10-13",
+      "ordinaryAndTopIdentical": true,
+      "newBottomEvents": 4,
+      "historyRecords": 7,
+      "endReasons": {
+        "new_bottom_DULL": 3,
+        "historical_price_break": 4
+      },
+      "independentPrefixAndAsOfCuts": 15,
+      "restoreCuts": 15,
+      "maxPendingAge": 33,
+      "snapshotBytes": 1636,
+      "baseReplayMs": 6.679832935333252,
+      "candidateReplayMs": 10.64224960282445,
+      "priorHypothesisWindowIdentical": true
+    },
+    "m60": {
+      "rows": 17260,
+      "start": "2009-01-05T10:30:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "ordinaryAndTopIdentical": true,
+      "newBottomEvents": 46,
+      "historyRecords": 143,
+      "endReasons": {
+        "new_bottom_DULL": 78,
+        "original_reference_break": 18,
+        "historical_price_break": 46,
+        "null": 1
+      },
+      "independentPrefixAndAsOfCuts": 21,
+      "restoreCuts": 21,
+      "maxPendingAge": 658,
+      "snapshotBytes": 2722,
+      "baseReplayMs": 85.79620905220509,
+      "candidateReplayMs": 215.80720832571387,
+      "priorHypothesisWindowIdentical": true
+    },
+    "m90": {
+      "rows": 12945,
+      "start": "2009-01-05T11:00:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "ordinaryAndTopIdentical": true,
+      "newBottomEvents": 26,
+      "historyRecords": 103,
+      "endReasons": {
+        "new_bottom_DULL": 63,
+        "historical_price_break": 26,
+        "original_reference_break": 14
+      },
+      "independentPrefixAndAsOfCuts": 18,
+      "restoreCuts": 18,
+      "maxPendingAge": 493,
+      "snapshotBytes": 2136,
+      "baseReplayMs": 67.57300021126866,
+      "candidateReplayMs": 164.3074583262205,
+      "priorHypothesisWindowIdentical": true
+    },
+    "m120": {
+      "rows": 8630,
+      "start": "2009-01-05T11:30:00+08:00",
+      "end": "2026-10-13T15:00:00+08:00",
+      "ordinaryAndTopIdentical": true,
+      "newBottomEvents": 19,
+      "historyRecords": 75,
+      "endReasons": {
+        "new_bottom_DULL": 51,
+        "historical_price_break": 19,
+        "original_reference_break": 5
+      },
+      "independentPrefixAndAsOfCuts": 21,
+      "restoreCuts": 21,
+      "maxPendingAge": 257,
+      "snapshotBytes": 1634,
+      "baseReplayMs": 41.6334168985486,
+      "candidateReplayMs": 101.14654200151563,
+      "priorHypothesisWindowIdentical": true
+    }
+  },
+  "checks": [
+    {
+      "name": "known_label",
+      "period": "day",
+      "time": "2024-07-23",
+      "anchor": "2024-07-09",
+      "passed": true
+    },
+    {
+      "name": "known_label",
+      "period": "day",
+      "time": "2024-08-05",
+      "anchor": "2024-07-31",
+      "passed": true
+    },
+    {
+      "name": "known_label",
+      "period": "day",
+      "time": "2024-08-22",
+      "anchor": "2024-08-15",
+      "passed": true
+    },
+    {
+      "name": "known_label",
+      "period": "m120",
+      "time": "2024-08-05T15:00:00+08:00",
+      "anchor": "2024-07-31T11:30:00+08:00",
+      "passed": true
+    },
+    {
+      "name": "known_label",
+      "period": "m120",
+      "time": "2024-08-14T15:00:00+08:00",
+      "anchor": "2024-08-13T15:00:00+08:00",
+      "passed": true
+    },
+    {
+      "name": "Sep02_new_DULL_precedes_history",
+      "passed": true
+    },
+    {
+      "name": "Sep04_real_CANCEL_retained",
+      "passed": true
+    },
+    {
+      "name": "known_A_issue_explicitly_unchanged",
+      "passed": true
+    },
+    {
+      "name": "equal_price",
+      "passed": true
+    },
+    {
+      "name": "above_price",
+      "passed": true
+    },
+    {
+      "name": "below_price_improving_DIF",
+      "passed": true
+    },
+    {
+      "name": "reference_equal",
+      "passed": true
+    },
+    {
+      "name": "reference_breached",
+      "passed": true
+    },
+    {
+      "name": "priority_new_BOTTOM_DULL",
+      "passed": true
+    },
+    {
+      "name": "priority_new_BOTTOM_STRUCTURE",
+      "passed": true
+    },
+    {
+      "name": "TOP_not_bottom_successor",
+      "passed": true
+    },
+    {
+      "name": "origin_exit_zero_and_later_negative",
+      "passed": true
+    },
+    {
+      "name": "no_fixed_10_or_24_bar_TTL",
+      "passed": true,
+      "controlledBars": 40
+    }
+  ],
+  "productImplemented": false,
+  "softwareUniqueFormulaProven": false
+}

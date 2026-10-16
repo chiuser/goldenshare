@@ -300,3 +300,17 @@ XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新�
 旧复算入口可能写回原报告，不应为本轮验收直接重跑。新入口会校验原 CSV／图片哈希，使用产品同一内核及来源身份，输出连续基线、软件末端读数、前缀与恢复检查和真实 API 对照。
 
 2026-10-15 请求调度、共享加载与读取投影：唯一设计见[预测方案§20](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施)，执行／历史失败见[报告](../../../reports/xxm_request_reuse_20261015/README.md)。四周期原预算沿用上述`xxm_forecast_display_audit`入口；整页混合与单／双标签页使用`.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output <新报告目录>`，运行实际TS客户端／调度器与原只读HTTP链，不自动操作页面。完整历史、投影及配对读取对照使用`.venv/bin/python -m scripts.research.index_market.xxm_history_projection_audit --through 2026-10-14 --output <新报告目录>`；只读正式Gold、拒绝覆盖旧结果，不是产品预计算或正式数据发布。
+
+
+## B组h1内核验收（2026-10-16）
+
+已确认规则见算法方案§12.10及识别LLD§17；当前交付见[实施报告](../../../reports/xxm_bottom_history_h1_implementation_20261016/README.md)。脚本仅验证正式唯一内核，不导入历史研究候选。每次OUT必须新建，预算／对象／周期不可改成更宽门槛。
+
+```sh
+.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_frozen_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_api_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode budget --formal-source --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_budget_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output reports/xxm_bottom_history_h1_page_<新批次>
+```
+
+frozen校验来源SHA并对照完整39747根、旧普通／TOP、B1新增95条、75个前缀恢复和356组预测。api使用隔离SQLite／冻结字段fixture，调用真实三路由／query／DTO并覆盖拒绝鉴权，不冒充正式服务。budget仅显式formal-source时通过应用正常依赖及READ ONLY事务读取白名单日历／上证因子与正式Lake；160轮预测和配对识别，另4次LATEST。mixed仍用实际TS客户端／调度器的306请求、统一业务日期及真实图表原值adapter，不操作浏览器。完整来源／原4秒／200ms及缓存预算保持；页面由用户验收，脚本不安装依赖或修改鉴权。

@@ -1,0 +1,69 @@
+{
+  "calendarAdditionalSource": "reports/xxm_forecast_precheck_20261014/future_sse_calendar.json",
+  "calendarAdditionalSha256": "dc5b592ef4aa0868cd408a8d842463da98511ad23a0efa17ee6c2be660b95532",
+  "priceLookAhead": false,
+  "productPatched": false,
+  "temporaryModuleBinding": "scratch process only, restored after each model call",
+  "periods": {
+    "day": {
+      "comparisons": 26,
+      "mathAndDisplayIdentical": true,
+      "statuses": {
+        "PRECISION_PENDING": 18,
+        "CONFIRMED": 4,
+        "CONDITIONAL_ENTRY": 3,
+        "READY": 1
+      },
+      "calibrationProtected": 18,
+      "candidateMaxMs": 93.19562511518598,
+      "baselineMaxMs": 82.65558304265141,
+      "candidateMaxResultBytes": 12255,
+      "clonePreservesBottomState": true
+    },
+    "m60": {
+      "comparisons": 158,
+      "mathAndDisplayIdentical": true,
+      "statuses": {
+        "CONDITIONAL_ENTRY": 93,
+        "READY": 27,
+        "NO_CANDIDATE": 37,
+        "CONFIRMED": 1
+      },
+      "calibrationProtected": 0,
+      "candidateMaxMs": 33.590208273380995,
+      "baselineMaxMs": 22.667917422950268,
+      "candidateMaxResultBytes": 11855,
+      "clonePreservesBottomState": true
+    },
+    "m90": {
+      "comparisons": 97,
+      "mathAndDisplayIdentical": true,
+      "statuses": {
+        "NO_CANDIDATE": 29,
+        "CONDITIONAL_ENTRY": 49,
+        "READY": 17,
+        "CONFIRMED": 2
+      },
+      "calibrationProtected": 0,
+      "candidateMaxMs": 31.624000053852797,
+      "baselineMaxMs": 22.080000024288893,
+      "candidateMaxResultBytes": 11311,
+      "clonePreservesBottomState": true
+    },
+    "m120": {
+      "comparisons": 75,
+      "mathAndDisplayIdentical": true,
+      "statuses": {
+        "CONDITIONAL_ENTRY": 43,
+        "READY": 15,
+        "NO_CANDIDATE": 15,
+        "CONFIRMED": 2
+      },
+      "calibrationProtected": 0,
+      "candidateMaxMs": 25.520542170852423,
+      "baselineMaxMs": 17.746207769960165,
+      "candidateMaxResultBytes": 11347,
+      "clonePreservesBottomState": true
+    }
+  }
+}

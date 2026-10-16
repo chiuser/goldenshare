@@ -3,10 +3,11 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict
 import hashlib
+import math
 from typing import Any
 
 from .spec import MAIN_SPEC, XxmSpec
-from .types import Wave, XxmBar, XxmPeriod, XxmStep
+from .types import Wave, XxmBar, XxmBottomHistory, XxmPeriod, XxmStep
 
 
 class XxmCalculator:
@@ -22,6 +23,7 @@ class XxmCalculator:
         self.reference: Wave | None = None
         self.previous: XxmBar | None = None
         self.pending: dict[str, Any] | None = None
+        self.pending_bottom_history: XxmBottomHistory | None = None
         self.processed = 0
 
     def _id(self, *parts: Any) -> str:
@@ -88,7 +90,8 @@ class XxmCalculator:
             events.append({"id": self._id(bar.time, event_type, direction, event_ref.start if event_ref else ""), "time": bar.time,
                            "direction": "TOP" if direction == 1 else "BOTTOM", "type": event_type, "route": route,
                            "fromState": old_state, "eventReference": event_ref.reference() if event_ref else None,
-                           "relatedTopHistoryId": None})
+                           "relatedTopHistoryId": None, "relatedBottomHistoryId": None})
+        ordinary_event = events[0] if event_type else None
         histories: list[dict[str, Any]] = []
         pending = self.pending
         top_new = direction == 1 and event_type in ("DULL", "STRUCTURE")
@@ -108,7 +111,7 @@ class XxmCalculator:
                 events.append({"id": self._id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", pending["id"]), "time": bar.time,
                                "direction": "TOP", "type": "RESEARCH_HISTORICAL_WITHDRAWAL", "route": "historical_price_break",
                                "fromState": self.state, "eventReference": deepcopy(pending["originalReference"]),
-                               "relatedTopHistoryId": pending["id"]})
+                               "relatedTopHistoryId": pending["id"], "relatedBottomHistoryId": None})
             if reason is not None:
                 pending.update(status="ENDED", endedAt=bar.time, endReason=reason)
                 self.pending = None
@@ -124,31 +127,134 @@ class XxmCalculator:
                             "observedThrough": bar.time, "ageBars": 0, "negativeBars": 0, "zeroBars": 0, "colorChanges": 0}
             histories.append(deepcopy(self.pending))
             events[0]["relatedTopHistoryId"] = history_id
+        bottom_events, bottom_histories = self._advance_bottom_history(bar, ordinary_event)
+        events.extend(bottom_events)
+        if ordinary_event is not None and direction == -1 and event_type == "STRUCTURE":
+            negative_wave = wave if sign == -1 else old_wave
+            if negative_wave is None or negative_wave.sign != -1:
+                raise ValueError("BOTTOM structure requires its original negative segment")
+            bottom_histories.append(self._start_bottom_history(bar, ordinary_event, negative_wave))
         point = {"time": bar.time, "close": bar.close, "dif": bar.dif, "dea": bar.dea, "hist": bar.hist,
                  "ordinaryState": self.state, "ordinaryDirection": ("TOP" if sign == 1 else "BOTTOM") if self.state != "NONE" else None,
                  "activeReference": self.reference.reference() if self.reference else None,
-                 "pendingTopHistoryId": self.pending["id"] if self.pending else None}
+                 "pendingTopHistoryId": self.pending["id"] if self.pending else None,
+                 "pendingBottomHistoryId": self.pending_bottom_history["id"] if self.pending_bottom_history else None}
         self.previous = bar
         self.processed += 1
-        return XxmStep(point, tuple(events), tuple(histories))
+        return XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories))
 
     def snapshot(self) -> dict[str, Any]:
         return {"specHash": self.spec.spec_hash, "tsCode": self.ts_code, "period": self.period, "sourceIdentity": self.source_identity,
                 "processed": self.processed, "wave": asdict(self.wave) if self.wave else None,
                 "history": {str(k): [asdict(w) for w in waves] for k, waves in self.history.items()},
                 "state": self.state, "reference": asdict(self.reference) if self.reference else None,
-                "previous": asdict(self.previous) if self.previous else None, "pending": deepcopy(self.pending)}
+                "previous": asdict(self.previous) if self.previous else None, "pending": deepcopy(self.pending),
+                "pendingBottomHistory": deepcopy(self.pending_bottom_history)}
+
+    def _advance_bottom_history(self, bar: XxmBar, ordinary_event: dict[str, Any] | None
+                                ) -> tuple[list[dict[str, Any]], list[XxmBottomHistory]]:
+        record = self.pending_bottom_history
+        if record is None:
+            return [], []
+        record["observedThrough"] = bar.time
+        record["ageBars"] += 1
+        if record["leftOriginAt"] is None and bar.hist >= 0:
+            record["leftOriginAt"] = bar.time
+        reason = None
+        events = []
+        if bar.dif < record["originalReference"]["dif"]:
+            reason = "original_reference_break"
+        elif ordinary_event is not None and ordinary_event["direction"] == "BOTTOM" and ordinary_event["type"] in ("DULL", "STRUCTURE"):
+            reason = "new_bottom_" + ordinary_event["type"]
+        elif record["leftOriginAt"] is not None and bar.time > record["confirmedAt"] and bar.close < record["priceLow"]:
+            reason = "historical_price_break"
+            events.append({"id": self._id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", record["id"]),
+                           "time": bar.time, "direction": "BOTTOM", "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                           "route": "historical_price_break", "fromState": self.state,
+                           "eventReference": deepcopy(record["originalReference"]),
+                           "relatedTopHistoryId": None, "relatedBottomHistoryId": record["id"]})
+        if reason is not None:
+            record.update(status="ENDED", endedAt=bar.time, endReason=reason)
+            self.pending_bottom_history = None
+        return events, [deepcopy(record)]
+
+    def _start_bottom_history(self, bar: XxmBar, structure_event: dict[str, Any], negative_wave: Wave) -> XxmBottomHistory:
+        if negative_wave.sign != -1 or structure_event["eventReference"] is None:
+            raise ValueError("BOTTOM history requires a negative segment and a reference")
+        history_id = self._id("bottom-history", structure_event["id"])
+        record: XxmBottomHistory = {
+            "id": history_id, "structureEventId": structure_event["id"], "confirmedAt": bar.time,
+            "confirmationRoute": structure_event["route"], "originSegmentStart": negative_wave.start,
+            "leftOriginAt": bar.time if bar.hist >= 0 else None,
+            "priceLow": negative_wave.price, "priceLowAt": negative_wave.price_at,
+            "originalReference": deepcopy(structure_event["eventReference"]), "status": "PENDING",
+            "endedAt": None, "endReason": None, "observedThrough": bar.time, "ageBars": 0,
+        }
+        self.pending_bottom_history = record
+        structure_event["relatedBottomHistoryId"] = history_id
+        return deepcopy(record)
+
+    def _validate_bottom_history_snapshot(self, raw: Any, *, previous: XxmBar | None,
+                                         wave: Wave | None, processed: int) -> XxmBottomHistory | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, dict) or set(raw) != set(XxmBottomHistory.__annotations__):
+            raise ValueError("Invalid BOTTOM snapshot fields")
+        try:
+            if (not isinstance(raw["structureEventId"], str) or not raw["structureEventId"]
+                    or raw["id"] != self._id("bottom-history", raw["structureEventId"])
+                    or raw["status"] != "PENDING" or raw["endedAt"] is not None or raw["endReason"] is not None
+                    or raw["confirmationRoute"] not in ("dif_turn", "color_flip")
+                    or type(raw["ageBars"]) is not int or not 0 <= raw["ageBars"] <= processed
+                    or not math.isfinite(raw["priceLow"]) or raw["priceLow"] <= 0 or previous is None
+                    or raw["observedThrough"] != previous.time):
+                raise ValueError("Invalid pending BOTTOM snapshot")
+            ref = raw["originalReference"]
+            if (not isinstance(ref, dict) or set(ref) != {"startTime", "endTime", "price", "dif"}
+                    or not math.isfinite(ref["dif"]) or not math.isfinite(ref["price"]) or ref["price"] <= 0):
+                raise ValueError("Invalid BOTTOM original reference")
+            stamps = [raw[k] for k in ("originSegmentStart", "priceLowAt", "confirmedAt", "observedThrough")]
+            stamps += [ref["startTime"], ref["endTime"]]
+            if raw["leftOriginAt"] is not None:
+                stamps.append(raw["leftOriginAt"])
+            for stamp in stamps:
+                XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
+            if not (raw["originSegmentStart"] <= raw["priceLowAt"] <= raw["confirmedAt"] <= raw["observedThrough"]
+                    and ref["startTime"] <= ref["endTime"] < raw["originSegmentStart"]):
+                raise ValueError("Invalid BOTTOM snapshot chronology")
+            left = raw["leftOriginAt"]
+            if left is not None:
+                if not raw["confirmedAt"] <= left <= raw["observedThrough"]:
+                    raise ValueError("Invalid BOTTOM origin exit")
+            elif wave is None or wave.sign != -1 or wave.start != raw["originSegmentStart"]:
+                raise ValueError("BOTTOM snapshot lost its original segment")
+        except (KeyError, TypeError, AttributeError, OverflowError) as exc:
+            raise ValueError("Malformed BOTTOM snapshot") from exc
+        return deepcopy(raw)
 
     def restore(self, snapshot: dict[str, Any]) -> None:
-        expected = (self.spec.spec_hash, self.ts_code, self.period, self.source_identity)
-        if tuple(snapshot[k] for k in ("specHash", "tsCode", "period", "sourceIdentity")) != expected:
-            raise ValueError("XXM snapshot version/source identity mismatch")
-        self.wave = Wave(**snapshot["wave"]) if snapshot["wave"] else None
-        self.history = {int(k): [Wave(**w) for w in values] for k, values in snapshot["history"].items()}
-        if any(len(pool) > self.spec.max_refs for pool in self.history.values()):
-            raise ValueError("Invalid reference pool")
-        self.state = snapshot["state"]
-        self.reference = Wave(**snapshot["reference"]) if snapshot["reference"] else None
-        self.previous = XxmBar(**snapshot["previous"]) if snapshot["previous"] else None
-        self.pending = deepcopy(snapshot["pending"])
-        self.processed = snapshot["processed"]
+        # Parse and validate everything before publishing any state, including on
+        # an already-used calculator or a legal rewind to an earlier real prefix.
+        try:
+            expected = (self.spec.spec_hash, self.ts_code, self.period, self.source_identity)
+            if tuple(snapshot[k] for k in ("specHash", "tsCode", "period", "sourceIdentity")) != expected:
+                raise ValueError("XXM snapshot version/source identity mismatch")
+            wave = Wave(**snapshot["wave"]) if snapshot["wave"] else None
+            history = {int(k): [Wave(**w) for w in values] for k, values in snapshot["history"].items()}
+            if set(history) != {1, -1} or any(len(pool) > self.spec.max_refs for pool in history.values()):
+                raise ValueError("Invalid reference pool")
+            state = snapshot["state"]
+            reference = Wave(**snapshot["reference"]) if snapshot["reference"] else None
+            previous = XxmBar(**snapshot["previous"]) if snapshot["previous"] else None
+            pending = deepcopy(snapshot["pending"])
+            processed = snapshot["processed"]
+            if state not in ("NONE", "DULL", "STRUCTURE") or type(processed) is not int or processed < 0:
+                raise ValueError("Invalid XXM snapshot state")
+            if previous is not None:
+                previous.validate(self.period)
+            bottom = self._validate_bottom_history_snapshot(snapshot["pendingBottomHistory"],
+                        previous=previous, wave=wave, processed=processed)
+        except (KeyError, TypeError, AttributeError, OverflowError) as exc:
+            raise ValueError("Malformed XXM snapshot") from exc
+        self.wave, self.history, self.state, self.reference = wave, history, state, reference
+        self.previous, self.pending, self.processed, self.pending_bottom_history = previous, pending, processed, bottom

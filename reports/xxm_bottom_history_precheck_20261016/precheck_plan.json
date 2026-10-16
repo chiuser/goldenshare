@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16",
+  "authorization": "用户确认H1—S2—E1工作方案，继续研究；本轮只读预检，不修改产品代码",
+  "candidate": "H1-S2-E1",
+  "hardConstraints": {
+    "scope": "000001.SH day/m60/m90/m120 B only",
+    "reference": "最低收盘在BOTTOM STRUCTURE形成时按原负柱段锁定",
+    "start": "离开原负柱段后，且晚于形成柱",
+    "endPriority": [
+      "original_reference_dif_break",
+      "new_BOTTOM_DULL_or_STRUCTURE",
+      "strict_completed_close_below_locked_low"
+    ],
+    "ordinaryAndTopUnchanged": true,
+    "noExtraDIFPercentage": true,
+    "noExpiry": true,
+    "noAGroupChanges": true,
+    "noSourceOrToleranceChanges": true,
+    "forecastBudgetMs": 200,
+    "requestBudgetSeconds": 4
+  },
+  "phases": [
+    "frozen source complete replay and all new-event inventory",
+    "known five mappings and Sep02 precedence",
+    "independent strict-boundary/priority/zero/causality/restore probes",
+    "forecast full mathematical and display comparison",
+    "candidate compute and readonly formal-source end-to-end budget if available"
+  ],
+  "notClaimed": [
+    "software unique formula",
+    "new product or frontend implemented",
+    "page acceptance",
+    "prior diagnostics as new budget evidence"
+  ]
+}

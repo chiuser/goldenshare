@@ -1,0 +1,846 @@
+{
+  "period": "day",
+  "asOf": "2026-08-03",
+  "prefixRows": 867,
+  "prefixStart": "2023-01-03",
+  "endpoint": {
+    "time": "2026-08-03",
+    "close": 3809.6629,
+    "dif": -57.579,
+    "dea": -57.204,
+    "hist": -0.75,
+    "ordinaryState": "NONE",
+    "ordinaryDirection": null,
+    "activeReference": null,
+    "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+  },
+  "timeline": [
+    {
+      "bar": {
+        "time": "2026-06-16",
+        "close": 4091.8917,
+        "dif": -16.202,
+        "dea": -17.773,
+        "hist": 3.143,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-16",
+        "close": 4091.8917,
+        "dif": -16.202,
+        "dea": -17.773,
+        "hist": 3.143,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-17",
+        "close": 4108.0762,
+        "dif": -10.614,
+        "dea": -16.341,
+        "hist": 11.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-17",
+        "close": 4108.0762,
+        "dif": -10.614,
+        "dea": -16.341,
+        "hist": 11.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-18",
+        "close": 4090.4813,
+        "dif": -7.519,
+        "dea": -14.577,
+        "hist": 14.116,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-18",
+        "close": 4090.4813,
+        "dif": -7.519,
+        "dea": -14.577,
+        "hist": 14.116,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-22",
+        "close": 4163.0965,
+        "dif": 0.785,
+        "dea": -11.504,
+        "hist": 24.579,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-22",
+        "close": 4163.0965,
+        "dif": 0.785,
+        "dea": -11.504,
+        "hist": 24.579,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-23",
+        "close": 4106.2517,
+        "dif": 2.747,
+        "dea": -8.654,
+        "hist": 22.802,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-23",
+        "close": 4106.2517,
+        "dif": 2.747,
+        "dea": -8.654,
+        "hist": 22.802,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-24",
+        "close": 4110.8134,
+        "dif": 4.617,
+        "dea": -6.0,
+        "hist": 21.233,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-24",
+        "close": 4110.8134,
+        "dif": 4.617,
+        "dea": -6.0,
+        "hist": 21.233,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-25",
+        "close": 4120.2806,
+        "dif": 6.784,
+        "dea": -3.443,
+        "hist": 20.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-25",
+        "close": 4120.2806,
+        "dif": 6.784,
+        "dea": -3.443,
+        "hist": 20.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-26",
+        "close": 4027.2648,
+        "dif": 0.985,
+        "dea": -2.558,
+        "hist": 7.085,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-26",
+        "close": 4027.2648,
+        "dif": 0.985,
+        "dea": -2.558,
+        "hist": 7.085,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-29",
+        "close": 4073.9017,
+        "dif": 0.15,
+        "dea": -2.016,
+        "hist": 4.333,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-29",
+        "close": 4073.9017,
+        "dif": 0.15,
+        "dea": -2.016,
+        "hist": 4.333,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-06-30",
+        "close": 4094.3972,
+        "dif": 1.13,
+        "dea": -1.387,
+        "hist": 5.033,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-30",
+        "close": 4094.3972,
+        "dif": 1.13,
+        "dea": -1.387,
+        "hist": 5.033,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-01",
+        "close": 4112.4453,
+        "dif": 3.324,
+        "dea": -0.445,
+        "hist": 7.538,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-01",
+        "close": 4112.4453,
+        "dif": 3.324,
+        "dea": -0.445,
+        "hist": 7.538,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-02",
+        "close": 4028.9038,
+        "dif": -1.659,
+        "dea": -0.687,
+        "hist": -1.943,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-02",
+        "close": 4028.9038,
+        "dif": -1.659,
+        "dea": -0.687,
+        "hist": -1.943,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-03",
+        "close": 4043.6432,
+        "dif": -4.368,
+        "dea": -1.424,
+        "hist": -5.889,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-03",
+        "close": 4043.6432,
+        "dif": -4.368,
+        "dea": -1.424,
+        "hist": -5.889,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-06",
+        "close": 4041.2382,
+        "dif": -6.633,
+        "dea": -2.466,
+        "hist": -8.335,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-06",
+        "close": 4041.2382,
+        "dif": -6.633,
+        "dea": -2.466,
+        "hist": -8.335,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-07",
+        "close": 3990.2353,
+        "dif": -12.4,
+        "dea": -4.453,
+        "hist": -15.896,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-07",
+        "close": 3990.2353,
+        "dif": -12.4,
+        "dea": -4.453,
+        "hist": -15.896,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-08",
+        "close": 3970.8797,
+        "dif": -18.322,
+        "dea": -7.226,
+        "hist": -22.191,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-08",
+        "close": 3970.8797,
+        "dif": -18.322,
+        "dea": -7.226,
+        "hist": -22.191,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-09",
+        "close": 4036.5879,
+        "dif": -17.511,
+        "dea": -9.283,
+        "hist": -16.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-09",
+        "close": 4036.5879,
+        "dif": -17.511,
+        "dea": -9.283,
+        "hist": -16.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-10",
+        "close": 3996.1616,
+        "dif": -19.9,
+        "dea": -11.407,
+        "hist": -16.987,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-10",
+        "close": 3996.1616,
+        "dif": -19.9,
+        "dea": -11.407,
+        "hist": -16.987,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-13",
+        "close": 3913.794,
+        "dif": -28.116,
+        "dea": -14.749,
+        "hist": -26.736,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-13",
+        "close": 3913.794,
+        "dif": -28.116,
+        "dea": -14.749,
+        "hist": -26.736,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "e0fe4c3cbbe2655f4245fdc6",
+          "time": "2026-07-13",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-14",
+        "close": 3967.1262,
+        "dif": -29.979,
+        "dea": -17.795,
+        "hist": -24.368,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-14",
+        "close": 3967.1262,
+        "dif": -29.979,
+        "dea": -17.795,
+        "hist": -24.368,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-15",
+        "close": 3955.5781,
+        "dif": -32.017,
+        "dea": -20.639,
+        "hist": -22.757,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-15",
+        "close": 3955.5781,
+        "dif": -32.017,
+        "dea": -20.639,
+        "hist": -22.757,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "43199df3289ee09d102c555f",
+          "time": "2026-07-15",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-16",
+        "close": 3882.4126,
+        "dif": -39.086,
+        "dea": -24.329,
+        "hist": -29.516,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-16",
+        "close": 3882.4126,
+        "dif": -39.086,
+        "dea": -24.329,
+        "hist": -29.516,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-17",
+        "close": 3764.1547,
+        "dif": -53.613,
+        "dea": -30.186,
+        "hist": -46.855,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-17",
+        "close": 3764.1547,
+        "dif": -53.613,
+        "dea": -30.186,
+        "hist": -46.855,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-03-04",
+          "endTime": "2026-04-07",
+          "price": 3813.2829,
+          "dif": -56.353
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "1881c0210934577d1409b627",
+          "time": "2026-07-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-20",
+        "close": 3796.2814,
+        "dif": -61.82,
+        "dea": -36.513,
+        "hist": -50.616,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-20",
+        "close": 3796.2814,
+        "dif": -61.82,
+        "dea": -36.513,
+        "hist": -50.616,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "66e282a83351023d460d4b98",
+          "time": "2026-07-20",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-21",
+        "close": 3864.3671,
+        "dif": -62.115,
+        "dea": -41.633,
+        "hist": -40.964,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-21",
+        "close": 3864.3671,
+        "dif": -62.115,
+        "dea": -41.633,
+        "hist": -40.964,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-22",
+        "close": 3867.0336,
+        "dif": -61.425,
+        "dea": -45.591,
+        "hist": -31.667,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-22",
+        "close": 3867.0336,
+        "dif": -61.425,
+        "dea": -45.591,
+        "hist": -31.667,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-23",
+        "close": 3876.7774,
+        "dif": -59.407,
+        "dea": -48.355,
+        "hist": -22.105,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-23",
+        "close": 3876.7774,
+        "dif": -59.407,
+        "dea": -48.355,
+        "hist": -22.105,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-24",
+        "close": 3814.1978,
+        "dif": -62.142,
+        "dea": -51.112,
+        "hist": -22.059,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-24",
+        "close": 3814.1978,
+        "dif": -62.142,
+        "dea": -51.112,
+        "hist": -22.059,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-27",
+        "close": 3858.245,
+        "dif": -60.062,
+        "dea": -52.902,
+        "hist": -14.32,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-27",
+        "close": 3858.245,
+        "dif": -60.062,
+        "dea": -52.902,
+        "hist": -14.32,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-28",
+        "close": 3813.3146,
+        "dif": -61.332,
+        "dea": -54.588,
+        "hist": -13.488,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-28",
+        "close": 3813.3146,
+        "dif": -61.332,
+        "dea": -54.588,
+        "hist": -13.488,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-29",
+        "close": 3828.469,
+        "dif": -60.42,
+        "dea": -55.754,
+        "hist": -9.331,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-29",
+        "close": 3828.469,
+        "dif": -60.42,
+        "dea": -55.754,
+        "hist": -9.331,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-30",
+        "close": 3804.6926,
+        "dif": -60.913,
+        "dea": -56.786,
+        "hist": -8.254,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-30",
+        "close": 3804.6926,
+        "dif": -60.913,
+        "dea": -56.786,
+        "hist": -8.254,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-31",
+        "close": 3832.2624,
+        "dif": -58.406,
+        "dea": -57.11,
+        "hist": -2.592,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-31",
+        "close": 3832.2624,
+        "dif": -58.406,
+        "dea": -57.11,
+        "hist": -2.592,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-08-03",
+        "close": 3809.6629,
+        "dif": -57.579,
+        "dea": -57.204,
+        "hist": -0.75,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-03",
+        "close": 3809.6629,
+        "dif": -57.579,
+        "dea": -57.204,
+        "hist": -0.75,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": []
+    }
+  ]
+}

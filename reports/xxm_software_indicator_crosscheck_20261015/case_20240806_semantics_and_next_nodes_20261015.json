@@ -1,0 +1,3515 @@
+{
+  "recordedAt": "2026-10-15T22:41:48.611878+08:00",
+  "date": "2024-08-06",
+  "symbol": "000001.SH",
+  "scope": "Newthreecharts/fulltranscript; actual currentkernel from auditedlocal source; no ruleadoption",
+  "files": [
+    {
+      "kind": "day",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-fd1ada42-54d5-4d72-983f-6fdc34ed2f37.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_day.png",
+      "sha256": "9311bf1d3a8954217e3dadcb0cedc1c4ca8488526f5f92d19f9aaee4a087cf55",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "m90",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-6b754fdb-a161-40cb-8ebf-b2a429618395.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_m90.png",
+      "sha256": "1923929f034e275d748158a4de16267b9bbdfc646d44d7090cd0a68aa1abb88a",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "m120",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-0c97903a-0e00-4efb-b2c1-3c6ee953afb3.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_m120.png",
+      "sha256": "9b42428b32d980c9afa48296f3a67b59d07cabc98a07c07a9da075c02f9be19e",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "full_transcript",
+      "originalPath": "/Users/congming/.codex/attachments/e6fe4083-b112-4c78-9d8b-fb886fb9d410/Pasted text.txt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_user_transcript.txt",
+      "sha256": "c0a6c1d34ebd6166ddcacbf96f20eb8a7190eee6c958eb53de4cb6dd98b9f5b8",
+      "originalBytesPreserved": true
+    }
+  ],
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "calculatorSha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "periods": {
+    "day": {
+      "prefixRows": 386,
+      "prefixStart": "2023-01-03",
+      "through": "2024-08-06",
+      "endpoint": {
+        "time": "2024-08-06",
+        "close": 2867.2837,
+        "dif": -28.44,
+        "dea": -25.797,
+        "hist": -5.287,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "negativePool": [
+        {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-31",
+          "count": 6,
+          "price": 2879.2996,
+          "dif": -30.348,
+          "price_at": "2024-07-30",
+          "dif_at": "2024-07-30"
+        }
+      ],
+      "numeric": [
+        {
+          "field": "close",
+          "softwareDisplayed": "2867.28",
+          "sourceValue": 2867.2837,
+          "sourceDisplayed": "2867.28",
+          "displayMatch": true,
+          "softwareMinusSource": -0.003699999999753345
+        },
+        {
+          "field": "dif",
+          "softwareDisplayed": "-28.440",
+          "sourceValue": -28.44,
+          "sourceDisplayed": "-28.440",
+          "displayMatch": true,
+          "softwareMinusSource": 0.0
+        },
+        {
+          "field": "dea",
+          "softwareDisplayed": "-25.796",
+          "sourceValue": -25.797,
+          "sourceDisplayed": "-25.797",
+          "displayMatch": false,
+          "softwareMinusSource": 0.0010000000000012221
+        },
+        {
+          "field": "hist",
+          "softwareDisplayed": "-5.287",
+          "sourceValue": -5.287,
+          "sourceDisplayed": "-5.287",
+          "displayMatch": true,
+          "softwareMinusSource": 0.0
+        }
+      ],
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-07-22",
+            "close": 2964.2155,
+            "dif": -14.436,
+            "dea": -20.137,
+            "hist": 11.404,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22",
+            "close": 2964.2155,
+            "dif": -14.436,
+            "dea": -20.137,
+            "hist": 11.404,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23",
+            "close": 2915.3685,
+            "dif": -17.753,
+            "dea": -19.661,
+            "hist": 3.815,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23",
+            "close": 2915.3685,
+            "dif": -17.753,
+            "dea": -19.661,
+            "hist": 3.815,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24",
+            "close": 2901.9518,
+            "dif": -21.22,
+            "dea": -19.973,
+            "hist": -2.496,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24",
+            "close": 2901.9518,
+            "dif": -21.22,
+            "dea": -19.973,
+            "hist": -2.496,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25",
+            "close": 2886.7416,
+            "dif": -24.908,
+            "dea": -20.96,
+            "hist": -7.897,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25",
+            "close": 2886.7416,
+            "dif": -24.908,
+            "dea": -20.96,
+            "hist": -7.897,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": [
+            {
+              "id": "afb971bbb77ca8add037661f",
+              "time": "2024-07-25",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-05-23",
+                "endTime": "2024-07-01",
+                "price": 2945.8524,
+                "dif": -35.168
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-26",
+            "close": 2890.8973,
+            "dif": -27.182,
+            "dea": -22.204,
+            "hist": -9.956,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26",
+            "close": 2890.8973,
+            "dif": -27.182,
+            "dea": -22.204,
+            "hist": -9.956,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29",
+            "close": 2891.8453,
+            "dif": -28.579,
+            "dea": -23.479,
+            "hist": -10.199,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29",
+            "close": 2891.8453,
+            "dif": -28.579,
+            "dea": -23.479,
+            "hist": -10.199,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30",
+            "close": 2879.2996,
+            "dif": -30.348,
+            "dea": -24.853,
+            "hist": -10.99,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30",
+            "close": 2879.2996,
+            "dif": -30.348,
+            "dea": -24.853,
+            "hist": -10.99,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31",
+            "close": 2938.7493,
+            "dif": -26.646,
+            "dea": -25.211,
+            "hist": -2.868,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31",
+            "close": 2938.7493,
+            "dif": -26.646,
+            "dea": -25.211,
+            "hist": -2.868,
+            "ordinaryState": "STRUCTURE",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": [
+            {
+              "id": "38a6a49f1177508462e7a03b",
+              "time": "2024-07-31",
+              "direction": "BOTTOM",
+              "type": "STRUCTURE",
+              "route": "dif_turn",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-05-23",
+                "endTime": "2024-07-01",
+                "price": 2945.8524,
+                "dif": -35.168
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-01",
+            "close": 2932.3871,
+            "dif": -23.949,
+            "dea": -24.959,
+            "hist": 2.02,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01",
+            "close": 2932.3871,
+            "dif": -23.949,
+            "dea": -24.959,
+            "hist": 2.02,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02",
+            "close": 2905.3375,
+            "dif": -23.721,
+            "dea": -24.711,
+            "hist": 1.981,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02",
+            "close": 2905.3375,
+            "dif": -23.721,
+            "dea": -24.711,
+            "hist": 1.981,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05",
+            "close": 2860.6978,
+            "dif": -26.833,
+            "dea": -25.136,
+            "hist": -3.395,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05",
+            "close": 2860.6978,
+            "dif": -26.833,
+            "dea": -25.136,
+            "hist": -3.395,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06",
+            "close": 2867.2837,
+            "dif": -28.44,
+            "dea": -25.797,
+            "hist": -5.287,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06",
+            "close": 2867.2837,
+            "dif": -28.44,
+            "dea": -25.797,
+            "hist": -5.287,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-05",
+              "endTime": "2024-07-10",
+              "price": 2922.4498,
+              "dif": -31.67
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": [
+            {
+              "id": "d49733d50afd8925795c8862",
+              "time": "2024-08-06",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-05",
+                "endTime": "2024-07-10",
+                "price": 2922.4498,
+                "dif": -31.67
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        }
+      ],
+      "softwareEvidence": "ClosingDULL caption andchart"
+    },
+    "m60": {
+      "prefixRows": 15156,
+      "prefixStart": "2009-01-05T10:30:00+08:00",
+      "through": "2024-08-06T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-06T15:00:00+08:00",
+        "close": 2867.2837,
+        "dif": -13.86883065688562,
+        "dea": -8.066739131817412,
+        "hist": -11.604183050136417,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-22T10:30:00+08:00",
+          "endTime": "2024-07-29T10:30:00+08:00",
+          "price": 2876.3333,
+          "dif": -21.461599420911625
+        },
+        "pendingTopHistoryId": null
+      },
+      "negativePool": [
+        {
+          "sign": -1,
+          "start": "2024-07-17T11:30:00+08:00",
+          "end": "2024-07-19T10:30:00+08:00",
+          "count": 8,
+          "price": 2945.342,
+          "dif": 0.2097331222939829,
+          "price_at": "2024-07-18T10:30:00+08:00",
+          "dif_at": "2024-07-18T11:30:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2024-07-22T10:30:00+08:00",
+          "end": "2024-07-29T10:30:00+08:00",
+          "count": 21,
+          "price": 2876.3333,
+          "dif": -21.461599420911625,
+          "price_at": "2024-07-25T10:30:00+08:00",
+          "dif_at": "2024-07-26T11:30:00+08:00"
+        }
+      ],
+      "numeric": [],
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-07-22T10:30:00+08:00",
+            "close": 2957.2236,
+            "dif": 1.7776737604940536,
+            "dea": 1.9830786163970455,
+            "hist": -0.4108097118059839,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T10:30:00+08:00",
+            "close": 2957.2236,
+            "dif": 1.7776737604940536,
+            "dea": 1.9830786163970455,
+            "hist": -0.4108097118059839,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": [
+            {
+              "id": "1a4709f159f0d742bfeb328c",
+              "time": "2024-07-22T10:30:00+08:00",
+              "direction": "TOP",
+              "type": "STRUCTURE",
+              "route": "color_flip",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-07-09T15:00:00+08:00",
+                "endTime": "2024-07-17T10:30:00+08:00",
+                "price": 2976.3042,
+                "dif": 4.8037802336825735
+              },
+              "relatedTopHistoryId": "e0265ce155aafb325f57ff37"
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T11:30:00+08:00",
+            "close": 2961.1255,
+            "dif": 1.117366182616479,
+            "dea": 1.8099361296409324,
+            "hist": -1.385139894048907,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T11:30:00+08:00",
+            "close": 2961.1255,
+            "dif": 1.117366182616479,
+            "dea": 1.8099361296409324,
+            "hist": -1.385139894048907,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T14:00:00+08:00",
+            "close": 2948.7024,
+            "dif": -0.4037188562629126,
+            "dea": 1.3672051324601635,
+            "hist": -3.541847977446152,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T14:00:00+08:00",
+            "close": 2948.7024,
+            "dif": -0.4037188562629126,
+            "dea": 1.3672051324601635,
+            "hist": -3.541847977446152,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": -0.35333113622573364,
+            "dea": 1.023097878722984,
+            "hist": -2.7528580298974354,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": -0.35333113622573364,
+            "dea": 1.023097878722984,
+            "hist": -2.7528580298974354,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T10:30:00+08:00",
+            "close": 2950.2104,
+            "dif": -1.4270509437606052,
+            "dea": 0.5330681142262662,
+            "hist": -3.920238115973743,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T10:30:00+08:00",
+            "close": 2950.2104,
+            "dif": -1.4270509437606052,
+            "dea": 0.5330681142262662,
+            "hist": -3.920238115973743,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T11:30:00+08:00",
+            "close": 2946.626,
+            "dif": -2.537956765119816,
+            "dea": -0.0811368616429502,
+            "hist": -4.913639806953731,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T11:30:00+08:00",
+            "close": 2946.626,
+            "dif": -2.537956765119816,
+            "dea": -0.0811368616429502,
+            "hist": -4.913639806953731,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T14:00:00+08:00",
+            "close": 2942.1475,
+            "dif": -3.736661248919063,
+            "dea": -0.8122417390981729,
+            "hist": -5.84883901964178,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T14:00:00+08:00",
+            "close": 2942.1475,
+            "dif": -3.736661248919063,
+            "dea": -0.8122417390981729,
+            "hist": -5.84883901964178,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -6.769458650768229,
+            "dea": -2.0036851214321842,
+            "hist": -9.53154705867209,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -6.769458650768229,
+            "dea": -2.0036851214321842,
+            "hist": -9.53154705867209,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T10:30:00+08:00",
+            "close": 2908.7185,
+            "dif": -9.598913496652585,
+            "dea": -3.5227307964762646,
+            "hist": -12.152365400352641,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T10:30:00+08:00",
+            "close": 2908.7185,
+            "dif": -9.598913496652585,
+            "dea": -3.5227307964762646,
+            "hist": -12.152365400352641,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T11:30:00+08:00",
+            "close": 2918.2654,
+            "dif": -10.94475745286718,
+            "dea": -5.007136127754449,
+            "hist": -11.875242650225461,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T11:30:00+08:00",
+            "close": 2918.2654,
+            "dif": -10.94475745286718,
+            "dea": -5.007136127754449,
+            "hist": -11.875242650225461,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T14:00:00+08:00",
+            "close": 2912.3252,
+            "dif": -12.348329128502883,
+            "dea": -6.475374727904136,
+            "hist": -11.745908801197494,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T14:00:00+08:00",
+            "close": 2912.3252,
+            "dif": -12.348329128502883,
+            "dea": -6.475374727904136,
+            "hist": -11.745908801197494,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -14.134763585157089,
+            "dea": -8.007252499354728,
+            "hist": -12.255022171604722,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -14.134763585157089,
+            "dea": -8.007252499354728,
+            "hist": -12.255022171604722,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-04T11:30:00+08:00",
+              "endTime": "2024-07-09T14:00:00+08:00",
+              "price": 2908.7024,
+              "dif": -15.735419795997586
+            },
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": [
+            {
+              "id": "c918e3cb52edb0786c249a28",
+              "time": "2024-07-24T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-04T11:30:00+08:00",
+                "endTime": "2024-07-09T14:00:00+08:00",
+                "price": 2908.7024,
+                "dif": -15.735419795997586
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T10:30:00+08:00",
+            "close": 2876.3333,
+            "dif": -17.416968773872668,
+            "dea": -9.889195754258317,
+            "hist": -15.055546039228702,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T10:30:00+08:00",
+            "close": 2876.3333,
+            "dif": -17.416968773872668,
+            "dea": -9.889195754258317,
+            "hist": -15.055546039228702,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": [
+            {
+              "id": "00d63e28b8151a85ad476771",
+              "time": "2024-07-25T10:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-07-04T11:30:00+08:00",
+                "endTime": "2024-07-09T14:00:00+08:00",
+                "price": 2908.7024,
+                "dif": -15.735419795997586
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T11:30:00+08:00",
+            "close": 2889.6204,
+            "dif": -18.73007347985913,
+            "dea": -11.65737129937848,
+            "hist": -14.145404360961297,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T11:30:00+08:00",
+            "close": 2889.6204,
+            "dif": -18.73007347985913,
+            "dea": -11.65737129937848,
+            "hist": -14.145404360961297,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T14:00:00+08:00",
+            "close": 2888.5,
+            "dif": -19.634787725520255,
+            "dea": -13.252854584606835,
+            "hist": -12.76386628182684,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T14:00:00+08:00",
+            "close": 2888.5,
+            "dif": -19.634787725520255,
+            "dea": -13.252854584606835,
+            "hist": -12.76386628182684,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -20.260114411146333,
+            "dea": -14.654306549914734,
+            "hist": -11.211615722463197,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -20.260114411146333,
+            "dea": -14.654306549914734,
+            "hist": -11.211615722463197,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T10:30:00+08:00",
+            "close": 2878.0742,
+            "dif": -21.21058273280596,
+            "dea": -15.965561786492982,
+            "hist": -10.490041892625957,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T10:30:00+08:00",
+            "close": 2878.0742,
+            "dif": -21.21058273280596,
+            "dea": -15.965561786492982,
+            "hist": -10.490041892625957,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T11:30:00+08:00",
+            "close": 2881.2324,
+            "dif": -21.461599420911625,
+            "dea": -17.06476931337671,
+            "hist": -8.793660215069828,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T11:30:00+08:00",
+            "close": 2881.2324,
+            "dif": -21.461599420911625,
+            "dea": -17.06476931337671,
+            "hist": -8.793660215069828,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T14:00:00+08:00",
+            "close": 2881.352,
+            "dif": -21.40414754497351,
+            "dea": -17.93264495969607,
+            "hist": -6.943005170554883,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T14:00:00+08:00",
+            "close": 2881.352,
+            "dif": -21.40414754497351,
+            "dea": -17.93264495969607,
+            "hist": -6.943005170554883,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -20.353773026275576,
+            "dea": -18.41687057301197,
+            "hist": -3.873804906527212,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -20.353773026275576,
+            "dea": -18.41687057301197,
+            "hist": -3.873804906527212,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T10:30:00+08:00",
+            "close": 2888.509,
+            "dif": -19.489389878848215,
+            "dea": -18.631374434179218,
+            "hist": -1.7160308893379934,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T10:30:00+08:00",
+            "close": 2888.509,
+            "dif": -19.489389878848215,
+            "dea": -18.631374434179218,
+            "hist": -1.7160308893379934,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T11:30:00+08:00",
+            "close": 2892.0962,
+            "dif": -18.30390690147442,
+            "dea": -18.56588092763826,
+            "hist": 0.5239480523276825,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T11:30:00+08:00",
+            "close": 2892.0962,
+            "dif": -18.30390690147442,
+            "dea": -18.56588092763826,
+            "hist": 0.5239480523276825,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T14:00:00+08:00",
+            "close": 2888.6604,
+            "dif": -17.44059907702058,
+            "dea": -18.34082455751473,
+            "hist": 1.8004509609883002,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T14:00:00+08:00",
+            "close": 2888.6604,
+            "dif": -17.44059907702058,
+            "dea": -18.34082455751473,
+            "hist": 1.8004509609883002,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -16.31140691738301,
+            "dea": -17.93494102948838,
+            "hist": 3.247068224210743,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -16.31140691738301,
+            "dea": -17.93494102948838,
+            "hist": 3.247068224210743,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T10:30:00+08:00",
+            "close": 2866.7861,
+            "dif": -17.23984375051714,
+            "dea": -17.795921573694134,
+            "hist": 1.1121556463539903,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T10:30:00+08:00",
+            "close": 2866.7861,
+            "dif": -17.23984375051714,
+            "dea": -17.795921573694134,
+            "hist": 1.1121556463539903,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T11:30:00+08:00",
+            "close": 2876.87,
+            "dif": -16.96637239470374,
+            "dea": -17.63001173789606,
+            "hist": 1.3272786863846378,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T11:30:00+08:00",
+            "close": 2876.87,
+            "dif": -16.96637239470374,
+            "dea": -17.63001173789606,
+            "hist": 1.3272786863846378,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T14:00:00+08:00",
+            "close": 2871.629,
+            "dif": -16.976850706877485,
+            "dea": -17.499379531692345,
+            "hist": 1.0450576496297188,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T14:00:00+08:00",
+            "close": 2871.629,
+            "dif": -16.976850706877485,
+            "dea": -17.499379531692345,
+            "hist": 1.0450576496297188,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -16.179692111493296,
+            "dea": -17.235442047652537,
+            "hist": 2.1114998723184826,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -16.179692111493296,
+            "dea": -17.235442047652537,
+            "hist": 2.1114998723184826,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T10:30:00+08:00",
+            "close": 2907.4902,
+            "dif": -13.121930908710965,
+            "dea": -16.412739819864225,
+            "hist": 6.581617822306519,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T10:30:00+08:00",
+            "close": 2907.4902,
+            "dif": -13.121930908710965,
+            "dea": -16.412739819864225,
+            "hist": 6.581617822306519,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T11:30:00+08:00",
+            "close": 2930.8035,
+            "dif": -8.716960953155194,
+            "dea": -14.873584046522419,
+            "hist": 12.31324618673445,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T11:30:00+08:00",
+            "close": 2930.8035,
+            "dif": -8.716960953155194,
+            "dea": -14.873584046522419,
+            "hist": 12.31324618673445,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T14:00:00+08:00",
+            "close": 2937.586,
+            "dif": -4.625380948623842,
+            "dea": -12.823943426942705,
+            "hist": 16.397124956637725,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T14:00:00+08:00",
+            "close": 2937.586,
+            "dif": -4.625380948623842,
+            "dea": -12.823943426942705,
+            "hist": 16.397124956637725,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -1.2742173445203662,
+            "dea": -10.513998210458237,
+            "hist": 18.47956173187574,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -1.2742173445203662,
+            "dea": -10.513998210458237,
+            "hist": 18.47956173187574,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T10:30:00+08:00",
+            "close": 2943.7888,
+            "dif": 1.7678705771509158,
+            "dea": -8.057624452936407,
+            "hist": 19.650990060174646,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T10:30:00+08:00",
+            "close": 2943.7888,
+            "dif": 1.7678705771509158,
+            "dea": -8.057624452936407,
+            "hist": 19.650990060174646,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T11:30:00+08:00",
+            "close": 2932.1416,
+            "dif": 3.20200475422007,
+            "dea": -5.805698611505112,
+            "hist": 18.015406731450362,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T11:30:00+08:00",
+            "close": 2932.1416,
+            "dif": 3.20200475422007,
+            "dea": -5.805698611505112,
+            "hist": 18.015406731450362,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "e0265ce155aafb325f57ff37"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T14:00:00+08:00",
+            "close": 2941.9539,
+            "dif": 5.071871647885928,
+            "dea": -3.630184559626904,
+            "hist": 17.404112415025665,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T14:00:00+08:00",
+            "close": 2941.9539,
+            "dif": 5.071871647885928,
+            "dea": -3.630184559626904,
+            "hist": 17.404112415025665,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": 5.715912414742888,
+            "dea": -1.7609651647529452,
+            "hist": 14.953755158991667,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": 5.715912414742888,
+            "dea": -1.7609651647529452,
+            "hist": 14.953755158991667,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T10:30:00+08:00",
+            "close": 2915.646,
+            "dif": 4.819883814248897,
+            "dea": -0.4447953689525768,
+            "hist": 10.529358366402947,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T10:30:00+08:00",
+            "close": 2915.646,
+            "dif": 4.819883814248897,
+            "dea": -0.4447953689525768,
+            "hist": 10.529358366402947,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T11:30:00+08:00",
+            "close": 2919.317,
+            "dif": 4.355782958429245,
+            "dea": 0.5153202965237876,
+            "hist": 7.680925323810914,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T11:30:00+08:00",
+            "close": 2919.317,
+            "dif": 4.355782958429245,
+            "dea": 0.5153202965237876,
+            "hist": 7.680925323810914,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T14:00:00+08:00",
+            "close": 2910.979,
+            "dif": 3.2773930234307045,
+            "dea": 1.067734841905171,
+            "hist": 4.419316363051067,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T14:00:00+08:00",
+            "close": 2910.979,
+            "dif": 3.2773930234307045,
+            "dea": 1.067734841905171,
+            "hist": 4.419316363051067,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": 1.9451092507288195,
+            "dea": 1.243209723669901,
+            "hist": 1.4037990541178371,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": 1.9451092507288195,
+            "dea": 1.243209723669901,
+            "hist": 1.4037990541178371,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T10:30:00+08:00",
+            "close": 2893.356,
+            "dif": -0.07665050566947684,
+            "dea": 0.9792376778020254,
+            "hist": -2.1117763669430047,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T10:30:00+08:00",
+            "close": 2893.356,
+            "dif": -0.07665050566947684,
+            "dea": 0.9792376778020254,
+            "hist": -2.1117763669430047,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T11:30:00+08:00",
+            "close": 2907.3252,
+            "dif": -0.5454246680251345,
+            "dea": 0.6743052086365935,
+            "hist": -2.439459753323456,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T11:30:00+08:00",
+            "close": 2907.3252,
+            "dif": -0.5454246680251345,
+            "dea": 0.6743052086365935,
+            "hist": -2.439459753323456,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T14:00:00+08:00",
+            "close": 2865.8948,
+            "dif": -4.2114713802066035,
+            "dea": -0.30285010913204596,
+            "hist": -7.817242542149115,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T14:00:00+08:00",
+            "close": 2865.8948,
+            "dif": -4.2114713802066035,
+            "dea": -0.30285010913204596,
+            "hist": -7.817242542149115,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "bb1f09da788e794eaa11bf2e",
+              "time": "2024-08-05T14:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-22T10:30:00+08:00",
+                "endTime": "2024-07-29T10:30:00+08:00",
+                "price": 2876.3333,
+                "dif": -21.461599420911625
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -7.450311723024697,
+            "dea": -1.732342431910576,
+            "hist": -11.435938582228243,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -7.450311723024697,
+            "dea": -1.732342431910576,
+            "hist": -11.435938582228243,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T10:30:00+08:00",
+            "close": 2867.352,
+            "dif": -9.37214148764815,
+            "dea": -3.260302243058091,
+            "hist": -12.22367848918012,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T10:30:00+08:00",
+            "close": 2867.352,
+            "dif": -9.37214148764815,
+            "dea": -3.260302243058091,
+            "hist": -12.22367848918012,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T11:30:00+08:00",
+            "close": 2861.8652,
+            "dif": -11.208736984288862,
+            "dea": -4.849989191304246,
+            "hist": -12.717495585969232,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T11:30:00+08:00",
+            "close": 2861.8652,
+            "dif": -11.208736984288862,
+            "dea": -4.849989191304246,
+            "hist": -12.717495585969232,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T14:00:00+08:00",
+            "close": 2847.3088,
+            "dif": -13.681124487534817,
+            "dea": -6.6162162505503606,
+            "hist": -14.129816473968912,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T14:00:00+08:00",
+            "close": 2847.3088,
+            "dif": -13.681124487534817,
+            "dea": -6.6162162505503606,
+            "hist": -14.129816473968912,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -13.86883065688562,
+            "dea": -8.066739131817412,
+            "hist": -11.604183050136417,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -13.86883065688562,
+            "dea": -8.066739131817412,
+            "hist": -11.604183050136417,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T10:30:00+08:00",
+              "endTime": "2024-07-29T10:30:00+08:00",
+              "price": 2876.3333,
+              "dif": -21.461599420911625
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ],
+      "softwareEvidence": "No60chart; closingDULL from ownmodel only"
+    },
+    "m90": {
+      "prefixRows": 11367,
+      "prefixStart": "2009-01-05T11:00:00+08:00",
+      "through": "2024-08-06T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-06T15:00:00+08:00",
+        "close": 2867.2837,
+        "dif": -14.561063343762271,
+        "dea": -9.586121810878565,
+        "hist": -9.949883065767413,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-22T14:00:00+08:00",
+          "endTime": "2024-07-30T15:00:00+08:00",
+          "price": 2871.629,
+          "dif": -22.116414726835956
+        },
+        "pendingTopHistoryId": null
+      },
+      "negativePool": [
+        {
+          "sign": -1,
+          "start": "2024-07-18T11:00:00+08:00",
+          "end": "2024-07-18T14:00:00+08:00",
+          "count": 2,
+          "price": 2948.1487,
+          "dif": 0.20780521926644724,
+          "price_at": "2024-07-18T11:00:00+08:00",
+          "dif_at": "2024-07-18T11:00:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2024-07-22T14:00:00+08:00",
+          "end": "2024-07-30T15:00:00+08:00",
+          "count": 20,
+          "price": 2871.629,
+          "dif": -22.116414726835956,
+          "price_at": "2024-07-30T14:00:00+08:00",
+          "dif_at": "2024-07-26T14:00:00+08:00"
+        }
+      ],
+      "numeric": [
+        {
+          "field": "close",
+          "softwareDisplayed": "2867.28",
+          "sourceValue": 2867.2837,
+          "sourceDisplayed": "2867.28",
+          "displayMatch": true,
+          "softwareMinusSource": -0.003699999999753345
+        },
+        {
+          "field": "dif",
+          "softwareDisplayed": "-14.526",
+          "sourceValue": -14.561063343762271,
+          "sourceDisplayed": "-14.561",
+          "displayMatch": false,
+          "softwareMinusSource": 0.03506334376227116
+        },
+        {
+          "field": "dea",
+          "softwareDisplayed": "-9.560",
+          "sourceValue": -9.586121810878565,
+          "sourceDisplayed": "-9.586",
+          "displayMatch": false,
+          "softwareMinusSource": 0.026121810878564133
+        },
+        {
+          "field": "hist",
+          "softwareDisplayed": "-9.932",
+          "sourceValue": -9.949883065767413,
+          "sourceDisplayed": "-9.950",
+          "displayMatch": false,
+          "softwareMinusSource": 0.017883065767412276
+        }
+      ],
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-07-22T11:00:00+08:00",
+            "close": 2961.4707,
+            "dif": 2.094561032969523,
+            "dea": 1.775317978139609,
+            "hist": 0.6384861096598278,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T11:00:00+08:00",
+            "close": 2961.4707,
+            "dif": 2.094561032969523,
+            "dea": 1.775317978139609,
+            "hist": 0.6384861096598278,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T14:00:00+08:00",
+            "close": 2948.7024,
+            "dif": 0.35615793241140636,
+            "dea": 1.4914859689939686,
+            "hist": -2.2706560731651244,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T14:00:00+08:00",
+            "close": 2948.7024,
+            "dif": 0.35615793241140636,
+            "dea": 1.4914859689939686,
+            "hist": -2.2706560731651244,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": 0.22762264926814169,
+            "dea": 1.2387133050488033,
+            "hist": -2.022181311561323,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": 0.22762264926814169,
+            "dea": 1.2387133050488033,
+            "hist": -2.022181311561323,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T11:00:00+08:00",
+            "close": 2949.2761,
+            "dif": -1.0674306084565615,
+            "dea": 0.7774845223477304,
+            "hist": -3.6898302616085834,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T11:00:00+08:00",
+            "close": 2949.2761,
+            "dif": -1.0674306084565615,
+            "dea": 0.7774845223477304,
+            "hist": -3.6898302616085834,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T14:00:00+08:00",
+            "close": 2942.1475,
+            "dif": -2.63857227068047,
+            "dea": 0.09427316374209044,
+            "hist": -5.465690868845121,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T14:00:00+08:00",
+            "close": 2942.1475,
+            "dif": -2.63857227068047,
+            "dea": 0.09427316374209044,
+            "hist": -5.465690868845121,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -5.975679017201401,
+            "dea": -1.119717272446608,
+            "hist": -9.711923489509585,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -5.975679017201401,
+            "dea": -1.119717272446608,
+            "hist": -9.711923489509585,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T11:00:00+08:00",
+            "close": 2906.5222,
+            "dif": -9.227802205875378,
+            "dea": -2.741334259132362,
+            "hist": -12.972935893486031,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T11:00:00+08:00",
+            "close": 2906.5222,
+            "dif": -9.227802205875378,
+            "dea": -2.741334259132362,
+            "hist": -12.972935893486031,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T14:00:00+08:00",
+            "close": 2912.3252,
+            "dif": -11.207684451065688,
+            "dea": -4.434604297519028,
+            "hist": -13.54616030709332,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T14:00:00+08:00",
+            "close": 2912.3252,
+            "dif": -11.207684451065688,
+            "dea": -4.434604297519028,
+            "hist": -13.54616030709332,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -13.45864308247019,
+            "dea": -6.239412054509261,
+            "hist": -14.438462055921857,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -13.45864308247019,
+            "dea": -6.239412054509261,
+            "hist": -14.438462055921857,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-04T15:00:00+08:00",
+              "endTime": "2024-07-09T15:00:00+08:00",
+              "price": 2905.264,
+              "dif": -17.055362071009313
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "a595d2e37ca87327bd08f82d",
+              "time": "2024-07-24T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-04T15:00:00+08:00",
+                "endTime": "2024-07-09T15:00:00+08:00",
+                "price": 2905.264,
+                "dif": -17.055362071009313
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T11:00:00+08:00",
+            "close": 2881.7424,
+            "dif": -16.68100163320105,
+            "dea": -8.327729970247619,
+            "hist": -16.70654332590686,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T11:00:00+08:00",
+            "close": 2881.7424,
+            "dif": -16.68100163320105,
+            "dea": -8.327729970247619,
+            "hist": -16.70654332590686,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-04T15:00:00+08:00",
+              "endTime": "2024-07-09T15:00:00+08:00",
+              "price": 2905.264,
+              "dif": -17.055362071009313
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T14:00:00+08:00",
+            "close": 2888.5,
+            "dif": -18.476476832397566,
+            "dea": -10.357479342677609,
+            "hist": -16.237994979439915,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T14:00:00+08:00",
+            "close": 2888.5,
+            "dif": -18.476476832397566,
+            "dea": -10.357479342677609,
+            "hist": -16.237994979439915,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "d2b238d9f56b17bcff42cc14",
+              "time": "2024-07-25T14:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-07-04T15:00:00+08:00",
+                "endTime": "2024-07-09T15:00:00+08:00",
+                "price": 2905.264,
+                "dif": -17.055362071009313
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -19.812893278123283,
+            "dea": -12.248562129766745,
+            "hist": -15.128662296713077,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -19.812893278123283,
+            "dea": -12.248562129766745,
+            "hist": -15.128662296713077,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T11:00:00+08:00",
+            "close": 2876.2852,
+            "dif": -21.468291994539413,
+            "dea": -14.09250810272128,
+            "hist": -14.751567783636265,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T11:00:00+08:00",
+            "close": 2876.2852,
+            "dif": -21.468291994539413,
+            "dea": -14.09250810272128,
+            "hist": -14.751567783636265,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T14:00:00+08:00",
+            "close": 2881.352,
+            "dif": -22.116414726835956,
+            "dea": -15.697289427544218,
+            "hist": -12.838250598583475,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T14:00:00+08:00",
+            "close": 2881.352,
+            "dif": -22.116414726835956,
+            "dea": -15.697289427544218,
+            "hist": -12.838250598583475,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -21.610723822204363,
+            "dea": -16.879976306476244,
+            "hist": -9.461495031456238,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -21.610723822204363,
+            "dea": -16.879976306476244,
+            "hist": -9.461495031456238,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T11:00:00+08:00",
+            "close": 2889.4849,
+            "dif": -21.08091329780973,
+            "dea": -17.72016370474294,
+            "hist": -6.7214991861335776,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T11:00:00+08:00",
+            "close": 2889.4849,
+            "dif": -21.08091329780973,
+            "dea": -17.72016370474294,
+            "hist": -6.7214991861335776,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T14:00:00+08:00",
+            "close": 2888.6604,
+            "dif": -20.491353333708048,
+            "dea": -18.274401630535966,
+            "hist": -4.4339034063441645,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T14:00:00+08:00",
+            "close": 2888.6604,
+            "dif": -20.491353333708048,
+            "dea": -18.274401630535966,
+            "hist": -4.4339034063441645,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -19.541869563159253,
+            "dea": -18.527895217060625,
+            "hist": -2.0279486921972563,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -19.541869563159253,
+            "dea": -18.527895217060625,
+            "hist": -2.0279486921972563,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T11:00:00+08:00",
+            "close": 2874.6194,
+            "dif": -19.94941054562787,
+            "dea": -18.812198282774073,
+            "hist": -2.2744245257075946,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T11:00:00+08:00",
+            "close": 2874.6194,
+            "dif": -19.94941054562787,
+            "dea": -18.812198282774073,
+            "hist": -2.2744245257075946,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T14:00:00+08:00",
+            "close": 2871.629,
+            "dif": -20.279915753594196,
+            "dea": -19.105741776938103,
+            "hist": -2.348347953312185,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T14:00:00+08:00",
+            "close": 2871.629,
+            "dif": -20.279915753594196,
+            "dea": -19.105741776938103,
+            "hist": -2.348347953312185,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -19.695848714211024,
+            "dea": -19.22376316439269,
+            "hist": -0.9441710996366695,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -19.695848714211024,
+            "dea": -19.22376316439269,
+            "hist": -0.9441710996366695,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T11:00:00+08:00",
+            "close": 2915.4312,
+            "dif": -16.13149933903378,
+            "dea": -18.60531039932091,
+            "hist": 4.947622120574259,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T11:00:00+08:00",
+            "close": 2915.4312,
+            "dif": -16.13149933903378,
+            "dea": -18.60531039932091,
+            "hist": 4.947622120574259,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T14:00:00+08:00",
+            "close": 2937.586,
+            "dif": -11.387748696497965,
+            "dea": -17.16179805875632,
+            "hist": 11.548098724516713,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T14:00:00+08:00",
+            "close": 2937.586,
+            "dif": -11.387748696497965,
+            "dea": -17.16179805875632,
+            "hist": 11.548098724516713,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -7.448561170905123,
+            "dea": -15.219150681186084,
+            "hist": 15.541179020561923,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -7.448561170905123,
+            "dea": -15.219150681186084,
+            "hist": 15.541179020561923,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T11:00:00+08:00",
+            "close": 2935.028,
+            "dif": -4.574275090501487,
+            "dea": -13.090175563049167,
+            "hist": 17.03180094509536,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T11:00:00+08:00",
+            "close": 2935.028,
+            "dif": -4.574275090501487,
+            "dea": -13.090175563049167,
+            "hist": 17.03180094509536,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T14:00:00+08:00",
+            "close": 2941.9539,
+            "dif": -1.7177196133702637,
+            "dea": -10.815684373113388,
+            "hist": 18.19592951948625,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T14:00:00+08:00",
+            "close": 2941.9539,
+            "dif": -1.7177196133702637,
+            "dea": -10.815684373113388,
+            "hist": 18.19592951948625,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": -0.22325797614939802,
+            "dea": -8.69719909372059,
+            "hist": 16.947882235142384,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": -0.22325797614939802,
+            "dea": -8.69719909372059,
+            "hist": 16.947882235142384,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T11:00:00+08:00",
+            "close": 2914.1206,
+            "dif": -0.5070038959779595,
+            "dea": -7.0591600541720645,
+            "hist": 13.10431231638821,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T11:00:00+08:00",
+            "close": 2914.1206,
+            "dif": -0.5070038959779595,
+            "dea": -7.0591600541720645,
+            "hist": 13.10431231638821,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T14:00:00+08:00",
+            "close": 2910.979,
+            "dif": -0.9741460964587532,
+            "dea": -5.842157262629403,
+            "hist": 9.7360223323413,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T14:00:00+08:00",
+            "close": 2910.979,
+            "dif": -0.9741460964587532,
+            "dea": -5.842157262629403,
+            "hist": 9.7360223323413,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": -1.7790814832010255,
+            "dea": -5.029542106743728,
+            "hist": 6.5009212470854045,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": -1.7790814832010255,
+            "dea": -5.029542106743728,
+            "hist": 6.5009212470854045,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T11:00:00+08:00",
+            "close": 2899.8662,
+            "dif": -2.82590343596803,
+            "dea": -4.588814372588589,
+            "hist": 3.5258218732411173,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T11:00:00+08:00",
+            "close": 2899.8662,
+            "dif": -2.82590343596803,
+            "dea": -4.588814372588589,
+            "hist": 3.5258218732411173,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T14:00:00+08:00",
+            "close": 2865.8948,
+            "dif": -6.323828288581353,
+            "dea": -4.935817155787142,
+            "hist": -2.7760222655884217,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T14:00:00+08:00",
+            "close": 2865.8948,
+            "dif": -6.323828288581353,
+            "dea": -4.935817155787142,
+            "hist": -2.7760222655884217,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -9.40687678235372,
+            "dea": -5.830029081100458,
+            "hist": -7.153695402506525,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -9.40687678235372,
+            "dea": -5.830029081100458,
+            "hist": -7.153695402506525,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T14:00:00+08:00",
+              "endTime": "2024-07-30T15:00:00+08:00",
+              "price": 2871.629,
+              "dif": -22.116414726835956
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "c18216049a398bbbfff713a5",
+              "time": "2024-08-05T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-22T14:00:00+08:00",
+                "endTime": "2024-07-30T15:00:00+08:00",
+                "price": 2871.629,
+                "dif": -22.116414726835956
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T11:00:00+08:00",
+            "close": 2866.8738,
+            "dif": -11.222497376821593,
+            "dea": -6.908522740244685,
+            "hist": -8.627949273153817,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T11:00:00+08:00",
+            "close": 2866.8738,
+            "dif": -11.222497376821593,
+            "dea": -6.908522740244685,
+            "hist": -8.627949273153817,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T14:00:00+08:00",
+              "endTime": "2024-07-30T15:00:00+08:00",
+              "price": 2871.629,
+              "dif": -22.116414726835956
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T14:00:00+08:00",
+            "close": 2847.3088,
+            "dif": -14.077841177309438,
+            "dea": -8.342386427657637,
+            "hist": -11.470909499303602,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T14:00:00+08:00",
+            "close": 2847.3088,
+            "dif": -14.077841177309438,
+            "dea": -8.342386427657637,
+            "hist": -11.470909499303602,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T14:00:00+08:00",
+              "endTime": "2024-07-30T15:00:00+08:00",
+              "price": 2871.629,
+              "dif": -22.116414726835956
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -14.561063343762271,
+            "dea": -9.586121810878565,
+            "hist": -9.949883065767413,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -14.561063343762271,
+            "dea": -9.586121810878565,
+            "hist": -9.949883065767413,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-22T14:00:00+08:00",
+              "endTime": "2024-07-30T15:00:00+08:00",
+              "price": 2871.629,
+              "dif": -22.116414726835956
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ],
+      "softwareEvidence": "ClosingDULL caption andchart"
+    },
+    "m120": {
+      "prefixRows": 7578,
+      "prefixStart": "2009-01-05T11:30:00+08:00",
+      "through": "2024-08-06T15:00:00+08:00",
+      "endpoint": {
+        "time": "2024-08-06T15:00:00+08:00",
+        "close": 2867.2837,
+        "dif": -16.400709272036238,
+        "dea": -13.444754491833457,
+        "hist": -5.911909560405562,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        },
+        "pendingTopHistoryId": null
+      },
+      "negativePool": [
+        {
+          "sign": -1,
+          "start": "2024-07-05T15:00:00+08:00",
+          "end": "2024-07-09T15:00:00+08:00",
+          "count": 5,
+          "price": 2922.272,
+          "dif": -19.574926760178187,
+          "price_at": "2024-07-09T11:30:00+08:00",
+          "dif_at": "2024-07-09T11:30:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2024-07-23T11:30:00+08:00",
+          "end": "2024-07-31T11:30:00+08:00",
+          "count": 13,
+          "price": 2876.87,
+          "dif": -22.869133541594238,
+          "price_at": "2024-07-30T11:30:00+08:00",
+          "dif_at": "2024-07-30T15:00:00+08:00"
+        }
+      ],
+      "numeric": [
+        {
+          "field": "close",
+          "softwareDisplayed": "2867.28",
+          "sourceValue": 2867.2837,
+          "sourceDisplayed": "2867.28",
+          "displayMatch": true,
+          "softwareMinusSource": -0.003699999999753345
+        },
+        {
+          "field": "dif",
+          "softwareDisplayed": "-16.400",
+          "sourceValue": -16.400709272036238,
+          "sourceDisplayed": "-16.401",
+          "displayMatch": false,
+          "softwareMinusSource": 0.0007092720362393834
+        },
+        {
+          "field": "dea",
+          "softwareDisplayed": "-13.444",
+          "sourceValue": -13.444754491833457,
+          "sourceDisplayed": "-13.445",
+          "displayMatch": false,
+          "softwareMinusSource": 0.0007544918334563278
+        },
+        {
+          "field": "hist",
+          "softwareDisplayed": "-5.912",
+          "sourceValue": -5.911909560405562,
+          "sourceDisplayed": "-5.912",
+          "displayMatch": true,
+          "softwareMinusSource": -9.043959443832961e-05
+        }
+      ],
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-07-22T11:30:00+08:00",
+            "close": 2961.1255,
+            "dif": -0.07637655464031923,
+            "dea": -2.13690251166858,
+            "hist": 4.121051914056522,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T11:30:00+08:00",
+            "close": 2961.1255,
+            "dif": -0.07637655464031923,
+            "dea": -2.13690251166858,
+            "hist": 4.121051914056522,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": -0.4114759496874285,
+            "dea": -1.7918171992723502,
+            "hist": 2.7606824991698433,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-22T15:00:00+08:00",
+            "close": 2964.2156,
+            "dif": -0.4114759496874285,
+            "dea": -1.7918171992723502,
+            "hist": 2.7606824991698433,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T11:30:00+08:00",
+            "close": 2946.626,
+            "dif": -2.07248800051093,
+            "dea": -1.8479513595200663,
+            "hist": -0.44907328198172713,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T11:30:00+08:00",
+            "close": 2946.626,
+            "dif": -2.07248800051093,
+            "dea": -1.8479513595200663,
+            "hist": -0.44907328198172713,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -5.843716382204548,
+            "dea": -2.6471043640569625,
+            "hist": -6.39322403629517,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-23T15:00:00+08:00",
+            "close": 2915.3684,
+            "dif": -5.843716382204548,
+            "dea": -2.6471043640569625,
+            "hist": -6.39322403629517,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "918e5746ba5ed2dd4a9b88f3",
+              "time": "2024-07-23T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-06-21T15:00:00+08:00",
+                "endTime": "2024-06-27T15:00:00+08:00",
+                "price": 2940.594,
+                "dif": -28.81061820297009
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T11:30:00+08:00",
+            "close": 2918.2654,
+            "dif": -8.500687719631514,
+            "dea": -3.8178210351718733,
+            "hist": -9.365733368919283,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T11:30:00+08:00",
+            "close": 2918.2654,
+            "dif": -8.500687719631514,
+            "dea": -3.8178210351718733,
+            "hist": -9.365733368919283,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -11.786840331922122,
+            "dea": -5.411624894521924,
+            "hist": -12.750430874800395,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-24T15:00:00+08:00",
+            "close": 2901.952,
+            "dif": -11.786840331922122,
+            "dea": -5.411624894521924,
+            "hist": -12.750430874800395,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T11:30:00+08:00",
+            "close": 2889.6204,
+            "dif": -15.210855736630037,
+            "dea": -7.371471062943548,
+            "hist": -15.67876934737298,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T11:30:00+08:00",
+            "close": 2889.6204,
+            "dif": -15.210855736630037,
+            "dea": -7.371471062943548,
+            "hist": -15.67876934737298,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -17.949785689188047,
+            "dea": -9.487133988192449,
+            "hist": -16.925303401991197,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-25T15:00:00+08:00",
+            "close": 2886.7417,
+            "dif": -17.949785689188047,
+            "dea": -9.487133988192449,
+            "hist": -16.925303401991197,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T11:30:00+08:00",
+            "close": 2881.2324,
+            "dif": -20.33060333647245,
+            "dea": -11.65582785784845,
+            "hist": -17.349550957248,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T11:30:00+08:00",
+            "close": 2881.2324,
+            "dif": -20.33060333647245,
+            "dea": -11.65582785784845,
+            "hist": -17.349550957248,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -21.193247324099957,
+            "dea": -13.563311751098752,
+            "hist": -15.25987114600241,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-26T15:00:00+08:00",
+            "close": 2890.8972,
+            "dif": -21.193247324099957,
+            "dea": -13.563311751098752,
+            "hist": -15.25987114600241,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T11:30:00+08:00",
+            "close": 2892.0962,
+            "dif": -21.53194278649653,
+            "dea": -15.157037958178307,
+            "hist": -12.749809656636444,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T11:30:00+08:00",
+            "close": 2892.0962,
+            "dif": -21.53194278649653,
+            "dea": -15.157037958178307,
+            "hist": -12.749809656636444,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -21.571947005907077,
+            "dea": -16.440019767724063,
+            "hist": -10.263854476366028,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-29T15:00:00+08:00",
+            "close": 2891.8452,
+            "dif": -21.571947005907077,
+            "dea": -16.440019767724063,
+            "hist": -10.263854476366028,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T11:30:00+08:00",
+            "close": 2876.87,
+            "dif": -22.552058038141695,
+            "dea": -17.66242742180759,
+            "hist": -9.779261232668212,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T11:30:00+08:00",
+            "close": 2876.87,
+            "dif": -22.552058038141695,
+            "dea": -17.66242742180759,
+            "hist": -9.779261232668212,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -22.869133541594238,
+            "dea": -18.703768645764924,
+            "hist": -8.330729791658626,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-30T15:00:00+08:00",
+            "close": 2879.2996,
+            "dif": -22.869133541594238,
+            "dea": -18.703768645764924,
+            "hist": -8.330729791658626,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T11:30:00+08:00",
+            "close": 2930.8035,
+            "dif": -18.748364394252803,
+            "dea": -18.7126877954625,
+            "hist": -0.07135319758060632,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T11:30:00+08:00",
+            "close": 2930.8035,
+            "dif": -18.748364394252803,
+            "dea": -18.7126877954625,
+            "hist": -0.07135319758060632,
+            "ordinaryState": "STRUCTURE",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-06-21T15:00:00+08:00",
+              "endTime": "2024-06-27T15:00:00+08:00",
+              "price": 2940.594,
+              "dif": -28.81061820297009
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "2ec38ff92d8678550e50403c",
+              "time": "2024-07-31T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "STRUCTURE",
+              "route": "dif_turn",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-06-21T15:00:00+08:00",
+                "endTime": "2024-06-27T15:00:00+08:00",
+                "price": 2940.594,
+                "dif": -28.81061820297009
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -14.672331992270301,
+            "dea": -17.904616634824063,
+            "hist": 6.4645692851075225,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-07-31T15:00:00+08:00",
+            "close": 2938.7493,
+            "dif": -14.672331992270301,
+            "dea": -17.904616634824063,
+            "hist": 6.4645692851075225,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T11:30:00+08:00",
+            "close": 2932.1416,
+            "dif": -11.838763221574482,
+            "dea": -16.691445952174146,
+            "hist": 9.705365461199328,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T11:30:00+08:00",
+            "close": 2932.1416,
+            "dif": -11.838763221574482,
+            "dea": -16.691445952174146,
+            "hist": 9.705365461199328,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": -9.464224005540927,
+            "dea": -15.246001562847505,
+            "hist": 11.563555114613155,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-01T15:00:00+08:00",
+            "close": 2932.3872,
+            "dif": -9.464224005540927,
+            "dea": -15.246001562847505,
+            "hist": 11.563555114613155,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T11:30:00+08:00",
+            "close": 2919.317,
+            "dif": -8.538612665281107,
+            "dea": -13.904523783334225,
+            "hist": 10.731822236106236,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T11:30:00+08:00",
+            "close": 2919.317,
+            "dif": -8.538612665281107,
+            "dea": -13.904523783334225,
+            "hist": 10.731822236106236,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": -8.831294234418692,
+            "dea": -12.88987787355112,
+            "hist": 8.117167278264855,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-02T15:00:00+08:00",
+            "close": 2905.3374,
+            "dif": -8.831294234418692,
+            "dea": -12.88987787355112,
+            "hist": 8.117167278264855,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T11:30:00+08:00",
+            "close": 2907.3252,
+            "dif": -8.801390686200193,
+            "dea": -12.072180436080934,
+            "hist": 6.5415794997614825,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T11:30:00+08:00",
+            "close": 2907.3252,
+            "dif": -8.801390686200193,
+            "dea": -12.072180436080934,
+            "hist": 6.5415794997614825,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -12.397225904134302,
+            "dea": -12.13718952969161,
+            "hist": -0.5200727488853829,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-05T15:00:00+08:00",
+            "close": 2860.6978,
+            "dif": -12.397225904134302,
+            "dea": -12.13718952969161,
+            "hist": -0.5200727488853829,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T11:30:00+08:00",
+            "close": 2861.8652,
+            "dif": -14.980070865147354,
+            "dea": -12.70576579678276,
+            "hist": -4.548610136729188,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T11:30:00+08:00",
+            "close": 2861.8652,
+            "dif": -14.980070865147354,
+            "dea": -12.70576579678276,
+            "hist": -4.548610136729188,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-23T11:30:00+08:00",
+              "endTime": "2024-07-31T11:30:00+08:00",
+              "price": 2876.87,
+              "dif": -22.869133541594238
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "ab3529d574354f227fd66a53",
+              "time": "2024-08-06T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-07-23T11:30:00+08:00",
+                "endTime": "2024-07-31T11:30:00+08:00",
+                "price": 2876.87,
+                "dif": -22.869133541594238
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -16.400709272036238,
+            "dea": -13.444754491833457,
+            "hist": -5.911909560405562,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-06T15:00:00+08:00",
+            "close": 2867.2837,
+            "dif": -16.400709272036238,
+            "dea": -13.444754491833457,
+            "hist": -5.911909560405562,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-23T11:30:00+08:00",
+              "endTime": "2024-07-31T11:30:00+08:00",
+              "price": 2876.87,
+              "dif": -22.869133541594238
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ],
+      "softwareEvidence": "ClosingDULL caption andchart"
+    }
+  },
+  "m120MappedLabels": [
+    {
+      "time": "2024-07-31T11:30:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 1167,
+      "geometryChecks": 9,
+      "evidenceGrade": "mappedbar; notsoftwarecursororverbalnaming"
+    },
+    {
+      "time": "2024-08-05T15:00:00+08:00",
+      "softwareText": "消失",
+      "firstInkX": 1718,
+      "geometryChecks": 9,
+      "evidenceGrade": "mappedbar; notsoftwarecursororverbalnaming"
+    }
+  ],
+  "geometry": {
+    "lastCenter": 1872,
+    "spacing": 78.3,
+    "centerPerturbation": [
+      -1,
+      0,
+      1
+    ],
+    "spacingPerturbation": [
+      -0.05,
+      0,
+      0.05
+    ],
+    "inkOffsetRange": [
+      -3,
+      14
+    ],
+    "checks": 18
+  },
+  "nextMaterialPriority": [
+    {
+      "priority": 1,
+      "period": "m120",
+      "time": "2024-09-02T11:30:00+08:00",
+      "includeWindow": [
+        "2024-08-29",
+        "2024-09-02"
+      ],
+      "formed": "2024-08-30T11:30:00+08:00",
+      "oldWaveLow": 2823.106,
+      "close": 2824.5037,
+      "marginAboveOldLow": 1.3976999999999862,
+      "previousDif": -10.036056945920336,
+      "dif": -10.980481166330264,
+      "difReversePct": 9.41031149483301,
+      "hist": -0.9798766499011009,
+      "currentKernelEvents": [],
+      "hypothesisPriceOnly": null,
+      "hypothesisDIF1pct": {
+        "time": "2024-09-02T11:30:00+08:00",
+        "close": 2824.5037,
+        "dif": -10.980481166330264,
+        "previousDif": -10.036056945920336,
+        "hist": -0.9798766499011009,
+        "priceBreak": false,
+        "difDown": true,
+        "difTurn1pct": true,
+        "formed": "2024-08-30T11:30:00+08:00",
+        "low": 2823.106,
+        "lowAt": "2024-08-29T15:00:00+08:00",
+        "reference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        }
+      },
+      "notYetObservedInSoftware": true,
+      "scope": "Cross-colorpreregistered diagnosticdisagreement; lifecycle assumptionsstillunverified"
+    },
+    {
+      "priority": "same-dayoptional",
+      "period": "m90",
+      "time": "2024-09-02T11:00:00+08:00",
+      "includeWindow": [
+        "2024-08-29",
+        "2024-09-02"
+      ],
+      "formed": "2024-08-30T11:00:00+08:00",
+      "oldWaveLow": 2823.106,
+      "close": 2825.1785,
+      "marginAboveOldLow": 2.0724999999997635,
+      "previousDif": -5.483311307435088,
+      "dif": -6.539919755838582,
+      "difReversePct": 19.26953238950318,
+      "hist": 1.1591583427599037,
+      "currentKernelEvents": [],
+      "hypothesisPriceOnly": null,
+      "hypothesisDIF1pct": {
+        "time": "2024-09-02T11:00:00+08:00",
+        "close": 2825.1785,
+        "dif": -6.539919755838582,
+        "previousDif": -5.483311307435088,
+        "hist": 1.1591583427599037,
+        "priceBreak": false,
+        "difDown": true,
+        "difTurn1pct": true,
+        "formed": "2024-08-30T11:00:00+08:00",
+        "low": 2823.106,
+        "lowAt": "2024-08-29T15:00:00+08:00",
+        "reference": {
+          "startTime": "2024-08-12T14:00:00+08:00",
+          "endTime": "2024-08-12T15:00:00+08:00",
+          "price": 2857.413,
+          "dif": -11.628055791852148
+        }
+      },
+      "notYetObservedInSoftware": true,
+      "scope": "Cross-colorpreregistered diagnosticdisagreement; lifecycle assumptionsstillunverified"
+    },
+    {
+      "priority": 2,
+      "period": "day",
+      "date": "2024-07-23",
+      "includeWindow": [
+        "2024-07-05",
+        "2024-07-23"
+      ],
+      "goal": "Originalfirstmissinggreenlabelidentityandtriggers; same-daylecturepreferred",
+      "noPromiseOfUniqueFormula": true
+    }
+  ],
+  "captionEvidence": [
+    {
+      "lines": [
+        17,
+        23
+      ],
+      "meaning": "Current120DULL, DIFroughly-16 vs earlier-14.97, compares historicalminimumaround-22; coarseverbalvalues, no exactsoftwarecursor."
+    },
+    {
+      "lines": [
+        24,
+        38
+      ],
+      "meaning": "90DULL+9, potentialfuturestructure; dailylowerhistoricalreference hasbeenpassedoutofrange; not exactcountproof."
+    },
+    {
+      "lines": [
+        68,
+        69
+      ],
+      "meaning": "Aftertruedullnesscancellation, describesredsegmentthennewnegativeandtwobars; distinctfromstructure-disappearancewhiledivergencevalid."
+    },
+    {
+      "lines": [
+        12,
+        23
+      ],
+      "meaning": "Twodaysremaining isconditional speedestimate, not fixedalgorithm24/2dayexpiry."
+    }
+  ],
+  "priorEvidenceHashes": {
+    "case_20240805_semantics_20261015.json": "e2d0fa18c58edd84fdb771963ac6fbe838094210fce452c036ed78b992e51510",
+    "case_20260710_structure_disappearance_20261015.json": "1615a61bbf9cd2a810673895cf68ceca63c015cfb8d131bdb79c5015cc90fa36",
+    "case_20260803_events_20261015.json": "74c6d56529e7c02fe0ae4f3f58a17eb006f991317787c9e90c46e13b86005ad0",
+    "case_20240822_semantics_20261015.json": "ca8e167641dcb39b3aa08709e1fccaa44ceddebbdb6e4c98e7b16176ff7dc87d"
+  },
+  "limits": [
+    "Softwaredailyreferenceexactvalue notstated; currentDIFaround-28 isnot thereferenceDIF.",
+    "Software120historicalreferencearound-22 iscompatiblewithsource-22.869 butnot exact equalityproof.",
+    "Minute90numericdisagreementretained; do notfitthresholdsor silentlycorrect source.",
+    "Historicallabelcoordinates mapped; noforcedsinglebaraccuracyforoccluded daily or90labels.",
+    "Noformula toresolveoriginalthreecross-colorwithdrawalstoday; no implementationornewapproval."
+  ],
+  "productCodeChanged": false,
+  "formalDataWritten": false,
+  "pendingProposalApproved": false
+}

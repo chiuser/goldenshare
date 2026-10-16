@@ -1,0 +1,7 @@
+date,period,sourceTime,indicator,softwareDisplayed,ourActual,ourShownAt3Decimals,softwareMinusOurs,sameAt3Decimals,image
+2026-09-30,day,2026-09-30,dif,-17.809,-17.809,-17.809,0.000,True,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png
+2026-09-30,day,2026-09-30,dea,-8.633,-8.633,-8.633,0.000,True,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png
+2026-09-30,day,2026-09-30,hist,-18.353,-18.352,-18.352,-0.001,False,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png
+2026-09-30,m60,2026-09-30T15:00:00,dif,-20.710,-20.708305690352972,-20.708,-0.001694309647028,False,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png
+2026-09-30,m60,2026-09-30T15:00:00,dea,-20.684,-20.665156261485517,-20.665,-0.018843738514483,False,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png
+2026-09-30,m60,2026-09-30T15:00:00,hist,-0.053,-0.08629885773490997,-0.086,0.03329885773490997,False,reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png

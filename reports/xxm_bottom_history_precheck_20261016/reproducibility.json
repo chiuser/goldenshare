@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "finalize_report.py": "dd66544679f056862a1a576f4baea711ec008bf1dd7ebfa28d7aafe67b1f7faf",
+    "run_additional.py": "b54749cc8ea89a1882c4a9661ddb7f3e38ed31e6b885db0ac7910b84e9edcdec",
+    "run_forecast.py": "df4608cfa2859a6d42e00bb5b69a8ac5323f664a7f6e748e55b4e560ede7d2b3",
+    "run_frozen.py": "1b9d3265157f0bfedad5519f31f7f11583ebe36bf7c3357f52e4a63e9dbbb84b",
+    "run_budget.py": "54fc52e077a1b629dabe61027f753815f82e89351df606e1f2dd4504bb3ce628",
+    "candidate.py": "fd4fa9540758a59282b01dea9d8700e6755741c0b1b37daeccb0bad73e52dbca"
+  },
+  "originalInputManifest": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "candidateSpecHash": "b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5",
+  "frozenSourceAsOf": "2026-10-13",
+  "protectBefore": "protection_before.json"
+}

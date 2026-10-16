@@ -1,0 +1,31 @@
+{
+  "product": {
+    "files": 62,
+    "allHashesUnchanged": true
+  },
+  "evidence": {
+    "files": 130,
+    "allHashesUnchanged": true
+  },
+  "scopedLinksExist": true,
+  "newStableAnchorReferences": 4,
+  "newSections": 12,
+  "codeLevelTestGroups": 16,
+  "explicitB01B08Mapping": true,
+  "V01LastLineC7": true,
+  "productImplementation": false,
+  "newAlgorithmOrBudgetTestsRun": false,
+  "boundaryChange": false,
+  "changedDocs": {
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "99045502b779623ea8d13add60134cf547c793b4b4f37d0d32430adbee007a5e",
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "784348f463d5865631e18eb97b49622af7eb3495744ab68015feb0d2b657f794",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "223862b16b82280d6d7492a153bbfb6b788d722800b19259dff23f946a2cc314",
+    "docs/product/xxm-macd-structure-research-v1.md": "f286c9fcb7b620ac3c30624624d187e4b736acea08f99f700a608e3f3261c80b"
+  },
+  "docsIntegrity": {
+    "deadAbsoluteLinks": "PASS",
+    "dsStoreNoise": "PASS",
+    "tushareIndexConsistency": "PASS"
+  },
+  "scopedGitDiffCheck": "PASS"
+}

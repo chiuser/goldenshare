@@ -200,3 +200,14 @@ def test_original_replay_variants_obey_budget_check_without_mutating_real_state(
     with pytest.raises(TimeoutError,match='budget checkpoint'):
         confirmed_options(c,ProjectionState(100,100,0),[T1,T2],100,110,'color_flip',c.reference.reference(),reject)
     assert c.snapshot()==before
+
+
+def test_bottom_history_clone_preserves_independent_state_without_becoming_forecast_confirmation():
+    values = frozen('day'); n = next(i+1 for i,b in enumerate(values) if b.time=='2024-07-22')
+    parent = replay(values[:n], 'day'); before = parent.snapshot()
+    assert before['pendingBottomHistory']['confirmedAt']=='2024-07-09'
+    child = clone(parent); step = child.step(values[n])
+    event = next(e for e in step.events if e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL')
+    assert event['relatedBottomHistoryId'] == before['pendingBottomHistory']['id']
+    assert not any(e['type']=='STRUCTURE' for e in step.events)
+    assert parent.snapshot() == before and child.pending_bottom_history is None

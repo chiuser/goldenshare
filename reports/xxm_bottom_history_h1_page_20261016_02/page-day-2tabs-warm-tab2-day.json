@@ -1,0 +1,278 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.2",
+  "forecastSpecHash": "13f482f5af9eb87cca80c59af89ad383ada61f00f1a18713eb300a6f1d2204c4",
+  "detectorSpecHash": "b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5",
+  "sourceInputId": "a79df022eb57a30bd525b6f9a31767f96325ca7010962f061cd89d3c2e73406e",
+  "calendarInputId": "6a925cb36f6bffb610c6843b19b94a9cc48e773a9be63cb83358c095babd59b2",
+  "computedThrough": "2026-10-15",
+  "requestedAsOf": null,
+  "mode": "LATEST",
+  "dataStatus": "READY",
+  "ordinaryState": "DULL",
+  "direction": "BOTTOM",
+  "status": "READY",
+  "reasonCode": null,
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "3ff6f80e4dbd6089ff5a9887beadaab543068ad8780b9e94d0de14cd00d31733",
+  "targetEndpoint": "2026-10-16",
+  "barsAhead": 1,
+  "activation": null,
+  "assumption": {
+    "policy": "entry_range_then_flat",
+    "activationEndpoint": null,
+    "intermediateEndpoints": [],
+    "intermediateCloseExpression": {
+      "op": "affine",
+      "pCoefficient": 0,
+      "cCoefficient": 0,
+      "constant": 3707.476
+    }
+  },
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -343.3403947328461
+              },
+              "guard": 1e-10
+            },
+            "factor": -1
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0,
+            "cCoefficient": 0,
+            "constant": 62.142
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -506.66111897134124
+              },
+              "guard": 1e-10
+            },
+            "factor": -1
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0,
+            "cCoefficient": 0,
+            "constant": 0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0,
+              "cCoefficient": 0,
+              "constant": -42.217
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0,
+            "cCoefficient": 0,
+            "constant": 0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "round3",
+                  "arg": {
+                    "op": "affine",
+                    "pCoefficient": 0,
+                    "cCoefficient": 0.07977207977207978,
+                    "constant": -343.3403947328461
+                  },
+                  "guard": 1e-10
+                },
+                {
+                  "op": "affine",
+                  "pCoefficient": 0,
+                  "cCoefficient": 0,
+                  "constant": -42.217
+                }
+              ]
+            },
+            "factor": 1
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0,
+                "cCoefficient": 0,
+                "constant": -42.217
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -343.3403947328461
+              },
+              "guard": 1e-10
+            },
+            "factor": -1
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0,
+            "cCoefficient": 0,
+            "constant": 62.142
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -506.66111897134124
+              },
+              "guard": 1e-10
+            },
+            "factor": -1
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0,
+            "cCoefficient": 0,
+            "constant": 0
+          }
+        }
+      ]
+    }
+  ],
+  "commonConditions": [
+    {
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "route": "dif_turn",
+      "closeRanges": [
+        {
+          "lower": 3780.0931804022885,
+          "upper": 3969.5954745291438,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3780.1,
+          "displayUpper": 3969.59,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 3969.6033093521387,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3969.61,
+          "displayUpper": null,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "examples": [],
+  "applicabilityText": "按当前真实状态与明确的中间走势假设计算。",
+  "invalidationText": "原钝化消失、零柱或前序走势变化时重新计算；未达结构条件不等于钝化已消失。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "底钝化有效",
+    "targetText": "暂无结构条件",
+    "conditionsText": "当前底钝化有效。\n当前暂无近期结构条件，新收盘后更新。\n新收盘后更新结构条件和确认时点。底钝化消失或出现零柱时，原条件失效。",
+    "asOfText": "截至 10/15 收盘"
+  },
+  "refreshAfterMs": 60000
+}

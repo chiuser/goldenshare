@@ -1,0 +1,4953 @@
+{
+  "period": "day",
+  "asOf": "2026-09-30",
+  "fullPrefixStart": "2023-01-03",
+  "fullPrefixBars": 908,
+  "visibleReviewStart": "2026-05-01",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "events": [
+    {
+      "id": "ce17abc6b74e50dab3c7fc72",
+      "time": "2026-05-11",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "71e69a17c2907957f64d9029",
+      "time": "2026-05-14",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": "ec1734f776caf1a452ba6c13"
+    },
+    {
+      "id": "e0fe4c3cbbe2655f4245fdc6",
+      "time": "2026-07-13",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "43199df3289ee09d102c555f",
+      "time": "2026-07-15",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "1881c0210934577d1409b627",
+      "time": "2026-07-17",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-03-04",
+        "endTime": "2026-04-07",
+        "price": 3813.2829,
+        "dif": -56.353
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "66e282a83351023d460d4b98",
+      "time": "2026-07-20",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-03-04",
+        "endTime": "2026-04-07",
+        "price": 3813.2829,
+        "dif": -56.353
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "33112591965dc5b7562b5478",
+      "time": "2026-09-28",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-09-11",
+        "endTime": "2026-09-21",
+        "price": 3864.2794,
+        "dif": -10.316
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "ffe48d26115aaeddcd77a07c",
+      "time": "2026-09-29",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-09-11",
+        "endTime": "2026-09-21",
+        "price": 3864.2794,
+        "dif": -10.316
+      },
+      "relatedTopHistoryId": null
+    }
+  ],
+  "endpoint": {
+    "time": "2026-09-30",
+    "close": 3842.1946,
+    "dif": -17.809,
+    "dea": -8.633,
+    "hist": -18.352,
+    "ordinaryState": "NONE",
+    "ordinaryDirection": null,
+    "activeReference": null,
+    "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+  },
+  "timeline": [
+    {
+      "bar": {
+        "time": "2026-05-06",
+        "close": 4160.1737,
+        "dif": 33.021,
+        "dea": 20.94,
+        "hist": 24.162,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-06",
+        "close": 4160.1737,
+        "dif": 33.021,
+        "dea": 20.94,
+        "hist": 24.162,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "5e2dc262739f22400a65e45c"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "5e2dc262739f22400a65e45c",
+          "confirmedAt": "2026-03-03",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4182.5909,
+          "pricePeakAt": "2026-03-02",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-06",
+          "ageBars": 42,
+          "negativeBars": 24,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-07",
+        "close": 4180.0922,
+        "dif": 38.023,
+        "dea": 24.357,
+        "hist": 27.334,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-07",
+        "close": 4180.0922,
+        "dif": 38.023,
+        "dea": 24.357,
+        "hist": 27.334,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "5e2dc262739f22400a65e45c"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "5e2dc262739f22400a65e45c",
+          "confirmedAt": "2026-03-03",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4182.5909,
+          "pricePeakAt": "2026-03-02",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-07",
+          "ageBars": 43,
+          "negativeBars": 24,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-08",
+        "close": 4179.9524,
+        "dif": 41.499,
+        "dea": 27.785,
+        "hist": 27.427,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-08",
+        "close": 4179.9524,
+        "dif": 41.499,
+        "dea": 27.785,
+        "hist": 27.427,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "5e2dc262739f22400a65e45c"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "5e2dc262739f22400a65e45c",
+          "confirmedAt": "2026-03-03",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4182.5909,
+          "pricePeakAt": "2026-03-02",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-08",
+          "ageBars": 44,
+          "negativeBars": 24,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-11",
+        "close": 4225.0207,
+        "dif": 47.343,
+        "dea": 31.697,
+        "hist": 31.293,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-11",
+        "close": 4225.0207,
+        "dif": 47.343,
+        "dea": 31.697,
+        "hist": 31.293,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [
+        {
+          "id": "ce17abc6b74e50dab3c7fc72",
+          "time": "2026-05-11",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "5e2dc262739f22400a65e45c",
+          "confirmedAt": "2026-03-03",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4182.5909,
+          "pricePeakAt": "2026-03-02",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "ENDED",
+          "endedAt": "2026-05-11",
+          "endReason": "new_top_DULL",
+          "observedThrough": "2026-05-11",
+          "ageBars": 45,
+          "negativeBars": 24,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-12",
+        "close": 4214.4891,
+        "dif": 50.543,
+        "dea": 35.466,
+        "hist": 30.154,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-12",
+        "close": 4214.4891,
+        "dif": 50.543,
+        "dea": 35.466,
+        "hist": 30.154,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [],
+      "historyUpdates": []
+    },
+    {
+      "bar": {
+        "time": "2026-05-13",
+        "close": 4242.572,
+        "dif": 54.714,
+        "dea": 39.316,
+        "hist": 30.797,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-13",
+        "close": 4242.572,
+        "dif": 54.714,
+        "dea": 39.316,
+        "hist": 30.797,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [],
+      "historyUpdates": []
+    },
+    {
+      "bar": {
+        "time": "2026-05-14",
+        "close": 4177.9175,
+        "dif": 52.201,
+        "dea": 41.893,
+        "hist": 20.617,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-14",
+        "close": 4177.9175,
+        "dif": 52.201,
+        "dea": 41.893,
+        "hist": 20.617,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "71e69a17c2907957f64d9029",
+          "time": "2026-05-14",
+          "direction": "TOP",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "relatedTopHistoryId": "ec1734f776caf1a452ba6c13"
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-14",
+          "ageBars": 0,
+          "negativeBars": 0,
+          "zeroBars": 0,
+          "colorChanges": 0
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-15",
+        "close": 4135.3894,
+        "dif": 46.244,
+        "dea": 42.763,
+        "hist": 6.963,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-15",
+        "close": 4135.3894,
+        "dif": 46.244,
+        "dea": 42.763,
+        "hist": 6.963,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-15",
+          "ageBars": 1,
+          "negativeBars": 0,
+          "zeroBars": 0,
+          "colorChanges": 0
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-18",
+        "close": 4131.5276,
+        "dif": 40.743,
+        "dea": 42.359,
+        "hist": -3.233,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-18",
+        "close": 4131.5276,
+        "dif": 40.743,
+        "dea": 42.359,
+        "hist": -3.233,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-18",
+          "ageBars": 2,
+          "negativeBars": 1,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-19",
+        "close": 4169.5378,
+        "dif": 39.0,
+        "dea": 41.687,
+        "hist": -5.374,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-19",
+        "close": 4169.5378,
+        "dif": 39.0,
+        "dea": 41.687,
+        "hist": -5.374,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-19",
+          "ageBars": 3,
+          "negativeBars": 2,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-20",
+        "close": 4162.1845,
+        "dif": 36.604,
+        "dea": 40.67,
+        "hist": -8.134,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-20",
+        "close": 4162.1845,
+        "dif": 36.604,
+        "dea": 40.67,
+        "hist": -8.134,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-20",
+          "ageBars": 4,
+          "negativeBars": 3,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-21",
+        "close": 4077.2765,
+        "dif": 27.536,
+        "dea": 38.044,
+        "hist": -21.016,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-21",
+        "close": 4077.2765,
+        "dif": 27.536,
+        "dea": 38.044,
+        "hist": -21.016,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-21",
+          "ageBars": 5,
+          "negativeBars": 4,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-22",
+        "close": 4112.8996,
+        "dif": 22.959,
+        "dea": 35.027,
+        "hist": -24.135,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-22",
+        "close": 4112.8996,
+        "dif": 22.959,
+        "dea": 35.027,
+        "hist": -24.135,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-22",
+          "ageBars": 6,
+          "negativeBars": 5,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-25",
+        "close": 4152.5686,
+        "dif": 22.276,
+        "dea": 32.477,
+        "hist": -20.401,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-25",
+        "close": 4152.5686,
+        "dif": 22.276,
+        "dea": 32.477,
+        "hist": -20.401,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-25",
+          "ageBars": 7,
+          "negativeBars": 6,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-26",
+        "close": 4145.373,
+        "dif": 20.913,
+        "dea": 30.164,
+        "hist": -18.501,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-26",
+        "close": 4145.373,
+        "dif": 20.913,
+        "dea": 30.164,
+        "hist": -18.501,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-26",
+          "ageBars": 8,
+          "negativeBars": 7,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-27",
+        "close": 4093.7266,
+        "dif": 15.487,
+        "dea": 27.229,
+        "hist": -23.482,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-27",
+        "close": 4093.7266,
+        "dif": 15.487,
+        "dea": 27.229,
+        "hist": -23.482,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-27",
+          "ageBars": 9,
+          "negativeBars": 8,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-28",
+        "close": 4098.6358,
+        "dif": 11.451,
+        "dea": 24.073,
+        "hist": -25.244,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-28",
+        "close": 4098.6358,
+        "dif": 11.451,
+        "dea": 24.073,
+        "hist": -25.244,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-28",
+          "ageBars": 10,
+          "negativeBars": 9,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-05-29",
+        "close": 4068.5691,
+        "dif": 5.76,
+        "dea": 20.411,
+        "hist": -29.301,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-05-29",
+        "close": 4068.5691,
+        "dif": 5.76,
+        "dea": 20.411,
+        "hist": -29.301,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-05-29",
+          "ageBars": 11,
+          "negativeBars": 10,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-01",
+        "close": 4057.74,
+        "dif": 0.372,
+        "dea": 16.403,
+        "hist": -32.062,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-01",
+        "close": 4057.74,
+        "dif": 0.372,
+        "dea": 16.403,
+        "hist": -32.062,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-01",
+          "ageBars": 12,
+          "negativeBars": 11,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-02",
+        "close": 4075.1016,
+        "dif": -2.469,
+        "dea": 12.629,
+        "hist": -30.195,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-02",
+        "close": 4075.1016,
+        "dif": -2.469,
+        "dea": 12.629,
+        "hist": -30.195,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-02",
+          "ageBars": 13,
+          "negativeBars": 12,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-03",
+        "close": 4083.974,
+        "dif": -3.959,
+        "dea": 9.311,
+        "hist": -26.54,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-03",
+        "close": 4083.974,
+        "dif": -3.959,
+        "dea": 9.311,
+        "hist": -26.54,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-03",
+          "ageBars": 14,
+          "negativeBars": 13,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-04",
+        "close": 4057.7811,
+        "dif": -7.17,
+        "dea": 6.015,
+        "hist": -26.37,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-04",
+        "close": 4057.7811,
+        "dif": -7.17,
+        "dea": 6.015,
+        "hist": -26.37,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-04",
+          "ageBars": 15,
+          "negativeBars": 14,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-05",
+        "close": 4027.7362,
+        "dif": -12.002,
+        "dea": 2.411,
+        "hist": -28.826,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-05",
+        "close": 4027.7362,
+        "dif": -12.002,
+        "dea": 2.411,
+        "hist": -28.826,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-05",
+          "ageBars": 16,
+          "negativeBars": 15,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-08",
+        "close": 3959.3378,
+        "dif": -21.106,
+        "dea": -2.292,
+        "hist": -37.629,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-08",
+        "close": 3959.3378,
+        "dif": -21.106,
+        "dea": -2.292,
+        "hist": -37.629,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-08",
+          "ageBars": 17,
+          "negativeBars": 16,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-09",
+        "close": 4010.0307,
+        "dif": -23.955,
+        "dea": -6.625,
+        "hist": -34.661,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-09",
+        "close": 4010.0307,
+        "dif": -23.955,
+        "dea": -6.625,
+        "hist": -34.661,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-09",
+          "ageBars": 18,
+          "negativeBars": 17,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-10",
+        "close": 3993.2258,
+        "dif": -27.255,
+        "dea": -10.751,
+        "hist": -33.008,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-10",
+        "close": 3993.2258,
+        "dif": -27.255,
+        "dea": -10.751,
+        "hist": -33.008,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-10",
+          "ageBars": 19,
+          "negativeBars": 18,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-11",
+        "close": 3987.0147,
+        "dif": -30.025,
+        "dea": -14.606,
+        "hist": -30.839,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-11",
+        "close": 3987.0147,
+        "dif": -30.025,
+        "dea": -14.606,
+        "hist": -30.839,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-11",
+          "ageBars": 20,
+          "negativeBars": 19,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-12",
+        "close": 4031.5129,
+        "dif": -28.303,
+        "dea": -17.345,
+        "hist": -21.916,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-12",
+        "close": 4031.5129,
+        "dif": -28.303,
+        "dea": -17.345,
+        "hist": -21.916,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-12",
+          "ageBars": 21,
+          "negativeBars": 20,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-15",
+        "close": 4096.4717,
+        "dif": -21.45,
+        "dea": -18.166,
+        "hist": -6.568,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-15",
+        "close": 4096.4717,
+        "dif": -21.45,
+        "dea": -18.166,
+        "hist": -6.568,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-15",
+          "ageBars": 22,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 1
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-16",
+        "close": 4091.8917,
+        "dif": -16.202,
+        "dea": -17.773,
+        "hist": 3.143,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-16",
+        "close": 4091.8917,
+        "dif": -16.202,
+        "dea": -17.773,
+        "hist": 3.143,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-16",
+          "ageBars": 23,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-17",
+        "close": 4108.0762,
+        "dif": -10.614,
+        "dea": -16.341,
+        "hist": 11.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-17",
+        "close": 4108.0762,
+        "dif": -10.614,
+        "dea": -16.341,
+        "hist": 11.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-17",
+          "ageBars": 24,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-18",
+        "close": 4090.4813,
+        "dif": -7.519,
+        "dea": -14.577,
+        "hist": 14.116,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-18",
+        "close": 4090.4813,
+        "dif": -7.519,
+        "dea": -14.577,
+        "hist": 14.116,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-18",
+          "ageBars": 25,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-22",
+        "close": 4163.0965,
+        "dif": 0.785,
+        "dea": -11.504,
+        "hist": 24.579,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-22",
+        "close": 4163.0965,
+        "dif": 0.785,
+        "dea": -11.504,
+        "hist": 24.579,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-22",
+          "ageBars": 26,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-23",
+        "close": 4106.2517,
+        "dif": 2.747,
+        "dea": -8.654,
+        "hist": 22.802,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-23",
+        "close": 4106.2517,
+        "dif": 2.747,
+        "dea": -8.654,
+        "hist": 22.802,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-23",
+          "ageBars": 27,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-24",
+        "close": 4110.8134,
+        "dif": 4.617,
+        "dea": -6.0,
+        "hist": 21.233,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-24",
+        "close": 4110.8134,
+        "dif": 4.617,
+        "dea": -6.0,
+        "hist": 21.233,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-24",
+          "ageBars": 28,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-25",
+        "close": 4120.2806,
+        "dif": 6.784,
+        "dea": -3.443,
+        "hist": 20.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-25",
+        "close": 4120.2806,
+        "dif": 6.784,
+        "dea": -3.443,
+        "hist": 20.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-25",
+          "ageBars": 29,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-26",
+        "close": 4027.2648,
+        "dif": 0.985,
+        "dea": -2.558,
+        "hist": 7.085,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-26",
+        "close": 4027.2648,
+        "dif": 0.985,
+        "dea": -2.558,
+        "hist": 7.085,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-26",
+          "ageBars": 30,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-29",
+        "close": 4073.9017,
+        "dif": 0.15,
+        "dea": -2.016,
+        "hist": 4.333,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-29",
+        "close": 4073.9017,
+        "dif": 0.15,
+        "dea": -2.016,
+        "hist": 4.333,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-29",
+          "ageBars": 31,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-06-30",
+        "close": 4094.3972,
+        "dif": 1.13,
+        "dea": -1.387,
+        "hist": 5.033,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-06-30",
+        "close": 4094.3972,
+        "dif": 1.13,
+        "dea": -1.387,
+        "hist": 5.033,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-06-30",
+          "ageBars": 32,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-01",
+        "close": 4112.4453,
+        "dif": 3.324,
+        "dea": -0.445,
+        "hist": 7.538,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-01",
+        "close": 4112.4453,
+        "dif": 3.324,
+        "dea": -0.445,
+        "hist": 7.538,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-01",
+          "ageBars": 33,
+          "negativeBars": 21,
+          "zeroBars": 0,
+          "colorChanges": 2
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-02",
+        "close": 4028.9038,
+        "dif": -1.659,
+        "dea": -0.687,
+        "hist": -1.943,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-02",
+        "close": 4028.9038,
+        "dif": -1.659,
+        "dea": -0.687,
+        "hist": -1.943,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-02",
+          "ageBars": 34,
+          "negativeBars": 22,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-03",
+        "close": 4043.6432,
+        "dif": -4.368,
+        "dea": -1.424,
+        "hist": -5.889,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-03",
+        "close": 4043.6432,
+        "dif": -4.368,
+        "dea": -1.424,
+        "hist": -5.889,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-03",
+          "ageBars": 35,
+          "negativeBars": 23,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-06",
+        "close": 4041.2382,
+        "dif": -6.633,
+        "dea": -2.466,
+        "hist": -8.335,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-06",
+        "close": 4041.2382,
+        "dif": -6.633,
+        "dea": -2.466,
+        "hist": -8.335,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-06",
+          "ageBars": 36,
+          "negativeBars": 24,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-07",
+        "close": 3990.2353,
+        "dif": -12.4,
+        "dea": -4.453,
+        "hist": -15.896,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-07",
+        "close": 3990.2353,
+        "dif": -12.4,
+        "dea": -4.453,
+        "hist": -15.896,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-07",
+          "ageBars": 37,
+          "negativeBars": 25,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-08",
+        "close": 3970.8797,
+        "dif": -18.322,
+        "dea": -7.226,
+        "hist": -22.191,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-08",
+        "close": 3970.8797,
+        "dif": -18.322,
+        "dea": -7.226,
+        "hist": -22.191,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-08",
+          "ageBars": 38,
+          "negativeBars": 26,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-09",
+        "close": 4036.5879,
+        "dif": -17.511,
+        "dea": -9.283,
+        "hist": -16.455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-09",
+        "close": 4036.5879,
+        "dif": -17.511,
+        "dea": -9.283,
+        "hist": -16.455,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-09",
+          "ageBars": 39,
+          "negativeBars": 27,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-10",
+        "close": 3996.1616,
+        "dif": -19.9,
+        "dea": -11.407,
+        "hist": -16.987,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-10",
+        "close": 3996.1616,
+        "dif": -19.9,
+        "dea": -11.407,
+        "hist": -16.987,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-10",
+          "ageBars": 40,
+          "negativeBars": 28,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-13",
+        "close": 3913.794,
+        "dif": -28.116,
+        "dea": -14.749,
+        "hist": -26.736,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-13",
+        "close": 3913.794,
+        "dif": -28.116,
+        "dea": -14.749,
+        "hist": -26.736,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "e0fe4c3cbbe2655f4245fdc6",
+          "time": "2026-07-13",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-13",
+          "ageBars": 41,
+          "negativeBars": 29,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-14",
+        "close": 3967.1262,
+        "dif": -29.979,
+        "dea": -17.795,
+        "hist": -24.368,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-14",
+        "close": 3967.1262,
+        "dif": -29.979,
+        "dea": -17.795,
+        "hist": -24.368,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-14",
+          "ageBars": 42,
+          "negativeBars": 30,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-15",
+        "close": 3955.5781,
+        "dif": -32.017,
+        "dea": -20.639,
+        "hist": -22.757,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-15",
+        "close": 3955.5781,
+        "dif": -32.017,
+        "dea": -20.639,
+        "hist": -22.757,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "43199df3289ee09d102c555f",
+          "time": "2026-07-15",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-15",
+          "ageBars": 43,
+          "negativeBars": 31,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-16",
+        "close": 3882.4126,
+        "dif": -39.086,
+        "dea": -24.329,
+        "hist": -29.516,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-16",
+        "close": 3882.4126,
+        "dif": -39.086,
+        "dea": -24.329,
+        "hist": -29.516,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-16",
+          "ageBars": 44,
+          "negativeBars": 32,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-17",
+        "close": 3764.1547,
+        "dif": -53.613,
+        "dea": -30.186,
+        "hist": -46.855,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-17",
+        "close": 3764.1547,
+        "dif": -53.613,
+        "dea": -30.186,
+        "hist": -46.855,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-03-04",
+          "endTime": "2026-04-07",
+          "price": 3813.2829,
+          "dif": -56.353
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "1881c0210934577d1409b627",
+          "time": "2026-07-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-17",
+          "ageBars": 45,
+          "negativeBars": 33,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-20",
+        "close": 3796.2814,
+        "dif": -61.82,
+        "dea": -36.513,
+        "hist": -50.616,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-20",
+        "close": 3796.2814,
+        "dif": -61.82,
+        "dea": -36.513,
+        "hist": -50.616,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "66e282a83351023d460d4b98",
+          "time": "2026-07-20",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-20",
+          "ageBars": 46,
+          "negativeBars": 34,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-21",
+        "close": 3864.3671,
+        "dif": -62.115,
+        "dea": -41.633,
+        "hist": -40.964,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-21",
+        "close": 3864.3671,
+        "dif": -62.115,
+        "dea": -41.633,
+        "hist": -40.964,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-21",
+          "ageBars": 47,
+          "negativeBars": 35,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-22",
+        "close": 3867.0336,
+        "dif": -61.425,
+        "dea": -45.591,
+        "hist": -31.667,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-22",
+        "close": 3867.0336,
+        "dif": -61.425,
+        "dea": -45.591,
+        "hist": -31.667,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-22",
+          "ageBars": 48,
+          "negativeBars": 36,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-23",
+        "close": 3876.7774,
+        "dif": -59.407,
+        "dea": -48.355,
+        "hist": -22.105,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-23",
+        "close": 3876.7774,
+        "dif": -59.407,
+        "dea": -48.355,
+        "hist": -22.105,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-23",
+          "ageBars": 49,
+          "negativeBars": 37,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-24",
+        "close": 3814.1978,
+        "dif": -62.142,
+        "dea": -51.112,
+        "hist": -22.059,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-24",
+        "close": 3814.1978,
+        "dif": -62.142,
+        "dea": -51.112,
+        "hist": -22.059,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-24",
+          "ageBars": 50,
+          "negativeBars": 38,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-27",
+        "close": 3858.245,
+        "dif": -60.062,
+        "dea": -52.902,
+        "hist": -14.32,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-27",
+        "close": 3858.245,
+        "dif": -60.062,
+        "dea": -52.902,
+        "hist": -14.32,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-27",
+          "ageBars": 51,
+          "negativeBars": 39,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-28",
+        "close": 3813.3146,
+        "dif": -61.332,
+        "dea": -54.588,
+        "hist": -13.488,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-28",
+        "close": 3813.3146,
+        "dif": -61.332,
+        "dea": -54.588,
+        "hist": -13.488,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-28",
+          "ageBars": 52,
+          "negativeBars": 40,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-29",
+        "close": 3828.469,
+        "dif": -60.42,
+        "dea": -55.754,
+        "hist": -9.331,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-29",
+        "close": 3828.469,
+        "dif": -60.42,
+        "dea": -55.754,
+        "hist": -9.331,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-29",
+          "ageBars": 53,
+          "negativeBars": 41,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-30",
+        "close": 3804.6926,
+        "dif": -60.913,
+        "dea": -56.786,
+        "hist": -8.254,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-30",
+        "close": 3804.6926,
+        "dif": -60.913,
+        "dea": -56.786,
+        "hist": -8.254,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-30",
+          "ageBars": 54,
+          "negativeBars": 42,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-31",
+        "close": 3832.2624,
+        "dif": -58.406,
+        "dea": -57.11,
+        "hist": -2.592,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-31",
+        "close": 3832.2624,
+        "dif": -58.406,
+        "dea": -57.11,
+        "hist": -2.592,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-07-31",
+          "ageBars": 55,
+          "negativeBars": 43,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-03",
+        "close": 3809.6629,
+        "dif": -57.579,
+        "dea": -57.204,
+        "hist": -0.75,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-03",
+        "close": 3809.6629,
+        "dif": -57.579,
+        "dea": -57.204,
+        "hist": -0.75,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-03",
+          "ageBars": 56,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 3
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-04",
+        "close": 3822.2846,
+        "dif": -55.268,
+        "dea": -56.817,
+        "hist": 3.098,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-04",
+        "close": 3822.2846,
+        "dif": -55.268,
+        "dea": -56.817,
+        "hist": 3.098,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-04",
+          "ageBars": 57,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-05",
+        "close": 3878.4296,
+        "dif": -48.349,
+        "dea": -55.123,
+        "hist": 13.549,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-05",
+        "close": 3878.4296,
+        "dif": -48.349,
+        "dea": -55.123,
+        "hist": 13.549,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-05",
+          "ageBars": 58,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-06",
+        "close": 3900.3523,
+        "dif": -40.628,
+        "dea": -52.224,
+        "hist": 23.192,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-06",
+        "close": 3900.3523,
+        "dif": -40.628,
+        "dea": -52.224,
+        "hist": 23.192,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-06",
+          "ageBars": 59,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-07",
+        "close": 3940.0371,
+        "dif": -30.95,
+        "dea": -47.969,
+        "hist": 34.038,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-07",
+        "close": 3940.0371,
+        "dif": -30.95,
+        "dea": -47.969,
+        "hist": 34.038,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-07",
+          "ageBars": 60,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-10",
+        "close": 3966.5935,
+        "dif": -20.896,
+        "dea": -42.555,
+        "hist": 43.316,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-10",
+        "close": 3966.5935,
+        "dif": -20.896,
+        "dea": -42.555,
+        "hist": 43.316,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-10",
+          "ageBars": 61,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-11",
+        "close": 3934.0929,
+        "dif": -15.374,
+        "dea": -37.118,
+        "hist": 43.489,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-11",
+        "close": 3934.0929,
+        "dif": -15.374,
+        "dea": -37.118,
+        "hist": 43.489,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-11",
+          "ageBars": 62,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-12",
+        "close": 3946.6752,
+        "dif": -9.869,
+        "dea": -31.669,
+        "hist": 43.6,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-12",
+        "close": 3946.6752,
+        "dif": -9.869,
+        "dea": -31.669,
+        "hist": 43.6,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-12",
+          "ageBars": 63,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-13",
+        "close": 3926.9648,
+        "dif": -7.015,
+        "dea": -26.738,
+        "hist": 39.445,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-13",
+        "close": 3926.9648,
+        "dif": -7.015,
+        "dea": -26.738,
+        "hist": 39.445,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-13",
+          "ageBars": 64,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-14",
+        "close": 3927.1764,
+        "dif": -4.683,
+        "dea": -22.327,
+        "hist": 35.288,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-14",
+        "close": 3927.1764,
+        "dif": -4.683,
+        "dea": -22.327,
+        "hist": 35.288,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-14",
+          "ageBars": 65,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-17",
+        "close": 3982.6535,
+        "dif": 1.623,
+        "dea": -17.537,
+        "hist": 38.321,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-17",
+        "close": 3982.6535,
+        "dif": 1.623,
+        "dea": -17.537,
+        "hist": 38.321,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-17",
+          "ageBars": 66,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-18",
+        "close": 3990.3037,
+        "dif": 7.156,
+        "dea": -12.598,
+        "hist": 39.509,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-18",
+        "close": 3990.3037,
+        "dif": 7.156,
+        "dea": -12.598,
+        "hist": 39.509,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-18",
+          "ageBars": 67,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-19",
+        "close": 3894.4224,
+        "dif": 3.761,
+        "dea": -9.326,
+        "hist": 26.174,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-19",
+        "close": 3894.4224,
+        "dif": 3.761,
+        "dea": -9.326,
+        "hist": 26.174,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-19",
+          "ageBars": 68,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-20",
+        "close": 3903.721,
+        "dif": 1.799,
+        "dea": -7.101,
+        "hist": 17.801,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-20",
+        "close": 3903.721,
+        "dif": 1.799,
+        "dea": -7.101,
+        "hist": 17.801,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-20",
+          "ageBars": 69,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-21",
+        "close": 3905.2026,
+        "dif": 0.36,
+        "dea": -5.609,
+        "hist": 11.938,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-21",
+        "close": 3905.2026,
+        "dif": 0.36,
+        "dea": -5.609,
+        "hist": 11.938,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-21",
+          "ageBars": 70,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-24",
+        "close": 3882.0079,
+        "dif": -2.622,
+        "dea": -5.012,
+        "hist": 4.78,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-24",
+        "close": 3882.0079,
+        "dif": -2.622,
+        "dea": -5.012,
+        "hist": 4.78,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-24",
+          "ageBars": 71,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-25",
+        "close": 3889.4449,
+        "dif": -4.335,
+        "dea": -4.876,
+        "hist": 1.083,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-25",
+        "close": 3889.4449,
+        "dif": -4.335,
+        "dea": -4.876,
+        "hist": 1.083,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-25",
+          "ageBars": 72,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-26",
+        "close": 3912.5235,
+        "dif": -3.786,
+        "dea": -4.658,
+        "hist": 1.744,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-26",
+        "close": 3912.5235,
+        "dif": -3.786,
+        "dea": -4.658,
+        "hist": 1.744,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-26",
+          "ageBars": 73,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-27",
+        "close": 3956.571,
+        "dif": 0.2,
+        "dea": -3.687,
+        "hist": 7.773,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-27",
+        "close": 3956.571,
+        "dif": 0.2,
+        "dea": -3.687,
+        "hist": 7.773,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-27",
+          "ageBars": 74,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-28",
+        "close": 3952.179,
+        "dif": 2.971,
+        "dea": -2.355,
+        "hist": 10.652,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-28",
+        "close": 3952.179,
+        "dif": 2.971,
+        "dea": -2.355,
+        "hist": 10.652,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-28",
+          "ageBars": 75,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-08-31",
+        "close": 3986.298,
+        "dif": 7.829,
+        "dea": -0.318,
+        "hist": 16.295,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-08-31",
+        "close": 3986.298,
+        "dif": 7.829,
+        "dea": -0.318,
+        "hist": 16.295,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-08-31",
+          "ageBars": 76,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-01",
+        "close": 3979.8877,
+        "dif": 11.035,
+        "dea": 1.952,
+        "hist": 18.166,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-01",
+        "close": 3979.8877,
+        "dif": 11.035,
+        "dea": 1.952,
+        "hist": 18.166,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-01",
+          "ageBars": 77,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-02",
+        "close": 3941.3862,
+        "dif": 10.35,
+        "dea": 3.632,
+        "hist": 13.436,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-02",
+        "close": 3941.3862,
+        "dif": 10.35,
+        "dea": 3.632,
+        "hist": 13.436,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-02",
+          "ageBars": 78,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-03",
+        "close": 3942.0879,
+        "dif": 9.751,
+        "dea": 4.856,
+        "hist": 9.791,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-03",
+        "close": 3942.0879,
+        "dif": 9.751,
+        "dea": 4.856,
+        "hist": 9.791,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-03",
+          "ageBars": 79,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-04",
+        "close": 3930.1164,
+        "dif": 8.216,
+        "dea": 5.528,
+        "hist": 5.376,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-04",
+        "close": 3930.1164,
+        "dif": 8.216,
+        "dea": 5.528,
+        "hist": 5.376,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-04",
+          "ageBars": 80,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-07",
+        "close": 3932.6992,
+        "dif": 7.126,
+        "dea": 5.847,
+        "hist": 2.556,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-07",
+        "close": 3932.6992,
+        "dif": 7.126,
+        "dea": 5.847,
+        "hist": 2.556,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-07",
+          "ageBars": 81,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-08",
+        "close": 3940.5509,
+        "dif": 6.816,
+        "dea": 6.041,
+        "hist": 1.55,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-08",
+        "close": 3940.5509,
+        "dif": 6.816,
+        "dea": 6.041,
+        "hist": 1.55,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-08",
+          "ageBars": 82,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-09",
+        "close": 3951.5068,
+        "dif": 7.37,
+        "dea": 6.307,
+        "hist": 2.127,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-09",
+        "close": 3951.5068,
+        "dif": 7.37,
+        "dea": 6.307,
+        "hist": 2.127,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-09",
+          "ageBars": 83,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-10",
+        "close": 3934.4036,
+        "dif": 6.356,
+        "dea": 6.317,
+        "hist": 0.078,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-10",
+        "close": 3934.4036,
+        "dif": 6.356,
+        "dea": 6.317,
+        "hist": 0.078,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-10",
+          "ageBars": 84,
+          "negativeBars": 44,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-11",
+        "close": 3888.1106,
+        "dif": 1.796,
+        "dea": 5.413,
+        "hist": -7.233,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-11",
+        "close": 3888.1106,
+        "dif": 1.796,
+        "dea": 5.413,
+        "hist": -7.233,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-11",
+          "ageBars": 85,
+          "negativeBars": 45,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-14",
+        "close": 3885.3328,
+        "dif": -2.019,
+        "dea": 3.926,
+        "hist": -11.89,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-14",
+        "close": 3885.3328,
+        "dif": -2.019,
+        "dea": 3.926,
+        "hist": -11.89,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-14",
+          "ageBars": 86,
+          "negativeBars": 46,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-15",
+        "close": 3864.2794,
+        "dif": -6.664,
+        "dea": 1.808,
+        "hist": -16.944,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-15",
+        "close": 3864.2794,
+        "dif": -6.664,
+        "dea": 1.808,
+        "hist": -16.944,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-15",
+          "ageBars": 87,
+          "negativeBars": 47,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-16",
+        "close": 3891.6005,
+        "dif": -8.048,
+        "dea": -0.163,
+        "hist": -15.77,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-16",
+        "close": 3891.6005,
+        "dif": -8.048,
+        "dea": -0.163,
+        "hist": -15.77,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-16",
+          "ageBars": 88,
+          "negativeBars": 48,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-17",
+        "close": 3875.6044,
+        "dif": -10.316,
+        "dea": -2.194,
+        "hist": -16.246,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-17",
+        "close": 3875.6044,
+        "dif": -10.316,
+        "dea": -2.194,
+        "hist": -16.246,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-17",
+          "ageBars": 89,
+          "negativeBars": 49,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-18",
+        "close": 3911.8714,
+        "dif": -9.083,
+        "dea": -3.571,
+        "hist": -11.023,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-18",
+        "close": 3911.8714,
+        "dif": -9.083,
+        "dea": -3.571,
+        "hist": -11.023,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-18",
+          "ageBars": 90,
+          "negativeBars": 50,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-21",
+        "close": 3949.9068,
+        "dif": -4.979,
+        "dea": -3.853,
+        "hist": -2.253,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-21",
+        "close": 3949.9068,
+        "dif": -4.979,
+        "dea": -3.853,
+        "hist": -2.253,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-21",
+          "ageBars": 91,
+          "negativeBars": 51,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-22",
+        "close": 3952.128,
+        "dif": -1.53,
+        "dea": -3.388,
+        "hist": 3.717,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-22",
+        "close": 3952.128,
+        "dif": -1.53,
+        "dea": -3.388,
+        "hist": 3.717,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-22",
+          "ageBars": 92,
+          "negativeBars": 51,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-23",
+        "close": 3936.5199,
+        "dif": -0.055,
+        "dea": -2.722,
+        "hist": 5.333,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-23",
+        "close": 3936.5199,
+        "dif": -0.055,
+        "dea": -2.722,
+        "hist": 5.333,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-23",
+          "ageBars": 93,
+          "negativeBars": 51,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-24",
+        "close": 3888.3738,
+        "dif": -2.74,
+        "dea": -2.725,
+        "hist": -0.029,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-24",
+        "close": 3888.3738,
+        "dif": -2.74,
+        "dea": -2.725,
+        "hist": -0.029,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-24",
+          "ageBars": 94,
+          "negativeBars": 52,
+          "zeroBars": 0,
+          "colorChanges": 7
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-28",
+        "close": 3823.6206,
+        "dif": -9.978,
+        "dea": -4.176,
+        "hist": -11.604,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-28",
+        "close": 3823.6206,
+        "dif": -9.978,
+        "dea": -4.176,
+        "hist": -11.604,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-09-11",
+          "endTime": "2026-09-21",
+          "price": 3864.2794,
+          "dif": -10.316
+        },
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "33112591965dc5b7562b5478",
+          "time": "2026-09-28",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-28",
+          "ageBars": 95,
+          "negativeBars": 53,
+          "zeroBars": 0,
+          "colorChanges": 7
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-29",
+        "close": 3830.4513,
+        "dif": -14.99,
+        "dea": -6.339,
+        "hist": -17.302,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-29",
+        "close": 3830.4513,
+        "dif": -14.99,
+        "dea": -6.339,
+        "hist": -17.302,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [
+        {
+          "id": "ffe48d26115aaeddcd77a07c",
+          "time": "2026-09-29",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-29",
+          "ageBars": 96,
+          "negativeBars": 54,
+          "zeroBars": 0,
+          "colorChanges": 7
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-30",
+        "close": 3842.1946,
+        "dif": -17.809,
+        "dea": -8.633,
+        "hist": -18.352,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-30",
+        "close": 3842.1946,
+        "dif": -17.809,
+        "dea": -8.633,
+        "hist": -18.352,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "ec1734f776caf1a452ba6c13",
+          "confirmedAt": "2026-05-14",
+          "confirmationRoute": "dif_turn",
+          "pricePeak": 4242.572,
+          "pricePeakAt": "2026-05-13",
+          "originalReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-30",
+          "ageBars": 97,
+          "negativeBars": 55,
+          "zeroBars": 0,
+          "colorChanges": 7
+        }
+      ]
+    }
+  ]
+}

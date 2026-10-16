@@ -1,0 +1,2261 @@
+{
+  "period": "m60",
+  "asOf": "2026-09-30",
+  "fullPrefixStart": "2009-01-05T10:30:00+08:00",
+  "fullPrefixBars": 17244,
+  "visibleReviewStart": "2026-09-14",
+  "algorithmVersion": "xxm-direction-v0.1",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "events": [
+    {
+      "id": "676800c11a8890e4f2c34568",
+      "time": "2026-09-28T10:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-09-10T11:30:00+08:00",
+        "endTime": "2026-09-16T11:30:00+08:00",
+        "price": 3854.0105,
+        "dif": -18.97473528491946
+      },
+      "relatedTopHistoryId": null
+    },
+    {
+      "id": "56bca8413b8dc2ee88ca1691",
+      "time": "2026-09-28T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-09-10T11:30:00+08:00",
+        "endTime": "2026-09-16T11:30:00+08:00",
+        "price": 3854.0105,
+        "dif": -18.97473528491946
+      },
+      "relatedTopHistoryId": null
+    }
+  ],
+  "endpoint": {
+    "time": "2026-09-30T15:00:00+08:00",
+    "close": 3842.1946,
+    "dif": -20.708305690352972,
+    "dea": -20.665156261485517,
+    "hist": -0.08629885773490997,
+    "ordinaryState": "NONE",
+    "ordinaryDirection": null,
+    "activeReference": null,
+    "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+  },
+  "timeline": [
+    {
+      "bar": {
+        "time": "2026-09-14T10:30:00+08:00",
+        "close": 3894.1648,
+        "dif": -15.171013171826871,
+        "dea": -9.347825047610424,
+        "hist": -11.646376248432894,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-14T10:30:00+08:00",
+        "close": 3894.1648,
+        "dif": -15.171013171826871,
+        "dea": -9.347825047610424,
+        "hist": -11.646376248432894,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-14T10:30:00+08:00",
+          "ageBars": 72,
+          "negativeBars": 48,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-14T11:30:00+08:00",
+        "close": 3894.2842,
+        "dif": -15.134965974631996,
+        "dea": -10.50525323301474,
+        "hist": -9.259425483234512,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-14T11:30:00+08:00",
+        "close": 3894.2842,
+        "dif": -15.134965974631996,
+        "dea": -10.50525323301474,
+        "hist": -9.259425483234512,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-14T11:30:00+08:00",
+          "ageBars": 73,
+          "negativeBars": 49,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-14T14:00:00+08:00",
+        "close": 3879.3555,
+        "dif": -16.1251390711368,
+        "dea": -11.629230400639152,
+        "hist": -8.991817340995297,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-14T14:00:00+08:00",
+        "close": 3879.3555,
+        "dif": -16.1251390711368,
+        "dea": -11.629230400639152,
+        "hist": -8.991817340995297,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-14T14:00:00+08:00",
+          "ageBars": 74,
+          "negativeBars": 50,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-14T15:00:00+08:00",
+        "close": 3885.3328,
+        "dif": -16.240331792659617,
+        "dea": -12.551450679043246,
+        "hist": -7.377762227232743,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-14T15:00:00+08:00",
+        "close": 3885.3328,
+        "dif": -16.240331792659617,
+        "dea": -12.551450679043246,
+        "hist": -7.377762227232743,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-14T15:00:00+08:00",
+          "ageBars": 75,
+          "negativeBars": 51,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-15T10:30:00+08:00",
+        "close": 3890.3572,
+        "dif": -15.744700656613986,
+        "dea": -13.190100674557394,
+        "hist": -5.109199964113184,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-15T10:30:00+08:00",
+        "close": 3890.3572,
+        "dif": -15.744700656613986,
+        "dea": -13.190100674557394,
+        "hist": -5.109199964113184,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-15T10:30:00+08:00",
+          "ageBars": 76,
+          "negativeBars": 52,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-15T11:30:00+08:00",
+        "close": 3881.4058,
+        "dif": -15.891030670746659,
+        "dea": -13.73028667379525,
+        "hist": -4.321487993902817,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-15T11:30:00+08:00",
+        "close": 3881.4058,
+        "dif": -15.891030670746659,
+        "dea": -13.73028667379525,
+        "hist": -4.321487993902817,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-15T11:30:00+08:00",
+          "ageBars": 77,
+          "negativeBars": 53,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-15T14:00:00+08:00",
+        "close": 3870.641,
+        "dif": -16.683312810928783,
+        "dea": -14.320891901221957,
+        "hist": -4.724841819413651,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-15T14:00:00+08:00",
+        "close": 3870.641,
+        "dif": -16.683312810928783,
+        "dea": -14.320891901221957,
+        "hist": -4.724841819413651,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-15T14:00:00+08:00",
+          "ageBars": 78,
+          "negativeBars": 54,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-15T15:00:00+08:00",
+        "close": 3864.2793,
+        "dif": -17.621409498412504,
+        "dea": -14.980995420660063,
+        "hist": -5.2808281555048815,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-15T15:00:00+08:00",
+        "close": 3864.2793,
+        "dif": -17.621409498412504,
+        "dea": -14.980995420660063,
+        "hist": -5.2808281555048815,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-15T15:00:00+08:00",
+          "ageBars": 79,
+          "negativeBars": 55,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-16T10:30:00+08:00",
+        "close": 3854.0105,
+        "dif": -18.97473528491946,
+        "dea": -15.779743393511945,
+        "hist": -6.389983782815033,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-16T10:30:00+08:00",
+        "close": 3854.0105,
+        "dif": -18.97473528491946,
+        "dea": -15.779743393511945,
+        "hist": -6.389983782815033,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-16T10:30:00+08:00",
+          "ageBars": 80,
+          "negativeBars": 56,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-16T11:30:00+08:00",
+        "close": 3886.481,
+        "dif": -17.2285576500185,
+        "dea": -16.069506244813258,
+        "hist": -2.318102810410487,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-16T11:30:00+08:00",
+        "close": 3886.481,
+        "dif": -17.2285576500185,
+        "dea": -16.069506244813258,
+        "hist": -2.318102810410487,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-16T11:30:00+08:00",
+          "ageBars": 81,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 4
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-16T14:00:00+08:00",
+        "close": 3892.4746,
+        "dif": -15.186010982788503,
+        "dea": -15.89280719240831,
+        "hist": 1.4135924192396132,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-16T14:00:00+08:00",
+        "close": 3892.4746,
+        "dif": -15.186010982788503,
+        "dea": -15.89280719240831,
+        "hist": 1.4135924192396132,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-16T14:00:00+08:00",
+          "ageBars": 82,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-16T15:00:00+08:00",
+        "close": 3891.6006,
+        "dif": -13.482385975895795,
+        "dea": -15.410722949105807,
+        "hist": 3.856673946420024,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-16T15:00:00+08:00",
+        "close": 3891.6006,
+        "dif": -13.482385975895795,
+        "dea": -15.410722949105807,
+        "hist": 3.856673946420024,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-16T15:00:00+08:00",
+          "ageBars": 83,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-17T10:30:00+08:00",
+        "close": 3879.1455,
+        "dif": -12.987560845413554,
+        "dea": -14.926090528367357,
+        "hist": 3.8770593659076056,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-17T10:30:00+08:00",
+        "close": 3879.1455,
+        "dif": -12.987560845413554,
+        "dea": -14.926090528367357,
+        "hist": 3.8770593659076056,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-17T10:30:00+08:00",
+          "ageBars": 84,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-17T11:30:00+08:00",
+        "close": 3877.458,
+        "dif": -12.58648633184066,
+        "dea": -14.45816968906202,
+        "hist": 3.7433667144427183,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-17T11:30:00+08:00",
+        "close": 3877.458,
+        "dif": -12.58648633184066,
+        "dea": -14.45816968906202,
+        "hist": 3.7433667144427183,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-17T11:30:00+08:00",
+          "ageBars": 85,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-17T14:00:00+08:00",
+        "close": 3873.9475,
+        "dif": -12.408858307453556,
+        "dea": -14.048307412740328,
+        "hist": 3.2788982105735442,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-17T14:00:00+08:00",
+        "close": 3873.9475,
+        "dif": -12.408858307453556,
+        "dea": -14.048307412740328,
+        "hist": 3.2788982105735442,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-17T14:00:00+08:00",
+          "ageBars": 86,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-17T15:00:00+08:00",
+        "close": 3875.6045,
+        "dif": -11.996097225015092,
+        "dea": -13.63786537519528,
+        "hist": 3.283536300360378,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-17T15:00:00+08:00",
+        "close": 3875.6045,
+        "dif": -11.996097225015092,
+        "dea": -13.63786537519528,
+        "hist": 3.283536300360378,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-17T15:00:00+08:00",
+          "ageBars": 87,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-18T10:30:00+08:00",
+        "close": 3904.633,
+        "dif": -9.220337434214798,
+        "dea": -12.754359786999185,
+        "hist": 7.068044705568774,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-18T10:30:00+08:00",
+        "close": 3904.633,
+        "dif": -9.220337434214798,
+        "dea": -12.754359786999185,
+        "hist": 7.068044705568774,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-18T10:30:00+08:00",
+          "ageBars": 88,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-18T11:30:00+08:00",
+        "close": 3916.075,
+        "dif": -6.0277696501493665,
+        "dea": -11.409041759629224,
+        "hist": 10.762544218959714,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-18T11:30:00+08:00",
+        "close": 3916.075,
+        "dif": -6.0277696501493665,
+        "dea": -11.409041759629224,
+        "hist": 10.762544218959714,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-18T11:30:00+08:00",
+          "ageBars": 89,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-18T14:00:00+08:00",
+        "close": 3908.4539,
+        "dif": -4.0657285697548105,
+        "dea": -9.940379121654342,
+        "hist": 11.749301103799063,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-18T14:00:00+08:00",
+        "close": 3908.4539,
+        "dif": -4.0657285697548105,
+        "dea": -9.940379121654342,
+        "hist": 11.749301103799063,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-18T14:00:00+08:00",
+          "ageBars": 90,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-18T15:00:00+08:00",
+        "close": 3911.8713,
+        "dif": -2.2095707025537195,
+        "dea": -8.394217437834216,
+        "hist": 12.369293470560994,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-18T15:00:00+08:00",
+        "close": 3911.8713,
+        "dif": -2.2095707025537195,
+        "dea": -8.394217437834216,
+        "hist": 12.369293470560994,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-18T15:00:00+08:00",
+          "ageBars": 91,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-21T10:30:00+08:00",
+        "close": 3931.834,
+        "dif": 0.8623304264783656,
+        "dea": -6.5429078649717,
+        "hist": 14.810476582900131,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-21T10:30:00+08:00",
+        "close": 3931.834,
+        "dif": 0.8623304264783656,
+        "dea": -6.5429078649717,
+        "hist": 14.810476582900131,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-21T10:30:00+08:00",
+          "ageBars": 92,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-21T11:30:00+08:00",
+        "close": 3933.3677,
+        "dif": 3.381609881687382,
+        "dea": -4.558004315639884,
+        "hist": 15.879228394654533,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-21T11:30:00+08:00",
+        "close": 3933.3677,
+        "dif": 3.381609881687382,
+        "dea": -4.558004315639884,
+        "hist": 15.879228394654533,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-21T11:30:00+08:00",
+          "ageBars": 93,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-21T14:00:00+08:00",
+        "close": 3938.1062,
+        "dif": 5.694867461901595,
+        "dea": -2.5074299601315886,
+        "hist": 16.404594844066366,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-21T14:00:00+08:00",
+        "close": 3938.1062,
+        "dif": 5.694867461901595,
+        "dea": -2.5074299601315886,
+        "hist": 16.404594844066366,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-21T14:00:00+08:00",
+          "ageBars": 94,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-21T15:00:00+08:00",
+        "close": 3949.9067,
+        "dif": 8.383700409796802,
+        "dea": -0.32920388614591034,
+        "hist": 17.425808591885424,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-21T15:00:00+08:00",
+        "close": 3949.9067,
+        "dif": 8.383700409796802,
+        "dea": -0.32920388614591034,
+        "hist": 17.425808591885424,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-21T15:00:00+08:00",
+          "ageBars": 95,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-22T10:30:00+08:00",
+        "close": 3962.5078,
+        "dif": 11.400011119290411,
+        "dea": 2.0166391149413543,
+        "hist": 18.766744008698115,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-22T10:30:00+08:00",
+        "close": 3962.5078,
+        "dif": 11.400011119290411,
+        "dea": 2.0166391149413543,
+        "hist": 18.766744008698115,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-22T10:30:00+08:00",
+          "ageBars": 96,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-22T11:30:00+08:00",
+        "close": 3958.6394,
+        "dif": 13.324712545596867,
+        "dea": 4.278253801072458,
+        "hist": 18.09291748904882,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-22T11:30:00+08:00",
+        "close": 3958.6394,
+        "dif": 13.324712545596867,
+        "dea": 4.278253801072458,
+        "hist": 18.09291748904882,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-22T11:30:00+08:00",
+          "ageBars": 97,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-22T14:00:00+08:00",
+        "close": 3957.6057,
+        "dif": 14.598360528650119,
+        "dea": 6.3422751465879905,
+        "hist": 16.512170764124257,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-22T14:00:00+08:00",
+        "close": 3957.6057,
+        "dif": 14.598360528650119,
+        "dea": 6.3422751465879905,
+        "hist": 16.512170764124257,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-22T14:00:00+08:00",
+          "ageBars": 98,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-22T15:00:00+08:00",
+        "close": 3952.128,
+        "dif": 14.992902275730103,
+        "dea": 8.072400572416411,
+        "hist": 13.841003406627383,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-22T15:00:00+08:00",
+        "close": 3952.128,
+        "dif": 14.992902275730103,
+        "dea": 8.072400572416411,
+        "hist": 13.841003406627383,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-22T15:00:00+08:00",
+          "ageBars": 99,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-23T10:30:00+08:00",
+        "close": 3941.9558,
+        "dif": 14.319699345086974,
+        "dea": 9.321860326950524,
+        "hist": 9.9956780362729,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-23T10:30:00+08:00",
+        "close": 3941.9558,
+        "dif": 14.319699345086974,
+        "dea": 9.321860326950524,
+        "hist": 9.9956780362729,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-23T10:30:00+08:00",
+          "ageBars": 100,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-23T11:30:00+08:00",
+        "close": 3938.08,
+        "dif": 13.31989306785772,
+        "dea": 10.121466875131965,
+        "hist": 6.39685238545151,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-23T11:30:00+08:00",
+        "close": 3938.08,
+        "dif": 13.31989306785772,
+        "dea": 10.121466875131965,
+        "hist": 6.39685238545151,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-23T11:30:00+08:00",
+          "ageBars": 101,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-23T14:00:00+08:00",
+        "close": 3938.8528,
+        "dif": 12.446423271533604,
+        "dea": 10.586458154412295,
+        "hist": 3.719930234242618,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-23T14:00:00+08:00",
+        "close": 3938.8528,
+        "dif": 12.446423271533604,
+        "dea": 10.586458154412295,
+        "hist": 3.719930234242618,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-23T14:00:00+08:00",
+          "ageBars": 102,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-23T15:00:00+08:00",
+        "close": 3936.52,
+        "dif": 11.434148949382688,
+        "dea": 10.755996313406373,
+        "hist": 1.3563052719526318,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-23T15:00:00+08:00",
+        "close": 3936.52,
+        "dif": 11.434148949382688,
+        "dea": 10.755996313406373,
+        "hist": 1.3563052719526318,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-23T15:00:00+08:00",
+          "ageBars": 103,
+          "negativeBars": 57,
+          "zeroBars": 0,
+          "colorChanges": 5
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-24T10:30:00+08:00",
+        "close": 3918.8337,
+        "dif": 9.099879905539183,
+        "dea": 10.424773031832935,
+        "hist": -2.6497862525875036,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-24T10:30:00+08:00",
+        "close": 3918.8337,
+        "dif": 9.099879905539183,
+        "dea": 10.424773031832935,
+        "hist": -2.6497862525875036,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-24T10:30:00+08:00",
+          "ageBars": 104,
+          "negativeBars": 58,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-24T11:30:00+08:00",
+        "close": 3899.9966,
+        "dif": 5.664659658591063,
+        "dea": 9.472750357184562,
+        "hist": -7.616181397186999,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-24T11:30:00+08:00",
+        "close": 3899.9966,
+        "dif": 5.664659658591063,
+        "dea": 9.472750357184562,
+        "hist": -7.616181397186999,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-24T11:30:00+08:00",
+          "ageBars": 105,
+          "negativeBars": 59,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-24T14:00:00+08:00",
+        "close": 3894.8015,
+        "dif": 2.494269326551148,
+        "dea": 8.07705415105788,
+        "hist": -11.165569649013463,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-24T14:00:00+08:00",
+        "close": 3894.8015,
+        "dif": 2.494269326551148,
+        "dea": 8.07705415105788,
+        "hist": -11.165569649013463,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-24T14:00:00+08:00",
+          "ageBars": 106,
+          "negativeBars": 60,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-24T15:00:00+08:00",
+        "close": 3888.3738,
+        "dif": -0.5308304415871135,
+        "dea": 6.355477232528881,
+        "hist": -13.772615348231989,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-24T15:00:00+08:00",
+        "close": 3888.3738,
+        "dif": -0.5308304415871135,
+        "dea": 6.355477232528881,
+        "hist": -13.772615348231989,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-24T15:00:00+08:00",
+          "ageBars": 107,
+          "negativeBars": 61,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-28T10:30:00+08:00",
+        "close": 3828.5093,
+        "dif": -7.670389172276373,
+        "dea": 3.5503039515678303,
+        "hist": -22.441386247688406,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-28T10:30:00+08:00",
+        "close": 3828.5093,
+        "dif": -7.670389172276373,
+        "dea": 3.5503039515678303,
+        "hist": -22.441386247688406,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-09-10T11:30:00+08:00",
+          "endTime": "2026-09-16T11:30:00+08:00",
+          "price": 3854.0105,
+          "dif": -18.97473528491946
+        },
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [
+        {
+          "id": "676800c11a8890e4f2c34568",
+          "time": "2026-09-28T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-09-10T11:30:00+08:00",
+            "endTime": "2026-09-16T11:30:00+08:00",
+            "price": 3854.0105,
+            "dif": -18.97473528491946
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-28T10:30:00+08:00",
+          "ageBars": 108,
+          "negativeBars": 62,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-28T11:30:00+08:00",
+        "close": 3820.8188,
+        "dif": -13.79013587954205,
+        "dea": 0.0822159853458544,
+        "hist": -27.744703729775807,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-28T11:30:00+08:00",
+        "close": 3820.8188,
+        "dif": -13.79013587954205,
+        "dea": 0.0822159853458544,
+        "hist": -27.744703729775807,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-09-10T11:30:00+08:00",
+          "endTime": "2026-09-16T11:30:00+08:00",
+          "price": 3854.0105,
+          "dif": -18.97473528491946
+        },
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-28T11:30:00+08:00",
+          "ageBars": 109,
+          "negativeBars": 63,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-28T14:00:00+08:00",
+        "close": 3816.4336,
+        "dif": -18.7774732042717,
+        "dea": -3.6897218525776565,
+        "hist": -30.175502703388087,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-28T14:00:00+08:00",
+        "close": 3816.4336,
+        "dif": -18.7774732042717,
+        "dea": -3.6897218525776565,
+        "hist": -30.175502703388087,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-09-10T11:30:00+08:00",
+          "endTime": "2026-09-16T11:30:00+08:00",
+          "price": 3854.0105,
+          "dif": -18.97473528491946
+        },
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-28T14:00:00+08:00",
+          "ageBars": 110,
+          "negativeBars": 64,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-28T15:00:00+08:00",
+        "close": 3823.6206,
+        "dif": -21.89762098627625,
+        "dea": -7.331301679317376,
+        "hist": -29.13263861391775,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-28T15:00:00+08:00",
+        "close": 3823.6206,
+        "dif": -21.89762098627625,
+        "dea": -7.331301679317376,
+        "hist": -29.13263861391775,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [
+        {
+          "id": "56bca8413b8dc2ee88ca1691",
+          "time": "2026-09-28T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-09-10T11:30:00+08:00",
+            "endTime": "2026-09-16T11:30:00+08:00",
+            "price": 3854.0105,
+            "dif": -18.97473528491946
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-28T15:00:00+08:00",
+          "ageBars": 111,
+          "negativeBars": 65,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-29T10:30:00+08:00",
+        "close": 3818.1106,
+        "dif": -24.5321798355817,
+        "dea": -10.771477310570242,
+        "hist": -27.521405050022917,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-29T10:30:00+08:00",
+        "close": 3818.1106,
+        "dif": -24.5321798355817,
+        "dea": -10.771477310570242,
+        "hist": -27.521405050022917,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-29T10:30:00+08:00",
+          "ageBars": 112,
+          "negativeBars": 66,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-29T11:30:00+08:00",
+        "close": 3826.511,
+        "dif": -25.64660651426084,
+        "dea": -13.746503151308364,
+        "hist": -23.80020672590495,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-29T11:30:00+08:00",
+        "close": 3826.511,
+        "dif": -25.64660651426084,
+        "dea": -13.746503151308364,
+        "hist": -23.80020672590495,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-29T11:30:00+08:00",
+          "ageBars": 113,
+          "negativeBars": 67,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-29T14:00:00+08:00",
+        "close": 3828.3357,
+        "dif": -26.081903695400342,
+        "dea": -16.21358326012676,
+        "hist": -19.736640870547163,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-29T14:00:00+08:00",
+        "close": 3828.3357,
+        "dif": -26.081903695400342,
+        "dea": -16.21358326012676,
+        "hist": -19.736640870547163,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-29T14:00:00+08:00",
+          "ageBars": 114,
+          "negativeBars": 68,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-29T15:00:00+08:00",
+        "close": 3830.4514,
+        "dif": -25.956945034522505,
+        "dea": -18.16225561500591,
+        "hist": -15.589378839033188,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-29T15:00:00+08:00",
+        "close": 3830.4514,
+        "dif": -25.956945034522505,
+        "dea": -18.16225561500591,
+        "hist": -15.589378839033188,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-29T15:00:00+08:00",
+          "ageBars": 115,
+          "negativeBars": 69,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-30T10:30:00+08:00",
+        "close": 3839.1553,
+        "dif": -24.868909103241094,
+        "dea": -19.50358631265295,
+        "hist": -10.73064558117629,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-30T10:30:00+08:00",
+        "close": 3839.1553,
+        "dif": -24.868909103241094,
+        "dea": -19.50358631265295,
+        "hist": -10.73064558117629,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-30T10:30:00+08:00",
+          "ageBars": 116,
+          "negativeBars": 70,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-30T11:30:00+08:00",
+        "close": 3840.828,
+        "dif": -23.59961817014937,
+        "dea": -20.322792684152237,
+        "hist": -6.553650971994266,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-30T11:30:00+08:00",
+        "close": 3840.828,
+        "dif": -23.59961817014937,
+        "dea": -20.322792684152237,
+        "hist": -6.553650971994266,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-30T11:30:00+08:00",
+          "ageBars": 117,
+          "negativeBars": 71,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-30T14:00:00+08:00",
+        "close": 3845.285,
+        "dif": -21.980673784734336,
+        "dea": -20.654368904268658,
+        "hist": -2.6526097609313553,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-30T14:00:00+08:00",
+        "close": 3845.285,
+        "dif": -21.980673784734336,
+        "dea": -20.654368904268658,
+        "hist": -2.6526097609313553,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-30T14:00:00+08:00",
+          "ageBars": 118,
+          "negativeBars": 72,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-09-30T15:00:00+08:00",
+        "close": 3842.1946,
+        "dif": -20.708305690352972,
+        "dea": -20.665156261485517,
+        "hist": -0.08629885773490997,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-09-30T15:00:00+08:00",
+        "close": 3842.1946,
+        "dif": -20.708305690352972,
+        "dea": -20.665156261485517,
+        "hist": -0.08629885773490997,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "efbdc80bb7924c05f4db38be"
+      },
+      "events": [],
+      "historyUpdates": [
+        {
+          "id": "efbdc80bb7924c05f4db38be",
+          "confirmedAt": "2026-08-19T10:30:00+08:00",
+          "confirmationRoute": "color_flip",
+          "pricePeak": 3990.3037,
+          "pricePeakAt": "2026-08-18T15:00:00+08:00",
+          "originalReference": {
+            "startTime": "2026-07-31T10:30:00+08:00",
+            "endTime": "2026-08-11T15:00:00+08:00",
+            "price": 3966.5935,
+            "dif": 33.04114229355082
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2026-09-30T15:00:00+08:00",
+          "ageBars": 119,
+          "negativeBars": 73,
+          "zeroBars": 0,
+          "colorChanges": 6
+        }
+      ]
+    }
+  ]
+}

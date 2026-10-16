@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { eventLabel } from "./adapter";
-import type { XxmHistory, XxmLayerState, XxmReference } from "./types";
+import type { XxmBottomHistory, XxmHistory, XxmLayerState, XxmReference } from "./types";
 import "./xxm-layer.css";
 
 export function XxmLayerStatus({ layer, onRetry }: { layer: XxmLayerState; onRetry: () => void }) {
@@ -23,10 +23,17 @@ function historyStatus(history: XxmHistory): string {
   return `已结束 · ${history.endReason ? reason[history.endReason] : ""}`;
 }
 
+function bottomHistoryStatus(history: XxmBottomHistory): string {
+  if (history.status === "PENDING") return "仍在跟踪";
+  const reason = { original_reference_break: "原DIF参照失效", new_bottom_DULL: "新底部钝化接替",
+    new_bottom_STRUCTURE: "新底部结构接替", historical_price_break: "收盘跌破原低点" };
+  return `已结束 · ${history.endReason ? reason[history.endReason] : ""}`;
+}
+
 export function XxmResearchDetails({ layer, time }: { layer: XxmLayerState; time: string }) {
   const detail = layer.data?.byTime.get(time);
   if (!detail) return null;
-  const { point, events, histories } = detail;
+  const { point, events, histories, bottomHistories } = detail;
   const state = point.ordinaryState === "NONE" ? "无钝化或结构" : `${point.ordinaryDirection === "TOP" ? "顶" : "底"}${point.ordinaryState === "DULL" ? "钝化" : "结构"}`;
   return <div className="xxm-tooltip" aria-label="徐小明研究指标详情">
     <div className="xxm-tooltip-title">徐小明 V0.1 · 研究</div>
@@ -43,6 +50,14 @@ export function XxmResearchDetails({ layer, time }: { layer: XxmLayerState; time
       <Row label="关联顶结构" value={timeText(history.confirmedAt)} />
       <Row label="保存价格峰" value={`${history.pricePeak} · ${timeText(history.pricePeakAt)}`} />
       <Row label="历史跟踪" value={historyStatus(history)} />
+      {history.endedAt ? <Row label="结束时间" value={timeText(history.endedAt)} /> : null}
+      <Row label="记录截至" value={`${timeText(history.observedThrough)} · ${history.ageBars} 根`} />
+    </Fragment>)}
+    {bottomHistories.map(history => <Fragment key={history.id}>
+      <Row label="关联底部结构" value={timeText(history.confirmedAt)} />
+      <Row label="保存收盘低点" value={`${history.priceLow} · ${timeText(history.priceLowAt)}`} />
+      {history.leftOriginAt ? <Row label="离开原负柱段" value={timeText(history.leftOriginAt)} /> : null}
+      <Row label="底部历史跟踪" value={bottomHistoryStatus(history)} />
       {history.endedAt ? <Row label="结束时间" value={timeText(history.endedAt)} /> : null}
       <Row label="记录截至" value={`${timeText(history.observedThrough)} · ${history.ageBars} 根`} />
     </Fragment>)}

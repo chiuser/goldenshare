@@ -1,0 +1,35 @@
+[1m
+CodeGraph Status
+[0m
+[36mProject:[0m /Users/congming/github/goldenshare
+
+[1mIndex Statistics:[0m
+  Files:     4,138
+  Nodes:     78,543
+  Edges:     195,747
+  DB Size:   231.28 MB
+  Backend:   [32mnode:sqlite — built-in (full WAL)[0m
+  Journal:   [32mwal[0m
+
+[1mNodes by Kind:[0m
+  import          29,195
+  function        21,639
+  method          7,969
+  variable        6,884
+  class           4,532
+  file            4,126
+  property        1,708
+  constant        945
+  interface       637
+  type_alias      596
+  route           312
+
+[1mFiles by Language:[0m
+  python          3,388
+  tsx             380
+  typescript      341
+  javascript      17
+  yaml            12
+
+[32m✓[0m Index is up to date
+

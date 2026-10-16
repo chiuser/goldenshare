@@ -1,0 +1,655 @@
+{
+  "recordedAt": "2026-10-15T22:03:31.759688+08:00",
+  "caseDate": "2026-07-10",
+  "period": "m120",
+  "symbol": "000001.SH",
+  "sourceScope": "Read-only current kernel and audited local snapshot. No live DB/Lake read.",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "sourceCsvSha256": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "calculatorSha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "projectionSha256": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+  "files": [
+    {
+      "kind": "original_image",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-20f8c63b-8de7-42ab-ab5b-2f25b9c103cb.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260710_m120.png",
+      "sha256": "ba5cfd2cc21879d0f8ec797cc0a5c535f9f42e7fdd81b3bc3773fed20b607a2c",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "verbatim_conversation_excerpt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260710_user_transcript_excerpt.txt",
+      "sha256": "5c8cf97ed0257fdebbd7ed34081cf77843a4431c0b7a398b00dd0366f3ce138e",
+      "scope": "First61 lines from user-provided inline lecture, ending at90-minute reference explanation; NOT full transcript and no video timestamps",
+      "audioIndependentlyVerified": false
+    }
+  ],
+  "prefixRows": 8508,
+  "prefixStart": "2009-01-05T11:30:00+08:00",
+  "through": "2026-07-10T15:00:00+08:00",
+  "endpoint": {
+    "time": "2026-07-10T15:00:00+08:00",
+    "close": 3996.1616,
+    "dif": -18.733466151772973,
+    "dea": -16.91278246624125,
+    "hist": -3.6413673710634455,
+    "ordinaryState": "DULL",
+    "ordinaryDirection": "BOTTOM",
+    "activeReference": {
+      "startTime": "2026-05-14T15:00:00+08:00",
+      "endTime": "2026-06-11T15:00:00+08:00",
+      "price": 3959.338,
+      "dif": -35.908539098328674
+    },
+    "pendingTopHistoryId": null
+  },
+  "currentSnapshot": {
+    "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+    "tsCode": "000001.SH",
+    "period": "m120",
+    "sourceIdentity": "m120|2009-01-05T11:30:00+08:00|1",
+    "processed": 8508,
+    "wave": {
+      "sign": -1,
+      "start": "2026-07-02T15:00:00+08:00",
+      "end": "2026-07-10T15:00:00+08:00",
+      "count": 13,
+      "price": 3952.4917,
+      "dif": -26.57923234618238,
+      "price_at": "2026-07-09T11:30:00+08:00",
+      "dif_at": "2026-07-09T11:30:00+08:00"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2026-06-12T11:30:00+08:00",
+          "end": "2026-06-25T15:00:00+08:00",
+          "count": 18,
+          "price": 4163.0967,
+          "dif": 19.09854432045313,
+          "price_at": "2026-06-22T15:00:00+08:00",
+          "dif_at": "2026-06-23T11:30:00+08:00"
+        },
+        {
+          "sign": 1,
+          "start": "2026-07-01T11:30:00+08:00",
+          "end": "2026-07-02T11:30:00+08:00",
+          "count": 3,
+          "price": 4138.6494,
+          "dif": 6.988388421413674,
+          "price_at": "2026-07-01T11:30:00+08:00",
+          "dif_at": "2026-07-01T15:00:00+08:00"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2026-05-14T15:00:00+08:00",
+          "end": "2026-06-11T15:00:00+08:00",
+          "count": 41,
+          "price": 3959.338,
+          "dif": -35.908539098328674,
+          "price_at": "2026-06-08T15:00:00+08:00",
+          "dif_at": "2026-06-11T11:30:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2026-06-26T11:30:00+08:00",
+          "end": "2026-06-30T15:00:00+08:00",
+          "count": 6,
+          "price": 4027.265,
+          "dif": -0.9183081771880097,
+          "price_at": "2026-06-26T15:00:00+08:00",
+          "dif_at": "2026-06-29T15:00:00+08:00"
+        }
+      ]
+    },
+    "state": "DULL",
+    "reference": {
+      "sign": -1,
+      "start": "2026-05-14T15:00:00+08:00",
+      "end": "2026-06-11T15:00:00+08:00",
+      "count": 41,
+      "price": 3959.338,
+      "dif": -35.908539098328674,
+      "price_at": "2026-06-08T15:00:00+08:00",
+      "dif_at": "2026-06-11T11:30:00+08:00"
+    },
+    "previous": {
+      "time": "2026-07-10T15:00:00+08:00",
+      "close": 3996.1616,
+      "dif": -18.733466151772973,
+      "dea": -16.91278246624125,
+      "hist": -3.6413673710634455,
+      "completed": true
+    },
+    "pending": null
+  },
+  "reference": {
+    "sign": -1,
+    "start": "2026-05-14T15:00:00+08:00",
+    "end": "2026-06-11T15:00:00+08:00",
+    "count": 41,
+    "price": 3959.338,
+    "dif": -35.908539098328674,
+    "price_at": "2026-06-08T15:00:00+08:00",
+    "dif_at": "2026-06-11T11:30:00+08:00"
+  },
+  "wave": {
+    "sign": -1,
+    "start": "2026-07-02T15:00:00+08:00",
+    "end": "2026-07-10T15:00:00+08:00",
+    "count": 13,
+    "price": 3952.4917,
+    "dif": -26.57923234618238,
+    "price_at": "2026-07-09T11:30:00+08:00",
+    "dif_at": "2026-07-09T11:30:00+08:00"
+  },
+  "referencePriceExcess": 36.823599999999715,
+  "difReversePct": 6.660788683132739,
+  "numeric": [
+    {
+      "field": "close",
+      "softwareDisplayed": "3996.16",
+      "sourceActual": 3996.1616,
+      "sourceDisplayed": "3996.16",
+      "displayMatch": true
+    },
+    {
+      "field": "dif",
+      "softwareDisplayed": "-18.733",
+      "sourceActual": -18.733466151772973,
+      "sourceDisplayed": "-18.733",
+      "displayMatch": true
+    },
+    {
+      "field": "dea",
+      "softwareDisplayed": "-16.912",
+      "sourceActual": -16.91278246624125,
+      "sourceDisplayed": "-16.913",
+      "displayMatch": false
+    },
+    {
+      "field": "hist",
+      "softwareDisplayed": "-3.642",
+      "sourceActual": -3.6413673710634455,
+      "sourceDisplayed": "-3.641",
+      "displayMatch": false
+    }
+  ],
+  "probes": [
+    {
+      "close": 3996.1616,
+      "hypothetical": true,
+      "time": "2026-07-13T11:30:00+08:00",
+      "projectedBar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3996.1616,
+        "dif": -19.436547129265364,
+        "dea": -17.417535398841917,
+        "hist": -4.038023460846894,
+        "completed": true
+      },
+      "currentKernelEvents": [],
+      "currentKernelState": "DULL",
+      "currentCloseBelowSavedReference": false,
+      "negativeHistogram": true,
+      "difAboveSavedReference": true,
+      "notASoftwareObservedSimulation": true,
+      "softwareSimulationScope": null
+    },
+    {
+      "close": 3960.0,
+      "hypothetical": true,
+      "time": "2026-07-13T11:30:00+08:00",
+      "projectedBar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3960.0,
+        "dif": -22.321233169151583,
+        "dea": -17.99447260681916,
+        "hist": -8.653521124664849,
+        "completed": true
+      },
+      "currentKernelEvents": [],
+      "currentKernelState": "DULL",
+      "currentCloseBelowSavedReference": false,
+      "negativeHistogram": true,
+      "difAboveSavedReference": true,
+      "notASoftwareObservedSimulation": true,
+      "softwareSimulationScope": null
+    },
+    {
+      "close": 3959.338,
+      "hypothetical": true,
+      "time": "2026-07-13T11:30:00+08:00",
+      "projectedBar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3959.338,
+        "dif": -22.374042285960513,
+        "dea": -18.005034430180945,
+        "hist": -8.738015711559136,
+        "completed": true
+      },
+      "currentKernelEvents": [],
+      "currentKernelState": "DULL",
+      "currentCloseBelowSavedReference": false,
+      "negativeHistogram": true,
+      "difAboveSavedReference": true,
+      "notASoftwareObservedSimulation": true,
+      "softwareSimulationScope": null
+    },
+    {
+      "close": 3959.0,
+      "hypothetical": true,
+      "time": "2026-07-13T11:30:00+08:00",
+      "projectedBar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3959.0,
+        "dif": -22.401005248922957,
+        "dea": -18.010427022773435,
+        "hist": -8.781156452299044,
+        "completed": true
+      },
+      "currentKernelEvents": [],
+      "currentKernelState": "DULL",
+      "currentCloseBelowSavedReference": true,
+      "negativeHistogram": true,
+      "difAboveSavedReference": true,
+      "notASoftwareObservedSimulation": false,
+      "softwareSimulationScope": "Only the3959 scenario was described verbally; exact software DIF/DEA/hist unavailable"
+    },
+    {
+      "close": 3934.74,
+      "hypothetical": true,
+      "time": "2026-07-13T11:30:00+08:00",
+      "projectedBar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3934.74,
+        "dif": -24.33627590419428,
+        "dea": -18.397481153827698,
+        "hist": -11.877589500733166,
+        "completed": true
+      },
+      "currentKernelEvents": [],
+      "currentKernelState": "DULL",
+      "currentCloseBelowSavedReference": true,
+      "negativeHistogram": true,
+      "difAboveSavedReference": true,
+      "notASoftwareObservedSimulation": true,
+      "softwareSimulationScope": null
+    }
+  ],
+  "recentTimeline": [
+    {
+      "bar": {
+        "time": "2026-07-08T11:30:00+08:00",
+        "close": 4011.0515,
+        "dif": -18.056058901054712,
+        "dea": -8.761247248195104,
+        "hist": -18.589623305719215,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-08T11:30:00+08:00",
+        "close": 4011.0515,
+        "dif": -18.056058901054712,
+        "dea": -8.761247248195104,
+        "hist": -18.589623305719215,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-08T15:00:00+08:00",
+        "close": 3970.8796,
+        "dif": -22.154124680546374,
+        "dea": -11.439822734665361,
+        "hist": -21.428603891762027,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-08T15:00:00+08:00",
+        "close": 3970.8796,
+        "dif": -22.154124680546374,
+        "dea": -11.439822734665361,
+        "hist": -21.428603891762027,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-09T11:30:00+08:00",
+        "close": 3952.4917,
+        "dif": -26.57923234618238,
+        "dea": -14.467704656968767,
+        "hist": -24.223055378427226,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-09T11:30:00+08:00",
+        "close": 3952.4917,
+        "dif": -26.57923234618238,
+        "dea": -14.467704656968767,
+        "hist": -24.223055378427226,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [
+        {
+          "id": "91579f6f8dac38a02ded269c",
+          "time": "2026-07-09T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-09T15:00:00+08:00",
+        "close": 4036.588,
+        "dif": -23.03476305462891,
+        "dea": -16.1811163365008,
+        "hist": -13.707293436256222,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-09T15:00:00+08:00",
+        "close": 4036.588,
+        "dif": -23.03476305462891,
+        "dea": -16.1811163365008,
+        "hist": -13.707293436256222,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [
+        {
+          "id": "a573aa5b9ac4c1b0c5543919",
+          "time": "2026-07-09T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-10T11:30:00+08:00",
+        "close": 4067.0706,
+        "dif": -17.563592378288376,
+        "dea": -16.457611544858317,
+        "hist": -2.2119616668601196,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-10T11:30:00+08:00",
+        "close": 4067.0706,
+        "dif": -17.563592378288376,
+        "dea": -16.457611544858317,
+        "hist": -2.2119616668601196,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-10T15:00:00+08:00",
+        "close": 3996.1616,
+        "dif": -18.733466151772973,
+        "dea": -16.91278246624125,
+        "hist": -3.6413673710634455,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-10T15:00:00+08:00",
+        "close": 3996.1616,
+        "dif": -18.733466151772973,
+        "dea": -16.91278246624125,
+        "hist": -3.6413673710634455,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": [
+        {
+          "id": "18b90242d64fd66abcf9f0c2",
+          "time": "2026-07-10T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3934.74,
+        "dif": -24.336275904198374,
+        "dea": -18.397481153832675,
+        "hist": -11.877589500731396,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3934.74,
+        "dif": -24.336275904198374,
+        "dea": -18.397481153832675,
+        "hist": -11.877589500731396,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-13T15:00:00+08:00",
+        "close": 3913.794,
+        "dif": -30.119511170011265,
+        "dea": -20.741887157068398,
+        "hist": -18.755248025885734,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-13T15:00:00+08:00",
+        "close": 3913.794,
+        "dif": -30.119511170011265,
+        "dea": -20.741887157068398,
+        "hist": -18.755248025885734,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    },
+    {
+      "bar": {
+        "time": "2026-07-14T11:30:00+08:00",
+        "close": 3887.9226,
+        "dif": -36.37110904299789,
+        "dea": -23.867731534254297,
+        "hist": -25.00675501748718,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-14T11:30:00+08:00",
+        "close": 3887.9226,
+        "dif": -36.37110904299789,
+        "dea": -23.867731534254297,
+        "hist": -25.00675501748718,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "events": [
+        {
+          "id": "c8f90956aa346cecda8d5517",
+          "time": "2026-07-14T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2026-07-14T15:00:00+08:00",
+        "close": 3967.1262,
+        "dif": -34.53636311393666,
+        "dea": -26.001457850190775,
+        "hist": -17.069810527491768,
+        "completed": true
+      },
+      "point": {
+        "time": "2026-07-14T15:00:00+08:00",
+        "close": 3967.1262,
+        "dif": -34.53636311393666,
+        "dea": -26.001457850190775,
+        "hist": -17.069810527491768,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "events": []
+    }
+  ],
+  "geometryScope": "New screenshot rightmost completed bar matches date and close; historical July9 label times retain prior mapped evidence, not new cursor observations.",
+  "softwareEvidence": [
+    {
+      "kind": "explicit_caption",
+      "meaning": "July10 afternoon green is structure disappearance, not dullness cancellation; no renewed dullness yet."
+    },
+    {
+      "kind": "explicit_caption",
+      "meaning": "No intervening red histogram;3959 remains the reference; Monday morning close3959 would show new dullness."
+    },
+    {
+      "kind": "explicit_caption",
+      "meaning": "The90-minute interval has red histogram and uses nearest reference instead; no90-minute chart supplied."
+    }
+  ],
+  "findings": [
+    {
+      "status": "confirmed_for_this_case",
+      "meaning": "Missing structure-disappearance event AND prematurely reported renewedDULL atJuly10 15:00."
+    },
+    {
+      "status": "source_and_caption_compatible",
+      "meaning": "3959 integer lecture threshold matches saved reference close-low3959.338, not current-wave low3952.4917 or candle-shadow low."
+    },
+    {
+      "status": "not_established",
+      "meaning": "Exact disappearance threshold and universal cross-period/top-bottom symmetry."
+    },
+    {
+      "status": "not_established",
+      "meaning": "Same-negative-segment structure disappearance must not automatically be equated to cross-color historical price withdrawal."
+    }
+  ],
+  "supersedes": [
+    {
+      "report": "case_20260803_events_20261015",
+      "previous": "Yellow occlusion leaves possible same-bar renewedDULL.",
+      "new": "DirectJuly10 lecture explicitly says renewed dullness not yet present; prior uncertainty resolved."
+    },
+    {
+      "report": "case_20260803_events_20261015",
+      "previous": "Green historical identity not explicitly named byAugust3 lecture.",
+      "new": "DirectJuly10 lecture explicitly identifies structure disappearance."
+    }
+  ],
+  "codegraphScope": [
+    "XxmCalculator",
+    "XxmPointDto",
+    "XxmEventDto",
+    "forecast and frontend types/adapter verified from current code"
+  ],
+  "productionCodeChanged": false,
+  "formalDataReadLive": false,
+  "formalDataWritten": false,
+  "ruleAdopted": false
+}

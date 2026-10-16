@@ -1,0 +1,61 @@
+{
+  "scope": "B-only code-level LLD",
+  "status": "design_pending_review_not_implemented",
+  "codegraphTools": [
+    "codegraph_search",
+    "codegraph_explore",
+    "codegraph_impact"
+  ],
+  "impactSymbols": 68,
+  "impactIncludesHistoricalAndTestSymbols": true,
+  "currentCalls": {
+    "production_XxmStep_constructor": 1,
+    "production_SeriesEntry_constructors": 2
+  },
+  "auditedCurrentFiles": 62,
+  "protectedPriorEvidenceAndSourceFiles": 130,
+  "newSection": "17.1-17.12",
+  "testGroups": [
+    "T01",
+    "T02",
+    "T03",
+    "T04",
+    "T05",
+    "T06",
+    "T07",
+    "T08",
+    "T09",
+    "T10",
+    "T11",
+    "T12",
+    "T13",
+    "T14",
+    "T15",
+    "T16"
+  ],
+  "bottomContractFields": [
+    "id",
+    "structureEventId",
+    "confirmedAt",
+    "confirmationRoute",
+    "originSegmentStart",
+    "leftOriginAt",
+    "priceLow",
+    "priceLowAt",
+    "originalReference",
+    "status",
+    "endedAt",
+    "endReason",
+    "observedThrough",
+    "ageBars"
+  ],
+  "bottomReferenceTemporalRecordsChecked": 328,
+  "productCodeChanged": false,
+  "newAlgorithmOrBudgetTestsRun": false,
+  "changedDocs": [
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md",
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md",
+    "docs/product/xxm-macd-structure-research-v1.md"
+  ]
+}

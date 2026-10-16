@@ -1,0 +1,126 @@
+{
+  "rounds": [
+    {
+      "label": "day-1tabs-cold",
+      "selected": "day",
+      "tabCount": 1,
+      "mode": "cold",
+      "requests": 9,
+      "pageSeconds": 3.413184416,
+      "contextSeconds": 0.9857213340000001,
+      "auditContext": {
+        "businessDate": "2026-10-15",
+        "generatedAt": "2026-10-16T10:04:18.348000+08:00",
+        "algorithmVersion": "xxm-direction-v0.1-h1",
+        "specHash": "b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5"
+      },
+      "contextAfter": {
+        "businessDate": "2026-10-15",
+        "generatedAt": "2026-10-16T10:04:21.982156+08:00",
+        "algorithmVersion": "xxm-direction-v0.1-h1",
+        "specHash": "b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5"
+      },
+      "dateCutover": false,
+      "maxHttpSeconds": null,
+      "metrics": {
+        "completeReads": {},
+        "maxComputeSeconds": 0,
+        "cacheBytes": 0,
+        "cacheEntries": 0
+      },
+      "errors": [
+        "Error: startDate 必须是有效 YYYY-MM-DD 日期。"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/kline",
+      "query": "?tsCode=000001.SH&period=day&endDate=2026-10-15&limit=300",
+      "started": 1191.743583,
+      "httpStatus": 200,
+      "seconds": 0.249666792,
+      "bytes": 165456
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/nine-turn",
+      "query": "?tsCode=000001.SH&endDate=2026-10-15&limit=300",
+      "started": 1192.362125,
+      "httpStatus": 200,
+      "seconds": 0.27702,
+      "bytes": 27469
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=15&endDate=2026-10-15&limit=500",
+      "started": 1442.754875,
+      "httpStatus": 200,
+      "seconds": 1.202572333,
+      "bytes": 54088
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=30&endDate=2026-10-15&limit=500",
+      "started": 1469.642625,
+      "httpStatus": 200,
+      "seconds": 1.331647875,
+      "bytes": 54184
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=60&endDate=2026-10-15&limit=500",
+      "started": 2645.635292,
+      "httpStatus": 200,
+      "seconds": 0.7923417910000002,
+      "bytes": 56283
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=90&endDate=2026-10-15&limit=500",
+      "started": 2801.558167,
+      "httpStatus": 200,
+      "seconds": 0.98577475,
+      "bytes": 56755
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/minute-nine-turn",
+      "query": "?tsCode=000001.SH&freq=120&endDate=2026-10-15&limit=500",
+      "started": 3438.234958,
+      "httpStatus": 200,
+      "seconds": 0.7311548750000002,
+      "bytes": 57119
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-signals",
+      "query": "?tsCode=000001.SH&startDate=undefined&endDate=2026-10-15&limit=500&period=day",
+      "started": 4169.770542,
+      "httpStatus": 400,
+      "seconds": 0.08428379099999984,
+      "bytes": 107,
+      "body": "{\"code\":\"XXM_REQUEST_INVALID\",\"message\":\"startDate 必须是有效 YYYY-MM-DD 日期。\",\"request_id\":null}"
+    },
+    {
+      "label": "day-1tabs-cold",
+      "tab": 1,
+      "path": "/api/v1/wealth/market/index-detail/xxm-key-point-forecast",
+      "query": "?tsCode=000001.SH&period=day",
+      "started": 4254.379167
+    }
+  ]
+}

@@ -1,0 +1,2054 @@
+{
+  "recordedAt": "2026-10-15T23:48:02.090121+08:00",
+  "symbol": "000001.SH",
+  "date": "2024-09-04",
+  "period": "m120",
+  "files": [
+    {
+      "kind": "image_m120",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-f1e5a1e4-2c78-42f0-a370-7546b0034cdc.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_m120.png",
+      "sha256": "bad964ab089e1a68e7e2d6476eb4e82843a3db499b939339f0db9d5e19a7771b",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "full_transcript",
+      "originalPath": "/Users/congming/.codex/attachments/464866d0-c15a-4912-aad1-ee6d5639d2e8/Pasted text.txt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_user_transcript.txt",
+      "sha256": "3f286bd194eddbce920fdc09e22baecb6671cd758dce05a2e9dd1334f64befae",
+      "originalBytesPreserved": true
+    }
+  ],
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "productCodeSha256": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "420ff8b1710bce2f077425cf0f6595ade68ffa8ac2f3eac1f7fcd505c1d0f0dd"
+  },
+  "periods": {
+    "day": {
+      "prefixBars": 407,
+      "sourceStart": "2023-01-03",
+      "lastBar": {
+        "time": "2024-09-04",
+        "close": 2784.2783,
+        "dif": -28.021,
+        "dea": -24.342,
+        "hist": -7.357,
+        "completed": true
+      },
+      "endpoint": {
+        "time": "2024-09-04",
+        "close": 2784.2783,
+        "dif": -28.021,
+        "dea": -24.342,
+        "hist": -7.357,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-08-05",
+          "endTime": "2024-08-14",
+          "price": 2850.6539,
+          "dif": -30.213
+        },
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-08-29",
+            "close": 2823.106,
+            "dif": -23.0,
+            "dea": -22.757,
+            "hist": -0.485,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29",
+            "close": 2823.106,
+            "dif": -23.0,
+            "dea": -22.757,
+            "hist": -0.485,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30",
+            "close": 2842.2142,
+            "dif": -22.237,
+            "dea": -22.653,
+            "hist": 0.833,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30",
+            "close": 2842.2142,
+            "dif": -22.237,
+            "dea": -22.653,
+            "hist": 0.833,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02",
+            "close": 2811.035,
+            "dif": -23.873,
+            "dea": -22.897,
+            "hist": -1.952,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02",
+            "close": 2811.035,
+            "dif": -23.873,
+            "dea": -22.897,
+            "hist": -1.952,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-03",
+            "close": 2802.9787,
+            "dif": -25.525,
+            "dea": -23.423,
+            "hist": -4.205,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03",
+            "close": 2802.9787,
+            "dif": -25.525,
+            "dea": -23.423,
+            "hist": -4.205,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-05",
+              "endTime": "2024-08-14",
+              "price": 2850.6539,
+              "dif": -30.213
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": [
+            {
+              "id": "7f8ab6cbbd33aea3e89c35f5",
+              "time": "2024-09-03",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-08-05",
+                "endTime": "2024-08-14",
+                "price": 2850.6539,
+                "dif": -30.213
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-04",
+            "close": 2784.2783,
+            "dif": -28.021,
+            "dea": -24.342,
+            "hist": -7.357,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04",
+            "close": 2784.2783,
+            "dif": -28.021,
+            "dea": -24.342,
+            "hist": -7.357,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-05",
+              "endTime": "2024-08-14",
+              "price": 2850.6539,
+              "dif": -30.213
+            },
+            "pendingTopHistoryId": "06da1397e737454b22c1d261"
+          },
+          "events": []
+        }
+      ]
+    },
+    "m60": {
+      "prefixBars": 15240,
+      "sourceStart": "2009-01-05T10:30:00+08:00",
+      "lastBar": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -15.482418227010385,
+        "dea": -12.467212018229777,
+        "hist": -6.030412417561216,
+        "completed": true
+      },
+      "endpoint": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -15.482418227010385,
+        "dea": -12.467212018229777,
+        "hist": -6.030412417561216,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-08-29T10:30:00+08:00",
+            "close": 2820.161,
+            "dif": -7.97664509122842,
+            "dea": -6.348636018892916,
+            "hist": -3.2560181446710086,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T10:30:00+08:00",
+            "close": 2820.161,
+            "dif": -7.97664509122842,
+            "dea": -6.348636018892916,
+            "hist": -3.2560181446710086,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-13T11:30:00+08:00",
+              "endTime": "2024-08-13T14:00:00+08:00",
+              "price": 2854.4998,
+              "dif": -8.922106940848153
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T11:30:00+08:00",
+            "close": 2824.6208,
+            "dif": -8.656794423146948,
+            "dea": -6.810267699743723,
+            "hist": -3.6930534468064504,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T11:30:00+08:00",
+            "close": 2824.6208,
+            "dif": -8.656794423146948,
+            "dea": -6.810267699743723,
+            "hist": -3.6930534468064504,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-13T11:30:00+08:00",
+              "endTime": "2024-08-13T14:00:00+08:00",
+              "price": 2854.4998,
+              "dif": -8.922106940848153
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T14:00:00+08:00",
+            "close": 2825.567,
+            "dif": -9.015541684073469,
+            "dea": -7.251322496609673,
+            "hist": -3.5284383749275907,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T14:00:00+08:00",
+            "close": 2825.567,
+            "dif": -9.015541684073469,
+            "dea": -7.251322496609673,
+            "hist": -3.5284383749275907,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "99af9ddb5cd6483af3860452",
+              "time": "2024-08-29T14:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-13T11:30:00+08:00",
+                "endTime": "2024-08-13T14:00:00+08:00",
+                "price": 2854.4998,
+                "dif": -8.922106940848153
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -9.390189347944215,
+            "dea": -7.67909586687658,
+            "hist": -3.422186962135271,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -9.390189347944215,
+            "dea": -7.67909586687658,
+            "hist": -3.422186962135271,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T10:30:00+08:00",
+            "close": 2837.1067,
+            "dif": -8.459841057837366,
+            "dea": -7.835244905068738,
+            "hist": -1.2491923055372567,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T10:30:00+08:00",
+            "close": 2837.1067,
+            "dif": -8.459841057837366,
+            "dea": -7.835244905068738,
+            "hist": -1.2491923055372567,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T11:30:00+08:00",
+            "close": 2860.8867,
+            "dif": -5.737547200257268,
+            "dea": -7.4157053641064445,
+            "hist": 3.3563163276983534,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T11:30:00+08:00",
+            "close": 2860.8867,
+            "dif": -5.737547200257268,
+            "dea": -7.4157053641064445,
+            "hist": 3.3563163276983534,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T14:00:00+08:00",
+            "close": 2861.2993,
+            "dif": -3.5063967739442887,
+            "dea": -6.6338436460740136,
+            "hist": 6.25489374425945,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T14:00:00+08:00",
+            "close": 2861.2993,
+            "dif": -3.5063967739442887,
+            "dea": -6.6338436460740136,
+            "hist": 6.25489374425945,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -3.240859582117082,
+            "dea": -5.955246833282628,
+            "hist": 5.428774502331091,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -3.240859582117082,
+            "dea": -5.955246833282628,
+            "hist": 5.428774502331091,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T10:30:00+08:00",
+            "close": 2823.6929,
+            "dif": -4.473351416643254,
+            "dea": -5.658867749954753,
+            "hist": 2.371032666622998,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T10:30:00+08:00",
+            "close": 2823.6929,
+            "dif": -4.473351416643254,
+            "dea": -5.658867749954753,
+            "hist": 2.371032666622998,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T11:30:00+08:00",
+            "close": 2824.5037,
+            "dif": -5.323321356325323,
+            "dea": -5.591758471228868,
+            "hist": 0.5368742298070899,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T11:30:00+08:00",
+            "close": 2824.5037,
+            "dif": -5.323321356325323,
+            "dea": -5.591758471228868,
+            "hist": 0.5368742298070899,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T14:00:00+08:00",
+            "close": 2825.3064,
+            "dif": -5.864554541473808,
+            "dea": -5.6463176852778565,
+            "hist": -0.43647371239190313,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T14:00:00+08:00",
+            "close": 2825.3064,
+            "dif": -5.864554541473808,
+            "dea": -5.6463176852778565,
+            "hist": -0.43647371239190313,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -7.360224364123496,
+            "dea": -5.989099021046984,
+            "hist": -2.7422506861530245,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -7.360224364123496,
+            "dea": -5.989099021046984,
+            "hist": -2.7422506861530245,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-28T10:30:00+08:00",
+              "endTime": "2024-08-30T10:30:00+08:00",
+              "price": 2820.161,
+              "dif": -9.390189347944215
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "64c7c147769dd71be483676c",
+              "time": "2024-09-02T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-08-28T10:30:00+08:00",
+                "endTime": "2024-08-30T10:30:00+08:00",
+                "price": 2820.161,
+                "dif": -9.390189347944215
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T10:30:00+08:00",
+            "close": 2801.8777,
+            "dif": -9.178665115611693,
+            "dea": -6.627012239959926,
+            "hist": -5.103305751303534,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T10:30:00+08:00",
+            "close": 2801.8777,
+            "dif": -9.178665115611693,
+            "dea": -6.627012239959926,
+            "hist": -5.103305751303534,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-28T10:30:00+08:00",
+              "endTime": "2024-08-30T10:30:00+08:00",
+              "price": 2820.161,
+              "dif": -9.390189347944215
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T11:30:00+08:00",
+            "close": 2796.483,
+            "dif": -10.929115674575769,
+            "dea": -7.487432926883096,
+            "hist": -6.8833654953853465,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T11:30:00+08:00",
+            "close": 2796.483,
+            "dif": -10.929115674575769,
+            "dea": -7.487432926883096,
+            "hist": -6.8833654953853465,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "88b55f2f83aed2a65e4f8820",
+              "time": "2024-09-03T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-28T10:30:00+08:00",
+                "endTime": "2024-08-30T10:30:00+08:00",
+                "price": 2820.161,
+                "dif": -9.390189347944215
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T14:00:00+08:00",
+            "close": 2800.34,
+            "dif": -11.8683220592402,
+            "dea": -8.363610753354516,
+            "hist": -7.009422611771367,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T14:00:00+08:00",
+            "close": 2800.34,
+            "dif": -11.8683220592402,
+            "dea": -8.363610753354516,
+            "hist": -7.009422611771367,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -12.258413419769113,
+            "dea": -9.142571286637436,
+            "hist": -6.231684266263354,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -12.258413419769113,
+            "dea": -9.142571286637436,
+            "hist": -6.231684266263354,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T10:30:00+08:00",
+            "close": 2787.723,
+            "dif": -13.641330429644768,
+            "dea": -10.042323115238903,
+            "hist": -7.19801462881173,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T10:30:00+08:00",
+            "close": 2787.723,
+            "dif": -13.641330429644768,
+            "dea": -10.042323115238903,
+            "hist": -7.19801462881173,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T11:30:00+08:00",
+            "close": 2789.389,
+            "dif": -14.43645537550583,
+            "dea": -10.92114956729229,
+            "hist": -7.03061161642708,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T11:30:00+08:00",
+            "close": 2789.389,
+            "dif": -14.43645537550583,
+            "dea": -10.92114956729229,
+            "hist": -7.03061161642708,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T14:00:00+08:00",
+            "close": 2789.545,
+            "dif": -14.882454061003955,
+            "dea": -11.713410466034622,
+            "hist": -6.3380871899386655,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T14:00:00+08:00",
+            "close": 2789.545,
+            "dif": -14.882454061003955,
+            "dea": -11.713410466034622,
+            "hist": -6.3380871899386655,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -15.482418227010385,
+            "dea": -12.467212018229777,
+            "hist": -6.030412417561216,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -15.482418227010385,
+            "dea": -12.467212018229777,
+            "hist": -6.030412417561216,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ]
+    },
+    "m90": {
+      "prefixBars": 11430,
+      "sourceStart": "2009-01-05T11:00:00+08:00",
+      "lastBar": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -16.446452748657975,
+        "dea": -12.523879093773118,
+        "hist": -7.845147309769715,
+        "completed": true
+      },
+      "endpoint": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -16.446452748657975,
+        "dea": -12.523879093773118,
+        "hist": -7.845147309769715,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-08-29T11:00:00+08:00",
+            "close": 2825.2146,
+            "dif": -8.806569342201328,
+            "dea": -7.267336791461483,
+            "hist": -3.07846510147969,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T11:00:00+08:00",
+            "close": 2825.2146,
+            "dif": -8.806569342201328,
+            "dea": -7.267336791461483,
+            "hist": -3.07846510147969,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-12T14:00:00+08:00",
+              "endTime": "2024-08-12T15:00:00+08:00",
+              "price": 2857.413,
+              "dif": -11.628055791852148
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T14:00:00+08:00",
+            "close": 2825.567,
+            "dif": -9.558259883148366,
+            "dea": -7.725521409798861,
+            "hist": -3.6654769466990107,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T14:00:00+08:00",
+            "close": 2825.567,
+            "dif": -9.558259883148366,
+            "dea": -7.725521409798861,
+            "hist": -3.6654769466990107,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-12T14:00:00+08:00",
+              "endTime": "2024-08-12T15:00:00+08:00",
+              "price": 2857.413,
+              "dif": -11.628055791852148
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -10.234584268413073,
+            "dea": -8.227333981521705,
+            "hist": -4.014500573782737,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -10.234584268413073,
+            "dea": -8.227333981521705,
+            "hist": -4.014500573782737,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-12T14:00:00+08:00",
+              "endTime": "2024-08-12T15:00:00+08:00",
+              "price": 2857.413,
+              "dif": -11.628055791852148
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T11:00:00+08:00",
+            "close": 2855.8066,
+            "dif": -8.039239735291176,
+            "dea": -8.1897151322756,
+            "hist": 0.3009507939688483,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T11:00:00+08:00",
+            "close": 2855.8066,
+            "dif": -8.039239735291176,
+            "dea": -8.1897151322756,
+            "hist": 0.3009507939688483,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "c934e7a5667a62847fd364a1",
+              "time": "2024-08-30T11:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "STRUCTURE",
+              "route": "color_flip",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-12T14:00:00+08:00",
+                "endTime": "2024-08-12T15:00:00+08:00",
+                "price": 2857.413,
+                "dif": -11.628055791852148
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T14:00:00+08:00",
+            "close": 2861.2993,
+            "dif": -5.7894610870007455,
+            "dea": -7.70966432322063,
+            "hist": 3.840406472439769,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T14:00:00+08:00",
+            "close": 2861.2993,
+            "dif": -5.7894610870007455,
+            "dea": -7.70966432322063,
+            "hist": 3.840406472439769,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -5.483311307435088,
+            "dea": -7.264393720063522,
+            "hist": 3.5621648252568683,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -5.483311307435088,
+            "dea": -7.264393720063522,
+            "hist": 3.5621648252568683,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T11:00:00+08:00",
+            "close": 2825.1785,
+            "dif": -6.539919755838582,
+            "dea": -7.119498927218534,
+            "hist": 1.1591583427599037,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T11:00:00+08:00",
+            "close": 2825.1785,
+            "dif": -6.539919755838582,
+            "dea": -7.119498927218534,
+            "hist": 1.1591583427599037,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T14:00:00+08:00",
+            "close": 2825.3064,
+            "dif": -7.283015038708982,
+            "dea": -7.152202149516625,
+            "hist": -0.26162577838471357,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T14:00:00+08:00",
+            "close": 2825.3064,
+            "dif": -7.283015038708982,
+            "dea": -7.152202149516625,
+            "hist": -0.26162577838471357,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -8.920674134534693,
+            "dea": -7.505896546520238,
+            "hist": -2.8295551760289097,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -8.920674134534693,
+            "dea": -7.505896546520238,
+            "hist": -2.8295551760289097,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-13T14:00:00+08:00",
+              "endTime": "2024-08-13T14:00:00+08:00",
+              "price": 2854.4998,
+              "dif": -11.479697170058898
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "fdc019847849013d8b4c4fda",
+              "time": "2024-09-02T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-08-13T14:00:00+08:00",
+                "endTime": "2024-08-13T14:00:00+08:00",
+                "price": 2854.4998,
+                "dif": -11.479697170058898
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T11:00:00+08:00",
+            "close": 2804.0632,
+            "dif": -10.658235259360481,
+            "dea": -8.136364289088286,
+            "hist": -5.04374194054439,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T11:00:00+08:00",
+            "close": 2804.0632,
+            "dif": -10.658235259360481,
+            "dea": -8.136364289088286,
+            "hist": -5.04374194054439,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-13T14:00:00+08:00",
+              "endTime": "2024-08-13T14:00:00+08:00",
+              "price": 2854.4998,
+              "dif": -11.479697170058898
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T14:00:00+08:00",
+            "close": 2800.34,
+            "dif": -12.195118359900334,
+            "dea": -8.948115103250696,
+            "hist": -6.494006513299276,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T14:00:00+08:00",
+            "close": 2800.34,
+            "dif": -12.195118359900334,
+            "dea": -8.948115103250696,
+            "hist": -6.494006513299276,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "427695550d2a2b9ebc300d90",
+              "time": "2024-09-03T14:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-13T14:00:00+08:00",
+                "endTime": "2024-08-13T14:00:00+08:00",
+                "price": 2854.4998,
+                "dif": -11.479697170058898
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -13.049750779299302,
+            "dea": -9.76844223846042,
+            "hist": -6.5626170816777645,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -13.049750779299302,
+            "dea": -9.76844223846042,
+            "hist": -6.5626170816777645,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T11:00:00+08:00",
+            "close": 2797.3574,
+            "dif": -14.019050244306072,
+            "dea": -10.618563839629552,
+            "hist": -6.800972809353041,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T11:00:00+08:00",
+            "close": 2797.3574,
+            "dif": -14.019050244306072,
+            "dea": -10.618563839629552,
+            "hist": -6.800972809353041,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T14:00:00+08:00",
+            "close": 2789.545,
+            "dif": -15.241923041741302,
+            "dea": -11.543235680051902,
+            "hist": -7.3973747233788,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T14:00:00+08:00",
+            "close": 2789.545,
+            "dif": -15.241923041741302,
+            "dea": -11.543235680051902,
+            "hist": -7.3973747233788,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -16.446452748657975,
+            "dea": -12.523879093773118,
+            "hist": -7.845147309769715,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -16.446452748657975,
+            "dea": -12.523879093773118,
+            "hist": -7.845147309769715,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ]
+    },
+    "m120": {
+      "prefixBars": 7620,
+      "sourceStart": "2009-01-05T11:30:00+08:00",
+      "lastBar": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -19.56051826149269,
+        "dea": -14.864205155107117,
+        "hist": -9.392626212771145,
+        "completed": true
+      },
+      "endpoint": {
+        "time": "2024-09-04T15:00:00+08:00",
+        "close": 2784.2783,
+        "dif": -19.56051826149269,
+        "dea": -14.864205155107117,
+        "hist": -9.392626212771145,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "recentTimeline": [
+        {
+          "bar": {
+            "time": "2024-08-29T11:30:00+08:00",
+            "close": 2824.6208,
+            "dif": -11.748107169568357,
+            "dea": -9.849006790659615,
+            "hist": -3.798200757817483,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T11:30:00+08:00",
+            "close": 2824.6208,
+            "dif": -11.748107169568357,
+            "dea": -9.849006790659615,
+            "hist": -3.798200757817483,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-23T11:30:00+08:00",
+              "endTime": "2024-07-31T11:30:00+08:00",
+              "price": 2876.87,
+              "dif": -22.869133541594238
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -12.813239330445867,
+            "dea": -10.441853298616868,
+            "hist": -4.742772063657998,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-29T15:00:00+08:00",
+            "close": 2823.106,
+            "dif": -12.813239330445867,
+            "dea": -10.441853298616868,
+            "hist": -4.742772063657998,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-23T11:30:00+08:00",
+              "endTime": "2024-07-31T11:30:00+08:00",
+              "price": 2876.87,
+              "dif": -22.869133541594238
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T11:30:00+08:00",
+            "close": 2860.8867,
+            "dif": -10.487879749020067,
+            "dea": -10.451058588697508,
+            "hist": -0.07364232064511711,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T11:30:00+08:00",
+            "close": 2860.8867,
+            "dif": -10.487879749020067,
+            "dea": -10.451058588697508,
+            "hist": -0.07364232064511711,
+            "ordinaryState": "STRUCTURE",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-07-23T11:30:00+08:00",
+              "endTime": "2024-07-31T11:30:00+08:00",
+              "price": 2876.87,
+              "dif": -22.869133541594238
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "fb6a82667ecb67dae299eb5a",
+              "time": "2024-08-30T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "STRUCTURE",
+              "route": "dif_turn",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-07-23T11:30:00+08:00",
+                "endTime": "2024-07-31T11:30:00+08:00",
+                "price": 2876.87,
+                "dif": -22.869133541594238
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -10.036056945920336,
+            "dea": -10.368058260142076,
+            "hist": 0.6640026284434803,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-08-30T15:00:00+08:00",
+            "close": 2842.214,
+            "dif": -10.036056945920336,
+            "dea": -10.368058260142076,
+            "hist": 0.6640026284434803,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T11:30:00+08:00",
+            "close": 2824.5037,
+            "dif": -10.980481166330264,
+            "dea": -10.490542841379714,
+            "hist": -0.9798766499011009,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T11:30:00+08:00",
+            "close": 2824.5037,
+            "dif": -10.980481166330264,
+            "dea": -10.490542841379714,
+            "hist": -0.9798766499011009,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -12.669707194670536,
+            "dea": -10.926375712037881,
+            "hist": -3.4866629652653103,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-02T15:00:00+08:00",
+            "close": 2811.035,
+            "dif": -12.669707194670536,
+            "dea": -10.926375712037881,
+            "hist": -3.4866629652653103,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-05T15:00:00+08:00",
+              "endTime": "2024-08-13T11:30:00+08:00",
+              "price": 2856.0903,
+              "dif": -17.23014904011552
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "9aeca55c8b516a0a6a3af60f",
+              "time": "2024-09-02T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-08-05T15:00:00+08:00",
+                "endTime": "2024-08-13T11:30:00+08:00",
+                "price": 2856.0903,
+                "dif": -17.23014904011552
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T11:30:00+08:00",
+            "close": 2796.483,
+            "dif": -15.009634057961193,
+            "dea": -11.743027381222545,
+            "hist": -6.533213353477297,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T11:30:00+08:00",
+            "close": 2796.483,
+            "dif": -15.009634057961193,
+            "dea": -11.743027381222545,
+            "hist": -6.533213353477297,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-05T15:00:00+08:00",
+              "endTime": "2024-08-13T11:30:00+08:00",
+              "price": 2856.0903,
+              "dif": -17.23014904011552
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -16.153676653894763,
+            "dea": -12.62515723575699,
+            "hist": -7.057038836275545,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-03T15:00:00+08:00",
+            "close": 2802.9788,
+            "dif": -16.153676653894763,
+            "dea": -12.62515723575699,
+            "hist": -7.057038836275545,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2024-08-05T15:00:00+08:00",
+              "endTime": "2024-08-13T11:30:00+08:00",
+              "price": 2856.0903,
+              "dif": -17.23014904011552
+            },
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T11:30:00+08:00",
+            "close": 2789.389,
+            "dif": -17.950005449525634,
+            "dea": -13.69012687851072,
+            "hist": -8.519757142029828,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T11:30:00+08:00",
+            "close": 2789.389,
+            "dif": -17.950005449525634,
+            "dea": -13.69012687851072,
+            "hist": -8.519757142029828,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": [
+            {
+              "id": "0e7172a1e6f8dfc6f4b6e4f3",
+              "time": "2024-09-04T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-05T15:00:00+08:00",
+                "endTime": "2024-08-13T11:30:00+08:00",
+                "price": 2856.0903,
+                "dif": -17.23014904011552
+              },
+              "relatedTopHistoryId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -19.56051826149269,
+            "dea": -14.864205155107117,
+            "hist": -9.392626212771145,
+            "completed": true
+          },
+          "point": {
+            "time": "2024-09-04T15:00:00+08:00",
+            "close": 2784.2783,
+            "dif": -19.56051826149269,
+            "dea": -14.864205155107117,
+            "hist": -9.392626212771145,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "events": []
+        }
+      ]
+    }
+  },
+  "geometry": {
+    "lastCenter": 2105.0,
+    "spacing": 24.15,
+    "lastCenterPerturbation": [
+      -1,
+      0,
+      1
+    ],
+    "spacingPerturbation": [
+      -0.025,
+      0,
+      0.025
+    ],
+    "inkOffsetRange": [
+      -3,
+      17
+    ],
+    "limitation": "Software text anchor is not independently documented; mapped times remain conditional on this geometry, not cursor values"
+  },
+  "softwareLabels": [
+    {
+      "time": "2024-07-09T15:00:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 133,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "368600118be1d63bdb16a0e2",
+          "time": "2024-07-09T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-07-09T15:00:00+08:00",
+        "close": 2959.3723,
+        "dif": -17.406268594575522,
+        "dea": -16.6000363665161,
+        "hist": -1.6124644561188433,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-06-21T15:00:00+08:00",
+          "endTime": "2024-06-27T15:00:00+08:00",
+          "price": 2940.594,
+          "dif": -28.81061820297009
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-07-31T11:30:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 878,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "2ec38ff92d8678550e50403c",
+          "time": "2024-07-31T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-07-31T11:30:00+08:00",
+        "close": 2930.8035,
+        "dif": -18.748364394252803,
+        "dea": -18.7126877954625,
+        "hist": -0.07135319758060632,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-06-21T15:00:00+08:00",
+          "endTime": "2024-06-27T15:00:00+08:00",
+          "price": 2940.594,
+          "dif": -28.81061820297009
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-08-05T15:00:00+08:00",
+      "softwareText": "消失",
+      "firstInkX": 1050,
+      "geometryChecks": 9,
+      "currentKernelEvents": [],
+      "point": {
+        "time": "2024-08-05T15:00:00+08:00",
+        "close": 2860.6978,
+        "dif": -12.397225904134302,
+        "dea": -12.13718952969161,
+        "hist": -0.5200727488853829,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "status": "MISSING_OUTPUT",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Sep04 lecturer distinguishes preceding structure cycles from first true dullness cancellation today"
+    },
+    {
+      "time": "2024-08-08T11:30:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 1166,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "4491b06107a1c0897434d49c",
+          "time": "2024-08-08T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-08-08T11:30:00+08:00",
+        "close": 2880.6086,
+        "dif": -16.430965775559343,
+        "dea": -15.033758438556532,
+        "hist": -2.7944146740056226,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-08-13T15:00:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 1334,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "e280ecfc1893fe746020b317",
+          "time": "2024-08-13T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-08-13T15:00:00+08:00",
+        "close": 2867.946,
+        "dif": -16.206150130984042,
+        "dea": -16.356457571161833,
+        "hist": 0.3006148803555817,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-08-14T15:00:00+08:00",
+      "softwareText": "消失",
+      "firstInkX": 1393,
+      "geometryChecks": 9,
+      "currentKernelEvents": [],
+      "point": {
+        "time": "2024-08-14T15:00:00+08:00",
+        "close": 2850.6538,
+        "dif": -16.27049791292893,
+        "dea": -16.285491502974118,
+        "hist": 0.029987180090373045,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "status": "MISSING_OUTPUT",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Sep04 lecturer distinguishes preceding structure cycles from first true dullness cancellation today"
+    },
+    {
+      "time": "2024-08-26T15:00:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 1770,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "7272ddc36bf3adab5a6226d4",
+          "time": "2024-08-26T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-08-26T15:00:00+08:00",
+        "close": 2855.5203,
+        "dif": -8.87448598552237,
+        "dea": -8.736921826385625,
+        "hist": -0.27512831827348805,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-08-30T11:30:00+08:00",
+      "softwareText": "结构形成",
+      "firstInkX": 1940,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "fb6a82667ecb67dae299eb5a",
+          "time": "2024-08-30T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-08-30T11:30:00+08:00",
+        "close": 2860.8867,
+        "dif": -10.487879749020067,
+        "dea": -10.451058588697508,
+        "hist": -0.07364232064511711,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-09-02T15:00:00+08:00",
+      "softwareText": "钝化",
+      "firstInkX": 2010,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "9aeca55c8b516a0a6a3af60f",
+          "time": "2024-09-02T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-05T15:00:00+08:00",
+            "endTime": "2024-08-13T11:30:00+08:00",
+            "price": 2856.0903,
+            "dif": -17.23014904011552
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-09-02T15:00:00+08:00",
+        "close": 2811.035,
+        "dif": -12.669707194670536,
+        "dea": -10.926375712037881,
+        "hist": -3.4866629652653103,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-08-05T15:00:00+08:00",
+          "endTime": "2024-08-13T11:30:00+08:00",
+          "price": 2856.0903,
+          "dif": -17.23014904011552
+        },
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Visible label"
+    },
+    {
+      "time": "2024-09-04T11:30:00+08:00",
+      "softwareText": "消失",
+      "firstInkX": 2087,
+      "geometryChecks": 9,
+      "currentKernelEvents": [
+        {
+          "id": "0e7172a1e6f8dfc6f4b6e4f3",
+          "time": "2024-09-04T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-05T15:00:00+08:00",
+            "endTime": "2024-08-13T11:30:00+08:00",
+            "price": 2856.0903,
+            "dif": -17.23014904011552
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "point": {
+        "time": "2024-09-04T11:30:00+08:00",
+        "close": 2789.389,
+        "dif": -17.950005449525634,
+        "dea": -13.69012687851072,
+        "hist": -8.519757142029828,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "status": "MATCH",
+      "timestampEvidence": "Bar geometry only; no software cursor",
+      "semanticEvidence": "Sep04 transcript explicitly names dullness cancellation"
+    }
+  ],
+  "numeric": [
+    {
+      "field": "close",
+      "softwareDisplayed": "2784.28",
+      "sourceValue": 2784.2783,
+      "sourceDisplayed": "2784.28",
+      "displayMatch": true
+    },
+    {
+      "field": "dif",
+      "softwareDisplayed": "-19.561",
+      "sourceValue": -19.56051826149269,
+      "sourceDisplayed": "-19.561",
+      "displayMatch": true
+    },
+    {
+      "field": "dea",
+      "softwareDisplayed": "-14.864",
+      "sourceValue": -14.864205155107117,
+      "sourceDisplayed": "-14.864",
+      "displayMatch": true
+    },
+    {
+      "field": "hist",
+      "softwareDisplayed": "-9.393",
+      "sourceValue": -9.392626212771145,
+      "sourceDisplayed": "-9.393",
+      "displayMatch": true
+    }
+  ],
+  "preregisteredDiscriminator": {
+    "time": "2024-09-02T11:30:00+08:00",
+    "close": 2824.5037,
+    "oldWaveCloseLow": 2823.106,
+    "marginAboveOldLow": 1.3976999999999862,
+    "previousDif": -10.036056945920336,
+    "dif": -10.980481166330264,
+    "reversePct": 9.41031149483301,
+    "hist": -0.9798766499011009,
+    "imageNowSupplied": true,
+    "standaloneGreenObserved": false,
+    "negativeEvidenceOnly": true,
+    "hypotheses": {
+      "price_only": {
+        "preImagePrediction": {
+          "ended": "2024-09-02T15:00:00+08:00",
+          "reason": "new_bottom_DULL",
+          "formed": "2024-08-30T11:30:00+08:00",
+          "low": 2823.106,
+          "lowAt": "2024-08-29T15:00:00+08:00",
+          "reference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          }
+        },
+        "observation": "No standalone green seen at Sep02 morning; Sep02 afternoon yellow DULL is visible",
+        "status": "COMPATIBLE_NOT_UNIQUELY_IDENTIFIED",
+        "caveat": "Static label absence is not definitive falsification until text-retention/overlap semantics are known"
+      },
+      "dif_down_only": {
+        "preImagePrediction": {
+          "ended": "2024-09-02T11:30:00+08:00",
+          "reason": "withdrawal",
+          "formed": "2024-08-30T11:30:00+08:00",
+          "low": 2823.106,
+          "lowAt": "2024-08-29T15:00:00+08:00",
+          "reference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          }
+        },
+        "observation": "No standalone green seen at Sep02 morning; Sep02 afternoon yellow DULL is visible",
+        "status": "NO_POSITIVE_LABEL_SUPPORT_AT_PREREGISTERED_NODE",
+        "caveat": "Static label absence is not definitive falsification until text-retention/overlap semantics are known"
+      },
+      "dif_turn_1pct_only": {
+        "preImagePrediction": {
+          "ended": "2024-09-02T11:30:00+08:00",
+          "reason": "withdrawal",
+          "formed": "2024-08-30T11:30:00+08:00",
+          "low": 2823.106,
+          "lowAt": "2024-08-29T15:00:00+08:00",
+          "reference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          }
+        },
+        "observation": "No standalone green seen at Sep02 morning; Sep02 afternoon yellow DULL is visible",
+        "status": "NO_POSITIVE_LABEL_SUPPORT_AT_PREREGISTERED_NODE",
+        "caveat": "Static label absence is not definitive falsification until text-retention/overlap semantics are known"
+      },
+      "price_and_turn_1pct": {
+        "preImagePrediction": {
+          "ended": "2024-09-02T15:00:00+08:00",
+          "reason": "new_bottom_DULL",
+          "formed": "2024-08-30T11:30:00+08:00",
+          "low": 2823.106,
+          "lowAt": "2024-08-29T15:00:00+08:00",
+          "reference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          }
+        },
+        "observation": "No standalone green seen at Sep02 morning; Sep02 afternoon yellow DULL is visible",
+        "status": "COMPATIBLE_NOT_UNIQUELY_IDENTIFIED",
+        "caveat": "Static label absence is not definitive falsification until text-retention/overlap semantics are known"
+      }
+    }
+  },
+  "structureCount": {
+    "lecturer": 6,
+    "currentKernel": 6,
+    "limitation": "Count and geometric labels, not precise software formula proof"
+  },
+  "captionEvidence": [
+    {
+      "lines": [
+        1,
+        6
+      ],
+      "meaning": "Minute cancellations by Sep04; daily still dull, next close below2777 may cancel"
+    },
+    {
+      "lines": [
+        10,
+        13
+      ],
+      "meaning": "True daily dullness cancellation needs rebound then new low before another structure; not an automatic fixed-period reset"
+    },
+    {
+      "lines": [
+        20,
+        22
+      ],
+      "meaning": "120-minute six structures, no true dullness cancellation through preceding interval, first today; older greens cannot all mean cancellation"
+    },
+    {
+      "lines": [
+        43,
+        44
+      ],
+      "meaning": "Mentions11:25 intraday correction, not exact completed11:30bar timestamp; ASR includes self-correction structure/dullness"
+    }
+  ],
+  "daily2777ProjectionCheck": {
+    "status": "CALIBRATION_FAILED",
+    "sourcePrefixBars": 407,
+    "guardUnchanged": true,
+    "conclusion": "2777 lecturer daily threshold preserved as external observation; no verified model threshold produced from this prefix"
+  },
+  "priorEvidenceHashes": {
+    "aug22_trigger_hypotheses_20261015.json": "8339cb37c89fb989715b1e8568df45898ddec40d95b5fdfb6705f8100e31a1c5",
+    "case_20240806_semantics_and_next_nodes_20261015.json": "d8bb87f46c931b4ba5eb9b3fe694830b8ac57d38d054351c24c498a687b8ee3a",
+    "case_20240902_03_semantics_20261015.json": "dc0790c72372f6e5cdf1d849d08c4245d6296584a290fd93dc7b2786c6a3c104",
+    "case_20240903_m90_image_20261015.json": "8702729fee6c3588a509df5ff7281188e0b3bd5db58b91c6c841fc48dcc1ac82",
+    "case_20240805_semantics_20261015.json": "e2d0fa18c58edd84fdb771963ac6fbe838094210fce452c036ed78b992e51510",
+    "case_20260710_structure_disappearance_20261015.json": "1615a61bbf9cd2a810673895cf68ceca63c015cfb8d131bdb79c5015cc90fa36"
+  },
+  "conclusions": {
+    "intervalEvidenceNowSupplied": true,
+    "askForSameIntervalAgain": false,
+    "originalThreeDailyMissesFixed": false,
+    "additionalMinuteMissingOutput": "2024-08-14T15:00:00+08:00 mapped green",
+    "rulesAdopted": false,
+    "fullFormulaIdentified": false
+  },
+  "limits": [
+    "Mapped times depend on geometry; original software label placement and retention unknown",
+    "First Sep04 true cancellation is a day-level lecturer statement;90-minute already cancelled Sep03 according to prior clip",
+    "No new daily/m60/m90 chart today; do not count source-only replay as visual acceptance",
+    "Price-only and price-plus-DIF hypotheses still indistinguishable at observed positive greens",
+    "No extra thresholds, API changes, implementation, performance or page acceptance"
+  ],
+  "productCodeChanged": false,
+  "formalDataWritten": false,
+  "pendingProposalApproved": false
+}

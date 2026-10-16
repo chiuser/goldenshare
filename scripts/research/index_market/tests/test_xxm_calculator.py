@@ -159,4 +159,134 @@ def test_entire_frozen_ordinary_and_historical_baseline(gate):
                 assert normalize(actual["endedAt"]) == episode["closure"]["time"]
         summary = next(s for s in manifest["summaries"] if s["period"] == str(freq) and s["gate"] == gate)
         assert Counter(e["type"] for e in events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL") == summary["ordinary_event_counts"]
-        assert sum(e["type"] == "RESEARCH_HISTORICAL_WITHDRAWAL" for e in events) == summary["primary_predictions"]
+        assert sum(e["type"] == "RESEARCH_HISTORICAL_WITHDRAWAL" and e["direction"] == "TOP" for e in events) == summary["primary_predictions"]
+
+# B-group: completed bottom structures keep a separate, frozen history record.
+BOTTOM = [(200-c, -d, -h) for c, d, h in BASE]
+
+
+def test_bottom_freezes_original_close_low_and_waits_for_origin_exit():
+    calc, steps = run(BOTTOM + [(96, -9.75, -2), (98, -9.74, 0), (96.5, -9.7, -2), (95, -9.6, -2)])
+    created = steps[5].bottom_histories[0]
+    assert created['priceLow'] == 97 and created['priceLowAt'] == '2020-01-06'
+    assert created['originSegmentStart'] == '2020-01-04' and created['leftOriginAt'] is None
+    assert created['structureEventId'] == steps[5].events[0]['id']
+    assert steps[5].events[0]['relatedBottomHistoryId'] == created['id']
+    assert not steps[6].events  # new low in the original negative segment is not B
+    assert steps[7].bottom_histories[0]['leftOriginAt'] == '2020-01-08'  # exact zero exits
+    event = steps[8].events[-1]
+    assert event['direction'] == 'BOTTOM' and event['type'] == 'RESEARCH_HISTORICAL_WITHDRAWAL'
+    assert event['relatedTopHistoryId'] is None and event['eventReference'] == created['originalReference']
+    assert steps[8].bottom_histories[0]['priceLow'] == 97  # later 96 did not move the saved low
+    assert steps[8].point['ordinaryState'] == 'NONE' and steps[8].point['pendingBottomHistoryId'] is None
+    assert not steps[9].bottom_histories and calc.pending_bottom_history is None
+    assert created['status'] == 'PENDING'  # earlier returned records are isolated
+
+
+def test_bottom_color_flip_excludes_new_red_close_and_no_ttl():
+    calc, steps = run(BOTTOM[:5] + [(50, -9.9, 2)])
+    h = steps[-1].bottom_histories[0]
+    assert h['confirmationRoute'] == 'color_flip' and h['priceLow'] == 98
+    assert h['leftOriginAt'] == h['confirmedAt'] and h['priceLowAt'] == '2020-01-05'
+    _, steps = run(BOTTOM + [(98, -9.8, 2)] * 40 + [(96, -9.7, 2)])
+    assert steps[-1].bottom_histories[0]['ageBars'] == 41
+    assert steps[-1].events[-1]['type'] == 'RESEARCH_HISTORICAL_WITHDRAWAL'
+    assert len([e for s in steps for e in s.events if e['direction'] == 'BOTTOM' and e['type'] == 'RESEARCH_HISTORICAL_WITHDRAWAL']) == 1
+
+
+@pytest.mark.parametrize('close,dif,reason,event', [
+    (97, -9.7, None, False), (97.01, -9.7, None, False),
+    (96.99, -9.7, 'historical_price_break', True),
+    (96.99, -12, 'historical_price_break', True),
+    (96.99, -12.0001, 'original_reference_break', False),
+])
+def test_bottom_strict_boundaries_and_reference_priority(close, dif, reason, event):
+    calc, _ = run(BOTTOM + [(98, -9.8, 0)])
+    # An isolated postprocessor probe decouples the unchanged ordinary branch.
+    before = (calc.state, calc.reference, calc.wave, calc.history)
+    events, changes = calc._advance_bottom_history(XxmBar('2020-01-08', close, dif, -11., 2.), None)
+    assert changes[0]['endReason'] == reason and bool(events) == event
+    assert (calc.state, calc.reference, calc.wave, calc.history) == before
+
+
+@pytest.mark.parametrize('kind', ['DULL', 'STRUCTURE'])
+def test_bottom_successor_signal_precedes_price_break(kind):
+    calc, _ = run(BOTTOM + [(98, -9.8, 0)])
+    events, changes = calc._advance_bottom_history(XxmBar('2020-01-08', 96, -9.7, -11., 2.),
+                                                  {'direction': 'BOTTOM', 'type': kind})
+    assert not events and changes[0]['endReason'] == 'new_bottom_' + kind
+    assert calc.pending_bottom_history is None
+
+
+def test_bottom_top_signal_is_not_a_bottom_successor_and_same_segment_A_is_unchanged():
+    calc, _ = run(BOTTOM + [(98, -9.8, 0)])
+    events, changes = calc._advance_bottom_history(XxmBar('2020-01-08', 96, -9.7, -11., 2.),
+                                                  {'direction': 'TOP', 'type': 'STRUCTURE'})
+    assert events and changes[0]['endReason'] == 'historical_price_break'
+    _, steps = run(BOTTOM + [(96, -10, -2)])
+    assert steps[-1].events[0]['route'] == 'dif_return'  # A deliberately remains
+    assert steps[-1].bottom_histories[0]['endReason'] == 'new_bottom_DULL'
+
+
+def test_bottom_snapshot_restore_atomic_strict_and_can_rewind():
+    from copy import deepcopy
+    calc, _ = run(BOTTOM)
+    origin = calc.snapshot()
+    calc.step(bars(BOTTOM + [(98, -9.8, 0)])[-1])
+    exited = calc.snapshot()
+    assert exited['pendingBottomHistory']['leftOriginAt'] is not None
+    calc.restore(origin)
+    assert calc.snapshot() == origin and calc.pending_bottom_history['leftOriginAt'] is None
+    mutations = [lambda s: s.pop('pendingBottomHistory'), lambda s: s.update(specHash='old'),
+                 lambda s: s.update(sourceIdentity='other'), lambda s: s['pendingBottomHistory'].update(extra=1),
+                 lambda s: s['pendingBottomHistory'].update(priceLow=float('nan')),
+                 lambda s: s['pendingBottomHistory'].update(priceLow=0),
+                 lambda s: s['pendingBottomHistory'].update(ageBars=True),
+                 lambda s: s['pendingBottomHistory'].update(ageBars=9999),
+                 lambda s: s['pendingBottomHistory'].update(observedThrough='2099-01-01'),
+                 lambda s: s['pendingBottomHistory'].update(leftOriginAt='2019-01-01'),
+                 lambda s: s['pendingBottomHistory'].update(status='ENDED'),
+                 lambda s: s['pendingBottomHistory'].update(id='wrong'),
+                 lambda s: s['pendingBottomHistory'].update(originSegmentStart='2020-01-05')]
+    for mutate in mutations:
+        invalid = deepcopy(origin); mutate(invalid)
+        with pytest.raises(ValueError): calc.restore(invalid)
+        assert calc.snapshot() == origin
+    returned = calc.snapshot(); returned['pendingBottomHistory']['originalReference']['dif'] = 100
+    assert calc.snapshot() == origin
+
+
+@pytest.mark.parametrize('period', ['day', 'm60', 'm90', 'm120'])
+def test_bottom_period_identity_and_step_snapshot_continuation(period):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    values = bars(BOTTOM + [(98, -9.8, 0), (96, -9.7, -2)])
+    if period != 'day':
+        values = [replace(b, time=b.time+'T15:00:00+08:00') for b in values]
+    calc = XxmCalculator(period=period, source_identity='B-test')
+    for b in values[:6]: calc.step(b)
+    child = XxmCalculator(period=period, source_identity='B-test'); child.restore(calc.snapshot())
+    assert [child.step(b) for b in values[6:]] == [calc.step(b) for b in values[6:]]
+    assert calc.snapshot() == child.snapshot()
+    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-h1'
+    assert calc.spec.spec_hash == 'b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5'
+
+
+def test_new_top_structure_and_bottom_history_disappearance_are_independent_on_same_bar():
+    from copy import deepcopy
+    calc, _ = run(BASE[:5])
+    # Isolate independent layer coexistence with a previously completed bottom
+    # record. The ordinary TOP fixture itself is unchanged and remains causal.
+    record = {
+        'id': calc._id('bottom-history','prior-bottom'), 'structureEventId':'prior-bottom',
+        'confirmedAt':'2019-12-20','confirmationRoute':'dif_turn','originSegmentStart':'2019-12-18',
+        'leftOriginAt':'2019-12-23','priceLow':104.,'priceLowAt':'2019-12-19',
+        'originalReference':{'startTime':'2019-11-01','endTime':'2019-11-10','price':105.,'dif':-20.},
+        'status':'PENDING','endedAt':None,'endReason':None,'observedThrough':'2020-01-05','ageBars':4}
+    calc.pending_bottom_history = deepcopy(record)
+    step = calc.step(bars(BASE)[-1])
+    assert [(e['direction'],e['type']) for e in step.events] == [
+        ('TOP','STRUCTURE'),('BOTTOM','RESEARCH_HISTORICAL_WITHDRAWAL')]
+    assert step.events[0]['relatedTopHistoryId'] and step.events[0]['relatedBottomHistoryId'] is None
+    assert step.events[1]['relatedBottomHistoryId']==record['id'] and step.events[1]['relatedTopHistoryId'] is None
+    assert step.point['ordinaryState']=='STRUCTURE' and step.bottom_histories[0]['endReason']=='historical_price_break'

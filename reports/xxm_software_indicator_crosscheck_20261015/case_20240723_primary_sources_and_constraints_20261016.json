@@ -1,0 +1,81 @@
+{
+  "auditDate": "2026-10-16",
+  "focus": "2024-07-23 daily disappearance only",
+  "localReplayReport": "case_20240723_counterexample_audit_20261016.json",
+  "localReplayReportSha256": "b14852086df1b15f124ce545e98bbf21d454fe3f95e1b6a8fb204baa1f0407f5",
+  "additionalLocalGates": {
+    "predicate": "DIF lower than previous completed bar by at least gate percent; no price check; original reference remains valid and no new bottom event intervenes in local interval",
+    "results": {
+      "0": {
+        "firstTrigger": "2024-07-10",
+        "firstTriggerDIFDownPct": 0.5579767564712114,
+        "softwareFormula": false
+      },
+      "0.5": {
+        "firstTrigger": "2024-07-10",
+        "firstTriggerDIFDownPct": 0.5579767564712114,
+        "softwareFormula": false
+      },
+      "0.75": {
+        "firstTrigger": "2024-07-23",
+        "firstTriggerDIFDownPct": 22.97727902466057,
+        "softwareFormula": false
+      },
+      "1": {
+        "firstTrigger": "2024-07-23",
+        "firstTriggerDIFDownPct": 22.97727902466057,
+        "softwareFormula": false
+      },
+      "1.2": {
+        "firstTrigger": "2024-07-23",
+        "firstTriggerDIFDownPct": 22.97727902466057,
+        "softwareFormula": false
+      }
+    },
+    "interpretation": "Price break and a range of DIF reverse gates first agree on July23. This case cannot identify price necessity or exact DIF threshold."
+  },
+  "primarySources": [
+    {
+      "title": "徐小明：7月23日盘中即时直播",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b83401030173.html",
+      "pagePublishedAt": "2024-07-22 15:04:58",
+      "sessionDate": "2024-07-23",
+      "observed": "Readable; intraday commentary, no explanation of this daily historical green or its trigger."
+    },
+    {
+      "title": "徐小明：7月24日盘中即时直播",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b83401030177.html",
+      "pagePublishedAt": "2024-07-23 15:04:57",
+      "sessionDate": "2024-07-24",
+      "observed": "Readable; upcoming daily dullness discussed for next close; no historical-disappearance formula."
+    },
+    {
+      "title": "徐小明：周四操作策略",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b8340103017c.html",
+      "pagePublishedAt": "2024-07-24 16:22:56",
+      "observed": "Readable; m120 dullness retained and potential second daily structure distinguished from true dullness cancellation. No exact July23 historical trigger."
+    },
+    {
+      "title": "徐小明：日线再次底部钝化",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b8340103017d.html",
+      "pagePublishedAt": "2024-07-25 13:07:37",
+      "observed": "Readable; prospective new daily dullness, not a completed-close observation or old-disappearance formula."
+    },
+    {
+      "title": "徐小明：周三操作策略",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b83401030178.html",
+      "pagePublishedAtFromArchive": "2024-07-23 16:25",
+      "observed": "Archive lists it; body retrieval failed. Not treated as read evidence."
+    }
+  ],
+  "excludedSources": "Third-party rewritten formulas and old terminology that contradicts recent supplied video were not adopted. No claim of exhaustive web coverage.",
+  "interpretationLimits": [
+    "Screenshot marks are geometrically mapped without cursor timestamps or exact original-software structure IDs.",
+    "If July23 green relates to July9 structure, semantic context must survive July11 color change and remain eligible at age10; not a mandated storage design or universal TTL.",
+    "Current missing BOTTOM historical tracking remains an implementation gap; exact new predicate and record lifetime are not established."
+  ],
+  "productCodeChanged": false,
+  "newCandidateApproved": false,
+  "newBudgetAcceptanceRun": false,
+  "newImageRequested": false
+}

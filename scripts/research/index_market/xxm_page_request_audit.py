@@ -28,6 +28,8 @@ from src.biz.api.wealth.market.index_detail_minute_xxm import build_router as mi
 from src.biz.api.wealth.market.index_detail_xxm_forecast import build_router as forecast_router
 from src.biz.queries.wealth.market.index_detail_minutes.index_detail_minutes_query_service import IndexDetailMinutesQueryService
 from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import IndexMinuteNineTurnQueryService
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
+from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.queries.wealth.market.index_detail_xxm import query_service as q, forecast_query_service as fq
 
 
@@ -71,6 +73,11 @@ def main():
     index_detail_minute_nine_turn._service=lambda:IndexMinuteNineTurnQueryService(FORMAL_LAKE_ROOT,reader=nine_reader)
     for router in (index_detail.router,index_detail_nine_turn.router,index_detail_minutes.router,index_detail_minute_nine_turn.router):
         app.include_router(router,prefix='/api/v1')
+    @app.get('/__audit__/context')
+    def audit_context(_user=Depends(require_quote_access),session=Depends(readonly_session)):
+        value=MarketPageContextQuery().resolve_context(session,market="CN_A",requested_trade_date=None)
+        return dict(businessDate=value.trade_date.isoformat(),generatedAt=value.generated_at.isoformat(),
+                    algorithmVersion=MAIN_SPEC.algorithm_version,specHash=MAIN_SPEC.spec_hash)
     @app.get('/__audit__/reset')
     def reset(fresh:int,_user=Depends(require_quote_access)):
         nonlocal max_compute

@@ -1,0 +1,120 @@
+{
+  "recordedAt": "2026-10-16",
+  "scope": "Research diagnostic consistency only; not product or independent software validation",
+  "resultsSha256": "56aaba5bc86c8a3b2e408af658c5b57eb37a7ed54852972356eb5b149e4c5ae0",
+  "priorFrozenDiagnosticChecks": [
+    {
+      "period": "day",
+      "candidate": "H1-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "day",
+      "candidate": "H3-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "day",
+      "candidate": "H4-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "day",
+      "candidate": "H2-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "m60",
+      "candidate": "H1-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 1
+    },
+    {
+      "period": "m60",
+      "candidate": "H3-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 1
+    },
+    {
+      "period": "m60",
+      "candidate": "H4-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 1
+    },
+    {
+      "period": "m60",
+      "candidate": "H2-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "m90",
+      "candidate": "H1-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 0
+    },
+    {
+      "period": "m90",
+      "candidate": "H3-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 0
+    },
+    {
+      "period": "m90",
+      "candidate": "H4-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 0
+    },
+    {
+      "period": "m90",
+      "candidate": "H2-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 3
+    },
+    {
+      "period": "m120",
+      "candidate": "H1-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 2
+    },
+    {
+      "period": "m120",
+      "candidate": "H3-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 2
+    },
+    {
+      "period": "m120",
+      "candidate": "H4-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 2
+    },
+    {
+      "period": "m120",
+      "candidate": "H2-S1-E1",
+      "matchesPriorFrozenDiagnostic": true,
+      "matchedEvents": 4
+    }
+  ],
+  "causalPrefixComparisons": 1008,
+  "prefixCutDates": [
+    "2024-07-23",
+    "2024-08-02",
+    "2024-08-05",
+    "2024-08-14",
+    "2024-08-22",
+    "2024-09-02"
+  ],
+  "sourceShaValidatedByLoadSource": true,
+  "protectedFileCounts": {
+    "code": 13,
+    "evidence": 61
+  },
+  "protectedHashesUnchanged": true,
+  "productCodeChanged": false,
+  "newBudgetAcceptanceRun": false
+}

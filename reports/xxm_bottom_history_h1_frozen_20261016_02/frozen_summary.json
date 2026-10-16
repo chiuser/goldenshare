@@ -1,0 +1,50 @@
+{
+  "periods": {
+    "day": {
+      "rows": 912,
+      "ordinaryAndTopUnchanged": true,
+      "newBottomEvents": 4,
+      "bottomRecords": 7,
+      "prefixRestoreCuts": 15,
+      "forecasts": 26,
+      "maxModelMs": 83.2895408384502,
+      "calibrationProtected": 18,
+      "seconds": 0.3864959580823779
+    },
+    "m60": {
+      "rows": 17260,
+      "ordinaryAndTopUnchanged": true,
+      "newBottomEvents": 46,
+      "bottomRecords": 143,
+      "prefixRestoreCuts": 21,
+      "forecasts": 158,
+      "maxModelMs": 35.42429208755493,
+      "calibrationProtected": 0,
+      "seconds": 4.855851541273296
+    },
+    "m90": {
+      "rows": 12945,
+      "ordinaryAndTopUnchanged": true,
+      "newBottomEvents": 26,
+      "bottomRecords": 103,
+      "prefixRestoreCuts": 18,
+      "forecasts": 97,
+      "maxModelMs": 34.19520892202854,
+      "calibrationProtected": 0,
+      "seconds": 3.1632568752393126
+    },
+    "m120": {
+      "rows": 8630,
+      "ordinaryAndTopUnchanged": true,
+      "newBottomEvents": 19,
+      "bottomRecords": 75,
+      "prefixRestoreCuts": 21,
+      "forecasts": 75,
+      "maxModelMs": 33.25554169714451,
+      "calibrationProtected": 0,
+      "seconds": 2.171864209230989
+    }
+  },
+  "softwarePositiveObservations": 5,
+  "softwareFormulaProven": false
+}

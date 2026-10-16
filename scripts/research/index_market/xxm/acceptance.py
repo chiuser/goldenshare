@@ -82,6 +82,12 @@ def main() -> None:
     parser.add_argument("--research", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
+    if args.output.resolve() in (args.source.resolve(), args.research.resolve()):
+        raise ValueError("Acceptance output must not be a source/evidence root")
+    if (args.output / "algorithm_acceptance.json").exists() or any(args.output.glob("baseline_*.json")):
+        raise ValueError("Refusing to overwrite an existing acceptance run")
+    if not all((args.output / f"api_{period}_sample.json").is_file() for period in ("day", "m60", "m90", "m120")):
+        raise ValueError("Capture the four new API samples in an unused output directory first")
     args.output.mkdir(parents=True, exist_ok=True)
     frozen, _ = load_frozen_inputs(args.research)
     sources = {period: load_source(args.source, period) for period in ("day", "m60", "m90", "m120")}
@@ -94,6 +100,7 @@ def main() -> None:
         steps, calc = replay(period, bars)
         events = [event for step in steps for event in step.events]
         histories = {h["id"]: h for step in steps for h in step.histories}
+        bottom_histories = {h["id"]: h for step in steps for h in step.bottom_histories}
         # Independently replay every ordinary/history event and lifecycle-change
         # prefix. Compare the complete prefix event ledger, not just its count.
         seen_histories, ended_histories = set(), set()
@@ -101,11 +108,11 @@ def main() -> None:
         for i, step in enumerate(steps):
             lifecycle_change = any(h["id"] not in seen_histories or
                                    (h["status"] == "ENDED" and h["id"] not in ended_histories)
-                                   for h in step.histories)
+                                   for h in (*step.histories, *step.bottom_histories))
             if step.events or lifecycle_change:
                 event_cuts.append(i + 1)
-            seen_histories.update(h["id"] for h in step.histories)
-            ended_histories.update(h["id"] for h in step.histories if h["status"] == "ENDED")
+            seen_histories.update(h["id"] for h in (*step.histories, *step.bottom_histories))
+            ended_histories.update(h["id"] for h in (*step.histories, *step.bottom_histories) if h["status"] == "ENDED")
         event_cuts = sorted(set(event_cuts + [len(bars)]))
         for cut in event_cuts:
             prefix_calc = XxmCalculator(period=period, source_identity=calc.source_identity)
@@ -140,14 +147,17 @@ def main() -> None:
         assert api["events"] == [e for e in events if first <= e["time"] <= last_time]
         for history in api["topHistories"]:
             assert all(histories[history["id"]][key] == value for key, value in history.items())
+        for history in api["bottomHistories"]:
+            assert all(bottom_histories[history["id"]][key] == value for key, value in history.items())
         result = dict(rows=len(bars), start=bars[0].time, end=bars[-1].time, eventCounts=dict(Counter(e["type"] for e in events)),
                       historyCounts=dict(Counter(h["status"] for h in histories.values())),
                       independentEventPrefixChecks=len(event_cuts), prefixAndRestoreCuts=cuts,
                       stateBytes=state_bytes, frozenNumericOverlap=numeric_overlap,
                       realApiWindowMatchedRows=len(expected_points),
-                      pointSequenceSha256=point_hash, events=events, topHistories=list(histories.values()))
+                      pointSequenceSha256=point_hash, events=events, topHistories=list(histories.values()), bottomHistories=list(bottom_histories.values()),
+                      bottomHistoryCounts=dict(Counter(h["status"] for h in bottom_histories.values())))
         (args.output / f"baseline_{period}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
-        summary["periods"][period] = {k: v for k, v in result.items() if k not in ("events", "topHistories")}
+        summary["periods"][period] = {k: v for k, v in result.items() if k not in ("events", "topHistories", "bottomHistories")}
         print(f"{period}: {len(event_cuts)} independent event/lifecycle prefixes passed", flush=True)
     readouts = []
     lookup = {p: {b.time: b for b in bars} for p, bars in sources.items()}

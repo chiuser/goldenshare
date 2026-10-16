@@ -1,0 +1,858 @@
+{
+  "recordedAt": "2026-10-15T21:03:50.828799+08:00",
+  "scope": "2024-08-22 SSE daily screenshot and user lecture transcript; event semantics review, no production rule change",
+  "files": [
+    {
+      "kind": "image",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-74ba4093-4fa4-4d2f-b9a4-932b60a28573.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240822_day.png",
+      "sha256": "fb84df73148c9cbe5d1333332f45fa173dd564ca721e8c04310ba6517588d58f",
+      "bytes": 2120278,
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "transcript",
+      "originalPath": "/Users/congming/.codex/attachments/33090997-91aa-49aa-aa6e-b3abfeca3f51/Pasted text.txt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240822_user_transcript.txt",
+      "sha256": "e2d2b2ecaf48c366cb1eb47596ae519aa9244f7f81b1ba1cb5fe47b185d3957f",
+      "bytes": 18970,
+      "originalBytesPreserved": true
+    }
+  ],
+  "symbol": "000001.SH",
+  "period": "day",
+  "imageDate": "2024-08-22",
+  "datePeriodSymbolDirectlyVisible": true,
+  "authorMeaning": [
+    {
+      "sourceLines": [
+        1,
+        5
+      ],
+      "suppliedTimeRange": "0:00-0:30",
+      "meaning": "The SSE green disappearance after a structure is a structure disappearance, explicitly not dullness disappearance; renewed downward movement can lead to new dullness; a fifth structure is not guaranteed.",
+      "evidenceGrade": "explicit user-supplied transcript + same-day image, no audio independently checked"
+    },
+    {
+      "sourceLines": [
+        6,
+        9
+      ],
+      "suppliedTimeRange": "0:39-1:04",
+      "meaning": "SSE 120-minute bottom dullness and 90-minute bottom dullness at close; no exact minute software values or event timestamps provided.",
+      "evidenceGrade": "narrated terminal state only"
+    },
+    {
+      "sourceLines": [
+        10,
+        14
+      ],
+      "suppliedTimeRange": "1:11-1:41",
+      "meaning": "Single red histogram bar causing nonstandard dullness disappearance refers to Shenzhen Component, not the SSE daily historical structure.",
+      "evidenceGrade": "explicit transcript object distinction"
+    }
+  ],
+  "numeric": [
+    {
+      "field": "close",
+      "softwareDisplayed": "2848.77",
+      "ourActual": 2848.7718,
+      "ourDisplayed": "2848.77",
+      "sameAtDisplayPrecision": true
+    },
+    {
+      "field": "dif",
+      "softwareDisplayed": "-22.277",
+      "ourActual": -22.277,
+      "ourDisplayed": "-22.277",
+      "sameAtDisplayPrecision": true
+    },
+    {
+      "field": "dea",
+      "softwareDisplayed": "-24.394",
+      "ourActual": -24.394,
+      "ourDisplayed": "-24.394",
+      "sameAtDisplayPrecision": true
+    },
+    {
+      "field": "hist",
+      "softwareDisplayed": "4.234",
+      "ourActual": 4.234,
+      "ourDisplayed": "4.234",
+      "sameAtDisplayPrecision": true
+    }
+  ],
+  "softwareEvent": {
+    "time": "2024-08-22",
+    "direction": "BOTTOM",
+    "displayedText": "消失",
+    "semanticType": "HISTORICAL_STRUCTURE_WITHDRAWAL",
+    "semanticIdentityExplicit": true,
+    "preciseTriggerFormulaGiven": false
+  },
+  "kernel": {
+    "day": {
+      "prefixBars": 398,
+      "prefixStart": "2023-01-03",
+      "through": "2024-08-22",
+      "terminalPoint": {
+        "time": "2024-08-22",
+        "close": 2848.7718,
+        "dif": -22.277,
+        "dea": -24.394,
+        "hist": 4.234,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "06da1397e737454b22c1d261"
+      },
+      "eventsSinceJune25": [
+        {
+          "id": "47506530d37e60918fd36911",
+          "time": "2024-07-08",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "2bff8a171e68aff466151a5e",
+          "time": "2024-07-09",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "afb971bbb77ca8add037661f",
+          "time": "2024-07-25",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "38a6a49f1177508462e7a03b",
+          "time": "2024-07-31",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "d49733d50afd8925795c8862",
+          "time": "2024-08-06",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "a143461033cfac70f0cf5dbd",
+          "time": "2024-08-13",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "57dc4874fef13f8fb86d355a",
+          "time": "2024-08-14",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "f34826c07bbc2c59da21c4b1",
+          "time": "2024-08-15",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "eventsOnAug22": []
+    },
+    "m60": {
+      "prefixBars": 15204,
+      "prefixStart": "2009-01-05T10:30:00+08:00",
+      "through": "2024-08-22T15:00:00+08:00",
+      "terminalPoint": {
+        "time": "2024-08-22T15:00:00+08:00",
+        "close": 2848.7717,
+        "dif": -6.366978772345192,
+        "dea": -3.8201276870887786,
+        "hist": -5.0937021705128265,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-08-13T11:30:00+08:00",
+          "endTime": "2024-08-13T14:00:00+08:00",
+          "price": 2854.4998,
+          "dif": -8.922106940848153
+        },
+        "pendingTopHistoryId": null
+      },
+      "eventsSinceJune25": [
+        {
+          "id": "6aa66db700319fb621b00ab4",
+          "time": "2024-06-25T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-06T10:30:00+08:00",
+            "endTime": "2024-06-12T11:30:00+08:00",
+            "price": 3017.726,
+            "dif": -18.509232436604634
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "f9085798e3449dad4ee52cc1",
+          "time": "2024-07-05T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-06-20T15:00:00+08:00",
+            "endTime": "2024-06-26T15:00:00+08:00",
+            "price": 2938.884,
+            "dif": -21.306356881154443
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "fa742514f4df7ccf86171289",
+          "time": "2024-07-09T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-20T15:00:00+08:00",
+            "endTime": "2024-06-26T15:00:00+08:00",
+            "price": 2938.884,
+            "dif": -21.306356881154443
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "bc67fff58861b3b344576ff7",
+          "time": "2024-07-19T15:00:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-09T15:00:00+08:00",
+            "endTime": "2024-07-17T10:30:00+08:00",
+            "price": 2976.3042,
+            "dif": 4.8037802336825735
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "1a4709f159f0d742bfeb328c",
+          "time": "2024-07-22T10:30:00+08:00",
+          "direction": "TOP",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-09T15:00:00+08:00",
+            "endTime": "2024-07-17T10:30:00+08:00",
+            "price": 2976.3042,
+            "dif": 4.8037802336825735
+          },
+          "relatedTopHistoryId": "e0265ce155aafb325f57ff37"
+        },
+        {
+          "id": "c918e3cb52edb0786c249a28",
+          "time": "2024-07-24T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-04T11:30:00+08:00",
+            "endTime": "2024-07-09T14:00:00+08:00",
+            "price": 2908.7024,
+            "dif": -15.735419795997586
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "00d63e28b8151a85ad476771",
+          "time": "2024-07-25T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-04T11:30:00+08:00",
+            "endTime": "2024-07-09T14:00:00+08:00",
+            "price": 2908.7024,
+            "dif": -15.735419795997586
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "bb1f09da788e794eaa11bf2e",
+          "time": "2024-08-05T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-22T10:30:00+08:00",
+            "endTime": "2024-07-29T10:30:00+08:00",
+            "price": 2876.3333,
+            "dif": -21.461599420911625
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "544d412035a14913cc91e746",
+          "time": "2024-08-07T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-22T10:30:00+08:00",
+            "endTime": "2024-07-29T10:30:00+08:00",
+            "price": 2876.3333,
+            "dif": -21.461599420911625
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "9c31d58a5975bb24347941db",
+          "time": "2024-08-08T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2024-07-22T10:30:00+08:00",
+            "endTime": "2024-07-29T10:30:00+08:00",
+            "price": 2876.3333,
+            "dif": -21.461599420911625
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "520a01e3728e2e5554921e73",
+          "time": "2024-08-08T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-22T10:30:00+08:00",
+            "endTime": "2024-07-29T10:30:00+08:00",
+            "price": 2876.3333,
+            "dif": -21.461599420911625
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "856feca052c82fc20a96c044",
+          "time": "2024-08-22T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-13T11:30:00+08:00",
+            "endTime": "2024-08-13T14:00:00+08:00",
+            "price": 2854.4998,
+            "dif": -8.922106940848153
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "eventsOnAug22": [
+        {
+          "id": "856feca052c82fc20a96c044",
+          "time": "2024-08-22T10:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-13T11:30:00+08:00",
+            "endTime": "2024-08-13T14:00:00+08:00",
+            "price": 2854.4998,
+            "dif": -8.922106940848153
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    "m90": {
+      "prefixBars": 11403,
+      "prefixStart": "2009-01-05T11:00:00+08:00",
+      "through": "2024-08-22T15:00:00+08:00",
+      "terminalPoint": {
+        "time": "2024-08-22T15:00:00+08:00",
+        "close": 2848.7717,
+        "dif": -6.178355471168743,
+        "dea": -3.7060136363779312,
+        "hist": -4.944683669581623,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-08-12T14:00:00+08:00",
+          "endTime": "2024-08-12T15:00:00+08:00",
+          "price": 2857.413,
+          "dif": -11.628055791852148
+        },
+        "pendingTopHistoryId": null
+      },
+      "eventsSinceJune25": [
+        {
+          "id": "1e9d110502efffa192cdb8f9",
+          "time": "2024-06-25T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-05T15:00:00+08:00",
+            "endTime": "2024-06-13T11:00:00+08:00",
+            "price": 3024.3203,
+            "dif": -20.352529380518263
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "88985f5641f9b1778ea1e8dd",
+          "time": "2024-07-05T11:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-06-21T11:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2934.9163,
+            "dif": -24.081445118831198
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "4f841d556db3c223a95ebdbd",
+          "time": "2024-07-09T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-21T11:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2934.9163,
+            "dif": -24.081445118831198
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "f2a1e9d9e1fff2d9714374ca",
+          "time": "2024-07-19T11:00:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-10T11:00:00+08:00",
+            "endTime": "2024-07-17T15:00:00+08:00",
+            "price": 2976.3042,
+            "dif": 2.9330479112391004
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "516765894629cc72acacddf9",
+          "time": "2024-07-19T15:00:00+08:00",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-10T11:00:00+08:00",
+            "endTime": "2024-07-17T15:00:00+08:00",
+            "price": 2976.3042,
+            "dif": 2.9330479112391004
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "a595d2e37ca87327bd08f82d",
+          "time": "2024-07-24T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-04T15:00:00+08:00",
+            "endTime": "2024-07-09T15:00:00+08:00",
+            "price": 2905.264,
+            "dif": -17.055362071009313
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "d2b238d9f56b17bcff42cc14",
+          "time": "2024-07-25T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-04T15:00:00+08:00",
+            "endTime": "2024-07-09T15:00:00+08:00",
+            "price": 2905.264,
+            "dif": -17.055362071009313
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "c18216049a398bbbfff713a5",
+          "time": "2024-08-05T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-22T14:00:00+08:00",
+            "endTime": "2024-07-30T15:00:00+08:00",
+            "price": 2871.629,
+            "dif": -22.116414726835956
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "59f399f262f8199bd65bef70",
+          "time": "2024-08-07T11:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-22T14:00:00+08:00",
+            "endTime": "2024-07-30T15:00:00+08:00",
+            "price": 2871.629,
+            "dif": -22.116414726835956
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "ce86a1a25b797a489168cf4c",
+          "time": "2024-08-22T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-12T14:00:00+08:00",
+            "endTime": "2024-08-12T15:00:00+08:00",
+            "price": 2857.413,
+            "dif": -11.628055791852148
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "eventsOnAug22": [
+        {
+          "id": "ce86a1a25b797a489168cf4c",
+          "time": "2024-08-22T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-12T14:00:00+08:00",
+            "endTime": "2024-08-12T15:00:00+08:00",
+            "price": 2857.413,
+            "dif": -11.628055791852148
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    },
+    "m120": {
+      "prefixBars": 7602,
+      "prefixStart": "2009-01-05T11:30:00+08:00",
+      "through": "2024-08-22T15:00:00+08:00",
+      "terminalPoint": {
+        "time": "2024-08-22T15:00:00+08:00",
+        "close": 2848.7717,
+        "dif": -9.051972690605453,
+        "dea": -8.338463880478505,
+        "hist": -1.4270176202538956,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-23T11:30:00+08:00",
+          "endTime": "2024-07-31T11:30:00+08:00",
+          "price": 2876.87,
+          "dif": -22.869133541594238
+        },
+        "pendingTopHistoryId": null
+      },
+      "eventsSinceJune25": [
+        {
+          "id": "747ba41a812fdaa6785ab999",
+          "time": "2024-06-25T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-14T11:30:00+08:00",
+            "endTime": "2024-06-17T15:00:00+08:00",
+            "price": 3015.8906,
+            "dif": -23.27864573701345
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "757d466c21e24fc87d12776d",
+          "time": "2024-07-08T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "368600118be1d63bdb16a0e2",
+          "time": "2024-07-09T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "918e5746ba5ed2dd4a9b88f3",
+          "time": "2024-07-23T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "2ec38ff92d8678550e50403c",
+          "time": "2024-07-31T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-06-21T15:00:00+08:00",
+            "endTime": "2024-06-27T15:00:00+08:00",
+            "price": 2940.594,
+            "dif": -28.81061820297009
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "ab3529d574354f227fd66a53",
+          "time": "2024-08-06T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "4491b06107a1c0897434d49c",
+          "time": "2024-08-08T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "34a729c44fd425275b550f4c",
+          "time": "2024-08-09T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "e280ecfc1893fe746020b317",
+          "time": "2024-08-13T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "e87eece9f9fc6a1e1ffb6d25",
+          "time": "2024-08-22T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "eventsOnAug22": [
+        {
+          "id": "e87eece9f9fc6a1e1ffb6d25",
+          "time": "2024-08-22T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-23T11:30:00+08:00",
+            "endTime": "2024-07-31T11:30:00+08:00",
+            "price": 2876.87,
+            "dif": -22.869133541594238
+          },
+          "relatedTopHistoryId": null
+        }
+      ]
+    }
+  },
+  "structureCount": {
+    "narrated": 4,
+    "ourCount": 4,
+    "ourTimes": [
+      "2024-07-09",
+      "2024-07-31",
+      "2024-08-13",
+      "2024-08-15"
+    ],
+    "limitation": "count compatibility is not independent timestamp verification for all four software labels"
+  },
+  "diagnosticComparison": "aug22_trigger_hypotheses_20261015.json",
+  "verdict": "BOTTOM_STRUCTURE_DISAPPEARANCE_IDENTITY_CONFIRMED_TRIGGER_UNRESOLVED",
+  "codeGraphUsed": "codegraph_explore: XxmCalculator, XxmTopHistoryDto, eventLabel; unrelated step matches excluded",
+  "limitations": [
+    "No video URL or audio supplied, no audio re-listening; raw ASR preserved.",
+    "No simulated K-line price or result is supplied; mention of simulation is not a completed threshold experiment.",
+    "Red arrows on image do not specify a numeric rule.",
+    "No statement that price alone, DIF alone, 1% threshold, or complete TOP lifecycle applies to BOTTOM.",
+    "Other index explanations do not become SSE software facts.",
+    "No new minute screenshots; narrated state match is not exact event-time validation."
+  ],
+  "productionCodeChanged": false,
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50"
+}

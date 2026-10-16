@@ -50,3 +50,15 @@ describe("XXM request isolation", () => {
     expect(result.current.macdPrimitives[0]).toBe(primitive);
   });
 });
+
+it("rejects an old detector response and accepts the h1 response on retry", async () => {
+  const { points, response } = xxmFixture();
+  const old = { ...response, algorithmVersion: "xxm-direction-v0.1" };
+  vi.mocked(fetchXxm).mockResolvedValueOnce(old).mockResolvedValueOnce(response);
+  const { result } = renderHook(() => useIndexXxmLayer({ tsCode: "000001.SH", period: "day", points }));
+  await waitFor(() => expect(result.current.phase).toBe("error"));
+  expect(result.current.data).toBeNull();
+  act(() => result.current.retry());
+  await waitFor(() => expect(result.current.phase).toBe("ready"));
+  expect(result.current.data?.response.algorithmVersion).toBe("xxm-direction-v0.1-h1");
+});

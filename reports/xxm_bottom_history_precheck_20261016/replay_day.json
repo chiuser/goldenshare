@@ -1,0 +1,275 @@
+{
+  "events": [
+    {
+      "id": "9db36aa4dc9577e8e217750f",
+      "time": "2024-01-08",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "f453b6bb242c86c3136df84c"
+    },
+    {
+      "id": "8ea3dbe728393a2f92d9309e",
+      "time": "2024-07-23",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "370fe53f6a586b2dd0603e57"
+    },
+    {
+      "id": "16170b2af3c669040d57a20a",
+      "time": "2024-08-05",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "6bdd815119caeca1567e080a"
+    },
+    {
+      "id": "1fce99f0b3044668467adb19",
+      "time": "2024-08-22",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "693e00768dbb606de4b47414"
+    }
+  ],
+  "bottomHistories": [
+    {
+      "id": "776295324e7b142eff612355",
+      "structureEventId": "82cc4f0c45894e509b1a71be",
+      "confirmedAt": "2023-06-30",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2023-06-26",
+      "leftOriginAt": "2023-07-03",
+      "priceLow": 3150.6189,
+      "priceLowAt": "2023-06-26",
+      "originalReference": {
+        "startTime": "2023-05-11",
+        "endTime": "2023-06-08",
+        "price": 3195.3404,
+        "dif": -27.577
+      },
+      "status": "ENDED",
+      "endedAt": "2023-08-16",
+      "endReason": "new_bottom_DULL",
+      "observedThrough": "2023-08-16",
+      "ageBars": 33
+    },
+    {
+      "id": "f453b6bb242c86c3136df84c",
+      "structureEventId": "52e69183dbc026e6db54ca54",
+      "confirmedAt": "2023-12-27",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2023-11-28",
+      "leftOriginAt": "2023-12-28",
+      "priceLow": 2898.8787,
+      "priceLowAt": "2023-12-26",
+      "originalReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "status": "ENDED",
+      "endedAt": "2024-01-08",
+      "endReason": "historical_price_break",
+      "observedThrough": "2024-01-08",
+      "ageBars": 7
+    },
+    {
+      "id": "49508bd3ee6bff401b40d620",
+      "structureEventId": "2d165b283498209f6519df70",
+      "confirmedAt": "2024-01-16",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2024-01-09",
+      "leftOriginAt": null,
+      "priceLow": 2877.7023,
+      "priceLowAt": "2024-01-10",
+      "originalReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "status": "ENDED",
+      "endedAt": "2024-01-17",
+      "endReason": "new_bottom_DULL",
+      "observedThrough": "2024-01-17",
+      "ageBars": 1
+    },
+    {
+      "id": "370fe53f6a586b2dd0603e57",
+      "structureEventId": "5a7771ac7ac0af316408c6c1",
+      "confirmedAt": "2024-07-09",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2024-07-05",
+      "leftOriginAt": "2024-07-11",
+      "priceLow": 2922.4498,
+      "priceLowAt": "2024-07-08",
+      "originalReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "status": "ENDED",
+      "endedAt": "2024-07-23",
+      "endReason": "historical_price_break",
+      "observedThrough": "2024-07-23",
+      "ageBars": 10
+    },
+    {
+      "id": "6bdd815119caeca1567e080a",
+      "structureEventId": "30584672b3554a96ae19f8b6",
+      "confirmedAt": "2024-07-31",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2024-07-24",
+      "leftOriginAt": "2024-08-01",
+      "priceLow": 2879.2996,
+      "priceLowAt": "2024-07-30",
+      "originalReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "status": "ENDED",
+      "endedAt": "2024-08-05",
+      "endReason": "historical_price_break",
+      "observedThrough": "2024-08-05",
+      "ageBars": 3
+    },
+    {
+      "id": "dfdd5643973fb31f17334c58",
+      "structureEventId": "db111e521b0c92e71b1ce3cf",
+      "confirmedAt": "2024-08-13",
+      "confirmationRoute": "dif_turn",
+      "originSegmentStart": "2024-08-05",
+      "leftOriginAt": null,
+      "priceLow": 2858.2046,
+      "priceLowAt": "2024-08-12",
+      "originalReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "status": "ENDED",
+      "endedAt": "2024-08-14",
+      "endReason": "new_bottom_DULL",
+      "observedThrough": "2024-08-14",
+      "ageBars": 1
+    },
+    {
+      "id": "693e00768dbb606de4b47414",
+      "structureEventId": "7785f18b2d637bcb3dea30a5",
+      "confirmedAt": "2024-08-15",
+      "confirmationRoute": "color_flip",
+      "originSegmentStart": "2024-08-05",
+      "leftOriginAt": "2024-08-15",
+      "priceLow": 2850.6539,
+      "priceLowAt": "2024-08-14",
+      "originalReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "status": "ENDED",
+      "endedAt": "2024-08-22",
+      "endReason": "historical_price_break",
+      "observedThrough": "2024-08-22",
+      "ageBars": 5
+    }
+  ],
+  "newEventInventory": [
+    {
+      "period": "day",
+      "time": "2024-01-08",
+      "confirmedAt": "2023-12-27",
+      "priceLow": 2898.8787,
+      "priceLowAt": "2023-12-26",
+      "leftOriginAt": "2023-12-28",
+      "close": 2887.5379,
+      "dif": -18.737,
+      "previousDif": -15.177,
+      "hist": 3.308,
+      "ageBars": 7,
+      "softwareOracle": "not_established"
+    },
+    {
+      "period": "day",
+      "time": "2024-07-23",
+      "confirmedAt": "2024-07-09",
+      "priceLow": 2922.4498,
+      "priceLowAt": "2024-07-08",
+      "leftOriginAt": "2024-07-11",
+      "close": 2915.3685,
+      "dif": -17.753,
+      "previousDif": -14.436,
+      "hist": 3.815,
+      "ageBars": 10,
+      "softwareOracle": "known_five"
+    },
+    {
+      "period": "day",
+      "time": "2024-08-05",
+      "confirmedAt": "2024-07-31",
+      "priceLow": 2879.2996,
+      "priceLowAt": "2024-07-30",
+      "leftOriginAt": "2024-08-01",
+      "close": 2860.6978,
+      "dif": -26.833,
+      "previousDif": -23.721,
+      "hist": -3.395,
+      "ageBars": 3,
+      "softwareOracle": "known_five"
+    },
+    {
+      "period": "day",
+      "time": "2024-08-22",
+      "confirmedAt": "2024-08-15",
+      "priceLow": 2850.6539,
+      "priceLowAt": "2024-08-14",
+      "leftOriginAt": "2024-08-15",
+      "close": 2848.7718,
+      "dif": -22.277,
+      "previousDif": -21.807,
+      "hist": 4.234,
+      "ageBars": 5,
+      "softwareOracle": "known_five"
+    }
+  ]
+}

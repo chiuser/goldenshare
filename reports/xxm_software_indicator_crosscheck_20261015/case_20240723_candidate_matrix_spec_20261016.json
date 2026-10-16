@@ -1,0 +1,382 @@
+{
+  "recordedAt": "2026-10-16",
+  "scope": "Fixed offline hypotheses for July23 research; existing-material cross-check, not a blind holdout or product implementation",
+  "triggers": {
+    "H1": {
+      "price": "structure_low",
+      "dif": "none"
+    },
+    "H2": {
+      "price": "none",
+      "dif": "reverse_1pct"
+    },
+    "H3": {
+      "price": "structure_low",
+      "dif": "reverse_1pct"
+    },
+    "H4": {
+      "price": "structure_low",
+      "dif": "reverse_any"
+    },
+    "H5": {
+      "price": "original_reference",
+      "dif": "none"
+    },
+    "H6": {
+      "price": "confirmation_close",
+      "dif": "none"
+    },
+    "H7": {
+      "price": "none",
+      "dif": "reverse_any"
+    }
+  },
+  "starts": {
+    "S1": "从结构后一根开始检查",
+    "S2": "结构原负柱段已结束后检查；变色确认结构从后一根起可检查"
+  },
+  "ends": {
+    "E1": "原DIF参照突破，或任何新底部DULL/STRUCTURE接替，先于历史触发",
+    "E2": "同E1，但不让当前dif_return类DULL结束旧记录",
+    "E3": "原DIF参照突破或新底部STRUCTURE接替；DULL不结束记录"
+  },
+  "candidates": [
+    {
+      "id": "H1-S1-E1",
+      "trigger": "H1",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H1-S1-E2",
+      "trigger": "H1",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H1-S1-E3",
+      "trigger": "H1",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H1-S2-E1",
+      "trigger": "H1",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H1-S2-E2",
+      "trigger": "H1",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H1-S2-E3",
+      "trigger": "H1",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H2-S1-E1",
+      "trigger": "H2",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H2-S1-E2",
+      "trigger": "H2",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H2-S1-E3",
+      "trigger": "H2",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H2-S2-E1",
+      "trigger": "H2",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H2-S2-E2",
+      "trigger": "H2",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H2-S2-E3",
+      "trigger": "H2",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H3-S1-E1",
+      "trigger": "H3",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H3-S1-E2",
+      "trigger": "H3",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H3-S1-E3",
+      "trigger": "H3",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H3-S2-E1",
+      "trigger": "H3",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H3-S2-E2",
+      "trigger": "H3",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H3-S2-E3",
+      "trigger": "H3",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H4-S1-E1",
+      "trigger": "H4",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H4-S1-E2",
+      "trigger": "H4",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H4-S1-E3",
+      "trigger": "H4",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H4-S2-E1",
+      "trigger": "H4",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H4-S2-E2",
+      "trigger": "H4",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H4-S2-E3",
+      "trigger": "H4",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H5-S1-E1",
+      "trigger": "H5",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H5-S1-E2",
+      "trigger": "H5",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H5-S1-E3",
+      "trigger": "H5",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H5-S2-E1",
+      "trigger": "H5",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H5-S2-E2",
+      "trigger": "H5",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H5-S2-E3",
+      "trigger": "H5",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H6-S1-E1",
+      "trigger": "H6",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H6-S1-E2",
+      "trigger": "H6",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H6-S1-E3",
+      "trigger": "H6",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H6-S2-E1",
+      "trigger": "H6",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H6-S2-E2",
+      "trigger": "H6",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H6-S2-E3",
+      "trigger": "H6",
+      "start": "S2",
+      "end": "E3"
+    },
+    {
+      "id": "H7-S1-E1",
+      "trigger": "H7",
+      "start": "S1",
+      "end": "E1"
+    },
+    {
+      "id": "H7-S1-E2",
+      "trigger": "H7",
+      "start": "S1",
+      "end": "E2"
+    },
+    {
+      "id": "H7-S1-E3",
+      "trigger": "H7",
+      "start": "S1",
+      "end": "E3"
+    },
+    {
+      "id": "H7-S2-E1",
+      "trigger": "H7",
+      "start": "S2",
+      "end": "E1"
+    },
+    {
+      "id": "H7-S2-E2",
+      "trigger": "H7",
+      "start": "S2",
+      "end": "E2"
+    },
+    {
+      "id": "H7-S2-E3",
+      "trigger": "H7",
+      "start": "S2",
+      "end": "E3"
+    }
+  ],
+  "candidateCount": 42,
+  "constants": {
+    "difPercentage": 1,
+    "priceComparison": "strict close < selected anchor price",
+    "noFiniteExpiry": true,
+    "ordinaryKernel": "Frozen current calculator; known A dif_return lifecycle not fixed in this diagnostic",
+    "endPriority": "original reference DIF break, then configured ordinary replacement, then history trigger, then new history creation",
+    "onePendingRecord": true
+  },
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "positiveChecks": [
+    {
+      "id": "day_jul23",
+      "period": "day",
+      "anchor": "2024-07-09",
+      "mappedTime": "2024-07-23",
+      "source": "event_recognition_review_20261015.json",
+      "evidence": "历史图柱位映射，无游标及软件关联ID"
+    },
+    {
+      "id": "day_aug05",
+      "period": "day",
+      "anchor": "2024-07-31",
+      "mappedTime": "2024-08-05",
+      "source": "case_20240805_semantics_20261015.json",
+      "evidence": "当日末端绿字、讲稿排除真正钝化失效；关联和历史形成时点仍按已有对应"
+    },
+    {
+      "id": "day_aug22",
+      "period": "day",
+      "anchor": "2024-08-15",
+      "mappedTime": "2024-08-22",
+      "source": "case_20240822_semantics_20261015.json",
+      "evidence": "当日绿字及结构消失明确命名；原结构关联按已有对应"
+    },
+    {
+      "id": "m120_aug05",
+      "period": "m120",
+      "anchor": "2024-07-31T11:30:00+08:00",
+      "mappedTime": "2024-08-05T15:00:00+08:00",
+      "source": "case_20240904_m120_semantics_20261015.json",
+      "evidence": "9/4历史图柱位映射，无游标或关联ID"
+    },
+    {
+      "id": "m120_aug14",
+      "period": "m120",
+      "anchor": "2024-08-13T15:00:00+08:00",
+      "mappedTime": "2024-08-14T15:00:00+08:00",
+      "source": "case_20240904_m120_semantics_20261015.json",
+      "evidence": "9/4历史图柱位映射，无游标或关联ID"
+    }
+  ],
+  "softNegativeChecks": [
+    {
+      "id": "m120_sep02_morning",
+      "period": "m120",
+      "anchor": "2024-08-30T11:30:00+08:00",
+      "time": "2024-09-02T11:30:00+08:00",
+      "status": "用户确认紫色结构与黄色钝化之间没有可见绿色；未证明历史标记从不删除",
+      "canUniquelyFalsify": false
+    },
+    {
+      "id": "m120_sep02_afternoon",
+      "period": "m120",
+      "anchor": "2024-08-30T11:30:00+08:00",
+      "time": "2024-09-02T15:00:00+08:00",
+      "status": "有新钝化、未见旧绿字；用于检查结束优先级，仍是静态负证据",
+      "canUniquelyFalsify": false
+    }
+  ],
+  "additionalSearchRange": {
+    "from": "2024-07-01",
+    "to": "2024-09-04",
+    "periods": [
+      "day",
+      "m60",
+      "m90",
+      "m120"
+    ],
+    "sourceStarts": "Each full physical prefix from its actual source origin",
+    "externalOracleForUnmarkedBars": false
+  },
+  "successCriterion": "Compare each old structure record first trigger against existing positive mapped observations; keep soft negative evidence separate and preserve rejected predictions. No best-fit parameter adoption or claiming unique software rule.",
+  "codeChanged": false
+}

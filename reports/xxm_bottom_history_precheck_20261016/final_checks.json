@@ -1,0 +1,34 @@
+{
+  "product": {
+    "files": 46,
+    "allHashesUnchanged": true
+  },
+  "evidence": {
+    "files": 83,
+    "allHashesUnchanged": true
+  },
+  "frozenSource": {
+    "files": 19,
+    "allHashesUnchanged": true
+  },
+  "docs": {
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "61cae6e65777c38dc5d59ae237c7cb6f2f7168bb51916bccf15f64067ab02233",
+    "docs/product/xxm-macd-structure-research-v1.md": "fb9421a4833bf654ffadcf48101a4f43dbefeb8ee5a7d0cef5039a7b643d80a9",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "5d91b20112eb7165578e89240869b1d950ed95e3d5834fe5447b88432728c727",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "a8a6eae1cd1b033155394fb29b2e2b2ebc54f8bcd06c0cc1d3a43a42c96fdcdc"
+  },
+  "V01LastLineC7": true,
+  "scopedLocalLinksExist": true,
+  "activeSectionAnchorsChecked": 3,
+  "baselineSourcesAndEvidenceNoWrites": true,
+  "docsIntegrity": {
+    "deadAbsoluteLinks": "PASS",
+    "dsStoreNoise": "PASS",
+    "tushareIndexConsistency": "PASS"
+  },
+  "scopedGitDiffCheck": "PASS",
+  "productTestsNotRerun": "No product or frontend changes; independent research checks executed instead",
+  "boundaryOrDependencyChange": false,
+  "formalProductHttpOrMixedTabsAcceptance": false,
+  "productImplementation": false
+}

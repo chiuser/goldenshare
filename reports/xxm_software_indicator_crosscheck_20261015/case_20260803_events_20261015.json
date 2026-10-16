@@ -1,0 +1,701 @@
+{
+  "recordedAt": "2026-10-15T21:41:42.223489+08:00",
+  "date": "2026-08-03",
+  "scope": "SSE daily and m120 software event comparison; m60 not supplied and not substituted",
+  "specHash": "2d57fe64123ca9982edb8e38200d7e0c7c6a5212d7b27fa413a6458ca2430c50",
+  "calculatorSha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "files": [
+    {
+      "kind": "day_image",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-7c172b48-2f45-4eb9-9423-124070d86ad6.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_day.png",
+      "sha256": "873465280f34b0756a2bd54f22cb89849540b218c3d0d5cb7c6a591f9b750bbc",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "m120_image",
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-6419942b-10d3-43f4-a9b3-86118151f99e.png",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_m120.png",
+      "sha256": "c2f427a235fe65d8bdfc5ee5a1f7362965126d8b9319be3abb937f8162f590e2",
+      "originalBytesPreserved": true
+    },
+    {
+      "kind": "transcript",
+      "originalPath": "/Users/congming/.codex/attachments/ae978699-5690-4c07-944d-3701fab11dbd/Pasted text.txt",
+      "savedPath": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_user_transcript.txt",
+      "sha256": "9999d1d33eed3dfcb636baae30ef35a8715bbabd108581598b21d78cbfe9e2be",
+      "originalBytesPreserved": true
+    }
+  ],
+  "periods": {
+    "day": {
+      "prefixRows": 867,
+      "prefixStart": "2023-01-03",
+      "through": "2026-08-03",
+      "endpoint": {
+        "time": "2026-08-03",
+        "close": 3809.6629,
+        "dif": -57.579,
+        "dea": -57.204,
+        "hist": -0.75,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+      },
+      "visibleEvents": [
+        {
+          "id": "e0fe4c3cbbe2655f4245fdc6",
+          "time": "2026-07-13",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "43199df3289ee09d102c555f",
+          "time": "2026-07-15",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "1881c0210934577d1409b627",
+          "time": "2026-07-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "66e282a83351023d460d4b98",
+          "time": "2026-07-20",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "numeric": [
+        {
+          "field": "close",
+          "softwareDisplayed": "3809.66",
+          "ourActual": 3809.6629,
+          "ourDisplayed": "3809.66",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": -0.0028999999999541615
+        },
+        {
+          "field": "dif",
+          "softwareDisplayed": "-57.579",
+          "ourActual": -57.579,
+          "ourDisplayed": "-57.579",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": 0.0
+        },
+        {
+          "field": "dea",
+          "softwareDisplayed": "-57.204",
+          "ourActual": -57.204,
+          "ourDisplayed": "-57.204",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": 0.0
+        },
+        {
+          "field": "hist",
+          "softwareDisplayed": "-0.751",
+          "ourActual": -0.75,
+          "ourDisplayed": "-0.750",
+          "sameAtDisplayPrecision": false,
+          "softwareDisplayedMinusOurActual": -0.0010000000000000009
+        }
+      ],
+      "softwareLabels": [
+        {
+          "time": "2026-07-13",
+          "softwareText": "钝化",
+          "firstInkX": 797,
+          "barCenterX": 794.0417094782015,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "e0fe4c3cbbe2655f4245fdc6",
+              "time": "2026-07-13",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-05-18",
+                "endTime": "2026-06-15",
+                "price": 3959.3378,
+                "dif": -30.025
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-13",
+            "close": 3913.794,
+            "dif": -28.116,
+            "dea": -14.749,
+            "hist": -26.736,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            },
+            "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-15",
+          "softwareText": "消失",
+          "firstInkX": 933,
+          "barCenterX": 927.4527094782014,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "43199df3289ee09d102c555f",
+              "time": "2026-07-15",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-05-18",
+                "endTime": "2026-06-15",
+                "price": 3959.3378,
+                "dif": -30.025
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-15",
+            "close": 3955.5781,
+            "dif": -32.017,
+            "dea": -20.639,
+            "hist": -22.757,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-17",
+          "softwareText": "钝化",
+          "firstInkX": 1061,
+          "barCenterX": 1060.8637094782016,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "1881c0210934577d1409b627",
+              "time": "2026-07-17",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-04",
+                "endTime": "2026-04-07",
+                "price": 3813.2829,
+                "dif": -56.353
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-17",
+            "close": 3764.1547,
+            "dif": -53.613,
+            "dea": -30.186,
+            "hist": -46.855,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-20",
+          "softwareText": "消失",
+          "firstInkX": 1135,
+          "barCenterX": 1127.5692094782014,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "66e282a83351023d460d4b98",
+              "time": "2026-07-20",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-04",
+                "endTime": "2026-04-07",
+                "price": 3813.2829,
+                "dif": -56.353
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-20",
+            "close": 3796.2814,
+            "dif": -61.82,
+            "dea": -36.513,
+            "hist": -50.616,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "ec1734f776caf1a452ba6c13"
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        }
+      ],
+      "geometry": {
+        "end": "2026-08-03",
+        "lastCenter": 1794.6242094782015,
+        "spacing": 66.7055,
+        "inkOffsetRange": [
+          -2,
+          12
+        ],
+        "lastCenterPerturbation": [
+          -1,
+          0,
+          1
+        ],
+        "spacingPerturbation": [
+          -0.02,
+          0,
+          0.02
+        ]
+      },
+      "replayPath": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20260803_day.json",
+      "replaySha256": "0863ff09f64002c31cebb47bb275a57196531dc54f261606deeeb8705698260f"
+    },
+    "m120": {
+      "prefixRows": 8540,
+      "prefixStart": "2009-01-05T11:30:00+08:00",
+      "through": "2026-08-03T15:00:00+08:00",
+      "endpoint": {
+        "time": "2026-08-03T15:00:00+08:00",
+        "close": 3809.6628,
+        "dif": -27.800464594120967,
+        "dea": -33.21307055131984,
+        "hist": 10.825211914397741,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null
+      },
+      "visibleEvents": [
+        {
+          "id": "91579f6f8dac38a02ded269c",
+          "time": "2026-07-09T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "a573aa5b9ac4c1b0c5543919",
+          "time": "2026-07-09T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "18b90242d64fd66abcf9f0c2",
+          "time": "2026-07-10T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        },
+        {
+          "id": "c8f90956aa346cecda8d5517",
+          "time": "2026-07-14T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null
+        }
+      ],
+      "numeric": [
+        {
+          "field": "close",
+          "softwareDisplayed": "3809.66",
+          "ourActual": 3809.6628,
+          "ourDisplayed": "3809.66",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": -0.002800000000206637
+        },
+        {
+          "field": "dif",
+          "softwareDisplayed": "-27.801",
+          "ourActual": -27.800464594120967,
+          "ourDisplayed": "-27.800",
+          "sameAtDisplayPrecision": false,
+          "softwareDisplayedMinusOurActual": -0.0005354058790310035
+        },
+        {
+          "field": "dea",
+          "softwareDisplayed": "-33.213",
+          "ourActual": -33.21307055131984,
+          "ourDisplayed": "-33.213",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": 7.055131983690899e-05
+        },
+        {
+          "field": "hist",
+          "softwareDisplayed": "10.825",
+          "ourActual": 10.825211914397741,
+          "ourDisplayed": "10.825",
+          "sameAtDisplayPrecision": true,
+          "softwareDisplayedMinusOurActual": -0.00021191439774170817
+        }
+      ],
+      "softwareLabels": [
+        {
+          "time": "2026-07-09T11:30:00+08:00",
+          "softwareText": "钝化",
+          "firstInkX": 891,
+          "barCenterX": 889.4809885862455,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "91579f6f8dac38a02ded269c",
+              "time": "2026-07-09T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-05-14T15:00:00+08:00",
+                "endTime": "2026-06-11T15:00:00+08:00",
+                "price": 3959.338,
+                "dif": -35.908539098328674
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-09T11:30:00+08:00",
+            "close": 3952.4917,
+            "dif": -26.57923234618238,
+            "dea": -14.467704656968767,
+            "hist": -24.223055378427226,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2026-05-14T15:00:00+08:00",
+              "endTime": "2026-06-11T15:00:00+08:00",
+              "price": 3959.338,
+              "dif": -35.908539098328674
+            },
+            "pendingTopHistoryId": null
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-09T15:00:00+08:00",
+          "softwareText": "结构形成",
+          "firstInkX": 922,
+          "barCenterX": 920.0349885862454,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "a573aa5b9ac4c1b0c5543919",
+              "time": "2026-07-09T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "STRUCTURE",
+              "route": "dif_turn",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-05-14T15:00:00+08:00",
+                "endTime": "2026-06-11T15:00:00+08:00",
+                "price": 3959.338,
+                "dif": -35.908539098328674
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-09T15:00:00+08:00",
+            "close": 4036.588,
+            "dif": -23.03476305462891,
+            "dea": -16.1811163365008,
+            "hist": -13.707293436256222,
+            "ordinaryState": "STRUCTURE",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2026-05-14T15:00:00+08:00",
+              "endTime": "2026-06-11T15:00:00+08:00",
+              "price": 3959.338,
+              "dif": -35.908539098328674
+            },
+            "pendingTopHistoryId": null
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-10T15:00:00+08:00",
+          "softwareText": "消失",
+          "firstInkX": 988,
+          "barCenterX": 981.1429885862455,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "18b90242d64fd66abcf9f0c2",
+              "time": "2026-07-10T15:00:00+08:00",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "dif_return",
+              "fromState": "STRUCTURE",
+              "eventReference": {
+                "startTime": "2026-05-14T15:00:00+08:00",
+                "endTime": "2026-06-11T15:00:00+08:00",
+                "price": 3959.338,
+                "dif": -35.908539098328674
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-10T15:00:00+08:00",
+            "close": 3996.1616,
+            "dif": -18.733466151772973,
+            "dea": -16.91278246624125,
+            "hist": -3.6413673710634455,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2026-05-14T15:00:00+08:00",
+              "endTime": "2026-06-11T15:00:00+08:00",
+              "price": 3959.338,
+              "dif": -35.908539098328674
+            },
+            "pendingTopHistoryId": null
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        },
+        {
+          "time": "2026-07-14T11:30:00+08:00",
+          "softwareText": "消失",
+          "firstInkX": 1079,
+          "barCenterX": 1072.8049885862456,
+          "geometryPerturbationsPassed": 9,
+          "ourEvents": [
+            {
+              "id": "c8f90956aa346cecda8d5517",
+              "time": "2026-07-14T11:30:00+08:00",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-05-14T15:00:00+08:00",
+                "endTime": "2026-06-11T15:00:00+08:00",
+                "price": 3959.338,
+                "dif": -35.908539098328674
+              },
+              "relatedTopHistoryId": null
+            }
+          ],
+          "ourPoint": {
+            "time": "2026-07-14T11:30:00+08:00",
+            "close": 3887.9226,
+            "dif": -36.37110904299789,
+            "dea": -23.867731534254297,
+            "hist": -25.00675501748718,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null
+          },
+          "evidenceGrade": "manually read text, mapped timestamp; no historical software cursor"
+        }
+      ],
+      "geometry": {
+        "end": "2026-08-03T15:00:00+08:00",
+        "lastCenter": 1958.8709885862454,
+        "spacing": 30.554,
+        "inkOffsetRange": [
+          -2,
+          12
+        ],
+        "lastCenterPerturbation": [
+          -1,
+          0,
+          1
+        ],
+        "spacingPerturbation": [
+          -0.02,
+          0,
+          0.02
+        ]
+      },
+      "replayPath": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20260803_m120.json",
+      "replaySha256": "a62306f685959f6b43491f92353015cadee90a01e1d681d5cd372079d5b6ef68"
+    }
+  },
+  "geometryChecks": 72,
+  "m120KeyDifference": {
+    "time": "2026-07-10T15:00:00+08:00",
+    "softwareText": "消失",
+    "ourType": "DULL",
+    "ourRoute": "dif_return",
+    "precedingStructure": "2026-07-09T15:00:00+08:00",
+    "close": 3996.1616,
+    "originalCloseLow": 3952.4917,
+    "closeAboveOriginalLow": 43.66989999999987,
+    "dif": -18.733466151772973,
+    "previousDif": -17.563592378288376,
+    "difReturnPct": 6.660788683132739,
+    "referenceDif": -35.908539098328674,
+    "ordinaryReferenceNotBroken": true,
+    "priceOnlyWouldNotWithdraw": true,
+    "structureDisappearanceIdentity": "supported by immediately preceding bottom structure and no reference break in our source, NOT explicitly named by this day transcript",
+    "yellowTiming": "overlapped fragment, potentially same-bar re-dullness or a later label; do not assert a one-bar delay",
+    "mirroredTopLifecycleEnd": {
+      "ended": "2026-07-10T15:00:00+08:00",
+      "reason": "new_bottom_DULL",
+      "formed": "2026-07-09T15:00:00+08:00",
+      "low": 3952.4917,
+      "lowAt": "2026-07-09T11:30:00+08:00",
+      "reference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      }
+    }
+  },
+  "unscorableLabelFragments": [
+    {
+      "period": "m120",
+      "color": "yellow",
+      "visibleInkX": [
+        1012,
+        1028
+      ],
+      "reason": "left part covered by purple/green; visible first ink is not necessarily the start of a new word",
+      "possibleTimes": [
+        "2026-07-10T15:00:00+08:00",
+        "2026-07-13T11:30:00+08:00"
+      ],
+      "excludedFromGeometryChecksAndEventScore": true
+    }
+  ],
+  "captionEvidence": [
+    {
+      "lines": [
+        128,
+        136
+      ],
+      "meaning": "Daily sequence 6, low sideways movement and waiting for structure; no exact historical event types named."
+    },
+    {
+      "lines": [
+        144,
+        157
+      ],
+      "meaning": "90 and120 currently have positive histogram and rising DIF; need a new negative histogram segment with two bars before assessing bottom dullness."
+    },
+    {
+      "lines": [
+        211,
+        248
+      ],
+      "meaning": "Later dullness-disappearance and trading discussion is conditional; not a statement that disappearance happened on August3."
+    }
+  ],
+  "classificationSummary": {
+    "day": "four historical marks match ordinary DULL/CANCEL timing; no current new signal",
+    "m120": "July9 dull/structure and July14 disappearance align; July10 green disappearance has no corresponding event in our ledger, which contains only DULL. Nearby yellow label is partially occluded: no separate re-dullness timing error is established.",
+    "m60": "not observed; original August3 10:30 m60 discriminating hypothesis remains unscored"
+  },
+  "limits": [
+    "All historical timestamps are mapped, not explicit software cursor values.",
+    "Current m120 right endpoint is inferred as15:00 from terminal position, date, close and numeric signature; image does not show HHMM.",
+    "Labels including July10 are not explicitly assigned event type by this transcript.",
+    "Price-only is insufficient as a mandatory BOTTOM withdrawal condition if July10 green is tied to preceding bottom structure; it is not a proof that DIF-only1% is the software rule.",
+    "This is a supplementary audit, not a full accuracy score or independent blind test.",
+    "Other index, wave-count, trade, position and24-cycle comments are source context, not implemented rules or user instructions."
+  ],
+  "productionCodeChanged": false,
+  "formalDataWritten": false
+}

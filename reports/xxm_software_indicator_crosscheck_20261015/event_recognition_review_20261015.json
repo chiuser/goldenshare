@@ -1,0 +1,152 @@
+{
+  "recordedAt": "2026-10-15T20:14:02.279936+08:00",
+  "scope": "上证钝化、结构、消失事件识别核对；完整历史前缀回放，不改代码／参数／正式数据",
+  "codeCommit": "14d52e1549ab86a51bf48f873a66c3a71b9129f9",
+  "calculatorSha256": "0e6b1d7884a9dc26974cff18a56edaa90f3faa37fcf0b1c104c78b63d7901ebd",
+  "spec": {
+    "algorithm_version": "xxm-direction-v0.1",
+    "dif_turn_pct": 1.0,
+    "max_refs": 2,
+    "min_bars": 2,
+    "reference_policy": "strongest_eligible",
+    "macd_parameters": [
+      12,
+      26,
+      9
+    ],
+    "histogram_multiplier": 2,
+    "color_flip": true,
+    "flip_requires_turn": false,
+    "historical_price_only": true,
+    "fixed_expiry": null
+  },
+  "sourceEvidence": "2026-10-13 audited snapshot; source CSV SHA256 checked against its original manifest, not newly read from DB in this event audit",
+  "cases": {
+    "20240930_day": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20240930_day.json",
+      "sha256": "9c2d1d6ed19a7c860dd40b1d2b7509c82119af74719ee3b53aa4bc6cf4ff6d83",
+      "prefixRows": 423,
+      "visibleEvents": 22,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240930_day.png",
+      "imageSha256": "880e0b552eb08d37ec9234a05c534ca30f0c9f01204b0f8da1dde46fc089a5f5"
+    },
+    "20250407_day": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20250407_day.json",
+      "sha256": "a32d7af8668846f5c17eda4b6f7be3f52cb823875e5bcefb19a37755ebb4d9eb",
+      "prefixRows": 545,
+      "visibleEvents": 4,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20250407_day.png",
+      "imageSha256": "1fe0727f80acfd4fe229fa4cccda00d0d93b45c7e673d4e9a31cda0481daac94"
+    },
+    "20260930_day": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20260930_day.json",
+      "sha256": "f6c7ab93c82a45f9e06c6bf627f13b15351ecc2817be604fd03f4c6d6e4790e2",
+      "prefixRows": 908,
+      "visibleEvents": 8,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_day.png",
+      "imageSha256": "3be7916e40673b97b080832f40e82705abd06ec26ee07cc5253719fdc556273e"
+    },
+    "20260930_m60": {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/event_replay_20260930_m60.json",
+      "sha256": "fd8f39be0893747067a84d855f4daf06187b13f43083a0a82731231d6f1e194f",
+      "prefixRows": 17244,
+      "visibleEvents": 2,
+      "image": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260930_m60.png",
+      "imageSha256": "543f073ab859e8ae761e889ecb1fcce33e0b04c2e7770adb495a12c61aa4cb70"
+    }
+  },
+  "clearSoftwareEventsMissingInOurLedger": [
+    {
+      "mappedDate": "2024-07-23",
+      "softwareText": "消失",
+      "softwareDirectionInterpretation": "BOTTOM historical withdrawal is supported by preceding bottom structure and new close low, not a directly shown event identifier",
+      "softwareInkFirstX": 1599,
+      "barCenterX": 1591.766997031657,
+      "ourEvents": [],
+      "ourOrdinaryState": "NONE",
+      "previousBottomStructure": "2024-07-09",
+      "previousCloseLowAt": "2024-07-08",
+      "previousCloseLow": 2922.4498,
+      "newClose": 2915.3685,
+      "geometryPerturbationsPassed": 9,
+      "dateEvidence": "bar-grid mapping; no historical cursor timestamp provided",
+      "conclusion": "software-visible green event absent from our event ledger; exact general software withdrawal formula remains unconfirmed"
+    },
+    {
+      "mappedDate": "2024-08-05",
+      "softwareText": "消失",
+      "softwareDirectionInterpretation": "BOTTOM historical withdrawal is supported by preceding bottom structure and new close low, not a directly shown event identifier",
+      "softwareInkFirstX": 1707,
+      "barCenterX": 1701.184497031657,
+      "ourEvents": [],
+      "ourOrdinaryState": "NONE",
+      "previousBottomStructure": "2024-07-31",
+      "previousCloseLowAt": "2024-07-30",
+      "previousCloseLow": 2879.2996,
+      "newClose": 2860.6978,
+      "geometryPerturbationsPassed": 9,
+      "dateEvidence": "bar-grid mapping; no historical cursor timestamp provided",
+      "conclusion": "software-visible green event absent from our event ledger; exact general software withdrawal formula remains unconfirmed"
+    },
+    {
+      "mappedDate": "2024-08-22",
+      "softwareText": "消失",
+      "softwareDirectionInterpretation": "BOTTOM historical withdrawal is supported by preceding bottom structure and new close low, not a directly shown event identifier",
+      "softwareInkFirstX": 1866,
+      "barCenterX": 1859.231997031657,
+      "ourEvents": [],
+      "ourOrdinaryState": "NONE",
+      "previousBottomStructure": "2024-08-15",
+      "previousCloseLowAt": "2024-08-14",
+      "previousCloseLow": 2850.6539,
+      "newClose": 2848.7718,
+      "geometryPerturbationsPassed": 9,
+      "dateEvidence": "bar-grid mapping; no historical cursor timestamp provided",
+      "conclusion": "software-visible green event absent from our event ledger; exact general software withdrawal formula remains unconfirmed"
+    }
+  ],
+  "possibleExtraEvents": [
+    {
+      "time": "2024-09-24",
+      "direction": "TOP",
+      "type": "DULL"
+    },
+    {
+      "time": "2024-09-25",
+      "direction": "TOP",
+      "type": "CANCEL"
+    }
+  ],
+  "possibleExtraEvidence": "No corresponding text found in the clear late-September area in either the 2024-09-30 or 2025-04-07 daily screenshot. Static absence alone does not establish false positive.",
+  "codeFinding": "Only TOP STRUCTURE creates a pending history, and RESEARCH_HISTORICAL_WITHDRAWAL is hardcoded TOP. Bottom historical withdrawal was explicitly excluded from the V0.1 plan.",
+  "geometry": {
+    "image": "20240930_day",
+    "rightmostBarCenter": 2163.169497031657,
+    "barSpacing": 12.1575,
+    "firstGreenInkMethod": "unchanged original RGB pixels, green contrast gate, local MACD text region; no image crop/resize/edit",
+    "expectedInkOffsetPixels": [
+      0,
+      10
+    ],
+    "perturbationLastPixels": [
+      -0.5,
+      0,
+      0.5
+    ],
+    "perturbationSpacingPixels": [
+      -0.02,
+      0,
+      0.02
+    ]
+  },
+  "limitations": [
+    "Dates of historical labels are mapped from bar geometry, not read from a software cursor.",
+    "Overlap prevents a complete event truth ledger or a full accuracy/precision/recall score.",
+    "Screenshot dates are within requested range; three missing historical marks are in July-August 2024 within the supplied September-30 screenshot.",
+    "No m90/m120 new screenshots in this batch; they cannot be declared software-aligned.",
+    "Previous numeric comparison remains separate and is not the recognition verdict."
+  ],
+  "codeChanged": false,
+  "formalDataWritten": false,
+  "boundaryChanged": false
+}

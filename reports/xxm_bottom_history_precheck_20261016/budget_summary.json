@@ -1,0 +1,40 @@
+{
+  "scope": "conservative direct-service research envelope, NOT new HTTP/schema/mixed-tabs acceptance",
+  "passed": true,
+  "count": 160,
+  "periods": {
+    "day": {
+      "cold": 1.1880640420131385,
+      "warm": 0.27688550017774105,
+      "forecast": 84.30591598153114,
+      "bytes": 235854,
+      "memory": 1318812
+    },
+    "m60": {
+      "cold": 3.8952091252431273,
+      "warm": 2.058194417040795,
+      "forecast": 18.93166732043028,
+      "bytes": 775180,
+      "memory": 23017248
+    },
+    "m90": {
+      "cold": 3.5241189156658947,
+      "warm": 1.862226250115782,
+      "forecast": 21.551750134676695,
+      "bytes": 748991,
+      "memory": 18331927
+    },
+    "m120": {
+      "cold": 2.7586647090502083,
+      "warm": 1.5324176247231662,
+      "forecast": 14.67941701412201,
+      "bytes": 705283,
+      "memory": 13670125
+    }
+  },
+  "maxSeconds": 3.8952091252431273,
+  "maxForecastMs": 84.30591598153114,
+  "includesConnectionAndReadonlySetup": true,
+  "notHTTPAcceptance": true,
+  "notConcurrentOrMixedTabs": true
+}

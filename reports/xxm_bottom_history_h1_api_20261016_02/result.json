@@ -1,0 +1,65 @@
+{
+  "fixtureOnly": true,
+  "formalProtectedService": false,
+  "frozenFieldFixture": true,
+  "results": [
+    {
+      "period": "day",
+      "through": "2024-07-23",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "day",
+      "through": "2024-08-05",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "day",
+      "through": "2024-08-22",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "m120",
+      "through": "2024-08-05T15:00:00+08:00",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "m120",
+      "through": "2024-08-14T15:00:00+08:00",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "day",
+      "through": "2026-10-13",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "m60",
+      "through": "2026-10-13T15:00:00+08:00",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "m90",
+      "through": "2026-10-13T15:00:00+08:00",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    },
+    {
+      "period": "m120",
+      "through": "2026-10-13T15:00:00+08:00",
+      "recognitionStatus": 200,
+      "forecastStatus": 200
+    }
+  ],
+  "negativeAuth": [
+    401,
+    403
+  ]
+}

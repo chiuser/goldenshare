@@ -60,6 +60,8 @@ def test_real_daily_route_query_dto_and_all_display_fields(source_db):
     assert v["dataStatus"] == "READY" and v["status"] == "CONDITIONAL_ENTRY"
     assert v["targetEndpoint"] == "2026-10-15" and v["barsAhead"] == 2
     assert v["mode"] == "REPLAY" and v["requestedAsOf"] == v["computedThrough"] == "2026-10-13"
+    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+    assert v["detectorSpecHash"] == MAIN_SPEC.spec_hash
     assert v["forecastVersion"] == "xxm-key-point-forecast-v0.2"
     assert "scenarios" not in v
     assert v["activation"]["endpoint"] == "2026-10-14"
@@ -476,10 +478,13 @@ def test_published_entry_is_not_mutated_when_another_request_appends(business_so
     service=query_service.IndexDetailXxmQueryService(lake_root=source["root"],cache=cache)
     with Session(source["engine"]) as session:
         with service.load_entry(session,period=period,now=datetime(2026,10,14,19,59,59,tzinfo=CN_ZONE)) as (old,*_):
+            from copy import deepcopy
+            old_bottom=deepcopy(old.bottom_histories); old_checkpoints=deepcopy(old.checkpoints)
             state=old.calculator.snapshot(); count=len(old.processed); last=old.processed[-1]
             with service.load_entry(session,period=period,now=datetime(2026,10,14,20,tzinfo=CN_ZONE)) as (new,*_):
                 assert len(new.processed)>count and new is not old
             assert len(old.processed)==count and old.processed[-1]==last and old.calculator.snapshot()==state
+            assert old.bottom_histories==old_bottom and old.checkpoints==old_checkpoints
 
 
 def test_response_cache_includes_future_calendar_and_obeys_shared_lru_limit(source_db,monkeypatch):

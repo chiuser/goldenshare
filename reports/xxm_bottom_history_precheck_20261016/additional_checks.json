@@ -1,0 +1,166 @@
+{
+  "scope": "research invariants and controlled inputs; not implemented strict API DTO acceptance",
+  "checks": [
+    {
+      "period": "day",
+      "name": "top_identity_graph_and_bottom_structure_associations",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "controlled_equal",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "controlled_above",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "controlled_below",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "controlled_reference_equal",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "controlled_reference_break",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "two_suffix_perturbation_prefixes_no_future_leak",
+      "passed": true
+    },
+    {
+      "period": "day",
+      "name": "one_bar_window_keeps_outside_origin_record",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "top_identity_graph_and_bottom_structure_associations",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "controlled_equal",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "controlled_above",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "controlled_below",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "controlled_reference_equal",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "controlled_reference_break",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "two_suffix_perturbation_prefixes_no_future_leak",
+      "passed": true
+    },
+    {
+      "period": "m60",
+      "name": "one_bar_window_keeps_outside_origin_record",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "top_identity_graph_and_bottom_structure_associations",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "controlled_equal",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "controlled_above",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "controlled_below",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "controlled_reference_equal",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "controlled_reference_break",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "two_suffix_perturbation_prefixes_no_future_leak",
+      "passed": true
+    },
+    {
+      "period": "m90",
+      "name": "one_bar_window_keeps_outside_origin_record",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "top_identity_graph_and_bottom_structure_associations",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "controlled_equal",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "controlled_above",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "controlled_below",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "controlled_reference_equal",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "controlled_reference_break",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "two_suffix_perturbation_prefixes_no_future_leak",
+      "passed": true
+    },
+    {
+      "period": "m120",
+      "name": "one_bar_window_keeps_outside_origin_record",
+      "passed": true
+    }
+  ],
+  "total": 32
+}

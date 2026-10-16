@@ -9,6 +9,7 @@ export interface XxmPoint {
   ordinaryDirection: XxmDirection | null;
   activeReference: XxmReference | null;
   pendingTopHistoryId: string | null;
+  pendingBottomHistoryId: string | null;
 }
 export interface XxmEvent {
   id: string; time: string; direction: XxmDirection;
@@ -17,6 +18,7 @@ export interface XxmEvent {
   fromState: XxmPoint["ordinaryState"];
   eventReference: XxmReference | null;
   relatedTopHistoryId: string | null;
+  relatedBottomHistoryId: string | null;
 }
 export interface XxmHistory {
   id: string; confirmedAt: string; confirmationRoute: "dif_turn" | "color_flip";
@@ -25,16 +27,23 @@ export interface XxmHistory {
   endReason: "original_reference_break" | "new_top_DULL" | "new_top_STRUCTURE" | "historical_price_break" | null;
   observedThrough: string; ageBars: number;
 }
+export interface XxmBottomHistory {
+  id: string; structureEventId: string; confirmedAt: string; confirmationRoute: "dif_turn" | "color_flip";
+  originSegmentStart: string; leftOriginAt: string | null; priceLow: number; priceLowAt: string;
+  originalReference: XxmReference; status: "PENDING" | "ENDED"; endedAt: string | null;
+  endReason: "original_reference_break" | "new_bottom_DULL" | "new_bottom_STRUCTURE" | "historical_price_break" | null;
+  observedThrough: string; ageBars: number;
+}
 export interface XxmResponse {
   tsCode: "000001.SH"; period: XxmPeriod; algorithmVersion: string; specHash: string;
   source: { kind: "daily_factor" | "minute_gold"; inputId: string; startTime: string | null;
     computedThrough: string | null; initialHistoryIncomplete: boolean; indicatorVersion: number | null };
-  points: XxmPoint[]; events: XxmEvent[]; topHistories: XxmHistory[];
+  points: XxmPoint[]; events: XxmEvent[]; topHistories: XxmHistory[]; bottomHistories: XxmBottomHistory[];
   meta: { count: number; responseStart: string | null; responseEnd: string | null };
   dataStatus: { status: "READY" | "DELAYED" | "EMPTY"; message: string | null; asOf: string | null };
 }
 export interface XxmMarker { time: Time; dif: number; event: XxmEvent }
-export interface XxmDetail { point: XxmPoint; events: XxmEvent[]; histories: XxmHistory[] }
+export interface XxmDetail { point: XxmPoint; events: XxmEvent[]; histories: XxmHistory[]; bottomHistories: XxmBottomHistory[] }
 export interface XxmViewModel { response: XxmResponse; markers: XxmMarker[]; byTime: Map<string, XxmDetail> }
 export interface XxmLayerState {
   requestKey: string; phase: "unsupported" | "loading" | "ready" | "empty" | "delayed" | "error";

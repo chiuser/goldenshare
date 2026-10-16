@@ -61,6 +61,7 @@ class SeriesEntry:
     points: list[dict]
     events: list[dict]
     histories: dict[str, dict]
+    bottom_histories: dict[str, dict]
     fingerprints: list[str]
     checkpoints: dict[int, dict]
     open_dates: tuple[date, ...] = ()
@@ -141,7 +142,7 @@ class IndexDetailXxmQueryService:
         with self.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
             upper = min(end_date or context.trade_date, context.trade_date)
             expected = expected_through(period, open_dates, context.generated_at, upper)
-            response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit)
+            response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
             if len(response.model_dump_json().encode()) > BUDGET.max_response_bytes:
                 raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标响应超过预算。", 503)
             remaining()
@@ -220,13 +221,16 @@ class IndexDetailXxmQueryService:
         assert_continuous(processed, period=period, open_dates=open_dates)
         origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
         if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
-            entry = SeriesEntry(raw, signature, XxmCalculator(period=period, source_identity=origin), (), [], [], {}, [], {})
+            entry = SeriesEntry(raw=raw, signature=signature, calculator=XxmCalculator(period=period, source_identity=origin),
+                                processed=(), points=[], events=[], histories={}, bottom_histories={}, fingerprints=[], checkpoints={})
         offset = len(entry.processed)
         if offset != len(processed):
             calculator = XxmCalculator(period=period, source_identity=origin)
             calculator.restore(entry.calculator.snapshot())
-            entry = SeriesEntry(raw, signature, calculator, entry.processed, list(entry.points),
-                                list(entry.events), dict(entry.histories), list(entry.fingerprints), dict(entry.checkpoints))
+            entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=entry.processed,
+                                points=list(entry.points), events=list(entry.events), histories=dict(entry.histories),
+                                bottom_histories=dict(entry.bottom_histories), fingerprints=list(entry.fingerprints),
+                                checkpoints=dict(entry.checkpoints))
         for index in range(offset, len(processed)):
             if index % BUDGET.source_batch_rows == 0:
                 remaining()
@@ -237,6 +241,7 @@ class IndexDetailXxmQueryService:
             entry.points.append(step.point)
             entry.events.extend(step.events)
             entry.histories.update({history["id"]: history for history in step.histories})
+            entry.bottom_histories.update({history["id"]: history for history in step.bottom_histories})
             previous_hash = entry.fingerprints[-1] if entry.fingerprints else origin
             numeric = "|".join(float(v).hex() for v in (bar.close, bar.dif, bar.dea, bar.hist))
             entry.fingerprints.append(hashlib.sha256(f"{previous_hash}|{bar.time}|{numeric}".encode()).hexdigest())
@@ -249,7 +254,7 @@ class IndexDetailXxmQueryService:
 
     @staticmethod
     def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,
-                  start_date: date | None, limit: int) -> XxmResponseDto:
+                  start_date: date | None, limit: int, check) -> XxmResponseDto:
         times = [bar.time for bar in entry.processed]
         end_index = bisect_right(times, expected) if expected is not None else 0
         indices = [index for index in range(end_index) if start_date is None or times[index][:10] >= start_date.isoformat()][-limit:]
@@ -259,7 +264,9 @@ class IndexDetailXxmQueryService:
         events = [event for event in entry.events if first is not None and first <= event["time"] <= last]
         related = {event["relatedTopHistoryId"] for event in events if event["relatedTopHistoryId"]}
         histories = []
-        for record in entry.histories.values():
+        for index, record in enumerate(entry.histories.values()):
+            if index % BUDGET.source_batch_rows == 0:
+                check()
             if through is None or record["confirmedAt"] > through:
                 continue
             history = deepcopy(record)
@@ -269,6 +276,8 @@ class IndexDetailXxmQueryService:
             history["ageBars"] = bisect_right(times, history["observedThrough"]) - bisect_right(times, history["confirmedAt"])
             if first is not None and (history["id"] in related or history["status"] == "PENDING" or history["endedAt"] >= first):
                 histories.append({field: history[field] for field in XxmTopHistoryDto.model_fields})
+        bottom_histories = IndexDetailXxmQueryService._bottom_histories_for_response(
+            entry, points=points, events=events, first=first, last=last, through=through, times=times, check=check)
         status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
         message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
         return XxmResponseDto(tsCode="000001.SH", period=period, algorithmVersion=MAIN_SPEC.algorithm_version,
@@ -277,6 +286,40 @@ class IndexDetailXxmQueryService:
                                       "inputId": entry.fingerprints[end_index - 1] if end_index else hashlib.sha256(b"empty").hexdigest(),
                                       "startTime": times[0] if end_index else None, "computedThrough": through,
                                       "initialHistoryIncomplete": True, "indicatorVersion": None if period == "day" else INDICATOR_VERSION},
-                              points=points, events=events, topHistories=histories,
+                              points=points, events=events, topHistories=histories, bottomHistories=bottom_histories,
                               meta={"count": len(points), "responseStart": first, "responseEnd": last},
                               dataStatus={"status": status, "message": message, "asOf": through})
+
+    @staticmethod
+    def _project_bottom_history(record: dict, *, through: str, times: list[str]) -> dict | None:
+        if record["confirmedAt"] > through:
+            return None
+        history = deepcopy(record)
+        if history["leftOriginAt"] is not None and history["leftOriginAt"] > through:
+            history["leftOriginAt"] = None
+        if history["endedAt"] is not None and history["endedAt"] > through:
+            history.update(status="PENDING", endedAt=None, endReason=None)
+        history["observedThrough"] = history["endedAt"] or through
+        history["ageBars"] = bisect_right(times, history["observedThrough"]) - bisect_right(times, history["confirmedAt"])
+        return history
+
+    @staticmethod
+    def _bottom_histories_for_response(entry: SeriesEntry, *, points: list[dict], events: list[dict],
+                                       first: str | None, last: str | None, through: str | None,
+                                       times: list[str], check) -> list[dict]:
+        if first is None or last is None or through is None:
+            return []
+        related = {p["pendingBottomHistoryId"] for p in points if p["pendingBottomHistoryId"]}
+        related.update(e["relatedBottomHistoryId"] for e in events if e["relatedBottomHistoryId"])
+        histories = []
+        for index, record in enumerate(entry.bottom_histories.values()):
+            if index % BUDGET.source_batch_rows == 0:
+                check()
+            if record["confirmedAt"] > through:
+                continue
+            end = record["endedAt"]
+            if record["id"] in related or end is None or end > through or first <= end <= last:
+                history = IndexDetailXxmQueryService._project_bottom_history(record, through=through, times=times)
+                if history is not None:
+                    histories.append(history)
+        return sorted(histories, key=lambda h: (h["confirmedAt"], h["id"]))

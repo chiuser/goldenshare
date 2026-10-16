@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-16",
+  "status": "DOCUMENT_PROPOSAL_CHECKS_ONLY",
+  "recommendedCandidate": "H1-S2-E1",
+  "protectedProductFileCount": 46,
+  "protectedEvidenceFileCount": 64,
+  "protectedHashesUnchanged": true,
+  "localLinksChecked": 383,
+  "newHeadingAnchorsChecked": 5,
+  "coreTableEndsWithC7": true,
+  "commonChecklistRowsMapped": 25,
+  "jsonExampleSyntaxAndAssociationsChecked": true,
+  "documentsAfter": {
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "7f98d85a3122088b855b3a459f2312d40e6aed0826fa79bfcf537fd6751f8f5f",
+    "docs/product/xxm-macd-structure-research-v1.md": "d1f4a4edfa6725d9dfb921c1046eefaa12c912d1954b085726643ff131c2fda7",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "8e8fb75e1044fdfd3fa46365ff6246eedbd0fa9701cb7edb8991701ce0255ee9",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "f7396d91a067582834477509df5f663a96fc35439e1c56c73cf8215e8e3a0e20",
+    "reports/xxm_software_indicator_crosscheck_20261015/case_20240723_recommended_proposal_review_20261016.md": "22da10fb49b047a410e684713a156b9f75d99862e07dada859dabd7ba197a6f1"
+  },
+  "checksPassed": [
+    "docs integrity",
+    "scoped git diff --check",
+    "local links and new anchors",
+    "proposal scope/version/checklist consistency",
+    "protected hashes"
+  ],
+  "repositoryWideDiffCheck": "Earlier invocation failed on unrelated concurrent stock_suspend_confirmed_test_runner.py whitespace; not edited by this task. Scoped four-doc check passed.",
+  "newModelPrecheckRun": false,
+  "newBudgetAcceptanceRun": false,
+  "productCodeChanged": false,
+  "apiContractImplemented": false,
+  "pageAccepted": false
+}

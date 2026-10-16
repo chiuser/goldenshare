@@ -1,0 +1,15 @@
+{
+  "scope": "B-group task paths and supporting XXM research evidence only",
+  "stagedReadmeSha256": "f33c38a16813b60ebbc66261feb67a4819791ccc6413351764f2ca1e9ad33e55",
+  "worktreeReadmeSha256": "d28a28cb33d381f7c3a1789ca4c2e3abff5ed8a36793d88e0a80c73c74b2f02a",
+  "note": "Original implementation manifest captured the worktree README, which already contained an unrelated P0 market-cap hunk. This commit stages only the new XXM H1 section. The P0 hunk stays untouched and unstaged; all other implementation-manifest paths retain their recorded SHA.",
+  "implementationManifestUnchanged": true,
+  "priorEvidenceUnchanged": 130,
+  "pushRequested": false,
+  "whitespaceCheck": {
+    "sourceTestsDocs": "default cached check passed",
+    "immutableEvidence": "original CSV CRLF, diff context spaces and transcript/log EOF blank lines preserved; report-only format check passed; no persistent git config or attributes changed",
+    "defaultFindingsOutsideReports": false
+  },
+  "priorEvidenceStagedByteIdentical": true
+}
