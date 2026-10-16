@@ -1,17 +1,19 @@
 """Retained 21-field weekly contract and rejected retired identities."""
 
 from pathlib import Path
+
 import pytest
+
 from orchestrator.defs.paths import raw_stk_period_bar_adj_week_path
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
+    normalize_week_key,
     weekly_dataset_id,
     weekly_key_columns,
     weekly_schema_hash,
-    normalize_week_key,
 )
 
 

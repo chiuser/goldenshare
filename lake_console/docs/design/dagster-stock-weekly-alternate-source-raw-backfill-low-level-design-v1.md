@@ -1,6 +1,6 @@
 # DG 周/月Raw直接源下载与更新共享 LLD v1
 
-更新：2026-10-16。**第1、2步已提交09ea909f，第3—5步已提交89ce38fe，均完成对应隔离验收；第6、7步按确认修订落于§5.6—5.7，尚未实施，Raw整体未最终验收或正式切换。** 业务范围不变：两套Raw、仍上市股票、北交所新码、完整源21列、先删后bootstrap、每日更新和因子变化后的单股历史刷新。方案见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线差异见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。本轮只改三份文档；后续第6、7步也仅开发和隔离验收，不执行正式删除、freeze、写Lake/移动盘staging、重载、事件或sensor操作，不开发Silver，R3继续暂停。
+更新：2026-10-16。**第1、2步已提交09ea909f，第3—5步已提交89ce38fe，均完成对应隔离验收；第6、7步修订文档已提交8ce4f252；第6、7步开发及隔离验收完成，155项直接回归、隔离dg check defs通过；Raw程序验收完成，尚未正式切换。** 业务范围不变：两套Raw、仍上市股票、北交所新码、完整源21列、先删后bootstrap、每日更新和因子变化后的单股历史刷新。方案见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线差异见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。本次提交包括第6、7步实现、测试及验收文档；不执行正式删除、freeze、写Lake/移动盘staging、重载、事件或sensor操作，不开发Silver，R3继续暂停。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -189,11 +189,11 @@ CLI的events只允许消费files_complete后的提交清单，不下载、COPY�
 | pyproject.toml、uv.lock | 撤销仅为错误Prod Settings导入而新增的声明；不升级或移除既有依赖，环境卸载另按明确清单处理 |
 | tests/test_stock_period_*.py及既有周/月contract/definitions/sensor/state/check/event测试 | 实际入口、独立字面金样本、失败恢复及性能计数；protected reader清单仅随真实源码闭包迁移 |
 
-旧Prod供数、SDK月线point及专用bootstrap/event共30个实现模块、19个旧测试/夹具已在工作区移除；四个旧CLI只拒绝旧入口。这些清退方向已批准，不整体恢复旧链。部分合同/说明仍残留，按纠偏13收口。Prod应用自身、其他数据集及R3代码不在范围。
+旧Prod供数、SDK月线point及专用bootstrap/event共30个实现模块、19个旧测试/夹具已在工作区移除；四个旧CLI只拒绝旧入口。这些清退方向已批准，不整体恢复旧链。残留的旧合同/说明已按第6步收口，见§5.8。Prod应用自身、其他数据集及R3代码不在范围。
 
 ### 5.2 当前阶段与执行顺序
 
-A已取得并保留最小真实源样本；确认步骤1—5已开发、隔离验收并提交。剩余为步骤6旧链/说明及本任务治理登记收口、步骤7小型组合验收/缺失成本测量和最终对账。先按§5.6清退，再按§5.7补证据，开发中只补受影响测试；版本固定后集中必要回归。第6、7步本轮仅落文档，不算已开发。完成后停在Raw程序验收，正式删除/bootstrap/调度交接另列清单，不自动执行；Silver后续单独开发。
+A阶段最小真实源样本已保留；步骤1—5已开发、隔离验收并提交。第6步旧链/说明及自身治理登记、第7步小型组合/成本补测和最终对账均已完成，当前版本155项直接回归通过，见§5.8；不与历史数量累加。当前停在Raw程序隔离验收；本次提交包括第6、7步实现、测试及结果文档。正式删除/bootstrap/调度交接另列清单，不自动执行；Silver后续单独开发。
 
 ### 5.3 14项的实现状态与开发动作
 
@@ -256,7 +256,7 @@ A已取得并保留最小真实源样本；确认步骤1—5已开发、隔离�
 
 CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事件op及测试；开发后sync/status确认索引当前。无前端/API或Prod消费者迁移；未调整业务子系统依赖矩阵。第6步旧合同/说明残留及第7步Raw最终验收仍后置；本轮不宣称可直接正式重建。逐项对账、文件指纹、JUnit和其他任务改动核验见/private/tmp/dg_period_steps345_1792116982194093000/acceptance.md，临时证据不作为运行时依赖。
 
-### 5.6 第6步：旧链残留、说明及本任务治理登记（已确认，待实施）
+### 5.6 第6步：旧链残留、说明及本任务治理登记（已实施，隔离验收通过）
 
 目的为收口，不重做前五步的HTTP、组装、提交或恢复架构。2026-10-16只读审计已用CodeGraph explore/impact核对旧合同及构造器，补读实际import、动态回调和测试消费者；原18文件与验收指纹一致。CodeGraph同名符号误匹配或漏掉跨文件调用时以当前源码补核，不据“零调用”盲删。
 
@@ -266,7 +266,7 @@ CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事
 | --- | --- | --- |
 | src/orchestrator/defs/run_contracts/stock_weekly.py、stock_monthly.py | 清退旧Prod库存/单元/计划及无消费者预算：WeeklyBudget、ProdYearInventory/Scope/Unit、WeeklyPlanManifest；StockMonthlyPolicy、MonthlyYearInventory/ProdUnit/BootstrapPlan/BootstrapIOPolicy及monthly_point_request等旧链专用构造器 | 删除前核对真实引用。保留ADJUSTED_WEEKLY_FIELDS、两频column_specs、normalize_week_key/normalize_month_key及仍在用的名称/路径/分区合同；21列、精度、NULL、原始日期均不变 |
 | src/orchestrator/defs/stock_weekly_update.py、stock_monthly_update.py及对应run_contracts中的旧update policy | 删除无生产消费者的旧“仅已结束周期”规划、旧Prod操作提示和无效预算字段；保留sensor实际依赖的薄接线 | 仍被sensor使用的时区、19:30窗口、tick间隔及配置入口保持；不擅自合并policy、改StockPeriodPolicy默认值、改变意图身份或旧manifest/hash |
-| src/orchestrator/defs/stock_weekly_update_state.py、stock_monthly_update_state.py | 清理仅服务旧整周/月日线检查的代码及无生产消费者的状态辅助模块 | weekly_event_binding有跨月线模块调用，必须先处理完整调用闭包；有现行消费者就保留或先迁移。stock_period_checks.py的现行文件版本/物化绑定不随旧模块删除 |
+| src/orchestrator/defs/stock_weekly_update_state.py、stock_monthly_update_state.py | 清理仅服务旧整周/月日线检查的代码及无生产消费者的状态辅助模块 | 原weekly_event_binding跨月线调用已核实仅在旧闭包内，随闭包清退；有现行消费者的能力仍保留。stock_period_checks.py的现行文件版本/物化绑定不随旧模块删除 |
 | src/orchestrator/defs/jobs/stock_weekly.py、stock_monthly.py、stock_weekly_event_backfill.py | 仅修正与直接源、事件补报不符的描述；现已正确者不改 | 资产/job/check/分区key及选择集不变，补事件不能变成下载入口；不新增job、API或CLI动作 |
 | tests/test_stock_weekly_contract.py、test_stock_monthly_contract.py、test_stock_monthly_update_state.py及直接相关period/definitions/retirement测试 | 删除只验证退役实现的测试；有效业务断言先落到新链已有测试，避免重复建设 | 月线旧4页封顶及Prod库存闭合不作为新链要求；21列/Decimal/合法NULL、20200228/29、源键冲突、旧入口拒绝及独立字面金样本继续覆盖；不得为保测试数量恢复旧实现 |
 | tests/test_asset_check_incremental_governance.py | 在既有登记机制中核对周线三项检查，并补月线三项检查的本任务登记 | 沿用blocking语义；不放宽全仓集合断言，不补其他数据集登记。已有16资产缺项含本月线，补后重列实际剩余项，不冒称全仓治理全绿 |
@@ -277,7 +277,7 @@ CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事
 
 第6步退出条件：旧链专用实现无活动引用，现行消费者可加载、字段/名称/调度参数保持不变；有效金样本已迁移，旧入口仍拒绝；周/月自身治理登记准确；其他工作区改动完整保留。只跑本轮影响的合同、定义、sensor、退役及治理测试，不默认重跑历史下载、bootstrap或全仓。若发现新的生产消费者、共享合同或源行为冲突，停下汇报，不能直接扩白名单或删掉消费者。
 
-### 5.7 第7步：小型组合验收、缺失成本及最终对账（已确认，待实施）
+### 5.7 第7步：小型组合验收、缺失成本及最终对账（已完成隔离验收）
 
 先复用证据，再补缺口；完整场景指执行路径完整，不指全市场/全历史。第6步收口后开始本节，第7步终点仅为Raw程序及隔离验收，不包含正式删除、bootstrap、交接运行或Silver。
 
@@ -300,7 +300,31 @@ CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事
 
 **固定版本收尾。** 小修复只重跑受影响用例；版本固定后集中一次必要的周/月回归和隔离定义加载，核对保留资产/job/check/分区及sensor名称/状态口径，并做本任务catalog/治理断言、Ruff、文档完整性和差异检查。使用现有环境，不安装/同步依赖、不加载正式运行实例或重载code location。既有全仓治理的其他资产缺项保留原失败断言，在报告中列出基线与当前差异；本任务登记及定义必须通过，不把全仓历史缺项静默跳过或扩成其他数据集整改。
 
-最终只交一张“已确认要求→实现位置→正反测试→适用版本证据→通过/未完成”表，注明行数来源，区分既有真实Tushare样本与本次localhost回放/字面夹具，列清源/准入/排除/写入事实、文件/事件/交接三类完成情况和实测成本，不能把回放写成本轮Tushare实拉。本节组合路径、旧入口拒绝及周/月自身治理缺项未关闭不能标Raw程序验收完成；不为填写表格再次请求源或扫描数据。正式挂载写盘支持、共享token实际配额、正式写者与部署边界留到另行批准的正式执行阶段，不拿隔离通过替代，也不在本阶段提前执行。提交依届时明确白名单，不推送；本轮只修文档，不自动开始第6、7步开发。
+最终只交一张“已确认要求→实现位置→正反测试→适用版本证据→通过/未完成”表，注明行数来源，区分既有真实Tushare样本与本次localhost回放/字面夹具，列清源/准入/排除/写入事实、文件/事件/交接三类完成情况和实测成本，不能把回放写成本轮Tushare实拉。本节组合路径、旧入口拒绝及周/月自身治理缺项未关闭不能标Raw程序验收完成；不为填写表格再次请求源或扫描数据。正式挂载写盘支持、共享token实际配额、正式写者与部署边界留到另行批准的正式执行阶段，不拿隔离通过替代，也不在本阶段提前执行。提交依届时明确白名单，不推送；本轮已获准第6、7步开发，新冲突仍按确认门禁处理。
+
+### 5.8 第6、7步交付与最终对账（2026-10-16）
+
+修订文档已提交8ce4f252；本次提交收录第6、7步实现、测试及结果文档。第6步删除旧Prod库存/计划/预算、月线point及无生产消费者的整周/月日线上游状态模块；薄policy保留原时区、19:30和60秒，asset/job/check/分区名不变。现行21列schema前后逐项相等；月键、非法日期、20200228/29、Decimal/NULL、退役入口断言保留到新链。仅修正weekly asset/job与事件job过时说明。补本任务月线三项治理，周线三项原登记保留；全仓既有16个缺项减少为15个无关资产，不放宽断言或整改其他对象。catalog开始时内容及格式改动保留。
+
+第7步新增tests/test_stock_period_integration.py，用三股独立字面源、localhost、真实HttpPage多进程、CLI和临时Dagster事件存储串起完整路径；未用替身跳过业务执行器。阶段数量如下；这些是小样本测试事实，不是生产限额：
+
+| 阶段 | 源/准入/范围排除行数 | 请求及文件事实 |
+| --- | --- | --- |
+| bootstrap取消后续跑 | 8/8/0 | 4单页请求、4文件；取消后worker退出、锁释放，续跑保留原identity_hash及成功片段，不再清根或重下 |
+| bootstrap事件失败后补余项 | 0/0/0 | 一次真实事件运行失败、一次补报完成；0HTTP/0COPY，文件版本不变，尚未handoff则仍files_ready |
+| 跨周/月handoff | 20/20/0 | 8单页请求、6个受影响文件；只对因子股000001.SZ和新增股301569.SZ重下两频历史，920000.BJ不重下；重复handoff不请求、不组装、不改事件/水位 |
+| 周/月日常与anchor待办补记 | 6/6/0 | 两频各1请求；同日再次进入month完成待办补记，0新增HTTP/SQL/文件改写；真实job各三项blocking检查准确绑定分区及实际目标物化ID |
+| 最终物理结果 | 源合计34/准入34/排除0 | 两频共6文件/14行；旧仅键分区保留非目标股、目标股源已不返回的旧键移除，三套价格/NULL及end_date按字面预期保存 |
+
+北交所始终请求920000.BJ，不请求旧832000.BJ。合并前源行含周期与完整历史的重叠，34不能直接等同最终14；精确一致的重叠行合并，更新与删除旧键由既有正反用例及本场景共同验证。全场景12次逐文件提交、6次COPY/6次批量导入，没有重复改写同批分区。
+
+**已关闭的衔接问题：** 首次两频job成功后，同日再次进入月线job补记anchor待办，当前run的PLANNED曾遮住此前已完成结果，读取evaluation.partition报错。管理员明确批准后，仅在stock_period_update.report_file_events的同分区limit=1查询增加Dagster已有COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES过滤（SUCCEEDED和FAILED）；最新真实失败不会被越过，PLANNED不冒充完成。通过、blocking、分区、目标物化ID及文件版本门禁原样保留。新增5项真实隔离存储正反样本覆盖只有PLANNED、PLANNED覆盖成功、最新FAILED、错物化绑定、非blocking；原错误绑定用例继续通过。无API、CLI、配置、Dagster库或DB schema变化。旧失败现场/private/tmp/dg-period-step7-c/保留，不修改原manifest/hash续跑旧指纹。
+
+固定当前版本155项周/月相关回归通过，包含5项原有进程退出/取消验证；55项第6步、12项开发中recovery及此前169/5等历史结果不累加为独立覆盖。显式隔离DAGSTER_HOME、已有venv执行dg check defs --use-active-venv通过；未加载正式instance或重载正式code location。自身6项治理通过，全仓治理原失败断言及其他15资产既有缺项保留；修改文件Ruff和DG src/tests的基础错误门禁、文档完整性及差异检查通过。
+
+CodeGraph explore/impact结合当前import核对旧闭包与asset→update→history→source/raw、CLI/events/ops和测试消费者；动态调用及同名误匹配以当前源码补核。无Prod/前端/API消费者迁移，无业务子系统依赖矩阵变化。定义默认STOPPED不是正式sensor运行状态，本轮未改正式状态或cursor。
+
+性能分解见§6.1。逐项要求→实现→正反测试→适用版本证据及文件hash保存在/private/tmp/dg_period_step7_resume_1792129739381816000/acceptance.md，前一轮第6步/失败证据保留/private/tmp/dg_period_step67_1792127048786658000/。本阶段结论为Raw程序隔离验收通过；真实Tushare新请求及全部正式操作为0，正式重建另经批准，Silver未推进，R3继续暂停。
 
 ## 6. 配置与性能依据
 
@@ -315,6 +339,12 @@ A阶段同批CSV导入/COPY/统一读回0.035/0.763/0.676秒，2207文件、7161
 N=5576是已留存对象快照，不重新审计全市场。单元行数r时请求数floor(r/6000)+1（含整倍数空末页），不足6000的基准2N=11152次。假设额度280次/分钟且仅本任务占用，配额理论下界约39.8分钟，不能当耗时预测。先前1—3小时估计缺进程启动/初始化、限流、解析/持久化和事件成本，撤出执行承诺；目前完整任务ETA待真实路径小样本校准，不重新套用2—5秒假设制造另一组小时数。
 
 第7步按§5.7只补缺失成本：localhost替身经过真实DG HTTP执行器，计worker启动、限流、传输/持久化和少量事件，已有文件/恢复性能证据适用时不再完整回放。无需重下三股全历史或重复测源连通。确有真实协议变化且已有证据不能覆盖时，先说明差异及最小源验证需求，不擅自新增请求。进程粒度不预先强制改变，也不为补测自动新增实现。
+
+**第7步固定版本小场景实测（localhost字面源）：** 从CLI apply开始至最终读回4.455秒，包含受控取消续跑、一次事件失败补报、跨周/月handoff、两频job/check及同日anchor补记；不含夹具和instance初建。14次真实worker请求/34源行；HTTP父调用合计2.769秒，其中worker启动报告至替身收到请求1.694秒（包含子进程初始化/本机传输）、实际限流等待0.923秒、本机服务处理0.00255秒。源解析0.00189秒、回包持久化0.01044秒；52次被观测的顶层事件报告调用合计0.368秒（去除嵌套计时，非全部Dagster日志事件数）。单场景SQL94次/0.154秒，其中import/COPY各6次、read_affected_once4次；source_integrity等校验计入，不重算复权价格。
+
+最终6个Raw文件19191字节/14行；测试根与staging一次有界元数据清点142文件/140634字节，运行内增量计量观测最大82075字节。SQL边界抽样当前RSS最大400490496字节（约382MiB），不是全程或进程树峰值；最终边界残留spill为0，不据此声称瞬时spill峰值。重复handoff0.000864秒，同日anchor补记0.213秒，均无新增源请求/SQL/文件改写。完整分解见同证据目录performance.json和performance_summary.json；测量包装器调用原实现，不新增生产观测参数或降门禁。文件2599行/2207文件的6.882秒及续跑0.107秒证据仍只复用其未改变的文件路径，未重新完整回放。
+
+**推算边界：** worker本机初始化均值约0.121秒/请求；完整bootstrap下载时间仍取决于实际Tushare响应、页数、重试和共享配额，不能把localhost服务时间当远端时间。请求成本模型至少包含启动、远端HTTP、限流、解析及持久化；只保留11152请求/280每分钟的39.8分钟理论配额下界，不承诺全市场ETA，不新增并发或预算配置。
 
 ### 6.2 专项配置审计与预算（纠偏1、9）
 
@@ -338,7 +368,7 @@ N=5576是已留存对象快照，不重新审计全市场。单元行数r时请�
 <a id="acceptance"></a>
 ## 7. 纠偏验收清单
 
-先按受影响项补测试，固定版本后集中必要回归；不默认跑全仓、正式bootstrap、历史采集或R3全链。下表是需求覆盖矩阵，不是每轮从头重跑清单；按§5.7区分适用的已有证据、本版本补验和未完成项。测试在隔离环境执行，本轮文档修订不预填新通过结果。
+先按受影响项补测试，固定版本后集中必要回归；不默认跑全仓、正式bootstrap、历史采集或R3全链。下表是需求覆盖矩阵，不是每轮从头重跑清单；按§5.7区分适用的已有证据、本版本补验和未完成项。测试在隔离环境执行，本版本结果见§5.8及对应最终对账；旧结果不代替新组合验收。
 
 | 对应项 | 正向 | 反向/计数约束 |
 | --- | --- | --- |

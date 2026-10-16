@@ -843,7 +843,6 @@ CONSUMER_SOURCE_FILES = (
 
 
     "defs/stock_monthly_update.py",
-    "defs/stock_monthly_update_state.py",
 
     "defs/assets/stock_monthly.py",
     "defs/checks/stock_monthly_checks.py",
@@ -866,7 +865,6 @@ CONSUMER_SOURCE_FILES = (
     "defs/bootstrap/anns_d_event_state.py",
     "defs/bootstrap/anns_d_events.py",
     "defs/bootstrap/anns_d_events_cli.py",
-    "defs/stock_weekly_update_state.py",
     "defs/stock_period_checks.py",
 
     "defs/sensors/raw_stock_weekly_update_job_sensor.py",

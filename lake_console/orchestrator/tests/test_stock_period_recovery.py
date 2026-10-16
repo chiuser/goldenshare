@@ -291,6 +291,119 @@ def test_real_event_reader_matches_partition_and_target_materialization(tmp_path
         assert all(instance.get_run_by_id(h.run_id).is_success for h in history)
 
 
+@pytest.mark.parametrize(
+    "case,expected",
+    [
+        ("planned_only", False),
+        ("planned_over_success", True),
+        ("latest_failed", False),
+        ("wrong_binding", False),
+        ("nonblocking", False),
+    ],
+)
+def test_event_reader_ignores_plans_but_keeps_latest_completed_failure(
+    tmp_path, case, expected
+):
+    import dagster as dg
+    from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+        AssetCheckEvaluation,
+        AssetCheckEvaluationPlanned,
+        AssetCheckEvaluationTargetMaterializationData,
+    )
+    from dagster._core.events import DagsterEvent, DagsterEventType
+
+    from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
+    from orchestrator.defs.partitions import cn_a_stock_week_ends
+    from orchestrator.defs.run_contracts.stock_weekly import (
+        StockWeeklySource,
+        weekly_check_names,
+    )
+
+    kw = args(tmp_path)
+    result = run_period(**kw)
+    item = next(i for i in result["files"] if i["freq"] == "week")
+    asset = dg.AssetKey("raw_tushare_stk_period_bar_adj_week")
+    name = weekly_check_names(StockWeeklySource.PRIMARY_ADJUSTED)[0]
+    instance_dir = tmp_path / "instance"
+    instance_dir.mkdir()
+    (instance_dir / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
+    with dg.DagsterInstance.local_temp(str(instance_dir)) as instance:
+        if case == "planned_only":
+            instance.report_runless_asset_event(
+                dg.AssetMaterialization(
+                    asset_key=asset,
+                    partition=item["period"],
+                    metadata={
+                        "goldenshare/period_file_version": dg.MetadataValue.json(
+                            item["version"]
+                        )
+                    },
+                )
+            )
+        else:
+            assert (
+                _run_reporting(
+                    instance,
+                    lambda ctx: report_file_events(instance, item, context=ctx),
+                )
+                is True
+            )
+
+        def emit(context, payload, kind):
+            instance.report_dagster_event(
+                DagsterEvent(
+                    event_type_value=kind.value,
+                    job_name=context.job_name,
+                    step_key=context.get_step_execution_context().step.key,
+                    event_specific_data=payload,
+                ),
+                run_id=context.run_id,
+            )
+
+        if case in {"latest_failed", "wrong_binding", "nonblocking"}:
+            record = instance.fetch_materializations(
+                dg.AssetRecordsFilter(
+                    asset_key=asset,
+                    asset_partitions=[item["period"]],
+                ),
+                limit=1,
+            ).records[0]
+            evaluation = AssetCheckEvaluation(
+                asset_key=asset,
+                check_name=name,
+                partition=item["period"],
+                passed=case != "latest_failed",
+                blocking=case != "nonblocking",
+                target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                    storage_id=record.storage_id + (case == "wrong_binding"),
+                    run_id=record.event_log_entry.run_id,
+                    timestamp=record.event_log_entry.timestamp,
+                ),
+            )
+            _run_reporting(
+                instance,
+                lambda ctx: emit(
+                    ctx, evaluation, DagsterEventType.ASSET_CHECK_EVALUATION
+                ),
+            )
+        planned = AssetCheckEvaluationPlanned(
+            asset_key=asset,
+            check_name=name,
+            partitions_subset=cn_a_stock_week_ends.subset_with_partition_keys(
+                [item["period"]]
+            ),
+        )
+        _run_reporting(
+            instance,
+            lambda ctx: emit(
+                ctx, planned, DagsterEventType.ASSET_CHECK_EVALUATION_PLANNED
+            ),
+        )
+        before = raw.file_version(item["target"])
+        assert report_file_events(instance, item, write=False) is expected
+        assert raw.file_version(item["target"]) == before
+
+
 def test_unfinished_page_chain_crossing_date_restarts_only_that_unit(tmp_path):
     from orchestrator.defs.io.stock_period_raw import PeriodCancelled
     from orchestrator.defs.stock_period_source import capture_unit

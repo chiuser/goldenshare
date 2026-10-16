@@ -503,11 +503,15 @@ def report_file_events(instance, item, *, write=True, context=None):
             limit=1,
         ).records[0]
     from dagster._core.event_api import PartitionKeyFilter
+    from dagster._core.storage.asset_check_execution_record import (
+        COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
+    )
 
     for name in names:
         history = instance.event_log_storage.get_asset_check_execution_history(
             dg.AssetCheckKey(asset, name),
             limit=1,
+            status=COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
             partition_filter=PartitionKeyFilter(key=partition),
         )
         evaluation = history[0].evaluation if history else None

@@ -278,3 +278,19 @@ def test_independent_literal_all_21_fields_and_null_survive(tmp_path):
         Decimal("-0.1111"),
         Decimal("-0.9876"),
     )
+
+
+@pytest.mark.parametrize("day", ["20260229", "2026-05-31", "２０２６０５３１"])
+def test_monthly_invalid_source_date_cannot_form_publishable_candidate(tmp_path, day):
+    import duckdb
+
+    with pytest.raises((ValueError, duckdb.Error)):
+        assemble(
+            [sample(tmp_path / "malformed", [row("000001.SZ", day, "month")])],
+            work=tmp_path / "build",
+            root=tmp_path / "lake",
+            mode="bootstrap",
+            freq="month",
+            policy=POLICY,
+        )
+    assert not (tmp_path / "lake").exists()

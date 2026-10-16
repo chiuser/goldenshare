@@ -1,4 +1,4 @@
-"""Adjusted weekly Raw delivered by immutable Prod batches."""
+"""Adjusted weekly Raw delivered directly from the period source."""
 
 import dagster as dg
 

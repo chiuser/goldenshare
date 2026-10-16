@@ -1,4 +1,4 @@
-"""Manual checks-only bootstrap job; no schedule, sensor or asset writes."""
+"""Manual event reporting for completed Raw files; no download or Parquet writes."""
 
 import dagster as dg
 

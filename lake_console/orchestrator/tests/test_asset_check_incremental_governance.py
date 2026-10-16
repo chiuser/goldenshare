@@ -53,6 +53,11 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
 )
+from orchestrator.defs.run_contracts.stock_monthly import (
+    StockMonthlySource,
+    monthly_asset_key,
+    monthly_check_names,
+)
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_asset_key,
@@ -952,6 +957,14 @@ ASSET_CHECK_GOVERNANCE.update({
         phase="stock-weekly-M4", retention_allowed=False,
     )
     for source in StockWeeklySource
+})
+
+ASSET_CHECK_GOVERNANCE.update({
+    monthly_asset_key(source): _rules(
+        monthly_check_names(source), category=KEEP_BLOCKING_DAGSTER,
+        phase="stock-period-raw", retention_allowed=False,
+    )
+    for source in StockMonthlySource
 })
 
 PROTECTED_CHECK_GOVERNANCE = {

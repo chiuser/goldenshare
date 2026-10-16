@@ -48,3 +48,53 @@ def test_catalog_retains_only_the_two_direct_source_period_datasets():
         entry = entries["raw_tushare_stk_period_bar_adj_" + freq]
         assert entry.source_api == "stk_week_month_adj"
         assert len(entry.ingestion_sources) == 1
+
+
+def test_old_plans_point_builder_and_daily_reference_modules_are_absent():
+    import importlib.util
+
+    from orchestrator.defs.run_contracts import stock_monthly, stock_weekly
+
+    for module, names in (
+        (
+            stock_weekly,
+            (
+                "WeeklyBudget",
+                "ProdYearInventory",
+                "ProdWeeklyScope",
+                "ProdWeeklyUnit",
+                "WeeklyPlanManifest",
+            ),
+        ),
+        (
+            stock_monthly,
+            (
+                "StockMonthlyPolicy",
+                "MonthlyYearInventory",
+                "MonthlyProdUnit",
+                "MonthlyBootstrapPlan",
+                "MonthlyBootstrapIOPolicy",
+                "monthly_point_request",
+            ),
+        ),
+    ):
+        assert all(not hasattr(module, name) for name in names)
+    for module in ("stock_weekly_update_state", "stock_monthly_update_state"):
+        assert importlib.util.find_spec("orchestrator.defs." + module) is None
+
+
+def test_period_checks_have_current_governance_without_weakening_global_gate():
+    from tests.test_asset_check_incremental_governance import (
+        ASSET_CHECK_GOVERNANCE,
+        KEEP_BLOCKING_DAGSTER,
+    )
+
+    entries = {e.asset_key: e for e in LAKE_ASSET_CATALOG}
+    for freq in ("week", "month"):
+        key = "raw_tushare_stk_period_bar_adj_" + freq
+        rules = ASSET_CHECK_GOVERNANCE[key]
+        assert len(rules) == 3 and set(rules) == set(entries[key].blocking_check_names)
+        assert all(
+            r.category == KEEP_BLOCKING_DAGSTER and not r.retention_allowed
+            for r in rules.values()
+        )
