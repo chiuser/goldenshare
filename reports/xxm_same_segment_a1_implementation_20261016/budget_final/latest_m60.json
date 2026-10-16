@@ -1,0 +1,63 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.2-a1",
+  "forecastSpecHash": "75739d189be4131aa8816f50ace1e2232b95970cafc35ed8f70430212587c747",
+  "detectorSpecHash": "f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712",
+  "sourceInputId": "f5a60cd53acbcd9e0e9159e0ac50171bed567585a239a1bc8ccb669d1d1acdd8",
+  "calendarInputId": "df21a8f4b5a20b8143f5637b499f48c053cfbb50b86b8f4d52d9518012cda38f",
+  "computedThrough": "2026-10-15T15:00:00+08:00",
+  "requestedAsOf": null,
+  "mode": "LATEST",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "rearmContext": null,
+  "direction": "BOTTOM",
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_ENTRY_RANGE",
+  "precisionPolicy": "full_float",
+  "forecastId": "1a5be637766904064b42a14eda0a72a985226251606ff7511ca8c0ddd9c4fedc",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "activation": {
+    "endpoint": "2026-10-16T10:30:00+08:00",
+    "ranges": [],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3820.4829326624963,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      },
+      {
+        "priceRange": {
+          "lower": 3820.4829326624963,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      }
+    ]
+  },
+  "assumption": null,
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [],
+  "commonConditions": [],
+  "examples": [],
+  "applicabilityText": "仅适用于本周期已计算的收盘条件；实际收盘后更新。",
+  "invalidationText": "新完成行情到达后重新判断。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无条件",
+    "targetText": "暂无结构条件",
+    "conditionsText": "当前没有可形成钝化的收盘条件。\n本周期新收盘后重新判断。",
+    "asOfText": "截至 10/15 15:00 收盘"
+  },
+  "refreshAfterMs": 60000
+}

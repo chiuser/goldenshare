@@ -65,6 +65,29 @@ def test_frozen_nearest_endpoint_full_ranges_and_no_real_mutation(period, target
         assert len(result["commonConditions"])==2
 
 
+@pytest.mark.parametrize('period,through',[
+    ('m60','2022-03-04T15:00:00+08:00'),
+    ('m90','2025-12-15T14:00:00+08:00'),
+    ('m120','2026-07-10T15:00:00+08:00'),
+])
+def test_waiting_complete_entry_and_joint_domains_use_product_clone(period,through):
+    # Select a genuine waiting prefix rather than manufacturing private state.
+    bars=frozen(period);c=XxmCalculator(period=period,source_identity='waiting-domain')
+    prefix=[]
+    for b in bars:
+        c.step(b);prefix.append(b)
+        if c.pending_rearm and b.time>=through:break
+    assert c.pending_rearm
+    projection=recover_projection(tuple(prefix),period,lambda:None);before=c.snapshot()
+    slots=endpoints(period,prefix[-1].time)
+    result=forecast(c,projection,slots)
+    assert result['status'] not in ('READY','CONFIRMED')
+    if result['activation']:
+        assert all(r['reference']==Wave(**c.pending_rearm['referenceWave']).reference() for r in result['activation']['ranges'])
+    validate_replay(c,projection,slots,result)
+    assert c.snapshot()==before
+
+
 def validate_replay(c,projection,slots,result):
     rng=random.Random(1209);activation=result['activation']
     if activation:

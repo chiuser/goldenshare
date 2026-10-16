@@ -1,0 +1,3025 @@
+{
+  "readonly": true,
+  "formalLakeRoot": "/Volumes/datasource/data_lake",
+  "configuredDatabase": {
+    "host": "152.136.106.251",
+    "port": 5432,
+    "database": "goldenshare"
+  },
+  "quoteAuthRequired": false,
+  "applicationCold": "new series/forecast cache; OS and DB buffers retained",
+  "sourceOverlap": {
+    "day": {
+      "rows": 914,
+      "through": "2026-10-15",
+      "inputId": "a79df022eb57a30bd525b6f9a31767f96325ca7010962f061cd89d3c2e73406e",
+      "frozenOverlapRows": 912,
+      "differences": []
+    },
+    "m60": {
+      "rows": 17268,
+      "through": "2026-10-15T15:00:00+08:00",
+      "inputId": "f5a60cd53acbcd9e0e9159e0ac50171bed567585a239a1bc8ccb669d1d1acdd8",
+      "frozenOverlapRows": 17260,
+      "differences": []
+    },
+    "m90": {
+      "rows": 12951,
+      "through": "2026-10-15T15:00:00+08:00",
+      "inputId": "88dc7f3369a8b56940e2834152a3db1c197970607c542172bdf275143ad4c563",
+      "frozenOverlapRows": 12945,
+      "differences": []
+    },
+    "m120": {
+      "rows": 8634,
+      "through": "2026-10-15T15:00:00+08:00",
+      "inputId": "d8c4984c105f5106915925a5f4d9ff20f7d26416137ab923b88b5f3b22e38184",
+      "frozenOverlapRows": 8630,
+      "differences": []
+    }
+  },
+  "requests": [
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 0.29459533374756575,
+      "modelEnvelopeSeconds": 0.08172570774331689,
+      "stages": {
+        "sourceReadSeconds": 0.023716959170997143,
+        "detectorStepSeconds": 0.02220610110089183,
+        "forecastDtoSeconds": 0.00016350019723176956
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19870291696861386,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213498,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 0.2900365423411131,
+      "modelEnvelopeSeconds": 0.07978783268481493,
+      "stages": {
+        "sourceReadSeconds": 0.11172199994325638,
+        "detectorStepSeconds": 0.021206223871558905,
+        "forecastDtoSeconds": 0.0001300424337387085
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.23220104118809104,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 0.5099238748662174,
+      "modelEnvelopeSeconds": 0.08139158319681883,
+      "stages": {
+        "sourceReadSeconds": 0.2770353751257062,
+        "detectorStepSeconds": 0.02174124727025628,
+        "forecastDtoSeconds": 0.000125957652926445
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1904427078552544,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 0.21979250013828278,
+      "modelEnvelopeSeconds": 0.08248337497934699,
+      "stages": {
+        "sourceReadSeconds": 0.03165720775723457,
+        "detectorStepSeconds": 0.022685108706355095,
+        "forecastDtoSeconds": 0.00014812499284744263
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2969619589857757,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 0.2240430419333279,
+      "modelEnvelopeSeconds": 0.07868724968284369,
+      "stages": {
+        "sourceReadSeconds": 0.03743162518367171,
+        "detectorStepSeconds": 0.021102278027683496,
+        "forecastDtoSeconds": 0.00013575004413723946
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.31986220786347985,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 0.31293654069304466,
+      "modelEnvelopeSeconds": 0.0800897921435535,
+      "stages": {
+        "sourceReadSeconds": 0.024568749591708183,
+        "detectorStepSeconds": 0.021297461353242397,
+        "forecastDtoSeconds": 0.00010845763608813286
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.20427820784971118,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 0.22248033387586474,
+      "modelEnvelopeSeconds": 0.08375020883977413,
+      "stages": {
+        "sourceReadSeconds": 0.025557166896760464,
+        "detectorStepSeconds": 0.02273377124220133,
+        "forecastDtoSeconds": 0.00011087488383054733
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19784645782783628,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 0.4204082922078669,
+      "modelEnvelopeSeconds": 0.08166966727003455,
+      "stages": {
+        "sourceReadSeconds": 0.024608000181615353,
+        "detectorStepSeconds": 0.021463296841830015,
+        "forecastDtoSeconds": 0.00012120790779590607
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2378347502090037,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 0.2949824999086559,
+      "modelEnvelopeSeconds": 0.08420791709795594,
+      "stages": {
+        "sourceReadSeconds": 0.027815832756459713,
+        "detectorStepSeconds": 0.026504717767238617,
+        "forecastDtoSeconds": 0.00012620817869901657
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.20449208421632648,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 0.3242294997908175,
+      "modelEnvelopeSeconds": 0.08137166686356068,
+      "stages": {
+        "sourceReadSeconds": 0.030279207974672318,
+        "detectorStepSeconds": 0.021696032024919987,
+        "forecastDtoSeconds": 0.00011762510985136032
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.190613207872957,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 0.5148274591192603,
+      "modelEnvelopeSeconds": 0.0804341253824532,
+      "stages": {
+        "sourceReadSeconds": 0.24940266739577055,
+        "detectorStepSeconds": 0.021609860006719828,
+        "forecastDtoSeconds": 0.00015920773148536682
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1485272920690477,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 0.37578766606748104,
+      "modelEnvelopeSeconds": 0.07951362524181604,
+      "stages": {
+        "sourceReadSeconds": 0.11378779215738177,
+        "detectorStepSeconds": 0.021291845943778753,
+        "forecastDtoSeconds": 0.00014062505215406418
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.11581591609865427,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 0.3005416253581643,
+      "modelEnvelopeSeconds": 0.08149416605010629,
+      "stages": {
+        "sourceReadSeconds": 0.027163708116859198,
+        "detectorStepSeconds": 0.02150814514607191,
+        "forecastDtoSeconds": 0.00011970940977334976
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.18737404141575098,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 0.2515455409884453,
+      "modelEnvelopeSeconds": 0.0810978333465755,
+      "stages": {
+        "sourceReadSeconds": 0.02184887509793043,
+        "detectorStepSeconds": 0.021599601488560438,
+        "forecastDtoSeconds": 0.0001422087661921978
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.21690450003370643,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 0.3042554999701679,
+      "modelEnvelopeSeconds": 0.08357208361849189,
+      "stages": {
+        "sourceReadSeconds": 0.028048708103597164,
+        "detectorStepSeconds": 0.023043783847242594,
+        "forecastDtoSeconds": 0.00014083413407206535
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.223857999779284,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 0.29860841715708375,
+      "modelEnvelopeSeconds": 0.08099404070526361,
+      "stages": {
+        "sourceReadSeconds": 0.02331729233264923,
+        "detectorStepSeconds": 0.02159348502755165,
+        "forecastDtoSeconds": 0.00014166627079248428
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1925138747319579,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 0.32504470786079764,
+      "modelEnvelopeSeconds": 0.08243520883843303,
+      "stages": {
+        "sourceReadSeconds": 0.026001124642789364,
+        "detectorStepSeconds": 0.0235434309579432,
+        "forecastDtoSeconds": 0.00014074984937906265
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.22860795818269253,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 0.48991800006479025,
+      "modelEnvelopeSeconds": 0.08369954209774733,
+      "stages": {
+        "sourceReadSeconds": 0.025990250054746866,
+        "detectorStepSeconds": 0.023578266613185406,
+        "forecastDtoSeconds": 0.00012337509542703629
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1155364578589797,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 0.3080199579708278,
+      "modelEnvelopeSeconds": 0.07984558260068297,
+      "stages": {
+        "sourceReadSeconds": 0.03575345780700445,
+        "detectorStepSeconds": 0.021138953510671854,
+        "forecastDtoSeconds": 0.00012737512588500977
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.18834020802751184,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "cold",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 0.24678870802745223,
+      "modelEnvelopeSeconds": 0.08036441681906581,
+      "stages": {
+        "sourceReadSeconds": 0.02306541707366705,
+        "detectorStepSeconds": 0.021938022691756487,
+        "forecastDtoSeconds": 0.0001222081482410431
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28023899998515844,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 0.24012170871719718,
+      "modelEnvelopeSeconds": 0.0801958329975605,
+      "stages": {
+        "sourceReadSeconds": 0.03040037490427494,
+        "detectorStepSeconds": 0.021145168226212263,
+        "forecastDtoSeconds": 0.00013116607442498207
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19063249975442886,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 0.11136295832693577,
+      "modelEnvelopeSeconds": 0.0003449590876698494,
+      "stages": {
+        "sourceReadSeconds": 0.025384666863828897
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.10788033390417695,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 0.19238316593691707,
+      "modelEnvelopeSeconds": 0.0004990412853658199,
+      "stages": {
+        "sourceReadSeconds": 0.023162041325122118
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.20217358274385333,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 0.2591720838099718,
+      "modelEnvelopeSeconds": 0.00034224987030029297,
+      "stages": {
+        "sourceReadSeconds": 0.11055024992674589
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19329766696318984,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 0.11628145864233375,
+      "modelEnvelopeSeconds": 0.0005493750795722008,
+      "stages": {
+        "sourceReadSeconds": 0.024175874888896942
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.18823124980553985,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 0.19768091617152095,
+      "modelEnvelopeSeconds": 0.0003608330152928829,
+      "stages": {
+        "sourceReadSeconds": 0.02456695819273591
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.12702416721731424,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 0.24037904106080532,
+      "modelEnvelopeSeconds": 0.00033454224467277527,
+      "stages": {
+        "sourceReadSeconds": 0.05881870863959193
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.18310708412900567,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 0.11601104121655226,
+      "modelEnvelopeSeconds": 0.0003932081162929535,
+      "stages": {
+        "sourceReadSeconds": 0.023575708270072937
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19527087500318885,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 0.2066164999268949,
+      "modelEnvelopeSeconds": 0.0007040831260383129,
+      "stages": {
+        "sourceReadSeconds": 0.02881087502464652
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.30765945790335536,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 0.19223474990576506,
+      "modelEnvelopeSeconds": 0.00037687504664063454,
+      "stages": {
+        "sourceReadSeconds": 0.024418374989181757
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.15015649981796741,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 0.259228500071913,
+      "modelEnvelopeSeconds": 0.0003887922503054142,
+      "stages": {
+        "sourceReadSeconds": 0.03062916686758399
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19465829199180007,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 0.3318952089175582,
+      "modelEnvelopeSeconds": 0.0006785839796066284,
+      "stages": {
+        "sourceReadSeconds": 0.028813207987695932
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.208642290905118,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 0.1178362499922514,
+      "modelEnvelopeSeconds": 0.00041070906445384026,
+      "stages": {
+        "sourceReadSeconds": 0.022301875054836273
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.31833595875650644,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 0.11963800014927983,
+      "modelEnvelopeSeconds": 0.0005388329736888409,
+      "stages": {
+        "sourceReadSeconds": 0.02455370919778943
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19944029115140438,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 0.2065583746880293,
+      "modelEnvelopeSeconds": 0.0007347078062593937,
+      "stages": {
+        "sourceReadSeconds": 0.11179562518373132
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1199673330411315,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 0.1937541668303311,
+      "modelEnvelopeSeconds": 0.0003637499175965786,
+      "stages": {
+        "sourceReadSeconds": 0.023594792000949383
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19311337498947978,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 0.11085041705518961,
+      "modelEnvelopeSeconds": 0.00036283303052186966,
+      "stages": {
+        "sourceReadSeconds": 0.026664540637284517
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.11166787520051003,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 0.34105595806613564,
+      "modelEnvelopeSeconds": 0.00046679191291332245,
+      "stages": {
+        "sourceReadSeconds": 0.034007541835308075
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.34547545900568366,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 0.1938137081451714,
+      "modelEnvelopeSeconds": 0.00035920925438404083,
+      "stages": {
+        "sourceReadSeconds": 0.025445125065743923
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.1129729594103992,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "day",
+      "kind": "warm",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 0.1947632497176528,
+      "modelEnvelopeSeconds": 0.0003820420242846012,
+      "stages": {
+        "sourceReadSeconds": 0.061356292106211185
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.19590545818209648,
+      "recognitionBytes": 257301,
+      "forecastBytes": 8432,
+      "cacheBytes": 1213450,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 2.087181792128831,
+      "modelEnvelopeSeconds": 0.01975345890969038,
+      "stages": {
+        "sourceCheckSeconds": 0.20308170840144157,
+        "sourceReadSeconds": 1.3153915000148118,
+        "detectorStepSeconds": 0.17889717034995556,
+        "forecastDtoSeconds": 4.408275708556175e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3031513327732682,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 1.6338701248168945,
+      "modelEnvelopeSeconds": 0.017283749766647816,
+      "stages": {
+        "sourceCheckSeconds": 0.1863567498512566,
+        "sourceReadSeconds": 0.9165537501685321,
+        "detectorStepSeconds": 0.1358572645112872,
+        "forecastDtoSeconds": 3.691576421260834e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4584257500246167,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 1.653199250344187,
+      "modelEnvelopeSeconds": 0.019018208142369986,
+      "stages": {
+        "sourceCheckSeconds": 0.19733233377337456,
+        "sourceReadSeconds": 0.9075102498754859,
+        "detectorStepSeconds": 0.14764135424047709,
+        "forecastDtoSeconds": 4.758313298225403e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4322602078318596,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 1.6203326252289116,
+      "modelEnvelopeSeconds": 0.01725945807993412,
+      "stages": {
+        "sourceCheckSeconds": 0.1935035828500986,
+        "sourceReadSeconds": 0.9373108330182731,
+        "detectorStepSeconds": 0.14137693401426077,
+        "forecastDtoSeconds": 3.950018435716629e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.46459404192864895,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 1.6474045002833009,
+      "modelEnvelopeSeconds": 0.01699616713449359,
+      "stages": {
+        "sourceCheckSeconds": 0.2449195822700858,
+        "sourceReadSeconds": 0.916256541851908,
+        "detectorStepSeconds": 0.13170691300183535,
+        "forecastDtoSeconds": 3.454089164733887e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.450398791115731,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 1.7932439581491053,
+      "modelEnvelopeSeconds": 0.02249504206702113,
+      "stages": {
+        "sourceCheckSeconds": 0.2441485421732068,
+        "sourceReadSeconds": 0.9637667499482632,
+        "detectorStepSeconds": 0.14424010505899787,
+        "forecastDtoSeconds": 5.5291224271059036e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3176251254044473,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 1.7653342499397695,
+      "modelEnvelopeSeconds": 0.02298162505030632,
+      "stages": {
+        "sourceCheckSeconds": 0.19491850025951862,
+        "sourceReadSeconds": 0.9186406251974404,
+        "detectorStepSeconds": 0.13890453148633242,
+        "forecastDtoSeconds": 7.116701453924179e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3477259580977261,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 1.8319857502356172,
+      "modelEnvelopeSeconds": 0.02181600034236908,
+      "stages": {
+        "sourceCheckSeconds": 0.20196700002998114,
+        "sourceReadSeconds": 0.9052221672609448,
+        "detectorStepSeconds": 0.14070608234032989,
+        "forecastDtoSeconds": 4.11253422498703e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4087778339162469,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 1.6181995826773345,
+      "modelEnvelopeSeconds": 0.017099000047892332,
+      "stages": {
+        "sourceCheckSeconds": 0.20272083254531026,
+        "sourceReadSeconds": 0.9242542921565473,
+        "detectorStepSeconds": 0.13821940403431654,
+        "forecastDtoSeconds": 4.112487658858299e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.475942166056484,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 1.7592616248875856,
+      "modelEnvelopeSeconds": 0.017135875299572945,
+      "stages": {
+        "sourceCheckSeconds": 0.21104195667430758,
+        "sourceReadSeconds": 0.918146874755621,
+        "detectorStepSeconds": 0.17351242760196328,
+        "forecastDtoSeconds": 3.537489101290703e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.40056116692721844,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 1.6469928342849016,
+      "modelEnvelopeSeconds": 0.01716095907613635,
+      "stages": {
+        "sourceCheckSeconds": 0.18791316729038954,
+        "sourceReadSeconds": 0.9015521658584476,
+        "detectorStepSeconds": 0.14310385659337044,
+        "forecastDtoSeconds": 3.9250124245882034e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.36796570802107453,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 1.6852089161984622,
+      "modelEnvelopeSeconds": 0.019227666780352592,
+      "stages": {
+        "sourceCheckSeconds": 0.20351725118234754,
+        "sourceReadSeconds": 0.9279427081346512,
+        "detectorStepSeconds": 0.1440047798678279,
+        "forecastDtoSeconds": 3.504101186990738e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28247458301484585,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 1.7922351658344269,
+      "modelEnvelopeSeconds": 0.016745666041970253,
+      "stages": {
+        "sourceCheckSeconds": 0.20663691638037562,
+        "sourceReadSeconds": 0.9782308749854565,
+        "detectorStepSeconds": 0.14874476613476872,
+        "forecastDtoSeconds": 3.383401781320572e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28848020918667316,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 1.7306959172710776,
+      "modelEnvelopeSeconds": 0.018040041904896498,
+      "stages": {
+        "sourceCheckSeconds": 0.24545779079198837,
+        "sourceReadSeconds": 0.8968565836548805,
+        "detectorStepSeconds": 0.14001080067828298,
+        "forecastDtoSeconds": 4.0458980947732925e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3179273749701679,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 1.649159542284906,
+      "modelEnvelopeSeconds": 0.017900874838232994,
+      "stages": {
+        "sourceCheckSeconds": 0.2308407500386238,
+        "sourceReadSeconds": 0.9215035829693079,
+        "detectorStepSeconds": 0.13589544221758842,
+        "forecastDtoSeconds": 3.4708064049482346e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.42938924999907613,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 1.8048775419592857,
+      "modelEnvelopeSeconds": 0.016799707897007465,
+      "stages": {
+        "sourceCheckSeconds": 0.19073491683229804,
+        "sourceReadSeconds": 1.0828871252015233,
+        "detectorStepSeconds": 0.1300934385508299,
+        "forecastDtoSeconds": 3.741728141903877e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.34441654197871685,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 1.9246667078696191,
+      "modelEnvelopeSeconds": 0.01720287511125207,
+      "stages": {
+        "sourceCheckSeconds": 0.20656920690089464,
+        "sourceReadSeconds": 1.1438541668467224,
+        "detectorStepSeconds": 0.1349643343128264,
+        "forecastDtoSeconds": 3.62093560397625e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4731447077356279,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 1.7909037498757243,
+      "modelEnvelopeSeconds": 0.017549416050314903,
+      "stages": {
+        "sourceCheckSeconds": 0.21582662500441074,
+        "sourceReadSeconds": 0.927170000039041,
+        "detectorStepSeconds": 0.1318300855346024,
+        "forecastDtoSeconds": 3.970786929130554e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.659744624979794,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 1.9205933748744428,
+      "modelEnvelopeSeconds": 0.02425325009971857,
+      "stages": {
+        "sourceCheckSeconds": 0.2111954167485237,
+        "sourceReadSeconds": 0.9565417910926044,
+        "detectorStepSeconds": 0.17108962358906865,
+        "forecastDtoSeconds": 6.94170594215393e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3202171246521175,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "cold",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 1.6464830827899277,
+      "modelEnvelopeSeconds": 0.018297082744538784,
+      "stages": {
+        "sourceCheckSeconds": 0.1908280411735177,
+        "sourceReadSeconds": 0.9118300410918891,
+        "detectorStepSeconds": 0.13805956253781915,
+        "forecastDtoSeconds": 4.2750034481287e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3867695829831064,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 1.6272442499175668,
+      "modelEnvelopeSeconds": 0.01691150013357401,
+      "stages": {
+        "sourceCheckSeconds": 0.18457962479442358,
+        "sourceReadSeconds": 0.9447230831719935,
+        "detectorStepSeconds": 0.13762132078409195,
+        "forecastDtoSeconds": 3.8708094507455826e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.36622541677206755,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 0.34932579193264246,
+      "modelEnvelopeSeconds": 0.0004862910136580467,
+      "stages": {
+        "sourceCheckSeconds": 0.19901104178279638
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.498886208049953,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 0.3056209171190858,
+      "modelEnvelopeSeconds": 0.00025187525898218155,
+      "stages": {
+        "sourceCheckSeconds": 0.19640000024810433
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3047915827482939,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 0.46526208333671093,
+      "modelEnvelopeSeconds": 0.00029454100877046585,
+      "stages": {
+        "sourceCheckSeconds": 0.20237458311021328
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.30516387475654483,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 0.2794183329679072,
+      "modelEnvelopeSeconds": 0.000248749740421772,
+      "stages": {
+        "sourceCheckSeconds": 0.19136799965053797
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.43792541697621346,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 0.300608417019248,
+      "modelEnvelopeSeconds": 0.00028520822525024414,
+      "stages": {
+        "sourceCheckSeconds": 0.20118866674602032
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4148153327405453,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 0.3513204171322286,
+      "modelEnvelopeSeconds": 0.0006092083640396595,
+      "stages": {
+        "sourceCheckSeconds": 0.18251224979758263
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3168454999104142,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 0.5348022500984371,
+      "modelEnvelopeSeconds": 0.00018029194325208664,
+      "stages": {
+        "sourceCheckSeconds": 0.24118483299389482
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.369507291354239,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 0.3447588747367263,
+      "modelEnvelopeSeconds": 0.0002981247380375862,
+      "stages": {
+        "sourceCheckSeconds": 0.19293108396232128
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.337738583330065,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 0.3776035839691758,
+      "modelEnvelopeSeconds": 0.0007254579104483128,
+      "stages": {
+        "sourceCheckSeconds": 0.2014805837534368
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.5686308331787586,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 0.45689516700804234,
+      "modelEnvelopeSeconds": 0.00028533441945910454,
+      "stages": {
+        "sourceCheckSeconds": 0.28054841700941324
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3386091669090092,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 0.2778812921606004,
+      "modelEnvelopeSeconds": 0.00024025002494454384,
+      "stages": {
+        "sourceCheckSeconds": 0.1881895838305354
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3249343326315284,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 0.4591819578781724,
+      "modelEnvelopeSeconds": 0.00030520791187882423,
+      "stages": {
+        "sourceCheckSeconds": 0.2116761258803308
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2900432921014726,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 0.4110515830107033,
+      "modelEnvelopeSeconds": 0.00021458324044942856,
+      "stages": {
+        "sourceCheckSeconds": 0.2380993328988552
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3291345830075443,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 0.3013454591855407,
+      "modelEnvelopeSeconds": 0.00027845799922943115,
+      "stages": {
+        "sourceCheckSeconds": 0.20870933309197426
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4145189579576254,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 0.3446831670589745,
+      "modelEnvelopeSeconds": 0.0003992500714957714,
+      "stages": {
+        "sourceCheckSeconds": 0.18727608351036906
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3094529169611633,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 0.40613575000315905,
+      "modelEnvelopeSeconds": 0.00029508303850889206,
+      "stages": {
+        "sourceCheckSeconds": 0.24769533425569534
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.31794445775449276,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 0.3001861250959337,
+      "modelEnvelopeSeconds": 0.0003226660192012787,
+      "stages": {
+        "sourceCheckSeconds": 0.21020374912768602
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4147232500836253,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 0.3462709579616785,
+      "modelEnvelopeSeconds": 0.0003615408204495907,
+      "stages": {
+        "sourceCheckSeconds": 0.18228249996900558
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.32303608395159245,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m60",
+      "kind": "warm",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 0.39042366622015834,
+      "modelEnvelopeSeconds": 0.0003010001964867115,
+      "stages": {
+        "sourceCheckSeconds": 0.24155495781451464
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.31935320887714624,
+      "recognitionBytes": 658597,
+      "forecastBytes": 1975,
+      "cacheBytes": 20294693,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 2.0887167500332,
+      "modelEnvelopeSeconds": 0.024564167018979788,
+      "stages": {
+        "sourceCheckSeconds": 0.1970662921667099,
+        "sourceReadSeconds": 1.3200680422596633,
+        "detectorStepSeconds": 0.17083735624328256,
+        "forecastDtoSeconds": 0.00015150010585784912
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29917754093185067,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 1.5809906250797212,
+      "modelEnvelopeSeconds": 0.024418041575700045,
+      "stages": {
+        "sourceCheckSeconds": 0.20090087596327066,
+        "sourceReadSeconds": 0.9124545827507973,
+        "detectorStepSeconds": 0.1548356688581407,
+        "forecastDtoSeconds": 0.00014487514272332191
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29009358398616314,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 1.7256558747030795,
+      "modelEnvelopeSeconds": 0.028202665969729424,
+      "stages": {
+        "sourceCheckSeconds": 0.20787641685456038,
+        "sourceReadSeconds": 0.9162171250209212,
+        "detectorStepSeconds": 0.16597030218690634,
+        "forecastDtoSeconds": 0.0001627919264137745
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3029776671901345,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 1.750457167159766,
+      "modelEnvelopeSeconds": 0.02474812511354685,
+      "stages": {
+        "sourceCheckSeconds": 0.2120200409553945,
+        "sourceReadSeconds": 0.902263583149761,
+        "detectorStepSeconds": 0.15860185073688626,
+        "forecastDtoSeconds": 0.00014358432963490486
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3293058341369033,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 1.8758519170805812,
+      "modelEnvelopeSeconds": 0.02920650038868189,
+      "stages": {
+        "sourceCheckSeconds": 0.20704616699367762,
+        "sourceReadSeconds": 0.9844701667316258,
+        "detectorStepSeconds": 0.16954834293574095,
+        "forecastDtoSeconds": 0.0001782919280230999
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.31433891598135233,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 1.7056508753448725,
+      "modelEnvelopeSeconds": 0.0320316250436008,
+      "stages": {
+        "sourceCheckSeconds": 0.20203087525442243,
+        "sourceReadSeconds": 0.869718958158046,
+        "detectorStepSeconds": 0.16524307429790497,
+        "forecastDtoSeconds": 0.00023733405396342278
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3156810407526791,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 1.5967020001262426,
+      "modelEnvelopeSeconds": 0.024710915982723236,
+      "stages": {
+        "sourceCheckSeconds": 0.1954207089729607,
+        "sourceReadSeconds": 0.9341674582101405,
+        "detectorStepSeconds": 0.15755806537345052,
+        "forecastDtoSeconds": 0.00015558302402496338
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.36781216599047184,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 1.702482792083174,
+      "modelEnvelopeSeconds": 0.02432279195636511,
+      "stages": {
+        "sourceCheckSeconds": 0.19499283330515027,
+        "sourceReadSeconds": 0.8884656666778028,
+        "detectorStepSeconds": 0.1723520513623953,
+        "forecastDtoSeconds": 0.0001410418190062046
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3011280409991741,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 1.5744586251676083,
+      "modelEnvelopeSeconds": 0.026382166892290115,
+      "stages": {
+        "sourceCheckSeconds": 0.1996450829319656,
+        "sourceReadSeconds": 0.8982707080431283,
+        "detectorStepSeconds": 0.15757340844720602,
+        "forecastDtoSeconds": 0.00015404215082526207
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.37379237497225404,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 1.5970416674390435,
+      "modelEnvelopeSeconds": 0.024588000029325485,
+      "stages": {
+        "sourceCheckSeconds": 0.20221612509340048,
+        "sourceReadSeconds": 0.9043051660992205,
+        "detectorStepSeconds": 0.1680960957892239,
+        "forecastDtoSeconds": 0.00014679227024316788
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2981257918290794,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 1.6264257919974625,
+      "modelEnvelopeSeconds": 0.03059216681867838,
+      "stages": {
+        "sourceCheckSeconds": 0.18939029052853584,
+        "sourceReadSeconds": 0.90426866710186,
+        "detectorStepSeconds": 0.15824612649157643,
+        "forecastDtoSeconds": 0.00021195830777287483
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4684780826792121,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 1.5998744587413967,
+      "modelEnvelopeSeconds": 0.024283207952976227,
+      "stages": {
+        "sourceCheckSeconds": 0.21393775008618832,
+        "sourceReadSeconds": 0.9042448340915143,
+        "detectorStepSeconds": 0.15034970780834556,
+        "forecastDtoSeconds": 0.0001371670514345169
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28583204094320536,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 1.6541199581697583,
+      "modelEnvelopeSeconds": 0.030389292165637016,
+      "stages": {
+        "sourceCheckSeconds": 0.19021029071882367,
+        "sourceReadSeconds": 0.8813387923873961,
+        "detectorStepSeconds": 0.16261600609868765,
+        "forecastDtoSeconds": 0.0001854998990893364
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.405519041698426,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 1.5515009160153568,
+      "modelEnvelopeSeconds": 0.024590792134404182,
+      "stages": {
+        "sourceCheckSeconds": 0.19342500064522028,
+        "sourceReadSeconds": 0.8913641669787467,
+        "detectorStepSeconds": 0.16058895690366626,
+        "forecastDtoSeconds": 0.00014474987983703613
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2981213331222534,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 1.77849075011909,
+      "modelEnvelopeSeconds": 0.025376999750733376,
+      "stages": {
+        "sourceCheckSeconds": 0.20543612400069833,
+        "sourceReadSeconds": 0.954911791253835,
+        "detectorStepSeconds": 0.17624875297769904,
+        "forecastDtoSeconds": 0.00015341676771640778
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3017930411733687,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 1.9061049581505358,
+      "modelEnvelopeSeconds": 0.025677124969661236,
+      "stages": {
+        "sourceCheckSeconds": 0.22014970798045397,
+        "sourceReadSeconds": 0.9284396669827402,
+        "detectorStepSeconds": 0.16329399961978197,
+        "forecastDtoSeconds": 0.0001921248622238636
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.41846937499940395,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 1.8566566249355674,
+      "modelEnvelopeSeconds": 0.025607833173125982,
+      "stages": {
+        "sourceCheckSeconds": 0.18904308415949345,
+        "sourceReadSeconds": 1.2049486660398543,
+        "detectorStepSeconds": 0.14885521261021495,
+        "forecastDtoSeconds": 0.00016237515956163406
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2882644161581993,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 1.5539899999275804,
+      "modelEnvelopeSeconds": 0.02471149992197752,
+      "stages": {
+        "sourceCheckSeconds": 0.19444091711193323,
+        "sourceReadSeconds": 0.8970297081395984,
+        "detectorStepSeconds": 0.1538982642814517,
+        "forecastDtoSeconds": 0.0001427498646080494
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2937002079561353,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 1.7341344580054283,
+      "modelEnvelopeSeconds": 0.024589749984443188,
+      "stages": {
+        "sourceCheckSeconds": 0.21027841605246067,
+        "sourceReadSeconds": 0.9688304159790277,
+        "detectorStepSeconds": 0.16423909924924374,
+        "forecastDtoSeconds": 0.00017037522047758102
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28599266707897186,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "cold",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 1.598573333118111,
+      "modelEnvelopeSeconds": 0.027329542208462954,
+      "stages": {
+        "sourceCheckSeconds": 0.20628024963662028,
+        "sourceReadSeconds": 0.9062479161657393,
+        "detectorStepSeconds": 0.15564869344234467,
+        "forecastDtoSeconds": 0.00016587506979703903
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.48472000006586313,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 1.8081110836938024,
+      "modelEnvelopeSeconds": 0.024305458180606365,
+      "stages": {
+        "sourceCheckSeconds": 0.21260399976745248,
+        "sourceReadSeconds": 1.1501577501185238,
+        "detectorStepSeconds": 0.14794509066268802,
+        "forecastDtoSeconds": 0.00014008302241563797
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3096149582415819,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 0.27056924998760223,
+      "modelEnvelopeSeconds": 0.0004883748479187489,
+      "stages": {
+        "sourceCheckSeconds": 0.1807585833594203
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.413631749805063,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 0.35308466712012887,
+      "modelEnvelopeSeconds": 0.0005324999801814556,
+      "stages": {
+        "sourceCheckSeconds": 0.20479420805349946
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.5045451247133315,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 0.35850141709670424,
+      "modelEnvelopeSeconds": 0.0006028329953551292,
+      "stages": {
+        "sourceCheckSeconds": 0.2534141670912504
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.40460387524217367,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 0.2998560001142323,
+      "modelEnvelopeSeconds": 0.000549541786313057,
+      "stages": {
+        "sourceCheckSeconds": 0.19612500024959445
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3449598331935704,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 0.5048957909457386,
+      "modelEnvelopeSeconds": 0.0005692918784916401,
+      "stages": {
+        "sourceCheckSeconds": 0.196042540948838
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3646687911823392,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 0.35269924998283386,
+      "modelEnvelopeSeconds": 0.0005669170059263706,
+      "stages": {
+        "sourceCheckSeconds": 0.24487479077652097
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28680325020104647,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 0.3022775836288929,
+      "modelEnvelopeSeconds": 0.0005009579472243786,
+      "stages": {
+        "sourceCheckSeconds": 0.19751887489110231
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4372246661223471,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 0.2869153330102563,
+      "modelEnvelopeSeconds": 0.0006051249802112579,
+      "stages": {
+        "sourceCheckSeconds": 0.1897726678289473
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29036099975928664,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 0.48492620792239904,
+      "modelEnvelopeSeconds": 0.0007964996621012688,
+      "stages": {
+        "sourceCheckSeconds": 0.23628279101103544
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2778029157780111,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 0.29600762482732534,
+      "modelEnvelopeSeconds": 0.0005382499657571316,
+      "stages": {
+        "sourceCheckSeconds": 0.20072116563096642
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.45409829169511795,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 0.2827082499861717,
+      "modelEnvelopeSeconds": 0.0005362499505281448,
+      "stages": {
+        "sourceCheckSeconds": 0.1868510413914919
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3076361669227481,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 0.47009808337315917,
+      "modelEnvelopeSeconds": 0.0005872906185686588,
+      "stages": {
+        "sourceCheckSeconds": 0.2343584569171071
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3120676660910249,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 0.3818087079562247,
+      "modelEnvelopeSeconds": 0.0005302918143570423,
+      "stages": {
+        "sourceCheckSeconds": 0.19988049985840917
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.35589558305218816,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 0.29205187503248453,
+      "modelEnvelopeSeconds": 0.0005237078294157982,
+      "stages": {
+        "sourceCheckSeconds": 0.1938669579103589
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3987625828012824,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 0.34973379084840417,
+      "modelEnvelopeSeconds": 0.0005454174242913723,
+      "stages": {
+        "sourceCheckSeconds": 0.2337339585646987
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29505258379504085,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 0.30590866738930345,
+      "modelEnvelopeSeconds": 0.0005212081596255302,
+      "stages": {
+        "sourceCheckSeconds": 0.209909041877836
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.43318383442237973,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 0.2813905831426382,
+      "modelEnvelopeSeconds": 0.0005093752406537533,
+      "stages": {
+        "sourceCheckSeconds": 0.1830795407295227
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3205177499912679,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 0.45963191613554955,
+      "modelEnvelopeSeconds": 0.0006120409816503525,
+      "stages": {
+        "sourceCheckSeconds": 0.23670666618272662
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2843474168330431,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m90",
+      "kind": "warm",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 0.4069448751397431,
+      "modelEnvelopeSeconds": 0.0005668750964105129,
+      "stages": {
+        "sourceCheckSeconds": 0.21941004181280732
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.33730554208159447,
+      "recognitionBytes": 680481,
+      "forecastBytes": 11663,
+      "cacheBytes": 16325424,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 1.7884355830028653,
+      "modelEnvelopeSeconds": 0.012055791914463043,
+      "stages": {
+        "sourceCheckSeconds": 0.21663370914757252,
+        "sourceReadSeconds": 1.2687075841240585,
+        "detectorStepSeconds": 0.06316027557477355,
+        "forecastDtoSeconds": 4.266668111085892e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3108987919986248,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 1.6385818747803569,
+      "modelEnvelopeSeconds": 0.013598332647234201,
+      "stages": {
+        "sourceCheckSeconds": 0.19591549970209599,
+        "sourceReadSeconds": 0.9370087501592934,
+        "detectorStepSeconds": 0.0665546478703618,
+        "forecastDtoSeconds": 5.050003528594971e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4475200423039496,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 1.6489912909455597,
+      "modelEnvelopeSeconds": 0.011715959291905165,
+      "stages": {
+        "sourceCheckSeconds": 0.21054137498140335,
+        "sourceReadSeconds": 1.0662772078067064,
+        "detectorStepSeconds": 0.07011993043124676,
+        "forecastDtoSeconds": 3.4292228519916534e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.44226104114204645,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 1.852972666732967,
+      "modelEnvelopeSeconds": 0.011304167099297047,
+      "stages": {
+        "sourceCheckSeconds": 0.26222695829346776,
+        "sourceReadSeconds": 1.2973754168488085,
+        "detectorStepSeconds": 0.06284651253372431,
+        "forecastDtoSeconds": 4.091579467058182e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28946204064413905,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 1.5395633336156607,
+      "modelEnvelopeSeconds": 0.011021915823221207,
+      "stages": {
+        "sourceCheckSeconds": 0.24855262553319335,
+        "sourceReadSeconds": 0.8600312499329448,
+        "detectorStepSeconds": 0.06558134127408266,
+        "forecastDtoSeconds": 3.5750214010477066e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2947192918509245,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 1.4650056660175323,
+      "modelEnvelopeSeconds": 0.011078917421400547,
+      "stages": {
+        "sourceCheckSeconds": 0.19066870864480734,
+        "sourceReadSeconds": 0.8708587088622153,
+        "detectorStepSeconds": 0.06886726198717952,
+        "forecastDtoSeconds": 3.6207959055900574e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3111710837110877,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 1.3827657499350607,
+      "modelEnvelopeSeconds": 0.01075470820069313,
+      "stages": {
+        "sourceCheckSeconds": 0.1987173748202622,
+        "sourceReadSeconds": 0.8649345417506993,
+        "detectorStepSeconds": 0.0641487929970026,
+        "forecastDtoSeconds": 3.433413803577423e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.5411607078276575,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 1.5139782917685807,
+      "modelEnvelopeSeconds": 0.01183216692879796,
+      "stages": {
+        "sourceCheckSeconds": 0.20878966571763158,
+        "sourceReadSeconds": 0.8820180832408369,
+        "detectorStepSeconds": 0.06685108691453934,
+        "forecastDtoSeconds": 3.6207959055900574e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.40793941728770733,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 1.4044185001403093,
+      "modelEnvelopeSeconds": 0.011192082893103361,
+      "stages": {
+        "sourceCheckSeconds": 0.20931266574189067,
+        "sourceReadSeconds": 0.8789360406808555,
+        "detectorStepSeconds": 0.06976733030751348,
+        "forecastDtoSeconds": 3.441702574491501e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.35811924980953336,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 1.7075579590164125,
+      "modelEnvelopeSeconds": 0.01675754226744175,
+      "stages": {
+        "sourceCheckSeconds": 0.20196287520229816,
+        "sourceReadSeconds": 0.8896337077021599,
+        "detectorStepSeconds": 0.0703167230822146,
+        "forecastDtoSeconds": 6.195809692144394e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.38337349984794855,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 1.4832301656715572,
+      "modelEnvelopeSeconds": 0.011809125076979399,
+      "stages": {
+        "sourceCheckSeconds": 0.19498441694304347,
+        "sourceReadSeconds": 0.8723539169877768,
+        "detectorStepSeconds": 0.06829069321975112,
+        "forecastDtoSeconds": 4.3791718780994415e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3055313751101494,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 1.583771915640682,
+      "modelEnvelopeSeconds": 0.010684874840080738,
+      "stages": {
+        "sourceCheckSeconds": 0.20041237492114305,
+        "sourceReadSeconds": 0.9056644588708878,
+        "detectorStepSeconds": 0.06467537907883525,
+        "forecastDtoSeconds": 4.349974915385246e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4227080000564456,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 1.433438666164875,
+      "modelEnvelopeSeconds": 0.010851000435650349,
+      "stages": {
+        "sourceCheckSeconds": 0.2377160000614822,
+        "sourceReadSeconds": 0.8559024999849498,
+        "detectorStepSeconds": 0.07649123575538397,
+        "forecastDtoSeconds": 3.49581241607666e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4057804998010397,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 1.3987350412644446,
+      "modelEnvelopeSeconds": 0.01137962518259883,
+      "stages": {
+        "sourceCheckSeconds": 0.23521525040268898,
+        "sourceReadSeconds": 0.8635635413229465,
+        "detectorStepSeconds": 0.06554270256310701,
+        "forecastDtoSeconds": 3.937492147088051e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.613136540632695,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 1.5683020409196615,
+      "modelEnvelopeSeconds": 0.010776750277727842,
+      "stages": {
+        "sourceCheckSeconds": 0.21889825025573373,
+        "sourceReadSeconds": 0.8997188750654459,
+        "detectorStepSeconds": 0.0662833764217794,
+        "forecastDtoSeconds": 3.0875205993652344e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3272750419564545,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 1.371088375337422,
+      "modelEnvelopeSeconds": 0.011010583024471998,
+      "stages": {
+        "sourceCheckSeconds": 0.19569095829501748,
+        "sourceReadSeconds": 0.8653710000216961,
+        "detectorStepSeconds": 0.06792833050712943,
+        "forecastDtoSeconds": 3.645801916718483e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3924149163067341,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 1.3982499591074884,
+      "modelEnvelopeSeconds": 0.01137133315205574,
+      "stages": {
+        "sourceCheckSeconds": 0.20335916662588716,
+        "sourceReadSeconds": 0.8676417917013168,
+        "detectorStepSeconds": 0.06628105835989118,
+        "forecastDtoSeconds": 3.77078540623188e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.32743416726589203,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 1.430435249581933,
+      "modelEnvelopeSeconds": 0.011577208060771227,
+      "stages": {
+        "sourceCheckSeconds": 0.20380962500348687,
+        "sourceReadSeconds": 0.8703039167448878,
+        "detectorStepSeconds": 0.06512320879846811,
+        "forecastDtoSeconds": 3.8207974284887314e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3541753329336643,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 1.5481481249444187,
+      "modelEnvelopeSeconds": 0.01185912499204278,
+      "stages": {
+        "sourceCheckSeconds": 0.21154524898156524,
+        "sourceReadSeconds": 0.904975916724652,
+        "detectorStepSeconds": 0.07019959203898907,
+        "forecastDtoSeconds": 4.108389839529991e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3684697081334889,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "cold",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 1.7972755832597613,
+      "modelEnvelopeSeconds": 0.010918958112597466,
+      "stages": {
+        "sourceCheckSeconds": 0.21414095908403397,
+        "sourceReadSeconds": 1.198796875309199,
+        "detectorStepSeconds": 0.06307013472542167,
+        "forecastDtoSeconds": 3.158440813422203e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4271024581976235,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 1,
+      "httpStatus": 200,
+      "httpSeconds": 1.5694114998914301,
+      "modelEnvelopeSeconds": 0.01118599995970726,
+      "stages": {
+        "sourceCheckSeconds": 0.20051100011914968,
+        "sourceReadSeconds": 0.8756096670404077,
+        "detectorStepSeconds": 0.06703780964016914,
+        "forecastDtoSeconds": 4.137493669986725e-05
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.7095487504266202,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 2,
+      "httpStatus": 200,
+      "httpSeconds": 0.3432856248691678,
+      "modelEnvelopeSeconds": 0.0002438751980662346,
+      "stages": {
+        "sourceCheckSeconds": 0.23505795886740088
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3014729586429894,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 3,
+      "httpStatus": 200,
+      "httpSeconds": 0.299296457786113,
+      "modelEnvelopeSeconds": 0.0002659587189555168,
+      "stages": {
+        "sourceCheckSeconds": 0.19432929204776883
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.43164770770817995,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 4,
+      "httpStatus": 200,
+      "httpSeconds": 0.29862875025719404,
+      "modelEnvelopeSeconds": 0.00024283304810523987,
+      "stages": {
+        "sourceCheckSeconds": 0.20144225005060434
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29773374972864985,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 5,
+      "httpStatus": 200,
+      "httpSeconds": 0.46608737483620644,
+      "modelEnvelopeSeconds": 0.00024245772510766983,
+      "stages": {
+        "sourceCheckSeconds": 0.2801433326676488
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3128357082605362,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 6,
+      "httpStatus": 200,
+      "httpSeconds": 0.27733408426865935,
+      "modelEnvelopeSeconds": 0.00018949992954730988,
+      "stages": {
+        "sourceCheckSeconds": 0.1881802505813539
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4418279160745442,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 7,
+      "httpStatus": 200,
+      "httpSeconds": 0.3041880000382662,
+      "modelEnvelopeSeconds": 0.0001832498237490654,
+      "stages": {
+        "sourceCheckSeconds": 0.201342792250216
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.29314849991351366,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 8,
+      "httpStatus": 200,
+      "httpSeconds": 0.4599256250075996,
+      "modelEnvelopeSeconds": 0.0002366248518228531,
+      "stages": {
+        "sourceCheckSeconds": 0.23708154121413827
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3104117498733103,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 9,
+      "httpStatus": 200,
+      "httpSeconds": 0.29211154067888856,
+      "modelEnvelopeSeconds": 0.0002077082172036171,
+      "stages": {
+        "sourceCheckSeconds": 0.190936251077801
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.4328792500309646,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 10,
+      "httpStatus": 200,
+      "httpSeconds": 0.3087248341180384,
+      "modelEnvelopeSeconds": 0.00026079174131155014,
+      "stages": {
+        "sourceCheckSeconds": 0.20417454186826944
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28812870802357793,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 11,
+      "httpStatus": 200,
+      "httpSeconds": 0.46156916627660394,
+      "modelEnvelopeSeconds": 0.00030112499371171,
+      "stages": {
+        "sourceCheckSeconds": 0.184172916226089
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3208226249553263,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 12,
+      "httpStatus": 200,
+      "httpSeconds": 0.28924704203382134,
+      "modelEnvelopeSeconds": 0.00026575010269880295,
+      "stages": {
+        "sourceCheckSeconds": 0.1956956246867776
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.42034962493926287,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 13,
+      "httpStatus": 200,
+      "httpSeconds": 0.29702954180538654,
+      "modelEnvelopeSeconds": 0.0001850421540439129,
+      "stages": {
+        "sourceCheckSeconds": 0.20415562530979514
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2852733335457742,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 14,
+      "httpStatus": 200,
+      "httpSeconds": 0.4819531668908894,
+      "modelEnvelopeSeconds": 0.0004854579456150532,
+      "stages": {
+        "sourceCheckSeconds": 0.18276783265173435
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.32019658386707306,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 15,
+      "httpStatus": 200,
+      "httpSeconds": 0.37682254100218415,
+      "modelEnvelopeSeconds": 0.00025520799681544304,
+      "stages": {
+        "sourceCheckSeconds": 0.20146675081923604
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3331164591945708,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 16,
+      "httpStatus": 200,
+      "httpSeconds": 0.2960408329963684,
+      "modelEnvelopeSeconds": 0.0002815420739352703,
+      "stages": {
+        "sourceCheckSeconds": 0.20045412611216307
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.28840562514960766,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 17,
+      "httpStatus": 200,
+      "httpSeconds": 0.47137583419680595,
+      "modelEnvelopeSeconds": 0.00028675002977252007,
+      "stages": {
+        "sourceCheckSeconds": 0.22000862518325448
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.3173853331245482,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 18,
+      "httpStatus": 200,
+      "httpSeconds": 0.2781334170140326,
+      "modelEnvelopeSeconds": 0.00021358393132686615,
+      "stages": {
+        "sourceCheckSeconds": 0.18881520815193653
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.43469954188913107,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 19,
+      "httpStatus": 200,
+      "httpSeconds": 0.5170187498442829,
+      "modelEnvelopeSeconds": 0.00027058320119977,
+      "stages": {
+        "sourceCheckSeconds": 0.20339704118669033
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.6192990001291037,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    },
+    {
+      "period": "m120",
+      "kind": "warm",
+      "iteration": 20,
+      "httpStatus": 200,
+      "httpSeconds": 0.44920899998396635,
+      "modelEnvelopeSeconds": 0.00021204212680459023,
+      "stages": {
+        "sourceCheckSeconds": 0.1904497086070478
+      },
+      "recognitionHttpStatus": 200,
+      "recognitionHttpSeconds": 0.2916702921502292,
+      "recognitionBytes": 686669,
+      "forecastBytes": 1841,
+      "cacheBytes": 12323932,
+      "cacheEntries": 2
+    }
+  ],
+  "latest": [
+    {
+      "period": "day",
+      "httpStatus": 200,
+      "httpSeconds": 0.2340273750014603,
+      "dataStatus": "READY",
+      "computedThrough": "2026-10-15"
+    },
+    {
+      "period": "m60",
+      "httpStatus": 200,
+      "httpSeconds": 2.103258834220469,
+      "dataStatus": "READY",
+      "computedThrough": "2026-10-15T15:00:00+08:00"
+    },
+    {
+      "period": "m90",
+      "httpStatus": 200,
+      "httpSeconds": 2.094209209084511,
+      "dataStatus": "READY",
+      "computedThrough": "2026-10-15T15:00:00+08:00"
+    },
+    {
+      "period": "m120",
+      "httpStatus": 200,
+      "httpSeconds": 0.30363412480801344,
+      "dataStatus": "READY",
+      "computedThrough": "2026-10-15T15:00:00+08:00"
+    }
+  ],
+  "passed": true
+}

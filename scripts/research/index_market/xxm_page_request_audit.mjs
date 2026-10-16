@@ -63,6 +63,8 @@ async function runTab(tab, selected, label, tabIndex, auditContext) {
     for (let i = 0; i < periods.length; i++) {
       const value = values[i], period = periods[i];
       assert.equal(value.detectorSpecHash, auditContext.specHash);
+      assert.equal(value.forecastVersion, "xxm-key-point-forecast-v0.2-a1");
+      assert(Object.hasOwn(value,"rearmContext"));
       assert.equal(value.period, periods[i]); assert.equal(value.dataStatus, "READY");
       assert.equal(value.computedThrough, periods[i] === "day" ? endDate : `${endDate}T15:00:00+08:00`);
       assert(value.display.targetText && value.display.conditionsText && value.display.asOfText);
@@ -71,7 +73,9 @@ async function runTab(tab, selected, label, tabIndex, auditContext) {
     const chartValue = values[periods.length], layerValue = values.at(-1);
     assert.equal(layerValue.algorithmVersion, auditContext.algorithmVersion);
     assert.equal(layerValue.specHash, auditContext.specHash);
-    assert(Array.isArray(layerValue.bottomHistories));
+    assert(Array.isArray(layerValue.bottomHistories) && Array.isArray(layerValue.rearmRecords));
+    assert(layerValue.points.every(p=>Object.hasOwn(p,"pendingRearmId")));
+    assert(layerValue.events.every(e=>Object.hasOwn(e,"relatedRearmId")));
     const chartModel = selected === "day" ? null : tab.buildIndexMinuteChartViewModel(chartValue[0], chartValue[1]);
     const chartPoints = chartModel ? chartModel.points.map(p => ({ time:p.time,close:p.close,dif:p.dif,dea:p.dea,macd:p.macd }))
       : chartValue.bars.map(b => ({time:b.tradeDate,close:b.close,dif:b.factors.macd.dif,dea:b.factors.macd.dea,macd:b.factors.macd.macd}));

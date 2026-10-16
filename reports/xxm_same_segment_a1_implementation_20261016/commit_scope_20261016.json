@@ -1,0 +1,19 @@
+{
+  "precommitBase": "ec9a33a01eee99701af912d2e252ce4e76534e06",
+  "originalValidation": "verification.json",
+  "validatedCodeUnchanged": true,
+  "statusOnlyDocsUpdated": true,
+  "reportEvidenceReused": true,
+  "formalSourcesRerunThisTurn": false,
+  "isolatedIndex": true,
+  "readmeUnrelatedP0HunkExcluded": true,
+  "pushed": false,
+  "deployed": false,
+  "checks": [
+    "previous frozen/API/budget/mixed/261 main/40 display/1186 frontend evidence reused with code SHA match",
+    "current docs integrity",
+    "current git whitespace"
+  ],
+  "preparedAt": "2026-10-16T17:43:53.265970+08:00",
+  "rawLogWhitespace": "Preserve terminal blank lines in original logs; strict source/docs check plus log check excluding blank-at-eof only"
+}

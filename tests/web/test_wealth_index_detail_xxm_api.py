@@ -228,14 +228,15 @@ def bottom_entry(period='day', stop=None):
     raw = tuple(load_source(source, period))
     values = raw if stop is None else tuple(b for b in raw if b.time <= stop)
     calc = XxmCalculator(period=period, source_identity='B-api-test')
-    points, events, histories, bottom, checkpoints = [], [], {}, {}, {}
+    points, events, histories, bottom, rearms, checkpoints = [], [], {}, {}, {}, {}
     for n, bar in enumerate(values, 1):
         step = calc.step(bar); points.append(step.point); events.extend(step.events)
         histories.update({h['id']: h for h in step.histories})
         bottom.update({h['id']: h for h in step.bottom_histories})
+        rearms.update({r['id']: r for r in step.rearm_records})
         if n % 1000 == 0: checkpoints[n] = calc.snapshot()
     return SeriesEntry(raw=raw, signature=(), calculator=calc, processed=values, points=points,
-                       events=events, histories=histories, bottom_histories=bottom,
+                       events=events, histories=histories, bottom_histories=bottom, rearm_records=rearms,
                        fingerprints=['a'*64]*len(values), checkpoints=checkpoints)
 
 
@@ -321,3 +322,69 @@ def test_bottom_increment_copy_revision_and_eviction(source_db, monkeypatch):
         assert revised.bottom_histories is not next_entry.bottom_histories
     tiny = XxmCache(max_bytes=1); tiny.put(('B',), next_entry)
     assert tiny.get(('B',)) is None
+
+
+@pytest.mark.parametrize('period',['m60','m90','m120'])
+def test_rearm_asof_single_bar_and_strict_bidirectional_contract(period):
+    from copy import deepcopy
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
+    service=IndexDetailXxmQueryService;entry=bottom_entry(period)
+    record=next(iter(entry.rearm_records.values()));stamp=record['disappearedAt']
+    response=service._response(entry,period=period,expected=stamp,start_date=None,limit=1,check=lambda:None)
+    value=response.model_dump();r=value['rearmRecords'][0]
+    assert r['status']=='WAITING' and r['endedAt'] is None and r['observedThrough']==stamp
+    assert r['reference'] and 'referenceWave' not in r
+    assert value['bottomHistories'][0]['structureEventId']==r['structureEventId']
+    assert r['structureEventId'] not in {e['id'] for e in value['events']}
+    prefix=bottom_entry(period,stamp)
+    assert response==service._response(prefix,period=period,expected=stamp,start_date=None,limit=1,check=lambda:None)
+    assert entry.calculator_at(len(prefix.processed),lambda:None).snapshot()==prefix.calculator.snapshot()
+    mutations=[lambda v:v.pop('rearmRecords'),lambda v:v['points'][0].pop('pendingRearmId'),
+        lambda v:v['events'][0].pop('relatedRearmId'),lambda v:v.update(rearmRecords=[]),
+        lambda v:v['rearmRecords'][0].update(referenceWave={}),
+        lambda v:v['rearmRecords'][0].update(direction='TOP'),
+        lambda v:v['rearmRecords'][0].update(observedThrough='2099-01-01T15:00:00+08:00'),
+        lambda v:v['rearmRecords'][0]['reference'].update(price=float('inf')),
+        lambda v:v['rearmRecords'][0].update(endReason='zero'),
+        lambda v:v['rearmRecords'][0].update(bottomHistoryId='wrong'),
+        lambda v:v['points'][0].update(pendingRearmId='wrong'),
+        lambda v:v['events'][0].update(relatedRearmId=None),
+        lambda v:v['events'].append({**v['events'][0],'id':'duplicate-transition'}),
+        lambda v:v['bottomHistories'][0].update(endReason='historical_price_break',leftOriginAt=stamp),
+        lambda v:v['events'][0].update(type='CANCEL',relatedBottomHistoryId=None),
+        lambda v:v['dataStatus'].update(status='EMPTY')]
+    for mutate in mutations:
+        bad=deepcopy(value);mutate(bad)
+        with pytest.raises(ValidationError):XxmResponseDto.model_validate(bad)
+    if record['endedAt']:
+        whole=service._response(entry,period=period,expected=record['endedAt'],start_date=date.fromisoformat(stamp[:10]),limit=2000,check=lambda:None)
+        assert any(p.pendingRearmId==record['id'] for p in whole.points)
+        assert next(r for r in whole.rearmRecords if r.id==record['id']).status==record['status']
+        assert XxmResponseDto.model_validate(whole.model_dump())==whole
+
+
+@pytest.mark.parametrize('period',['m60','m90','m120'])
+def test_rearm_ledger_increment_isolation_revision_and_cache_rebuild(source_db,tmp_path,monkeypatch,period):
+    from copy import deepcopy
+    entry=bottom_entry(period);record=next(iter(entry.rearm_records.values()))
+    values={'bars':tuple(b for b in entry.raw if b.time<record['disappearedAt']),'revision':1}
+    class Reader:
+        def history_source_signature(self,request,*,dataset):return (dataset,values['revision'])
+    monkeypatch.setattr(query_service,'minute_reader',lambda root:Reader())
+    monkeypatch.setattr(query_service,'read_minutes',lambda *a,**kw:values['bars'])
+    monkeypatch.setattr(query_service,'calendar_dates',lambda *a,**kw:tuple(sorted({date.fromisoformat(b.time[:10]) for b in entry.raw})))
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    now=datetime(2026,10,16,16,tzinfo=ZONE)
+    with Session(source_db) as session:
+        first,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
+        before=deepcopy(first.rearm_records);snapshot=first.calculator.snapshot()
+        values.update(bars=tuple(b for b in entry.raw if b.time<=record['disappearedAt']),revision=2)
+        second,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
+        assert first.rearm_records==before and first.calculator.snapshot()==snapshot
+        assert first.rearm_records is not second.rearm_records and second.calculator.pending_rearm
+        old=deepcopy(second.rearm_records)
+        values.update(bars=(replace(values['bars'][0],close=values['bars'][0].close+.1),*values['bars'][1:]),revision=3)
+        rebuilt,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
+        assert second.rearm_records==old and rebuilt.rearm_records is not second.rearm_records
+        assert rebuilt.points[0]['close']!=second.points[0]['close']

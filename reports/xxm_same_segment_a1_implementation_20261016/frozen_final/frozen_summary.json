@@ -1,0 +1,114 @@
+{
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "events": 65,
+        "disappeared": 0,
+        "reactivated": 0,
+        "historicalBottom": 4
+      },
+      "1.0": {
+        "rows": 912,
+        "events": 65,
+        "disappeared": 0,
+        "reactivated": 0,
+        "historicalBottom": 4,
+        "prefixRestoreCuts": 5,
+        "forecasts": 26,
+        "maxModelMs": 85.76712477952242,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "events": 65,
+        "disappeared": 0,
+        "reactivated": 0,
+        "historicalBottom": 4
+      }
+    },
+    "m60": {
+      "0.75": {
+        "rows": 17260,
+        "events": 1183,
+        "disappeared": 5,
+        "reactivated": 1,
+        "historicalBottom": 46
+      },
+      "1.0": {
+        "rows": 17260,
+        "events": 1167,
+        "disappeared": 4,
+        "reactivated": 1,
+        "historicalBottom": 46,
+        "prefixRestoreCuts": 13,
+        "forecasts": 162,
+        "maxModelMs": 33.9048751629889,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 17260,
+        "events": 1156,
+        "disappeared": 4,
+        "reactivated": 1,
+        "historicalBottom": 46
+      }
+    },
+    "m90": {
+      "0.75": {
+        "rows": 12945,
+        "events": 873,
+        "disappeared": 4,
+        "reactivated": 1,
+        "historicalBottom": 24
+      },
+      "1.0": {
+        "rows": 12945,
+        "events": 863,
+        "disappeared": 4,
+        "reactivated": 1,
+        "historicalBottom": 24,
+        "prefixRestoreCuts": 13,
+        "forecasts": 101,
+        "maxModelMs": 39.81204191222787,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 12945,
+        "events": 856,
+        "disappeared": 4,
+        "reactivated": 1,
+        "historicalBottom": 24
+      }
+    },
+    "m120": {
+      "0.75": {
+        "rows": 8630,
+        "events": 600,
+        "disappeared": 7,
+        "reactivated": 6,
+        "historicalBottom": 19
+      },
+      "1.0": {
+        "rows": 8630,
+        "events": 588,
+        "disappeared": 6,
+        "reactivated": 5,
+        "historicalBottom": 19,
+        "prefixRestoreCuts": 14,
+        "forecasts": 80,
+        "maxModelMs": 38.238917011767626,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 8630,
+        "events": 584,
+        "disappeared": 6,
+        "reactivated": 5,
+        "historicalBottom": 19
+      }
+    }
+  },
+  "softwareFormulaProven": false,
+  "formalFourSecondBudgetTested": false
+}

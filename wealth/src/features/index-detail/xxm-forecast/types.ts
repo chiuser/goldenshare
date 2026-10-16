@@ -1,3 +1,4 @@
+import type { XxmRearmRecord } from "../xxm/types";
 export const FORECAST_PERIODS = ["day", "m60", "m90", "m120"] as const;
 export type ForecastPeriod = typeof FORECAST_PERIODS[number];
 export const PERIOD_LABELS: Record<ForecastPeriod, string> = { day: "日线", m60: "60 分钟", m90: "90 分钟", m120: "120 分钟" };
@@ -19,9 +20,10 @@ export type ForecastExpression =
 export interface ForecastCondition { left: ForecastExpression; op: "lt" | "le" | "eq" | "ge" | "gt"; right: ForecastExpression }
 export interface ForecastResponse {
   tsCode: "000001.SH"; period: ForecastPeriod;
-  forecastVersion: "xxm-key-point-forecast-v0.2"; forecastSpecHash: string; detectorSpecHash: string;
+  forecastVersion: "xxm-key-point-forecast-v0.2-a1"; forecastSpecHash: string; detectorSpecHash: string;
   sourceInputId: string | null; calendarInputId: string | null; computedThrough: string | null; requestedAsOf: string | null;
   mode: "LATEST" | "REPLAY"; dataStatus: "READY" | "DELAYED" | "EMPTY";
+  rearmContext: XxmRearmRecord | null;
   ordinaryState: "NONE" | "DULL" | "STRUCTURE" | null; direction: ForecastDirection | null;
   status: "READY" | "CONDITIONAL_ENTRY" | "ENTRY_ONLY" | "NO_CANDIDATE" | "CONFIRMED" | "PRECISION_PENDING" | "DELAYED" | "EMPTY";
   reasonCode: string | null; precisionPolicy: "rounded3_guarded" | "full_float"; forecastId: string;

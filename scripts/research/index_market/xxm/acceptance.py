@@ -101,6 +101,7 @@ def main() -> None:
         events = [event for step in steps for event in step.events]
         histories = {h["id"]: h for step in steps for h in step.histories}
         bottom_histories = {h["id"]: h for step in steps for h in step.bottom_histories}
+        rearm_records = {r["id"]:r for step in steps for r in step.rearm_records}
         # Independently replay every ordinary/history event and lifecycle-change
         # prefix. Compare the complete prefix event ledger, not just its count.
         seen_histories, ended_histories = set(), set()
@@ -155,9 +156,10 @@ def main() -> None:
                       stateBytes=state_bytes, frozenNumericOverlap=numeric_overlap,
                       realApiWindowMatchedRows=len(expected_points),
                       pointSequenceSha256=point_hash, events=events, topHistories=list(histories.values()), bottomHistories=list(bottom_histories.values()),
+                      rearmRecords=list(rearm_records.values()),
                       bottomHistoryCounts=dict(Counter(h["status"] for h in bottom_histories.values())))
         (args.output / f"baseline_{period}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
-        summary["periods"][period] = {k: v for k, v in result.items() if k not in ("events", "topHistories", "bottomHistories")}
+        summary["periods"][period] = {k: v for k, v in result.items() if k not in ("events", "topHistories", "bottomHistories", "rearmRecords")}
         print(f"{period}: {len(event_cuts)} independent event/lifecycle prefixes passed", flush=True)
     readouts = []
     lookup = {p: {b.time: b for b in bars} for p, bars in sources.items()}

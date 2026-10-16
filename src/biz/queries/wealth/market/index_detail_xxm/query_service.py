@@ -62,6 +62,7 @@ class SeriesEntry:
     events: list[dict]
     histories: dict[str, dict]
     bottom_histories: dict[str, dict]
+    rearm_records: dict[str, dict]
     fingerprints: list[str]
     checkpoints: dict[int, dict]
     open_dates: tuple[date, ...] = ()
@@ -222,14 +223,14 @@ class IndexDetailXxmQueryService:
         origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
         if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
             entry = SeriesEntry(raw=raw, signature=signature, calculator=XxmCalculator(period=period, source_identity=origin),
-                                processed=(), points=[], events=[], histories={}, bottom_histories={}, fingerprints=[], checkpoints={})
+                                processed=(), points=[], events=[], histories={}, bottom_histories={}, rearm_records={}, fingerprints=[], checkpoints={})
         offset = len(entry.processed)
         if offset != len(processed):
             calculator = XxmCalculator(period=period, source_identity=origin)
             calculator.restore(entry.calculator.snapshot())
             entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=entry.processed,
                                 points=list(entry.points), events=list(entry.events), histories=dict(entry.histories),
-                                bottom_histories=dict(entry.bottom_histories), fingerprints=list(entry.fingerprints),
+                                bottom_histories=dict(entry.bottom_histories), rearm_records=dict(entry.rearm_records), fingerprints=list(entry.fingerprints),
                                 checkpoints=dict(entry.checkpoints))
         for index in range(offset, len(processed)):
             if index % BUDGET.source_batch_rows == 0:
@@ -242,6 +243,7 @@ class IndexDetailXxmQueryService:
             entry.events.extend(step.events)
             entry.histories.update({history["id"]: history for history in step.histories})
             entry.bottom_histories.update({history["id"]: history for history in step.bottom_histories})
+            entry.rearm_records.update({record["id"]: record for record in step.rearm_records})
             previous_hash = entry.fingerprints[-1] if entry.fingerprints else origin
             numeric = "|".join(float(v).hex() for v in (bar.close, bar.dif, bar.dea, bar.hist))
             entry.fingerprints.append(hashlib.sha256(f"{previous_hash}|{bar.time}|{numeric}".encode()).hexdigest())
@@ -276,8 +278,11 @@ class IndexDetailXxmQueryService:
             history["ageBars"] = bisect_right(times, history["observedThrough"]) - bisect_right(times, history["confirmedAt"])
             if first is not None and (history["id"] in related or history["status"] == "PENDING" or history["endedAt"] >= first):
                 histories.append({field: history[field] for field in XxmTopHistoryDto.model_fields})
+        rearms = IndexDetailXxmQueryService._rearm_records_for_response(
+            entry, points=points, events=events, first=first, last=last, through=through, check=check)
         bottom_histories = IndexDetailXxmQueryService._bottom_histories_for_response(
-            entry, points=points, events=events, first=first, last=last, through=through, times=times, check=check)
+            entry, points=points, events=events, first=first, last=last, through=through, times=times, check=check,
+            rearms=rearms)
         status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
         message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
         return XxmResponseDto(tsCode="000001.SH", period=period, algorithmVersion=MAIN_SPEC.algorithm_version,
@@ -286,7 +291,7 @@ class IndexDetailXxmQueryService:
                                       "inputId": entry.fingerprints[end_index - 1] if end_index else hashlib.sha256(b"empty").hexdigest(),
                                       "startTime": times[0] if end_index else None, "computedThrough": through,
                                       "initialHistoryIncomplete": True, "indicatorVersion": None if period == "day" else INDICATOR_VERSION},
-                              points=points, events=events, topHistories=histories, bottomHistories=bottom_histories,
+                              points=points, events=events, topHistories=histories, bottomHistories=bottom_histories, rearmRecords=rearms,
                               meta={"count": len(points), "responseStart": first, "responseEnd": last},
                               dataStatus={"status": status, "message": message, "asOf": through})
 
@@ -306,11 +311,12 @@ class IndexDetailXxmQueryService:
     @staticmethod
     def _bottom_histories_for_response(entry: SeriesEntry, *, points: list[dict], events: list[dict],
                                        first: str | None, last: str | None, through: str | None,
-                                       times: list[str], check) -> list[dict]:
+                                       times: list[str], check, rearms: list[dict]) -> list[dict]:
         if first is None or last is None or through is None:
             return []
         related = {p["pendingBottomHistoryId"] for p in points if p["pendingBottomHistoryId"]}
         related.update(e["relatedBottomHistoryId"] for e in events if e["relatedBottomHistoryId"])
+        related.update(r["bottomHistoryId"] for r in rearms)
         histories = []
         for index, record in enumerate(entry.bottom_histories.values()):
             if index % BUDGET.source_batch_rows == 0:
@@ -323,3 +329,35 @@ class IndexDetailXxmQueryService:
                 if history is not None:
                     histories.append(history)
         return sorted(histories, key=lambda h: (h["confirmedAt"], h["id"]))
+
+    @staticmethod
+    def _project_rearm_record(record: dict, *, through: str) -> dict | None:
+        if record["disappearedAt"] > through:
+            return None
+        result = deepcopy(record)
+        saved = result.pop("referenceWave")
+        result["reference"] = {"startTime": saved["start"], "endTime": saved["end"],
+                               "price": saved["price"], "dif": saved["dif"]}
+        if result["endedAt"] is not None and result["endedAt"] > through:
+            result.update(status="WAITING", endedAt=None, endReason=None)
+        result["observedThrough"] = result["endedAt"] or through
+        return result
+
+    @staticmethod
+    def _rearm_records_for_response(entry: SeriesEntry, *, points, events, first, last, through, check):
+        if first is None or last is None or through is None:
+            return []
+        related = {p["pendingRearmId"] for p in points if p["pendingRearmId"]}
+        related.update(e["relatedRearmId"] for e in events if e["relatedRearmId"])
+        bottom_ids = {p["pendingBottomHistoryId"] for p in points if p["pendingBottomHistoryId"]}
+        bottom_ids.update(e["relatedBottomHistoryId"] for e in events if e["relatedBottomHistoryId"])
+        result = []
+        for index, record in enumerate(entry.rearm_records.values()):
+            if index % BUDGET.source_batch_rows == 0:
+                check()
+            if (record["id"] in related or record["bottomHistoryId"] in bottom_ids
+                    or record["disappearedAt"] <= last and (record["endedAt"] is None or record["endedAt"] >= first)):
+                value = IndexDetailXxmQueryService._project_rearm_record(record, through=through)
+                if value is not None:
+                    result.append(value)
+        return sorted(result, key=lambda r: (r["disappearedAt"], r["id"]))

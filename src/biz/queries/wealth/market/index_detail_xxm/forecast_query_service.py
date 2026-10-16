@@ -46,6 +46,40 @@ def future_calendar(session, period, through, check):
     raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "未来交易日历未覆盖预测范围。")
 
 
+def _active_confirmation(entry, count, check):
+    """Resolve the current structure, never a stale confirmation before rearm."""
+    if not count:
+        return None
+    point = entry.points[count - 1]
+    through = point["time"]
+    current = None
+    for index, event in enumerate(reversed(entry.events)):
+        if index % 1000 == 0:
+            check()
+        if event["time"] > through:
+            continue
+        if event["time"] < through:
+            break
+        if event["type"] == "STRUCTURE":
+            current = event
+            break
+    if current is not None or point["ordinaryState"] != "STRUCTURE":
+        return current
+    direction = point["ordinaryDirection"]
+    bottom = direction == "BOTTOM"
+    history_id = point["pendingBottomHistoryId" if bottom else "pendingTopHistoryId"]
+    record = (entry.bottom_histories if bottom else entry.histories).get(history_id)
+    if record is not None:
+        for index, event in enumerate(reversed(entry.events)):
+            if index % 1000 == 0:
+                check()
+            if (event["time"] == record["confirmedAt"] and event["type"] == "STRUCTURE"
+                    and event["direction"] == direction
+                    and event["relatedBottomHistoryId" if bottom else "relatedTopHistoryId"] == history_id):
+                return event
+    raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "当前结构的确认关联不完整。")
+
+
 class IndexDetailXxmForecastQueryService:
     def __init__(self, *, lake_root=None, cache=None):
         self.source = IndexDetailXxmQueryService(lake_root=lake_root, cache=cache)
@@ -69,8 +103,12 @@ class IndexDetailXxmForecastQueryService:
             ordinary = entry.points[n - 1]["ordinaryState"] if n else None
             hist = entry.points[n - 1]["hist"] if n else 0
             direction = "TOP" if hist > 0 else "BOTTOM" if hist < 0 else None
-            confirmation = next((e for e in reversed(entry.events) if e["time"] <= through and e["type"] == "STRUCTURE"), None) if through else None
-            is_confirmed = data_status == "READY" and (ordinary == "STRUCTURE" or confirmation and confirmation["time"] == through)
+            confirmation = _active_confirmation(entry, n, remaining) if data_status == "READY" else None
+            is_confirmed = confirmation is not None
+            rearm_context = None
+            if data_status == "READY" and n and entry.points[n - 1]["pendingRearmId"]:
+                rearm_context = self.source._project_rearm_record(
+                    entry.rearm_records[entry.points[n - 1]["pendingRearmId"]], through=through)
             endpoints = ()
             if data_status == "READY" and not is_confirmed:
                 endpoints, calendar_id = future_calendar(session, period, through, remaining)
@@ -102,11 +140,14 @@ class IndexDetailXxmForecastQueryService:
             result["confirmedAt"] = confirmation["time"] if confirmed and confirmation else None
             result["confirmedDirection"] = confirmation["direction"] if confirmed and confirmation else None
             result["direction"] = result["confirmedDirection"] if confirmed else direction
+            result["rearmContext"] = rearm_context
             result["applicabilityText"] = (
                 "仅适用于本周期已计算的收盘条件；实际收盘后更新。"
                 if result["activation"] else "按当前真实状态与明确的中间走势假设计算。"
             )
             result["invalidationText"] = (
+                "原结构已消失，需先重新形成钝化，再判断结构；参照DIF突破、柱色改变或零柱时，等待条件结束。"
+                if rearm_context else
                 "原钝化消失、零柱或前序走势变化时重新计算；未达结构条件不等于钝化已消失。"
                 if result["status"] in ("READY", "CONDITIONAL_ENTRY", "ENTRY_ONLY") else "新完成行情到达后重新判断。"
             )

@@ -10,9 +10,9 @@ import { FORECAST_PERIODS, type ForecastPeriod, type ForecastResponse, type Fore
 vi.mock("./apiClient", () => ({ fetchForecast: vi.fn() }));
 const mocked = vi.mocked(fetchForecast);
 function response(period: ForecastPeriod, asOf?: string): ForecastResponse {
-  return { tsCode:"000001.SH",period,forecastVersion:"xxm-key-point-forecast-v0.2",forecastSpecHash:"a".repeat(64),detectorSpecHash:"b".repeat(64),
+  return { tsCode:"000001.SH",period,forecastVersion:"xxm-key-point-forecast-v0.2-a1",forecastSpecHash:"a".repeat(64),detectorSpecHash:"b".repeat(64),
     sourceInputId:"c".repeat(64),calendarInputId:"d".repeat(64),computedThrough:asOf??(period==="day"?"2026-10-13":"2026-10-13T15:00:00+08:00"),requestedAsOf:asOf??null,
-    mode:asOf?"REPLAY":"LATEST",dataStatus:"READY",ordinaryState:"NONE",direction:"BOTTOM",status:"NO_CANDIDATE",reasonCode:"NO_ENTRY_RANGE",precisionPolicy:period==="day"?"rounded3_guarded":"full_float",
+    mode:asOf?"REPLAY":"LATEST",dataStatus:"READY",rearmContext: null, ordinaryState:"NONE",direction:"BOTTOM",status:"NO_CANDIDATE",reasonCode:"NO_ENTRY_RANGE",precisionPolicy:period==="day"?"rounded3_guarded":"full_float",
     forecastId:"f".repeat(64),targetEndpoint:null,barsAhead:null,activation:null,assumption:null,targetEntryRanges:[],targetEntryExclusions:[],relations:[],commonConditions:[],examples:[],applicabilityText:"",invalidationText:"",confirmedAt:null,confirmedDirection:null,refreshAfterMs:60000,
     display:{statusLabel:"暂无候选",targetText:"暂无有效候选时点",conditionsText:"当前参考情景内暂无时点。",asOfText:"截至10/13"}};
 }
@@ -113,26 +113,21 @@ it("rejects legacy fields and accepts activation-only state without inventing a 
 });
 
 
-it("accepts historical v0.2 math payloads and treats their display text as opaque",()=>{
+it("rejects archived v0.2 responses instead of mixing them with a1",()=>{
   for(const period of FORECAST_PERIODS){
     for(const mode of ["latest","cold"]){
       const file=resolve(process.cwd(),"../reports/xxm_forecast_range_implementation_20261014",`http_${mode}_${period}.json`);
       const value=JSON.parse(readFileSync(file,"utf8")) as ForecastResponse;
-      const adapted=adaptForecast(value,period,value.requestedAsOf??undefined);
-      expect(adapted).toBe(value);
-      expect(adapted.display.conditionsText).not.toMatch(/确认价|前提：.*收于/);
-      if(adapted.status==="CONDITIONAL_ENTRY"){
-        expect(adapted.display.conditionsText).toContain("收盘落在以下范围");
-        expect(adapted.display.conditionsText).toContain("不要求收在这些示例点");
-      }
+      expect(()=>adaptForecast(value,period,value.requestedAsOf??undefined)).toThrow();
     }
   }
 });
 
 it("renders current real producer copy for four periods without dropping protected conditions or reconstructing prices",()=>{
-  for(const mode of ["latest","cold"]){
+  {
+    const indexes={day:5,m60:6,m90:7,m120:8};
     const rows=Object.fromEntries(FORECAST_PERIODS.map(period=>{
-      const file=resolve(process.cwd(),"../reports/xxm_forecast_display_implementation_20261015/real_api_recheck",`http_${mode}_${period}.json`);
+      const file=resolve(process.cwd(),"../reports/xxm_same_segment_a1_implementation_20261016/api",`api_forecast_${indexes[period]}_${period}.json`);
       const value=JSON.parse(readFileSync(file,"utf8")) as ForecastResponse;
       const adapted=adaptForecast(value,period,value.requestedAsOf??undefined);
       expect(adapted).toBe(value);

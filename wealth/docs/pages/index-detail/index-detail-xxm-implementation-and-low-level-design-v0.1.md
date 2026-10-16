@@ -1,12 +1,12 @@
 # 上证徐小明研究指标 V0.1 实施方案与 LLD
 
-2026-10-16 A组代码级审计：**当根资格分流已通过离线研究，产品函数／字段／快照／缓存／预测／Wealth迁移已补齐至[§21](#xxm-same-segment-a1-code-lld)。技术上可按本节有限范围开发，等待用户确认后开工；正式仍为h1，未改产品代码。§15为已失败早期草案，不能作为当前编码依据；§20保留研究历程。**
+2026-10-16 A组当前状态：**用户已确认[§21](#xxm-same-segment-a1-code-lld)，先提交方案基线`f44c7bde`后，已实施唯一a1内核及全部合同／消费者。正式技术验收和逐条对账见§22；页面由用户验收，本轮开发改动按用户要求提交；未推送或部署。下方h1及旧“待确认／未实施”段落均为历史时点；§15为失败草案，不能继续作为编码依据。**
 
 日期：2026-10-14。状态：**用户已批准规则、Figma、完整历史读取调整及仅指数详情页的 1280／1440px 适配；M0/M1/M2 技术验收完成，10 月 14 日标记视觉修订已同步四周期并通过技术验收，M3 等用户复看；未部署。**
 
 代码级设计及实施（2026-10-16）：**用户已确认§17，B组唯一h1内核、查询／恢复／DTO及Wealth消费者已实施。冻结、正式预算及整页／双标签306请求全部通过，后端209项／前端1179项及类型／构建通过，交付见§18及[实施报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_h1_implementation_20261016/README.md)。§16工作规则与B1旧证据保留；页面由用户验收，未提交／部署。**
 
-最新状态（2026-10-16）：**B组原三日线漏报及两处120分钟映射已在正式h1内核和API中补齐；A组同段问题继续待审。§16.10及其前文的“未实现”是B1研究时点记录，以§18本次交付为准。**
+B组交付时点（历史，2026-10-16）：**B组原三日线漏报及两处120分钟映射已在正式h1内核和API中补齐；A组同段问题继续待审。§16.10及其前文的“未实现”是B1研究时点记录，以§18本次交付为准。**
 
 此前方案修订记录（2026-10-16）：**底部同段结构消失、参照保留、重新钝化及预测的LLD见§15，待用户确认，产品代码未修改。§1—§14保留现行实现和历史验收，§15拟议合同尚未生效。原三处跨柱色底部消失漏报及两条疑似顶部多报未解决，状态以算法方案§12.1为准；修订分组和补证优先级统一见算法方案§12.8、本LLD§15.8。**
 
@@ -1235,11 +1235,11 @@ T01—T16对应代码及正反例、各模式新目录、正常鉴权及只读�
 
 <a id="xxm-same-segment-a1-code-lld"></a>
 
-## 21 A组产品代码级LLD：当根资格分流及全链迁移（2026-10-16，待确认、未实施）
+## 21 A组产品代码级LLD：当根资格分流及全链迁移（2026-10-16，已确认并实施）
 
 ### 21.1 目标、依据与开发准备度
 
-用户要求补齐代码级LLD并审计能否开发。本节是A组产品实施的唯一代码级入口，**替代§15的失败草案及旧版本／字段示例**；§17—§18仍是已实施B组的历史约束，不批准修改本节排除项。规则唯一依据为算法方案§12.12和用户对8/22原图的辨认；研究候选2及四周期完整证据见[预检报告](../../../../reports/xxm_same_segment_precheck_20261016_04/README.md)。本轮只改文档，没有产品编码。
+用户要求补齐代码级LLD并审计能否开发。本节是A组产品实施的唯一代码级入口，**替代§15的失败草案及旧版本／字段示例**；§17—§18仍是已实施B组的历史约束，不批准修改本节排除项。规则唯一依据为算法方案§12.12和用户对8/22原图的辨认；研究候选2及四周期完整证据见[预检报告](../../../../reports/xxm_same_segment_precheck_20261016_04/README.md)。该句原为LLD审计时点；用户随后确认并授权实施，结果见§22。
 
 **审计结论：已具备按本节有限范围进入开发的技术条件，用户确认本节后可开工。** 研究已经解决“当根够格是否也强制等待”的反例，不需要再找重复截图。进入开发不等于所有软件公式已明确，也不等于正式4秒／DTO／整页验收通过。1%仍为原工作参数；OHLC依赖、原软件历史寿命、两处无软件真值的90分钟历史差异及顶部9/24—9/25疑报继续单列，不顺手修正。
 
@@ -1354,7 +1354,7 @@ _advance_rearm(self, bar: XxmBar) -> tuple[bool, Wave | None, tuple[XxmRearmReco
 
 snapshot增加必有可空`pendingRearm`，使用内部完整记录；所有可变嵌套对象深拷贝。现有pendingBottomHistory等字段继续保留。forecast_detector.clone和SeriesEntry.calculator_at继续构造同一XxmCalculator／同一Spec再restore，不导入研究候选。
 
-新增`_validate_rearm_snapshot(raw, *, previous, wave, state, reference, bottom_history, processed)`。先把所有字段解析到局部变量，全部通过后才发布到self，包括在已有实例上回退到旧真实前缀。至少校验：
+新增`_validate_rearm_snapshot(raw, *, previous, wave, state, reference, bottom_history, processed, history)`。history为恢复时已解析的局部原参照池。先把所有字段解析到局部变量，全部通过后才发布到self，包括在已有实例上回退到旧真实前缀。至少校验：
 
 - 键集合精确匹配内部TypedDict，referenceWave八字段完整、有限值／正价／合法sign、严格整数count及各时间关系；不得接受公共reference代替完整Wave。
 - 仅WAITING可出现在活动snapshot；结束字段为空，观察时间等于previous.time；previous／processed一致，state=NONE、reference=null、bottom_history=null、wave.sign=-1且segmentStart=wave.start。
@@ -1492,7 +1492,7 @@ W/rearmContract.ts只共用结构校验；W/xxm-forecast/types.ts引用同一Xxm
 | A3 Wealth消费 | 严格类型／白名单、绿色标签与详情、技术面后端display；沿用已确认设计 | T11—T13、真实响应驱动展示；不改布局和评分 |
 | A4 产品验收 | 新版完整回放及所有反例通过，再跑源／接口／混合预算 | T15及逐条计划对账；页面由用户验收 |
 
-实施时必跑，**以下不是本轮已通过的成绩**：
+实施验收命令，实际结果见§22；不以先前h1成绩代替：
 
 ```sh
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_calculator.py scripts/research/index_market/tests/test_xxm_key_point_forecast.py scripts/research/index_market/tests/test_xxm_forecast_display.py tests/web/test_wealth_index_detail_xxm_api.py tests/web/test_wealth_index_detail_xxm_forecast_api.py tests/web/test_xxm_shared_loads.py
@@ -1501,7 +1501,7 @@ npm --prefix wealth run test
 npm --prefix wealth run build
 ```
 
-新same_segment_acceptance入口须在实现后提供--help及明确frozen／api／budget模式，命令按实际解析器记录；未实现前不编造可运行参数。API模式用隔离SQLite和临时Parquet走真实router／query／calc／DTO，不能mock核心服务。冻结39747根×三门槛、45恢复切点及369预测对照是最低保留范围，新增字段／合同反例仍须另跑，不以旧63项代替。
+same_segment_acceptance已提供--help及frozen／api／budget模式，实测命令和新输出目录见实施报告与研究README。API模式用隔离SQLite及封存行情字段传输fixture走真实router／query／calc／DTO，不mock核心服务；分钟物理读取由同轮临时Parquet集成测试及正式只读预算共同验证。冻结39747根×三门槛、45恢复切点及369预测对照是最低保留范围，新增字段／合同反例仍须另跑，不以旧63项代替。
 
 性能设计不增加来源请求／分页／数据库计算，仍读取同一完整历史。新资格与活动等待均为每根O(1)，活动状态O(1)；已结束记录只在原受行数／LRU限制的SeriesEntry账本中，不在每个point重复塞完整参照。context直接按point ID取记录，不为了显示上下文再做全量回放；窗口组装和JSON新增开销须由下述实测验证，不能靠复杂度判断称已达4秒。
 
@@ -1511,7 +1511,7 @@ npm --prefix wealth run build
 
 ### 21.12 通用清单映射与例外白名单
 
-按wealth/docs/system/module-delivery-checklist-v1.md逐项映射，列“不适用”也须说明理由。待用户确认本节后作为编码门禁；本轮没有授予部署／发布权限。
+按wealth/docs/system/module-delivery-checklist-v1.md逐项映射，列“不适用”也须说明理由。用户本轮已确认本节作为编码门禁；没有授予部署／发布权限。
 
 | 通用条目 | 适用性、落点 | 验证 |
 | --- | --- | --- |
@@ -1552,10 +1552,25 @@ npm --prefix wealth run build
 
 页面人工验收安排来自用户持续授权，优先于通用自动浏览器建议；技术层仍须真实API及其原响应驱动展示，不能只做mock。未新增其他例外。
 
-### 21.13 本轮审计交付与后续停止线
+### 21.13 开发前审计记录（历史）与停止线
 
 规则、数据范围、字段、函数、全部消费者、版本／配置来源、研究退场和正反例门禁均已明确；没有需要先补软件截图才能写本轮有限候选的技术阻塞。尚需用户确认本节及其中合同／暂定规则后，方进入A1—A4。正式预算、接口／页面结果仍是实施后的交付门禁；若实测不符按根AGENTS开发执行链第7条说明并等待决定。
 
 本轮实际补核：当前h1的两组真实路由／query／DTO及共享加载隔离测试125项通过；对现有候选2的39747根×三门槛核查，所有A消失均可由当时未离段的B记录取得合法原结构锚点，所有等待快照的保存参照／最近价／段DIF前提相容。该检查支持21.3不另存active_structure_id的设计，不是新增a1实现验收或重跑正式4秒。
 
 详细审计、实际代码SHA及文档校验见[本轮LLD审计报告](../../../../reports/xxm_same_segment_a1_lld_audit_20261016/README.md)。当前正式产品仍为h1，没有写数据库／Lake、创建分支／worktree、部署、安装或提交。
+
+
+## 22 A组a1内核实施对账（2026-10-16）
+
+用户确认§21并要求“提交修改，然后推进开发”，已先按白名单提交方案与研究基线`f44c7bde`，然后按A1—A4实施。当前唯一算法为`xxm-direction-v0.1-a1`，预测为`xxm-key-point-forecast-v0.2-a1`；不保留h1合同或独立候选在线分支。原门槛、来源、选峰、TOP、20点、调度与预算保持。
+
+calculator使用原B记录建立等待锚点；恢复helper补传已解析的history作一致性核验，不新增active_structure_id。完整Wave只在内核与snapshot中保存；公开记录只投影四字段reference。增量账本、过去投影、窗口外B关联、两schema／adapter与预测context同步，旧快照与旧版本响应拒绝。预测沿用forecast／forecast_joint的原P—C几何，只迁入口分区、真实确认身份和等待文字；图层沿用原几何、token和四行布局。
+
+临时候选与旧runner、临时研究测试已清退，17项研究参数化用例中的规则／恢复／入口内容迁入正式测试；仅临时命名空间绑定用例退场，TOP改用封存oracle及四周期三门槛完整对照。95份旧源码及输入／旧报告SHA已封存，旧失败报告不改写；当前same_segment_acceptance只运行产品类、读_04冻结语义，不动态编译或替换产品源码。
+
+冻结39747根×三门槛、45前缀／恢复、369预测及已有模拟全部通过；主参数14次A消失／7次重入、B绿93条，与研究候选语义相同。日线事件保持，五处既有B保护全部保留；7/10的120分钟由提前READY改为先重入的CONDITIONAL_ENTRY、最近结构由7/13上午改下午，8/15日线仍CONFIRMED，18个日线校准保护不变。
+
+后端261项、前端全量1186项／最终XXM聚焦43项、类型／构建及16项架构护栏通过；13组真实路由原响应驱动TS adapter／详情／卡片，临时Parquet和正式源各有独立读取验证。整页／双标签16组306请求通过，HTTP最大3.041秒；最终正式预算及A01—A10逐项代码／测试对账见[实施报告](../../../../reports/xxm_same_segment_a1_implementation_20261016/README.md)。CodeGraph explore／impact覆盖80符号、sync／status正常；无依赖矩阵改变。页面由用户验收，本轮开发改动按用户要求提交；未推送或部署。
+
+最终正式源截至10/15、冻结重叠无差异；四周期20冷＋20暖预测及配对识别共320请求、另4次LATEST和8次两并发均通过，单请求HTTP最大2.128秒、模型包络93.074ms。原响应、LRU和4秒／200ms均保持；后端40项最终文案回归通过（与261项主回归有重叠）。验收步骤按§21完成，未以旧h1预算代替。

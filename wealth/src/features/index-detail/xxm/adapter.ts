@@ -1,3 +1,4 @@
+import { validRearmRecord } from "./rearmContract";
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type { Time } from "lightweight-charts";
 import type { XxmEvent, XxmPeriod, XxmReference, XxmResponse, XxmViewModel } from "./types";
@@ -25,8 +26,8 @@ function validateReference(reference: XxmReference | null, period: XxmPeriod) {
 export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoint[], period: XxmPeriod, tsCode: string,
   indicatorVersion: number | null = null): XxmViewModel {
   assert(response.tsCode === tsCode && tsCode === "000001.SH" && response.period === period);
-  assert(response.algorithmVersion === "xxm-direction-v0.1-h1" && /^[a-f0-9]{64}$/.test(response.specHash));
-  assert(Array.isArray(response.bottomHistories));
+  assert(response.algorithmVersion === "xxm-direction-v0.1-a1" && /^[a-f0-9]{64}$/.test(response.specHash));
+  assert(Array.isArray(response.bottomHistories) && Array.isArray(response.rearmRecords));
   assert(/^[a-f0-9]{64}$/.test(response.source.inputId));
   assert(response.source.kind === (period === "day" ? "daily_factor" : "minute_gold"));
   assert(response.source.indicatorVersion === (period === "day" ? null : indicatorVersion));
@@ -42,6 +43,8 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
       ? point.ordinaryDirection === null && point.activeReference === null
       : ["TOP", "BOTTOM"].includes(point.ordinaryDirection ?? "") && point.activeReference !== null);
     assert(point.pendingBottomHistoryId === null || (typeof point.pendingBottomHistoryId === "string" && point.pendingBottomHistoryId.length > 0));
+    assert(point.pendingRearmId === null || typeof point.pendingRearmId === "string" && point.pendingRearmId.length > 0
+      && point.ordinaryState === "NONE" && point.pendingBottomHistoryId === null);
     validateReference(point.activeReference, period);
     sourceByTime.set(key, point);
   }
@@ -49,7 +52,7 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
   assert(response.meta.responseStart === (response.points[0]?.time ?? null) && response.meta.responseEnd === (response.points.at(-1)?.time ?? null));
   assert(response.dataStatus.asOf === response.source.computedThrough);
   if (response.dataStatus.status === "EMPTY") {
-    assert(response.points.length === 0 && response.events.length === 0 && response.topHistories.length === 0 && response.bottomHistories.length === 0 && response.source.computedThrough === null);
+    assert(response.points.length === 0 && response.events.length === 0 && response.topHistories.length === 0 && response.bottomHistories.length === 0 && response.rearmRecords.length === 0 && response.source.computedThrough === null);
     return { response, markers: [], byTime: new Map() };
   }
   assert(response.source.computedThrough !== null && response.source.startTime !== null);
@@ -93,13 +96,32 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
     else {
       assert(h.status === "ENDED" && typeof h.endedAt === "string" && h.confirmedAt < h.endedAt && h.endedAt === h.observedThrough);
       timeKey(h.endedAt, period);
-      assert(["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break"].includes(h.endReason ?? ""));
+      assert(["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "structure_disappeared", "historical_price_break"].includes(h.endReason ?? ""));
       assert(h.endReason !== "historical_price_break" || h.leftOriginAt !== null);
+      assert(h.endReason !== "structure_disappeared" || h.leftOriginAt === null);
     }
   }
+  const rearms = new Map(response.rearmRecords.map(r => [r.id, r]));
+  assert(rearms.size === response.rearmRecords.length && [...rearms.values()].filter(r => r.status === "WAITING").length <= 1);
+  const sameReference = (a: XxmReference | null, b: XxmReference | null) => !!a && !!b
+    && ["startTime", "endTime", "price", "dif"].every(k => a[k as keyof XxmReference] === b[k as keyof XxmReference]);
+  for (const r of rearms.values()) {
+    assert(validRearmRecord(r, period, response.source.computedThrough));
+    assert(!histories.has(r.id) && !bottomHistories.has(r.id));
+    const h = bottomHistories.get(r.bottomHistoryId);
+    assert(h && h.structureEventId === r.structureEventId && h.confirmedAt === r.structureConfirmedAt
+      && h.confirmationRoute === r.structureRoute && h.originSegmentStart === r.segmentStart
+      && sameReference(h.originalReference, r.reference) && h.endReason === "structure_disappeared" && h.endedAt === r.disappearedAt);
+  }
+  for (const h of bottomHistories.values()) if (h.endReason === "structure_disappeared")
+    assert([...rearms.values()].filter(r => r.bottomHistoryId === h.id).length === 1);
   // Associations are validated for the complete API window, even before the
   // first loaded minute endpoint. A later ENDED record was pending at old points.
   for (const point of response.points) {
+    if (point.pendingRearmId !== null) {
+      const r = rearms.get(point.pendingRearmId);
+      assert(r && r.disappearedAt <= point.time && (r.endedAt === null || point.time < r.endedAt));
+    }
     for (const [id, records] of [[point.pendingTopHistoryId, histories], [point.pendingBottomHistoryId, bottomHistories]] as const) {
       if (id !== null) {
         const h = records.get(id);
@@ -112,7 +134,8 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
     if (!chartByTime.has(key)) continue; // date-level API window may start before a loaded minute endpoint
     assert(!point.pendingTopHistoryId || histories.has(point.pendingTopHistoryId));
     byTime.set(key, { point, events: [], histories: point.pendingTopHistoryId ? [histories.get(point.pendingTopHistoryId)!] : [],
-      bottomHistories: point.pendingBottomHistoryId ? [bottomHistories.get(point.pendingBottomHistoryId)!] : [] });
+      bottomHistories: point.pendingBottomHistoryId ? [bottomHistories.get(point.pendingBottomHistoryId)!] : [],
+      rearmRecords: point.pendingRearmId ? [rearms.get(point.pendingRearmId)!] : [] });
   }
   for (const history of histories.values()) {
     if (history.endedAt) timeKey(history.endedAt, period);
@@ -123,18 +146,29 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
     const detail = h.endedAt ? byTime.get(timeKey(h.endedAt, period)) : undefined;
     if (detail && !detail.bottomHistories.some(existing => existing.id === h.id)) detail.bottomHistories.push(h);
   }
+  for (const r of rearms.values()) {
+    if (!r.endedAt) continue;
+    const detail = byTime.get(timeKey(r.endedAt, period));
+    if (detail && !detail.rearmRecords.some(existing => existing.id === r.id)) detail.rearmRecords.push(r);
+  }
   const eventIds = new Set<string>();
+  const rearmEvents = new Set<string>();
   const markers: XxmViewModel["markers"] = [];
   for (const event of response.events) {
-    assert(typeof event.id === "string" && event.id.length > 0 && !eventIds.has(event.id)); eventIds.add(event.id);
+    assert(typeof event.id === "string" && event.id.length > 0 && !eventIds.has(event.id) && !rearms.has(event.id)); eventIds.add(event.id);
     const key = timeKey(event.time, period); const source = sourceByTime.get(key);
     assert(source && ["TOP", "BOTTOM"].includes(event.direction));
-    assert(["activation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "historical_price_break"].includes(event.route));
+    assert(["activation", "reactivation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "historical_price_break"].includes(event.route));
     assert(["NONE", "DULL", "STRUCTURE"].includes(event.fromState));
     assert(event.relatedBottomHistoryId === null || (typeof event.relatedBottomHistoryId === "string" && event.relatedBottomHistoryId.length > 0));
     const historical = event.type === "RESEARCH_HISTORICAL_WITHDRAWAL";
     assert(historical === (event.route === "historical_price_break"));
-    const associated = historical || event.type === "STRUCTURE";
+    const disappeared = event.type === "STRUCTURE_DISAPPEARED";
+    if (disappeared || event.route === "reactivation") {
+      const key = `${event.relatedRearmId}:${event.type}`;
+      assert(!rearmEvents.has(key)); rearmEvents.add(key);
+    }
+    const associated = historical || event.type === "STRUCTURE" || disappeared;
     const ownId = event.direction === "TOP" ? event.relatedTopHistoryId : event.relatedBottomHistoryId;
     const otherId = event.direction === "TOP" ? event.relatedBottomHistoryId : event.relatedTopHistoryId;
     assert(otherId === null);
@@ -144,11 +178,22 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
       if (historical) {
         assert(event.route === "historical_price_break" && h.status === "ENDED" && h.endReason === "historical_price_break" && h.endedAt === event.time);
         assert(event.eventReference && ["startTime", "endTime", "price", "dif"].every(k => h.originalReference[k as keyof XxmReference] === event.eventReference![k as keyof XxmReference]));
+      } else if (disappeared) {
+        const r = rearms.get(event.relatedRearmId!);
+        assert(event.direction === "BOTTOM" && event.route === "dif_return" && event.fromState === "STRUCTURE"
+          && r && r.bottomHistoryId === ownId && r.disappearedAt === event.time
+          && sameReference(event.eventReference, r.reference) && source.pendingRearmId === r.id);
       } else {
         assert(h.confirmedAt === event.time && h.confirmationRoute === event.route);
         if (event.direction === "BOTTOM") assert(bottomHistories.get(ownId!)!.structureEventId === event.id);
       }
     } else assert(ownId === null);
+    if (event.route === "reactivation") {
+      const r = rearms.get(event.relatedRearmId!);
+      assert(event.type === "DULL" && event.direction === "BOTTOM" && event.fromState === "NONE"
+        && r && r.status === "REACTIVATED" && r.endedAt === event.time && sameReference(r.reference, event.eventReference)
+        && source.ordinaryState === "DULL" && source.pendingRearmId === null);
+    } else if (!disappeared) assert(event.relatedRearmId === null);
     eventLabel(event);
     validateReference(event.eventReference, period);
     assert(!event.relatedTopHistoryId || histories.has(event.relatedTopHistoryId));
@@ -158,6 +203,8 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
       continue;
     }
     detail.events.push(event);
+    if (event.relatedRearmId && !detail.rearmRecords.some(r => r.id === event.relatedRearmId))
+      detail.rearmRecords.push(rearms.get(event.relatedRearmId)!);
     if (event.relatedTopHistoryId && !detail.histories.some(history => history.id === event.relatedTopHistoryId)) {
       detail.histories.push(histories.get(event.relatedTopHistoryId)!);
     }
@@ -176,6 +223,7 @@ export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoin
 }
 
 export function eventLabel(event: Pick<XxmEvent, "type" | "direction">): string {
+  if (event.type === "STRUCTURE_DISAPPEARED") return "底部结构消失";
   if (event.type === "RESEARCH_HISTORICAL_WITHDRAWAL") {
     return event.direction === "TOP" ? "顶结构消失" : "底部结构消失";
   }
@@ -187,6 +235,6 @@ export function eventLabel(event: Pick<XxmEvent, "type" | "direction">): string 
 }
 
 export function eventMarkerLabel(event: Pick<XxmEvent, "type" | "direction">): string {
-  if (event.type === "RESEARCH_HISTORICAL_WITHDRAWAL" && event.direction === "BOTTOM") return "消失";
+  if (event.type === "STRUCTURE_DISAPPEARED" || event.type === "RESEARCH_HISTORICAL_WITHDRAWAL" && event.direction === "BOTTOM") return "消失";
   return eventLabel(event).replace(/^[顶底]/u, "");
 }

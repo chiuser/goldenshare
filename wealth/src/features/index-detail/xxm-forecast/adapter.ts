@@ -1,3 +1,4 @@
+import { validRearmRecord } from "../xxm/rearmContract";
 import { FORECAST_PERIODS, type ForecastPeriod, type ForecastResponse, type ForecastPriceRange, type ForecastExpression, type ForecastCloseRange, type ForecastReference, type ForecastCondition } from "./types";
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -5,7 +6,7 @@ const routes = ["dif_turn", "color_flip"];
 const entryReasons = ["PRICE_NOT_EXTREME", "DIF_NOT_DIVERGENT", "WRONG_COLOR_OR_ZERO", "INSUFFICIENT_BARS", "PRECISION_UNRESOLVED"];
 const targetReasons = ["CANCEL_BEFORE_TARGET", "EARLY_STRUCTURE", "COLOR_OR_ZERO", "NO_TARGET_SOLUTION", "PRECISION_UNRESOLVED"];
 const reasons = ["ZERO_WAVE", "NO_REFERENCE", "NO_ENTRY_RANGE", "NO_CONFIRMATION_IN_HORIZON", "SOURCE_DELAYED", "SOURCE_EMPTY", "CALIBRATION_FAILED", "ROUNDING_BOUNDARY", "NARROW_INTERVAL"];
-const rootKeys = new Set(["tsCode", "period", "forecastVersion", "forecastSpecHash", "detectorSpecHash", "sourceInputId", "calendarInputId", "computedThrough", "requestedAsOf", "mode", "dataStatus", "ordinaryState", "direction", "status", "reasonCode", "precisionPolicy", "forecastId", "targetEndpoint", "barsAhead", "activation", "assumption", "targetEntryRanges", "targetEntryExclusions", "relations", "commonConditions", "examples", "applicabilityText", "invalidationText", "confirmedAt", "confirmedDirection", "display", "refreshAfterMs"]);
+const rootKeys = new Set(["tsCode", "period", "forecastVersion", "forecastSpecHash", "detectorSpecHash", "sourceInputId", "calendarInputId", "computedThrough", "requestedAsOf", "mode", "dataStatus", "rearmContext", "ordinaryState", "direction", "status", "reasonCode", "precisionPolicy", "forecastId", "targetEndpoint", "barsAhead", "activation", "assumption", "targetEntryRanges", "targetEntryExclusions", "relations", "commonConditions", "examples", "applicabilityText", "invalidationText", "confirmedAt", "confirmedDirection", "display", "refreshAfterMs"]);
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 function range(r: ForecastPriceRange): boolean {
   return !!r && (r.lower === null || finite(r.lower) && r.lower >= 0) && (r.upper === null || finite(r.upper) && r.upper > 0)
@@ -40,7 +41,7 @@ function closeRange(r: ForecastCloseRange): boolean {
 export function adaptForecast(value: ForecastResponse, period: ForecastPeriod, asOf?: string): ForecastResponse {
   const fail = () => { throw new Error("预判响应与当前周期不一致，请重试"); };
   if (!value || Object.keys(value).some(k => !rootKeys.has(k)) || value.tsCode !== "000001.SH" || value.period !== period
-    || !FORECAST_PERIODS.includes(value.period) || value.forecastVersion !== "xxm-key-point-forecast-v0.2"
+    || !FORECAST_PERIODS.includes(value.period) || value.forecastVersion !== "xxm-key-point-forecast-v0.2-a1"
     || value.requestedAsOf !== (asOf ?? null) || value.mode !== (asOf ? "REPLAY" : "LATEST")
     || !["READY", "CONDITIONAL_ENTRY", "ENTRY_ONLY", "NO_CANDIDATE", "CONFIRMED", "PRECISION_PENDING", "DELAYED", "EMPTY"].includes(value.status)
     || !["READY", "DELAYED", "EMPTY"].includes(value.dataStatus)
@@ -54,6 +55,15 @@ export function adaptForecast(value: ForecastResponse, period: ForecastPeriod, a
     || !value.display || Object.values(value.display).some(v => typeof v !== "string")
     || typeof value.applicabilityText !== "string" || typeof value.invalidationText !== "string"
     || ![value.relations, value.targetEntryRanges, value.targetEntryExclusions, value.commonConditions, value.examples].every(Array.isArray)) fail();
+  if (value.rearmContext !== null) {
+    const r = value.rearmContext;
+    if (!value.computedThrough || !validRearmRecord(r, period, value.computedThrough) || r.status !== "WAITING"
+      || value.dataStatus !== "READY" || value.ordinaryState !== "NONE" || value.direction !== "BOTTOM"
+      || !["CONDITIONAL_ENTRY", "ENTRY_ONLY", "NO_CANDIDATE", "PRECISION_PENDING"].includes(value.status)) fail();
+    const references = [...(value.activation?.ranges ?? []), ...value.relations, ...value.commonConditions].map(v => v.reference);
+    if (references.some(ref => !ref || ["startTime", "endTime", "price", "dif"].some(k =>
+      ref[k as keyof ForecastReference] !== r.reference[k as keyof ForecastReference]))) fail();
+  }
   const successful = value.status === "READY" || value.status === "CONDITIONAL_ENTRY";
   if (value.targetEndpoint !== null && (!value.computedThrough || value.targetEndpoint <= value.computedThrough || !value.barsAhead
     || !Number.isInteger(value.barsAhead) || value.barsAhead > 20 || !["READY", "CONDITIONAL_ENTRY", "PRECISION_PENDING"].includes(value.status))) fail();

@@ -51,7 +51,7 @@ describe("XXM request isolation", () => {
   });
 });
 
-it("rejects an old detector response and accepts the h1 response on retry", async () => {
+it("rejects an old detector response and accepts the a1 response on retry", async () => {
   const { points, response } = xxmFixture();
   const old = { ...response, algorithmVersion: "xxm-direction-v0.1" };
   vi.mocked(fetchXxm).mockResolvedValueOnce(old).mockResolvedValueOnce(response);
@@ -60,5 +60,5 @@ it("rejects an old detector response and accepts the h1 response on retry", asyn
   expect(result.current.data).toBeNull();
   act(() => result.current.retry());
   await waitFor(() => expect(result.current.phase).toBe("ready"));
-  expect(result.current.data?.response.algorithmVersion).toBe("xxm-direction-v0.1-h1");
+  expect(result.current.data?.response.algorithmVersion).toBe("xxm-direction-v0.1-a1");
 });

@@ -67,7 +67,7 @@ function bottomFixture() {
     status: "ENDED", endedAt: "2026-10-09", endReason: "historical_price_break", observedThrough: "2026-10-09", ageBars: 17 }];
   response.events = [{ id: "b-event", time: "2026-10-09", direction: "BOTTOM", type: "RESEARCH_HISTORICAL_WITHDRAWAL",
     route: "historical_price_break", fromState: "NONE", eventReference: response.bottomHistories[0]!.originalReference,
-    relatedTopHistoryId: null, relatedBottomHistoryId: "b1" }];
+    relatedTopHistoryId: null, relatedBottomHistoryId: "b1", relatedRearmId: null }];
   const prior = { ...response.points[0]!, time: "2026-10-08", pendingBottomHistoryId: "b1" };
   response.points.unshift(prior); response.meta.count = 2; response.meta.responseStart = prior.time;
   points.unshift({ ...points[0]!, time: prior.time, fullDate: prior.time });

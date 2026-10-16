@@ -7,7 +7,7 @@ import math
 from typing import Any
 
 from .spec import MAIN_SPEC, XxmSpec
-from .types import Wave, XxmBar, XxmBottomHistory, XxmPeriod, XxmStep
+from .types import Wave, XxmBar, XxmBottomHistory, XxmPeriod, XxmRearmRecord, XxmStep
 
 
 class XxmCalculator:
@@ -24,6 +24,7 @@ class XxmCalculator:
         self.previous: XxmBar | None = None
         self.pending: dict[str, Any] | None = None
         self.pending_bottom_history: XxmBottomHistory | None = None
+        self.pending_rearm: XxmRearmRecord | None = None
         self.processed = 0
 
     def _id(self, *parts: Any) -> str:
@@ -60,7 +61,10 @@ class XxmCalculator:
             wave.price, wave.price_at = bar.close, bar.time
         if sign * (bar.dif - wave.dif) > 0:
             wave.dif, wave.dif_at = bar.dif, bar.time
-        if not event_type:
+        blocked, reactivated, rearm_records = self._advance_rearm(bar)
+        if reactivated is not None:
+            event_type, route, direction, event_ref = "DULL", "reactivation", -1, reactivated
+        if not event_type and not blocked:
             ref = self.reference
             if sign and ref is not None and sign * (wave.dif - ref.dif) > 0:
                 event_type, route, direction, event_ref = "CANCEL", "dif_break", sign, ref
@@ -72,7 +76,15 @@ class XxmCalculator:
                 if basis != 0 and self.state == "DULL" and delta < 0 and -delta >= gate:
                     event_type, route, self.state = "STRUCTURE", "dif_turn", "STRUCTURE"
                 elif basis != 0 and self.state == "STRUCTURE" and delta > 0 and delta >= gate:
-                    event_type, route, self.state = "DULL", "dif_return", "DULL"
+                    if sign == -1 and not self._qualifies_bottom_close(bar, ref, self.history[-1][-1].price):
+                        original = self.pending_bottom_history
+                        if original is None:
+                            raise ValueError("Same-segment structure has no BOTTOM history")
+                        rearm_records = (self._start_rearm(bar, ref, original),)
+                        event_type, route, self.state = "STRUCTURE_DISAPPEARED", "dif_return", "NONE"
+                        self.reference = None
+                    else:
+                        event_type, route, self.state = "DULL", "dif_return", "DULL"
                 if event_type:
                     direction, event_ref = sign, ref
             elif sign and wave.count >= self.spec.min_bars and self.history[sign]:
@@ -90,7 +102,10 @@ class XxmCalculator:
             events.append({"id": self._id(bar.time, event_type, direction, event_ref.start if event_ref else ""), "time": bar.time,
                            "direction": "TOP" if direction == 1 else "BOTTOM", "type": event_type, "route": route,
                            "fromState": old_state, "eventReference": event_ref.reference() if event_ref else None,
-                           "relatedTopHistoryId": None, "relatedBottomHistoryId": None})
+                           "relatedTopHistoryId": None, "relatedBottomHistoryId": None,
+                           "relatedRearmId": rearm_records[-1]["id"] if event_type == "STRUCTURE_DISAPPEARED" or route == "reactivation" else None})
+            if event_type == "STRUCTURE_DISAPPEARED":
+                events[0]["relatedBottomHistoryId"] = rearm_records[-1]["bottomHistoryId"]
         ordinary_event = events[0] if event_type else None
         histories: list[dict[str, Any]] = []
         pending = self.pending
@@ -111,7 +126,7 @@ class XxmCalculator:
                 events.append({"id": self._id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", pending["id"]), "time": bar.time,
                                "direction": "TOP", "type": "RESEARCH_HISTORICAL_WITHDRAWAL", "route": "historical_price_break",
                                "fromState": self.state, "eventReference": deepcopy(pending["originalReference"]),
-                               "relatedTopHistoryId": pending["id"], "relatedBottomHistoryId": None})
+                               "relatedTopHistoryId": pending["id"], "relatedBottomHistoryId": None, "relatedRearmId": None})
             if reason is not None:
                 pending.update(status="ENDED", endedAt=bar.time, endReason=reason)
                 self.pending = None
@@ -138,10 +153,11 @@ class XxmCalculator:
                  "ordinaryState": self.state, "ordinaryDirection": ("TOP" if sign == 1 else "BOTTOM") if self.state != "NONE" else None,
                  "activeReference": self.reference.reference() if self.reference else None,
                  "pendingTopHistoryId": self.pending["id"] if self.pending else None,
-                 "pendingBottomHistoryId": self.pending_bottom_history["id"] if self.pending_bottom_history else None}
+                 "pendingBottomHistoryId": self.pending_bottom_history["id"] if self.pending_bottom_history else None,
+                 "pendingRearmId": self.pending_rearm["id"] if self.pending_rearm else None}
         self.previous = bar
         self.processed += 1
-        return XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories))
+        return XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories), rearm_records)
 
     def snapshot(self) -> dict[str, Any]:
         return {"specHash": self.spec.spec_hash, "tsCode": self.ts_code, "period": self.period, "sourceIdentity": self.source_identity,
@@ -149,7 +165,50 @@ class XxmCalculator:
                 "history": {str(k): [asdict(w) for w in waves] for k, waves in self.history.items()},
                 "state": self.state, "reference": asdict(self.reference) if self.reference else None,
                 "previous": asdict(self.previous) if self.previous else None, "pending": deepcopy(self.pending),
-                "pendingBottomHistory": deepcopy(self.pending_bottom_history)}
+                "pendingBottomHistory": deepcopy(self.pending_bottom_history), "pendingRearm": deepcopy(self.pending_rearm)}
+
+    def _qualifies_bottom_close(self, bar: XxmBar, reference: Wave, nearest_price: float) -> bool:
+        return (bar.hist < 0 and self.wave is not None and self.wave.sign == -1
+                and self.wave.count >= self.spec.min_bars and bar.close < min(reference.price, nearest_price)
+                and self.wave.dif > reference.dif)
+
+    def _start_rearm(self, bar: XxmBar, reference: Wave, original: XxmBottomHistory) -> XxmRearmRecord:
+        if (self.pending_rearm is not None or original["leftOriginAt"] is not None or self.wave is None
+                or original["confirmationRoute"] != "dif_turn" or original["originSegmentStart"] != self.wave.start
+                or original["originalReference"] != reference.reference()):
+            raise ValueError("Invalid original structure for rearm")
+        record: XxmRearmRecord = dict(
+            id=self._id("rearm", original["structureEventId"], bar.time), direction="BOTTOM",
+            bottomHistoryId=original["id"], structureEventId=original["structureEventId"],
+            structureConfirmedAt=original["confirmedAt"], structureRoute=original["confirmationRoute"],
+            segmentStart=self.wave.start, nearestPriceGate=self.history[-1][-1].price,
+            referenceWave=asdict(reference), disappearedAt=bar.time, observedThrough=bar.time,
+            status="WAITING", endedAt=None, endReason=None)
+        self.pending_rearm = record
+        return deepcopy(record)
+
+    def _end_rearm(self, bar: XxmBar, status: str, reason: str) -> XxmRearmRecord:
+        assert self.pending_rearm is not None
+        self.pending_rearm.update(status=status, endedAt=bar.time, endReason=reason, observedThrough=bar.time)
+        record = deepcopy(self.pending_rearm)
+        self.pending_rearm = None
+        return record
+
+    def _advance_rearm(self, bar: XxmBar) -> tuple[bool, Wave | None, tuple[XxmRearmRecord, ...]]:
+        record = self.pending_rearm
+        if record is None:
+            return False, None, ()
+        assert self.wave is not None
+        if bar.hist >= 0 or self.wave.start != record["segmentStart"]:
+            return False, None, (self._end_rearm(bar, "SEGMENT_ENDED", "zero" if bar.hist == 0 else "color_flip"),)
+        reference = Wave(**record["referenceWave"])
+        if bar.dif < reference.dif:
+            return True, None, (self._end_rearm(bar, "INVALIDATED", "reference_dif_break"),)
+        if bar.time > record["disappearedAt"] and self._qualifies_bottom_close(bar, reference, record["nearestPriceGate"]):
+            self.reference, self.state = reference, "DULL"
+            return True, reference, (self._end_rearm(bar, "REACTIVATED", "price_requalified"),)
+        record["observedThrough"] = bar.time
+        return True, None, (deepcopy(record),)
 
     def _advance_bottom_history(self, bar: XxmBar, ordinary_event: dict[str, Any] | None
                                 ) -> tuple[list[dict[str, Any]], list[XxmBottomHistory]]:
@@ -164,6 +223,10 @@ class XxmCalculator:
         events = []
         if bar.dif < record["originalReference"]["dif"]:
             reason = "original_reference_break"
+        elif ordinary_event is not None and ordinary_event["type"] == "STRUCTURE_DISAPPEARED":
+            if (record["leftOriginAt"] is not None or ordinary_event["relatedBottomHistoryId"] != record["id"]):
+                raise ValueError("Same-segment disappearance targets unrelated BOTTOM history")
+            reason = "structure_disappeared"
         elif ordinary_event is not None and ordinary_event["direction"] == "BOTTOM" and ordinary_event["type"] in ("DULL", "STRUCTURE"):
             reason = "new_bottom_" + ordinary_event["type"]
         elif record["leftOriginAt"] is not None and bar.time > record["confirmedAt"] and bar.close < record["priceLow"]:
@@ -172,7 +235,7 @@ class XxmCalculator:
                            "time": bar.time, "direction": "BOTTOM", "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
                            "route": "historical_price_break", "fromState": self.state,
                            "eventReference": deepcopy(record["originalReference"]),
-                           "relatedTopHistoryId": None, "relatedBottomHistoryId": record["id"]})
+                           "relatedTopHistoryId": None, "relatedBottomHistoryId": record["id"], "relatedRearmId": None})
         if reason is not None:
             record.update(status="ENDED", endedAt=bar.time, endReason=reason)
             self.pending_bottom_history = None
@@ -232,10 +295,55 @@ class XxmCalculator:
             raise ValueError("Malformed BOTTOM snapshot") from exc
         return deepcopy(raw)
 
+    def _validate_rearm_snapshot(self, raw: Any, *, previous: XxmBar | None, wave: Wave | None,
+                                 state: str, reference: Wave | None, bottom_history: XxmBottomHistory | None,
+                                 processed: int, history: dict[int, list[Wave]]) -> XxmRearmRecord | None:
+        if raw is None:
+            return None
+        if not isinstance(raw, dict) or set(raw) != set(XxmRearmRecord.__annotations__):
+            raise ValueError("Invalid rearm snapshot fields")
+        try:
+            if (raw["status"] != "WAITING" or raw["endedAt"] is not None or raw["endReason"] is not None
+                    or raw["direction"] != "BOTTOM" or raw["structureRoute"] != "dif_turn"
+                    or state != "NONE" or reference is not None or bottom_history is not None
+                    or previous is None or processed < 1 or wave is None or wave.sign != -1
+                    or previous.hist >= 0 or wave.end != previous.time or type(wave.count) is not int
+                    or not 1 <= wave.count <= processed
+                    or raw["segmentStart"] != wave.start or raw["observedThrough"] != previous.time
+                    or not math.isfinite(raw["nearestPriceGate"]) or raw["nearestPriceGate"] <= 0):
+                raise ValueError("Invalid active rearm snapshot")
+            values = raw["referenceWave"]
+            if not isinstance(values, dict) or set(values) != set(Wave.__dataclass_fields__):
+                raise ValueError("Incomplete original rearm Wave")
+            saved = Wave(**values)
+            if (type(saved.sign) is not int or saved.sign != -1 or type(saved.count) is not int or saved.count < 1
+                    or not math.isfinite(saved.price) or saved.price <= 0 or not math.isfinite(saved.dif)
+                    or saved not in history[-1] or not history[-1]
+                    or raw["nearestPriceGate"] != history[-1][-1].price or wave.dif < saved.dif):
+                raise ValueError("Invalid saved rearm reference")
+            stamps = [raw[k] for k in ("segmentStart", "structureConfirmedAt", "disappearedAt", "observedThrough")]
+            stamps += [saved.start, saved.end, saved.price_at, saved.dif_at]
+            for stamp in stamps:
+                XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
+            if not (saved.start <= saved.price_at <= saved.end < raw["segmentStart"]
+                    and saved.start <= saved.dif_at <= saved.end
+                    and raw["segmentStart"] <= raw["structureConfirmedAt"] < raw["disappearedAt"] <= raw["observedThrough"]):
+                raise ValueError("Invalid rearm chronology")
+            structure = self._id(raw["structureConfirmedAt"], "STRUCTURE", -1, saved.start)
+            if (raw["structureEventId"] != structure or raw["bottomHistoryId"] != self._id("bottom-history", structure)
+                    or raw["id"] != self._id("rearm", structure, raw["disappearedAt"])):
+                raise ValueError("Invalid rearm identities")
+        except (KeyError, TypeError, AttributeError, OverflowError) as exc:
+            raise ValueError("Malformed rearm snapshot") from exc
+        return deepcopy(raw)
+
     def restore(self, snapshot: dict[str, Any]) -> None:
         # Parse and validate everything before publishing any state, including on
         # an already-used calculator or a legal rewind to an earlier real prefix.
         try:
+            if not isinstance(snapshot, dict) or set(snapshot) != {"specHash", "tsCode", "period", "sourceIdentity", "processed",
+                    "wave", "history", "state", "reference", "previous", "pending", "pendingBottomHistory", "pendingRearm"}:
+                raise ValueError("Invalid XXM snapshot fields")
             expected = (self.spec.spec_hash, self.ts_code, self.period, self.source_identity)
             if tuple(snapshot[k] for k in ("specHash", "tsCode", "period", "sourceIdentity")) != expected:
                 raise ValueError("XXM snapshot version/source identity mismatch")
@@ -254,7 +362,10 @@ class XxmCalculator:
                 previous.validate(self.period)
             bottom = self._validate_bottom_history_snapshot(snapshot["pendingBottomHistory"],
                         previous=previous, wave=wave, processed=processed)
+            rearm = self._validate_rearm_snapshot(snapshot["pendingRearm"], previous=previous, wave=wave,
+                        state=state, reference=reference, bottom_history=bottom, processed=processed, history=history)
         except (KeyError, TypeError, AttributeError, OverflowError) as exc:
             raise ValueError("Malformed XXM snapshot") from exc
         self.wave, self.history, self.state, self.reference = wave, history, state, reference
         self.previous, self.pending, self.processed, self.pending_bottom_history = previous, pending, processed, bottom
+        self.pending_rearm = rearm

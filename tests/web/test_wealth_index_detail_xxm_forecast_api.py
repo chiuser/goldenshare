@@ -62,7 +62,7 @@ def test_real_daily_route_query_dto_and_all_display_fields(source_db):
     assert v["mode"] == "REPLAY" and v["requestedAsOf"] == v["computedThrough"] == "2026-10-13"
     from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
     assert v["detectorSpecHash"] == MAIN_SPEC.spec_hash
-    assert v["forecastVersion"] == "xxm-key-point-forecast-v0.2"
+    assert v["forecastVersion"] == "xxm-key-point-forecast-v0.2-a1"
     assert "scenarios" not in v
     assert v["activation"]["endpoint"] == "2026-10-14"
     assert v["activation"]["ranges"][0]["priceRange"]["lower"] < 3500
@@ -225,6 +225,35 @@ def test_actual_color_flip_confirmation_has_priority_over_new_none_state(source_
     assert value.status_code==200,value.text
     v=value.json();assert v['status']=='CONFIRMED' and v['confirmedAt']==stamp
     assert v['activation'] is None and not v['relations']
+
+
+def test_waiting_forecast_dto_and_real_producer_context_are_strict():
+    from copy import deepcopy
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+    path=ROOT/'reports/xxm_same_segment_a1_implementation_20261016/api/api_forecast_9_m120.json'
+    value=json.loads(path.read_text());assert ForecastResponseDto.model_validate(value).rearmContext.status=='WAITING'
+    mutations=[lambda v:v.pop('rearmContext'),lambda v:v.update(ordinaryState='DULL'),
+        lambda v:v.update(status='READY'),lambda v:v.update(status='CONFIRMED'),
+        lambda v:v.update(dataStatus='DELAYED'),lambda v:v['rearmContext'].update(referenceWave={}),
+        lambda v:v['rearmContext'].update(status='REACTIVATED'),lambda v:v['rearmContext'].update(endReason='zero'),
+        lambda v:v['rearmContext'].update(observedThrough='2099-01-01T15:00:00+08:00'),
+        lambda v:v['activation']['ranges'][0]['reference'].update(price=1),
+        lambda v:v['relations'][0]['reference'].update(dif=1),
+        lambda v:v.update(forecastVersion='xxm-key-point-forecast-v0.2')]
+    for mutate in mutations:
+        bad=deepcopy(value);mutate(bad)
+        with pytest.raises(ValidationError):ForecastResponseDto.model_validate(bad)
+    for status in ('NO_CANDIDATE','PRECISION_PENDING'):
+        inactive=deepcopy(value)
+        inactive.update(status=status,targetEndpoint=None,barsAhead=None,activation=None,assumption=None,
+                        relations=[],commonConditions=[],examples=[],targetEntryRanges=[],targetEntryExclusions=[])
+        assert ForecastResponseDto.model_validate(inactive).rearmContext.status=='WAITING'
+    from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import _active_confirmation
+    from types import SimpleNamespace
+    broken=SimpleNamespace(points=[dict(time='2026-07-10',ordinaryState='STRUCTURE',ordinaryDirection='BOTTOM',pendingBottomHistoryId='missing')],
+                           events=[],bottom_histories={})
+    with pytest.raises(query_service.XxmQueryError,match='关联不完整'):_active_confirmation(broken,1,lambda:None)
 
 
 @pytest.mark.parametrize('period',['m60','m90','m120'])

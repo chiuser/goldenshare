@@ -37,7 +37,7 @@ def save(out, name, value):
 
 
 def new(period):
-    return XxmCalculator(period=period, source_identity='h1-acceptance:'+period)
+    return XxmCalculator(period=period, source_identity='a1-acceptance:'+period)
 
 
 def replay(period, bars):
@@ -98,83 +98,10 @@ def forecast_result(period, bars, calculator, confirmation, calendar, check):
 
 
 def frozen_mode(source, out, sources):
-    calendar = calendar_rows(source)
-    summary = {'periods': {}, 'softwarePositiveObservations': 5, 'softwareFormulaProven': False}
-    # Existing original algorithm acceptance preserves ordinary and TOP semantic
-    # baselines. Compare associations by timestamps, rather than discard them.
-    original_root = ROOT / 'reports/xxm_implementation_20261013'
-    for period, bars in sources.items():
-        started = time.perf_counter(); calculator, steps = replay(period, bars)
-        events = [e for step in steps for e in step.events]
-        bottom = {h['id']: h for step in steps for h in step.bottom_histories}
-        additions = [e for e in events if e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL']
-        expected = json.loads((B1 / f'replay_{period}.json').read_text())
-        assert additions == expected['events'] and list(bottom.values()) == expected['bottomHistories'], period
-        top = {h['id']: h for step in steps for h in step.histories}
-        old = json.loads((original_root / f'baseline_{period}.json').read_text())
-        old_top = {h['id']: h for h in old['topHistories']}
-        retained = [e for e in events if not (e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL')]
-        def event_semantics(event, histories):
-            return {**{k:v for k,v in event.items() if k not in ('id','relatedTopHistoryId','relatedBottomHistoryId')},
-                    'topAnchor': histories[event['relatedTopHistoryId']]['confirmedAt'] if event['relatedTopHistoryId'] else None}
-        assert [event_semantics(e, top) for e in retained] == [event_semantics(e, old_top) for e in old['events']]
-        assert [{k:v for k,v in h.items() if k!='id'} for h in top.values()] == [{k:v for k,v in h.items() if k!='id'} for h in old_top.values()]
-        old_top_by_anchor = {h['confirmedAt']:h['id'] for h in old_top.values()}
-        top_ids = {h['id']:old_top_by_anchor[h['confirmedAt']] for h in top.values()}
-        old_points = []
-        for step in steps:
-            point = {k:v for k,v in step.point.items() if k!='pendingBottomHistoryId'}
-            if point['pendingTopHistoryId'] is not None:
-                point['pendingTopHistoryId'] = top_ids[point['pendingTopHistoryId']]
-            old_points.append(point)
-        assert hashlib.sha256(json.dumps(old_points,sort_keys=True).encode()).hexdigest() == old['pointSequenceSha256'], (period,'ordinary point ledger changed')
-        cuts = {1,25,1000,len(bars)//2,len(bars)-1,len(bars)}
-        times = [b.time for b in bars]
-        for h in bottom.values():
-            if '2024-07-01' <= h['confirmedAt'][:10] <= '2024-09-04':
-                cuts.update(times.index(stamp)+1 for stamp in (h['confirmedAt'],h['leftOriginAt'],h['endedAt']) if stamp)
-        cuts = sorted(n for n in cuts if 0<n<=len(bars))
-        for n in cuts:
-            prefix, part = replay(period, bars[:n]); assert part == steps[:n]
-            observed = {h['id']:h for step in part for h in step.bottom_histories}
-            projected = {key: q.IndexDetailXxmQueryService._project_bottom_history(h, through=times[n-1], times=times)
-                         for key,h in bottom.items() if h['confirmedAt'] <= times[n-1]}
-            assert observed == projected
-            restored = new(period); restored.restore(prefix.snapshot())
-            assert [restored.step(b) for b in bars[n:n+250]] == steps[n:n+250]
-        frozen_forecasts = json.loads((B1 / f'forecast_{period}.json').read_text())
-        wanted = {item['rows'] for item in frozen_forecasts}
-        checkpoints, snapshots, confirmation = {}, {}, {}
-        calc = new(period); last = None
-        for n, b in enumerate(bars, 1):
-            step = calc.step(b)
-            last = next((e for e in reversed(step.events) if e['type']=='STRUCTURE'), last)
-            if n%1000 == 0: checkpoints[n] = calc.snapshot()
-            if n in wanted: snapshots[n] = calc.snapshot(); confirmation[n] = last
-        model_results = []
-        for item in frozen_forecasts:
-            n = item['rows']; start = time.perf_counter()
-            def check():
-                if time.perf_counter()-start > .2: raise TimeoutError('200ms frozen model')
-            child = new(period); offset=n//1000*1000
-            if offset: child.restore(checkpoints[offset])
-            for b in bars[offset:n]: child.step(b)
-            assert child.snapshot() == snapshots[n]
-            result = forecast_result(period, bars[:n], child, confirmation[n], calendar, check)
-            assert result == item['result'], (period, item['through'])
-            model_results.append(dict(through=item['through'], milliseconds=(time.perf_counter()-start)*1000, result=result))
-        save(out, f'replay_{period}.json', dict(events=events,bottomHistories=list(bottom.values())))
-        save(out, f'forecast_{period}.json', model_results)
-        summary['periods'][period] = dict(rows=len(bars), ordinaryAndTopUnchanged=True, newBottomEvents=len(additions),
-            bottomRecords=len(bottom), prefixRestoreCuts=len(cuts), forecasts=len(model_results),
-            maxModelMs=max(r['milliseconds'] for r in model_results),
-            calibrationProtected=sum(r['result']['reasonCode']=='CALIBRATION_FAILED' for r in model_results),
-            seconds=time.perf_counter()-started)
-        save(out,'frozen_summary.json',summary); print(period, json.dumps(summary['periods'][period]),flush=True)
-    assert sum(r['newBottomEvents'] for r in summary['periods'].values()) == 95
-    assert sum(r['prefixRestoreCuts'] for r in summary['periods'].values()) == 75
-    assert sum(r['forecasts'] for r in summary['periods'].values()) == 356
-    return summary
+    # The A1 acceptance owns the current semantic baseline. B's five software
+    # positives remain explicit checks there; old 95/356 totals are archived.
+    from .same_segment_acceptance import frozen_mode as current_frozen
+    return current_frozen(source, out, sources)
 
 
 def app_for(session_dependency, lake, auth):
@@ -246,18 +173,25 @@ def api_mode(source, out, sources):
         cases = [('day','2024-07-23'),('day','2024-08-05'),('day','2024-08-22'),
                  ('m120','2024-08-05T15:00:00+08:00'),('m120','2024-08-14T15:00:00+08:00')]
         cases += [(p,sources[p][-1].time) for p in PERIODS]
+        cases += [('m120','2026-07-10T15:00:00+08:00'), ('m120','2026-07-13T15:00:00+08:00'),
+                  ('m90','2026-07-13T15:00:00+08:00'), ('day','2024-08-15')]
         for i,(period,through) in enumerate(cases):
             response=recognition(client,period,through)
             assert response.status_code==200,(period,response.text)
             value=response.json(); assert value['algorithmVersion']==MAIN_SPEC.algorithm_version and value['specHash']==MAIN_SPEC.spec_hash
-            assert 'bottomHistories' in value and all('pendingBottomHistoryId' in p for p in value['points'])
-            assert all('relatedBottomHistoryId' in e for e in value['events'])
+            assert 'bottomHistories' in value and 'rearmRecords' in value and all('pendingBottomHistoryId' in p and 'pendingRearmId' in p for p in value['points'])
+            assert all('relatedBottomHistoryId' in e and 'relatedRearmId' in e for e in value['events'])
             if i<5:
                 assert any(e['time']==through and e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL' for e in value['events'])
             save(out,f'api_{i}_{period}.json',value)
             predicted=prediction(client,period,through); assert predicted.status_code==200,predicted.text
             value=predicted.json(); assert value['detectorSpecHash']==MAIN_SPEC.spec_hash
-            assert value['forecastVersion']=='xxm-key-point-forecast-v0.2'
+            assert value['forecastVersion']=='xxm-key-point-forecast-v0.2-a1' and 'rearmContext' in value
+            if i==9:
+                assert value['ordinaryState']=='NONE' and value['status']=='CONDITIONAL_ENTRY'
+                assert value['rearmContext']['status']=='WAITING' and value['targetEndpoint']=='2026-07-13T15:00:00+08:00'
+            if i in (10,11): assert value['ordinaryState']=='DULL' and value['rearmContext'] is None
+            if i==12: assert value['status']=='CONFIRMED' and value['confirmedAt']=='2024-08-15' and value['rearmContext'] is None
             save(out,f'api_forecast_{i}_{period}.json',value)
             results.append(dict(period=period,through=through,recognitionStatus=200,forecastStatus=200))
         for status in (401,403):
@@ -294,6 +228,25 @@ def budget_mode(source, out, sources):
     def session():
         with readonly_session() as s: yield s
     client=TestClient(app_for(session,FORMAL_LAKE_ROOT,require_quote_access))
+    # Read-only stage timings in this isolated acceptance process. No product
+    # deadlines, source validators or query behavior are replaced.
+    from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
+    stages = Counter()
+    patched = []
+    def instrument(owner, name, label, static=False):
+        original = getattr(owner, name)
+        def measured(*args, **kwargs):
+            started = time.perf_counter()
+            try: return original(*args, **kwargs)
+            finally: stages[label] += time.perf_counter()-started
+        setattr(owner, name, staticmethod(measured) if static else measured)
+        patched.append((owner,name,original,static))
+    instrument(MajorIndexMinsLakeReader, 'history_source_signature', 'sourceCheckSeconds')
+    instrument(MajorIndexMinsLakeReader, 'read_complete_history_pair', 'sourceReadSeconds')
+    instrument(q, 'read_daily', 'sourceReadSeconds')
+    instrument(XxmCalculator, 'step', 'detectorStepSeconds')
+    instrument(q.IndexDetailXxmQueryService, '_response', 'recognitionDtoSeconds', static=True)
+    instrument(fq, 'ForecastResponseDto', 'forecastDtoSeconds')
     original_calendar, original_build=fq.future_calendar,fq.IndexDetailXxmForecastQueryService.build
     model_start=[None]; model_duration=[0.]
     def calendar(*a,**kw):
@@ -325,9 +278,10 @@ def budget_mode(source, out, sources):
                     # Forecast goes first: its cold read, full detector and model
                     # must fit the existing deadline. Recognition then validates
                     # the maximum-2000 strict DTO on the same source/cache.
+                    stages.clear()
                     start=time.perf_counter(); response=prediction(client,period,through); elapsed=time.perf_counter()-start
                     row=dict(period=period,kind=kind,iteration=iteration,httpStatus=response.status_code,
-                             httpSeconds=elapsed,modelEnvelopeSeconds=model_duration[0])
+                             httpSeconds=elapsed,modelEnvelopeSeconds=model_duration[0],stages=dict(stages))
                     metadata['requests'].append(row)
                     save(out,'budget_records.json',metadata)
                     assert response.status_code==200,(period,kind,iteration,response.status_code)
@@ -350,8 +304,28 @@ def budget_mode(source, out, sources):
             metadata['latest'].append(row); save(out,'budget_records.json',metadata)
             assert response.status_code==200 and elapsed<=4 and value['dataStatus']=='READY'
             save(out,f'latest_{period}.json',value)
+        from concurrent.futures import ThreadPoolExecutor
+        metadata['concurrentPairs']=[]
+        for period in PERIODS:
+            q._CACHE=q.XxmCache();through=sources[period][-1].time
+            def timed(request):
+                start=time.perf_counter();response=request(client,period,through)
+                return response,time.perf_counter()-start
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                left=pool.submit(timed,prediction);right=pool.submit(timed,recognition)
+                pairs=[left.result(),right.result()]
+            row=dict(period=period,forecastHttpStatus=pairs[0][0].status_code,recognitionHttpStatus=pairs[1][0].status_code,
+                     forecastSeconds=pairs[0][1],recognitionSeconds=pairs[1][1])
+            metadata['concurrentPairs'].append(row);save(out,'budget_records.json',metadata)
+            assert all(response.status_code==200 and elapsed<=4 for response,elapsed in pairs)
+            predicted,recognized=[response.json() for response,_ in pairs]
+            assert predicted['computedThrough']==recognized['source']['computedThrough']==through
+            assert predicted['sourceInputId']==recognized['source']['inputId']
+            print(json.dumps(dict(concurrentPair=row)),flush=True)
     finally:
         fq.future_calendar=original_calendar; fq.IndexDetailXxmForecastQueryService.build=original_build
+        for owner,name,original,static in reversed(patched):
+            setattr(owner,name,staticmethod(original) if static else original)
     metadata['passed']=True; save(out,'budget_records.json',metadata)
     return metadata
 

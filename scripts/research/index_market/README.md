@@ -2,7 +2,7 @@
 
 目录整理日期：2026-09-09。规则见[研究目录 AGENTS](/Users/congming/github/goldenshare/scripts/research/AGENTS.md)。这里是离线研究，不接入产品或生产运行时。
 
-2026-10-16徐小明同段循环最新研究：[当根资格分流预检](../../../reports/xxm_same_segment_precheck_20261016_04/README.md)。用户确认8/22原图中两紫之间有黄、无绿后，新候选同时解释7/10等待和8/22绿色；四周期39747根×三门槛、45个恢复截点、369组预测及63项测试通过，正式h1未改。入口`python -B -m scripts.research.index_market.xxm.same_segment_precheck --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_NEW`；只读封存文件、拒绝覆盖，门禁成功返回0、冲突返回1。代码位于`xxm/`、测试位于主题`tests/`。原[无条件等待失败报告](../../../reports/xxm_same_segment_precheck_20261016_02/README.md)保留；当前先完成产品LLD评审，不用离线200ms替代正式4秒／DTO／混合加载验收。
+2026-10-16徐小明同段循环：用户确认LLD §21后，已按[实施报告](../../../reports/xxm_same_segment_a1_implementation_20261016/README.md)迁入唯一a1内核。原[条件分流研究](../../../reports/xxm_same_segment_precheck_20261016_04/README.md)和[失败报告](../../../reports/xxm_same_segment_precheck_20261016_02/README.md)保留；临时候选、动态源码注入及旧runner已清退，原文与依赖SHA封存在实施报告ZIP中。当前入口只运行产品类并读取冻结输出对账，不导入历史候选；四周期、范围、全部校验及预算保持。
 
 ## 目录
 
@@ -304,15 +304,15 @@ XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新�
 2026-10-15 请求调度、共享加载与读取投影：唯一设计见[预测方案§20](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施)，执行／历史失败见[报告](../../../reports/xxm_request_reuse_20261015/README.md)。四周期原预算沿用上述`xxm_forecast_display_audit`入口；整页混合与单／双标签页使用`.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output <新报告目录>`，运行实际TS客户端／调度器与原只读HTTP链，不自动操作页面。完整历史、投影及配对读取对照使用`.venv/bin/python -m scripts.research.index_market.xxm_history_projection_audit --through 2026-10-14 --output <新报告目录>`；只读正式Gold、拒绝覆盖旧结果，不是产品预计算或正式数据发布。
 
 
-## B组h1内核验收（2026-10-16）
+## 当前a1内核验收（保留B组五处保护）
 
-已确认规则见算法方案§12.10及识别LLD§17；当前交付见[实施报告](../../../reports/xxm_bottom_history_h1_implementation_20261016/README.md)。脚本仅验证正式唯一内核，不导入历史研究候选。每次OUT必须新建，预算／对象／周期不可改成更宽门槛。
+已确认规则见算法方案§12.12及识别LLD§21；当前交付见[实施报告](../../../reports/xxm_same_segment_a1_implementation_20261016/README.md)。脚本仅验证正式唯一内核，不导入历史研究候选。每次OUT必须新建，预算／对象／周期不可改成更宽门槛。
 
 ```sh
-.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_frozen_<新批次>
-.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_api_<新批次>
-.venv/bin/python -m scripts.research.index_market.xxm.bottom_history_acceptance --mode budget --formal-source --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_bottom_history_h1_budget_<新批次>
-.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output reports/xxm_bottom_history_h1_page_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_frozen_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_api_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode budget --formal-source --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_budget_<新批次>
+.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output reports/xxm_same_segment_a1_page_<新批次>
 ```
 
-frozen校验来源SHA并对照完整39747根、旧普通／TOP、B1新增95条、75个前缀恢复和356组预测。api使用隔离SQLite／冻结字段fixture，调用真实三路由／query／DTO并覆盖拒绝鉴权，不冒充正式服务。budget仅显式formal-source时通过应用正常依赖及READ ONLY事务读取白名单日历／上证因子与正式Lake；160轮预测和配对识别，另4次LATEST。mixed仍用实际TS客户端／调度器的306请求、统一业务日期及真实图表原值adapter，不操作浏览器。完整来源／原4秒／200ms及缓存预算保持；页面由用户验收，脚本不安装依赖或修改鉴权。
+frozen校验来源SHA与封存源码，对照完整39747根×三门槛、研究逐事件／参照账本、14次同段消失／7次重入、93条底部历史绿、45个前缀恢复和369组预测，保留五处B组软件观察。api使用隔离SQLite／冻结字段fixture，调用真实三路由／query／DTO并覆盖拒绝鉴权，不冒充正式服务。budget仅显式formal-source时通过应用正常依赖及READ ONLY事务读取白名单日历／上证因子与正式Lake；160轮预测和配对识别，另4次LATEST及四周期识别／预测两并发。mixed仍用实际TS客户端／调度器的306请求、统一业务日期及真实图表原值adapter，不操作浏览器。完整来源／原4秒／200ms及缓存预算保持；页面由用户验收，脚本不安装依赖或修改鉴权。

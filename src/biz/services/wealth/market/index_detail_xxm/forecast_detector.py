@@ -33,7 +33,8 @@ def event_options(c, projection, close, stamp, kind, check=lambda: None):
 def activation_signature(c, projection, p, stamp):
     options = event_options(c, projection, p, stamp, 'DULL')
     events = [o[2] for o in options]
-    if events and all(e is not None and e['route'] == 'activation' for e in events):
+    route = 'reactivation' if c.pending_rearm is not None else 'activation'
+    if events and all(e is not None and e['route'] == route for e in events):
         refs = {e['eventReference']['startTime'] for e in events}
         if len(refs) == 1:
             return events[0]['eventReference']

@@ -1,0 +1,98 @@
+[
+  {
+    "period": "m120",
+    "through": "2026-07-10T15:00:00+08:00",
+    "hypothetical": {
+      "time": "2026-07-13T11:30:00+08:00",
+      "close": 3959.16,
+      "dif": -22.388241716159882,
+      "dea": -18.00787431622082,
+      "hist": -8.760734799878122,
+      "completed": true
+    },
+    "state": "DULL",
+    "events": [
+      {
+        "id": "5ce5336511cd46e01d0d4116",
+        "time": "2026-07-13T11:30:00+08:00",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "reactivation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": "13980fb3912d158db0d17388"
+      }
+    ],
+    "softwareObservation": true
+  },
+  {
+    "period": "m120",
+    "through": "2026-07-10T15:00:00+08:00",
+    "hypothetical": {
+      "time": "2026-07-13T11:30:00+08:00",
+      "close": 3960.0,
+      "dif": -22.321233169151583,
+      "dea": -17.99447260681916,
+      "hist": -8.653521124664849,
+      "completed": true
+    },
+    "state": "NONE",
+    "events": [],
+    "softwareObservation": false
+  },
+  {
+    "period": "m120",
+    "through": "2026-07-13T15:00:00+08:00",
+    "hypothetical": {
+      "time": "2026-07-14T11:30:00+08:00",
+      "close": 3892.79,
+      "dif": -35.982826421911795,
+      "dea": -23.790075010033235,
+      "hist": -24.385502823757122,
+      "completed": true
+    },
+    "state": "NONE",
+    "events": [
+      {
+        "id": "985772b6f7cea44c0d44bc0b",
+        "time": "2026-07-14T11:30:00+08:00",
+        "direction": "BOTTOM",
+        "type": "CANCEL",
+        "route": "dif_break",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": null
+      }
+    ],
+    "softwareObservation": true
+  },
+  {
+    "period": "m90",
+    "through": "2026-07-13T15:00:00+08:00",
+    "hypothetical": {
+      "time": "2026-07-14T11:00:00+08:00",
+      "close": 3944.79,
+      "dif": -28.840474509516298,
+      "dea": -22.618445690444947,
+      "hist": -12.444057638142702,
+      "completed": true
+    },
+    "state": "DULL",
+    "events": [],
+    "softwareObservation": true
+  }
+]

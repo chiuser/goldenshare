@@ -159,3 +159,14 @@ def test_partial_entry_domain_remains_explicit_even_when_it_covers_the_near_band
  d=make_display(v,'day',v['computedThrough'],'LATEST',context(entry=(3700,3800)))
  assert '结构成立：仅当10/15 收盘在3600.0001～3764.1546点' in d['conditionsText']
  assert '结构成立：若底钝化形成并保持有效' not in d['conditionsText']
+
+
+@pytest.mark.parametrize('status',['NO_CANDIDATE','PRECISION_PENDING'])
+def test_waiting_without_ranges_never_claims_actual_dulling(status):
+ v=json.loads((ROOT/'reports/xxm_same_segment_a1_implementation_20261016/api/api_forecast_9_m120.json').read_text())
+ v.update(status=status,reasonCode='NO_CONFIRMATION_IN_HORIZON',activation=None,targetEndpoint=None,barsAhead=None,
+          commonConditions=[],relations=[],targetEntryRanges=[],targetEntryExclusions=[],examples=[],assumption=None)
+ d=make_display(v,'m120',v['computedThrough'],'REPLAY',dict(entry=None,target=None))
+ assert d['statusLabel']=='结构消失，待重新钝化'
+ assert '当前未重新形成底钝化' in d['conditionsText'] and '钝化有效' not in d['conditionsText']
+ assert '柱色改变或出现零柱' in d['conditionsText']

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from .index_detail_xxm import XxmReferenceDto
+from .index_detail_xxm import XxmReferenceDto, XxmRearmRecordDto
 
 
 class Dto(BaseModel):
@@ -155,7 +155,7 @@ class ForecastDisplayDto(Dto):
 class ForecastResponseDto(Dto):
     tsCode: Literal['000001.SH'] = '000001.SH'
     period: Literal['day', 'm60', 'm90', 'm120']
-    forecastVersion: Literal['xxm-key-point-forecast-v0.2']
+    forecastVersion: Literal['xxm-key-point-forecast-v0.2-a1']
     forecastSpecHash: str
     detectorSpecHash: str
     sourceInputId: str | None
@@ -165,6 +165,7 @@ class ForecastResponseDto(Dto):
     mode: Literal['LATEST', 'REPLAY']
     dataStatus: Literal['READY', 'DELAYED', 'EMPTY']
     ordinaryState: Literal['NONE', 'DULL', 'STRUCTURE'] | None
+    rearmContext: XxmRearmRecordDto | None
     direction: Literal['TOP', 'BOTTOM'] | None
     status: Literal['READY', 'CONDITIONAL_ENTRY', 'ENTRY_ONLY', 'NO_CANDIDATE', 'CONFIRMED',
                     'PRECISION_PENDING', 'DELAYED', 'EMPTY']
@@ -191,6 +192,17 @@ class ForecastResponseDto(Dto):
     @model_validator(mode='after')
     def consistent(self):
         success = self.status in ('READY', 'CONDITIONAL_ENTRY')
+        if self.rearmContext is not None:
+            context = self.rearmContext
+            if (self.dataStatus != 'READY' or self.ordinaryState != 'NONE' or self.direction != 'BOTTOM'
+                    or self.status not in ('CONDITIONAL_ENTRY', 'ENTRY_ONLY', 'NO_CANDIDATE', 'PRECISION_PENDING')
+                    or context.status != 'WAITING' or not self.computedThrough):
+                raise ValueError('Waiting rearm requires actual inactive bottom state')
+            context.validate_cutoff(self.period, self.computedThrough)
+            references = ([r.reference for r in self.activation.ranges] if self.activation else [])
+            references += [r.reference for r in self.relations] + [c.reference for c in self.commonConditions]
+            if any(r != context.reference for r in references):
+                raise ValueError('Waiting forecast cannot replace the saved reference')
         if self.precisionPolicy != ('rounded3_guarded' if self.period=='day' else 'full_float'):
             raise ValueError('Precision policy does not match period')
         if self.targetEndpoint is not None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from copy import deepcopy
 from collections import Counter
 from dataclasses import replace
 from datetime import date, timedelta
@@ -137,13 +138,18 @@ def test_entire_frozen_ordinary_and_historical_baseline(gate):
                                   gate, reference_policy="strongest_eligible", max_refs=2)
         for current, expected in zip(steps, old, strict=True):
             ordinary = next((e for e in current.events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL"), None)
-            assert current.point["ordinaryState"] == expected["state"]
+            if expected["wave_sign"] > 0:
+                assert current.point["ordinaryState"] == expected["state"]
+            if expected["event_direction"] != 1 and not (ordinary and ordinary["direction"] == "TOP"):
+                continue
             assert (ordinary["type"] if ordinary else "NONE") == expected["event"]
             if ordinary:
                 assert ordinary["route"] == expected["event_route"]
                 assert ordinary["direction"] == ("TOP" if expected["event_direction"] == 1 else "BOTTOM")
                 assert normalize(ordinary["eventReference"]["startTime"]) == expected["event_ref_start"]
                 assert ordinary["eventReference"]["dif"] == expected["event_ref_dif"]
+        # All BOTTOM differences are separately checked against the frozen A2
+        # research ledger by the product acceptance runner, including references.
         by_anchor = {normalize(h["confirmedAt"]): h for h in histories.values()}
         expected_episodes = [e for e in manifest["episodes"] if e["period"] == str(freq) and e["gate"] == gate and not e["require_dif"]]
         assert set(by_anchor) == {e["anchor"] for e in expected_episodes}
@@ -158,7 +164,7 @@ def test_entire_frozen_ordinary_and_historical_baseline(gate):
                 assert actual["endReason"] == reason
                 assert normalize(actual["endedAt"]) == episode["closure"]["time"]
         summary = next(s for s in manifest["summaries"] if s["period"] == str(freq) and s["gate"] == gate)
-        assert Counter(e["type"] for e in events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL") == summary["ordinary_event_counts"]
+        assert Counter(e["type"] for e in events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL" and e["direction"] == "TOP") == Counter(e["event"] for e in old if e["event_direction"] == 1)
         assert sum(e["type"] == "RESEARCH_HISTORICAL_WITHDRAWAL" and e["direction"] == "TOP" for e in events) == summary["primary_predictions"]
 
 # B-group: completed bottom structures keep a separate, frozen history record.
@@ -218,7 +224,7 @@ def test_bottom_successor_signal_precedes_price_break(kind):
     assert calc.pending_bottom_history is None
 
 
-def test_bottom_top_signal_is_not_a_bottom_successor_and_same_segment_A_is_unchanged():
+def test_bottom_top_signal_is_not_a_bottom_successor_and_qualified_same_segment_return_is_preserved():
     calc, _ = run(BOTTOM + [(98, -9.8, 0)])
     events, changes = calc._advance_bottom_history(XxmBar('2020-01-08', 96, -9.7, -11., 2.),
                                                   {'direction': 'TOP', 'type': 'STRUCTURE'})
@@ -268,8 +274,8 @@ def test_bottom_period_identity_and_step_snapshot_continuation(period):
     child = XxmCalculator(period=period, source_identity='B-test'); child.restore(calc.snapshot())
     assert [child.step(b) for b in values[6:]] == [calc.step(b) for b in values[6:]]
     assert calc.snapshot() == child.snapshot()
-    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-h1'
-    assert calc.spec.spec_hash == 'b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5'
+    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-a1'
+    assert calc.spec.spec_hash == 'f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712'
 
 
 def test_new_top_structure_and_bottom_history_disappearance_are_independent_on_same_bar():
@@ -290,3 +296,194 @@ def test_new_top_structure_and_bottom_history_disappearance_are_independent_on_s
     assert step.events[0]['relatedTopHistoryId'] and step.events[0]['relatedBottomHistoryId'] is None
     assert step.events[1]['relatedBottomHistoryId']==record['id'] and step.events[1]['relatedTopHistoryId'] is None
     assert step.point['ordinaryState']=='STRUCTURE' and step.bottom_histories[0]['endReason']=='historical_price_break'
+
+
+# A1 same-segment cases promoted from the archived research candidate.
+
+
+
+
+from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone, activation_signature
+from src.biz.services.wealth.market.index_detail_xxm.forecast_entry import solve_entry_ranges
+
+
+
+from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
+
+
+def same_segment_bar(n, close, dif, hist=-2.):
+    return XxmBar(f'2020-01-{n:02d}', close, dif, dif-hist/2, hist)
+
+
+def same_segment_setup(gate=1.):
+    c = XxmCalculator(period='day', source_identity='synthetic', spec=XxmSpec(dif_turn_pct=gate))
+    for b in [same_segment_bar(1,100,-10),same_segment_bar(2,99,-11),same_segment_bar(3,105,-5,2),
+              same_segment_bar(4,98,-9),same_segment_bar(5,97,-9.2),same_segment_bar(6,98,-8.8)]:
+        c.step(b)
+    assert c.state == 'STRUCTURE'
+    return c
+
+
+@pytest.mark.parametrize('gate', [.75,1.,1.2])
+def test_disappearance_wait_reactivation_and_original_low_are_separate(gate):
+    c = same_segment_setup(gate)
+    structure = c.pending_bottom_history['structureEventId']
+    assert c.wave.price == 97
+    gone = c.step(same_segment_bar(7,100,-9))
+    assert [(e['type'],e['route']) for e in gone.events] == [('STRUCTURE_DISAPPEARED','dif_return')]
+    assert c.state == 'NONE' and c.reference is None and c.pending_bottom_history is None
+    assert c.pending_rearm['structureEventId'] == structure and c.pending_rearm['referenceWave']['price'] == 99
+    assert gone.bottom_histories[0]['endReason'] == 'structure_disappeared'
+    # A prior low of 97 cannot requalify today's 100; a new 98.5 is sufficient.
+    reentry = c.step(same_segment_bar(8,98.5,-9.2))
+    assert [(e['type'],e['route']) for e in reentry.events] == [('DULL','reactivation')]
+    assert c.state == 'DULL' and c.pending_rearm is None and c.wave.price == 97
+    c.step(same_segment_bar(9,100,-8.8))
+    assert c.pending_bottom_history['structureEventId'] != structure
+
+
+@pytest.mark.parametrize('gate', [.75,1.,1.2])
+def test_qualifying_return_is_dull_without_green_and_preserves_successor_structure(gate):
+    c = same_segment_setup(gate)
+    original_structure = c.pending_bottom_history['structureEventId']
+    step = c.step(same_segment_bar(7,98,-9))
+    assert [(e['type'],e['route']) for e in step.events] == [('DULL','dif_return')]
+    assert c.state == 'DULL' and c.pending_rearm is None and not step.rearm_records
+    assert c.pending_bottom_history is None
+    assert step.bottom_histories[0]['endReason'] == 'new_bottom_DULL'
+    formed = c.step(same_segment_bar(8,100,-8.8,2))
+    assert [(e['type'],e['route']) for e in formed.events] == [('STRUCTURE','color_flip')]
+    assert c.pending_bottom_history['structureEventId'] != original_structure
+    assert c.pending_bottom_history['priceLow'] == 97
+
+
+@pytest.mark.parametrize('close,dif', [(99.,-9.),(100.,-9.),(98.,-11.)])
+def test_return_must_pass_current_strict_price_and_segment_dif(close,dif):
+    c = same_segment_setup()
+    step = c.step(same_segment_bar(7,close,dif))
+    assert [(e['type'],e['route']) for e in step.events] == [('STRUCTURE_DISAPPEARED','dif_return')]
+    assert c.state == 'NONE' and c.pending_rearm is not None
+
+
+def test_return_keeps_nearest_price_gate_and_true_reference_break_priority():
+    c = same_segment_setup(); c.history[-1][-1].price = 97.5
+    assert c.step(same_segment_bar(7,98,-9)).events[0]['type'] == 'STRUCTURE_DISAPPEARED'
+    c = same_segment_setup()
+    step = c.step(same_segment_bar(7,98,-11.1))
+    assert [(e['type'],e['route']) for e in step.events] == [('CANCEL','dif_break')]
+    assert c.pending_rearm is None
+
+
+@pytest.mark.parametrize('hist', [0.,2.])
+def test_color_or_zero_releases_wait_without_fabricated_cancel(hist):
+    c = same_segment_setup(); c.step(same_segment_bar(7,100,-9))
+    step = c.step(same_segment_bar(8,101,-9.2,hist))
+    assert not step.events and c.pending_rearm is None
+    assert step.rearm_records[0]['status'] == 'SEGMENT_ENDED'
+    assert step.rearm_records[0]['endReason'] == ('zero' if hist == 0 else 'color_flip')
+
+
+def test_reference_and_price_equalities_and_true_dif_break():
+    c = same_segment_setup(); c.step(same_segment_bar(7,100,-9))
+    assert not c.step(same_segment_bar(8,99,-9.2)).events
+    assert c.pending_rearm is not None
+    assert not c.step(same_segment_bar(9,98.5,-11)).events
+    assert c.pending_rearm is not None
+    assert not c.step(same_segment_bar(10,98.5,-10.5)).events  # accumulated DIF equality still blocks
+    step = c.step(same_segment_bar(11,98.5,-11.1))
+    assert not step.events
+    assert c.pending_rearm is None and step.rearm_records[0]['endReason'] == 'reference_dif_break'
+
+
+def test_snapshot_clone_restore_and_failed_restore_are_isolated():
+    c = same_segment_setup(); c.step(same_segment_bar(7,100,-9))
+    before = c.snapshot()
+    child = clone(c)
+    child.pending_rearm['referenceWave']['price'] = 1
+    assert c.snapshot() == before
+    restored = XxmCalculator(period='day',source_identity='synthetic');restored.restore(before)
+    assert restored.step(same_segment_bar(8,98.5,-9.2)) == c.step(same_segment_bar(8,98.5,-9.2))
+    prior = restored.snapshot(); broken = deepcopy(prior);broken['pendingRearm'] = {'id': 'wrong'}
+    with pytest.raises(ValueError): restored.restore(broken)
+    assert restored.snapshot() == prior
+
+
+def test_entry_partition_uses_current_price_and_keeps_waiting_copy():
+    c = same_segment_setup();c.step(same_segment_bar(7,100,-9));before=c.snapshot()
+    solve = solve_entry_ranges
+    projection = ProjectionState(110.,119.,-8.)
+    result=solve(c,projection,'2020-01-08')
+    assert result['ranges']
+    assert all(r['reference']['price']==99 for r in result['ranges'])
+    signature=activation_signature
+    assert signature(c,projection,98.5,'2020-01-08')['price']==99
+    assert signature(c,projection,99.,'2020-01-08') is None
+    assert signature(c,projection,100.,'2020-01-08') is None
+    assert c.snapshot()==before
+
+
+@pytest.mark.parametrize('mutate', [
+    lambda s:s.pop('pendingRearm'), lambda s:s.update(extra=True),
+    lambda s:s.update(specHash='b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5'),
+    lambda s:s['pendingRearm'].update(extra=True), lambda s:s['pendingRearm'].pop('referenceWave'),
+    lambda s:s['pendingRearm']['referenceWave'].pop('price_at'),
+    lambda s:s['pendingRearm']['referenceWave'].update(count=True),
+    lambda s:s['pendingRearm']['referenceWave'].update(dif=float('nan')),
+    lambda s:s['pendingRearm'].update(direction='TOP'), lambda s:s['pendingRearm'].update(status='REACTIVATED'),
+    lambda s:s['pendingRearm'].update(id='wrong'), lambda s:s['pendingRearm'].update(bottomHistoryId='wrong'),
+    lambda s:s['pendingRearm'].update(structureEventId='wrong'),
+    lambda s:s['pendingRearm'].update(segmentStart='2020-01-05'),
+    lambda s:s['pendingRearm'].update(observedThrough='2020-01-08'),
+    lambda s:s['pendingRearm'].update(nearestPriceGate=100),
+    lambda s:s.update(state='DULL'), lambda s:s.update(reference=s['pendingRearm']['referenceWave']),
+    lambda s:s.update(processed=0), lambda s:s['wave'].update(count=100),
+])
+def test_rearm_restore_strict_atomic_and_original_pool_identity(mutate):
+    c=same_segment_setup();c.step(same_segment_bar(7,100,-9));before=c.snapshot()
+    broken=deepcopy(before);mutate(broken)
+    with pytest.raises(ValueError):c.restore(broken)
+    assert c.snapshot()==before
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+def test_rearm_period_specific_identity_restore_and_rewind(period):
+    c=XxmCalculator(period=period,source_identity='same-segment-period')
+    values=[same_segment_bar(1,100,-10),same_segment_bar(2,99,-11),same_segment_bar(3,105,-5,2),
+            same_segment_bar(4,98,-9),same_segment_bar(5,97,-9.2),same_segment_bar(6,98,-8.8),
+            same_segment_bar(7,100,-9),same_segment_bar(8,98.5,-9.2),same_segment_bar(9,100,-8.8)]
+    if period!='day':values=[replace(b,time=b.time+'T15:00:00+08:00') for b in values]
+    for b in values[:7]:c.step(b)
+    waiting=c.snapshot();child=clone(c)
+    assert child.step(values[7])==c.step(values[7])
+    c.step(values[8]);c.restore(waiting)
+    assert c.snapshot()==waiting and c.pending_rearm['observedThrough']==values[6].time
+    child=clone(c);child.pending_rearm['referenceWave']['price']=1
+    assert c.snapshot()==waiting
+
+
+@pytest.mark.parametrize('gate',[.75,1.,1.2])
+def test_full_four_period_top_oracle_and_first_activation_are_preserved(gate):
+    from scripts.research.index_market.xxm.acceptance import load_source
+    tree=ast.parse((ROOT/'replay_color_flip.py').read_bytes())
+    tree.body=[n for n in tree.body if isinstance(n,ast.FunctionDef)]
+    namespace={};exec(compile(tree,str(ROOT/'replay_color_flip.py'),'exec'),namespace)
+    source=ROOT.parent/'xxm_source_audit_20261013_213852'
+    for period in ('day','m60','m90','m120'):
+        values=load_source(source,period)
+        old=namespace['replay']([dict(time=b.time,close=b.close,dif=b.dif,hist=b.hist) for b in values],
+                               gate,reference_policy='strongest_eligible',max_refs=2)
+        c=XxmCalculator(period=period,source_identity='full-top-oracle',spec=XxmSpec(dif_turn_pct=gate))
+        for bar,expected in zip(values,old,strict=True):
+            previous=c.snapshot();step=c.step(bar)
+            ordinary=next((e for e in step.events if e['direction']=='TOP' and e['type']!='RESEARCH_HISTORICAL_WITHDRAWAL'),None)
+            assert (ordinary['type'] if ordinary else 'NONE')==(expected['event'] if expected['event_direction']==1 else 'NONE')
+            if ordinary:
+                assert ordinary['route']==expected['event_route']
+                assert ordinary['eventReference']['startTime']==expected['event_ref_start']
+                assert ordinary['eventReference']['dif']==expected['event_ref_dif']
+                assert ordinary['eventReference']['price']==expected['event_ref_price']
+            if bar.hist>0:assert c.state==expected['state']
+            # The first activation branch retains the original price/pool rule.
+            # A genuine NONE+waiting is deliberately excluded from that branch.
+            if previous['state']=='NONE' and previous['pendingRearm'] is None and expected['event']=='DULL' and expected['event_route']=='activation':
+                assert any(e['type']=='DULL' and e['route']=='activation' for e in step.events)

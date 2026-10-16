@@ -26,15 +26,15 @@ function historyStatus(history: XxmHistory): string {
 function bottomHistoryStatus(history: XxmBottomHistory): string {
   if (history.status === "PENDING") return "仍在跟踪";
   const reason = { original_reference_break: "原DIF参照失效", new_bottom_DULL: "新底部钝化接替",
-    new_bottom_STRUCTURE: "新底部结构接替", historical_price_break: "收盘跌破原低点" };
+    new_bottom_STRUCTURE: "新底部结构接替", historical_price_break: "收盘跌破原低点", structure_disappeared: "同段结构消失" };
   return `已结束 · ${history.endReason ? reason[history.endReason] : ""}`;
 }
 
 export function XxmResearchDetails({ layer, time }: { layer: XxmLayerState; time: string }) {
   const detail = layer.data?.byTime.get(time);
   if (!detail) return null;
-  const { point, events, histories, bottomHistories } = detail;
-  const state = point.ordinaryState === "NONE" ? "无钝化或结构" : `${point.ordinaryDirection === "TOP" ? "顶" : "底"}${point.ordinaryState === "DULL" ? "钝化" : "结构"}`;
+  const { point, events, histories, bottomHistories, rearmRecords } = detail;
+  const state = point.pendingRearmId ? "待重新钝化" : point.ordinaryState === "NONE" ? "无钝化或结构" : `${point.ordinaryDirection === "TOP" ? "顶" : "底"}${point.ordinaryState === "DULL" ? "钝化" : "结构"}`;
   return <div className="xxm-tooltip" aria-label="徐小明研究指标详情">
     <div className="xxm-tooltip-title">徐小明 V0.1 · 研究</div>
     <Row label="普通状态" value={state} />
@@ -60,6 +60,14 @@ export function XxmResearchDetails({ layer, time }: { layer: XxmLayerState; time
       <Row label="底部历史跟踪" value={bottomHistoryStatus(history)} />
       {history.endedAt ? <Row label="结束时间" value={timeText(history.endedAt)} /> : null}
       <Row label="记录截至" value={`${timeText(history.observedThrough)} · ${history.ageBars} 根`} />
+    </Fragment>)}
+    {rearmRecords.map(record => <Fragment key={record.id}>
+      <Row label="原结构时间" value={timeText(record.structureConfirmedAt)} />
+      <Row label="保留参照" value={referenceText(record.reference)} />
+      <Row label="等待记录" value={{ WAITING: "等待重新钝化", REACTIVATED: "已重新钝化",
+        INVALIDATED: "原DIF参照失效", SEGMENT_ENDED: "原负柱段结束" }[record.status]} />
+      {record.endedAt ? <Row label="等待结束" value={timeText(record.endedAt)} /> : null}
+      <Row label="记录截至" value={timeText(record.observedThrough)} />
     </Fragment>)}
     <div className="xxm-tooltip-note">研究判断，历史寿命尚未验证</div>
   </div>;

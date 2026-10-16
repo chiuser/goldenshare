@@ -59,9 +59,26 @@ class XxmBottomHistory(TypedDict):
     originalReference: dict[str, Any]
     status: Literal["PENDING", "ENDED"]
     endedAt: str | None
-    endReason: Literal["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break"] | None
+    endReason: Literal["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break", "structure_disappeared"] | None
     observedThrough: str
     ageBars: int
+
+
+class XxmRearmRecord(TypedDict):
+    id: str
+    direction: Literal["BOTTOM"]
+    bottomHistoryId: str
+    structureEventId: str
+    structureConfirmedAt: str
+    structureRoute: Literal["dif_turn"]
+    segmentStart: str
+    nearestPriceGate: float
+    referenceWave: dict[str, Any]
+    disappearedAt: str
+    observedThrough: str
+    status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"]
+    endedAt: str | None
+    endReason: Literal["price_requalified", "reference_dif_break", "color_flip", "zero"] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,3 +87,4 @@ class XxmStep:
     events: tuple[dict[str, Any], ...]
     histories: tuple[dict[str, Any], ...]
     bottom_histories: tuple[XxmBottomHistory, ...]
+    rearm_records: tuple[XxmRearmRecord, ...]

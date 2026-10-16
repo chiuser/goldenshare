@@ -2,6 +2,7 @@
 import math
 from .forecast_math import Interval, merge, source_options, GUARD, K
 from .forecast_detector import activation_signature
+from .types import Wave
 
 
 def entry_partition(c, projection):
@@ -23,6 +24,12 @@ def entry_partition(c, projection):
         for d in ((ref.dif-.0005,ref.dif+.0005) if day else (ref.dif,)):
             for g in ((-GUARD,0.,GUARD) if day else (0.,)):
                 add_root((d+g-b)/K,K)
+    if c.pending_rearm is not None:
+        saved=c.pending_rearm['referenceWave']
+        cuts.update((saved['price'],c.pending_rearm['nearestPriceGate']))
+        for d in ((saved['dif']-.0005,saved['dif']+.0005) if day else (saved['dif'],)):
+            for g in ((-GUARD,0.,GUARD) if day else (0.,)):
+                add_root((d+g-b)/K,K)
     for h in ((-.0005,.0005) if day else (0.,)):
         for g in ((-GUARD,0.,GUARD) if day else (0.,)):
             add_root((projection.dea+(h+g)/1.6-b)/K,1.6*K)
@@ -41,6 +48,11 @@ def stable_reference_on_band(c,projection,region,reference):
     if c.period=='day':
         dlow=math.floor(dlow*1000)/1000;dhigh=math.ceil(dhigh*1000)/1000
         hlow=math.floor(hlow*1000)/1000;hhigh=math.ceil(hhigh*1000)/1000
+    if c.pending_rearm is not None:
+        saved=c.pending_rearm['referenceWave']
+        return (reference==Wave(**saved).reference() and c.wave.count+1>=c.spec.min_bars and hhigh<0
+                and min(c.wave.dif,dlow)>saved['dif']
+                and region.hi<min(saved['price'],c.pending_rearm['nearestPriceGate']))
     s=c.wave.sign;w=c.wave
     if w.count+1<c.spec.min_bars or (hlow<=0 if s>0 else hhigh>=0):return False
     pool=list(reversed(c.history[s]));recent_price=pool[0].price;pool.sort(key=lambda r:s*r.dif,reverse=True)
@@ -63,6 +75,11 @@ def reason_for(c, projection, p):
         return 'WRONG_COLOR_OR_ZERO'
     if w.count+1 < c.spec.min_bars:
         return 'INSUFFICIENT_BARS'
+    if c.pending_rearm is not None:
+        ref=c.pending_rearm['referenceWave']
+        if any(min(w.dif,dd)<=ref['dif'] for dd in ds):
+            return 'DIF_NOT_DIVERGENT'
+        return 'PRICE_NOT_EXTREME'
     refs = list(reversed(c.history[w.sign]))
     extreme_price = max(w.price, p) if w.sign > 0 else min(w.price, p)
     if w.sign*(extreme_price-refs[0].price) <= 0:

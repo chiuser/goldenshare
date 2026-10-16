@@ -239,11 +239,16 @@ def make_display(result, period, through, mode, context, check=lambda: None, spe
     elif status == 'NO_CANDIDATE':
         reasons = dict(NO_ENTRY_RANGE='当前没有可形成钝化的收盘条件。', ZERO_WAVE='当前MACD为零柱，等待有效柱段。',
                        NO_REFERENCE='同方向历史参照不足。', NO_CONFIRMATION_IN_HORIZON='当前没有可计算的结构条件。')
-        if result.get('reasonCode') == 'NO_CONFIRMATION_IN_HORIZON':
+        if result.get('reasonCode') == 'NO_CONFIRMATION_IN_HORIZON' and not result.get('rearmContext'):
             labels[status] = f'{side}钝化有效'
             lines = [f'当前{side}钝化有效，后续结构时点暂未找到。',
                      f'{side}钝化消失或出现零柱时，原条件失效。', '本周期新收盘后重新判断。']
         else:
             lines = [reasons.get(result.get('reasonCode'), '当前没有可计算的结构条件。'), '本周期新收盘后重新判断。']
+    if result.get('rearmContext'):
+        labels[status] = '结构消失，待重新钝化'
+        lines.insert(0, '原底部结构已消失；当前未重新形成底钝化。')
+        lines = [line.replace('钝化触发：', '重新钝化：') for line in lines]
+        lines.append('参照DIF突破、MACD柱色改变或出现零柱时，本次等待条件结束。')
     return dict(statusLabel=labels[status], targetText=target, conditionsText='\n'.join(lines),
                 asOfText=('历史回放 · ' if mode == 'REPLAY' else '') + '截至 ' + time_text(through, period))
