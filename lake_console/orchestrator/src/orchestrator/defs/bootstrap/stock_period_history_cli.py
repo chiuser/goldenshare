@@ -9,6 +9,7 @@ from pathlib import Path
 
 from orchestrator.defs.bootstrap.stock_period_history import (
     load_scope,
+    replay_events,
     roots,
     run_period,
 )
@@ -16,11 +17,27 @@ from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_period import VERSION, StockPeriodPolicy
 
 
+def _run_reporting(instance, operation, *, handoff=False):
+    """One real run for all checks in an explicit CLI operation."""
+    import dagster as dg
+
+    @dg.op
+    def report(context):
+        return operation(context)
+
+    @dg.job(name="stock_period_handoff" if handoff else "stock_period_event_report")
+    def reporting():
+        report()
+
+    result = reporting.execute_in_process(instance=instance)
+    return result.output_for_node("report")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("prepare", "apply", "resume", "events"),
+        choices=("prepare", "apply", "resume", "events", "handoff"),
         nargs="?",
         default="prepare",
     )
@@ -53,14 +70,14 @@ def main(argv=None):
     ):
         parser.error("apply requires --request-id and --confirm-delete-existing")
     frozen = None
-    if args.action in ("resume", "events"):
+    if args.action in ("resume", "events", "handoff"):
         import re
 
         from orchestrator.defs.io.stock_period_raw import read_json
         from orchestrator.defs.run_contracts.stock_period import verify_execution
 
         if not args.run_id or not re.fullmatch(r"[0-9a-f]{64}", args.run_id):
-            parser.error("resume/events require --run-id")
+            parser.error("resume/events/handoff require --run-id")
         frozen = read_json(
             staging / "stock_period" / "runs" / args.run_id / "manifest.json"
         )
@@ -69,7 +86,7 @@ def main(argv=None):
             raise ValueError("period_resume_identity_changed")
         if args.action == "events" and frozen["phase"] not in (
             "files_complete",
-            "complete",
+            "events_complete",
         ):
             raise ValueError("period_event_files_incomplete")
         if frozen["phase"] == "deleting" and not args.confirm_delete_existing:
@@ -81,6 +98,7 @@ def main(argv=None):
         interrupted = True
 
     previous = {s: signal.signal(s, cancel) for s in (signal.SIGINT, signal.SIGTERM)}
+    instance = None
     try:
         if frozen is None:
             listed, aliases = load_scope(root, staging / "stock_period" / "scope")
@@ -95,64 +113,95 @@ def main(argv=None):
             listed = set(frozen["identity"]["listed"])
             aliases = frozen["identity"]["aliases"]
             intent = frozen["identity"]["intent"]
-        instance = None
-        if args.action == "events":
+        if args.action in ("events", "handoff"):
             import dagster as dg
 
-            from orchestrator.defs.stock_period_update import report_file_events
-
-            instance = dg.DagsterInstance.get()
-        result = run_period(
-            root=root,
-            staging=staging,
-            listed=listed,
-            aliases=aliases,
-            intent=intent,
-            policy=StockPeriodPolicy(**frozen["identity"]["policy"])
-            if frozen
-            else StockPeriodPolicy(),
-            events=(lambda item: report_file_events(instance, item))
-            if instance is not None
-            else None,
-            cancel=lambda: interrupted,
-            progress=lambda event: print(json.dumps(event), flush=True),
-        )
-        if args.action == "events" and intent["mode"] == "bootstrap":
-            from datetime import date
-
-            from orchestrator.defs.bootstrap.stock_period_history import writer
-            from orchestrator.defs.io.stock_period_raw import atomic_json, read_json
             from orchestrator.defs.stock_period_update import (
-                bootstrap_watermarks,
-                calendar_days,
+                handoff_bootstrap,
+                report_file_events,
             )
 
-            manifest = read_json(Path(result["path"]) / "manifest.json")
-            coordinates = list(manifest.get("source_asof", {}).values())
-            if len(coordinates) != 2 or not all(coordinates):
-                raise ValueError("period_handoff_source_asof_missing")
-            oldest = min(coordinates)
-            asof = date(int(oldest[:4]), int(oldest[4:6]), int(oldest[6:]))
-            statepath = staging / "stock_period" / "daily.json"
-            with writer(staging):
-                prior = read_json(statepath) if statepath.exists() else {}
-                if prior.get("baseline_run_id") != result["run_id"]:
-                    state = bootstrap_watermarks(
-                        asof, calendar_days(root, staging / "stock_period" / "calendar")
-                    )
-                    state["baseline_run_id"] = result["run_id"]
-                    atomic_json(statepath, state)
-            instance.dispose()
+            instance = dg.DagsterInstance.get()
+        if args.action == "events":
+
+            def operation(context):
+                return replay_events(
+                    staging / "stock_period/runs" / args.run_id,
+                    root=root,
+                    staging=staging,
+                    events=lambda item: report_file_events(
+                        instance, item, context=context
+                    ),
+                    cancel=lambda: interrupted,
+                )
+
+            if frozen["phase"] == "events_complete":
+                result = replay_events(
+                    staging / "stock_period/runs" / args.run_id,
+                    root=root,
+                    staging=staging,
+                    cancel=lambda: interrupted,
+                )
+            else:
+                result = _run_reporting(instance, operation)
+        elif args.action == "handoff":
+
+            def operation(context):
+                return handoff_bootstrap(
+                    root=root,
+                    staging=staging,
+                    run=staging / "stock_period/runs" / args.run_id,
+                    events=lambda item: report_file_events(
+                        instance, item, context=context
+                    ),
+                    cancel=lambda: interrupted,
+                    progress=lambda event: print(json.dumps(event), flush=True),
+                )
+
+            from orchestrator.defs.io.stock_period_raw import read_json
+
+            baseline = read_json(staging / "stock_period/baseline.json")
+            ready = (
+                baseline.get("status") == "ready"
+                and baseline.get("run_id") == args.run_id
+            )
+            state = (
+                operation(None)
+                if ready
+                else _run_reporting(instance, operation, handoff=True)
+            )
+            result = {
+                "run_id": args.run_id,
+                "files": [],
+                "events_complete": True,
+                "handoff": state,
+            }
+        else:
+            result = run_period(
+                root=root,
+                staging=staging,
+                listed=listed,
+                aliases=aliases,
+                intent=intent,
+                confirmed_retired=intent.get("retired_codes", ()),
+                policy=StockPeriodPolicy(**frozen["identity"]["policy"])
+                if frozen
+                else StockPeriodPolicy(),
+                cancel=lambda: interrupted,
+                progress=lambda event: print(json.dumps(event), flush=True),
+            )
         print(
             json.dumps(
                 {
                     "run_id": result["run_id"],
                     "files": len(result["files"]),
-                    "events_reported": args.action == "events",
+                    "events_reported": result.get("events_complete", False),
                 }
             )
         )
     finally:
+        if instance is not None:
+            instance.dispose()
         for sig, handler in previous.items():
             signal.signal(sig, handler)
     return 0

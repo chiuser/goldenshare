@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import json
 import os
+import shutil
 import stat
+import sys
 import threading
+from contextvars import ContextVar
+from functools import lru_cache
 from pathlib import Path
 
 from orchestrator.defs.duckdb_connection import (
@@ -57,16 +62,160 @@ def safe_path(path):
     return path
 
 
+_BUDGET = ContextVar("period_storage_budget", default=None)
+
+
+def sync_directory(path):
+    descriptor = os.open(safe_path(path), os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def durable_directory(path):
+    path = safe_path(path)
+    missing = []
+    parent = path
+    while not parent.exists():
+        missing.append(parent)
+        parent = parent.parent
+    for directory in reversed(missing):
+        directory.mkdir(exist_ok=True)
+        sync_directory(directory.parent)
+    return path
+
+
 def atomic_json(path, value):
     path = safe_path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    safe_path(tmp)
-    with tmp.open("w") as handle:
-        json.dump(value, handle, sort_keys=True, separators=(",", ":"), allow_nan=False)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(tmp, path)
+    durable_directory(path.parent)
+    tmp = safe_path(path.with_suffix(path.suffix + ".tmp"))
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode()
+    budget = _BUDGET.get()
+    if budget is not None:
+        budget.reserve(len(payload))
+    try:
+        with tmp.open("wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+        sync_directory(path.parent)
+    finally:
+        if budget is not None:
+            budget.record(path)
+            budget.record(tmp)
+
+
+@lru_cache(maxsize=1)
+def _mach_resident_reader():
+    # ABI from the installed macOS SDK mach/task_info.h: MACH_TASK_BASIC_INFO=20.
+    class TaskInfo(ctypes.Structure):
+        _fields_ = [
+            ("virtual", ctypes.c_uint64),
+            ("resident", ctypes.c_uint64),
+            ("peak", ctypes.c_uint64),
+            ("times", ctypes.c_int32 * 4),
+            ("policy", ctypes.c_int32),
+            ("suspend", ctypes.c_int32),
+        ]
+
+    library = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+    return library, TaskInfo
+
+
+def current_rss_bytes():
+    if sys.platform == "darwin":
+        library, info_type = _mach_resident_reader()
+        task = ctypes.c_uint.in_dll(library, "mach_task_self_").value
+        info = info_type()
+        count = ctypes.c_uint(ctypes.sizeof(info) // ctypes.sizeof(ctypes.c_uint))
+        if library.task_info(task, 20, ctypes.byref(info), ctypes.byref(count)) != 0:
+            raise OSError("period_current_rss_unavailable")
+        return info.resident
+    return int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf(
+        "SC_PAGE_SIZE"
+    )
+
+
+class StorageBudget:
+    """Run-local byte accounting. One recovery inventory; writes update known paths."""
+
+    def __init__(self, run, policy, *, cancel=lambda: False, progress=lambda _: None):
+        self.run, self.policy = Path(run), policy
+        self.sizes = {}
+        self.cancel, self.progress = cancel, progress
+        self.used = 0
+        self.guard = lambda: None
+        self.inventory(self.run)
+
+    def record(self, path):
+        path = safe_path(path)
+        size = path.stat().st_size if path.is_file() else 0
+        self.used += size - self.sizes.get(str(path), 0)
+        self.sizes[str(path)] = size
+        if self.used > self.policy.workspace_bytes:
+            raise ValueError("period_workspace_budget_exceeded")
+
+    def inventory(self, root):
+        import time
+
+        emitted = time.monotonic()
+        for directory, dirs, files in os.walk(
+            root, onerror=lambda error: (_ for _ in ()).throw(error)
+        ):
+            check_cancel(self.cancel)
+            for name in dirs:
+                safe_path(Path(directory) / name)
+            for name in files:
+                path = Path(directory) / name
+                self.record(path)
+                if (
+                    path.is_relative_to(self.run / "committed")
+                    and path.suffix == ".json"
+                ):
+                    self.record(read_json(path)["target"])
+            if time.monotonic() - emitted >= self.policy.progress_seconds:
+                self.progress(
+                    {
+                        "stage": "storage_inventory",
+                        "files": len(self.sizes),
+                        "bytes": self.used,
+                    }
+                )
+                emitted = time.monotonic()
+
+    def reserve(self, addition=0, *, spill=False, device=None):
+        check_cancel(self.cancel)
+        self.guard()
+        reservation = addition + (self.policy.spill_bytes if spill else 0)
+        if self.used + reservation > self.policy.workspace_bytes:
+            raise ValueError("period_workspace_budget_exceeded")
+        if shutil.disk_usage(device or self.run).free < reservation:
+            raise ValueError("period_workspace_free_space_insufficient")
+
+    def forget_tree(self, root):
+        for path in list(self.sizes):
+            if Path(path).is_relative_to(root):
+                self.used -= self.sizes.pop(path)
+
+    def moved(self, source, target):
+        self.used -= self.sizes.pop(str(source), 0)
+        self.record(target)
+
+
+def storage_reserve(addition=0, *, spill=False):
+    budget = _BUDGET.get()
+    if budget is not None:
+        budget.reserve(addition, spill=spill)
+
+
+def storage_record(path):
+    budget = _BUDGET.get()
+    if budget is not None:
+        budget.record(path)
 
 
 def read_json(path):
@@ -116,13 +265,7 @@ def connection(work, policy=DEFAULT_POLICY):
 
 
 def check_memory(policy):
-    import resource
-    import sys
-
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    if sys.platform != "darwin":
-        peak *= 1024
-    if peak > policy.rss_bytes:
+    if current_rss_bytes() > policy.rss_bytes:
         raise ValueError("period_process_memory_exceeded")
 
 
@@ -136,25 +279,34 @@ def execute(
     stage="sql",
     policy=DEFAULT_POLICY,
 ):
-    check_cancel(cancel)
-    check_memory(policy)
+    """Serialize SQL on one connection; keep the main thread responsive to TERM."""
     import time
 
-    errors = []
-    stop = threading.Event()
+    check_cancel(cancel)
+    check_memory(policy)
+    parameters = list(parameters or [])
+    if sql.startswith("COPY ") and " TO ? " in sql:
+        output = str(safe_path(parameters.pop()))
+        sql = sql.replace(" TO ? ", " TO '" + output.replace("'", "''") + "' ", 1)
+    errors, results = [], []
+    completed = threading.Event()
 
-    def watch():
-        emitted = time.monotonic()
-        while not stop.wait(0.2):
-            try:
-                check_memory(policy)
-            except ValueError as error:
-                errors.append(error)
-                con.interrupt()
-                return
-            if cancel():
-                con.interrupt()
-                return
+    def query():
+        try:
+            results.append(con.execute(sql, parameters))
+        except BaseException as error:  # noqa: BLE001 -- Re-raised on the coordinating thread.
+            errors.append(error)
+        finally:
+            completed.set()
+
+    # This replaces the previous monitor thread; SQL calls never overlap.
+    worker = threading.Thread(target=query, daemon=True)
+    worker.start()
+    emitted = time.monotonic()
+    try:
+        while not completed.wait(0.05):
+            check_cancel(cancel)
+            check_memory(policy)
             if time.monotonic() - emitted >= policy.progress_seconds:
                 progress(
                     {
@@ -164,39 +316,34 @@ def execute(
                     }
                 )
                 emitted = time.monotonic()
-
-    monitor = threading.Thread(target=watch, daemon=True)
-    monitor.start()
-    try:
-        parameters = list(parameters or [])
-        # DuckDB COPY binds its filename before SELECT parameters; literalize only our guarded path.
-        if sql.startswith("COPY ") and " TO ? " in sql:
-            output = str(safe_path(parameters.pop()))
-            sql = sql.replace(" TO ? ", " TO '" + output.replace("'", "''") + "' ", 1)
-        result = con.execute(sql, parameters)
-        if errors:
-            raise errors[0]
+        check_cancel(cancel)
         check_memory(policy)
-        check_cancel(cancel)
-        progress({"stage": stage})
-        return result
-    except Exception:
         if errors:
             raise errors[0]
-        check_cancel(cancel)
-        raise
+        progress({"stage": stage})
+        return results[0]
     finally:
-        stop.set()
-        monitor.join()
+        # Repeat interrupt until the query has actually exited, covering the
+        # start/interrupt race. Never release the writer while it can still COPY.
+        while worker.is_alive():
+            if not completed.is_set():
+                con.interrupt()
+            worker.join(0.05)
 
 
-def validate_file(con, path, freq, period, *, cancel=lambda: False):
+def validate_file(
+    con, path, freq, period, *, cancel=lambda: False, policy=DEFAULT_POLICY
+):
     before = file_version(path)
     schema = [
         tuple(r[:2])
-        for r in con.execute(
+        for r in execute(
+            con,
             "DESCRIBE SELECT * FROM read_parquet(?,hive_partitioning=false)",
             [str(path)],
+            cancel=cancel,
+            policy=policy,
+            stage="file_schema",
         ).fetchall()
     ]
     if schema != list(SPECS):
@@ -212,6 +359,7 @@ def validate_file(con, path, freq, period, *, cancel=lambda: False):
         FROM read_parquet(?,hive_partitioning=false)""",
         [freq, period, str(path)],
         cancel=cancel,
+        policy=policy,
     ).fetchone()
     if rows != unique or invalid or before != file_version(path):
         raise ValueError("period_file_key_or_partition_invalid")
@@ -333,17 +481,35 @@ def assemble(
                 policy=policy,
             )
         else:
-            con.execute(
+            execute(
+                con,
                 "CREATE TEMP TABLE incoming ("
-                + ",".join(f'"{n}" {t}' for n, t in SPECS)
-                + ",filename VARCHAR)"
+                + ",".join((f'"{n}" {t}' for n, t in SPECS))
+                + ",filename VARCHAR)",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
             )
-        if con.execute(
-            "SELECT count(*) FROM incoming WHERE freq<>?", [freq]
+        if execute(
+            con,
+            "SELECT count(*) FROM incoming WHERE freq<>?",
+            [freq],
+            cancel=cancel,
+            policy=policy,
+            stage="source_integrity",
+            progress=progress,
         ).fetchone()[0]:
             raise ValueError("period_source_frequency_mixed")
         if (
-            not con.execute("SELECT count(*) FROM incoming").fetchone()[0]
+            not execute(
+                con,
+                "SELECT count(*) FROM incoming",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
+            ).fetchone()[0]
             and not retired_codes
         ):
             raise ValueError("period_source_empty")
@@ -354,17 +520,26 @@ def assemble(
             raise ValueError("period_history_inputs_missing")
         actual = {
             r[0]
-            for r in con.execute(
+            for r in execute(
+                con,
                 "SELECT DISTINCT ts_code FROM incoming WHERE list_contains(?,filename)",
                 [history_paths],
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
             ).fetchall()
         }
         if actual != set(codes) and mode != "bootstrap":
             raise ValueError("period_history_codes_mismatch")
         # Repeated keys across current/history snapshots may coalesce only as identical full rows.
-        conflict = con.execute(
-            f"SELECT ts_code,trade_date,freq FROM incoming GROUP BY 1,2,3 "
-            f"HAVING count(DISTINCT ROW({COLUMNS}))>1 LIMIT 1"
+        conflict = execute(
+            con,
+            f"SELECT ts_code,trade_date,freq FROM incoming GROUP BY 1,2,3 HAVING count(DISTINCT ROW({COLUMNS}))>1 LIMIT 1",
+            cancel=cancel,
+            policy=policy,
+            stage="source_integrity",
+            progress=progress,
         ).fetchone()
         if conflict:
             atomic_json(
@@ -378,17 +553,25 @@ def assemble(
             raise ValueError("period_source_conflicting_key")
         if (
             not (mode == "upsert" and codes)
-            and con.execute(
-                "SELECT count(*)-count(DISTINCT(ts_code,trade_date,freq)) FROM incoming"
+            and execute(
+                con,
+                "SELECT count(*)-count(DISTINCT(ts_code,trade_date,freq)) FROM incoming",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
             ).fetchone()[0]
         ):
             raise ValueError("period_source_duplicate_key")
         if mode == "upsert" and codes:
-            absent = con.execute(
-                "SELECT ts_code,trade_date,freq FROM incoming p WHERE list_contains(?,p.ts_code) "
-                "AND NOT list_contains(?,p.filename) AND NOT EXISTS (SELECT 1 FROM incoming h "
-                "WHERE list_contains(?,h.filename) AND h.ts_code=p.ts_code AND h.trade_date=p.trade_date AND h.freq=p.freq) LIMIT 1",
+            absent = execute(
+                con,
+                "SELECT ts_code,trade_date,freq FROM incoming p WHERE list_contains(?,p.ts_code) AND NOT list_contains(?,p.filename) AND NOT EXISTS (SELECT 1 FROM incoming h WHERE list_contains(?,h.filename) AND h.ts_code=p.ts_code AND h.trade_date=p.trade_date AND h.freq=p.freq) LIMIT 1",
                 [list(codes), history_paths, history_paths],
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
             ).fetchone()
             if absent:
                 atomic_json(
@@ -399,17 +582,35 @@ def assemble(
                     },
                 )
                 raise ValueError("period_history_coverage_conflict")
-        con.execute(
-            f"CREATE TEMP TABLE source AS SELECT DISTINCT {COLUMNS},{PERIOD_SQL} AS period FROM incoming"
+        execute(
+            con,
+            f"CREATE TEMP TABLE source AS SELECT DISTINCT {COLUMNS},{PERIOD_SQL} AS period FROM incoming",
+            cancel=cancel,
+            policy=policy,
+            stage="source_integrity",
+            progress=progress,
         )
         selected = {
-            r[0] for r in con.execute("SELECT DISTINCT period FROM source").fetchall()
+            r[0]
+            for r in execute(
+                con,
+                "SELECT DISTINCT period FROM source",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
+            ).fetchall()
         }
         if (
             mode == "upsert"
-            and con.execute(
+            and execute(
+                con,
                 f"SELECT count(*) FROM incoming WHERE NOT list_contains(?,filename) AND NOT list_contains(?,{PERIOD_SQL})",
                 [history_paths, list(periods)],
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
             ).fetchone()[0]
         ):
             raise ValueError("period_source_scope_mismatch")
@@ -459,6 +660,14 @@ def assemble(
                 if target_path(root, freq, p).exists()
             )
             oldpaths = sorted(set(oldpaths))
+        preimages = {
+            p: file_version(target_path(root, freq, p))
+            if target_path(root, freq, p).exists()
+            else None
+            for p in selected
+        }
+        if mode == "bootstrap" and any(v is not None for v in preimages.values()):
+            raise ValueError("period_bootstrap_root_not_empty")
         if oldpaths:
             execute(
                 con,
@@ -470,7 +679,14 @@ def assemble(
                 policy=policy,
             )
         else:
-            con.execute("CREATE TEMP TABLE old AS SELECT * FROM source WHERE false")
+            execute(
+                con,
+                "CREATE TEMP TABLE old AS SELECT * FROM source WHERE false",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
+            )
         if mode == "history":
             execute(
                 con,
@@ -495,7 +711,14 @@ def assemble(
             for period in selected:
                 if target_path(root, freq, period).exists():
                     raise ValueError("period_bootstrap_root_not_empty")
-            con.execute("CREATE TEMP VIEW combined AS SELECT * FROM source")
+            execute(
+                con,
+                "CREATE TEMP VIEW combined AS SELECT * FROM source",
+                cancel=cancel,
+                policy=policy,
+                stage="source_integrity",
+                progress=progress,
+            )
         expected_rows = dict(
             execute(
                 con,
@@ -505,6 +728,15 @@ def assemble(
                 stage="combined_row_counts",
                 policy=policy,
             ).fetchall()
+        )
+        for period, before in preimages.items():
+            target = target_path(root, freq, period)
+            if (file_version(target) if target.exists() else None) != before:
+                raise ValueError("period_target_preimage_changed")
+        # 512 bytes/validated fixed-width row plus 16KiB/file covers physical
+        # columns and sample-derived Parquet overhead; spill is a reservation.
+        storage_reserve(
+            sum(expected_rows.values()) * 512 + len(selected) * 16384, spill=True
         )
         outputs = work / "outputs"
         safe_path(outputs)
@@ -528,12 +760,14 @@ def assemble(
                     f"COPY (SELECT {COLUMNS} FROM source WHERE false) TO ? (FORMAT PARQUET)",
                     [str(out / "data_0.parquet")],
                     cancel=cancel,
+                    policy=policy,
                 )
         atomic_json(
             copy_receipt,
             {
                 "identity": identity,
                 "periods": sorted(selected),
+                "target_preimages": preimages,
                 "stock_ranges": _source_ranges(
                     con, freq, cancel=cancel, progress=progress, policy=policy
                 ),
@@ -612,6 +846,7 @@ def _candidate_receipts(
         if len(outputs) != 1:
             raise ValueError("period_candidate_file_count_invalid")
         out = outputs[0]
+        storage_record(out)
         files.append((period, out))
         cp = work / "validated" / f"{period}.json"
         if cp.exists():
@@ -631,7 +866,8 @@ def _candidate_receipts(
         if pending
         else {}
     )
-    expected_rows = read_json(work / "copy.json")["expected_rows"]
+    copied = read_json(work / "copy.json")
+    expected_rows = copied["expected_rows"]
     receipts = []
     for index, (period, out) in enumerate(files):
         check_cancel(cancel)
@@ -641,6 +877,7 @@ def _candidate_receipts(
                 "freq": freq,
                 "period": period,
                 "candidate": str(out),
+                "target_preimage": copied["target_preimages"][period],
                 "target": str(target_path(root, freq, period)),
                 **facts[str(out)],
             }
@@ -662,7 +899,7 @@ def _candidate_receipts(
     return receipts
 
 
-def publish(item, *, checkpoint, con, cancel=lambda: False):
+def publish(item, *, checkpoint, con=None, cancel=lambda: False):
     """Replace succeeded/checkpoint failed recovers by the saved candidate's digest."""
     target = safe_path(item["target"])
     candidate = safe_path(item["candidate"])
@@ -688,8 +925,11 @@ def publish(item, *, checkpoint, con, cancel=lambda: False):
     if (
         not candidate.exists()
         and target.exists()
+        and file_version(target)[:4] == item["version"][:4]
         and file_digest(target) == item["sha256"]
     ):
+        sync_directory(target.parent)
+        storage_record(target)
         evidence = {
             "rows": item["rows"],
             "sha256": item["sha256"],
@@ -698,11 +938,24 @@ def publish(item, *, checkpoint, con, cancel=lambda: False):
     else:
         if file_version(candidate) != item["version"]:
             raise ValueError("period_candidate_changed")
-        target.parent.mkdir(parents=True, exist_ok=True)
+        if (
+            "target_preimage" not in item
+            or (file_version(target) if target.exists() else None)
+            != item["target_preimage"]
+        ):
+            raise ValueError("period_target_preimage_changed")
+        durable_directory(target.parent)
         if candidate.stat().st_dev != target.parent.stat().st_dev:
             raise ValueError("period_atomic_device_mismatch")
         check_cancel(cancel)
+        storage_reserve()
+        with candidate.open("rb") as handle:
+            os.fsync(handle.fileno())
         os.replace(candidate, target)
+        budget = _BUDGET.get()
+        if budget is not None:
+            budget.moved(candidate, target)
+        sync_directory(target.parent)
         version = file_version(target)
         if version[:4] != item["version"][:4]:
             raise ValueError("period_promoted_file_identity_changed")

@@ -89,6 +89,8 @@ def verify_execution(saved, run_id):
         or saved.get("identity_hash") != digest(identity)
     ):
         raise ValueError("period_manifest_changed")
+    if "devices" not in saved:
+        raise ValueError("period_execution_protection_missing")
     return identity
 
 

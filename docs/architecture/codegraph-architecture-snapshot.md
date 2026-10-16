@@ -50,7 +50,7 @@ Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
 2. `orchestrator/defs/paths.py` 决定正式 Lake 三层与独立 staging 根，不使用旧 config.local.toml 或 Kopia。
 3. reports 和两项 ClickHouse bin 工具保留；本机 ignored 环境不作为可用的旧产品入口。
 
-2026-10-16周/月Raw链路为asset→stock_period_update→stock_period_history→HTTP source/列式组装，保留原asset/job/check/分区身份。已完成确认步骤1、2：DG局部环境配置/HTTP，移除Prod Settings导入及误增依赖声明（不卸载环境包）；v2逻辑意图与CLI/event消费者统一校验，失败回包有界留证；当前/历史合并候选、范围版本复用及批量验证。相关隔离回归、localhost真实进程与缓存样本通过，均不等于Raw最终验收。后续目标前像、完整持久化、预算、成功/事件状态、自动恢复、跨日交接和旧合同收口仍未完成。两套Raw未正式删除/bootstrap或部署，Silver未开发，R3继续暂停。CodeGraph explore/impact/callers及sync/status与当前代码核对DG入口/直接消费者；不调整Prod业务子系统依赖矩阵。范围、14项原审计及当前交付见[总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享LLD](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#step12-delivery)。
+2026-10-16周/月Raw链路为asset→stock_period_update→stock_period_history→HTTP source/列式组装，保留原asset/job/check/分区身份。已完成确认步骤1、2：DG局部环境配置/HTTP，移除Prod Settings导入及误增依赖声明（不卸载环境包）；v2逻辑意图与CLI/event消费者统一校验，失败回包有界留证；当前/历史合并候选、范围版本复用及批量验证。相关隔离回归、localhost真实进程与缓存样本通过，均不等于Raw最终验收。2026-10-16第3—5步补齐目标前像、设备/挂载及fsync、运行内增量预算/当前RSS、文件与事件独立恢复、冻结待办及有界交接；CLI新增经批准的handoff，events仍只补事件。检查复用当前真实run或一次CLI真实补报run，不伪造run；外层anchor真实物化/check前不冒记完成。对应隔离回归通过，第6步旧合同收口及第7步Raw最终验收仍后置。两套Raw未正式删除/bootstrap或部署，Silver未开发，R3继续暂停。CodeGraph explore/impact/callers及sync/status与当前代码核对DG入口/直接消费者；不调整Prod业务子系统依赖矩阵。范围、14项原审计及当前交付见[总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享LLD](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#step12-delivery)。
 
 ## 关键调用链
 

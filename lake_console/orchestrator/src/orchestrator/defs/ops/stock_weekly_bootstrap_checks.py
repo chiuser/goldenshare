@@ -20,10 +20,22 @@ def report_stock_weekly_bootstrap_checks(
     run = Path(DEFAULT_LAKE_STAGING_ROOT) / "stock_period" / "runs" / config.run_id
     manifest = read_json(run / "manifest.json")
     verify_execution(manifest, config.run_id)
-    complete = read_json(run / "complete.json")
+    from orchestrator.defs.bootstrap.stock_period_history import replay_events
+
     count = 0
-    for item in complete["files"]:
-        if item["freq"] == "week":
-            report_file_events(context.instance, item)
-            count += 1
+
+    def events(item):
+        nonlocal count
+        if item["freq"] != "week":
+            return False
+        report_file_events(context.instance, item, context=context)
+        count += 1
+        return True
+
+    replay_events(
+        run,
+        root=Path(manifest["identity"]["root"]),
+        staging=Path(DEFAULT_LAKE_STAGING_ROOT),
+        events=events,
+    )
     return {"reported_files": count}

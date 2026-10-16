@@ -8,12 +8,17 @@ from zoneinfo import ZoneInfo
 
 from orchestrator.defs.io.stock_period_raw import (
     atomic_json,
+    check_cancel,
     connection,
+    execute,
     read_json,
     safe_path,
 )
 from orchestrator.defs.run_contracts.stock_period import (
+    DEFAULT_POLICY,
     VERSION,
+    digest,
+    execution_id,
     next_period,
     period_date,
     period_for,
@@ -45,10 +50,10 @@ class CalendarDays(list):
         self.covered = {day for day, _ in normalized}
 
 
-def calendar_days(root, work):
+def calendar_days(root, work, policy=DEFAULT_POLICY):
     from orchestrator.defs.paths import silver_trade_calendar_path
 
-    with connection(work) as con:
+    with connection(work, policy) as con:
         return CalendarDays(
             con.execute(
                 "SELECT cal_date,is_open FROM read_parquet(?) WHERE exchange='SSE' ORDER BY cal_date",
@@ -79,10 +84,7 @@ def source_final(period, freq, asof, today, days):
     if not asof:
         return False
     first, last = period_bounds(period, freq)
-    coordinate = last.isoformat()
     observed = asof[:4] + "-" + asof[4:6] + "-" + asof[6:]
-    if today.isoformat() >= coordinate and observed >= coordinate:
-        return True
     required = {
         (first + timedelta(days=i)).isoformat() for i in range((last - first).days + 1)
     }
@@ -92,7 +94,17 @@ def source_final(period, freq, asof, today, days):
     return today.isoformat() >= final and observed >= final
 
 
-def factor_changes(root, work, days, after, through, listed):
+def factor_changes(
+    root,
+    work,
+    days,
+    after,
+    through,
+    listed,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
     """Each unconsumed adjacent trading-day pair once; never compare complete price history."""
     from orchestrator.defs.paths import silver_adj_factor_path
     from orchestrator.defs.stock_daily_qfq import (
@@ -103,7 +115,7 @@ def factor_changes(root, work, days, after, through, listed):
         raise ValueError("period_factor_watermark_missing")
     selected = [day for day in days if after < day <= through]
     changed = set()
-    with connection(work) as con:
+    with connection(work, policy) as con:
         for day in selected:
             previous = days[days.index(day) - 1] if days.index(day) > 0 else None
             if previous is None:
@@ -114,11 +126,16 @@ def factor_changes(root, work, days, after, through, listed):
                 raise ValueError("period_adjacent_factor_missing")
             changed.update(
                 r[0]
-                for r in con.execute(
+                for r in execute(
+                    con,
                     build_stock_daily_qfq_factor_changed_codes_sql(
                         current_adj_factor_path=current_path,
                         previous_adj_factor_path=prior_path,
-                    )
+                    ),
+                    policy=policy,
+                    cancel=cancel,
+                    progress=progress,
+                    stage="adjacent_factor_changes",
                 ).fetchall()
             )
     return sorted(changed & set(listed))
@@ -127,7 +144,7 @@ def factor_changes(root, work, days, after, through, listed):
 def close_day(period, freq, days):
     anchor = period_date(period, freq)
     boundary = date(int(anchor[:4]), int(anchor[4:6]), int(anchor[6:]))
-    first = boundary - timedelta(days=6) if freq == "week" else boundary.replace(day=1)
+    first, _ = period_bounds(period, freq)
     candidates = [d for d in days if first.isoformat() <= d <= boundary.isoformat()]
     if not candidates:
         raise ValueError("period_calendar_no_trading_day")
@@ -148,8 +165,9 @@ def bootstrap_watermarks(today, days):
     }
     for freq in ("week", "month"):
         current = period_for(today, freq)
-        end = close_day(current, freq, days)
-        if today.isoformat() >= end:
+        if source_final(
+            current, freq, today.strftime("%Y%m%d"), today, days
+        ) or no_trading_period(current, freq, days):
             result["completed_through"][freq] = current
         else:
             day = date.fromisoformat(current if freq == "week" else current + "-01")
@@ -174,6 +192,123 @@ def confirmed_retirements(root, work, removed, aliases):
     return sorted({aliases.get(r[0], r[0]) for r in rows} & set(removed))
 
 
+def _daily_work(
+    staging, *, root, today, freq, listed, aliases, days, policy, cancel, progress
+):
+    state = daily_state(staging)
+    pending = daily_periods(
+        today=today,
+        freq=freq,
+        completed_through=state["completed_through"][freq],
+        last_refresh=state["last_refresh"].get(freq),
+    )
+    holidays = [p for p in pending if no_trading_period(p, freq, days)]
+    requested = [p for p in pending if p not in holidays]
+    baseline = read_json(Path(staging) / "stock_period/baseline.json")
+    if (
+        not pending
+        and state["factor_through"] >= today.isoformat()
+        and set(baseline["listed"]) == set(listed)
+    ):
+        return None
+    changed = set(
+        factor_changes(
+            root,
+            Path(staging) / "stock_period/factors",
+            days,
+            state["factor_through"],
+            today.isoformat(),
+            listed,
+            policy,
+            cancel,
+            progress,
+        )
+    )
+    changed.update(set(listed) - set(baseline["listed"]))
+    retired = confirmed_retirements(
+        root,
+        Path(staging) / "stock_period/scope",
+        {
+            c
+            for c in baseline["listed"]
+            if c not in listed and aliases.get(c, c) not in listed
+        },
+        aliases,
+    )
+    superseded = sorted(
+        c for c in baseline["listed"] if c not in listed and aliases.get(c, c) in listed
+    )
+    if not (requested or changed or retired or superseded or holidays):
+        return None
+    intent = {
+        "version": VERSION,
+        "mode": "upsert" if requested else "history",
+        "frequencies": ["week", "month"]
+        if changed or retired or superseded
+        else [freq],
+        "codes": sorted(changed),
+        "retired_codes": retired,
+        "superseded_codes": superseded,
+        "periods": {freq: requested},
+        "asof": today.isoformat(),
+        "request_id": digest(
+            {"kind": "period_daily", "frequency": freq, "date": today.isoformat()}
+        ),
+        "period_cutoffs": {
+            freq: {
+                p: min(today.isoformat(), close_day(p, freq, days)).replace("-", "")
+                for p in requested
+            }
+        },
+    }
+    return {
+        "intent": intent,
+        "listed": sorted(listed),
+        "aliases": aliases,
+        "confirmed_retired": retired,
+        "frequency": freq,
+        "pending": pending,
+        "holidays": holidays,
+        "consumed": False,
+        "policy": policy.payload(),
+    }
+
+
+def _consume_daily_files(staging, work, result, days):
+    path = Path(staging) / "stock_period/daily.json"
+    state = daily_state(staging)
+    intent, freq = work["intent"], work["frequency"]
+    today = date.fromisoformat(intent["asof"])
+    observations = result.get("unit_asofs", {}).get(freq, {})
+    current = period_for(today, freq)
+    if (
+        observations.get(current)
+        and observations[current] >= intent["asof"].replace("-", "")
+        and state["last_refresh"].get(freq, "") <= intent["asof"]
+    ):
+        state["last_refresh"][freq] = intent["asof"]
+        state.setdefault("last_source_asof", {})[freq] = observations[current]
+    frontier = state["completed_through"][freq]
+    for period in work["pending"]:
+        if period != next_period(frontier, freq):
+            break
+        if period in work["holidays"] or source_final(
+            period, freq, observations.get(period), today, days
+        ):
+            frontier = period
+        else:
+            break
+    state["completed_through"][freq] = frontier
+    state["factor_through"] = max(state["factor_through"], intent["asof"])
+    work["consumed"] = True
+    state.setdefault("pending_work", {})[execution_id(intent["request_id"])] = work
+    baseline_path = Path(staging) / "stock_period/baseline.json"
+    baseline = read_json(baseline_path)
+    baseline["listed"] = work["listed"]
+    atomic_json(baseline_path, baseline)
+    atomic_json(path, state)
+
+
 def _execute_daily_locked(
     *,
     root,
@@ -183,108 +318,103 @@ def _execute_daily_locked(
     listed,
     aliases,
     transport=None,
+    policy=DEFAULT_POLICY,
     cancel=lambda: False,
     progress=lambda _: None,
     events=None,
 ):
-    """Scheduled and manual period updates use the same writer and persistent daily facts."""
-    from orchestrator.defs.bootstrap.stock_period_history import run_period, writer
+    """Resume frozen file/event work before planning a new date or reading factors."""
+    from orchestrator.defs.bootstrap.stock_period_history import (
+        replay_events,
+        run_period,
+    )
+    from orchestrator.defs.run_contracts.stock_period import StockPeriodPolicy
 
-    days = calendar_days(root, Path(staging) / "stock_period" / "calendar")
-    if today.isoformat() not in days:
-        raise ValueError("period_not_trading_day")
     state = daily_state(staging)
     if state is None:
         raise ValueError("period_daily_handoff_required")
-    pending = daily_periods(
-        today=today,
-        freq=freq,
-        completed_through=state["completed_through"][freq],
-        last_refresh=state["last_refresh"].get(freq),
-    )
-    # Plan all inputs before any candidate or publication in this logical work item.
-    holidays = {p for p in pending if no_trading_period(p, freq, days)}
-    requested = [p for p in pending if p not in holidays]
-    baseline = read_json(Path(staging) / "stock_period" / "baseline.json")
-    changed = set(
-        factor_changes(
-            root,
-            Path(staging) / "stock_period" / "factors",
-            days,
-            state["factor_through"],
-            today.isoformat(),
-            listed,
-        )
-    )
-    changed.update(set(listed) - set(baseline["listed"]))
-    retired = confirmed_retirements(
-        root,
-        Path(staging) / "stock_period" / "scope",
-        {
-            c
-            for c in baseline["listed"]
-            if c not in listed and aliases.get(c, c) not in listed
-        },
-        aliases,
-    )
     results = []
-    result = {"unit_asofs": {}}
-    if requested or changed or retired:
-        from orchestrator.defs.run_contracts.stock_period import digest
+    days = None
 
-        intent = {
-            "version": VERSION,
-            "mode": "upsert" if requested else "history",
-            "frequencies": ["week", "month"] if changed or retired else [freq],
-            "codes": sorted(changed),
-            "retired_codes": retired,
-            "periods": {freq: requested},
-            "asof": today.isoformat(),
-            "request_id": digest(
-                {"kind": "period_daily", "frequency": freq, "date": today.isoformat()}
-            ),
-        }
+    def perform(work):
+        nonlocal days
+        check_cancel(cancel)
+        intent = work["intent"]
+        work_policy = StockPeriodPolicy(**work["policy"])
+        calendar_only = not (
+            any(intent.get("periods", {}).values())
+            or intent.get("codes")
+            or intent.get("retired_codes")
+            or intent.get("superseded_codes")
+        )
+        if calendar_only:
+            days = days or calendar_days(
+                root,
+                Path(staging) / "stock_period/calendar",
+                work_policy,
+            )
+            _consume_daily_files(staging, work, {"unit_asofs": {}}, days)
+            latest = daily_state(staging)
+            latest.get("pending_work", {}).pop(execution_id(intent["request_id"]), None)
+            atomic_json(Path(staging) / "stock_period/daily.json", latest)
+            return
         result = run_period(
             root=root,
             staging=staging,
             intent=intent,
-            listed=listed,
-            aliases=aliases,
-            confirmed_retired=retired,
+            listed=set(work["listed"]),
+            aliases=work["aliases"],
+            confirmed_retired=work["confirmed_retired"],
             transport=transport,
+            policy=work_policy,
             cancel=cancel,
             progress=progress,
-            events=events,
         )
+        if not work["consumed"]:
+            days = days or calendar_days(
+                root, Path(staging) / "stock_period/calendar", work_policy
+            )
+            _consume_daily_files(staging, work, result, days)
+        if events is not None:
+            result = replay_events(
+                Path(result["path"]),
+                root=root,
+                staging=staging,
+                events=events,
+                cancel=cancel,
+            )
+            if result["events_complete"]:
+                latest = daily_state(staging)
+                latest.get("pending_work", {}).pop(result["run_id"], None)
+                atomic_json(Path(staging) / "stock_period/daily.json", latest)
         results.append(result)
-    if pending:
-        with writer(staging):
-            latest = daily_state(staging)
-            if period_for(today, freq) in requested:
-                latest["last_refresh"][freq] = today.isoformat()
-                latest.setdefault("last_source_asof", {})[freq] = (
-                    result.get("unit_asofs", {})
-                    .get(freq, {})
-                    .get(period_for(today, freq))
-                )
-            frontier = latest["completed_through"][freq]
-            for period in pending:
-                if period != next_period(frontier, freq):
-                    break
-                asof = result.get("unit_asofs", {}).get(freq, {}).get(period)
-                if period in holidays or source_final(period, freq, asof, today, days):
-                    frontier = period
-                else:
-                    break
-            latest["completed_through"][freq] = frontier
-            atomic_json(Path(staging) / "stock_period" / "daily.json", latest)
-    with writer(staging):
+
+    for work in list(state.get("pending_work", {}).values()):
+        perform(work)
+    days = days or calendar_days(root, Path(staging) / "stock_period/calendar", policy)
+    if today.isoformat() not in days:
+        if results:
+            return results
+        raise ValueError("period_not_trading_day")
+    work = _daily_work(
+        staging,
+        root=root,
+        today=today,
+        freq=freq,
+        listed=listed,
+        aliases=aliases,
+        days=days,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+    )
+    if work is not None:
         latest = daily_state(staging)
-        latest["factor_through"] = max(latest["factor_through"], today.isoformat())
-        atomic_json(Path(staging) / "stock_period" / "daily.json", latest)
-        baseline = read_json(Path(staging) / "stock_period" / "baseline.json")
-        baseline["listed"] = sorted(listed)
-        atomic_json(Path(staging) / "stock_period" / "baseline.json", baseline)
+        run_id = execution_id(work["intent"]["request_id"])
+        if run_id not in latest.get("pending_work", {}):
+            latest.setdefault("pending_work", {})[run_id] = work
+            atomic_json(Path(staging) / "stock_period/daily.json", latest)
+            perform(work)
     return results
 
 
@@ -296,7 +426,7 @@ def execute_daily(**kwargs):
         return _execute_daily_locked(**kwargs)
 
 
-def report_file_events(instance, item):
+def report_file_events(instance, item, *, write=True, context=None):
     """Report only validated immutable file versions; retry missing events without recompute."""
     import dagster as dg
     from dagster._core.definitions.asset_checks.asset_check_evaluation import (
@@ -332,7 +462,8 @@ def report_file_events(instance, item):
     )
     partition = item["period"]
     partset = "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months"
-    instance.add_dynamic_partitions(partset, [partition])
+    if write:
+        instance.add_dynamic_partitions(partset, [partition])
     records = instance.fetch_materializations(
         dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]), limit=1
     ).records
@@ -349,6 +480,8 @@ def report_file_events(instance, item):
         else None
     )
     if fingerprint != item["version"]:
+        if not write:
+            return False
         instance.report_runless_asset_event(
             dg.AssetMaterialization(
                 asset_key=asset,
@@ -369,34 +502,53 @@ def report_file_events(instance, item):
             dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]),
             limit=1,
         ).records[0]
+    from dagster._core.event_api import PartitionKeyFilter
+
     for name in names:
-        # Event-only retries inspect check state; they do not reopen Parquet or source material.
         history = instance.event_log_storage.get_asset_check_execution_history(
-            dg.AssetCheckKey(asset, name), limit=1
+            dg.AssetCheckKey(asset, name),
+            limit=1,
+            partition_filter=PartitionKeyFilter(key=partition),
         )
         evaluation = history[0].evaluation if history else None
-        if (
+        matched = (
             evaluation is not None
+            and evaluation.partition == partition
             and evaluation.passed
             and evaluation.blocking
             and evaluation.target_materialization_data is not None
             and evaluation.target_materialization_data.storage_id == record.storage_id
-        ):
-            continue
-        instance.report_runless_asset_event(
-            AssetCheckEvaluation(
-                asset_key=asset,
-                check_name=name,
-                partition=partition,
-                passed=True,
-                blocking=True,
-                target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
-                    storage_id=record.storage_id,
-                    run_id=record.event_log_entry.run_id,
-                    timestamp=record.event_log_entry.timestamp,
-                ),
-            )
         )
+        if matched:
+            continue
+        if not write:
+            return False
+        if context is None:
+            raise ValueError("period_event_real_run_required")
+        from dagster._core.events import DagsterEvent, DagsterEventType
+
+        op_context = getattr(context, "op_execution_context", context)
+        instance.report_dagster_event(
+            DagsterEvent(
+                event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
+                job_name=op_context.job_name,
+                step_key=op_context.get_step_execution_context().step.key,
+                event_specific_data=AssetCheckEvaluation(
+                    asset_key=asset,
+                    check_name=name,
+                    partition=partition,
+                    passed=True,
+                    blocking=True,
+                    target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                        storage_id=record.storage_id,
+                        run_id=record.event_log_entry.run_id,
+                        timestamp=record.event_log_entry.timestamp,
+                    ),
+                ),
+            ),
+            run_id=op_context.run_id,
+        )
+    return True
 
 
 def deliver_asset(context, config, lake_root, freq):
@@ -412,16 +564,28 @@ def deliver_asset(context, config, lake_root, freq):
     lake_root.ensure_available_for_run()
     listed, aliases = load_scope(root, staging / "stock_period" / "scope")
 
+    import time
+
+    checked_at, cancelled = float("-inf"), False
+
     def cancel():
-        run = context.instance.get_run_by_id(context.run.run_id)
-        return run is not None and run.status in (
-            dg.DagsterRunStatus.CANCELING,
-            dg.DagsterRunStatus.CANCELED,
-        )
+        nonlocal checked_at, cancelled
+        if time.monotonic() - checked_at >= 2:
+            checked_at = time.monotonic()
+            run = context.instance.get_run_by_id(context.run.run_id)
+            cancelled = run is not None and run.status in (
+                dg.DagsterRunStatus.CANCELING,
+                dg.DagsterRunStatus.CANCELED,
+            )
+        return cancelled
 
     def events(item):
-        if (item["freq"], item["period"]) != (freq, context.partition_key):
-            report_file_events(context.instance, item)
+        return report_file_events(
+            context.instance,
+            item,
+            write=(item["freq"], item["period"]) != (freq, context.partition_key),
+            context=context,
+        )
 
     progress = lambda p: context.log.info(str(p))
     if config.intent == "history":
@@ -571,7 +735,7 @@ def evaluate_daily_sensor(context, now, *, freq, staging_root=None):
         completed_through=state["completed_through"][freq],
         last_refresh=state["last_refresh"].get(freq),
     )
-    if not pending:
+    if not pending and not state.get("pending_work"):
         return dg.SensorResult(
             skip_reason=dg.SkipReason("当天已刷新；周期完成水位保持独立。")
         )
@@ -622,3 +786,210 @@ def evaluate_daily_sensor(context, now, *, freq, staging_root=None):
             details=details,
         ),
     )
+
+
+def handoff_bootstrap(
+    *,
+    root,
+    staging,
+    run,
+    events,
+    transport=None,
+    listed=None,
+    aliases=None,
+    through=None,
+    now=None,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    """One frozen catch-up intent for the actual capture interval, then ready."""
+    from orchestrator.defs.bootstrap.stock_period_history import (
+        load_scope,
+        replay_events,
+        roots,
+        run_period,
+        writer,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        StockPeriodPolicy,
+        verify_execution,
+    )
+
+    root, staging = roots(root, staging)
+    with writer(staging):
+        run = safe_path(run)
+        parent = read_json(run / "manifest.json")
+        verify_execution(parent, run.name)
+        if parent["identity"]["intent"]["mode"] != "bootstrap" or parent["identity"][
+            "root"
+        ] != str(root):
+            raise ValueError("period_handoff_parent_invalid")
+        baseline_path = staging / "stock_period/baseline.json"
+        baseline = read_json(baseline_path)
+        statepath = staging / "stock_period/daily.json"
+        prior = read_json(statepath) if statepath.exists() else {}
+        if baseline.get("run_id") != run.name:
+            raise ValueError("period_handoff_baseline_changed")
+        if (
+            baseline.get("status") == "ready"
+            and prior.get("baseline_run_id") == run.name
+        ):
+            return prior
+        if parent["phase"] != "events_complete":
+            raise ValueError("period_handoff_events_incomplete")
+        policy = StockPeriodPolicy(**parent["identity"]["policy"])
+        days = calendar_days(root, staging / "stock_period/calendar", policy)
+        now = now or datetime.now(ZoneInfo("Asia/Shanghai"))
+        now = now.astimezone(ZoneInfo("Asia/Shanghai"))
+        released = [
+            d
+            for d in days
+            if d < now.date().isoformat()
+            or (d == now.date().isoformat() and (now.hour, now.minute) >= (19, 30))
+        ]
+        if not released:
+            raise ValueError("period_handoff_calendar_missing")
+        cutoff = through.isoformat() if through else released[-1]
+        if cutoff not in released:
+            raise ValueError("period_handoff_cutoff_not_released")
+        if "handoff" not in parent:
+            started = datetime.fromisoformat(parent["started_at"]).astimezone(
+                ZoneInfo("Asia/Shanghai")
+            )
+            started_days = [
+                d
+                for d in days
+                if d < started.date().isoformat()
+                or (
+                    d == started.date().isoformat()
+                    and (started.hour, started.minute) >= (19, 30)
+                )
+            ]
+            if not started_days or cutoff < started_days[-1]:
+                raise ValueError("period_handoff_calendar_missing")
+            begin = started_days[-1]
+            if listed is None:
+                listed, aliases = load_scope(
+                    root, staging / "stock_period/scope", policy
+                )
+            aliases = aliases or {}
+            original = set(parent["identity"]["listed"])
+            changed = set(
+                factor_changes(
+                    root,
+                    staging / "stock_period/factors",
+                    days,
+                    begin,
+                    cutoff,
+                    listed,
+                    policy,
+                    cancel,
+                    progress,
+                )
+            ) | (set(listed) - original)
+            retired = confirmed_retirements(
+                root,
+                staging / "stock_period/scope",
+                {
+                    c
+                    for c in original
+                    if c not in listed and aliases.get(c, c) not in listed
+                },
+                aliases,
+            )
+            superseded = sorted(
+                c for c in original if c not in listed and aliases.get(c, c) in listed
+            )
+            unexplained = original - set(listed) - set(retired) - set(superseded)
+            if unexplained:
+                raise ValueError("period_handoff_scope_difference_unconfirmed")
+            periods = {
+                f: sorted(
+                    {
+                        period_for(date.fromisoformat(d), f)
+                        for d in days
+                        if begin <= d <= cutoff
+                    }
+                )
+                for f in ("week", "month")
+            }
+            intent = {
+                "version": VERSION,
+                "mode": "upsert",
+                "frequencies": ["week", "month"],
+                "codes": sorted(changed),
+                "retired_codes": retired,
+                "superseded_codes": superseded,
+                "periods": periods,
+                "asof": cutoff,
+                "bootstrap_parent": run.name,
+                "request_id": digest(
+                    {"kind": "period_handoff", "parent": run.name, "cutoff": cutoff}
+                ),
+                "period_cutoffs": {
+                    f: {
+                        p: min(cutoff, close_day(p, f, days)).replace("-", "")
+                        for p in periods[f]
+                    }
+                    for f in periods
+                },
+            }
+            parent["handoff"] = {
+                "intent": intent,
+                "listed": sorted(listed),
+                "aliases": aliases,
+                "confirmed_retired": retired,
+                "begin": begin,
+                "cutoff": cutoff,
+            }
+            atomic_json(run / "manifest.json", parent)
+        work = parent["handoff"]
+        cutoff = work["cutoff"]
+        result = run_period(
+            root=root,
+            staging=staging,
+            intent=work["intent"],
+            listed=set(work["listed"]),
+            aliases=work["aliases"],
+            confirmed_retired=work["confirmed_retired"],
+            transport=transport,
+            policy=policy,
+            cancel=cancel,
+            progress=progress,
+        )
+        result = replay_events(
+            Path(result["path"]),
+            root=root,
+            staging=staging,
+            events=events,
+            cancel=cancel,
+        )
+        if not result["events_complete"]:
+            raise ValueError("period_handoff_events_incomplete")
+        # The child verifies published current/ended periods and all scope/factor work.
+        state = bootstrap_watermarks(date.fromisoformat(cutoff), days)
+        state.update(
+            baseline_run_id=run.name,
+            handoff_cutoff=cutoff,
+            last_refresh={f: cutoff for f in ("week", "month")},
+        )
+        if prior.get("baseline_run_id") == run.name:
+            state["factor_through"] = max(
+                state["factor_through"], prior.get("factor_through", "")
+            )
+            for f in ("week", "month"):
+                state["completed_through"][f] = max(
+                    state["completed_through"][f],
+                    prior.get("completed_through", {}).get(f, ""),
+                )
+                state["last_refresh"][f] = max(
+                    cutoff, prior.get("last_refresh", {}).get(f, "")
+                )
+            state["pending_work"] = prior.get("pending_work", {})
+        atomic_json(statepath, state)
+        baseline = read_json(baseline_path)
+        baseline.update(status="ready", listed=work["listed"], handoff_cutoff=cutoff)
+        atomic_json(baseline_path, baseline)
+        parent["handoff_complete"] = True
+        atomic_json(run / "manifest.json", parent)
+        return state

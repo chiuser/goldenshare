@@ -77,6 +77,12 @@ def bootstrap(tmp_path):
         transport=initial,
         events=lambda _: None,
     )
+    baseline = kw["staging"] / "stock_period/baseline.json"
+    facts = read_json(baseline)
+    facts["status"] = (
+        "ready"  # Synthetic downstream fixture, not bootstrap handoff evidence.
+    )
+    baseline.write_text(json.dumps(facts))
     return kw
 
 
@@ -373,7 +379,8 @@ def test_real_daily_execution_plans_period_and_factor_history_before_one_publica
     def run(**args):
         units.append(args["intent"])
         # Keep this integration test on its isolated, small compute policy.
-        return original(**args, policy=POLICY)
+        args["policy"] = POLICY
+        return original(**args)
 
     monkeypatch.setattr(coordinator, "run_period", run)
 
@@ -509,7 +516,9 @@ def test_event_reader_checks_same_v2_identity_without_real_events(
     monkeypatch.setattr(consumer, "DEFAULT_LAKE_STAGING_ROOT", str(kw["staging"]))
     reported = []
     monkeypatch.setattr(
-        consumer, "report_file_events", lambda instance, item: reported.append(item)
+        consumer,
+        "report_file_events",
+        lambda instance, item, **kw: reported.append(item),
     )
     entry = consumer.report_stock_weekly_bootstrap_checks.compute_fn.decorated_fn
     context = SimpleNamespace(instance=object())

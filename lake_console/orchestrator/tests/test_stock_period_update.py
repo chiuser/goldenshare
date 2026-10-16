@@ -123,7 +123,7 @@ def test_week_midpoint_success_does_not_close_period_or_replay_days(
 
     def run(**kw):
         calls.append(kw["intent"])
-        return {"files": []}
+        return {"files": [], "unit_asofs": {"week": {"2026-10-16": "20261014"}}}
 
     monkeypatch.setattr(stock_period_history, "run_period", run)
     execute_daily(

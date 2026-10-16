@@ -85,7 +85,7 @@ def test_delete_before_download_and_resume_does_not_clear(tmp_path):
     assert file_version(new) == version and len(calls) == 2
     assert (
         json.loads((kw["staging"] / "stock_period/baseline.json").read_text())["status"]
-        == "ready"
+        == "files_ready"
     )
 
 
@@ -97,6 +97,7 @@ def test_event_failure_only_retries_event_and_preserves_file(tmp_path):
         attempts.append(item["freq"])
         if item["freq"] == "month":
             raise OSError("event_failure")
+        return True
 
     with pytest.raises(OSError):
         run_period(**kw, events=events)
@@ -105,7 +106,7 @@ def test_event_failure_only_retries_event_and_preserves_file(tmp_path):
         for f, p in [("week", "2026-10-16"), ("month", "2026-10")]
     ]
     kw["transport"] = lambda _: pytest.fail("source called on event-only resume")
-    run_period(**kw, events=lambda i: attempts.append(i["freq"]))
+    run_period(**kw, events=lambda i: attempts.append(i["freq"]) or True)
     assert attempts == ["week", "month", "month"]
     assert versions == [
         file_version(target_path(kw["root"], f, p))
@@ -152,13 +153,19 @@ def test_old_intent_and_empty_source_never_replace(tmp_path):
 def test_isolated_instance_events_bind_every_partition_and_resume(tmp_path):
     import dagster as dg
 
+    from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
     from orchestrator.defs.stock_period_update import report_file_events
 
     (tmp_path / "instance").mkdir()
+    (tmp_path / "instance/dagster.yaml").write_text("telemetry:\n  enabled: false\n")
     with dg.DagsterInstance.local_temp(str(tmp_path / "instance")) as instance:
         kw = args(tmp_path)
-        result = run_period(
-            **kw, events=lambda item: report_file_events(instance, item)
+        result = _run_reporting(
+            instance,
+            lambda context: run_period(
+                **kw,
+                events=lambda item: report_file_events(instance, item, context=context),
+            ),
         )
         for item in result["files"]:
             key = dg.AssetKey("raw_tushare_stk_period_bar_adj_" + item["freq"])
@@ -201,11 +208,11 @@ def test_cancel_during_assembly_preserves_sources_without_starting_publication(
 def test_candidate_manifest_change_and_unconfirmed_retirement_refuse(tmp_path):
     kw = args(tmp_path)
     result = run_period(**kw)
-    path = Path(result["path"]) / "week.candidates.json"
+    path = Path(result["path"]) / "complete.json"
     data = json.loads(path.read_text())
-    data[0]["rows"] = 999
+    data["files"][0]["rows"] = 999
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError, match="candidate_manifest"):
+    with pytest.raises(ValueError, match="complete_receipt"):
         run_period(**kw)
     kw["intent"] = {
         "version": VERSION,
@@ -248,7 +255,11 @@ def test_cancel_after_validated_candidate_reuses_copy_and_validation(
 
 def test_confirmed_delisted_scope_makes_no_request_and_removes_rows(tmp_path):
     kw = args(tmp_path)
-    run_period(**kw, events=lambda _: None)
+    run_period(**kw)
+    baseline = kw["staging"] / "stock_period/baseline.json"
+    facts = json.loads(baseline.read_text())
+    facts["status"] = "ready"  # Synthetic baseline for the independent retirement test.
+    baseline.write_text(json.dumps(facts))
     kw.update(
         listed=set(),
         confirmed_retired={"000001.SZ"},

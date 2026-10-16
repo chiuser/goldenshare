@@ -10,18 +10,23 @@ import signal
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from orchestrator.defs.io.stock_period_raw import (
+    _BUDGET,
     atomic_json,
     check_cancel,
     file_digest,
     file_version,
     read_json,
     safe_path,
+    storage_record,
+    storage_reserve,
 )
 from orchestrator.defs.run_contracts.stock_period import (
     DEFAULT_POLICY,
@@ -254,10 +259,12 @@ def _save_body(unit, body, *, transport, limit):
     redacted = bool(secret and secret.encode() in retained)
     if redacted:
         retained = retained.replace(secret.encode(), b"[REDACTED]")[:limit]
+    storage_reserve(len(retained))
     with path.open("xb") as handle:
         handle.write(retained)
         handle.flush()
         os.fsync(handle.fileno())
+    storage_record(path)
     return path, {"truncated": len(retained) < len(body), "redacted": redacted}
 
 
@@ -340,14 +347,44 @@ def capture_unit(
         "scope_hash": digest({"listed": sorted(listed), "aliases": aliases}),
         "transport": getattr(transport, "public_config", None),
     }
-    unit = safe_path(Path(work) / digest(identity))
-    unit.mkdir(parents=True, exist_ok=True)
+    unit_base = safe_path(Path(work) / digest(identity))
+    unit_base.mkdir(parents=True, exist_ok=True)
+    active_path = unit_base / "active_chain.json"
+    unit = unit_base
+    if active_path.exists():
+        import re
+
+        chain = read_json(active_path).get("chain", "")
+        if not re.fullmatch(r"[0-9a-f]{32}", chain):
+            raise ValueError("period_source_chain_changed")
+        unit = safe_path(unit_base / "chains" / chain)
+        if not (unit / "identity.json").is_file():
+            raise ValueError("period_source_chain_changed")
     identity_path = unit / "identity.json"
     if identity_path.exists() and read_json(identity_path) != identity:
         raise ValueError("period_unit_identity_changed")
     if not identity_path.exists():
         atomic_json(identity_path, identity)
     complete = unit / "complete.json"
+    if not complete.exists():
+        receipts = list(unit.glob("*.receipt.json"))
+        today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        if any(
+            datetime.fromtimestamp(
+                read_json(p)["captured_at_ns"] / 1e9, ZoneInfo("Asia/Shanghai")
+            ).date()
+            != today
+            for p in receipts
+        ):
+            # Keep every old page/receipt at its original path. Only the active
+            # unfinished chain changes; no old fingerprint is rewritten.
+            chain = uuid4().hex
+            unit = safe_path(unit_base / "chains" / chain)
+            unit.mkdir(parents=True)
+            identity_path = unit / "identity.json"
+            atomic_json(identity_path, identity)
+            atomic_json(active_path, {"chain": chain})
+            complete = unit / "complete.json"
     if complete.exists():
         saved = read_json(complete)
         if saved["identity"] != identity or saved.get("receipt_hash") != digest(
@@ -393,6 +430,7 @@ def capture_unit(
             evidence, flags = None, {}
             try:
                 try:
+                    storage_reserve(2 * policy.response_bytes)
                     body = transport(params)
                 except PeriodResponseError as error:
                     evidence, flags = _save_body(
@@ -451,7 +489,11 @@ def capture_unit(
                 )
                 raise
             os.replace(evidence, raw)
+            budget = _BUDGET.get()
+            if budget is not None:
+                budget.moved(evidence, raw)
             tmpcsv = safe_path(csvpath.with_suffix(".csv.tmp"))
+            storage_reserve(len(body) + 1024)
             with tmpcsv.open("w", newline="") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(FIELDS)
@@ -459,6 +501,7 @@ def capture_unit(
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(tmpcsv, csvpath)
+            storage_record(csvpath)
             page = {
                 "params": params,
                 **facts,
