@@ -1,0 +1,21 @@
+{
+  "productModified": false,
+  "boundaryChanged": false,
+  "candidateApproved": false,
+  "candidatePrecheckPassed": false,
+  "tests": {
+    "command": ".venv/bin/python -B -m pytest scripts/research/index_market/tests/test_xxm_calculator.py scripts/research/index_market/tests/test_xxm_key_point_forecast.py scripts/research/index_market/tests/test_xxm_same_segment_research.py -q",
+    "passed": 57
+  },
+  "docsIntegrity": "passed",
+  "scopedWhitespace": "passed",
+  "codegraph": "explore and impact before research; sync/status after, existing kernel and forecast consumers audited",
+  "files": {
+    "scripts/research/index_market/xxm/same_segment_candidate.py": "403088388cde66eb5be54fd7377f5453d5bdbbf3d47f2534feb7cc4189e7cffe",
+    "scripts/research/index_market/xxm/same_segment_precheck.py": "d9f35edd9703f92a91ffc3c2ae9a3c962ad6787b24b0c23a54cfcea39c9934fa",
+    "scripts/research/index_market/tests/test_xxm_same_segment_research.py": "db828621e73b6cae0a2afa25cc67fb1567136a76b904571a6e974eae7c6a10c1",
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "a6cd8dcd366d00c9fede935d395b7daec5e2a516106fec804ffaf30b2fa09a0d",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "777bd4ddb8780481f48b14d084493ecc9a277f48972ccaee28c8fdcf7a821791",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "72c599da89209f3d3996c23afbea075c5d160531e9a4bc02d8eb7de9b2dbe771"
+  }
+}

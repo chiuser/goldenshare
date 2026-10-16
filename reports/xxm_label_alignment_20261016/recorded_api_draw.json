@@ -1,0 +1,811 @@
+{
+  "basis": "Earlier recorded real h1 API and strict-adapter output; no live UI, browser, or live API this run.",
+  "liveEndpoint": "127.0.0.1:5175 connection refused; no service restarted or reconfigured",
+  "sources": [
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/view-day-1tabs-cold-tab1.json",
+      "sha256": "789e3944d28b140f305e981d5b84c813b02628c9b1a3a15ab0000941078510ee"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/layer-day-1tabs-cold-tab1.json",
+      "sha256": "7114cd13b74c0bc9896604f600697d26fed62e8ec61691697a019814c3c9fa92"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/view-m60-1tabs-cold-tab1.json",
+      "sha256": "9291e3225a8c16a3aa26e3a6e4403067012bd6f0cda842a4fd48fe8f9ee2c648"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/layer-m60-1tabs-cold-tab1.json",
+      "sha256": "0e670880374fc76c5b25b22d3b06b832e2a5cf34063cae28ac63fcdfb13df2e5"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/view-m90-1tabs-cold-tab1.json",
+      "sha256": "c4615e7643ca369e37e61298928db54e7147ec6c72be211a89a193f93aa250fb"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/layer-m90-1tabs-cold-tab1.json",
+      "sha256": "5d26eb1b0db73eceba3e34b6cdd4cce5610d89b28b310745d96c3830825d607f"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/view-m120-1tabs-cold-tab1.json",
+      "sha256": "43a37b5fa9cdd3b6e6efc9a649081df0f18e48137967cc7ed02d8d575ed383d9"
+    },
+    {
+      "path": "reports/xxm_bottom_history_h1_page_20261016_02/layer-m120-1tabs-cold-tab1.json",
+      "sha256": "0d72ff683c73394817d60ee9b770e4a36c6f53731c3406ed3fd8d9bdc5089588"
+    }
+  ],
+  "cases": [
+    {
+      "period": "day",
+      "width": 1000,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 18,
+      "drawMs": 4.428584000000008
+    },
+    {
+      "period": "day",
+      "width": 1000,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 20,
+      "drawMs": 2.7265000000000015
+    },
+    {
+      "period": "day",
+      "width": 1280,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 18,
+      "segments": 20,
+      "drawMs": 3.533417
+    },
+    {
+      "period": "day",
+      "width": 1280,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 18,
+      "segments": 20,
+      "drawMs": 2.747124999999997
+    },
+    {
+      "period": "day",
+      "width": 1445,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 18,
+      "drawMs": 2.3482920000000007
+    },
+    {
+      "period": "day",
+      "width": 1445,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 19,
+      "drawMs": 2.2682499999999948
+    },
+    {
+      "period": "day",
+      "scenario": "July screenshot CSS coordinates",
+      "width": 1445,
+      "height": 114,
+      "labels": [
+        {
+          "date": "2026-07-13",
+          "id": "3de803e74d80793f337b1215",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-13",
+              "dif": -28.116,
+              "event": {
+                "id": "3de803e74d80793f337b1215",
+                "time": "2026-07-13",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 843,
+            "y": 80
+          },
+          "left": 795,
+          "top": 72,
+          "leader": {
+            "fromX": 819,
+            "fromY": 80,
+            "toX": 839,
+            "toY": 80,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-15",
+          "id": "7851be12d9cee2a8f902f4f1",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-15",
+              "dif": -32.017,
+              "event": {
+                "id": "7851be12d9cee2a8f902f4f1",
+                "time": "2026-07-15",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 862.5,
+            "y": 83.5
+          },
+          "left": 826.5,
+          "top": 55.5,
+          "leader": {
+            "fromX": 850.5,
+            "fromY": 71.5,
+            "toX": 859.6715728752538,
+            "toY": 80.67157287525382,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-17",
+          "id": "63f17a0517b5ae8906285fbe",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-17",
+              "dif": -53.613,
+              "event": {
+                "id": "63f17a0517b5ae8906285fbe",
+                "time": "2026-07-17",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 881.5,
+            "y": 104.5
+          },
+          "left": 809.5,
+          "top": 95,
+          "leader": {
+            "fromX": 833.5,
+            "fromY": 95,
+            "toX": 881.5,
+            "toY": 100.5,
+            "via": [
+              {
+                "x": 833.5,
+                "y": 92
+              },
+              {
+                "x": 881.5,
+                "y": 92
+              }
+            ]
+          }
+        },
+        {
+          "date": "2026-07-20",
+          "id": "10bc90e11e37ac2d35daa864",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-20",
+              "dif": -61.82,
+              "event": {
+                "id": "10bc90e11e37ac2d35daa864",
+                "time": "2026-07-20",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 891,
+            "y": 112.5
+          },
+          "left": 843,
+          "top": 95,
+          "leader": {
+            "fromX": 867,
+            "fromY": 111,
+            "toX": 887.0077896860685,
+            "toY": 112.25048685537928,
+            "via": []
+          }
+        }
+      ]
+    },
+    {
+      "period": "day",
+      "scenario": "July screenshot CSS coordinates",
+      "width": 1445,
+      "height": 114.5,
+      "labels": [
+        {
+          "date": "2026-07-13",
+          "id": "3de803e74d80793f337b1215",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-13",
+              "dif": -28.116,
+              "event": {
+                "id": "3de803e74d80793f337b1215",
+                "time": "2026-07-13",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 843,
+            "y": 80
+          },
+          "left": 795,
+          "top": 72,
+          "leader": {
+            "fromX": 819,
+            "fromY": 80,
+            "toX": 839,
+            "toY": 80,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-15",
+          "id": "7851be12d9cee2a8f902f4f1",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-15",
+              "dif": -32.017,
+              "event": {
+                "id": "7851be12d9cee2a8f902f4f1",
+                "time": "2026-07-15",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 862.5,
+            "y": 83.5
+          },
+          "left": 826.5,
+          "top": 55.5,
+          "leader": {
+            "fromX": 850.5,
+            "fromY": 71.5,
+            "toX": 859.6715728752538,
+            "toY": 80.67157287525382,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-17",
+          "id": "63f17a0517b5ae8906285fbe",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-17",
+              "dif": -53.613,
+              "event": {
+                "id": "63f17a0517b5ae8906285fbe",
+                "time": "2026-07-17",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 881.5,
+            "y": 104.5
+          },
+          "left": 809.5,
+          "top": 95.5,
+          "leader": {
+            "fromX": 833.5,
+            "fromY": 95.5,
+            "toX": 881.5,
+            "toY": 100.5,
+            "via": [
+              {
+                "x": 833.5,
+                "y": 92.5
+              },
+              {
+                "x": 881.5,
+                "y": 92.5
+              }
+            ]
+          }
+        },
+        {
+          "date": "2026-07-20",
+          "id": "10bc90e11e37ac2d35daa864",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-20",
+              "dif": -61.82,
+              "event": {
+                "id": "10bc90e11e37ac2d35daa864",
+                "time": "2026-07-20",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 891,
+            "y": 112.5
+          },
+          "left": 843,
+          "top": 95.5,
+          "leader": {
+            "fromX": 867,
+            "fromY": 111.5,
+            "toX": 887.0034677076306,
+            "toY": 112.33347782115128,
+            "via": []
+          }
+        }
+      ]
+    },
+    {
+      "period": "day",
+      "scenario": "July screenshot CSS coordinates",
+      "width": 1445,
+      "height": 115,
+      "labels": [
+        {
+          "date": "2026-07-13",
+          "id": "3de803e74d80793f337b1215",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-13",
+              "dif": -28.116,
+              "event": {
+                "id": "3de803e74d80793f337b1215",
+                "time": "2026-07-13",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 843,
+            "y": 80
+          },
+          "left": 795,
+          "top": 72,
+          "leader": {
+            "fromX": 819,
+            "fromY": 80,
+            "toX": 839,
+            "toY": 80,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-15",
+          "id": "7851be12d9cee2a8f902f4f1",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-15",
+              "dif": -32.017,
+              "event": {
+                "id": "7851be12d9cee2a8f902f4f1",
+                "time": "2026-07-15",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-05-18",
+                  "endTime": "2026-06-15",
+                  "price": 3959.3378,
+                  "dif": -30.025
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 862.5,
+            "y": 83.5
+          },
+          "left": 826.5,
+          "top": 55.5,
+          "leader": {
+            "fromX": 850.5,
+            "fromY": 71.5,
+            "toX": 859.6715728752538,
+            "toY": 80.67157287525382,
+            "via": []
+          }
+        },
+        {
+          "date": "2026-07-17",
+          "id": "63f17a0517b5ae8906285fbe",
+          "label": "钝化",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-17",
+              "dif": -53.613,
+              "event": {
+                "id": "63f17a0517b5ae8906285fbe",
+                "time": "2026-07-17",
+                "direction": "BOTTOM",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 881.5,
+            "y": 104.5
+          },
+          "left": 809.5,
+          "top": 96,
+          "leader": {
+            "fromX": 833.5,
+            "fromY": 96,
+            "toX": 881.5,
+            "toY": 100.5,
+            "via": [
+              {
+                "x": 833.5,
+                "y": 93
+              },
+              {
+                "x": 881.5,
+                "y": 93
+              }
+            ]
+          }
+        },
+        {
+          "date": "2026-07-20",
+          "id": "10bc90e11e37ac2d35daa864",
+          "label": "取消",
+          "anchor": {
+            "marker": {
+              "time": "2026-07-20",
+              "dif": -61.82,
+              "event": {
+                "id": "10bc90e11e37ac2d35daa864",
+                "time": "2026-07-20",
+                "direction": "BOTTOM",
+                "type": "CANCEL",
+                "route": "dif_break",
+                "fromState": "DULL",
+                "eventReference": {
+                  "startTime": "2026-03-04",
+                  "endTime": "2026-04-07",
+                  "price": 3813.2829,
+                  "dif": -56.353
+                },
+                "relatedTopHistoryId": null,
+                "relatedBottomHistoryId": null
+              }
+            },
+            "x": 891,
+            "y": 112.5
+          },
+          "left": 843,
+          "top": 96,
+          "leader": {
+            "fromX": 867,
+            "fromY": 112,
+            "toX": 887.0008677730875,
+            "toY": 112.41668474527266,
+            "via": []
+          }
+        }
+      ]
+    },
+    {
+      "period": "m60",
+      "width": 1000,
+      "height": 114,
+      "points": 500,
+      "markers": 34,
+      "labels": 32,
+      "leaders": 25,
+      "segments": 35,
+      "drawMs": 7.231208999999993
+    },
+    {
+      "period": "m60",
+      "width": 1000,
+      "height": 170,
+      "points": 500,
+      "markers": 34,
+      "labels": 33,
+      "leaders": 24,
+      "segments": 38,
+      "drawMs": 5.3948330000000055
+    },
+    {
+      "period": "m60",
+      "width": 1280,
+      "height": 114,
+      "points": 500,
+      "markers": 34,
+      "labels": 32,
+      "leaders": 23,
+      "segments": 29,
+      "drawMs": 6.620417000000003
+    },
+    {
+      "period": "m60",
+      "width": 1280,
+      "height": 170,
+      "points": 500,
+      "markers": 34,
+      "labels": 33,
+      "leaders": 23,
+      "segments": 30,
+      "drawMs": 6.605625000000003
+    },
+    {
+      "period": "m60",
+      "width": 1445,
+      "height": 114,
+      "points": 500,
+      "markers": 34,
+      "labels": 34,
+      "leaders": 26,
+      "segments": 31,
+      "drawMs": 7.558250000000015
+    },
+    {
+      "period": "m60",
+      "width": 1445,
+      "height": 170,
+      "points": 500,
+      "markers": 34,
+      "labels": 34,
+      "leaders": 24,
+      "segments": 31,
+      "drawMs": 6.266417000000018
+    },
+    {
+      "period": "m90",
+      "width": 1000,
+      "height": 114,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 19,
+      "segments": 32,
+      "drawMs": 2.924582999999984
+    },
+    {
+      "period": "m90",
+      "width": 1000,
+      "height": 170,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 18,
+      "segments": 26,
+      "drawMs": 2.8386250000000075
+    },
+    {
+      "period": "m90",
+      "width": 1280,
+      "height": 114,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 19,
+      "segments": 30,
+      "drawMs": 2.8241250000000093
+    },
+    {
+      "period": "m90",
+      "width": 1280,
+      "height": 170,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 17,
+      "segments": 20,
+      "drawMs": 2.2787500000000023
+    },
+    {
+      "period": "m90",
+      "width": 1445,
+      "height": 114,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 18,
+      "segments": 23,
+      "drawMs": 2.7319999999999993
+    },
+    {
+      "period": "m90",
+      "width": 1445,
+      "height": 170,
+      "points": 500,
+      "markers": 23,
+      "labels": 23,
+      "leaders": 17,
+      "segments": 22,
+      "drawMs": 2.230333999999999
+    },
+    {
+      "period": "m120",
+      "width": 1000,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 23,
+      "drawMs": 2.458833999999996
+    },
+    {
+      "period": "m120",
+      "width": 1000,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 23,
+      "drawMs": 2.304541999999998
+    },
+    {
+      "period": "m120",
+      "width": 1280,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 20,
+      "drawMs": 2.5430000000000064
+    },
+    {
+      "period": "m120",
+      "width": 1280,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 17,
+      "segments": 21,
+      "drawMs": 2.498458999999997
+    },
+    {
+      "period": "m120",
+      "width": 1445,
+      "height": 114,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 15,
+      "segments": 15,
+      "drawMs": 2.305250000000001
+    },
+    {
+      "period": "m120",
+      "width": 1445,
+      "height": 170,
+      "points": 500,
+      "markers": 21,
+      "labels": 21,
+      "leaders": 15,
+      "segments": 15,
+      "drawMs": 2.269875000000013
+    }
+  ]
+}

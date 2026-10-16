@@ -36,11 +36,19 @@ export class XxmMacdPrimitive implements ISeriesPrimitive<Time> {
         const y = attached.series.priceToCoordinate(marker.dif);
         return x === null || y === null || x < 0 || x > mediaSize.width || y < 0 || y > mediaSize.height ? [] : [{ marker, x, y }];
       });
+      const labels = layoutXxmLabels(positioned, mediaSize.width, mediaSize.height, label => context.measureText(label).width);
+      context.lineWidth = XXM_MARKER_STYLE.leaderWidth;
+      for (const label of labels) {
+        if (!label.leader) continue;
+        context.strokeStyle = color(label.marker.event); context.beginPath();
+        context.moveTo(label.leader.fromX, label.leader.fromY);
+        for (const point of label.leader.via) context.lineTo(point.x, point.y);
+        context.lineTo(label.leader.toX, label.leader.toY); context.stroke();
+      }
       for (const position of positioned) {
         context.fillStyle = color(position.marker.event); context.beginPath();
         context.arc(position.x, position.y, XXM_MARKER_STYLE.dotRadius, 0, Math.PI * 2); context.fill();
       }
-      const labels = layoutXxmLabels(positioned, mediaSize.width, mediaSize.height, label => context.measureText(label).width);
       for (const label of labels) {
         context.fillStyle = label.label.startsWith("+")
           ? getComputedStyle(document.documentElement).getPropertyValue("--cs-color-text-secondary").trim() || DETAIL_CHART_COLORS.text

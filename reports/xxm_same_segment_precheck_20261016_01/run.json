@@ -1,0 +1,15 @@
+{
+  "candidate": "a-same-segment-h1-research-1",
+  "gates": [
+    0.75,
+    1.0,
+    1.2
+  ],
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "productVersion": "xxm-direction-v0.1-h1",
+  "formalWrites": false,
+  "productCodeModified": false,
+  "startedAt": "2026-10-16T13:03:45.913871+08:00",
+  "finishedAt": "2026-10-16T13:03:56.173420+08:00",
+  "passed": false
+}

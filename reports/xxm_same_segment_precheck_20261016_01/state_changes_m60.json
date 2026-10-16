@@ -1,0 +1,1050 @@
+[
+  {
+    "time": "2010-05-19T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-06T15:00:00+08:00",
+        "endTime": "2010-05-10T15:00:00+08:00",
+        "price": 2671.472,
+        "dif": -58.15422594543816
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2010-05-19T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-06T15:00:00+08:00",
+        "endTime": "2010-05-10T15:00:00+08:00",
+        "price": 2671.472,
+        "dif": -58.15422594543816
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-06T15:00:00+08:00",
+        "endTime": "2010-05-10T15:00:00+08:00",
+        "price": 2671.472,
+        "dif": -58.15422594543816
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2010-06-08T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-17T14:00:00+08:00",
+        "endTime": "2010-05-19T11:30:00+08:00",
+        "price": 2539.196,
+        "dif": -45.623332294715055
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2010-06-08T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-17T14:00:00+08:00",
+        "endTime": "2010-05-19T11:30:00+08:00",
+        "price": 2539.196,
+        "dif": -45.623332294715055
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2010-05-17T14:00:00+08:00",
+        "endTime": "2010-05-19T11:30:00+08:00",
+        "price": 2539.196,
+        "dif": -45.623332294715055
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2011-05-06T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2011-04-22T14:00:00+08:00",
+        "endTime": "2011-05-03T10:30:00+08:00",
+        "price": 2886.617,
+        "dif": -29.381217089691745
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2011-05-06T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2011-04-22T14:00:00+08:00",
+        "endTime": "2011-05-03T10:30:00+08:00",
+        "price": 2886.617,
+        "dif": -29.381217089691745
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2011-04-22T14:00:00+08:00",
+        "endTime": "2011-05-03T10:30:00+08:00",
+        "price": 2886.617,
+        "dif": -29.381217089691745
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2011-06-13T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2011-05-23T10:30:00+08:00",
+        "endTime": "2011-05-30T11:30:00+08:00",
+        "price": 2709.622,
+        "dif": -30.75635067190342
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2011-09-14T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2011-08-30T15:00:00+08:00",
+        "endTime": "2011-09-07T11:30:00+08:00",
+        "price": 2470.84,
+        "dif": -26.68485595087077
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-03-22T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-03-14T15:00:00+08:00",
+        "endTime": "2012-03-19T14:00:00+08:00",
+        "price": 2374.981,
+        "dif": -13.08367102624561
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-03-22T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-03-14T15:00:00+08:00",
+        "endTime": "2012-03-19T14:00:00+08:00",
+        "price": 2374.981,
+        "dif": -13.08367102624561
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-11T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-06-28T15:00:00+08:00",
+        "endTime": "2012-06-29T10:30:00+08:00",
+        "price": 2195.562,
+        "dif": -21.092809431566366
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-11T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-06-28T15:00:00+08:00",
+        "endTime": "2012-06-29T10:30:00+08:00",
+        "price": 2195.562,
+        "dif": -21.092809431566366
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-06-28T15:00:00+08:00",
+        "endTime": "2012-06-29T10:30:00+08:00",
+        "price": 2195.562,
+        "dif": -21.092809431566366
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2012-07-17T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-17T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-18T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2012-07-25T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-26T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-30T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-07-30T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T10:30:00+08:00",
+        "price": 2159.332,
+        "dif": -15.7571227052008
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2012-11-15T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-10-22T10:30:00+08:00",
+        "endTime": "2012-10-31T11:30:00+08:00",
+        "price": 2057.393,
+        "dif": -15.380584492927028
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2012-11-15T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-10-22T10:30:00+08:00",
+        "endTime": "2012-10-31T11:30:00+08:00",
+        "price": 2057.393,
+        "dif": -15.380584492927028
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2012-10-22T10:30:00+08:00",
+        "endTime": "2012-10-31T11:30:00+08:00",
+        "price": 2057.393,
+        "dif": -15.380584492927028
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2013-11-14T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2013-10-23T11:30:00+08:00",
+        "endTime": "2013-10-30T10:30:00+08:00",
+        "price": 2101.847,
+        "dif": -21.122369239781165
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2013-11-14T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2013-10-23T11:30:00+08:00",
+        "endTime": "2013-10-30T10:30:00+08:00",
+        "price": 2101.847,
+        "dif": -21.122369239781165
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-01-08T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2013-12-06T11:30:00+08:00",
+        "endTime": "2013-12-24T10:30:00+08:00",
+        "price": 2085.662,
+        "dif": -26.38498008395709
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-01-08T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2013-12-06T11:30:00+08:00",
+        "endTime": "2013-12-24T10:30:00+08:00",
+        "price": 2085.662,
+        "dif": -26.38498008395709
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2013-12-06T11:30:00+08:00",
+        "endTime": "2013-12-24T10:30:00+08:00",
+        "price": 2085.662,
+        "dif": -26.38498008395709
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2014-05-20T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2014-04-14T14:00:00+08:00",
+        "endTime": "2014-04-30T10:30:00+08:00",
+        "price": 2004.225,
+        "dif": -21.129983862838344
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-05-20T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2014-04-14T14:00:00+08:00",
+        "endTime": "2014-04-30T10:30:00+08:00",
+        "price": 2004.225,
+        "dif": -21.129983862838344
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-05-20T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2014-04-14T14:00:00+08:00",
+        "endTime": "2014-04-30T10:30:00+08:00",
+        "price": 2004.225,
+        "dif": -21.129983862838344
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-05-21T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2014-04-14T14:00:00+08:00",
+        "endTime": "2014-04-30T10:30:00+08:00",
+        "price": 2004.225,
+        "dif": -21.129983862838344
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2014-05-21T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2014-04-14T14:00:00+08:00",
+        "endTime": "2014-04-30T10:30:00+08:00",
+        "price": 2004.225,
+        "dif": -21.129983862838344
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2017-12-07T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2017-11-23T15:00:00+08:00",
+        "endTime": "2017-11-29T11:30:00+08:00",
+        "price": 3305.978,
+        "dif": -23.41357930736376
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2017-12-07T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2017-11-23T15:00:00+08:00",
+        "endTime": "2017-11-29T11:30:00+08:00",
+        "price": 3305.978,
+        "dif": -23.41357930736376
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2017-11-23T15:00:00+08:00",
+        "endTime": "2017-11-29T11:30:00+08:00",
+        "price": 3305.978,
+        "dif": -23.41357930736376
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2018-09-11T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2018-08-15T11:30:00+08:00",
+        "endTime": "2018-08-20T15:00:00+08:00",
+        "price": 2666.193,
+        "dif": -25.92921739559324
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2021-09-29T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2021-09-10T15:00:00+08:00",
+        "endTime": "2021-09-22T15:00:00+08:00",
+        "price": 3585.713,
+        "dif": -18.32782175475495
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-28T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-29T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-29T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-29T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-29T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-03-30T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-03-20T15:00:00+08:00",
+        "endTime": "2023-03-21T14:00:00+08:00",
+        "price": 3234.91,
+        "dif": -5.962610216716257
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-06-28T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-05-23T11:30:00+08:00",
+        "endTime": "2023-05-26T14:00:00+08:00",
+        "price": 3173.3718,
+        "dif": -28.86654715136183
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-06-28T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-05-23T11:30:00+08:00",
+        "endTime": "2023-05-26T14:00:00+08:00",
+        "price": 3173.3718,
+        "dif": -28.86654715136183
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-05-23T11:30:00+08:00",
+        "endTime": "2023-05-26T14:00:00+08:00",
+        "price": 3173.3718,
+        "dif": -28.86654715136183
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2023-10-11T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-09-20T11:30:00+08:00",
+        "endTime": "2023-09-22T11:30:00+08:00",
+        "price": 3084.701,
+        "dif": -9.650391019171366
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2023-10-11T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-09-20T11:30:00+08:00",
+        "endTime": "2023-09-22T11:30:00+08:00",
+        "price": 3084.701,
+        "dif": -9.650391019171366
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-09-20T11:30:00+08:00",
+        "endTime": "2023-09-22T11:30:00+08:00",
+        "price": 3084.701,
+        "dif": -9.650391019171366
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2023-12-20T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2023-12-05T10:30:00+08:00",
+        "endTime": "2023-12-08T10:30:00+08:00",
+        "price": 2954.923,
+        "dif": -19.230236208812585
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2024-08-08T10:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2024-07-22T10:30:00+08:00",
+        "endTime": "2024-07-29T10:30:00+08:00",
+        "price": 2876.3333,
+        "dif": -21.461599420911625
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2024-08-23T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2024-08-13T11:30:00+08:00",
+        "endTime": "2024-08-13T14:00:00+08:00",
+        "price": 2854.4998,
+        "dif": -8.922106940848153
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2024-08-23T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "STRUCTURE",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2024-08-13T11:30:00+08:00",
+        "endTime": "2024-08-13T14:00:00+08:00",
+        "price": 2854.4998,
+        "dif": -8.922106940848153
+      }
+    },
+    "after": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2024-08-13T11:30:00+08:00",
+        "endTime": "2024-08-13T14:00:00+08:00",
+        "price": 2854.4998,
+        "dif": -8.922106940848153
+      }
+    },
+    "waiting": false
+  },
+  {
+    "time": "2024-08-26T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2024-08-13T11:30:00+08:00",
+        "endTime": "2024-08-13T14:00:00+08:00",
+        "price": 2854.4998,
+        "dif": -8.922106940848153
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2026-03-17T11:30:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2026-03-03T14:00:00+08:00",
+        "endTime": "2026-03-06T11:30:00+08:00",
+        "price": 4063.5713,
+        "dif": -11.441971826085137
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2026-03-17T14:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2026-03-03T14:00:00+08:00",
+        "endTime": "2026-03-06T11:30:00+08:00",
+        "price": 4063.5713,
+        "dif": -11.441971826085137
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  },
+  {
+    "time": "2026-07-06T15:00:00+08:00",
+    "before": {
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2026-06-23T15:00:00+08:00",
+        "endTime": "2026-06-30T11:30:00+08:00",
+        "price": 4027.265,
+        "dif": -13.250975516053586
+      }
+    },
+    "after": {
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null
+    },
+    "waiting": true
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "candidate": "a-same-segment-h1-research-2",
+  "gates": [
+    0.75,
+    1.0,
+    1.2
+  ],
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "productVersion": "xxm-direction-v0.1-h1",
+  "formalWrites": false,
+  "productCodeModified": false,
+  "researchCode": {
+    "scripts/research/index_market/xxm/same_segment_precheck.py": "675f96b3e622098edede34eecbc4dd78e1cc9de13799fe9191677bbac986840f",
+    "scripts/research/index_market/xxm/same_segment_candidate.py": "df8c01920fa6807aceca7244d4b2ebc4f3cc601260a9fc63d4199a014bad9e0e"
+  },
+  "startedAt": "2026-10-16T13:54:58.318293+08:00",
+  "finishedAt": "2026-10-16T13:55:09.417859+08:00",
+  "passed": true
+}

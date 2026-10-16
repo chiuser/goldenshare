@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "rows": 912,
+    "baselineEvents": 65,
+    "candidateEvents": 65,
+    "removed": 0,
+    "added": 0,
+    "topSignalsUnchanged": true,
+    "waveAndReferencePoolUnchanged": true,
+    "topHistoryUnchanged": true,
+    "explainedDifferences": 0,
+    "disappeared": 0,
+    "reactivated": 0,
+    "qualifiedDirectReturns": 2,
+    "historicalBottom": 4,
+    "waitEndReasons": {},
+    "duplicateDisappearances": 0,
+    "knownSequences": [
+      {
+        "time": "2024-08-13",
+        "state": "STRUCTURE",
+        "waiting": false,
+        "events": [
+          {
+            "id": "0278c417fe662e06abc6ecbc",
+            "time": "2024-08-13",
+            "direction": "BOTTOM",
+            "type": "STRUCTURE",
+            "route": "dif_turn",
+            "fromState": "DULL",
+            "eventReference": {
+              "startTime": "2024-07-05",
+              "endTime": "2024-07-10",
+              "price": 2922.4498,
+              "dif": -31.67
+            },
+            "relatedTopHistoryId": null,
+            "relatedBottomHistoryId": "345e4716fc8a815e34ed4679",
+            "relatedRearmId": null
+          }
+        ],
+        "passed": true
+      },
+      {
+        "time": "2024-08-14",
+        "state": "DULL",
+        "waiting": false,
+        "events": [
+          {
+            "id": "0d62910827fc939c07592c4a",
+            "time": "2024-08-14",
+            "direction": "BOTTOM",
+            "type": "DULL",
+            "route": "dif_return",
+            "fromState": "STRUCTURE",
+            "eventReference": {
+              "startTime": "2024-07-05",
+              "endTime": "2024-07-10",
+              "price": 2922.4498,
+              "dif": -31.67
+            },
+            "relatedTopHistoryId": null,
+            "relatedBottomHistoryId": null,
+            "relatedRearmId": null
+          }
+        ],
+        "passed": true
+      },
+      {
+        "time": "2024-08-15",
+        "state": "NONE",
+        "waiting": false,
+        "events": [
+          {
+            "id": "cca2daa33b7e1d76c633ce58",
+            "time": "2024-08-15",
+            "direction": "BOTTOM",
+            "type": "STRUCTURE",
+            "route": "color_flip",
+            "fromState": "DULL",
+            "eventReference": {
+              "startTime": "2024-07-05",
+              "endTime": "2024-07-10",
+              "price": 2922.4498,
+              "dif": -31.67
+            },
+            "relatedTopHistoryId": null,
+            "relatedBottomHistoryId": "7f3d5a49d8f407fc4c660655",
+            "relatedRearmId": null
+          }
+        ],
+        "passed": true
+      }
+    ],
+    "seconds": 0.012984167318791151
+  },
+  "removed": [],
+  "added": [],
+  "waits": [],
+  "differenceAudit": []
+}

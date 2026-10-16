@@ -1,0 +1,161 @@
+[
+  {
+    "bar": {
+      "time": "2026-07-09",
+      "close": 4036.5879,
+      "dif": -17.511,
+      "dea": -9.283,
+      "hist": -16.455,
+      "completed": true
+    },
+    "before": {
+      "time": "2026-07-09",
+      "close": 4036.5879,
+      "dif": -17.511,
+      "dea": -9.283,
+      "hist": -16.455,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null
+    },
+    "after": {
+      "time": "2026-07-09",
+      "close": 4036.5879,
+      "dif": -17.511,
+      "dea": -9.283,
+      "hist": -16.455,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null,
+      "pendingRearmId": null
+    },
+    "oldEvents": [],
+    "newEvents": [],
+    "waiting": null
+  },
+  {
+    "bar": {
+      "time": "2026-07-10",
+      "close": 3996.1616,
+      "dif": -19.9,
+      "dea": -11.407,
+      "hist": -16.987,
+      "completed": true
+    },
+    "before": {
+      "time": "2026-07-10",
+      "close": 3996.1616,
+      "dif": -19.9,
+      "dea": -11.407,
+      "hist": -16.987,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null
+    },
+    "after": {
+      "time": "2026-07-10",
+      "close": 3996.1616,
+      "dif": -19.9,
+      "dea": -11.407,
+      "hist": -16.987,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null,
+      "pendingRearmId": null
+    },
+    "oldEvents": [],
+    "newEvents": [],
+    "waiting": null
+  },
+  {
+    "bar": {
+      "time": "2026-07-13",
+      "close": 3913.794,
+      "dif": -28.116,
+      "dea": -14.749,
+      "hist": -26.736,
+      "completed": true
+    },
+    "before": {
+      "time": "2026-07-13",
+      "close": 3913.794,
+      "dif": -28.116,
+      "dea": -14.749,
+      "hist": -26.736,
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null
+    },
+    "after": {
+      "time": "2026-07-13",
+      "close": 3913.794,
+      "dif": -28.116,
+      "dea": -14.749,
+      "hist": -26.736,
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "BOTTOM",
+      "activeReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "pendingTopHistoryId": "ad183b60769ceb7cbf472fa2",
+      "pendingBottomHistoryId": null,
+      "pendingRearmId": null
+    },
+    "oldEvents": [
+      {
+        "id": "3de803e74d80793f337b1215",
+        "time": "2026-07-13",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null
+      }
+    ],
+    "newEvents": [
+      {
+        "id": "3de803e74d80793f337b1215",
+        "time": "2026-07-13",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": null
+      }
+    ],
+    "waiting": null
+  }
+]

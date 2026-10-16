@@ -1,5 +1,7 @@
 # 上证徐小明研究指标 V0.1 实施方案与 LLD
 
+2026-10-16 A组代码级审计：**当根资格分流已通过离线研究，产品函数／字段／快照／缓存／预测／Wealth迁移已补齐至[§21](#xxm-same-segment-a1-code-lld)。技术上可按本节有限范围开发，等待用户确认后开工；正式仍为h1，未改产品代码。§15为已失败早期草案，不能作为当前编码依据；§20保留研究历程。**
+
 日期：2026-10-14。状态：**用户已批准规则、Figma、完整历史读取调整及仅指数详情页的 1280／1440px 适配；M0/M1/M2 技术验收完成，10 月 14 日标记视觉修订已同步四周期并通过技术验收，M3 等用户复看；未部署。**
 
 代码级设计及实施（2026-10-16）：**用户已确认§17，B组唯一h1内核、查询／恢复／DTO及Wealth消费者已实施。冻结、正式预算及整页／双标签306请求全部通过，后端209项／前端1179项及类型／构建通过，交付见§18及[实施报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_h1_implementation_20261016/README.md)。§16工作规则与B1旧证据保留；页面由用户验收，未提交／部署。**
@@ -439,6 +441,8 @@ API 采用 Biz router factory，由 App 注入 Session、既有鉴权、异常�
 读取扩围最终已实现并验收，当前状态覆盖上文预检阶段。唯一校验实现收敛在Reader `_read_complete_history`，原单路方法与配对方法共享它；source使用配对＋close／三MACD投影，原SQL合同谓词与全键对齐不变。相关后端385项、三周期4316分区全历史对照、正式178＋4接口预算及306次混合／双标签页全部通过。最终HTTP最大2.976秒，混合计算最大136.72ms，96份完整响应与原版相等；配对只重新分配原DuckDB512MB／2线程总额。代码、参数、正反例与R1～R7逐条对账见[预测方案§20.7](./index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#207-最终产品实施与计划对账)及[报告](../../../../reports/xxm_request_reuse_20261015/README.md)，历史失败保留。依赖矩阵、公开HTTP／DTO、算法、Figma及页面验收安排保持，未提交或部署。
 
 ## 15 底部同段结构消失与重新钝化LLD（2026-10-15，待确认，未实现）
+
+2026-10-16预检更新：本节“下一根起重入”的组合已在§20.1发现8/22日线反例；这是早期草案，不可直接编码。用户辨认后的当根资格分流及新预检结果见§20.2，h1实现保持。
 
 本节保留A组早期草案。最新建议先实施B组，完整定义见§16；确认§16不代表同时批准本节的新等待记录、同段循环或预测字段。
 
@@ -1156,3 +1160,402 @@ api／budget使用新runner，mixed使用既有入口；各自新OUT。两个正
 正式源160轮冷暖预测及160配对识别、另4次LATEST全通过，最大HTTP2.623秒，模型保守包络94.499ms；正式源当前至10/15，冻结重叠无差异。16组整页／双标签306请求全200，最大HTTP2.824秒、模型包络17.763ms、LRU最大42478077字节／8项。实际TS客户端／调度器、24份严格识别adapter明细、96份预测均保存，暖完整读为0，冷每分钟周期两流各一次。四秒／200ms与全部来源校验未放宽。
 
 T01—T16对应代码及正反例、各模式新目录、正常鉴权及只读范围、两次脚本失败重跑记录、130份旧证据保护和未改边界见[本轮实施报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_h1_implementation_20261016/README.md)及execution／validation。验收脚本的startDate仍为必填，混合请求用1990-01-01＋原500上限覆盖实际图表，endDate来自每轮真实业务context；不改产品读取或日期。页面由用户自行验收。
+
+## 19 密集标注与节点对应修复（2026-10-16）
+
+用户已授权展示基准§10的局部修复。根因是`layoutXxmLabels`按pane高度无限扩展避让行，且`XxmMacdPrimitive.draw`没有连线；7/15及7/20取消文字因此远离真实事件点。CodeGraph explore／impact已核对几何→primitive及共享hook消费者，影响只限本前端图层；索引未识别的测试由当前`markerGeometry.test.ts`补核。没有算法、DTO、API、数据读取、预测或架构依赖变更。
+
+现有视觉配置审计追加：`markerGeometry.ts.XXM_MARKER_STYLE`仍是唯一来源，无env、Settings、数据库或运营输入。新增`maxVerticalShift=40`、`maxHorizontalShift=48`、`horizontalStep=12`及`leaderWidth=1`，沿用点半径4、边距3、行高16、点字间隔8、行距18；消费者只为`layoutXxmLabels`和`XxmMacdPrimitive.draw`，随前端版本生效。它们是局部像素布局参数，不是识别门槛。
+
+| 约束 | 代码级落点 | 验证 |
+| --- | --- | --- |
+| 有限近端避让，不能把文字推到pane远端 | `layoutXxmLabels`按同柱组的上下边界余量排序；枚举原位／上下20、40px及原侧0—48px水平位移，边界夹紧后以距离排序，过滤越界、文字和圆点冲突；同组仍顺序安排，结果恢复输入组顺序 | 截图四事件在114／114.5／115px pane全部保留原文字、无碰撞，位移不超限；普通左右边界、上下边界及极窄空间反例 |
+| 同柱密集事件不跨日期合并，不改变点和详情 | 同柱不做额外水平分散；无空间仍回退原`+N`，单事件不改成`+1` | 同柱`+2`及全部原始点保留；不同日期四标签不合并，输入time／DIF／x／y不变 |
+| 移位标签明确连回自己的节点 | `MarkerLabel`增加仅前端内部的可空`leader`及`via`折点；文字全部安排后，`routeLeader`枚举近端边缘起点、直线及横／纵绕行，选择不穿其他文字及圆点的最短路线，终点停在原圆点半径处；无路线时保留自身直连，不删除文字。`draw`先画线再画圆点／文字，沿用事件颜色、1px及pane clip | 各段端点／绕行、颜色／线宽、实际canvas调用；截图四事件无文字或圆点穿越；未移位无线，不能把线连到其他事件或改autoscale |
+| 四周期同一实现 | 保持`useIndexXxmLayer`及日线／分钟Workspace消费者不变 | 真实API四周期响应驱动现有adapter和primitive，事件点逐一对应；完整Wealth测试、类型及构建；页面仍由用户复看 |
+
+测试与技术绘制结果在本节追加，不覆盖§7.1或§18历史验收。用户当前授权只修标注，普通“取消”等原文案与识别事件均保持；不提交、推送或部署。
+
+执行结果：几何10项、Wealth全量165文件／1183项、typecheck／build及文档完整性通过。复用本轮内核升级已保存的四周期真实API和严格adapter输出，完成24个尺寸场景及3个截图坐标场景的当前primitive绘制检查；全部圆点坐标／数量不变，截图四条文字完整保留，取消文字上下偏移由约38／56px缩为20／9.5px。引线路径不通过该截图中其他文字或圆点；同柱数量及极窄边界回归保持。受限空间下仍可只保留点和完整详情，不能宣称所有缩放下每条文字都有空间。
+
+证据及命令见[标注修复记录](/Users/congming/github/goldenshare/reports/xxm_label_alignment_20261016/README.md)。本轮是离线真实响应重放，不是新实时API或浏览器验收：现有5175端口连接被拒绝，没有启动／重配服务；浏览器状态读取也被自动审批按用户自行验收的要求拒绝，没有绕过。CodeGraph开发后sync／status正常。页面由用户复看，算法及后端预算不受本次改动影响。
+
+## 20 A组同段循环研究预检（2026-10-16，本节不批准产品编码）
+
+用户已授权按“锁定案例→修订规则与LLD→离线预检→确认后编码”继续研究。§15是早期A组草案，须基于已落地h1修订；本节是本轮执行约束，结果另附，不将候选输出当作原软件公式或正式合同。
+
+本轮只读封存源`reports/xxm_source_audit_20261013_213852`及7/10、7/13原图文、既有h1／B1报告；日线及60／90／120分钟完整39747根，不取未来值修正过去状态。原生产calculator、Spec、query、schema、forecast、Wealth代码和已有报告先记录SHA，结束逐字节核对；不操作浏览器、配置账号、读写数据库／Lake或启动服务。新离线脚本放`scripts/research/index_market/xxm/`，隔离测试放本主题`tests/`，结果写独立新报告目录且拒绝覆盖。
+
+| 硬口径／候选 | 本轮研究落点 | 验证 |
+| --- | --- | --- |
+| 同段结构反向先消失，不能直接DULL | 基于当前h1的研究候选，仅替换BOTTOM dif_return分支；真实代码不变 | 7/10 15:00绿色、NONE及等待；无新DULL／CANCEL；7/9结构保留 |
+| 保留原参照和最近价门槛，以当根价格重入 | 独立等待记录，冻结原结构关联、负柱段、reference与nearestPriceGate | 模拟3959.16为软件正样本；3960仅模型反例；7/13真实首根3934.74新激活，不用旧3952.4917低点自动代替当根条件 |
+| 等待释放与同柱次序 | 参照严格突破、红柱／零柱结束等待；同柱只报消失，下一根起重入 | 严格等号、变色、DIF反例；无活动DULL时不伪造CANCEL；恢复／截断及原状态不可被假设计算修改 |
+| 与已落地底部历史对接 | 同段消失关闭相应h1历史，另保留重新钝化参照；重入后新结构生成新历史 | 同一结构不得重复报A／B消失；逐项核五处软件映射，全部B差异列原因，不能强行保留95这个旧计数 |
+| 预测先激活再结构 | 离线独立函数命名空间复用现有投影、区间数学及严格精度保护，clone保留候选等待状态；入口分区改用当根价格和固定参照 | 原356组抽查点与新增等待端点对照；完整解域切点和内核探针核对，等待不得READY；实际与模拟数据分开；7/13两个模拟结果对应 |
+| 改动范围可解释 | 四周期完整新旧事件／状态差异；顶部全量语义不变、普通首次逻辑不改 | 新增、删除、改期／改类分别列账，不把全部与旧版一致作为成功；五处已确认修复保持 |
+
+本轮参数审计：研究主门槛1%，敏感性0.75%／1.2%，仍来自现有不可变`XxmSpec.dif_turn_pct`，无新增env、Settings、数据库、前端开关或产品配置。候选研究标识与h1区分记录，不能用原h1版本宣称已上线新规则。原`max_refs=2`、`min_bars=2`、MACD(12,26,9)、源精度、端点／20点业务日期、预测20根最近有解时点及完整范围保持。新等待关系、历史关闭原因、as-of投影、事件关联和全部消费者的正式迁移待本轮结果确认后细化，旧§15版本号不直接用于发布。
+
+验收分层：离线研究测试和封存全量回放可证明候选逻辑及样本相容；离线模型200ms实测只记实际范围和失败，不替代正式4秒源读取／并发预算。正式API、source/cache／DTO新增账本、过去请求、整页混合与多标签页仍须在产品实现前后分别过门禁。无软件真值的60分钟及其他新差异只算技术回归。精确门槛、收盘／最低价依赖、同柱极少例外仍未知；不会要求用户再找不存在的相邻点数截图。
+
+### 20.1 执行结果：候选不通过，正式迁移暂停
+
+研究代码已按脚本目录规则落入`xxm/same_segment_candidate.py`和`same_segment_precheck.py`，11项隔离测试通过；首次研究方法动态编译有缩进匹配错误，数据运行前已修正。它们只在独立函数命名空间复用当前h1／区间数学，未改变产品模块绑定；研究配置／代码哈希见新报告run.json。
+
+三门槛四周期39747根全量回放完成；主参数72次新同段消失、52次重新激活，51个前缀／恢复截点通过，顶部信号关键语义保持，同一结构无A／B重复消失。356个旧预测点加70个新等待点共426组计算，原网格仅两处核心变化；当前封存数据模型包络最大约80.69ms，仍不包含正式读取／HTTP／schema／展示文案。没有执行新的正式4秒、混合／双标签或页面验收。
+
+五处已核实软件观察只有4处保留，失败的是2024/8/22日线。原h1在8/14报DULL、8/15变色确认新结构，后者形成8/22历史消失的关联；草案8/14强制NONE＋等待，8/15红柱结束记录，故8/22整根无事件。这是执行链冲突，不是枚举改名或ID比对造成的假失败。主门槛下72次消失有58次当根已符合候选重入的价格和背离条件，不能把它们无差别强制等待；0.75%／1%／1.2%均未消除此反例。
+
+因此20节表格中“当根只消失、下一根才重入”及“同段消失关闭历史后一定等待”的组合只保留为失败候选，不再作为正式编码硬口径。待核方向是按当根是否仍满足钝化条件分流；当根已满足时是否同时报消失、新DULL或者只显示新DULL，现有精确证据不足。本轮没有实现该替代规则，也不添加模糊兜底、第二在线引擎、日期过滤或新门槛。
+
+原§15的DTO、RearmRecord、结束原因、预测版本均未生效。后续需先确认当根分支，再明确是否允许同柱多个事件、新旧结构身份与h1历史接替、严格snapshot／as-of投影、全部schema和Wealth消费者，更新函数级门禁后才能产品编码。研究中“一结构不重复消失”没有替代这些合同审计。
+
+现有8/22原图黄／绿字辨认已请求用户确认；若不可辨，只需2024/8/14收盘上证日线覆盖8/12—8/15及当日相关讲稿。原产品及之前标注修复、封存源与旧证据180份SHA全部保持。两次新报告均保存：_01在软件观察断言处失败，_02只调整研究runner的结果收集并补完模拟，候选未变、退出码仍1。详见[反例与逐根报告](/Users/congming/github/goldenshare/reports/xxm_same_segment_precheck_20261016_02/README.md)，不覆盖§18或原研究结论。
+
+### 20.2 用户辨认后的条件分支预检
+
+用户已确认8/22日线原图“两次紫色之间有黄色‘钝化’，没有绿色‘消失’”。据此修订离线假设，规则以算法方案§12.12为准；不把静态字序当成精确逐根软件游标。§20及§20.1的无条件等待是已失败历史，本节取代它作为本轮研究执行口径，尚非产品合同。
+
+| 代码点 | 本轮候选变更 | 正反例／保护 |
+| --- | --- | --- |
+| `SameSegmentCandidate`隔离`step` | 仅在BOTTOM结构反向、当根不再满足钝化资格时改为STRUCTURE_DISAPPEARED＋NONE＋等待；资格满足则保留原DULL／dif_return，不添绿色 | 7/10不够格须等待；8/14够格应当根DULL；价格与DIF严格等号不得偷偷放宽 |
+| `_qualifies_current_bar`与`_advance_rearm` | 共享负柱、min_bars、当根close＜原参照价和nearestPriceGate、段最低DIF＞原参照DIF的判定；进入等待后仍只在后来根重入 | 不因累计旧低点自动重入；不重新选参照；参照突破优先；红柱／零柱释放不伪报CANCEL |
+| h1历史接替 | 够格的DULL走原`new_bottom_DULL`，不另补消失；不够格的结构消失才显式结束原记录并另存等待 | 原结构无A／B双消失；再次结构新身份；8/15—8/22历史链不丢 |
+| 预测与恢复 | 使用相同候选clone及已有区间数学；真实DULL直接求结构，只有等待才先求重新钝化 | 四周期旧356点＋所有新等待端点；逐根／恢复一致、原状态不被模拟污染、保留日线精度失败 |
+| 研究身份与范围 | 研究ID更新为`a-same-segment-h1-research-2`；1%主门槛及0.75%／1.2%仍取同一XxmSpec，无新配置来源 | 正式Spec／schema／API／Wealth不改；旧失败报告不覆盖；新run记录实际源码SHA |
+
+新输出独立目录`reports/xxm_same_segment_precheck_20261016_03`，先记录这条人工观察，再运行全量、五处B保护和7/10／7/13模拟。结果未通过不得进入产品；通过也只表明现有材料相容，精确阈值、OHLC、历史寿命、其余无真值新差异仍单列。正式迁移必须另补字段白名单、历史as-of、状态缓存和全部消费者函数级对账及4秒／混合加载验收，不能借本次研究成绩省略。
+
+执行已完成：_03新候选通过；随后_04候选保持，增加`audit_differences`逐事件因果追溯和每根`wave/history/TOP histories`相同断言。四周期39747根×三门槛全部通过；主参数14次同段消失／7次后来重入，五处B映射全保留，29删／21增均找到唯一等待或被移除后续结构。93条历史底部绿色较h1少2条，仅涉及未有软件真值的90分钟2022/3/7和2023/8/16，不是旧三处漏报复发。
+
+45个前缀／恢复截点、369组预测（旧356＋新13）及四个独立模拟通过；最大离线模型包络79.99ms。旧网格只有120分钟7/10 READY→CONDITIONAL_ENTRY，日线8/15 CONFIRMED与18个旧校准失败保持。63项内核／预测／研究测试、281份SHA保护通过；详细逐条证据见[本轮报告](/Users/congming/github/goldenshare/reports/xxm_same_segment_precheck_20261016_04/README.md)。未做正式4秒源／HTTP、DTO、整页并发或页面验收，未修改产品依赖或合同。
+
+本节把研究判定落实到隔离函数，不批准§15的旧DTO／版本直接编码。后续代码级LLD需将“够格直接DULL、无绿色”与“不够格消失＋等待”分别映射到产品step、历史结束原因、snapshot／cache、as-of响应、识别／预测schema及两类Wealth消费者，再提交确认。1%精确公式、OHLC、历史寿命、顶部疑报仍单列；无需为当前分流再找重复日线截图。
+
+<a id="xxm-same-segment-a1-code-lld"></a>
+
+## 21 A组产品代码级LLD：当根资格分流及全链迁移（2026-10-16，待确认、未实施）
+
+### 21.1 目标、依据与开发准备度
+
+用户要求补齐代码级LLD并审计能否开发。本节是A组产品实施的唯一代码级入口，**替代§15的失败草案及旧版本／字段示例**；§17—§18仍是已实施B组的历史约束，不批准修改本节排除项。规则唯一依据为算法方案§12.12和用户对8/22原图的辨认；研究候选2及四周期完整证据见[预检报告](../../../../reports/xxm_same_segment_precheck_20261016_04/README.md)。本轮只改文档，没有产品编码。
+
+**审计结论：已具备按本节有限范围进入开发的技术条件，用户确认本节后可开工。** 研究已经解决“当根够格是否也强制等待”的反例，不需要再找重复截图。进入开发不等于所有软件公式已明确，也不等于正式4秒／DTO／整页验收通过。1%仍为原工作参数；OHLC依赖、原软件历史寿命、两处无软件真值的90分钟历史差异及顶部9/24—9/25疑报继续单列，不顺手修正。
+
+审计使用CodeGraph explore／impact（XxmCalculator深度2，80个相关符号含研究和测试），再核当前源码补足：App动态分钟路由、两个图表入口、严格TS白名单及研究脚本的h1源码依赖。查询和测试消费关系已明确，无新增架构边界；Biz复用Foundation，Wealth经HTTP，不引入QTF／Ops依赖。
+
+本节路径缩写：S=`src/biz/services/wealth/market/index_detail_xxm/`；Q=`src/biz/queries/wealth/market/index_detail_xxm/`；D=`src/biz/schemas/wealth/market/`；W=`wealth/src/features/index-detail/`；R=`scripts/research/index_market/`。
+
+### 21.2 硬口径与文件计划
+
+| ID／硬口径 | 具体落点 | 必须验证的反例 |
+| --- | --- | --- |
+| A01 当根够格直接钝化，无新绿色 | S/calculator.step及共享资格函数 | 8/14再次DULL，8/15新结构、8/22历史消失保留；不能一律NONE |
+| A02 当根不够格才消失并等待 | step、独立等待记录；_advance_bottom_history关闭同一原结构 | 7/10收3996.1616不能用旧最低收盘直接报DULL；不得同一结构A／B各报一次绿色 |
+| A03 固定原参照、用后来当根收盘重入 | _advance_rearm、snapshot、forecast_entry | 3959.16可重入、3960只作模型反例；等价低点不要求再破原最低收盘，价格／DIF等号不得激活 |
+| A04 等待结束不冒充钝化失效 | _end_rearm；首根参照突破阻止同柱重选 | 等待中DIF突破、红柱／零柱均留结束原因，不伪造CANCEL或结构确认 |
+| A05 普通首次、TOP及B组既定规则保持 | 既有选峰／TOP代码；新DULL继续按E1接替历史 | 三门槛完整回放、选峰池／TOP历史逐根不变、五处B映射全保留 |
+| A06 响应截至请求端点，关联能解析 | Q账本／投影、D、W/xxm adapter | 窗口外原结构、过去等待记录、单柱结束窗口；不泄漏未来结束，不接受悬空ID |
+| A07 预测和图层共用唯一真实内核 | S/forecast_*、Q/forecast_query_service、两DTO／adapter | 等待不得READY／CONFIRMED；当前钝化不得继续带等待context；不得由前端猜参照 |
+| A08 唯一新版合同一次迁移 | Spec、hash、cache、schema／TS类型／fixture | 旧h1快照和旧版本响应拒绝；不补默认字段混用旧合同 |
+| A09 四周期、完整输入及原预算 | 原source／runtime／scheduler不改 | 20点／跨日端点、完整历史与错误拒绝；200ms模型、4秒及响应／内存上限不放宽 |
+| A10 研究退场且证据可追溯 | R/xxm与主题测试／README | 升级step后不得残留依赖旧源码片段的活跃入口；不删证据或引入第二在线内核 |
+
+| 文件／现有符号 | 拟改内容 | 直接消费者 |
+| --- | --- | --- |
+| S/types.py：XxmStep、XxmBottomHistory | 新XxmRearmRecord内部类型，新增必传rearm_records；底部结束原因增加structure_disappeared | calculator、Q、正式验收runner |
+| S/spec.py：XxmSpec／MAIN_SPEC | 新算法版本和一个不可变同段策略标识；原数值参数不改 | ID、snapshot、两级cache、两schema及TS版本 |
+| S/calculator.py：__init__／step／_advance_bottom_history／snapshot／restore | 新pending_rearm、四个生命周期helper及严格恢复校验，见21.4—21.5 | 识别、calculator_at、forecast_detector.clone |
+| Q/query_service.py：SeriesEntry、_load_series、_response | rearm_records账本；全部新建／增量复制点迁移；新增等待投影及窗口选择，B记录补等待关联 | 日线／分钟识别、预测真实前缀 |
+| D/index_detail_xxm.py | XxmRearmRecordDto；point／event／response字段及双向关联校验 | 两识别路由、forecast DTO共用等待类型 |
+| S/forecast_detector.py | clone完整恢复；activation_signature按实际等待状态接受reactivation | entry、joint／主求解器 |
+| S/forecast_entry.py | 固定参照切点、当根价格整段证明、失败原因和入口保护，见21.7 | forecast.solve_entry_ranges |
+| S/forecast.py／forecast_joint.py | 实施时核共用克隆、原P—C几何与survival语义；不新增第二数学模型 | Q预测、完整域回放 |
+| S/forecast_spec.py、forecast_text.py | 新预测版本；等待文案和原近期筛选共存，不改60样本／95分位 | 预测DTO、技术面四行 |
+| Q/forecast_query_service.py：build | 截至时点等待context、当前结构关联、payload身份与后端display | 预测API及缓存 |
+| D/index_detail_xxm_forecast.py | 新必有可空rearmContext、唯一版本及状态／参照组合校验 | adaptForecast |
+| W/xxm/types.ts、adapter.ts、XxmLayerUi.tsx、XxmMacdPrimitive.ts | 等待类型与明细；A事件关联、绿色“消失”、等待不能显示成钝化 | 日线及分钟共同图层 |
+| 新W/xxm/rearmContract.ts | 只做共享等待记录结构／时间校验，不计算信号；供两adapter复用 | XXM和预测adapter，无反向循环import |
+| W/xxm-forecast/types.ts、adapter.ts | 引用同一等待类型；rootKeys、版本及状态关联同步 | fetchForecast、hook、卡片 |
+| 现有Python／TS测试和fixture | 新字段必传、正反例迁入正式测试，旧普通总数断言按新语义拆分 | T01—T15及21.11门禁 |
+| R/xxm：acceptance、bottom_history_acceptance、same_segment_*；R/README | 既有收集器接新字段；封存临时候选、将runner迁为正式同段验收入口，见21.10 | 不成为产品依赖 |
+
+已审计、默认不改行为：三个Biz路由、App/api/v1/router.py、Q/source.py／shared_loads.py、S/runtime.py／projection.py／forecast_math.py、W两API client／两hook／请求scheduler、IndexChartWorkspace／IndexMinuteChartWorkspace／IndexDetailPage及XxmForecastCard。除后文明确的签名接线与fixture更新，不改URL、请求参数、鉴权、分钟开放门禁、源查询、4秒、20点、调度、布局、markerGeometry或此前标注避让修复。不新增配置中心、数据库表、迁移、依赖或来源写入。
+
+### 21.3 新记录与对外合同
+
+内部仅新增`pending_rearm: XxmRearmRecord | None`；**不再增加一份长期active_structure_id**。创建等待时从当前pending_bottom_history复制原结构身份，随后关闭该历史；不必把研究候选为挂接h1而设的私有字段全部搬进产品。
+
+| 字段 | 内部记录／对外DTO | 约束 |
+| --- | --- | --- |
+| id | 两者同名 | `_id("rearm", structureEventId, disappearedAt)`；沿用现有版本／Spec／对象／周期身份 |
+| direction | 两者同名，固定BOTTOM | 不接受TOP等待 |
+| bottomHistoryId／structureEventId | 两者同名 | 指向被本次A事件结束的B记录和原紫色事件，禁止塞入relatedTopHistoryId |
+| structureConfirmedAt／structureRoute | 两者同名 | 原结构确认时间；本轮同负柱段来源只允许dif_turn，不能把变色确认结构伪作同段活动结构 |
+| segmentStart | 两者同名 | 原负柱段起点，不重切真实柱段 |
+| nearestPriceGate | 两者同名，有限正数 | 创建时保存`history[-1][-1].price`，之后不随新假设重选 |
+| referenceWave | **仅内部／snapshot** | 原Wave的8字段完整深拷贝；恢复活动参照不能丢count／极值时间 |
+| reference | **仅对外DTO** | 由referenceWave明确投影成现有startTime／endTime／price／dif四字段；DTO拒绝referenceWave泄漏 |
+| disappearedAt／observedThrough | 两者同名 | 原结构确认＜消失≤观察；只观察至真实请求端点 |
+| status | 两者同名 | WAITING、REACTIVATED、INVALIDATED、SEGMENT_ENDED |
+| endedAt／endReason | 两者同名 | WAITING均null；其余精确配对price_requalified、reference_dif_break、color_flip／zero |
+
+内部类型保留referenceWave，对外只在Q的投影helper生成reference；不在内核重复保存两份可漂移参照。没有额外公共“临时原始字段”或字段别名。每周期至多一个活动等待，已结束记录归调用方账本。
+
+同时一次迁移以下字段，均**必有，不靠默认空值兼容旧响应**：
+
+| 对象 | 变化 |
+| --- | --- |
+| XxmStep | 新`rearm_records: tuple[XxmRearmRecord, ...]`，返回本根新建／观察／结束副本；无变化为显式空tuple |
+| XxmPoint／XxmPointDto／TS XxmPoint | 新pendingRearmId：string或null；非空只允许NONE、方向及activeReference为空、pendingBottomHistoryId为空 |
+| XxmEvent／DTO／TS | 新type STRUCTURE_DISAPPEARED，route增加reactivation，新relatedRearmId必有可空；原type／route不改名 |
+| BottomHistory | endReason增加structure_disappeared；这种结束只能在原负柱段内，leftOriginAt必须null |
+| XxmResponse | 新rearmRecords数组；EMPTY必须为空，记录标识与TOP／BOTTOM／事件集合不碰撞 |
+| XxmDetail | 新rearmRecords数组，供tooltip展示；只绑定后端给定的point／event关系 |
+| ForecastResponse | 新rearmContext：XxmRearmRecordDto或null，只有真实端点WAITING的公开投影；不包含已结束记录或referenceWave |
+
+### 21.4 calculator.step的唯一执行顺序
+
+新helper拟定签名；函数位于现有calculator.py，不复制整套引擎：
+
+```python
+_qualifies_bottom_close(self, bar: XxmBar, reference: Wave, nearest_price: float) -> bool
+_start_rearm(self, bar: XxmBar, reference: Wave, original: XxmBottomHistory) -> XxmRearmRecord
+_end_rearm(self, bar: XxmBar, status: str, reason: str) -> XxmRearmRecord
+_advance_rearm(self, bar: XxmBar) -> tuple[bool, Wave | None, tuple[XxmRearmRecord, ...]]
+# bool：本根是否阻止普通首次判断；Wave非空：本根成功重入，用于生成DULL/reactivation。
+```
+
+`_qualifies_bottom_close`只判断：hist＜0、wave.sign=-1、count≥原min_bars、**bar.close**＜min(reference.price, nearest_price)、wave.dif＞reference.dif。无epsilon、整数近似、旧累计最低价代入、重新选峰或最低价输入。
+
+1. 沿用输入校验、变色分段、历史池更新和当根极值更新。活动DULL原变色确认／取消照旧；等待时state/reference本来为空，不会借旧参照报变色结构。
+2. 若原先有等待，先执行_advance_rearm。红柱／零柱或原段结束：记录SEGMENT_ENDED并释放，不伪造CANCEL；同柱普通规则可继续。原段内先阻止普通首次选择，再检查当根DIF＜保存参照DIF：INVALIDATED并释放，**本根仍阻止重选**。等号不失效，但段DIF等号也不得重入。
+3. 原等待仍有效，且本柱晚于disappearedAt、共享资格通过：恢复原完整Wave参照，报DULL/reactivation；记录REACTIVATED并结束。本根不得立即确认结构。未通过则只更新观察副本，仍NONE。
+4. 没有等待干预时，先执行原活动参照严格DIF突破规则。真正突破仍CANCEL，优先于结构反向；不创建等待。
+5. 底部STRUCTURE同段DIF反向达到原门槛时，使用共享资格分流：够格→原DULL/dif_return，无等待／绿色；不够格→从当前未离段B记录复制等待，报STRUCTURE_DISAPPEARED/dif_return，state=NONE、reference=null。原结构记录缺失／参照不一致应失败，不能补造历史。TOP反向仍走原DULL/dif_return。
+6. 其他普通规则、首次激活及TOP跟踪保持。A事件和h1的_advance_bottom_history衔接：A绿显式结束同一B记录，reason=structure_disappeared；不再由它报B绿。直接DULL和后来reactivation仍按既有new_bottom_DULL接替规则处理；新的STRUCTURE再建立独立B身份。
+7. 生成point时写真实pendingRearmId，所有事件显式补relatedRearmId。结束记录以深拷贝放入XxmStep，更新previous／processed；不得留下跨step隐式的last_rearm_changes作为产品合同。
+
+普通事件关联矩阵：
+
+| 事件 | relatedBottomHistoryId | relatedRearmId | 当根输出状态 |
+| --- | --- | --- | --- |
+| 够格DULL/dif_return | null | null | DULL |
+| STRUCTURE_DISAPPEARED/dif_return | 被结束的原B记录ID | 新等待ID | NONE，pendingRearmId=新等待ID |
+| DULL/reactivation | null | 被结束的等待ID | DULL，pendingRearmId=null |
+| 新BOTTOM STRUCTURE | 新B记录ID | null | 按原dif_turn／color_flip状态规则 |
+| B历史价格消失 | 原B记录ID | null | 不改普通状态 |
+| 其他原事件／TOP | 保留既定方向关联 | null | 原规则 |
+
+等待参照突破只结束等待，不新增CANCEL；没有活动钝化就不能报告“钝化取消”。“最早下一根重入”仅约束已经进入等待的分支，不能再把8/14这类当根够格情况强制等待。每根至多一个普通事件，独立TOP历史仍可共存；保留原事件，不移动紫色的日期或删除历史。
+
+### 21.5 snapshot／restore与因果性
+
+snapshot增加必有可空`pendingRearm`，使用内部完整记录；所有可变嵌套对象深拷贝。现有pendingBottomHistory等字段继续保留。forecast_detector.clone和SeriesEntry.calculator_at继续构造同一XxmCalculator／同一Spec再restore，不导入研究候选。
+
+新增`_validate_rearm_snapshot(raw, *, previous, wave, state, reference, bottom_history, processed)`。先把所有字段解析到局部变量，全部通过后才发布到self，包括在已有实例上回退到旧真实前缀。至少校验：
+
+- 键集合精确匹配内部TypedDict，referenceWave八字段完整、有限值／正价／合法sign、严格整数count及各时间关系；不得接受公共reference代替完整Wave。
+- 仅WAITING可出现在活动snapshot；结束字段为空，观察时间等于previous.time；previous／processed一致，state=NONE、reference=null、bottom_history=null、wave.sign=-1且segmentStart=wave.start。
+- referenceWave来自保存的原负柱参照，end早于segmentStart；与该snapshot历史池的原参照一致，nearestPriceGate与该段最近参照价一致。当前wave.dif允许等于、不得严格低于原参照；等号不表示可重入。
+- segmentStart≤structureConfirmedAt＜disappearedAt≤observedThrough；原结构route=dif_turn。structureEventId、bottomHistoryId、rearm.id均按同一新版_id参数重建核对，不用窗口可见事件猜关联。
+- 旧Spec／来源／对象／周期、未知键、伪结束记录、未来参照、等待与活动结构并存全部拒绝；失败不污染原对象，clone不共享引用。
+
+直接够格回DULL时pendingRearm始终null，原B结束原因仍new_bottom_DULL；下一次结构重新建记录。研究测试中通过手工拼state却没有原结构记录的fixture，应改为合法前缀，不能为测试放松产品不变量。
+
+### 21.6 SeriesEntry、窗口与严格DTO
+
+SeriesEntry新增`rearm_records: dict[str, XxmRearmRecord]`。_load_series中首次重建设空dict；增量复制时复制账本容器，记录值只接收step返回的独立副本，不原地修改旧entry。逐根upsert，1000根checkpoint自动带等待。_deep_size已支持dataclass／dict，新增内容进入原64MiB／16项共同LRU；不新开不计费缓存。历史数据修订继续整段重建，源／Spec身份变化不能接旧等待；指纹算法不改。
+
+新增纯投影helper：
+
+```python
+_project_rearm_record(record: dict, *, through: str) -> dict | None
+_rearm_records_for_response(entry, *, points, events, first, last, through, check) -> list[dict]
+```
+
+公开投影在创建时间晚于through时返回None；结束晚于through时改为WAITING／null结束字段；observedThrough=已到达的endedAt或through。referenceWave投影为四字段reference，其余冻结字段不重算。窗口选择包含：point.pendingRearmId、event.relatedRearmId引用的记录；以及创建不晚于窗口末、生命区间与窗口相交的记录。按(disappearedAt,id)稳定排序，最多一个截至through的WAITING；没有points时返回空集合。
+
+_response先选择／投影等待记录，再把其中bottomHistoryId传给_bottom_histories_for_response，使**原结构在窗口外也有B记录可核对**。不扩展返回全部旧K线／旧事件，记录自带结构时间与ID。过去请求必须从同一截止点投影，而不是直接返回最终ENDED状态；已有BOTTOM投影也须遮掉截止点之后的leftOriginAt／ending。
+
+D/XxmResponseDto新增一致性断言，W完整API窗口亦验证，不能只检查图上当前已加载的分钟点：
+
+- 新必有字段缺失、未知枚举、重复／碰撞ID、非法时间／非有限数、EMPTY带记录均拒绝；现有source／点值对齐保持。
+- point.pendingRearmId指向记录时，disappearedAt≤point.time，且结束存在则point.time＜endedAt；等待point的state／活动参照／底部pending组合符合21.3。不能只要求最终record.status=WAITING，否则会拒绝合法旧点。
+- A绿必须BOTTOM、fromState=STRUCTURE、route=dif_return；两个关联ID均能解析，B记录结束原因／时间=structure_disappeared／事件时间，leftOriginAt=null；两份参照与原结构身份相同。
+- reactivation必须BOTTOM、fromState=NONE、DULL；等待record结束原因／时间=price_requalified／本事件时间，事件参照等于record.reference；同一等待不能多次结束。同根点为DULL且pendingRearmId=null。
+- 够格dif_return不能携等待关联或A绿；TOP、普通首次、B历史价格绿等其他事件relatedRearmId必须null。visible原紫色存在时做双向核验；不可见时用记录冻结身份核对，不制造伪事件。
+- B的structure_disappeared结束和等待的disappearedAt／bottomHistoryId一一对应；窗口选中B结束时也须选中对应等待，防单向悬空。相同原结构不得再出现B价格绿。
+
+tooltip的“当柱待重新钝化”仅来自该点pendingRearmId这一后端事实。记录最终状态另注明“记录截至／结束时间”，不能用后续ENDED状态改写旧点的当柱判断；不在前端重新按价格推导钝化。
+
+### 21.7 技术面预测：真实状态、完整域与文字
+
+**Q/forecast_query_service.build。** 从`entry.points[n-1]`的pendingRearmId取得账本，复用公开投影helper按computedThrough产生context；不为拿context对全历史额外重放。仅dataStatus=READY且真实NONE＋等待时携带，包含PRECISION_PENDING／NO_CANDIDATE等尚无范围结果；READY预测（真实DULL）、CONFIRMED、EMPTY、DELAYED一律null。context加入payload后再计算forecastId；不从假设副本生成真实context。
+
+新增`_active_confirmation(entry, count, check)`只负责核对当前结构身份：当根确有STRUCTURE事件可直接使用，包括变色后ordinaryState=NONE；否则ordinaryState=STRUCTURE时，以当点pendingTopHistoryId／pendingBottomHistoryId、方向核对原STRUCTURE。不能拿最近任意历史紫色覆盖当前NONE＋等待。合法CONFIRMED继续跳过未来投影校准；缺失应有关联视为合同错误，不静默挑另一结构。
+
+**数学函数逐项迁移：**
+
+| 当前函数 | 新分支／保持项 |
+| --- | --- |
+| forecast_detector.clone | 完整复制pendingRearm，继续唯一产品类；不得仅复制ordinaryState/reference |
+| activation_signature | 有真实等待时只接受DULL/reactivation，否则只接受DULL/activation；所有来源取整分支必须同一参照，保留PRECISION_UNRESOLVED |
+| forecast_entry.entry_partition | 保留原完整切点，并加入等待reference.price、nearestPriceGate、原DIF界限对应的仿射根／日线±0.0005／GUARD与浮点误差包络；切点仍覆盖正价格全域，不做价格网格代替证明 |
+| stable_reference_on_band | 等待固定唯一参照；以区间**当根收盘上界**严格小于两价门槛、min(真实wave.dif,投影DIF保守下界)＞原DIF、负柱／min_bars证明；不采用累计旧低点满足价格条件 |
+| reason_for | 等待先判变色／零柱、根数，再判整个段DIF严格背离，最后价格；原因仍用既有WRONG_COLOR_OR_ZERO／INSUFFICIENT_BARS／DIF_NOT_DIVERGENT／PRICE_NOT_EXTREME，不新增无来源错误码 |
+| solve_entry_ranges／forecast入口 | 等待有自己的固定参照，不因首次选择路径重选历史；无等待的首次逻辑不改；等待仍属于NONE条件预测而非READY |
+| forecast_joint：build_relation／domains_for_target／close_bounds等 | 复用原P—C几何和目标确认门槛；P的资格由新entryRange证明，P后必须DULL存续；若需改数学规则而非接线，停下评审 |
+| confirmed_options／forecast中间存续 | 实际clone逐根核对参照与DULL，出现取消／提前结构／变色／零柱等按既有规则排除；等待释放不能在同一关系里切到另一参照 |
+
+未来P为最近一个端点的假设收盘，C为随后最早可形成结构的目标端点；P—C中间按原entry_range_then_flat。重新钝化和形成结构至少相隔一根，最多搜索20根，只返回最近一个有解时点。原完整域、开放／闭合边界、精度保护及200ms预算不改；3959／3892／3944不是常量，更不能把不失效点位写成结构成立价。
+
+D/ForecastResponseDto和W/adaptForecast同轮增加rearmContext与严格根键白名单：context须WAITING／BOTTOM、截止真实computedThrough、普通NONE、数据READY；activation.ranges、relations、commonConditions内出现的参照均等于该固定参照。若有解但引用其他峰、context在READY／CONFIRMED／源未就绪中出现、缺必有null字段或内部referenceWave泄漏均拒绝。无范围和精度保护结果可以保留真实等待context，但不能假造日期或点位。
+
+S/forecast_text.make_display在原四个display字段中分流，不改变卡片结构或让前端拼文案：
+
+- 等待且有近期条件：状态“待重新钝化”；先说明“原底部结构已消失”，再按解域给“重新钝化条件／未触发／推算失效／后续结构条件”。时间、区间均取真实求解及既有格式化。
+- 等待但近期无可展示解：仍说明当前在等待，只给暂无近期重新钝化条件／新收盘后更新；不得写“当前底钝化有效”。PRECISION_PENDING仍保留精度状态，不伪造确定点位。
+- 实际DULL：保留当前钝化有效、结构成立条件；context=null。实际新结构：CONFIRMED核对本次真实身份。源未就绪：原EMPTY／DELAYED，不借旧context显示新预测。
+
+build_display_context／reference_band／select_display保留最近60个同跨度样本绝对涨跌幅95分位、完整触发／未触发／失效域及远端边界省略规则；不截断数学域、不添加评分。display、applicabilityText与invalidationText对等待使用“原结构消失／参照仍待重新满足”的口径，避免将结构消失写成钝化失效。
+
+### 21.8 版本、配置审计与全部消费者
+
+| 名称／拟定值 | 来源、持久化及消费者 | 生效与拒绝 |
+| --- | --- | --- |
+| algorithm_version=`xxm-direction-v0.1-a1` | S/spec.py的不可变默认；ID／snapshot、SeriesEntry／共享加载key、识别DTO／TS adapter、验收 | 随同一代码包生效；新Spec自然作废h1状态，旧snapshot拒绝，不做默认填字段 |
+| same_segment_bottom_policy=`current_close_rearm_v1` | 新增XxmSpec固定策略标识，进入asdict/hash和既有不可变校验；只供内核身份／审计 | 无env／Settings／数据库／运营输入；仅此一个值，非可切换策略 |
+| forecast_version=`xxm-key-point-forecast-v0.2-a1` | S/forecast_spec.py默认；Q预测key、D Literal、W类型／adapter／fixture | 与检测器同轮生效，旧v0.2响应拒绝 |
+| dif_turn_pct=1%，离线0.75%／1.2% | 原Spec不变；既有转向及本轮分流共用 | 不新增第二消失阈值，不按日期调参 |
+| 原预算／显示参数 | BUDGET、FORECAST_SPEC、原scheduler／client；无新持久化来源 | 4秒、200ms、64MiB／16项、1000根批次、1MiB识别／32KiB预测、前端5秒及60样本／95分位保持 |
+
+当前h1运行hash为b2ebada1a7ef0f013cf2b9a447a6a9fee8c73ac660c3fee41a9be13e3ca290e5；a1 hash在字段和值冻结后由原算法生成并记录，不现在手写猜测。TS继续校验版本和hash格式，不把一份后端hash散落为多处配置。新旧版本不能共存在线返回；回滚需整套代码／合同版本回退并丢弃不匹配cache，不保留运行期旧算法分支。
+
+全部实现／消费者包括：S/types／calculator／Spec；Q/SeriesEntry的首次构造／增量复制／replace发布三条路径、calculator_at、识别／预测build；D两schema和三条真实Biz路由；S detector／entry／joint／forecast／text；W两types／adapter、两个apiClient、两个hook、XxmLayerUi／primitive／ForecastCard、日线／分钟Workspace、IndexDetailPage、fixture与Python／TS回归。apiClient／hook／Workspace默认无需行为修改，但必须用新响应验收，不因文件不改就跳过消费者。
+
+W/rearmContract.ts只共用结构校验；W/xxm-forecast/types.ts引用同一XxmRearmRecord类型，不复制近似类型。XxmMacdPrimitive.color将A事件映射到现有绿色；eventLabel输出“底部结构消失”，eventMarkerLabel输出“消失”；取消继续按当前既有文案。既有点大小、加粗、左置／引导线／密集避让与轴域不改。useIndexXxmLayer已有版本验证失败重取逻辑，useXxmForecast按周期／日期隔离，均不添加隐藏缓存或请求并发。
+
+### 21.9 核心测试case与字段断言
+
+| 测试ID | 落点／核心case | 正向与必须拒绝的反例 |
+| --- | --- | --- |
+| T01 | R/tests/test_xxm_calculator.py：7/10和8/14分流 | 不够格→A绿／NONE／等待；够格→DULL无绿／无等待；8/15新结构及8/22B绿保留 |
+| T02 | 同文件：共享资格、三既有门槛 | 当前价等于任一门槛不重入、段DIF等号不重入、严格突破先取消；旧最低价不能代当前价，原min_bars不放宽 |
+| T03 | 同文件：等待全生命周期 | 重入／突破／红／零及连续循环；无活动DULL不报CANCEL；新STRUCTURE另建B；同原结构不重复A／B绿 |
+| T04 | 同文件：快照恢复 | 等待前／中／重入后与完整前缀一致、回退原子／深拷贝；坏键／错ID／旧Spec／未来时间／伪结束均拒绝 |
+| T05 | tests/web/test_wealth_index_detail_xxm_api.py | 新账本增量复制、源修订重建、1000根checkpoint／回收后恢复；单柱原结构在窗口外关联可解 |
+| T06 | 同文件：过去窗口及严格DTO | 结束在未来应投影WAITING；旧点pendingID能引用截至响应已结束的记录；反向关联、EMPTY、缺字段、错误方向／枚举、同结构双绿拒绝 |
+| T07 | R/tests/test_xxm_key_point_forecast.py | 等待完整激活／排除域，根及一ULP两侧、P—C／共同充分区间独立clone核对；不得换峰或把旧累计价当新收盘 |
+| T08 | 同文件：已有软件模拟及时间 | 3959.16重入、3892.79失效、3944.79保留；3960仅模型反例；真实／模拟分别建副本；最近端点与四周期不混用 |
+| T09 | tests/web/test_wealth_index_detail_xxm_forecast_api.py | 真路由→真实query／calc→DTO：等待不是READY／CONFIRMED；rearmContext及参照一致；真实DULL清context、真实变色STRUCTURE可CONFIRMED；坏context组合拒绝 |
+| T10 | 同文件及R/tests/test_xxm_forecast_display.py | 7/10只有“先重入后结构”；8/15仍CONFIRMED；原18个日线校准失败、远端筛选及近期三类条件保持；无解不造点位 |
+| T11 | W/xxm/adapter.test.tsx／新增rearmContract.test.ts／fixture | 四周期新响应、完整窗口先校验、坏关联拒绝；A绿是“消失”，等待无黄点；tooltip当柱与记录截止分开 |
+| T12 | W/xxm/markerGeometry.test.ts、useIndexXxmLayer.test.tsx | A绿也用现有大点／粗字／左置／引导线，密集标签锚点不漂；坏版本／错数据→error、不显示旧钝化 |
+| T13 | W/xxm-forecast/forecast.test.tsx、apiClient.test.ts | 新真实响应驱动四行；未知键／旧版本／错误context拒绝；loading／ready／error、切周期日期／隐藏／重试／过期响应不串行 |
+| T14 | tests/web/test_xxm_shared_loads.py及原调度器测试 | 同周期多消费者共享真实加载；不同源／日期／Spec不合并；等待超时不取消leader；总并发、取消与重试不改 |
+| T15 | 正式验收runner及现有xxm_page_request_audit.py／.mjs | 新旧逐事件关联、冻结差异可解释；四周期4秒／200ms、整页混合和双标签；保留所有源错误拒绝 |
+
+核心识别API字段清单：algorithmVersion／specHash、source.inputId／computedThrough、point三种状态与pendingRearmId、A事件type／route／fromState／eventReference／两关联ID、B的structureEventId／endReason、rearmRecords全部公开字段。预测清单：forecastVersion／两Spec hash、computedThrough／ordinaryState／status、rearmContext、activation完整域、targetEndpoint／barsAhead、relations／commonConditions、display四字段；异常仍用原XXM／XXMF登记码。
+
+例示响应片段（ID为占位，实际fixture从正式路由生成，不手填伪hash）：
+
+```json
+{
+  "point": {"time":"2026-07-10T15:00:00+08:00","ordinaryState":"NONE","ordinaryDirection":null,"activeReference":null,"pendingBottomHistoryId":null,"pendingRearmId":"<rearm-id>"},
+  "event": {"type":"STRUCTURE_DISAPPEARED","route":"dif_return","direction":"BOTTOM","fromState":"STRUCTURE","relatedBottomHistoryId":"<original-bottom-history-id>","relatedRearmId":"<rearm-id>"},
+  "forecast": {"ordinaryState":"NONE","status":"CONDITIONAL_ENTRY","targetEndpoint":"2026-07-13T15:00:00+08:00","rearmContext":{"id":"<rearm-id>","status":"WAITING"}}
+}
+```
+
+这是便于阅读的局部片段，不是可直接提交DTO的完整payload；完整字段以21.3为准。实施时从真实路由对固定封存案例导出识别与预测JSON，经两DTO校验、写入新交付目录，并让TS adapter／组件测试读取这些原响应；不用手写mock假装真实API联通。
+
+### 21.10 研究封存、旧测试迁移及证据对账
+
+当前SameSegmentCandidate._isolated_step按h1源码片段精确编译；新step一旦迁移，它会在import时失败，不能留在默认主题测试中。该临时注入方法只用于研究，**禁止搬进产品**。
+
+1. 产品修改前在本次新的a1实施报告目录封存三份研究源码（same_segment_candidate.py、same_segment_precheck.py、test_xxm_same_segment_research.py）及将被改写的calculator／forecast测试原文，为ZIP及逐文件SHA；记录h1依赖源码SHA／Git基线、_04输入与结果SHA。旧_01—_04报告不改；旧复现需按manifest恢复原h1依赖，不能声称升级后的当前环境仍能直接执行旧命令。ZIP仅作历史证据，不成为产品或默认测试依赖。
+2. 从现有17项研究测试中，将规则／恢复正反例迁入正式calculator／forecast测试；仅证明独立研究命名空间绑定的临时用例随候选清退，正式测试不再import候选。研究runner迁名为R/xxm/same_segment_acceptance.py，直接使用产品类，读取_04冻结输出对账，不动态替换源码。清退原候选及旧runner入口，引用审计覆盖import、测试发现和主题README，不保留转发入口。
+3. R/xxm/acceptance.py收集新账本；bottom_history_acceptance的frozen_mode等原“普通全相等”断言须拆成TOP／选峰不变、B五处保护及已登记A差异，不靠删除反例使测试变绿。其API／budget模式继续复用真实读取和两流校验；原B1／h1报告与成绩不覆盖，不按旧95条总数强保新信号。
+4. 原test_entire_frozen_ordinary_and_historical_baseline中“所有普通状态／事件及计数等于旧内核”不再是A组可用验收条件。保留旧输入／TOP历史／首次资格测试，将会变化的BOTTOM部分改为与_04逐事件语义及因果差异对账。旧测试完整源码随本轮前置封存保存，不重写历史manifest。
+5. a1身份与研究v2不同，按周期／时点／类型／route／参照及原结构锚点比较，再核新ID双向关联；允许新增元数据，不允许靠忽略参照或状态掩盖误差。冻结主参数应保持14次A消失／7次重入、五处B保护、29删／21增；日线事件不变、旧356预测仅7/10的120分钟变更。其余2条90分钟B绿差异仍无软件真值，逐条保留解释。
+
+验收runner沿用只读白名单、原预算和显式新输出目录，拒绝覆盖；不新建另一个通用研究框架。已有页请求混合runner继续用真实TS调度和HTTP，不操作用户浏览器；增补新字段／版本断言，不重造并发算法。
+
+### 21.11 实施里程碑、验收命令与停止条件
+
+| 阶段 | 开工／完成条件 | 交付 |
+| --- | --- | --- |
+| A1 内核与身份 | 用户确认本节后开工；先冻结源码，再迁唯一step／快照／新Spec和正式单测 | T01—T04；独立研究实现清退 |
+| A2 query／DTO／预测 | A1规则与_04相容后同步全部字段、缓存及完整域；不能留下半新合同 | T05—T10／T14，四周期真实路由原响应 |
+| A3 Wealth消费 | 严格类型／白名单、绿色标签与详情、技术面后端display；沿用已确认设计 | T11—T13、真实响应驱动展示；不改布局和评分 |
+| A4 产品验收 | 新版完整回放及所有反例通过，再跑源／接口／混合预算 | T15及逐条计划对账；页面由用户验收 |
+
+实施时必跑，**以下不是本轮已通过的成绩**：
+
+```sh
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_calculator.py scripts/research/index_market/tests/test_xxm_key_point_forecast.py scripts/research/index_market/tests/test_xxm_forecast_display.py tests/web/test_wealth_index_detail_xxm_api.py tests/web/test_wealth_index_detail_xxm_forecast_api.py tests/web/test_xxm_shared_loads.py
+npm --prefix wealth run typecheck
+npm --prefix wealth run test
+npm --prefix wealth run build
+```
+
+新same_segment_acceptance入口须在实现后提供--help及明确frozen／api／budget模式，命令按实际解析器记录；未实现前不编造可运行参数。API模式用隔离SQLite和临时Parquet走真实router／query／calc／DTO，不能mock核心服务。冻结39747根×三门槛、45恢复切点及369预测对照是最低保留范围，新增字段／合同反例仍须另跑，不以旧63项代替。
+
+性能设计不增加来源请求／分页／数据库计算，仍读取同一完整历史。新资格与活动等待均为每根O(1)，活动状态O(1)；已结束记录只在原受行数／LRU限制的SeriesEntry账本中，不在每个point重复塞完整参照。context直接按point ID取记录，不为了显示上下文再做全量回放；窗口组装和JSON新增开销须由下述实测验证，不能靠复杂度判断称已达4秒。
+
+正式读取预算使用正常只读配置和原已完成端点，不读旧验收进程密钥：四周期各20冷＋20暖预测，配对识别，另测LATEST／两并发；记录源检查、读源、重放、模型、DTO／HTTP、响应字节与共享LRU实际占用。每请求4秒含后端排队／shared等待／来源／计算，新增模型≤200ms；前端5秒网络timer仍在调度后启动，不改调度排队语义。整页／双标签沿用16组306请求组合，图表／指标／九转／识别／四周期预测混合，所有响应身份及字段一致。source全历史／全部校验、行数／文件上限、1MiB／32KiB、64MiB与2个源槽位不得裁减或放宽。
+
+保留源错误、0值／等号／缺口、取消／超时反例；任何模型、来源、DTO、四周期保护或预算冲突都停止后续迁移，回到本方案说明，不做按日期补丁、兼容双轨或暗中放大阈值。真实数据不可用时先完成隔离技术验证，明确欠缺项；不能把它标成完整交付。浏览器页面由用户手动验收，不自动登录、截图或要求新服务配置。
+
+### 21.12 通用清单映射与例外白名单
+
+按wealth/docs/system/module-delivery-checklist-v1.md逐项映射，列“不适用”也须说明理由。待用户确认本节后作为编码门禁；本轮没有授予部署／发布权限。
+
+| 通用条目 | 适用性、落点 | 验证 |
+| --- | --- | --- |
+| 2.1 事实链先行 | 适用；原Figma／展示基准＋算法§12.12＋本节 | 本节确认后编码；仅内容映射，无新布局 |
+| 2.2 后端事实归一 | 适用；calc／Q／DTO，前端仅校验与显示 | T06／T09／真实响应驱动T11—T13 |
+| 2.3 状态机 | 适用；NONE＋等待与DULL分开、明确各终态 | T01—T04、loading／error等T13 |
+| 2.4 显示绑定语义 | 适用；A绿／取消灰／钝化黄沿用原token | T11—T12，等待无黄点 |
+| 2.5 行为过程 | 适用；消失→等待→重入、源修订／重试 | T03—T05／T13—T14 |
+| 2.6 同轮同步 | 适用；原三方案及§21、API原响应与测试 | 文档检查、SHA、提交前对账 |
+| 2.7 渐进替换 | 适用；只迁上证XXM，唯一版本、不静默mock回退 | Spec／消费者白名单、完整代码包回退；source开关例外见下 |
+| 2.8 合同先行 | 适用；21.3—21.8冻结类型／null／关联 | 两DTO、两adapter正反例 |
+| 2.9 坐标／说明文案 | 适用；原MACD正负轴和tooltip／卡片槽位保持 | geometry／primitive测试；不加常驻图下注释 |
+| 2.10 统计／传输 | 部分适用；源查询不改，已有序列内核与显示分位不搬数据库 | 完整字段／全历史、4秒／200ms；SQL下推例外见下 |
+| 2.11 策略中心配置 | 不适用可编辑配置中心；仅21.8不可变代码Spec | 非法Spec拒绝，hash／版本同步 |
+| 2.12 映射矩阵 | 适用；本表及下方8原则 | 无未映射条目 |
+| 2.13 例外／语义断言 | 适用；下表仅两项沿用性例外 | 用户确认本节；不放宽坐标或预算 |
+| 2.14 显式坐标参数 | 本轮不改坐标实现，沿用原优先级 | 原图表／geometry回归，不因标记扩域 |
+| 2.15 并排双图 | 不适用；此模块无新增同语义并排双图 | 不改变现有Workspace布局 |
+| 2.16 单行文案 | 部分适用；周期／状态原样，conditionsText允许原换行 | 卡片字段一一显示；不为塞文案压缩其他栏 |
+| 2.17 核心case | 适用；21.9字段与21.11命令、真实路由原响应驱动前端 | 新版核心字段齐全、禁止mock service代交付；页面人工验收 |
+| 2.18八原则 | 全部适用；见下方 | 逐项无默认留空 |
+
+| 2.18原则 | 落地与测试 |
+| --- | --- |
+| 1 单一事实源 | calc→Q→DTO→adapter，T01／T09／T11 |
+| 2 契约冻结 | 21.3—21.8及版本一次迁移，缺字段／旧版本拒绝 |
+| 3 配置一致 | 21.8单一Spec，无env／页面阈值 |
+| 4 默认显式 | 无等待字段必传null／[]；非上证／非四周期仍拒绝，EMPTY不造状态 |
+| 5 排序确定 | rearmRecords按(disappearedAt,id)，原参照／最早时点规则不改，T06—T08 |
+| 6 性能前置 | 21.11四层计时、缓存字节和整页混合，失败停止 |
+| 7 异常标准化 | 原XXM／XXMF码继续，不新增debug字段或吞掉合同错误 |
+| 8 用户可见结果 | 真路由JSON驱动两adapter／标签／四行文字，错误与等待不能混成有效钝化 |
+
+| 例外规则 | 模块／生效范围 | 理由与门禁 |
+| --- | --- | --- |
+| 2.7不新增source开关 | 仅本次XXM算法升级，沿用原分钟开放门禁 | 没有数据来源切换；新增开关会制造双算法在线路径。以唯一版本／Spec身份和整套回退证明范围 |
+| 2.10不把顺序内核及既有显示分位改成SQL聚合 | 四周期同一完整序列内的因果识别／预测及已批准60样本分位 | 本轮不增加大结果集读取或数据库统计查询；复用完整已校验序列，保持200ms／4秒，禁止新增数据库特有函数或SQLite兜底 |
+
+页面人工验收安排来自用户持续授权，优先于通用自动浏览器建议；技术层仍须真实API及其原响应驱动展示，不能只做mock。未新增其他例外。
+
+### 21.13 本轮审计交付与后续停止线
+
+规则、数据范围、字段、函数、全部消费者、版本／配置来源、研究退场和正反例门禁均已明确；没有需要先补软件截图才能写本轮有限候选的技术阻塞。尚需用户确认本节及其中合同／暂定规则后，方进入A1—A4。正式预算、接口／页面结果仍是实施后的交付门禁；若实测不符按根AGENTS开发执行链第7条说明并等待决定。
+
+本轮实际补核：当前h1的两组真实路由／query／DTO及共享加载隔离测试125项通过；对现有候选2的39747根×三门槛核查，所有A消失均可由当时未离段的B记录取得合法原结构锚点，所有等待快照的保存参照／最近价／段DIF前提相容。该检查支持21.3不另存active_structure_id的设计，不是新增a1实现验收或重跑正式4秒。
+
+详细审计、实际代码SHA及文档校验见[本轮LLD审计报告](../../../../reports/xxm_same_segment_a1_lld_audit_20261016/README.md)。当前正式产品仍为h1，没有写数据库／Lake、创建分支／worktree、部署、安装或提交。

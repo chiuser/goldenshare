@@ -1,0 +1,303 @@
+{
+  "periods": {
+    "day": {
+      "sensitivity": {
+        "0.75": {
+          "rows": 912,
+          "baselineEvents": 65,
+          "candidateEvents": 64,
+          "removed": 4,
+          "added": 3,
+          "topSignalsUnchanged": true,
+          "disappeared": 2,
+          "reactivated": 1,
+          "historicalBottom": 3,
+          "waitEndReasons": {
+            "price_requalified": 1,
+            "color_flip": 1
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.011994958855211735
+        },
+        "1.0": {
+          "rows": 912,
+          "baselineEvents": 65,
+          "candidateEvents": 64,
+          "removed": 4,
+          "added": 3,
+          "topSignalsUnchanged": true,
+          "disappeared": 2,
+          "reactivated": 1,
+          "historicalBottom": 3,
+          "waitEndReasons": {
+            "price_requalified": 1,
+            "color_flip": 1
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.019578165840357542
+        },
+        "1.2": {
+          "rows": 912,
+          "baselineEvents": 65,
+          "candidateEvents": 64,
+          "removed": 4,
+          "added": 3,
+          "topSignalsUnchanged": true,
+          "disappeared": 2,
+          "reactivated": 1,
+          "historicalBottom": 3,
+          "waitEndReasons": {
+            "price_requalified": 1,
+            "color_flip": 1
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.011902374681085348
+        }
+      },
+      "prefixRestoreCuts": 9,
+      "forecast": {
+        "oldGrid": 26,
+        "addedWaitEndpoints": 1,
+        "passed": 27,
+        "failures": [],
+        "changedOldGrid": 1,
+        "maxModelMs": 79.8378330655396,
+        "calibrationProtected": 20
+      }
+    },
+    "m60": {
+      "sensitivity": {
+        "0.75": {
+          "rows": 17260,
+          "baselineEvents": 1186,
+          "candidateEvents": 1188,
+          "removed": 58,
+          "added": 60,
+          "topSignalsUnchanged": true,
+          "disappeared": 30,
+          "reactivated": 22,
+          "historicalBottom": 44,
+          "waitEndReasons": {
+            "reference_dif_break": 3,
+            "price_requalified": 22,
+            "color_flip": 5
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.2636948749423027
+        },
+        "1.0": {
+          "rows": 17260,
+          "baselineEvents": 1169,
+          "candidateEvents": 1170,
+          "removed": 53,
+          "added": 54,
+          "topSignalsUnchanged": true,
+          "disappeared": 27,
+          "reactivated": 20,
+          "historicalBottom": 44,
+          "waitEndReasons": {
+            "price_requalified": 20,
+            "color_flip": 5,
+            "reference_dif_break": 2
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.43677320796996355
+        },
+        "1.2": {
+          "rows": 17260,
+          "baselineEvents": 1158,
+          "candidateEvents": 1157,
+          "removed": 50,
+          "added": 49,
+          "topSignalsUnchanged": true,
+          "disappeared": 25,
+          "reactivated": 18,
+          "historicalBottom": 44,
+          "waitEndReasons": {
+            "price_requalified": 18,
+            "color_flip": 5,
+            "reference_dif_break": 2
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.2699687909334898
+        }
+      },
+      "prefixRestoreCuts": 14,
+      "forecast": {
+        "oldGrid": 158,
+        "addedWaitEndpoints": 27,
+        "passed": 185,
+        "failures": [],
+        "changedOldGrid": 0,
+        "maxModelMs": 25.01391666010022,
+        "calibrationProtected": 0
+      }
+    },
+    "m90": {
+      "sensitivity": {
+        "0.75": {
+          "rows": 12945,
+          "baselineEvents": 879,
+          "candidateEvents": 882,
+          "removed": 39,
+          "added": 42,
+          "topSignalsUnchanged": true,
+          "disappeared": 23,
+          "reactivated": 17,
+          "historicalBottom": 22,
+          "waitEndReasons": {
+            "price_requalified": 17,
+            "color_flip": 6
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.205872209277004
+        },
+        "1.0": {
+          "rows": 12945,
+          "baselineEvents": 869,
+          "candidateEvents": 868,
+          "removed": 38,
+          "added": 37,
+          "topSignalsUnchanged": true,
+          "disappeared": 21,
+          "reactivated": 14,
+          "historicalBottom": 22,
+          "waitEndReasons": {
+            "price_requalified": 14,
+            "color_flip": 6,
+            "reference_dif_break": 1
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.33275233302265406
+        },
+        "1.2": {
+          "rows": 12945,
+          "baselineEvents": 860,
+          "candidateEvents": 861,
+          "removed": 33,
+          "added": 34,
+          "topSignalsUnchanged": true,
+          "disappeared": 19,
+          "reactivated": 13,
+          "historicalBottom": 22,
+          "waitEndReasons": {
+            "price_requalified": 13,
+            "color_flip": 5,
+            "reference_dif_break": 1
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.20728954160586
+        }
+      },
+      "prefixRestoreCuts": 14,
+      "forecast": {
+        "oldGrid": 97,
+        "addedWaitEndpoints": 21,
+        "passed": 118,
+        "failures": [],
+        "changedOldGrid": 0,
+        "maxModelMs": 21.129415836185217,
+        "calibrationProtected": 0
+      }
+    },
+    "m120": {
+      "sensitivity": {
+        "0.75": {
+          "rows": 8630,
+          "baselineEvents": 599,
+          "candidateEvents": 604,
+          "removed": 37,
+          "added": 42,
+          "topSignalsUnchanged": true,
+          "disappeared": 23,
+          "reactivated": 18,
+          "historicalBottom": 19,
+          "waitEndReasons": {
+            "price_requalified": 18,
+            "reference_dif_break": 3,
+            "color_flip": 2
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.1195202087983489
+        },
+        "1.0": {
+          "rows": 8630,
+          "baselineEvents": 588,
+          "candidateEvents": 594,
+          "removed": 34,
+          "added": 40,
+          "topSignalsUnchanged": true,
+          "disappeared": 22,
+          "reactivated": 17,
+          "historicalBottom": 19,
+          "waitEndReasons": {
+            "price_requalified": 17,
+            "reference_dif_break": 3,
+            "color_flip": 2
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.1973462081514299
+        },
+        "1.2": {
+          "rows": 8630,
+          "baselineEvents": 584,
+          "candidateEvents": 590,
+          "removed": 34,
+          "added": 40,
+          "topSignalsUnchanged": true,
+          "disappeared": 22,
+          "reactivated": 17,
+          "historicalBottom": 19,
+          "waitEndReasons": {
+            "price_requalified": 17,
+            "reference_dif_break": 3,
+            "color_flip": 2
+          },
+          "duplicateDisappearances": 0,
+          "seconds": 0.12022125022485852
+        }
+      },
+      "prefixRestoreCuts": 14,
+      "forecast": {
+        "oldGrid": 75,
+        "addedWaitEndpoints": 21,
+        "passed": 96,
+        "failures": [],
+        "changedOldGrid": 1,
+        "maxModelMs": 28.7989997304976,
+        "calibrationProtected": 0
+      }
+    }
+  },
+  "softwareFormulaProven": false,
+  "formalFourSecondBudgetTested": false,
+  "softwarePositiveObservations": [
+    {
+      "period": "day",
+      "time": "2024-07-23",
+      "preserved": true
+    },
+    {
+      "period": "day",
+      "time": "2024-08-05",
+      "preserved": true
+    },
+    {
+      "period": "day",
+      "time": "2024-08-22",
+      "preserved": false
+    },
+    {
+      "period": "m120",
+      "time": "2024-08-05T15:00:00+08:00",
+      "preserved": true
+    },
+    {
+      "period": "m120",
+      "time": "2024-08-14T15:00:00+08:00",
+      "preserved": true
+    }
+  ],
+  "protectedFiles": 180,
+  "protectedUnchanged": true
+}

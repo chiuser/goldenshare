@@ -1,0 +1,127 @@
+{
+  "candidateUnchanged": true,
+  "additionalExperiment": false,
+  "derivation": "Read source and existing candidate results; classify whether disappearance-bar close and accumulated DIF already satisfy the candidate reactivation predicates. Does not create any alternative events.",
+  "counts": {
+    "day": {
+      "disappearances": 2,
+      "currentBarAlreadyQualifies": 2
+    },
+    "m60": {
+      "disappearances": 27,
+      "currentBarAlreadyQualifies": 23
+    },
+    "m90": {
+      "disappearances": 21,
+      "currentBarAlreadyQualifies": 17
+    },
+    "m120": {
+      "disappearances": 22,
+      "currentBarAlreadyQualifies": 16
+    }
+  },
+  "cases": [
+    {
+      "period": "day",
+      "time": "2024-08-14",
+      "close": 2850.6539,
+      "dif": -29.734,
+      "hist": -2.162,
+      "previousDif": -29.359,
+      "reversalPct": 1.2772914608808201,
+      "referencePrice": 2922.4498,
+      "nearestPriceGate": 2879.2996,
+      "waveDif": -30.213,
+      "referenceDif": -31.67,
+      "currentBarAlreadyQualifies": true,
+      "oldEvents": [
+        {
+          "id": "eabef8ad30882fe697798d65",
+          "time": "2024-08-14",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null
+        }
+      ],
+      "candidateEvents": [
+        {
+          "id": "ee0e41ae3ca1221d47d8c13c",
+          "time": "2024-08-14",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE_DISAPPEARED",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": "35a3ce56d8e527aed71744d7"
+        }
+      ]
+    },
+    {
+      "period": "m120",
+      "time": "2026-07-10T15:00:00+08:00",
+      "close": 3996.1616,
+      "dif": -18.733466151772973,
+      "hist": -3.6413673710634455,
+      "previousDif": -17.563592378288376,
+      "reversalPct": 6.660788683132739,
+      "referencePrice": 3959.338,
+      "nearestPriceGate": 4027.265,
+      "waveDif": -26.57923234618238,
+      "referenceDif": -35.908539098328674,
+      "currentBarAlreadyQualifies": false,
+      "oldEvents": [
+        {
+          "id": "b9d6d0dcb6eef6ea69683eb5",
+          "time": "2026-07-10T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null
+        }
+      ],
+      "candidateEvents": [
+        {
+          "id": "f9677d14d4f2efa5c7515e9c",
+          "time": "2026-07-10T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE_DISAPPEARED",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": "d5e550e987f5487462e0f17d"
+        }
+      ]
+    }
+  ]
+}

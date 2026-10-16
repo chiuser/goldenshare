@@ -2,6 +2,8 @@
 
 目录整理日期：2026-09-09。规则见[研究目录 AGENTS](/Users/congming/github/goldenshare/scripts/research/AGENTS.md)。这里是离线研究，不接入产品或生产运行时。
 
+2026-10-16徐小明同段循环最新研究：[当根资格分流预检](../../../reports/xxm_same_segment_precheck_20261016_04/README.md)。用户确认8/22原图中两紫之间有黄、无绿后，新候选同时解释7/10等待和8/22绿色；四周期39747根×三门槛、45个恢复截点、369组预测及63项测试通过，正式h1未改。入口`python -B -m scripts.research.index_market.xxm.same_segment_precheck --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_NEW`；只读封存文件、拒绝覆盖，门禁成功返回0、冲突返回1。代码位于`xxm/`、测试位于主题`tests/`。原[无条件等待失败报告](../../../reports/xxm_same_segment_precheck_20261016_02/README.md)保留；当前先完成产品LLD评审，不用离线200ms替代正式4秒／DTO／混合加载验收。
+
 ## 目录
 
 ```text

@@ -1,0 +1,1712 @@
+{
+  "summary": {
+    "rows": 8630,
+    "baselineEvents": 584,
+    "candidateEvents": 590,
+    "removed": 34,
+    "added": 40,
+    "topSignalsUnchanged": true,
+    "disappeared": 22,
+    "reactivated": 17,
+    "historicalBottom": 19,
+    "waitEndReasons": {
+      "price_requalified": 17,
+      "reference_dif_break": 3,
+      "color_flip": 2
+    },
+    "duplicateDisappearances": 0,
+    "seconds": 0.12022125022485852
+  },
+  "removed": [
+    {
+      "id": "7740903e29998ae2ccc57365",
+      "time": "2010-06-03T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-04-08T11:30:00+08:00",
+        "endTime": "2010-05-13T11:30:00+08:00",
+        "price": 2622.667,
+        "dif": -88.60545622384643
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "3ffd0acf8973b6e863923436",
+      "time": "2011-01-20T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "bd8dd176426aae0aa7cc5c1b",
+      "time": "2011-01-24T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "19d49c332fde81fb60bb6e99",
+      "time": "2012-07-25T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-06-21T11:30:00+08:00",
+        "endTime": "2012-07-02T11:30:00+08:00",
+        "price": 2195.95,
+        "dif": -29.185261405638812
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "3dc7289d8405d45586de36a6",
+      "time": "2012-08-22T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "5b22e2fcb979fbae98bc6e9b",
+      "time": "2012-08-24T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "d16b37d227b540628aa47dbf",
+      "time": "2012-12-03T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-11-08T15:00:00+08:00",
+        "endTime": "2012-11-22T11:30:00+08:00",
+        "price": 2001.757,
+        "dif": -21.6033140939478
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "f3e59460f15fdd7d25b3b3c0",
+      "time": "2012-12-04T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2012-11-08T15:00:00+08:00",
+        "endTime": "2012-11-22T11:30:00+08:00",
+        "price": 2001.757,
+        "dif": -21.6033140939478
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "10f9d52aac0f7a371a7af42e",
+      "time": "2013-04-17T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-03-28T11:30:00+08:00",
+        "endTime": "2013-04-10T11:30:00+08:00",
+        "price": 2209.07,
+        "dif": -22.662834429104805
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "e7df9e11ad0c3e16fcbc19c7",
+      "time": "2013-04-17T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2013-03-28T11:30:00+08:00",
+        "endTime": "2013-04-10T11:30:00+08:00",
+        "price": 2209.07,
+        "dif": -22.662834429104805
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "a0b0ebbf1152a8ca8ac16161"
+    },
+    {
+      "id": "9bbe43413a035fe455c54e18",
+      "time": "2013-11-13T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-10-16T15:00:00+08:00",
+        "endTime": "2013-11-01T11:30:00+08:00",
+        "price": 2111.132,
+        "dif": -20.293028912857608
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "5b7dd12e805a84af0ef827af",
+      "time": "2014-01-09T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-12-09T11:30:00+08:00",
+        "endTime": "2013-12-27T11:30:00+08:00",
+        "price": 2073.284,
+        "dif": -29.964278362088407
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "351bb2e117f67585a957c074",
+      "time": "2017-01-19T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2016-11-30T11:30:00+08:00",
+        "endTime": "2016-12-21T11:30:00+08:00",
+        "price": 3102.021,
+        "dif": -29.666496364201976
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "710cba0a22cf3baa59f27881",
+      "time": "2017-01-20T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2016-11-30T11:30:00+08:00",
+        "endTime": "2016-12-21T11:30:00+08:00",
+        "price": 3102.021,
+        "dif": -29.666496364201976
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "8e21f9975a9b428134114cc1"
+    },
+    {
+      "id": "031cebdc7682119f49139e7b",
+      "time": "2017-05-10T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2017-04-14T11:30:00+08:00",
+        "endTime": "2017-04-27T15:00:00+08:00",
+        "price": 3123.802,
+        "dif": -31.167604088347616
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "5cc80092d1c9c4b930493515",
+      "time": "2017-05-11T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2017-04-14T11:30:00+08:00",
+        "endTime": "2017-04-27T15:00:00+08:00",
+        "price": 3123.802,
+        "dif": -31.167604088347616
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "5b722d207759109acfe7254a",
+      "time": "2018-04-20T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2018-03-21T15:00:00+08:00",
+        "endTime": "2018-03-30T11:30:00+08:00",
+        "price": 3100.909,
+        "dif": -42.79460064366231
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "1bd8a6549192697cad3a2e12",
+      "time": "2018-08-08T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2018-07-05T15:00:00+08:00",
+        "endTime": "2018-07-06T11:30:00+08:00",
+        "price": 2724.701,
+        "dif": -58.806162272737765
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "a48d21b882f48c02da7a3eac",
+      "time": "2018-08-09T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2018-07-05T15:00:00+08:00",
+        "endTime": "2018-07-06T11:30:00+08:00",
+        "price": 2724.701,
+        "dif": -58.806162272737765
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c6f53b8e6a6428c5c74f8d1d"
+    },
+    {
+      "id": "11e7efdab73429f841837ebd",
+      "time": "2020-03-23T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2020-01-08T15:00:00+08:00",
+        "endTime": "2020-02-07T15:00:00+08:00",
+        "price": 2734.659,
+        "dif": -73.88400036151961
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "d369fa1cbefb8f62b7599925",
+      "time": "2021-11-01T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2021-09-14T15:00:00+08:00",
+        "endTime": "2021-10-11T11:30:00+08:00",
+        "price": 3536.294,
+        "dif": -18.348141633526666
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "85dc71e9829791a3bf019301",
+      "time": "2023-05-16T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "4f268a1777e06ce22238ad92",
+      "time": "2023-05-18T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "74f8c135b748ee6aab1a88f4"
+    },
+    {
+      "id": "b54126e2101fdda0a1c5a7d4",
+      "time": "2023-05-19T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "b28c7021ba48b2cbbb8892c9",
+      "time": "2023-05-22T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c8ba7577d48f9015224c333c"
+    },
+    {
+      "id": "baf250cce01586f6461dcfed",
+      "time": "2023-05-23T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "e52d26aad7b618a42c5ac5f3",
+      "time": "2023-10-18T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-10-09T11:30:00+08:00",
+        "endTime": "2023-10-12T11:30:00+08:00",
+        "price": 3075.236,
+        "dif": -11.1048539422477
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "30333718e57fe9afa4f24095",
+      "time": "2023-10-18T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-10-09T11:30:00+08:00",
+        "endTime": "2023-10-12T11:30:00+08:00",
+        "price": 3075.236,
+        "dif": -11.1048539422477
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "aefa49349bf69dabd3f53053",
+      "time": "2024-01-16T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-12-15T15:00:00+08:00",
+        "endTime": "2023-12-25T11:30:00+08:00",
+        "price": 2902.1096,
+        "dif": -24.790792983870688
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "46202afbf8cdf76b0e54cff7",
+      "time": "2024-01-16T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-12-15T15:00:00+08:00",
+        "endTime": "2023-12-25T11:30:00+08:00",
+        "price": 2902.1096,
+        "dif": -24.790792983870688
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "565f8b41b460a9b938ec5f31"
+    },
+    {
+      "id": "a3d8dba0ad488f4431f21b86",
+      "time": "2024-01-17T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-12-15T15:00:00+08:00",
+        "endTime": "2023-12-25T11:30:00+08:00",
+        "price": 2902.1096,
+        "dif": -24.790792983870688
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "fbf25d0a36ed2fad23c72cbd",
+      "time": "2024-08-09T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "defe315c16287f077ee5cc3c",
+      "time": "2024-08-27T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "4ab619034b19aa671d9bcc78",
+      "time": "2026-07-10T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    }
+  ],
+  "added": [
+    {
+      "id": "f3e1a2de3eefbf05afd4d583",
+      "time": "2010-06-03T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-04-08T11:30:00+08:00",
+        "endTime": "2010-05-13T11:30:00+08:00",
+        "price": 2622.667,
+        "dif": -88.60545622384643
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "04c90628064e01f542097598"
+    },
+    {
+      "id": "4f7751131bb86f0c8e9a5e39",
+      "time": "2010-06-07T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2010-04-08T11:30:00+08:00",
+        "endTime": "2010-05-13T11:30:00+08:00",
+        "price": 2622.667,
+        "dif": -88.60545622384643
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "04c90628064e01f542097598"
+    },
+    {
+      "id": "ed28ae7e699cdd48bd8bf587",
+      "time": "2011-01-20T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "31023a56ba32f861c7e3cb62"
+    },
+    {
+      "id": "4e1f10dbff69002b1a8a077d",
+      "time": "2011-01-20T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "31023a56ba32f861c7e3cb62"
+    },
+    {
+      "id": "5a7c30947918847e01f490a8",
+      "time": "2011-01-24T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f84f00853b3daef9cb915e57"
+    },
+    {
+      "id": "cc47011dda25d0582af014fc",
+      "time": "2011-01-24T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2010-12-23T11:30:00+08:00",
+        "endTime": "2010-12-31T15:00:00+08:00",
+        "price": 2735.218,
+        "dif": -35.20600552440419
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f84f00853b3daef9cb915e57"
+    },
+    {
+      "id": "2137c4c870d31eeb8efee7a0",
+      "time": "2012-07-25T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-06-21T11:30:00+08:00",
+        "endTime": "2012-07-02T11:30:00+08:00",
+        "price": 2195.95,
+        "dif": -29.185261405638812
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "5a3284fa1d0c51ed28bd2540"
+    },
+    {
+      "id": "b2f8fb8ea5efa7bc60ccc13e",
+      "time": "2012-07-26T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2012-06-21T11:30:00+08:00",
+        "endTime": "2012-07-02T11:30:00+08:00",
+        "price": 2195.95,
+        "dif": -29.185261405638812
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "5a3284fa1d0c51ed28bd2540"
+    },
+    {
+      "id": "266231722928e30b1ee9b75d",
+      "time": "2012-08-22T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "c0cbae98f506ef568bb85066"
+    },
+    {
+      "id": "9c814fedfe723f45c402b959",
+      "time": "2012-08-23T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "c0cbae98f506ef568bb85066"
+    },
+    {
+      "id": "91de9aebc0aa86c4e815d678",
+      "time": "2012-08-24T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "d2e3253003970d74f151586d"
+    },
+    {
+      "id": "2bc2274e71caa4234cda0aef",
+      "time": "2012-08-24T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2012-07-09T15:00:00+08:00",
+        "endTime": "2012-07-12T11:30:00+08:00",
+        "price": 2159.332,
+        "dif": -25.317468786516656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "d2e3253003970d74f151586d"
+    },
+    {
+      "id": "154471fac6c8282c3a188f2d",
+      "time": "2012-12-03T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2012-11-08T15:00:00+08:00",
+        "endTime": "2012-11-22T11:30:00+08:00",
+        "price": 2001.757,
+        "dif": -21.6033140939478
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "c37fa72d6c0938b0d3d938e1"
+    },
+    {
+      "id": "0d379b1e42250ee3c6cb6dac",
+      "time": "2013-04-17T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-03-28T11:30:00+08:00",
+        "endTime": "2013-04-10T11:30:00+08:00",
+        "price": 2209.07,
+        "dif": -22.662834429104805
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "671d19d21207180fbf293c07"
+    },
+    {
+      "id": "58d2b85d5f6526a35f36f6c9",
+      "time": "2013-04-17T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2013-03-28T11:30:00+08:00",
+        "endTime": "2013-04-10T11:30:00+08:00",
+        "price": 2209.07,
+        "dif": -22.662834429104805
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "671d19d21207180fbf293c07"
+    },
+    {
+      "id": "eb75e4670e204cacd8211798",
+      "time": "2013-04-18T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2013-03-28T11:30:00+08:00",
+        "endTime": "2013-04-10T11:30:00+08:00",
+        "price": 2209.07,
+        "dif": -22.662834429104805
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "1042ecd46b27f147b940f3d2",
+      "relatedRearmId": null
+    },
+    {
+      "id": "31e136480031efd8079863f1",
+      "time": "2013-11-13T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-10-16T15:00:00+08:00",
+        "endTime": "2013-11-01T11:30:00+08:00",
+        "price": 2111.132,
+        "dif": -20.293028912857608
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "d878712887cd70e2bfa3d365"
+    },
+    {
+      "id": "18eda2db3a74573265502f8d",
+      "time": "2013-11-13T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2013-10-16T15:00:00+08:00",
+        "endTime": "2013-11-01T11:30:00+08:00",
+        "price": 2111.132,
+        "dif": -20.293028912857608
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "d878712887cd70e2bfa3d365"
+    },
+    {
+      "id": "1b35cf2e82641c4a1b926700",
+      "time": "2014-01-09T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2013-12-09T11:30:00+08:00",
+        "endTime": "2013-12-27T11:30:00+08:00",
+        "price": 2073.284,
+        "dif": -29.964278362088407
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f67bffb966b6772084facf7a"
+    },
+    {
+      "id": "5d1ae5a8a47f621e289a68be",
+      "time": "2014-01-10T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2013-12-09T11:30:00+08:00",
+        "endTime": "2013-12-27T11:30:00+08:00",
+        "price": 2073.284,
+        "dif": -29.964278362088407
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f67bffb966b6772084facf7a"
+    },
+    {
+      "id": "0efd023de0c5cc33f9572343",
+      "time": "2017-01-19T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2016-11-30T11:30:00+08:00",
+        "endTime": "2016-12-21T11:30:00+08:00",
+        "price": 3102.021,
+        "dif": -29.666496364201976
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "aea64185be6d3ec578b47380"
+    },
+    {
+      "id": "1993b7b098ccf8bec9e626e9",
+      "time": "2017-05-10T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2017-04-14T11:30:00+08:00",
+        "endTime": "2017-04-27T15:00:00+08:00",
+        "price": 3123.802,
+        "dif": -31.167604088347616
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "b20c3220f5a4e2cd772f51bb"
+    },
+    {
+      "id": "88e424133f6b262095dcfd10",
+      "time": "2018-04-20T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2018-03-21T15:00:00+08:00",
+        "endTime": "2018-03-30T11:30:00+08:00",
+        "price": 3100.909,
+        "dif": -42.79460064366231
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "e2e31428283244edca25bc1a"
+    },
+    {
+      "id": "1656d38641c038bbb26eb329",
+      "time": "2018-04-20T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2018-03-21T15:00:00+08:00",
+        "endTime": "2018-03-30T11:30:00+08:00",
+        "price": 3100.909,
+        "dif": -42.79460064366231
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "e2e31428283244edca25bc1a"
+    },
+    {
+      "id": "3539772cbf24f817a1a146c1",
+      "time": "2018-08-08T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2018-07-05T15:00:00+08:00",
+        "endTime": "2018-07-06T11:30:00+08:00",
+        "price": 2724.701,
+        "dif": -58.806162272737765
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "0d09d16d1808b7a4f6834269"
+    },
+    {
+      "id": "5e093b48a185b743df3b1e46",
+      "time": "2020-03-23T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2020-01-08T15:00:00+08:00",
+        "endTime": "2020-02-07T15:00:00+08:00",
+        "price": 2734.659,
+        "dif": -73.88400036151961
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "69c247d3c7b7ac208ce6dba2"
+    },
+    {
+      "id": "cecfa9c4996be355932d3ad1",
+      "time": "2020-03-23T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-01-08T15:00:00+08:00",
+        "endTime": "2020-02-07T15:00:00+08:00",
+        "price": 2734.659,
+        "dif": -73.88400036151961
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "69c247d3c7b7ac208ce6dba2"
+    },
+    {
+      "id": "2332427c3946aeb214842b2a",
+      "time": "2021-11-01T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2021-09-14T15:00:00+08:00",
+        "endTime": "2021-10-11T11:30:00+08:00",
+        "price": 3536.294,
+        "dif": -18.348141633526666
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f52464e167ae58ebd2e17304"
+    },
+    {
+      "id": "17853fb89670613743349876",
+      "time": "2021-11-02T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2021-09-14T15:00:00+08:00",
+        "endTime": "2021-10-11T11:30:00+08:00",
+        "price": 3536.294,
+        "dif": -18.348141633526666
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "f52464e167ae58ebd2e17304"
+    },
+    {
+      "id": "4984e131ebf581c571ef2379",
+      "time": "2023-05-16T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "2e00db8864a4cfc81d8136b8"
+    },
+    {
+      "id": "b3d7790d9a4cb854a210c81f",
+      "time": "2023-05-23T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-04-20T15:00:00+08:00",
+        "endTime": "2023-04-28T15:00:00+08:00",
+        "price": 3254.691,
+        "dif": -14.470666254701428
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "2e00db8864a4cfc81d8136b8"
+    },
+    {
+      "id": "fe78fa44dca053dfcb183d2d",
+      "time": "2023-10-18T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-10-09T11:30:00+08:00",
+        "endTime": "2023-10-12T11:30:00+08:00",
+        "price": 3075.236,
+        "dif": -11.1048539422477
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "83f914931be1c6acdf0b6cd1"
+    },
+    {
+      "id": "c7bbe0305142c96f77540367",
+      "time": "2024-01-16T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-12-15T15:00:00+08:00",
+        "endTime": "2023-12-25T11:30:00+08:00",
+        "price": 2902.1096,
+        "dif": -24.790792983870688
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "2fff39b340865afa63690e5a"
+    },
+    {
+      "id": "187b5930c75630b7f992787b",
+      "time": "2024-01-16T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-12-15T15:00:00+08:00",
+        "endTime": "2023-12-25T11:30:00+08:00",
+        "price": 2902.1096,
+        "dif": -24.790792983870688
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "2fff39b340865afa63690e5a"
+    },
+    {
+      "id": "67699cff19e1390d08eee806",
+      "time": "2024-08-09T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "ca25cf4e7d412c6c7dd5fc3e"
+    },
+    {
+      "id": "c8172d91aa136007f94d64cf",
+      "time": "2024-08-12T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "ca25cf4e7d412c6c7dd5fc3e"
+    },
+    {
+      "id": "e4f556da65c96a8a7622281a",
+      "time": "2024-08-27T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "eb826cc6ac24991761da1f7b"
+    },
+    {
+      "id": "4ac7a48b40df0054171b534a",
+      "time": "2024-08-27T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-23T11:30:00+08:00",
+        "endTime": "2024-07-31T11:30:00+08:00",
+        "price": 2876.87,
+        "dif": -22.869133541594238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "eb826cc6ac24991761da1f7b"
+    },
+    {
+      "id": "744f4cb90ac2869e9f79647a",
+      "time": "2026-07-10T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "73985545e0aa3ac96f53a098"
+    },
+    {
+      "id": "d963017f243606be1ed6ed5a",
+      "time": "2026-07-13T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "73985545e0aa3ac96f53a098"
+    }
+  ],
+  "waits": [
+    {
+      "id": "04c90628064e01f542097598",
+      "structureEventId": "123c54100d8e6a686620cede",
+      "reference": {
+        "sign": -1,
+        "start": "2010-04-08T11:30:00+08:00",
+        "end": "2010-05-13T11:30:00+08:00",
+        "count": 49,
+        "price": 2622.667,
+        "dif": -88.60545622384643,
+        "price_at": "2010-05-12T11:30:00+08:00",
+        "dif_at": "2010-05-12T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2539.196,
+      "segmentStart": "2010-06-02T11:30:00+08:00",
+      "disappearedAt": "2010-06-03T15:00:00+08:00",
+      "observedThrough": "2010-06-07T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2010-06-07T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "31023a56ba32f861c7e3cb62",
+      "structureEventId": "a63f190dd8a1df56337b2805",
+      "reference": {
+        "sign": -1,
+        "start": "2010-12-23T11:30:00+08:00",
+        "end": "2010-12-31T15:00:00+08:00",
+        "count": 14,
+        "price": 2735.218,
+        "dif": -35.20600552440419,
+        "price_at": "2010-12-28T15:00:00+08:00",
+        "dif_at": "2010-12-30T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2735.218,
+      "segmentStart": "2011-01-14T15:00:00+08:00",
+      "disappearedAt": "2011-01-20T11:30:00+08:00",
+      "observedThrough": "2011-01-20T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2011-01-20T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "f84f00853b3daef9cb915e57",
+      "structureEventId": "f462759751852926fbeb69d1",
+      "reference": {
+        "sign": -1,
+        "start": "2010-12-23T11:30:00+08:00",
+        "end": "2010-12-31T15:00:00+08:00",
+        "count": 14,
+        "price": 2735.218,
+        "dif": -35.20600552440419,
+        "price_at": "2010-12-28T15:00:00+08:00",
+        "dif_at": "2010-12-30T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2735.218,
+      "segmentStart": "2011-01-14T15:00:00+08:00",
+      "disappearedAt": "2011-01-24T11:30:00+08:00",
+      "observedThrough": "2011-01-24T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2011-01-24T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "5a3284fa1d0c51ed28bd2540",
+      "structureEventId": "4eeb7d41f9d31f262a4512d6",
+      "reference": {
+        "sign": -1,
+        "start": "2012-06-21T11:30:00+08:00",
+        "end": "2012-07-02T11:30:00+08:00",
+        "count": 13,
+        "price": 2195.95,
+        "dif": -29.185261405638812,
+        "price_at": "2012-06-28T15:00:00+08:00",
+        "dif_at": "2012-06-28T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2159.332,
+      "segmentStart": "2012-07-24T11:30:00+08:00",
+      "disappearedAt": "2012-07-25T15:00:00+08:00",
+      "observedThrough": "2012-07-26T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2012-07-26T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "c0cbae98f506ef568bb85066",
+      "structureEventId": "62a788f83a1a5945e2831665",
+      "reference": {
+        "sign": -1,
+        "start": "2012-07-09T15:00:00+08:00",
+        "end": "2012-07-12T11:30:00+08:00",
+        "count": 6,
+        "price": 2159.332,
+        "dif": -25.317468786516656,
+        "price_at": "2012-07-10T11:30:00+08:00",
+        "dif_at": "2012-07-11T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2104.067,
+      "segmentStart": "2012-08-14T11:30:00+08:00",
+      "disappearedAt": "2012-08-22T15:00:00+08:00",
+      "observedThrough": "2012-08-23T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2012-08-23T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "d2e3253003970d74f151586d",
+      "structureEventId": "f2d9e62d17bf9d08a98495d4",
+      "reference": {
+        "sign": -1,
+        "start": "2012-07-09T15:00:00+08:00",
+        "end": "2012-07-12T11:30:00+08:00",
+        "count": 6,
+        "price": 2159.332,
+        "dif": -25.317468786516656,
+        "price_at": "2012-07-10T11:30:00+08:00",
+        "dif_at": "2012-07-11T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2104.067,
+      "segmentStart": "2012-08-14T11:30:00+08:00",
+      "disappearedAt": "2012-08-24T11:30:00+08:00",
+      "observedThrough": "2012-08-24T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2012-08-24T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "c37fa72d6c0938b0d3d938e1",
+      "structureEventId": "7c8423c84b4003d98cbf6299",
+      "reference": {
+        "sign": -1,
+        "start": "2012-11-08T15:00:00+08:00",
+        "end": "2012-11-22T11:30:00+08:00",
+        "count": 20,
+        "price": 2001.757,
+        "dif": -21.6033140939478,
+        "price_at": "2012-11-21T11:30:00+08:00",
+        "dif_at": "2012-11-21T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2001.757,
+      "segmentStart": "2012-11-27T15:00:00+08:00",
+      "disappearedAt": "2012-12-03T15:00:00+08:00",
+      "observedThrough": "2012-12-04T11:30:00+08:00",
+      "status": "INVALIDATED",
+      "endedAt": "2012-12-04T11:30:00+08:00",
+      "endReason": "reference_dif_break"
+    },
+    {
+      "id": "671d19d21207180fbf293c07",
+      "structureEventId": "cb2e46465a15fbfd32a90cbb",
+      "reference": {
+        "sign": -1,
+        "start": "2013-03-28T11:30:00+08:00",
+        "end": "2013-04-10T11:30:00+08:00",
+        "count": 15,
+        "price": 2209.07,
+        "dif": -22.662834429104805,
+        "price_at": "2013-04-08T11:30:00+08:00",
+        "dif_at": "2013-04-08T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2209.07,
+      "segmentStart": "2013-04-15T11:30:00+08:00",
+      "disappearedAt": "2013-04-17T11:30:00+08:00",
+      "observedThrough": "2013-04-17T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2013-04-17T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "d878712887cd70e2bfa3d365",
+      "structureEventId": "813f29265f6a6ad036c1337f",
+      "reference": {
+        "sign": -1,
+        "start": "2013-10-16T15:00:00+08:00",
+        "end": "2013-11-01T11:30:00+08:00",
+        "count": 24,
+        "price": 2111.132,
+        "dif": -20.293028912857608,
+        "price_at": "2013-10-29T11:30:00+08:00",
+        "dif_at": "2013-10-29T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2111.132,
+      "segmentStart": "2013-11-08T11:30:00+08:00",
+      "disappearedAt": "2013-11-13T11:30:00+08:00",
+      "observedThrough": "2013-11-13T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2013-11-13T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "f67bffb966b6772084facf7a",
+      "structureEventId": "86055904b6d1546643be50ae",
+      "reference": {
+        "sign": -1,
+        "start": "2013-12-09T11:30:00+08:00",
+        "end": "2013-12-27T11:30:00+08:00",
+        "count": 29,
+        "price": 2073.284,
+        "dif": -29.964278362088407,
+        "price_at": "2013-12-26T15:00:00+08:00",
+        "dif_at": "2013-12-24T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2073.284,
+      "segmentStart": "2014-01-06T11:30:00+08:00",
+      "disappearedAt": "2014-01-09T15:00:00+08:00",
+      "observedThrough": "2014-01-10T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2014-01-10T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "aea64185be6d3ec578b47380",
+      "structureEventId": "3050da6bdd3fba48dc632849",
+      "reference": {
+        "sign": -1,
+        "start": "2016-11-30T11:30:00+08:00",
+        "end": "2016-12-21T11:30:00+08:00",
+        "count": 31,
+        "price": 3102.021,
+        "dif": -29.666496364201976,
+        "price_at": "2016-12-20T11:30:00+08:00",
+        "dif_at": "2016-12-20T15:00:00+08:00"
+      },
+      "nearestPriceGate": 3102.021,
+      "segmentStart": "2017-01-12T11:30:00+08:00",
+      "disappearedAt": "2017-01-19T15:00:00+08:00",
+      "observedThrough": "2017-01-20T15:00:00+08:00",
+      "status": "SEGMENT_ENDED",
+      "endedAt": "2017-01-20T15:00:00+08:00",
+      "endReason": "color_flip"
+    },
+    {
+      "id": "b20c3220f5a4e2cd772f51bb",
+      "structureEventId": "9d562d53ae2660bf5b7f122b",
+      "reference": {
+        "sign": -1,
+        "start": "2017-04-14T11:30:00+08:00",
+        "end": "2017-04-27T15:00:00+08:00",
+        "count": 20,
+        "price": 3123.802,
+        "dif": -31.167604088347616,
+        "price_at": "2017-04-24T11:30:00+08:00",
+        "dif_at": "2017-04-25T15:00:00+08:00"
+      },
+      "nearestPriceGate": 3123.802,
+      "segmentStart": "2017-05-05T15:00:00+08:00",
+      "disappearedAt": "2017-05-10T15:00:00+08:00",
+      "observedThrough": "2017-05-11T11:30:00+08:00",
+      "status": "INVALIDATED",
+      "endedAt": "2017-05-11T11:30:00+08:00",
+      "endReason": "reference_dif_break"
+    },
+    {
+      "id": "e2e31428283244edca25bc1a",
+      "structureEventId": "0898682925e6af4564fd0f88",
+      "reference": {
+        "sign": -1,
+        "start": "2018-03-21T15:00:00+08:00",
+        "end": "2018-03-30T11:30:00+08:00",
+        "count": 14,
+        "price": 3100.909,
+        "dif": -42.79460064366231,
+        "price_at": "2018-03-26T11:30:00+08:00",
+        "dif_at": "2018-03-29T11:30:00+08:00"
+      },
+      "nearestPriceGate": 3100.909,
+      "segmentStart": "2018-04-16T15:00:00+08:00",
+      "disappearedAt": "2018-04-20T11:30:00+08:00",
+      "observedThrough": "2018-04-20T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2018-04-20T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "0d09d16d1808b7a4f6834269",
+      "structureEventId": "7dde069a992a4295744df1da",
+      "reference": {
+        "sign": -1,
+        "start": "2018-07-05T15:00:00+08:00",
+        "end": "2018-07-06T11:30:00+08:00",
+        "count": 2,
+        "price": 2724.701,
+        "dif": -58.806162272737765,
+        "price_at": "2018-07-06T11:30:00+08:00",
+        "dif_at": "2018-07-06T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2769.19,
+      "segmentStart": "2018-07-31T15:00:00+08:00",
+      "disappearedAt": "2018-08-08T15:00:00+08:00",
+      "observedThrough": "2018-08-09T15:00:00+08:00",
+      "status": "SEGMENT_ENDED",
+      "endedAt": "2018-08-09T15:00:00+08:00",
+      "endReason": "color_flip"
+    },
+    {
+      "id": "69c247d3c7b7ac208ce6dba2",
+      "structureEventId": "6e58fd8c6cf49295ea89883c",
+      "reference": {
+        "sign": -1,
+        "start": "2020-01-08T15:00:00+08:00",
+        "end": "2020-02-07T15:00:00+08:00",
+        "count": 33,
+        "price": 2734.659,
+        "dif": -73.88400036151961,
+        "price_at": "2020-02-03T11:30:00+08:00",
+        "dif_at": "2020-02-05T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2880.304,
+      "segmentStart": "2020-03-09T15:00:00+08:00",
+      "disappearedAt": "2020-03-23T11:30:00+08:00",
+      "observedThrough": "2020-03-23T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2020-03-23T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "f52464e167ae58ebd2e17304",
+      "structureEventId": "9126924541b6f3730efc8555",
+      "reference": {
+        "sign": -1,
+        "start": "2021-09-14T15:00:00+08:00",
+        "end": "2021-10-11T11:30:00+08:00",
+        "count": 24,
+        "price": 3536.294,
+        "dif": -18.348141633526666,
+        "price_at": "2021-09-29T15:00:00+08:00",
+        "dif_at": "2021-09-30T11:30:00+08:00"
+      },
+      "nearestPriceGate": 3534.431,
+      "segmentStart": "2021-10-27T15:00:00+08:00",
+      "disappearedAt": "2021-11-01T15:00:00+08:00",
+      "observedThrough": "2021-11-02T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2021-11-02T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "2e00db8864a4cfc81d8136b8",
+      "structureEventId": "f5834fc3b19c1608ca30ec90",
+      "reference": {
+        "sign": -1,
+        "start": "2023-04-20T15:00:00+08:00",
+        "end": "2023-04-28T15:00:00+08:00",
+        "count": 13,
+        "price": 3254.691,
+        "dif": -14.470666254701428,
+        "price_at": "2023-04-26T11:30:00+08:00",
+        "dif_at": "2023-04-27T11:30:00+08:00"
+      },
+      "nearestPriceGate": 3254.691,
+      "segmentStart": "2023-05-11T11:30:00+08:00",
+      "disappearedAt": "2023-05-16T15:00:00+08:00",
+      "observedThrough": "2023-05-23T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2023-05-23T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "83f914931be1c6acdf0b6cd1",
+      "structureEventId": "1c4056c351b2c7cfb3a03582",
+      "reference": {
+        "sign": -1,
+        "start": "2023-10-09T11:30:00+08:00",
+        "end": "2023-10-12T11:30:00+08:00",
+        "count": 7,
+        "price": 3075.236,
+        "dif": -11.1048539422477,
+        "price_at": "2023-10-10T15:00:00+08:00",
+        "dif_at": "2023-10-11T15:00:00+08:00"
+      },
+      "nearestPriceGate": 3075.236,
+      "segmentStart": "2023-10-16T11:30:00+08:00",
+      "disappearedAt": "2023-10-18T11:30:00+08:00",
+      "observedThrough": "2023-10-18T15:00:00+08:00",
+      "status": "INVALIDATED",
+      "endedAt": "2023-10-18T15:00:00+08:00",
+      "endReason": "reference_dif_break"
+    },
+    {
+      "id": "2fff39b340865afa63690e5a",
+      "structureEventId": "c3c26d4d9454313c82bad9d8",
+      "reference": {
+        "sign": -1,
+        "start": "2023-12-15T15:00:00+08:00",
+        "end": "2023-12-25T11:30:00+08:00",
+        "count": 12,
+        "price": 2902.1096,
+        "dif": -24.790792983870688,
+        "price_at": "2023-12-20T15:00:00+08:00",
+        "dif_at": "2023-12-21T11:30:00+08:00"
+      },
+      "nearestPriceGate": 2898.8787,
+      "segmentStart": "2024-01-08T11:30:00+08:00",
+      "disappearedAt": "2024-01-16T11:30:00+08:00",
+      "observedThrough": "2024-01-16T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2024-01-16T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "ca25cf4e7d412c6c7dd5fc3e",
+      "structureEventId": "3c666a5ecc681e67e3d58b84",
+      "reference": {
+        "sign": -1,
+        "start": "2024-07-23T11:30:00+08:00",
+        "end": "2024-07-31T11:30:00+08:00",
+        "count": 13,
+        "price": 2876.87,
+        "dif": -22.869133541594238,
+        "price_at": "2024-07-30T11:30:00+08:00",
+        "dif_at": "2024-07-30T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2876.87,
+      "segmentStart": "2024-08-05T15:00:00+08:00",
+      "disappearedAt": "2024-08-09T15:00:00+08:00",
+      "observedThrough": "2024-08-12T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2024-08-12T11:30:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "eb826cc6ac24991761da1f7b",
+      "structureEventId": "c1754456ede014d200c2a009",
+      "reference": {
+        "sign": -1,
+        "start": "2024-07-23T11:30:00+08:00",
+        "end": "2024-07-31T11:30:00+08:00",
+        "count": 13,
+        "price": 2876.87,
+        "dif": -22.869133541594238,
+        "price_at": "2024-07-30T11:30:00+08:00",
+        "dif_at": "2024-07-30T15:00:00+08:00"
+      },
+      "nearestPriceGate": 2856.0903,
+      "segmentStart": "2024-08-22T11:30:00+08:00",
+      "disappearedAt": "2024-08-27T11:30:00+08:00",
+      "observedThrough": "2024-08-27T15:00:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2024-08-27T15:00:00+08:00",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "73985545e0aa3ac96f53a098",
+      "structureEventId": "e1528a57d67d80c2481ecb4a",
+      "reference": {
+        "sign": -1,
+        "start": "2026-05-14T15:00:00+08:00",
+        "end": "2026-06-11T15:00:00+08:00",
+        "count": 41,
+        "price": 3959.338,
+        "dif": -35.908539098328674,
+        "price_at": "2026-06-08T15:00:00+08:00",
+        "dif_at": "2026-06-11T11:30:00+08:00"
+      },
+      "nearestPriceGate": 4027.265,
+      "segmentStart": "2026-07-02T15:00:00+08:00",
+      "disappearedAt": "2026-07-10T15:00:00+08:00",
+      "observedThrough": "2026-07-13T11:30:00+08:00",
+      "status": "REACTIVATED",
+      "endedAt": "2026-07-13T11:30:00+08:00",
+      "endReason": "price_requalified"
+    }
+  ]
+}

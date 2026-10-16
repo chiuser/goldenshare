@@ -1,0 +1,182 @@
+{
+  "summary": {
+    "rows": 912,
+    "baselineEvents": 65,
+    "candidateEvents": 64,
+    "removed": 4,
+    "added": 3,
+    "topSignalsUnchanged": true,
+    "disappeared": 2,
+    "reactivated": 1,
+    "historicalBottom": 3,
+    "waitEndReasons": {
+      "price_requalified": 1,
+      "color_flip": 1
+    },
+    "duplicateDisappearances": 0,
+    "seconds": 0.01230345806106925
+  },
+  "removed": [
+    {
+      "id": "9ef0961ff93863544bfac7e8",
+      "time": "2024-01-17",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "b4c78f8336d959c3f9f666aa",
+      "time": "2024-08-14",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null
+    },
+    {
+      "id": "376d5fad3a50b31d7eed53e0",
+      "time": "2024-08-15",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "483f1efc7be5cccec4ebae31"
+    },
+    {
+      "id": "a490ab1e41a27cb0a7679c84",
+      "time": "2024-08-22",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "483f1efc7be5cccec4ebae31"
+    }
+  ],
+  "added": [
+    {
+      "id": "bfeb55be3aee075b5944afb9",
+      "time": "2024-01-17",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "17eb83c19677d814b050c11d"
+    },
+    {
+      "id": "95f0e1e47a9d24f2d5a56a5b",
+      "time": "2024-01-18",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "17eb83c19677d814b050c11d"
+    },
+    {
+      "id": "fcfa601a0a792912edf60d13",
+      "time": "2024-08-14",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "ac724d52dbb579dde92441fe"
+    }
+  ],
+  "waits": [
+    {
+      "id": "17eb83c19677d814b050c11d",
+      "structureEventId": "deabdb3abb9f018ad4c93731",
+      "reference": {
+        "sign": -1,
+        "start": "2023-10-10",
+        "end": "2023-10-30",
+        "count": 15,
+        "price": 2939.2913,
+        "dif": -41.712,
+        "price_at": "2023-10-23",
+        "dif_at": "2023-10-25"
+      },
+      "nearestPriceGate": 2898.8787,
+      "segmentStart": "2024-01-09",
+      "disappearedAt": "2024-01-17",
+      "observedThrough": "2024-01-18",
+      "status": "REACTIVATED",
+      "endedAt": "2024-01-18",
+      "endReason": "price_requalified"
+    },
+    {
+      "id": "ac724d52dbb579dde92441fe",
+      "structureEventId": "5894c8e86ff4423b79edbfc8",
+      "reference": {
+        "sign": -1,
+        "start": "2024-07-05",
+        "end": "2024-07-10",
+        "count": 4,
+        "price": 2922.4498,
+        "dif": -31.67,
+        "price_at": "2024-07-08",
+        "dif_at": "2024-07-08"
+      },
+      "nearestPriceGate": 2879.2996,
+      "segmentStart": "2024-08-05",
+      "disappearedAt": "2024-08-14",
+      "observedThrough": "2024-08-15",
+      "status": "SEGMENT_ENDED",
+      "endedAt": "2024-08-15",
+      "endReason": "color_flip"
+    }
+  ]
+}

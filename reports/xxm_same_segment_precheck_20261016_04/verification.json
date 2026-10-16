@@ -1,0 +1,40 @@
+{
+  "tests": {
+    "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_calculator.py scripts/research/index_market/tests/test_xxm_key_point_forecast.py scripts/research/index_market/tests/test_xxm_same_segment_research.py",
+    "passed": 63,
+    "seconds": 6.11
+  },
+  "docsIntegrity": "passed: dead-absolute-links, ds-store-noise, tushare-index-consistency",
+  "scopeWhitespace": "passed",
+  "localMarkdownTargetsChecked": 177,
+  "protectedFilesUnchanged": 281,
+  "researchCodeMatchesRun": true,
+  "codegraph": {
+    "before": [
+      "codegraph_explore",
+      "codegraph_impact"
+    ],
+    "after": [
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "upToDate": true,
+    "scope": "calculator step, BOTTOM history, snapshots, XXM query and recognition/forecast consumers",
+    "productDependencyChanges": false
+  },
+  "planFinalSectionIsCoreChangeTable": true,
+  "files": {
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "81740bb638ddf0980620a5f258aa203b93108b4f2d4557768b12ffe96524cc6c",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "1248b1002290e95c5715cab0816d26826ab3306c19ec117a8aa2925d5b77e25f",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "58c401cef1f111cc30233240fc2aa28374ad92615f0fd29d31c199058ac96f7f",
+    "scripts/research/index_market/README.md": "177efbd2e81c87c025d4eeb84588de689c465513e4c3a608e6352fe052a15150",
+    "reports/xxm_same_segment_precheck_20261016_04/README.md": "e30bebe53c99cf3693a66f42b0141392908748f31bc456ba935d224ea4c8d143",
+    "scripts/research/index_market/xxm/same_segment_candidate.py": "df8c01920fa6807aceca7244d4b2ebc4f3cc601260a9fc63d4199a014bad9e0e",
+    "scripts/research/index_market/xxm/same_segment_precheck.py": "8afe15fca081b851bc7cdf773356e93e4bd96c785e874a7a92c0928dd9463875",
+    "scripts/research/index_market/tests/test_xxm_same_segment_research.py": "9551b75dc93ae1f0d0f1f2e3c8c883c0680def1ea950a73bc1562fe9542524f5"
+  },
+  "formalCodeModified": false,
+  "formalFourSecondBudgetTested": false,
+  "pageAcceptancePerformed": false,
+  "commitCreated": false
+}

@@ -1,0 +1,102 @@
+{
+  "scope": "Existing candidate2 only; validates planned B-history anchor instead of extra active_structure_id and strict wait snapshot prerequisites. No new rule or formal implementation.",
+  "rows": [
+    {
+      "period": "day",
+      "gate": 0.75,
+      "rows": 912,
+      "disappearances": 0,
+      "waitingObservations": 0,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "day",
+      "gate": 1.0,
+      "rows": 912,
+      "disappearances": 0,
+      "waitingObservations": 0,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "day",
+      "gate": 1.2,
+      "rows": 912,
+      "disappearances": 0,
+      "waitingObservations": 0,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m60",
+      "gate": 0.75,
+      "rows": 17260,
+      "disappearances": 5,
+      "waitingObservations": 15,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m60",
+      "gate": 1.0,
+      "rows": 17260,
+      "disappearances": 4,
+      "waitingObservations": 14,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m60",
+      "gate": 1.2,
+      "rows": 17260,
+      "disappearances": 4,
+      "waitingObservations": 14,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m90",
+      "gate": 0.75,
+      "rows": 12945,
+      "disappearances": 4,
+      "waitingObservations": 16,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m90",
+      "gate": 1.0,
+      "rows": 12945,
+      "disappearances": 4,
+      "waitingObservations": 16,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m90",
+      "gate": 1.2,
+      "rows": 12945,
+      "disappearances": 4,
+      "waitingObservations": 13,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m120",
+      "gate": 0.75,
+      "rows": 8630,
+      "disappearances": 7,
+      "waitingObservations": 20,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m120",
+      "gate": 1.0,
+      "rows": 8630,
+      "disappearances": 6,
+      "waitingObservations": 18,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    },
+    {
+      "period": "m120",
+      "gate": 1.2,
+      "rows": 8630,
+      "disappearances": 6,
+      "waitingObservations": 18,
+      "anchorAndSnapshotPrerequisitesPassed": true
+    }
+  ],
+  "passed": true
+}

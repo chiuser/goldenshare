@@ -1,0 +1,42 @@
+{
+  "documentFiles": {
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "de6fb74cdeae36802b318fc039b834604657339a047bf83c6e4bec49b051daaf",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "c67d8fd699375037dbf4cc22338730d630ded22ef949adcdee54b3087cc31f70",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "6c25fd6631128b15fc364bdbe8e1acf36d62b08c5388a9f2462980af3e27f4d5",
+    "reports/xxm_same_segment_a1_lld_audit_20261016/README.md": "5c2aee442e6eb6fda5c4fd060381c81b79cca2006eb178fc12dcd28029d563e5"
+  },
+  "sourceProtection": {
+    "files": 106,
+    "unchanged": true
+  },
+  "currentH1Tests": {
+    "passed": 125,
+    "seconds": 42.87,
+    "warning": "existing Starlette/httpx deprecation",
+    "scope": "real ASGI router/query/kernel/DTO with isolated SQLite/temporary Parquet plus shared-load unit tests; no formal source or network"
+  },
+  "candidate2AnchorAudit": "passed; 39747 bars x three existing gates; metadata invariants only",
+  "docsIntegrity": "passed",
+  "localMarkdownTargetsChecked": 131,
+  "scopeWhitespace": "passed",
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impactSymbols": 80,
+    "indexUpToDate": true,
+    "consumerCaveat": "impact includes research and tests; dynamic app and UI entries manually checked"
+  },
+  "planFinalCoreTablePreserved": true,
+  "lldSections": 13,
+  "commonChecklistItems": 18,
+  "abstractPrinciples": 8,
+  "auditOutcome": "technically ready for bounded development after user confirmation of LLD 21; no implementation authorization inferred",
+  "productOrResearchCodeModified": false,
+  "formalFourSecondBudgetTested": false,
+  "browserUsed": false,
+  "commitCreated": false
+}
