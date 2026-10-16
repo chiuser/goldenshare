@@ -56,7 +56,7 @@ def calendar_days(root, work, policy=DEFAULT_POLICY):
     with connection(work, policy) as con:
         return CalendarDays(
             con.execute(
-                "SELECT cal_date,is_open FROM read_parquet(?) WHERE exchange='SSE' ORDER BY cal_date",
+                "SELECT trade_date,is_open FROM read_parquet(?) WHERE exchange='SSE' ORDER BY trade_date",
                 [str(safe_path(silver_trade_calendar_path(root)))],
             ).fetchall()
         )
@@ -725,7 +725,7 @@ def evaluate_daily_sensor(context, now, *, freq, staging_root=None):
         temp_policy="existing_no_spill",
     ) as con:
         open_today = con.execute(
-            "SELECT count(*) FROM read_parquet(?) WHERE exchange='SSE' AND is_open=1 AND cal_date=?",
+            "SELECT count(*) FROM read_parquet(?) WHERE exchange='SSE' AND is_open=1 AND trade_date=?",
             [
                 str(silver_trade_calendar_path(context.resources.lake_root.root())),
                 now.date(),

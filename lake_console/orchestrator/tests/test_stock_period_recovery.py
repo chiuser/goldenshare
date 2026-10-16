@@ -36,8 +36,11 @@ def daily_fixture(tmp_path):
     with raw.connection(tmp_path / "fixtures", POLICY) as con:
         calendar = silver_trade_calendar_path(kw["root"])
         calendar.parent.mkdir(parents=True, exist_ok=True)
+        # Matches SILVER_TRADE_CALENDAR_SCHEMA, including BOOLEAN and DATE types.
         con.sql(
-            "SELECT DATE '2026-10-01'+i::INTEGER cal_date,'SSE' exchange,CASE WHEN i>=11 AND isodow(DATE '2026-10-01'+i::INTEGER)<=5 THEN 1 ELSE 0 END is_open FROM range(61) t(i)"
+            "SELECT 'SSE' exchange,DATE '2026-10-01'+i::INTEGER trade_date,"
+            "(i>=11 AND isodow(DATE '2026-10-01'+i::INTEGER)<=5) is_open,"
+            "NULL::DATE pretrade_date FROM range(61) t(i)"
         ).write_parquet(str(calendar))
         for day, factor in (
             ("2026-10-14", 1),

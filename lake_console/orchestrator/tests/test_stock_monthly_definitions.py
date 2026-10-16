@@ -59,7 +59,11 @@ def test_actual_job_check_events_and_partition(
             ),
             (
                 paths.silver_trade_calendar_path(root),
-                "SELECT unnest(?)::DATE cal_date,'SSE' exchange,1 is_open",
+                # Actual Silver schema; Raw cal_date is not a Silver field.
+                (
+                    "SELECT 'SSE' exchange,unnest(?)::DATE trade_date,"
+                    "true is_open,NULL::DATE pretrade_date"
+                ),
                 [days],
             ),
         ]:

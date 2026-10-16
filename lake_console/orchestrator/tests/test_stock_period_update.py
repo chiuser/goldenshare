@@ -5,6 +5,73 @@ import pytest
 from orchestrator.defs.stock_period_update import close_day, daily_periods
 
 
+def test_calendar_consumer_reads_real_producer_contract(tmp_path):
+    from orchestrator.defs.duckdb_sql import silver_trade_calendar_select
+    from orchestrator.defs.io.stock_period_raw import connection
+    from orchestrator.defs.paths import (
+        raw_trade_calendar_path,
+        silver_trade_calendar_path,
+    )
+    from orchestrator.defs.stock_period_update import calendar_days
+
+    root = tmp_path / "lake"
+    source = raw_trade_calendar_path(root)
+    calendar = silver_trade_calendar_path(root)
+    source.parent.mkdir(parents=True)
+    calendar.parent.mkdir(parents=True)
+    # Real producer: duckdb_sql.silver_trade_calendar_select. Independent schema
+    # witness: run_contracts.asset_column_schemas.SILVER_TRADE_CALENDAR_SCHEMA.
+    with connection(tmp_path / "fixtures") as con:
+        con.sql(
+            "SELECT * FROM (VALUES ('SSE','20261015',1,'20261014'),"
+            "('SSE','20261016',1,'20261015'),('SSE','20261017',0,'20261016'),"
+            "('SZSE','20261018',1,'20261016')) "
+            "t(exchange,cal_date,is_open,pretrade_date)"
+        ).write_parquet(str(source))
+        con.sql(silver_trade_calendar_select(source)).write_parquet(str(calendar))
+        observed = con.execute(
+            "DESCRIBE SELECT * FROM read_parquet(?)", [str(calendar)]
+        ).fetchall()
+        assert [(row[0], row[1]) for row in observed] == [
+            ("exchange", "VARCHAR"),
+            ("trade_date", "DATE"),
+            ("is_open", "BOOLEAN"),
+            ("pretrade_date", "DATE"),
+        ]
+        assert con.execute(
+            "SELECT trade_date,is_open,pretrade_date FROM read_parquet(?) "
+            "WHERE exchange='SSE' ORDER BY trade_date", [str(calendar)]
+        ).fetchall() == [
+            (date(2026, 10, 15), True, date(2026, 10, 14)),
+            (date(2026, 10, 16), True, date(2026, 10, 15)),
+            (date(2026, 10, 17), False, date(2026, 10, 16)),
+        ]
+
+    days = calendar_days(root, tmp_path / "consumer")
+    assert days == ["2026-10-15", "2026-10-16"]
+    assert days.covered == {"2026-10-15", "2026-10-16", "2026-10-17"}
+
+
+def test_calendar_consumer_rejects_raw_field_at_silver_path(tmp_path):
+    import duckdb
+
+    from orchestrator.defs.io.stock_period_raw import connection
+    from orchestrator.defs.paths import silver_trade_calendar_path
+    from orchestrator.defs.stock_period_update import calendar_days
+
+    root = tmp_path / "lake"
+    calendar = silver_trade_calendar_path(root)
+    calendar.parent.mkdir(parents=True)
+    # Deliberately wrong: Raw cal_date cannot stand in for Silver trade_date.
+    with connection(tmp_path / "fixtures") as con:
+        con.sql(
+            "SELECT 'SSE' exchange,DATE '2026-10-16' cal_date,"
+            "true is_open,NULL::DATE pretrade_date"
+        ).write_parquet(str(calendar))
+    with pytest.raises(duckdb.BinderException, match="trade_date"):
+        calendar_days(root, tmp_path / "consumer")
+
+
 def test_failed_friday_and_month_end_only_catch_periods():
     assert daily_periods(
         today=date(2026, 10, 19), freq="week", completed_through="2026-10-09"
@@ -39,8 +106,10 @@ def test_adjacent_factor_changes_refresh_both_frequencies_and_failure_keeps_noti
     with connection(tmp_path / "fixtures") as con:
         calendar = silver_trade_calendar_path(root)
         calendar.parent.mkdir(parents=True)
+        # Silver calendar contract: trade_date DATE, is_open BOOLEAN.
         con.sql(
-            "SELECT unnest(['2026-10-15','2026-10-16'])::DATE cal_date,'SSE' exchange,1 is_open"
+            "SELECT 'SSE' exchange,unnest(['2026-10-15','2026-10-16'])::DATE trade_date,"
+            "true is_open,NULL::DATE pretrade_date"
         ).write_parquet(str(calendar))
         for day, factor in [("2026-10-15", 1), ("2026-10-16", 2)]:
             path = silver_adj_factor_path(root, day)
@@ -105,7 +174,8 @@ def test_week_midpoint_success_does_not_close_period_or_replay_days(
         calendar = silver_trade_calendar_path(root)
         calendar.parent.mkdir(parents=True)
         con.sql(
-            "SELECT unnest(['2026-10-12','2026-10-13','2026-10-14','2026-10-15','2026-10-16'])::DATE cal_date,'SSE' exchange,1 is_open"
+            "SELECT 'SSE' exchange,unnest(['2026-10-12','2026-10-13','2026-10-14',"
+            "'2026-10-15','2026-10-16'])::DATE trade_date,true is_open,NULL::DATE pretrade_date"
         ).write_parquet(str(calendar))
     atomic_json(
         staging / "stock_period/baseline.json",

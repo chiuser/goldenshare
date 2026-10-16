@@ -44,8 +44,10 @@ def exercise_sensor(tmp_path, freq):
     p = silver_trade_calendar_path(root)
     p.parent.mkdir(parents=True)
     with connection(tmp_path / "fixture") as con:
+        # Contract: SILVER_TRADE_CALENDAR_SCHEMA, not Raw trade_cal fields.
         con.sql(
-            "SELECT DATE '2026-10-19' cal_date,'SSE' exchange,1 is_open"
+            "SELECT 'SSE' exchange,DATE '2026-10-19' trade_date,"
+            "true is_open,NULL::DATE pretrade_date"
         ).write_parquet(str(p))
     atomic_json(staging / "stock_period/baseline.json", {"status": "ready"})
     atomic_json(
@@ -78,6 +80,37 @@ def exercise_sensor(tmp_path, freq):
 
 def test_weekly_backlog_and_current_request_preserve_cursor(tmp_path):
     exercise_sensor(tmp_path, "week")
+
+
+@pytest.mark.parametrize("freq", ["week", "month"])
+def test_sensor_rejects_raw_calendar_field(tmp_path, freq):
+    import duckdb
+
+    ctx, staging = exercise_sensor(tmp_path, freq)
+    original_cursor = ctx.cursor
+    calendar = silver_trade_calendar_path(ctx.resources.lake_root.root())
+    with connection(tmp_path / "wrong_fixture") as con:
+        con.sql(
+            "SELECT 'SSE' exchange,DATE '2026-10-19' cal_date,"
+            "true is_open,NULL::DATE pretrade_date"
+        ).write_parquet(str(calendar))
+    with pytest.raises(duckdb.BinderException, match="trade_date"):
+        evaluate_daily_sensor(ctx, NOW, freq=freq, staging_root=staging)
+    assert ctx.cursor == original_cursor
+
+
+@pytest.mark.parametrize("freq", ["week", "month"])
+def test_sensor_skips_closed_calendar_day(tmp_path, freq):
+    ctx, staging = exercise_sensor(tmp_path, freq)
+    calendar = silver_trade_calendar_path(ctx.resources.lake_root.root())
+    with connection(tmp_path / "closed_fixture") as con:
+        con.sql(
+            "SELECT 'SSE' exchange,DATE '2026-10-19' trade_date,"
+            "false is_open,NULL::DATE pretrade_date"
+        ).write_parquet(str(calendar))
+    result = evaluate_daily_sensor(ctx, NOW, freq=freq, staging_root=staging)
+    assert not result.run_requests and result.cursor is None
+    assert result.skip_reason.skip_message == "非交易日，不请求周/月源。"
 
 
 @pytest.mark.parametrize("freq", ["week", "month"])

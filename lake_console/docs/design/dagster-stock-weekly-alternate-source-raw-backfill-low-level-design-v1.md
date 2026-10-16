@@ -1,6 +1,6 @@
 # DG 周/月Raw直接源下载与更新共享 LLD v1
 
-更新：2026-10-16。**第1、2步已提交09ea909f，第3—5步已提交89ce38fe，均完成对应隔离验收；第6、7步修订文档已提交8ce4f252；第6、7步开发及隔离验收完成，155项直接回归、隔离dg check defs通过；Raw程序验收完成，尚未正式切换。** 业务范围不变：两套Raw、仍上市股票、北交所新码、完整源21列、先删后bootstrap、每日更新和因子变化后的单股历史刷新。方案见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线差异见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。本次提交包括第6、7步实现、测试及验收文档；不执行正式删除、freeze、写Lake/移动盘staging、重载、事件或sensor操作，不开发Silver，R3继续暂停。
+更新：2026-10-16。**第1—7步已提交至d46486a5；原155项回归的日历相关验收因夹具与真实上游不符而撤回。本轮已修正两处查询及六份相关夹具，44项受影响回归和真实日历只读调用通过，已知代码阻塞关闭，详见§5.9；本次提交收录修正，正式定义尚未加载。** 业务范围不变：两套Raw、仍上市股票、北交所新码、完整源21列、先删后bootstrap、每日更新和因子变化后的单股历史刷新。方案见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，月线差异见[月线LLD](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md)。第8步正式重建与日常交接仍须review精确执行清单后执行；本轮不执行正式删除、freeze、写Lake/移动盘staging、重载、事件或sensor操作，不开发Silver，R3继续暂停。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -136,6 +136,8 @@ replace成功、checkpoint失败时，恢复只对该目标做一次必要hash/�
 
 19:30后按交易日规划，周/月欠账按周期去重，先补欠账再刷新当前。周五失败下周补原周，月末失败次月补原月，不逐日重放；完整休市周期以交易日历证明跳过。sensor先做时间/状态轻判断，仅读取必要控制摘要和选定日历，不写Parquet。
 
+日历统一消费既有silver_trade_calendar，路径为silver/calendar/trade_calendar/full/part-000.parquet，合同为exchange VARCHAR、trade_date DATE、is_open BOOLEAN、pretrade_date DATE。calendar_days的投影/排序及sensor当日筛选都使用trade_date；Raw trade_cal的cal_date已由既有silver_trade_calendar_select转换，不能直接拿Raw字段充当Silver合同。这里复用共享日历，不涉及开发周/月Silver。测试须以该生产者及SILVER_TRADE_CALENDAR_SCHEMA为依据，另用独立字面断言核对字段/结果，不能随消费者查询反推夹具。
+
 | 事实 | 可完成的条件 | 失败/恢复规则 |
 | --- | --- | --- |
 | 当天周期刷新 | 本周期源已发布到意图交易日、候选检查与文件提交成功 | 源陈旧/全NULL时留待办，不因HTTP200或19:30标当天成功 |
@@ -193,7 +195,7 @@ CLI的events只允许消费files_complete后的提交清单，不下载、COPY�
 
 ### 5.2 当前阶段与执行顺序
 
-A阶段最小真实源样本已保留；步骤1—5已开发、隔离验收并提交。第6步旧链/说明及自身治理登记、第7步小型组合/成本补测和最终对账均已完成，当前版本155项直接回归通过，见§5.8；不与历史数量累加。当前停在Raw程序隔离验收；本次提交包括第6、7步实现、测试及结果文档。正式删除/bootstrap/调度交接另列清单，不自动执行；Silver后续单独开发。
+A阶段最小真实源样本已保留；步骤1—7已提交至d46486a5。第6步清退及第7步原155项回归见§5.8；日历相关通过结论已撤回，本轮修复、44项受影响回归及真实只读核验见§5.9，不与历史数量累加。修正随本次提交交付，正式定义尚未加载，正式删除/bootstrap/调度交接另列清单review，不自动执行；Silver后续单独开发。
 
 ### 5.3 14项的实现状态与开发动作
 
@@ -302,7 +304,7 @@ CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事
 
 最终只交一张“已确认要求→实现位置→正反测试→适用版本证据→通过/未完成”表，注明行数来源，区分既有真实Tushare样本与本次localhost回放/字面夹具，列清源/准入/排除/写入事实、文件/事件/交接三类完成情况和实测成本，不能把回放写成本轮Tushare实拉。本节组合路径、旧入口拒绝及周/月自身治理缺项未关闭不能标Raw程序验收完成；不为填写表格再次请求源或扫描数据。正式挂载写盘支持、共享token实际配额、正式写者与部署边界留到另行批准的正式执行阶段，不拿隔离通过替代，也不在本阶段提前执行。提交依届时明确白名单，不推送；本轮已获准第6、7步开发，新冲突仍按确认门禁处理。
 
-### 5.8 第6、7步交付与最终对账（2026-10-16）
+### 5.8 第6、7步交付与原对账（2026-10-16，日历漏项更正见§5.9）
 
 修订文档已提交8ce4f252；本次提交收录第6、7步实现、测试及结果文档。第6步删除旧Prod库存/计划/预算、月线point及无生产消费者的整周/月日线上游状态模块；薄policy保留原时区、19:30和60秒，asset/job/check/分区名不变。现行21列schema前后逐项相等；月键、非法日期、20200228/29、Decimal/NULL、退役入口断言保留到新链。仅修正weekly asset/job与事件job过时说明。补本任务月线三项治理，周线三项原登记保留；全仓既有16个缺项减少为15个无关资产，不放宽断言或整改其他对象。catalog开始时内容及格式改动保留。
 
@@ -324,7 +326,29 @@ CodeGraph explore/impact已覆盖asset→update→history→source/raw、CLI/事
 
 CodeGraph explore/impact结合当前import核对旧闭包与asset→update→history→source/raw、CLI/events/ops和测试消费者；动态调用及同名误匹配以当前源码补核。无Prod/前端/API消费者迁移，无业务子系统依赖矩阵变化。定义默认STOPPED不是正式sensor运行状态，本轮未改正式状态或cursor。
 
-性能分解见§6.1。逐项要求→实现→正反测试→适用版本证据及文件hash保存在/private/tmp/dg_period_step7_resume_1792129739381816000/acceptance.md，前一轮第6步/失败证据保留/private/tmp/dg_period_step67_1792127048786658000/。本阶段结论为Raw程序隔离验收通过；真实Tushare新请求及全部正式操作为0，正式重建另经批准，Silver未推进，R3继续暂停。
+性能分解见§6.1。该轮逐项要求→实现→正反测试→适用版本证据及文件hash保存在/private/tmp/dg_period_step7_resume_1792129739381816000/acceptance.md，前一轮第6步/失败证据保留/private/tmp/dg_period_step67_1792127048786658000/。该轮曾判Raw程序隔离验收通过，后续发现六份日历夹具与真实上游不符，相关结论撤回；本轮补验与当前准入结论见§5.9，旧结果不冒充新版本验收。该轮真实Tushare新请求及全部正式操作为0，Silver未推进，R3继续暂停。
+
+### 5.9 日历阻塞修复与第8步只读准入（2026-10-16）
+
+根因是stock_period_update.py读取Silver日历时仍查询Raw字段cal_date，六份测试中的七处夹具重复了这一错误。实际生成器及正式文件均为trade_date DATE、is_open BOOLEAN。仅将calendar_days投影/排序和evaluate_daily_sensor当日筛选改为trade_date；不改日历生产者、源请求、Raw的21列、CLI、配置、预算或业务范围，不保留旧字段兜底。
+
+| 要求/风险 | 本轮实现与证据 | 结果 |
+| --- | --- | --- |
+| 真实上游合同能接入 | test_stock_period_update新增真实silver_trade_calendar_select生成临时输入，独立断言四列类型、日期/布尔转换、SSE开市及休市范围 | 修复前缺cal_date失败，修复后通过 |
+| 错误夹具不能再冒充Silver | 日历helper及两频sensor反测仅有cal_date；两频另测BOOLEAN false不调度 | 旧helper会误接受错误输入；修复后拒绝且不改cursor |
+| 直接消费者不被漏修 | 六份夹具统一DATE/BOOLEAN及四列结构并注明依据；daily、两频sensor、handoff、实际job/check、事件失败/取消续跑共44项回归 | 本轮44项通过，13.80秒，不沿用155项宣称当前版本通过 |
+| 真实文件读取 | 修复后calendar_days只读现有正式日历，覆盖13,162天、8,797个SSE开市日，末端2026-12-31；16:59时已发布截止2026-10-15，对应因子文件存在 | 通过；日历元数据未变，无正式写入 |
+| 对象/新码范围 | basic和identity元数据与上一轮证据完全一致，复用5,576只上市股、350只北交所及活动旧码0的结论 | 未重扫对象池或旧行情，未请求源 |
+| 挂载/空间/写者 | 两正式根同设备、非只读，约2.66TiB空闲；相关在途job及手动CLI均未发现，新链控制目录尚不存在 | 本次时点通过，执行边界仍须一次确认无冲突写者 |
+| 定义与调度交接 | 正式code location仍为前一晚加载的旧定义；两个sensor仍RUNNING，周/月旧水位2026-10-09/2026-09保留 | 尚未部署修正，不能将源码通过当加载或正式执行通过 |
+
+同一小型完整场景改用真实日历字段后实测4.606秒，14次localhost请求，最终6文件/14行、12次逐文件提交；重复handoff及anchor补记无新增请求或文件改写。该数字是本轮隔离回放，不是Tushare实拉或全市场ETA。旧源样本、未改变路径的文件性能及独立用例证据仍保留，不重新下载历史或运行2207文件性能样本。
+
+完整证据在/private/tmp/dg_period_calendar_fix_p08_inic/：before_fix.xml记录四个预期失败；regression.xml记录本轮44项通过；performance.json为本轮小场景，step8_audit.json为16:59只读快照。首轮回归漏指定/private/tmp测试根且沙箱禁止localhost绑定的启动失败，保留于after_fix.log；随后修正测试启动方式，未放宽生产路径或网络护栏。Ruff、致命错误及文档/差异校验结果随本轮审计记录；不把启动失败隐藏或计为业务通过。
+
+CodeGraph explore核验daily→calendar_days及handoff、sensor消费者，独立sensor SQL结合当前代码确认，变更后sync/status正常；不涉及Prod、前端/API或子系统依赖矩阵变化。其他未提交改动保留；catalog现有差异AST等于HEAD，已获准加载但未验收的R3模块继续暂停，不执行修复命令、不视为通过。
+
+**结论：已知日历代码阻塞已关闭，可以准备并review第8步正式执行清单；不等于现在可直接删除。** 以本次白名单提交为基线确认加载范围，再在获准窗口加载验收版本并按原清单进行两根删除、bootstrap、事件和handoff；本轮不执行上述动作。当前相关写者为空只是审计时点事实，共享配额/实际窗口仍在正式清单确认一次，不重复审计行情。全部正式操作及真实Tushare新请求为0，Silver与R3不推进。
 
 ## 6. 配置与性能依据
 

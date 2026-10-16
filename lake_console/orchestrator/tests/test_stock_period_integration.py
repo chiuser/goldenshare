@@ -48,9 +48,11 @@ def write_upstreams(root, work, *, newcomer=False):
         ).write_parquet(str(identity))
         calendar = paths.silver_trade_calendar_path(root)
         calendar.parent.mkdir(parents=True, exist_ok=True)
+        # Contract: SILVER_TRADE_CALENDAR_SCHEMA; source cal_date is already normalized.
         con.sql(
-            "SELECT DATE '2026-10-01'+i::INTEGER cal_date,'SSE' exchange,"
-            "(isodow(DATE '2026-10-01'+i::INTEGER)<=5)::INTEGER is_open FROM range(61) t(i)"
+            "SELECT 'SSE' exchange,DATE '2026-10-01'+i::INTEGER trade_date,"
+            "(isodow(DATE '2026-10-01'+i::INTEGER)<=5) is_open,"
+            "NULL::DATE pretrade_date FROM range(61) t(i)"
         ).write_parquet(str(calendar))
         for day, factor in [("2026-10-30", 1), ("2026-11-02", 2), ("2026-11-03", 2)]:
             target = paths.silver_adj_factor_path(root, day)

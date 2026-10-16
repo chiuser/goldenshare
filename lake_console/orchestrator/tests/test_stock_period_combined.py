@@ -352,8 +352,10 @@ def test_real_daily_execution_plans_period_and_factor_history_before_one_publica
     with connection(tmp_path / "fixtures", POLICY) as con:
         cal = silver_trade_calendar_path(kw["root"])
         cal.parent.mkdir(parents=True, exist_ok=True)
+        # Matches SILVER_TRADE_CALENDAR_SCHEMA, not the Raw trade_cal response.
         con.sql(
-            "SELECT unnest(['2026-10-12','2026-10-13','2026-10-14','2026-10-15','2026-10-16'])::DATE cal_date,'SSE' exchange,1 is_open"
+            "SELECT 'SSE' exchange,unnest(['2026-10-12','2026-10-13','2026-10-14',"
+            "'2026-10-15','2026-10-16'])::DATE trade_date,true is_open,NULL::DATE pretrade_date"
         ).write_parquet(str(cal))
         for day, factor in (("2026-10-15", 1), ("2026-10-16", 2)):
             p = silver_adj_factor_path(kw["root"], day)
