@@ -10,6 +10,7 @@ import shutil
 import stat
 import sys
 import threading
+from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
@@ -63,6 +64,7 @@ def safe_path(path):
 
 
 _BUDGET = ContextVar("period_storage_budget", default=None)
+_PROCESS_MEMORY = ContextVar("period_process_memory", default=None)
 
 
 def sync_directory(path):
@@ -264,8 +266,58 @@ def connection(work, policy=DEFAULT_POLICY):
     )
 
 
+@contextmanager
+def process_memory_budget(policy, rss_limit_bytes=None, *, progress=lambda _: None):
+    """Execution-only RSS override; frozen source/execution policies stay intact."""
+    if rss_limit_bytes is not None and (
+        type(rss_limit_bytes) is not int or rss_limit_bytes <= 0
+    ):
+        raise ValueError("period_runtime_rss_limit_invalid")
+    observed = (
+        {
+            "frozen_rss_limit_bytes": policy.rss_bytes,
+            "rss_limit_bytes": rss_limit_bytes,
+            "last_observed_rss_bytes": 0,
+            "observed_peak_rss_bytes": 0,
+        }
+        if rss_limit_bytes is not None
+        else None
+    )
+    token = _PROCESS_MEMORY.set(observed)
+    try:
+        if observed is not None:
+            check_memory(policy)
+            progress({"stage": "process_memory", "status": "started", **observed})
+        yield
+    finally:
+        error = sys.exc_info()[1]
+        _PROCESS_MEMORY.reset(token)
+        if observed is not None:
+            try:
+                progress(
+                    {
+                        "stage": "process_memory",
+                        "status": "failed" if error else "finished",
+                        **observed,
+                    }
+                )
+            except Exception:
+                # Reporting must not replace an active execution error.
+                if error is None:
+                    raise
+
+
 def check_memory(policy):
-    if current_rss_bytes() > policy.rss_bytes:
+    resident = current_rss_bytes()
+    observed = _PROCESS_MEMORY.get()
+    limit = policy.rss_bytes
+    if observed is not None:
+        limit = observed["rss_limit_bytes"]
+        observed["last_observed_rss_bytes"] = resident
+        observed["observed_peak_rss_bytes"] = max(
+            observed["observed_peak_rss_bytes"], resident
+        )
+    if resident > limit:
         raise ValueError("period_process_memory_exceeded")
 
 
@@ -313,6 +365,7 @@ def execute(
                         "stage": stage,
                         "status": "working",
                         "business_completed_unchanged": True,
+                        **(_PROCESS_MEMORY.get() or {}),
                     }
                 )
                 emitted = time.monotonic()
@@ -320,7 +373,7 @@ def execute(
         check_memory(policy)
         if errors:
             raise errors[0]
-        progress({"stage": stage})
+        progress({"stage": stage, **(_PROCESS_MEMORY.get() or {})})
         return results[0]
     finally:
         # Repeat interrupt until the query has actually exited, covering the
@@ -780,20 +833,21 @@ def assemble(
         )
 
 
-def _validate_candidates(con, pending, freq, cancel, progress, policy):
+def _validate_candidates(con, pending, freq, cancel, progress, policy, *, fragments=()):
     paths = [str(path) for _, path in pending]
-    versions = {str(path): file_version(path) for _, path in pending}
+    schema_paths = sorted(set(paths) | set(fragments))
+    versions = {path: file_version(path) for path in schema_paths}
     schemas = execute(
         con,
         "SELECT file_name,list(name ORDER BY column_id),list(duckdb_type ORDER BY column_id) "
         "FROM parquet_schema(?) WHERE column_id>0 GROUP BY file_name",
-        [paths],
+        [schema_paths],
         cancel=cancel,
         progress=progress,
         stage="candidate_schemas",
         policy=policy,
     ).fetchall()
-    if len(schemas) != len(paths) or any(
+    if len(schemas) != len(schema_paths) or any(
         list(zip(names, types, strict=True)) != list(SPECS)
         for _, names, types in schemas
     ):
@@ -817,6 +871,8 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy):
         path: (count, unique, invalid, first, last)
         for path, count, unique, invalid, first, last in rows
     }
+    if any(file_version(path) != version for path, version in versions.items()):
+        raise ValueError("period_validated_candidate_changed")
     result = {}
     for period, path in pending:
         key = str(path)
@@ -825,7 +881,6 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy):
             count != unique
             or invalid
             or (count and (first != period or last != period))
-            or versions[key] != file_version(path)
         ):
             raise ValueError("period_file_key_or_partition_invalid")
         result[key] = {
@@ -836,41 +891,174 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy):
     return result
 
 
+def _fragment_versions(work, period):
+    directory = safe_path(work / "outputs" / f"period={period}")
+    files = sorted(directory.glob("*.parquet"))
+    if not files:
+        raise ValueError("period_candidate_file_count_invalid")
+    return {str(path): file_version(path) for path in files}
+
+
+def _save_fragment_proof(path, proof):
+    atomic_json(path, {**proof, "proof_hash": digest(proof)})
+
+
+def _merged_candidate(
+    con, work, period, fragments, expected_rows, cancel, progress, policy
+):
+    """Normalize only this partition; retain COPY outputs and resumable proof."""
+    from uuid import uuid4
+
+    out = safe_path(work / "merged" / f"{period}.parquet")
+    cp = work / "validated" / f"{period}.json"
+    if cp.exists():
+        proof = read_json(cp)
+        seal = proof.pop("proof_hash", None)
+        if (
+            seal != digest(proof)
+            or proof.get("phase") not in ("merging", "merged", "validated")
+            or proof.get("fragments") != fragments
+            or proof.get("candidate") != str(out)
+            or (proof["phase"] != "validated" and "item" in proof)
+            or (proof["phase"] == "merging" and "version" in proof)
+        ):
+            raise ValueError("period_candidate_fragments_changed")
+    else:
+        if out.exists():
+            raise ValueError("period_unowned_merged_candidate")
+        proof = {"phase": "merging", "fragments": fragments, "candidate": str(out)}
+        _save_fragment_proof(cp, proof)
+    if proof["phase"] == "merging":
+        if out.exists():
+            # Exceptional rename/record gap only. Prove full multiset equality,
+            # including NULL/Decimal, before claiming an unrecorded output.
+            before = file_version(out)
+            mismatch = execute(
+                con,
+                "WITH a AS (SELECT * FROM read_parquet(?,hive_partitioning=false)),"
+                "b AS (SELECT * FROM read_parquet(?,hive_partitioning=false)) "
+                "SELECT 1 FROM ((SELECT * FROM a EXCEPT ALL SELECT * FROM b) "
+                "UNION ALL (SELECT * FROM b EXCEPT ALL SELECT * FROM a)) LIMIT 1",
+                [[str(out)], list(fragments)],
+                cancel=cancel,
+                progress=progress,
+                policy=policy,
+                stage="candidate_merge_recovery",
+            ).fetchone()
+            if mismatch or before != file_version(out):
+                raise ValueError("period_unowned_merged_candidate")
+            with out.open("rb") as handle:
+                os.fsync(handle.fileno())
+        else:
+            check_cancel(cancel)
+            storage_reserve(expected_rows * 512 + 16384, spill=True)
+            durable_directory(out.parent)
+            # A fresh name retains any interrupted temporary output as evidence.
+            temporary = out.with_name(out.stem + "." + uuid4().hex + ".tmp.parquet")
+            try:
+                execute(
+                    con,
+                    "COPY (SELECT * FROM read_parquet(?,hive_partitioning=false)) TO ? (FORMAT PARQUET)",
+                    [list(fragments), str(temporary)],
+                    cancel=cancel,
+                    progress=progress,
+                    policy=policy,
+                    stage="candidate_merge",
+                )
+                with temporary.open("rb") as handle:
+                    os.fsync(handle.fileno())
+                if out.exists():
+                    raise ValueError("period_unowned_merged_candidate")
+                os.replace(temporary, out)
+            finally:
+                storage_record(temporary)
+                storage_record(out)
+        sync_directory(out.parent)
+        proof.update(phase="merged", version=file_version(out))
+        _save_fragment_proof(cp, proof)
+        progress(
+            {
+                "stage": "candidate_merged",
+                "period": period,
+                "expected_rows": expected_rows,
+            }
+        )
+    if proof.get("version") != file_version(out):
+        raise ValueError("period_validated_candidate_changed")
+    return out, proof
+
+
 def _candidate_receipts(
     con, periods, work, root, freq, cancel, progress, policy=DEFAULT_POLICY
 ):
-    files, existing, pending = [], {}, []
+    files, existing, pending, bindings, proofs, targets = [], {}, [], {}, {}, {}
+    copied = read_json(work / "copy.json")
+    expected_rows = copied["expected_rows"]
     for period in periods:
         check_cancel(cancel)
-        outputs = list((work / "outputs" / f"period={period}").glob("*.parquet"))
-        if len(outputs) != 1:
-            raise ValueError("period_candidate_file_count_invalid")
-        out = outputs[0]
+        # Validate period before deriving any run-scoped output/checkpoint path.
+        targets[period] = target_path(root, freq, period)
+        bindings[period] = fragments = _fragment_versions(work, period)
+        for path in fragments:
+            storage_record(path)
+        cp = work / "validated" / f"{period}.json"
+        if len(fragments) == 1:
+            out = Path(next(iter(fragments)))
+            proof = read_json(cp) if cp.exists() else None
+            if proof is not None and "phase" in proof:
+                raise ValueError("period_candidate_fragments_changed")
+        else:
+            out, proof = _merged_candidate(
+                con,
+                work,
+                period,
+                fragments,
+                expected_rows[period],
+                cancel,
+                progress,
+                policy,
+            )
+            proofs[period] = proof
         storage_record(out)
         files.append((period, out))
-        cp = work / "validated" / f"{period}.json"
-        if cp.exists():
-            proof = read_json(cp)
+        if proof is not None and (
+            "phase" not in proof or proof["phase"] == "validated"
+        ):
             item = proof["item"]
             if (
                 proof["receipt_hash"] != digest(item)
                 or item["candidate"] != str(out)
                 or item["version"] != file_version(out)
+                or item["freq"] != freq
+                or item["period"] != period
+                or item["target"] != str(targets[period])
+                or item["target_preimage"] != copied["target_preimages"][period]
             ):
                 raise ValueError("period_validated_candidate_changed")
             existing[period] = item
         else:
             pending.append((period, out))
     facts = (
-        _validate_candidates(con, pending, freq, cancel, progress, policy)
+        _validate_candidates(
+            con,
+            pending,
+            freq,
+            cancel,
+            progress,
+            policy,
+            fragments=[path for period, _ in pending for path in bindings[period]],
+        )
         if pending
         else {}
     )
-    copied = read_json(work / "copy.json")
-    expected_rows = copied["expected_rows"]
     receipts = []
     for index, (period, out) in enumerate(files):
         check_cancel(cancel)
+        if (
+            period not in existing
+            and _fragment_versions(work, period) != bindings[period]
+        ):
+            raise ValueError("period_candidate_fragments_changed")
         item = existing.get(period)
         if item is None:
             item = {
@@ -878,15 +1066,20 @@ def _candidate_receipts(
                 "period": period,
                 "candidate": str(out),
                 "target_preimage": copied["target_preimages"][period],
-                "target": str(target_path(root, freq, period)),
+                "target": str(targets[period]),
                 **facts[str(out)],
             }
-            atomic_json(
-                work / "validated" / f"{period}.json",
-                {"item": item, "receipt_hash": digest(item)},
-            )
         if item["rows"] != expected_rows[period]:
             raise ValueError("period_candidate_row_reconciliation_failed")
+        if period not in existing:
+            proof = {"item": item, "receipt_hash": digest(item)}
+            cp = work / "validated" / f"{period}.json"
+            if period in proofs:
+                _save_fragment_proof(
+                    cp, {**proofs[period], **proof, "phase": "validated"}
+                )
+            else:
+                atomic_json(cp, proof)
         receipts.append(item)
         progress(
             {

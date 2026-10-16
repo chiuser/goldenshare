@@ -253,6 +253,81 @@ def test_cancel_after_validated_candidate_reuses_copy_and_validation(
     assert counts.count("import_source") == 1 and counts.count("partition_copy") == 1
 
 
+def test_multifragment_bootstrap_resume_preserves_source_and_copy(
+    tmp_path, monkeypatch
+):
+    """Inject a real empty Parquet fragment; actual parallel output is tested separately.
+
+    This isolates the coordinator's recovery boundary without extra source rows
+    or millions of rows solely to force DuckDB's buffered flush behavior.
+    """
+    import orchestrator.defs.io.stock_period_raw as raw
+
+    kw = args(tmp_path)
+    calls, sql = [], []
+    execute = raw.execute
+    cancelled = False
+
+    def transport(params):
+        calls.append(params["freq"])
+        return source(params)
+
+    def with_fragment(con, query, parameters=None, **options):
+        sql.append(options.get("stage"))
+        result = execute(con, query, parameters, **options)
+        if options.get("stage") == "partition_copy":
+            output = Path(parameters[-1])
+            for directory in output.iterdir():
+                original = next(directory.glob("*.parquet"))
+                execute(
+                    con,
+                    "COPY (SELECT * FROM read_parquet(?,hive_partitioning=false) WHERE false) TO ? (FORMAT PARQUET)",
+                    [str(original), str(directory / "empty-fragment.parquet")],
+                    policy=options["policy"],
+                    stage="fixture_fragment",
+                )
+        return result
+
+    def progress(event):
+        nonlocal cancelled
+        if event["stage"] == "candidate_merged":
+            cancelled = True
+
+    monkeypatch.setattr(raw, "execute", with_fragment)
+    kw["transport"] = transport
+    with pytest.raises(PeriodCancelled):
+        run_period(**kw, cancel=lambda: cancelled, progress=progress)
+    run = next((kw["staging"] / "stock_period" / "runs").iterdir())
+    manifest = json.loads((run / "manifest.json").read_text())
+    copy = (run / "build/week/copy.json").read_bytes()
+    weekly_candidate = run / "build/week/merged/2026-10-16.parquet"
+    version = file_version(weekly_candidate)
+    csv_versions = {str(p): file_version(p) for p in run.rglob("*.csv")}
+    assert calls == ["week"]
+    sql.clear()
+    result = run_period(**kw)
+    assert calls == ["week", "month"]
+    assert sql.count("import_source") == 1
+    assert sql.count("partition_copy") == 1
+    assert sql.count("candidate_merge") == 1  # Only the first-time month.
+    assert (run / "build/week/copy.json").read_bytes() == copy
+    assert {p: file_version(p) for p in csv_versions} == csv_versions
+    after = json.loads((run / "manifest.json").read_text())
+    assert after["identity_hash"] == manifest["identity_hash"]
+    assert after["identity"] == manifest["identity"]
+    weekly_target = target_path(kw["root"], "week", "2026-10-16")
+    assert file_version(weekly_target)[:4] == version[:4]  # rename changes ctime.
+    assert after["phase"] == "files_complete" and result["events_complete"] is False
+    with raw.connection(tmp_path / "readback", kw["policy"]) as con:
+        for freq, period in (("week", "2026-10-16"), ("month", "2026-10")):
+            assert con.execute(
+                "SELECT ts_code,trade_date,close FROM read_parquet(?,hive_partitioning=false)",
+                [str(target_path(kw["root"], freq, period))],
+            ).fetchall() == [
+                ("000001.SZ", "20261016" if freq == "week" else "20261031", 1.25)
+            ]
+
+
 def test_confirmed_delisted_scope_makes_no_request_and_removes_rows(tmp_path):
     kw = args(tmp_path)
     run_period(**kw)

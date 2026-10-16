@@ -23,6 +23,7 @@ from orchestrator.defs.io.stock_period_raw import (
     dataset_root,
     file_version,
     merge_ranges,
+    process_memory_budget,
     publish,
     read_json,
     safe_path,
@@ -329,11 +330,16 @@ def run_period(
     confirmed_retired=(),
     transport=None,
     policy=DEFAULT_POLICY,
+    runtime_rss_bytes=None,
     cancel=lambda: False,
     progress=lambda _: None,
     events=None,
 ):
     """No formal operation is invoked by import. All tests supply explicit temporary roots."""
+    if runtime_rss_bytes is not None and (
+        type(runtime_rss_bytes) is not int or runtime_rss_bytes <= 0
+    ):
+        raise ValueError("period_runtime_rss_limit_invalid")
     root, staging = roots(root, staging)
     initial_devices = devices(root, staging)
     if initial_devices["root"] != initial_devices["staging"]:
@@ -383,7 +389,17 @@ def run_period(
         "aliases": aliases,
     }
     run_id = execution_id(intent.get("request_id"))
-    with writer(staging) as control:
+    if runtime_rss_bytes is not None and (
+        mode != "bootstrap"
+        or not safe_path(
+            staging / "stock_period/runs" / run_id / "manifest.json"
+        ).is_file()
+    ):
+        raise ValueError("period_runtime_rss_resume_required")
+    with (
+        writer(staging) as control,
+        process_memory_budget(policy, runtime_rss_bytes, progress=progress),
+    ):
         run = safe_path(control / "runs" / run_id)
         run.mkdir(parents=True, exist_ok=True)
         manifest = run / "manifest.json"

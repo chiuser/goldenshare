@@ -48,7 +48,16 @@ def main(argv=None):
     parser.add_argument("--request-id")
     parser.add_argument("--run-id")
     parser.add_argument("--confirm-delete-existing", action="store_true")
+    parser.add_argument(
+        "--rss-limit-gib",
+        type=int,
+        help="Override process RSS for this existing bootstrap resume only (positive GiB).",
+    )
     args = parser.parse_args(argv)
+    if args.rss_limit_gib is not None and (
+        args.action != "resume" or args.rss_limit_gib <= 0
+    ):
+        parser.error("--rss-limit-gib requires resume and a positive integer")
     root, staging = roots(args.lake_root, args.staging_root)
     if args.action == "prepare":
         print(
@@ -84,6 +93,11 @@ def main(argv=None):
         verify_execution(frozen, args.run_id)
         if frozen["identity"]["root"] != str(root):
             raise ValueError("period_resume_identity_changed")
+        if (
+            args.rss_limit_gib is not None
+            and frozen["identity"]["intent"]["mode"] != "bootstrap"
+        ):
+            parser.error("--rss-limit-gib requires an existing bootstrap")
         if args.action == "events" and frozen["phase"] not in (
             "files_complete",
             "events_complete",
@@ -187,6 +201,9 @@ def main(argv=None):
                 policy=StockPeriodPolicy(**frozen["identity"]["policy"])
                 if frozen
                 else StockPeriodPolicy(),
+                runtime_rss_bytes=args.rss_limit_gib * 1024**3
+                if args.rss_limit_gib is not None
+                else None,
                 cancel=lambda: interrupted,
                 progress=lambda event: print(json.dumps(event), flush=True),
             )
