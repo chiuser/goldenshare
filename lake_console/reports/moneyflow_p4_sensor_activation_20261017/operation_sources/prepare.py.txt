@@ -1,0 +1,14 @@
+import json
+from common import *
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance
+from orchestrator.moneyflow_continuation.state import NativeBackend
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance);audit=read_json(OUT/'audit.json');all_states=guard(b,audit);before=fetch(b,NAMES);assert all(x['sensorState']['status']=='STOPPED' for x in before.values())
+ steps=[]
+ for ds in DATASETS:
+  for n in names(ds):
+   start={'query':START,'variables':{'selector':selector(n)}};stop={'query':STOP,'variables':{'id':before[n]['sensorState']['id']}};schema_check(start);schema_check(stop)
+   steps.append({'dataset':ds,'name':n,'start':start,'stop':stop,'expected':'RUNNING; no job, partition or source request; normal completed tick'})
+ save(OUT/'before-sensors.json',before,True)
+ manifest={'as_of':now().isoformat(),'audit':{'path':str(OUT/'audit.json'),'sha256':file_hash(OUT/'audit.json')},'authorization':'User: 完成一下前三步吧。 Covers audit, native21sensor start/readback and stop on failure; P5 observation excluded.','working_directory':str(PROJECT),'instance_home':str(INSTANCE_HOME),'endpoint':'http://127.0.0.1:3000/graphql','lake_root':'/Volumes/datasource/data_lake','staging_root':'/Volumes/datasource/data_lake_staging','sequence':steps,'other_sensor_statuses':{k:v for k,v in all_states.items() if k not in NAMES},'activation_command':['.venv/bin/python3','-B','-u','/private/tmp/moneyflow-sensor-activation-20261017/activate.py'],'observer_policy':{'poll_seconds':10,'per_table_seconds':120,'per_table_max_polls':12,'reads':400,'memory_bytes':768*1024**2},'expires_at':'2026-10-18T00:00:00+08:00','code_reload':False,'configuration_changes':False,'first_tick_expected':audit['expected_first_tick'],'p5_complete':False}
+ save(OUT/'execution_manifest.json',manifest,True);print(json.dumps({'manifest':str(OUT/'execution_manifest.json'),'sha256':file_hash(OUT/'execution_manifest.json'),'steps':len(steps),'reads':b.meter.count,'expected':manifest['first_tick_expected']}),flush=True)

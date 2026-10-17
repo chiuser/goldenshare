@@ -1,0 +1,1 @@
+{"query":"mutation($selector:SensorSelector!){startSensor(sensorSelector:$selector){__typename ... on Sensor{name sensorState{id status}} ... on PythonError{message}}}","variables":{"selector":{"repositoryLocationName":"orchestrator","repositoryName":"__repository__","sensorName":"raw_tushare_moneyflow_ths_update_job_sensor"}}}

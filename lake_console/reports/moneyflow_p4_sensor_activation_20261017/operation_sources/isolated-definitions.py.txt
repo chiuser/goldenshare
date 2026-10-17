@@ -1,0 +1,12 @@
+import os,json,subprocess,sys
+from pathlib import Path
+from orchestrator.moneyflow_continuation.state import source_inventory,dependency_files
+from orchestrator.moneyflow_continuation.contract import file_hash,now
+w=Path(sys.argv[1]);before=source_inventory();deps=dependency_files()
+env={'PATH':str(Path.cwd()/'.venv/bin')+':/usr/bin:/bin','HOME':str(w/'home'),'DAGSTER_HOME':str(w/'instance'),'PYTHONDONTWRITEBYTECODE':'1','UV_NO_SYNC':'1','UV_OFFLINE':'1','DG_CLI_TELEMETRY_ENABLED':'false'}
+command=['.venv/bin/dg','check','defs']
+with (w/'definitions.log').open('w') as log:r=subprocess.run(command,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=120)
+after=source_inventory();report={'mode':'isolated_definitions','as_of':now().isoformat(),'command':command,'exit_code':r.returncode,'isolated_instance':True,'no_formal_credentials':True,'instance':str(w/'instance'),'dependencies':deps,'source_inventory':before,'inventory_stable_during_load':before==after,'log':{'path':str(w/'definitions.log'),'sha256':file_hash(w/'definitions.log')},'formal_load_confirmed':False}
+(w/'definitions.json').write_text(json.dumps(report,indent=2)+'\n')
+print(json.dumps({'exit_code':r.returncode,'inventory_stable':before==after,'dependencies':len(deps),'source_files':len(before),'report':str(w/'definitions.json')}))
+assert r.returncode==0 and before==after

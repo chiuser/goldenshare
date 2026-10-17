@@ -1,0 +1,14 @@
+{
+  "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "instance_home": "/Users/congming/.goldenshare/dagster_home",
+  "command": [
+    ".venv/bin/python3",
+    "-B",
+    "-u",
+    "/private/tmp/moneyflow-sensor-activation-20261017/readback.py"
+  ],
+  "script_sha256": "5771cb12bcc48eecbd7a59000c49beeae9f4c0006313f952d52dbc253715a6ad",
+  "mode": "independent_read_only_final_acceptance",
+  "formal_mutations": 0,
+  "scope": "Only21moneyflow sensors and7dates/98delivery files; no historical detail scan"
+}

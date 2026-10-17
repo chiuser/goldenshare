@@ -1,0 +1,44 @@
+import json,time
+from pathlib import Path
+from graphql import parse,validate,get_variable_values
+from dagster_graphql.schema import create_schema
+from orchestrator.moneyflow_continuation.contract import PROJECT,DATASETS,CONTRACTS,REPOSITORY,now,read_json,file_hash
+from orchestrator.moneyflow_continuation.state import RUNTIME_QUERY,dependency_files
+from orchestrator.moneyflow_continuation.submission import write_json
+from orchestrator.defs.bootstrap.daily_basic_event_instance import INSTANCE_HOME
+from orchestrator.defs.paths import silver_trade_calendar_path
+OUT=PROJECT.parent/'reports/moneyflow_p4_sensor_activation_20261017'
+START='mutation($selector:SensorSelector!){startSensor(sensorSelector:$selector){__typename ... on Sensor{name sensorState{id status}} ... on PythonError{message}}}'
+STOP='mutation($id:String!){stopSensor(id:$id){__typename ... on StopSensorMutationResult{instigationState{id status}} ... on PythonError{message}}}'
+FIELDS='''__typename ... on Sensor{name defaultStatus minIntervalSeconds targets{pipelineName} sensorState{id status typeSpecificData{__typename ... on SensorData{lastTickTimestamp lastCursor}} ticks(limit:2){id status timestamp endTimestamp runIds runKeys skipReason cursor error{message} dynamicPartitionsRequestResults{__typename}}}}'''
+def names(ds):
+ c=CONTRACTS[ds]
+ return ['cn_a_'+ds+'_trade_day_sensor',c.silver_job+'_sensor',c.raw_job+'_sensor']
+NAMES=[n for ds in DATASETS for n in names(ds)]
+def selector(name):
+ assert name in NAMES,'sensor_not_authorized'
+ return {**REPOSITORY,'sensorName':name}
+def schema_check(body):
+ schema=create_schema().graphql_schema;doc=parse(body['query']);assert not validate(schema,doc),'graphql_schema';assert isinstance(get_variable_values(schema,doc.definitions[0].variable_definitions,body.get('variables',{})),dict),'graphql_variables'
+def fetch(b,chosen):
+ assert chosen and set(chosen)<=set(NAMES)
+ variables={f's{i}':selector(n) for i,n in enumerate(chosen)};decl=','.join('$'+k+':SensorSelector!' for k in variables)
+ query='query('+decl+'){'+''.join(f'a{i}:sensorOrError(sensorSelector:$s{i}){{{FIELDS}}}' for i in range(len(chosen)))+'}'
+ data=b.http({'query':query,'variables':variables})['data'];result={}
+ for i,n in enumerate(chosen):
+  x=data[f'a{i}'];assert x['__typename']=='Sensor' and x['name']==n and x['defaultStatus']=='STOPPED' and x['minIntervalSeconds']==600
+  expected=[] if n.startswith('cn_a_') else [{'pipelineName':n[:-7]}]
+  assert x['targets']==expected,(n,'loaded_target')
+  result[n]=x
+ return result
+def guard(b,audit):
+ assert now().date().isoformat()==audit['date'],'observation_date_changed'
+ assert dependency_files()==audit['dependencies'],'moneyflow_dependency_changed'
+ assert file_hash(INSTANCE_HOME/'dagster.yaml')==audit['config_sha256'] and file_hash(silver_trade_calendar_path(b.lake))==audit['calendar_sha256'],'config_or_calendar_changed'
+ data=b.http({'query':RUNTIME_QUERY})['data'];assert data['version']=='1.13.26';workspace=data['workspaceOrError'];assert workspace['__typename']=='Workspace'
+ entries=[x for x in workspace['locationEntries'] if x['name']=='orchestrator'];assert len(entries)==1 and entries[0]['loadStatus']=='LOADED' and entries[0]['locationOrLoadError'].get('serverId')==audit['runtime']['server_id'],'loaded_server_changed'
+ health=data['instance']['daemonHealth']['allDaemonStatuses'];assert all(x['healthy'] and x['lastHeartbeatTime'] and 0<=time.time()-x['lastHeartbeatTime']<90 for x in health if x['required']),'daemon_unhealthy'
+ for p,h in audit['formal_file_sha256'].items():assert file_hash(p)==h,'formal_file_changed'
+ for p,h in audit['source_receipt_sha256'].items():assert file_hash(p)==h,'source_receipt_changed'
+ return {s['name']:s['sensorState']['status'] for r in data['repositoriesOrError']['nodes'] if r['location']['name']=='orchestrator' for s in r['sensors']}
+def save(path,value,immutable=False):write_json(path,value,immutable=immutable,limit=4*1024**2)

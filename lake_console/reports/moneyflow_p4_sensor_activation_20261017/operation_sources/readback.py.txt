@@ -1,0 +1,39 @@
+import fcntl,json,os,time
+from common import *
+import dagster as dg
+from sqlalchemy import text
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance
+from orchestrator.moneyflow_continuation.state import NativeBackend
+from orchestrator.defs.asset_guards.moneyflow_delivery_readiness import batch_moneyflow_readiness
+from orchestrator.defs.run_contracts.moneyflow import MONEYFLOW_WRITER_POOL,moneyflow_peak_rss_bytes
+out=OUT;audit=read_json(out/'audit.json');manifest=read_json(out/'execution_manifest.json');activation=read_json(out/'activation-result.json');assert activation['complete'] and activation['enabled']==21
+previous=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-acceptance.json';old=read_json(previous);start=time.monotonic()
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance);all_states=guard(b,audit);states=fetch(b,NAMES);assert all(x['sensorState']['status']=='RUNNING' for x in states.values());assert {k:v for k,v in all_states.items() if k not in NAMES}==manifest['other_sensor_statuses']
+ ticks=[];job_ids=[];latest=[]
+ for ds in DATASETS:
+  proof=read_json(out/(ds+'-accepted.json'));assert proof['complete']
+  for name,s in proof['sensors'].items():
+   state=states[name];tick=next(x for x in state['sensorState']['ticks'] if x['id']==s['tick']['id']);assert tick==s['tick'] and tick['status'] in ['SKIPPED','SUCCESS'] and not tick['error'] and not tick['runIds'] and not tick['runKeys'] and not tick['dynamicPartitionsRequestResults'];ticks.append({'dataset':ds,'name':name,'tick_id':tick['id'],'status':tick['status'],'timestamp':tick['timestamp'],'end_timestamp':tick['endTimestamp'],'duration_seconds':tick['endTimestamp']-tick['timestamp'],'cursor_bytes':len(tick['cursor'].encode())})
+  c=CONTRACTS[ds];ready=batch_moneyflow_readiness(b.instance,b.lake,audit['window_dates'],contract=c)
+  for layer in ['raw','silver']:
+   runs=b.instance.get_runs(dg.RunsFilter(job_name=getattr(c,layer+'_job'),tags={'dagster/partition':audit['window_dates']}),limit=9);expected={r['layers'][layer]['run_id'] for r in old['records'] if r['dataset']==ds}
+   expected|={r['run_id'] for r in old['preserved_failures'] if r['dataset']==ds and r['layer']==layer}
+   assert {r.run_id for r in runs}==expected,'native_jobs_changed';job_ids.extend(r.run_id for r in runs)
+   for day,d in ready[layer].items():
+    before=next(r for r in old['records'] if r['dataset']==ds and r['trade_date']==day)['layers'][layer]
+    assert d.ready and d.record.storage_id==before['mat_id'] and d.record.event_log_entry.run_id==before['run_id'],'delivery_changed';latest.append({'dataset':ds,'trade_date':day,'layer':layer,'mat_id':d.record.storage_id,'run_id':before['run_id'],'sha256':d.metadata['file_sha256']})
+ with instance.event_log_storage.index_connection() as c:
+  b.meter.tick();assert c.execute(text('SHOW transaction_read_only')).scalar()=='on'
+  b.meter.tick();limits=[list(x) for x in c.execute(text('SELECT "limit",using_default_limit FROM concurrency_limits WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()]
+  b.meter.tick();slots=[list(x) for x in c.execute(text('SELECT run_id FROM concurrency_slots WHERE concurrency_key=:key AND deleted=false LIMIT 3'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()]
+  b.meter.tick();pending=c.execute(text('SELECT count(*) FROM pending_steps WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).scalar()
+ assert limits==[[1,False]] and slots==[[None]] and pending==0
+ fd=os.open(b.staging/'moneyflow/writer.lock',os.O_RDONLY|os.O_NOFOLLOW)
+ try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ finally:os.close(fd)
+ assert len(ticks)==21 and len(latest)==98 and len(set(job_ids))==100
+ report={'as_of':now().isoformat(),'complete':True,'p4_scheduling_complete':True,'p5_complete':False,'actual_running_sensors':21,'code_default_status':'STOPPED','completed_first_ticks':ticks,'actual_job_ids':sorted(job_ids),'latest_deliveries':latest,'delivered_dataset_days':49,'formal_files_unchanged':98,'source_receipts_unchanged':49,'successful_native_jobs_unchanged':98,'preserved_failures_unchanged':2,'new_partition_registrations':0,'new_jobs':0,'new_materializations':0,'new_actual_checks':0,'new_source_requests':0,'formal_business_file_changes':0,'other_sensor_states_unchanged':True,'pool':{'limits':limits,'slots':slots,'pending':pending},'writer_lock_available':True,'loaded_server_id':audit['runtime']['server_id'],'dependencies_unchanged':117,'formal_audit_mutations':0,'reads':b.meter.count,'elapsed_seconds':time.monotonic()-start,'peak_rss_bytes':moneyflow_peak_rss_bytes(),'evidence_limits':['Physical field/key/value SQL acceptance reused from the49-day report, validated by unchanged98file hashes and current exact blocking-check/readiness identities.','First real ticks on a closed trading day legitimately skip; no new raw/silver job or future trading day is claimed.','P5 still requires at least3different trading days, source changes and failure/recovery acceptance.','Native existing health canary and sensor state/cursor/tick writes occurred; no business data was written.']}
+ assert report['reads']<=400 and report['elapsed_seconds']<300 and report['peak_rss_bytes']<768*1024**2 and max(x['duration_seconds'] for x in ticks)<30
+ save(out/'final-readback.json',report,True)
+ print(json.dumps({k:report[k] for k in ['complete','p4_scheduling_complete','p5_complete','actual_running_sensors','formal_files_unchanged','source_receipts_unchanged','new_jobs','new_source_requests','reads','elapsed_seconds','peak_rss_bytes']}),flush=True)

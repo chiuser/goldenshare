@@ -1,10 +1,10 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 2026-10-17 23:02 当前结果：方案先行的修复已提交db67e7d8，正式审核、一次加载、四日恢复和全49/47项验收全部通过，数据接续第一步关闭，见§70.27.7及方案§75.21。21个sensor保持STOPPED，P5未进入。新增正式执行证据和文档回填尚未提交，未推送。
+> 2026-10-17 23:37 当前结果：正式接续证据已提交ed79cba5，§70.28启用前审计、21个sensor逐表正式启动和21次真实首次tick/独立读回均通过，P4关闭；P5至少3个不同交易日观察未完成。本次启用记录/文档回填尚未提交，未推送。
 
 日期：2026-10-06；最近更新：2026-10-17。以下长段保留历次历史接入阶段说明，正式接续最新结果以§70.27.7为准。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§44.3，三个STOPPED sensor及历史预演、执行器和两日样本已完成，见§45～47；739日全量登记及本表P4历史接入已关闭，见§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog和完整隔离验收已完成，见§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§51；两日正式登记及读回已通过，见§52；739日全量登记及本表P4历史接入已关闭，见§53；739分区/1478物化/最近20来源日40检查齐全。moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§54；三个STOPPED sensor/readiness与431历史日只读预演已通过，见§55；可恢复执行器、隔离两日样本和431日冻结清单已通过，见§56；两日正式登记及读回已通过，见§57；431日全量登记及本表P4历史接入已关闭，见§58；431分区/862物化/最近20来源日40检查齐全。此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～63.3为准。moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§59；三个STOPPED sensor/readiness和4067历史日只读预演已通过，见§60；本表可恢复历史登记执行器、隔离两日样本和4067日五单元冻结清单已验收，见§61；正式两日登记、读回及零新增重放已通过，见§62.5；4067日五单元全量历史登记、读回和零新增重放已完成，见§63.3。
 
-最新状态（2026-10-17 23:02）：49/49正式接续及原47项零新增重放通过；98份正式文件/成功任务/物化/准确通过检查，两层各128297行，2次失败和2条未评估planned保留。第一步已完成；21自动触发器实际及默认均STOPPED，P4调度启用和P5仍未完成。
+最新状态（2026-10-17 23:37）：数据接续49/49及21个sensor实际RUNNING均已验收，21次真实首次tick正常SKIPPED，98文件/49来源收据/100原生任务保持，P4关闭。尚待P5真实自动日更至少3交易日及异常/修订验收，不能提前关闭整体接入。
 
 历史状态（2026-10-13 14:11）：上次执行记录和两份文档已提交cdfed8af，未推送。另一项历史复权因子开发仍在进行，DG共用检查及分钟指标代码有未提交修改，代码尚未稳定，见§68.4。10-08大盘尚未登记、运行或生成文件；21个自动更新触发器继续关闭，一次只跑一个资金流任务的设置保持。管理员“现在执行”的时间许可保留，待另一项开发完成并核对实际代码后继续。P4整体和P5未完成。
 
@@ -4554,3 +4554,65 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 本轮操作为1次代码location加载（无服务重启）、1次指定Raw原生重执行、3次普通Raw及4次普通Silver；最终加载serverId仍622f590d-45b0-47b3-99dd-fc54145f0c32，14资产合同和21默认/实际STOPPED保持。无sensor启用、无其他数据集写入、无7804历史日期重扫、无schema/源参数/共享策略/配置或主体依赖矩阵改动。临时操作脚本只按原CLI及原生reload执行，原文及SHA已存formal_recovery/operation_sources/供复核，不作为新正式采集主链。完整执行清单、输入和新文件SHA、每日证据、全量前后验收及零新增结果索引见[closeout.json](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json)。
 
 §70.25.7步骤2～6均有实际证据，故数据接续第一步关闭；之前§70.26的“正式恢复待后续”保留为当时交付状态，由本节实际结果接续。原P4自动启用、P5真实日更及历史源缺口不在此次完成范围，21sensor继续停止。新增正式执行记录/本节与方案§75.21尚未提交、未推送，修复代码提交db67e7d8已完成。
+
+### 70.28 既有21个自动更新触发器启用方案与执行门禁
+
+#### 70.28.1 目标、依据与范围
+
+对应方案§75.22，管理员“完成前三步”已授权提交旧记录、启用前审计及逐表正式启用，不重复申请批准。本步不新增生产实现；资金流117依赖、原七个sensor模块、moneyflow_update_selection、原生Dagster1.13.26 GraphQL及已验收49项为依据。CodeGraph explore确认登记/更新共用helper各七个调用方，补读真实resource/health/原生start/stop/tick schema及原生生产者，不凭名称推断只读。修复提交db67e7d8、正式接续记录提交ed79cba5，P4历史与数据接续保持；P5三交易日观察不在本轮完成范围。
+
+硬口径：七个独立数据集，各3个sensor；工作目录/Users/congming/github/goldenshare/lake_console/orchestrator，home=/Users/congming/.goldenshare/dagster_home，GraphQL=http://127.0.0.1:3000/graphql，正式Lake=/Volumes/datasource/data_lake，staging=/Volumes/datasource/data_lake_staging。保持默认STOPPED，通过原生持久状态启动为RUNNING，不修改源码默认值；不配置新全局参数、不改并发池/服务、不重启、不为此reload、不修改其他线程文件。
+
+#### 70.28.2 当前代码和首次启动行为审计
+
+资金流所有117份依赖与70.27证明一致；另5份复权支持模块已变、2新增，均不在资金流闭包，记录实际摘要及加载状态，不发布这些未完成改动。已有资金流代码不变，所以不以无关源码变化为由重复跑1203项大回归或重载共享location。正式审计验证加载serverId/原生14资产合同、21停止、daemon、当前任务、容量1及空闲/互斥、日历/config和依赖，已验收98文件/49来源收据与最新成功run/check绑定；用七日期或≤10日期批次，不扫描7804历史明细。
+
+当前helper先检查22:00，再查每表Raw/Silver活动任务；登记器从10-01后SSE开市日补漏，最多当日+1个漏日；更新器只查最近10个expected开市日，一tick最多1个run，有active不提交。Raw已ready且物化为本观察日时自动记verified_on，今日不再采；其他已ready旧日按既有每日最多一次复核。Silver只在Raw已绿且缺Silver或上游hash变化时请求，身份绑定Raw hash。恢复后的原父失败不直接作为ready依据，首次预演必须验证现在的成功交付与最新任务不会被旧失败误判。
+
+实读日历确定当前窗口；截至23:02原49项Raw的物化时间全部为10-17，若现场仍相同且10-17休市，则首次21个触发器应0新分区、0job/源请求/文件变化。没有证明前不启用，任何预演意外request或阻断均停止复核，不改游标造all_ready。未来窗口每日正常源请求估算32次/七表日期，7日全部复核约224次，10日约320次（不含重试），可能最多70个Raw/70个对应Silver更新，只有实际hash变化才需后者；原每Raw64请求/300秒/两轮≥60秒、20%数量门禁及本族串行保持，tick最小600秒，不承诺墙钟22:00:00完成。未来自动行为已由启用授权承接，不能拿本次首次0请求保证未来也0请求。
+
+#### 70.28.3 配置、读写边界与低成本验证
+
+无新增配置。持久启停来自原生sensor状态表，经startSensor/stopSensor GraphQL写入；消费者为现有daemon及各sensor；即时/下次tick生效，状态/tick/cursor可从Dagster读回。默认源码STOPPED不变，显式RUNNING持久状态在正常重载后仍由原生逻辑处理。600秒、22:00、10日、六次attempt和token均沿现行来源，token不打印/落盘。启用范围严格白名单21名字，其他sensor状态前后保持。
+
+静态审计已发现LakeRootResource.ensure_available_for_run会执行现行可读写健康canary（创建后读回删除），不是纯只读；DuckDBResource默认managed连接也可能创建temp目录。因此启用前的helper决策预演只在明确替代这两项resource副作用后执行：lake根只读检查所需目录/os.access，DuckDB使用既有configured helper的512MB/1线程/existing_no_spill连接；真实PG由daily_basic_event_instance默认只读、禁自动DDL，实际helper/日历/分区/原生事件/check/文件hash判断不替代，返回的cursor只存本地证据，不写正式游标、不执行RunRequest。登记器所需log只用于本地日志。不把这层预演声称为完整原生tick；正式启用后的daemon首次tick才验收真实resource/状态/游标路径。正常sensor固有健康canary在启用授权范围内，不能将其误报为新增业务Parquet写入。
+
+已有sensor隔离回归及上轮1203项证据在生产代码/测试摘要一致时复用；只补当前真实7日期决策、游标复算和schema/操作边界验证。隔离Definitions若当前共享库存有变化，只在无正式凭据的临时home做一次加载确认，禁止隐式依赖同步/安装，不将其当正式reload。审计/预演单命令≤400读取/300秒/RSS768MiB；窗口≤10日期/数据集、cursor≤8KiB、各tick目标<30秒、不得逼近60秒RPC超时；采样记录实际query/hash次数与耗时。若超限/读取失败不放宽预算。
+
+#### 70.28.4 正式启用、失败和续跑
+
+先实读确认预演零动作、已验收文件/收据/当前成功check保持且依赖/加载一致，再按moneyflow_mkt_dc、moneyflow_ind_ths、moneyflow_cnt_ths、moneyflow_ind_dc、moneyflow_dc、moneyflow_ths、moneyflow顺序逐表；每表登记→Silver→Raw。使用当前安装schema验证的startSensor(sensorSelector:{repositoryLocationName:orchestrator,repositoryName:__repository__,sensorName:<固定名>})，21项最多各1次POST。每次新目录保存request、发送意图和response并读回实际RUNNING后再下一项。响应不明先只读查该sensor真实状态/原意图，已RUNNING接回，不盲重发或换身份。既有RUNNING且可证明本步骤已执行的只读接回；不重置cursor、lastTick或attempt。
+
+每表启动后等该表3个sensor产生本次启动后的实际完成tick；应为SUCCESS或正常SKIPPED、无error、runIds空、无新增分区，cursor身份/时间/窗口正确，Raw reason=all_ready、Silver=all_ready。每10秒更新当前表/已启用数/已确认tick数；单表观察≤120秒、≤12轮，每轮对当前表3sensor批读（限1～2条tick），从持久操作记录保留起始时间，控制器退出不取消原生进程。超时停止下一表并报告，不反复重置观察时间。如果daemon评估尚未完成，不能只凭RUNNING宣布正常。未来3天观察另做，不在本轮等待。
+
+任何失败、非预期run、新增坏文件/未绿检查、依赖或加载漂移，停止继续启用；只对本轮明确已启用的资金流sensor按原生stopSensor(id:<本次读回sensorState.id>)关闭并读回STOPPED，保留原请求/响应、游标和数据，不reset、不删除、不取消其他任务。业务任务若已在运行，停止sensor不等于取消任务：保留并只读观察，实际业务失败另行审计，不恢复到旧文件或自动发新attempt。控制器退出后下次从保存的state/tick及发送意图接回，不再start同项。
+
+#### 70.28.5 执行记录与验收
+
+本步证据目录lake_console/reports/moneyflow_p4_sensor_activation_20261017/，操作临时目录/private/tmp/moneyflow-sensor-activation-20261017/。薄操作脚本仅复用原生GraphQL启停和只读核验，不新建正式CLI/采集执行器；每阶段开始前将具体argv、工作目录/home/endpoint、输入SHA和21请求/停止body写execution_manifest.json，原文/SHA最终归档。审核结束才生成精确启用清单，未生成的SHA不预填。
+
+退出条件：21个明确sensor实际RUNNING、各自本轮首次原生完成tick正常（含skip）、当前七日缺口0、98份文件/49来源收据和准确check/run事实保持、首次新任务/来源请求/数据变化0、池/锁/daemon及其他sensor状态无异常。源码默认STOPPED保持，不改变主体边界；关闭P4调度接入，但P5≥3交易日、故障恢复/修订与最终整体交付仍待后续。未满足哪一项就逐项报告，不用空源/伪造cursor或手动job代替自动触发链验收。
+
+#### 70.28.6 当前审计与正式启用前的精确依据
+
+审计已通过，197读/2.931秒/RSS281591808字节。21个实际helper决策及Raw游标再评估均无请求，98个物化/准确检查/原生run绑定和98文件/49收据摘要与23:02验收保持。SSE窗口确认为10-08、09、12～16共7日，10-17休市；所有Raw最新成功物化都为本观察日，首次应0新任务。当前隔离Definitions再次通过，117依赖/746源码稳定；资金流117依赖完全未变。另7份复权支持文件（含2新增）记录为无关变化，未纳入发布，不reload正式location，现有serverId/14资产合同仍与已验收版本相同。
+
+精确21项启动/停止body、真实sensor ID、逐表顺序及命令见[execution_manifest.json](../../reports/moneyflow_p4_sensor_activation_20261017/execution_manifest.json)，SHA256=`e5bdcd3122fa6943baa3af0e9147e3be015def7441d64773e17fff61cfd32c2a`。每个body已用当前schema/变量纯校验，未执行resolver；只读准备2次HTTP。正式命令（上述工作目录/home）为`.venv/bin/python3 -B -u /private/tmp/moneyflow-sensor-activation-20261017/activate.py`，脚本内固定核对该SHA及21白名单，持久意图后单次原生POST。它只操作既有sensor开关、读取tick并记录报告，不能发launchRun/registerPartition/reload。每项身份/载入/源码/calendar/config/旧文件和收据再次核对，表级120秒/12轮观察不重置，失败执行仅针对本轮已启动项的原生stop。正常情况下本轮无job、无新分区、无源请求；首次真实tick的健康canary/游标/状态写入按§70.28.3明确边界验收。
+
+本节仅完成审计和精确执行准备，21项尚未启动，不提前写成P4完成。首次真实tick及启用后的独立读回还必须取得实际证据。
+
+#### 70.28.7 实际启用完成，进入独立读回
+
+23:35:13原生21项启动均成功，按七表顺序每表3个RUNNING后等待3个真实完成tick，再进入下一表；全21首次tick正常且无任务/分区请求。共87次只读边界调用，21次明确原生start POST，无stop/reload/配置变化。每表观察2轮、约10秒，无预算重置或手动评估正式sensor。原始动作请求/发送意图/响应、逐表accepted和actual tick/cursor均已保存，不把只读预演当成实际tick证据。
+
+独立最后读回命令为上述工作目录及home下`.venv/bin/python3 -B -u /private/tmp/moneyflow-sensor-activation-20261017/readback.py`，准确argv及脚本SHA见final-readback-command.json；仅查21状态/实际tick、原7日期的14资产批量readiness、按日期过滤原生任务及文件/收据摘要、池/锁和其他sensor状态。它复用先前全49项的物理SQL验收并用当前摘要/准确检查身份证明未改变，不再次扫全历史或重采数据。任何异常不关闭P4，必须关闭本轮已启用项并报告；通过前不声称独立收尾完成。
+
+#### 70.28.8 独立验收通过，关闭P4
+
+按本节完整顺序完成21次startSensor，7表各3个实际RUNNING且启动后21次真实tick全部SKIPPED/无error，无RunRequest/动态分区请求；每表2轮观察约10秒，实际最长tick0.616645秒。原生请求/发送意图/响应逐项保存，未遇响应不明或新失败，不触发stop；没有reset游标、手动evaluate正式sensor或手动launchRun。源码默认STOPPED与显式持久RUNNING分开报告，不将默认值改成RUNNING。
+
+独立新进程只读验收48读/1.026111秒/RSS198098944字节，通过21状态/准确首次tick及cursor身份、七日期批量readiness、按日期过滤的原生任务集合、98文件/49收据摘要、专属池空闲/锁和其他sensor状态。原49交付、98准确检查/成功任务、两失败=100原生任务全部保持；首次新分区/任务/源请求/物化/check/业务文件改变为0。全部14资产合同、117依赖、正式serverId622f590d-45b0-47b3-99dd-fc54145f0c32及原配置保持，无reload/服务重启/并发更改。完整证据见[final-readback.json](../../reports/moneyflow_p4_sensor_activation_20261017/final-readback.json)与[closeout.json](../../reports/moneyflow_p4_sensor_activation_20261017/closeout.json)。
+
+审核前隔离Definitions117依赖/746库存加载成功，资金流依赖不变；7份无关复权支持文件没有被本轮修改、提交或重载。当前阶段复用已通过的生产代码/测试和1203项回归及既有完整49项SQL验收，只新增真实现场预演/原生tick/摘要和准确身份复核。操作记录脚本5份语法核验、3个非白名单名称反例拒绝、42个原生start/stop body均经安装schema校验；原生启用实际21次，预演0副作用。临时脚本原文归档operation_sources/供追溯，不作为新的正式CLI/采集主链。资源canary正常发生并清理，只声明业务数据无新增，不谎称本轮零正式写入。
+
+§64.5第五项和本节退出条件满足，P4调度接入关闭；P5仍需至少3个不同交易日的实际自动采集/字段与行数/耗时/资源、暂时失败与非重试错误、修订/续跑/幂等证据。首次真实skip只证明启用及当前判断正确，不证明未来源端一定成功，也不替代P5。后续新步骤仍先写回原方案和LLD，不借本次启用自动扩大历史补缺或改变热窗口。前三步完成；本轮新启用报告及两文档尚未提交、未推送，旧接续记录提交ed79cba5已完成。

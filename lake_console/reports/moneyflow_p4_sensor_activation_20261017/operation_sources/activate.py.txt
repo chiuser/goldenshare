@@ -1,0 +1,100 @@
+import fcntl,json,time
+from pathlib import Path
+from common import *
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance
+from orchestrator.moneyflow_continuation.state import NativeBackend
+from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
+EXPECTED='e5bdcd3122fa6943baa3af0e9147e3be015def7441d64773e17fff61cfd32c2a'
+manifest_path=OUT/'execution_manifest.json';assert file_hash(manifest_path)==EXPECTED
+manifest=read_json(manifest_path);audit=read_json(manifest['audit']['path']);assert file_hash(manifest['audit']['path'])==manifest['audit']['sha256'];assert [x['name'] for x in manifest['sequence']]==NAMES
+before=read_json(OUT/'before-sensors.json');steps={x['name']:x for x in manifest['sequence']}
+for n in NAMES:
+ assert steps[n]['start']=={'query':START,'variables':{'selector':selector(n)}}
+ assert steps[n]['stop']=={'query':STOP,'variables':{'id':before[n]['sensorState']['id']}}
+ schema_check(steps[n]['start']);schema_check(steps[n]['stop'])
+progress_path=OUT/'activation-progress.json';action_root=OUT/'actions';action_root.mkdir(exist_ok=True)
+def emit(**values):
+ state={'as_of':now().isoformat(),**values};save(progress_path,state);print(json.dumps(state,ensure_ascii=False),flush=True)
+def action_dir(name):
+ p=action_root/name;p.mkdir(exist_ok=True);return p
+
+def start_one(b,name):
+ directory=action_dir(name);body=steps[name]['start'];state=fetch(b,[name])[name]
+ if (directory/'start-intent.json').exists():
+  assert read_json(directory/'start-request.json')==body and state['sensorState']['status']=='RUNNING','uncertain_start_not_retryable'
+  return
+ assert state['sensorState']['status']=='STOPPED','unowned_running_sensor'
+ guard(b,audit)
+ save(directory/'start-request.json',body,True)
+ save(directory/'start-intent.json',{'at':now().isoformat(),'epoch':time.time(),'request_sha256':file_hash(directory/'start-request.json'),'expected_manifest_sha256':EXPECTED},True)
+ try:
+  response=b.http(body,mutation=True);save(directory/'start-response.json',response,True)
+  result=response['data']['startSensor'];assert result['__typename']=='Sensor' and result['name']==name and result['sensorState']['status']=='RUNNING','start_response'
+ except Exception as error:
+  save(directory/'start-uncertain.json',{'at':now().isoformat(),'error_type':type(error).__name__},True)
+  assert fetch(b,[name])[name]['sensorState']['status']=='RUNNING','start_uncertain_no_native_confirmation'
+ state=fetch(b,[name])[name];assert state['sensorState']['status']=='RUNNING' and state['sensorState']['id']==steps[name]['stop']['variables']['id'],'start_readback'
+ save(directory/'started.json',{'at':now().isoformat(),'name':name,'state':state['sensorState'],'http_response_saved':(directory/'start-response.json').exists()},True)
+
+def check_ticks(states,ds):
+ completed={}
+ for n,x in states.items():
+  assert x['sensorState']['status']=='RUNNING','sensor_not_running'
+  epoch=read_json(action_dir(n)/'start-intent.json')['epoch']
+  candidates=[t for t in x['sensorState']['ticks'] if t['timestamp']>=epoch]
+  for t in candidates:
+   assert t['status']!='FAILURE' and not t['error'],'sensor_tick_failed'
+   assert not t['runIds'] and not t['runKeys'] and not t['dynamicPartitionsRequestResults'],'unexpected_business_action'
+  done=next((t for t in candidates if t['status'] in ['SUCCESS','SKIPPED'] and t['endTimestamp']),None)
+  if done is None:continue
+  assert done['cursor'] and len(done['cursor'].encode())<=8192,'cursor_missing_or_large'
+  cursor=load_sensor_cursor(done['cursor']);details=cursor['details'];assert details['sensor_name']==n and details['asset_family']==ds and details['partition_set']==CONTRACTS[ds].partition_set,'cursor_identity'
+  if not n.startswith('cn_a_'):assert details['reason_code']=='all_ready','update_not_ready'
+  else:assert cursor['selected_count']==0,'unexpected_registration'
+  completed[n]={'tick':done,'cursor':cursor,'actual_status':x['sensorState']['status']}
+ return completed
+
+def rollback(instance):
+ b=NativeBackend(instance);results=[]
+ for n in reversed(NAMES):
+  directory=action_root/n
+  if not (directory/'start-intent.json').exists():continue
+  state=fetch(b,[n])[n]
+  if state['sensorState']['status']=='RUNNING':
+   assert not (directory/'stop-intent.json').exists(),'uncertain_stop_not_retryable'
+   save(directory/'stop-request.json',steps[n]['stop'],True);save(directory/'stop-intent.json',{'at':now().isoformat(),'request_sha256':file_hash(directory/'stop-request.json')},True)
+   response=b.http(steps[n]['stop'],mutation=True);save(directory/'stop-response.json',response,True)
+   assert fetch(b,[n])[n]['sensorState']['status']=='STOPPED','stop_readback'
+  results.append({'name':n,'status':'STOPPED'})
+ save(OUT/'rollback.json',{'at':now().isoformat(),'stopped':results,'does_not_cancel_jobs':True},True)
+
+with (OUT/'activation.lock').open('a') as lock:
+ fcntl.flock(lock.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+ with daily_basic_event_instance() as instance:
+  b=NativeBackend(instance);accepted=[]
+  try:
+   guard(b,audit)
+   for ds in DATASETS:
+    target=OUT/(ds+'-accepted.json')
+    if target.exists():
+     assert len(check_ticks(fetch(b,names(ds)),ds))==3;accepted.append(ds);continue
+    for n in names(ds):
+     start_one(b,n);emit(phase='enabled',dataset=ds,sensor=n,enabled=sum((action_root/x/'start-intent.json').exists() for x in NAMES),accepted_tables=len(accepted),total_sensors=21)
+    observation=OUT/(ds+'-observation.json')
+    obs=read_json(observation) if observation.exists() else {'started_epoch':time.time(),'polls':0}
+    while True:
+     assert time.time()-obs['started_epoch']<120 and obs['polls']<12,'first_tick_observation_limit'
+     obs['polls']+=1;save(observation,obs)
+     states=fetch(b,names(ds));ticks=check_ticks(states,ds)
+     emit(phase='waiting_first_tick',dataset=ds,enabled=sum((action_root/x/'start-intent.json').exists() for x in NAMES),confirmed_ticks=len(ticks),accepted_tables=len(accepted),polls=obs['polls'],wait_seconds=int(time.time()-obs['started_epoch']))
+     if len(ticks)==3:
+      guard(b,audit);save(target,{'at':now().isoformat(),'dataset':ds,'complete':True,'sensors':ticks,'new_jobs':0,'new_partitions':0,'source_requests':0,'observation':obs},True);accepted.append(ds);break
+     time.sleep(10)
+   all_states=guard(b,audit);assert all(all_states[n]=='RUNNING' for n in NAMES);assert {k:v for k,v in all_states.items() if k not in NAMES}==manifest['other_sensor_statuses'],'other_sensor_status_changed'
+   emit(phase='complete',complete=True,enabled=21,confirmed_ticks=21,accepted_tables=7,new_jobs=0,new_partitions=0,source_requests=0,reads=b.meter.count)
+   save(OUT/'activation-result.json',{'as_of':now().isoformat(),'complete':True,'enabled':21,'actual_first_ticks':21,'accepted_tables':accepted,'new_jobs':0,'new_partitions':0,'source_requests':0,'reads':b.meter.count,'manifest_sha256':EXPECTED,'p5_complete':False},True)
+  except BaseException as error:
+   emit(phase='stopped',complete=False,error_type=type(error).__name__,accepted_tables=len(accepted))
+   try:rollback(instance)
+   except BaseException as stop_error:save(OUT/'rollback-unconfirmed.json',{'at':now().isoformat(),'error_type':type(stop_error).__name__},True)
+   raise

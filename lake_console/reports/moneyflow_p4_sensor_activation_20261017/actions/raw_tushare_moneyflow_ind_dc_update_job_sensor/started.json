@@ -1,0 +1,1 @@
+{"at":"2026-10-17T23:34:16.345073+08:00","http_response_saved":true,"name":"raw_tushare_moneyflow_ind_dc_update_job_sensor","state":{"id":"5db5f943d7b8e3600889bed6c320250cdf377cfd::01e5279597c91a673c3d5621d7911de35e150ea5","status":"RUNNING","ticks":[],"typeSpecificData":{"__typename":"SensorData","lastCursor":null,"lastTickTimestamp":null}}}

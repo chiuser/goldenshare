@@ -1,0 +1,37 @@
+{"as_of": "2026-10-17T23:33:38.873576+08:00", "phase": "enabled", "dataset": "moneyflow_mkt_dc", "sensor": "cn_a_moneyflow_mkt_dc_trade_day_sensor", "enabled": 1, "accepted_tables": 0, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:39.442983+08:00", "phase": "enabled", "dataset": "moneyflow_mkt_dc", "sensor": "silver_moneyflow_mkt_dc_update_job_sensor", "enabled": 2, "accepted_tables": 0, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:39.956825+08:00", "phase": "enabled", "dataset": "moneyflow_mkt_dc", "sensor": "raw_tushare_moneyflow_mkt_dc_update_job_sensor", "enabled": 3, "accepted_tables": 0, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:40.064708+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_mkt_dc", "enabled": 3, "confirmed_ticks": 0, "accepted_tables": 0, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:33:50.127019+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_mkt_dc", "enabled": 3, "confirmed_ticks": 3, "accepted_tables": 0, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:33:51.012776+08:00", "phase": "enabled", "dataset": "moneyflow_ind_ths", "sensor": "cn_a_moneyflow_ind_ths_trade_day_sensor", "enabled": 4, "accepted_tables": 1, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:51.516114+08:00", "phase": "enabled", "dataset": "moneyflow_ind_ths", "sensor": "silver_moneyflow_ind_ths_update_job_sensor", "enabled": 5, "accepted_tables": 1, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:52.088905+08:00", "phase": "enabled", "dataset": "moneyflow_ind_ths", "sensor": "raw_tushare_moneyflow_ind_ths_update_job_sensor", "enabled": 6, "accepted_tables": 1, "total_sensors": 21}
+{"as_of": "2026-10-17T23:33:52.156764+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ind_ths", "enabled": 6, "confirmed_ticks": 0, "accepted_tables": 1, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:34:02.228691+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ind_ths", "enabled": 6, "confirmed_ticks": 3, "accepted_tables": 1, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:34:03.131428+08:00", "phase": "enabled", "dataset": "moneyflow_cnt_ths", "sensor": "cn_a_moneyflow_cnt_ths_trade_day_sensor", "enabled": 7, "accepted_tables": 2, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:03.626129+08:00", "phase": "enabled", "dataset": "moneyflow_cnt_ths", "sensor": "silver_moneyflow_cnt_ths_update_job_sensor", "enabled": 8, "accepted_tables": 2, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:04.202389+08:00", "phase": "enabled", "dataset": "moneyflow_cnt_ths", "sensor": "raw_tushare_moneyflow_cnt_ths_update_job_sensor", "enabled": 9, "accepted_tables": 2, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:04.255138+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_cnt_ths", "enabled": 9, "confirmed_ticks": 0, "accepted_tables": 2, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:34:14.340808+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_cnt_ths", "enabled": 9, "confirmed_ticks": 3, "accepted_tables": 2, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:34:15.264656+08:00", "phase": "enabled", "dataset": "moneyflow_ind_dc", "sensor": "cn_a_moneyflow_ind_dc_trade_day_sensor", "enabled": 10, "accepted_tables": 3, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:15.835175+08:00", "phase": "enabled", "dataset": "moneyflow_ind_dc", "sensor": "silver_moneyflow_ind_dc_update_job_sensor", "enabled": 11, "accepted_tables": 3, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:16.345617+08:00", "phase": "enabled", "dataset": "moneyflow_ind_dc", "sensor": "raw_tushare_moneyflow_ind_dc_update_job_sensor", "enabled": 12, "accepted_tables": 3, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:16.406180+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ind_dc", "enabled": 12, "confirmed_ticks": 0, "accepted_tables": 3, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:34:26.459600+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ind_dc", "enabled": 12, "confirmed_ticks": 3, "accepted_tables": 3, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:34:27.339604+08:00", "phase": "enabled", "dataset": "moneyflow_dc", "sensor": "cn_a_moneyflow_dc_trade_day_sensor", "enabled": 13, "accepted_tables": 4, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:27.914827+08:00", "phase": "enabled", "dataset": "moneyflow_dc", "sensor": "silver_moneyflow_dc_update_job_sensor", "enabled": 14, "accepted_tables": 4, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:28.389728+08:00", "phase": "enabled", "dataset": "moneyflow_dc", "sensor": "raw_tushare_moneyflow_dc_update_job_sensor", "enabled": 15, "accepted_tables": 4, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:28.495274+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_dc", "enabled": 15, "confirmed_ticks": 0, "accepted_tables": 4, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:34:38.585890+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_dc", "enabled": 15, "confirmed_ticks": 3, "accepted_tables": 4, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:34:39.480053+08:00", "phase": "enabled", "dataset": "moneyflow_ths", "sensor": "cn_a_moneyflow_ths_trade_day_sensor", "enabled": 16, "accepted_tables": 5, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:39.948203+08:00", "phase": "enabled", "dataset": "moneyflow_ths", "sensor": "silver_moneyflow_ths_update_job_sensor", "enabled": 17, "accepted_tables": 5, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:40.480013+08:00", "phase": "enabled", "dataset": "moneyflow_ths", "sensor": "raw_tushare_moneyflow_ths_update_job_sensor", "enabled": 18, "accepted_tables": 5, "total_sensors": 21}
+{"as_of": "2026-10-17T23:34:40.525508+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ths", "enabled": 18, "confirmed_ticks": 0, "accepted_tables": 5, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:34:50.584744+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ths", "enabled": 18, "confirmed_ticks": 1, "accepted_tables": 5, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:35:00.642001+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow_ths", "enabled": 18, "confirmed_ticks": 3, "accepted_tables": 5, "polls": 3, "wait_seconds": 20}
+{"as_of": "2026-10-17T23:35:01.552495+08:00", "phase": "enabled", "dataset": "moneyflow", "sensor": "cn_a_moneyflow_trade_day_sensor", "enabled": 19, "accepted_tables": 6, "total_sensors": 21}
+{"as_of": "2026-10-17T23:35:02.036591+08:00", "phase": "enabled", "dataset": "moneyflow", "sensor": "silver_moneyflow_update_job_sensor", "enabled": 20, "accepted_tables": 6, "total_sensors": 21}
+{"as_of": "2026-10-17T23:35:02.585454+08:00", "phase": "enabled", "dataset": "moneyflow", "sensor": "raw_tushare_moneyflow_update_job_sensor", "enabled": 21, "accepted_tables": 6, "total_sensors": 21}
+{"as_of": "2026-10-17T23:35:02.630564+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow", "enabled": 21, "confirmed_ticks": 0, "accepted_tables": 6, "polls": 1, "wait_seconds": 0}
+{"as_of": "2026-10-17T23:35:12.740269+08:00", "phase": "waiting_first_tick", "dataset": "moneyflow", "enabled": 21, "confirmed_ticks": 3, "accepted_tables": 6, "polls": 2, "wait_seconds": 10}
+{"as_of": "2026-10-17T23:35:13.555210+08:00", "phase": "complete", "complete": true, "enabled": 21, "confirmed_ticks": 21, "accepted_tables": 7, "new_jobs": 0, "new_partitions": 0, "source_requests": 0, "reads": 87}

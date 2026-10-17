@@ -1,0 +1,66 @@
+import json,logging,os,shutil,time
+from pathlib import Path
+from types import SimpleNamespace
+import dagster as dg
+from sqlalchemy import text
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance,INSTANCE_HOME
+from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
+from orchestrator.defs.run_contracts.moneyflow import MONEYFLOW_WRITER_POOL,moneyflow_peak_rss_bytes
+from orchestrator.defs.sensors.moneyflow_update_selection import evaluate_moneyflow_update,register_moneyflow_trade_days
+from orchestrator.moneyflow_continuation.contract import PROJECT,DATASETS,CONTRACTS,ACTIVE,now,file_hash,read_json
+from orchestrator.moneyflow_continuation.state import NativeBackend,dependency_files,source_inventory
+from orchestrator.moneyflow_continuation.submission import write_json
+out=PROJECT.parent/'reports/moneyflow_p4_sensor_activation_20261017';out.mkdir(exist_ok=False);start=time.monotonic();at=now();previous=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery';accepted=read_json(previous/'49-replay-acceptance.json');proof=read_json(previous/'verification.json');iso=Path('/private/tmp/moneyflow-sensor-activation-20261017/definitions.json');isolated=read_json(iso);deps=dependency_files();inventory=source_inventory();assert deps==proof['dependencies']==isolated['dependencies'];assert inventory==isolated['source_inventory'] and isolated['exit_code']==0
+# The preview deliberately replaces only resource canary/managed-temp effects.
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance);runtime=b.runtime();assert runtime==proof['runtime'],'formal_loaded_contract_or_identity_drift'
+ assert file_hash(INSTANCE_HOME/'dagster.yaml')==proof['config_sha256'] and file_hash(silver_trade_calendar_path(b.lake))==proof['calendar_sha256']
+ with b.connection() as c:
+  days=[x[0] for x in c.execute("SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) FROM read_parquet(?,hive_partitioning=false) WHERE exchange='SSE' AND is_open=true AND CAST(trade_date AS DATE) BETWEEN DATE '2026-10-01' AND CAST(? AS DATE) GROUP BY trade_date ORDER BY trade_date DESC LIMIT 10",[str(silver_trade_calendar_path(b.lake)),at.date().isoformat()]).fetchall()][::-1]
+ assert days==['2026-10-08','2026-10-09','2026-10-12','2026-10-13','2026-10-14','2026-10-15','2026-10-16'],days
+ active=b.instance.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus(x) for x in ACTIVE]),limit=21);assert len(active)<21
+ assert not [r for r in active if r.job_name in {getattr(c,l+'_job') for c in CONTRACTS.values() for l in ['raw','silver']}]
+ with instance.event_log_storage.index_connection() as c:
+  b.meter.tick();assert c.execute(text('SHOW transaction_read_only')).scalar()=='on'
+  b.meter.tick();limits=[list(x) for x in c.execute(text('SELECT "limit",using_default_limit FROM concurrency_limits WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()]
+  b.meter.tick();slots=[list(x) for x in c.execute(text('SELECT run_id FROM concurrency_slots WHERE concurrency_key=:key AND deleted=false LIMIT 3'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()]
+  b.meter.tick();pending=c.execute(text('SELECT count(*) FROM pending_steps WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).scalar()
+ assert limits==[[1,False]] and slots==[[None]] and pending==0
+ assert b.lake.parent.is_mount() and b.lake.stat().st_dev==b.staging.stat().st_dev and shutil.disk_usage(b.staging).free>=64*1024**3
+ hashes={};receipts={}
+ for r in accepted['records']:
+  for layer in ['raw','silver']:
+   path=r['layers'][layer]['target'];assert file_hash(path)==r['layers'][layer]['sha256'];hashes[path]=r['layers'][layer]['sha256']
+  path=b.staging/'moneyflow'/r['layers']['raw']['run_id']/r['dataset']/r['trade_date']/'receipt.json';assert file_hash(path)==r['source_receipt_sha256'];receipts[str(path)]=r['source_receipt_sha256']
+ def lake_readonly():
+  assert all((b.lake/x).is_dir() and os.access(b.lake/x,os.R_OK) for x in ['raw','silver','gold'])
+ resources=SimpleNamespace(lake_root=SimpleNamespace(root=lambda:b.lake,ensure_available_for_run=lake_readonly),duckdb=SimpleNamespace(connect=b.connection))
+ decisions=[];record_binding=[]
+ for ds in DATASETS:
+  c=CONTRACTS[ds];ctx=SimpleNamespace(instance=b.instance,cursor=None,resources=resources,log=logging.getLogger('bounded-sensor-preview'))
+  t=time.monotonic();reg=register_moneyflow_trade_days(ctx,contract=c,dynamic_partitions=dg.DynamicPartitionsDefinition(name=c.partition_set));assert not reg.run_requests and not reg.dynamic_partitions_requests
+  reg_cursor=load_sensor_cursor(reg.cursor);assert len(reg.cursor.encode())<=8192
+  decisions.append({'dataset':ds,'role':'register','new_partitions':0,'new_requests':0,'cursor':reg_cursor,'seconds':time.monotonic()-t})
+  for silver in [True,False]:
+   ctx.cursor=None;t=time.monotonic();result=evaluate_moneyflow_update(ctx,at,contract=c,silver=silver);cur=load_sensor_cursor(result.cursor);assert not result.run_requests and cur['details']['reason_code']=='all_ready',(ds,silver,cur)
+   assert len(result.cursor.encode())<=8192 and time.monotonic()-t<30
+   item={'dataset':ds,'role':'silver' if silver else 'raw','new_requests':0,'reason':'all_ready','cursor_bytes':len(result.cursor.encode()),'seconds':time.monotonic()-t}
+   if not silver:
+    ctx.cursor=result.cursor;again=evaluate_moneyflow_update(ctx,at,contract=c,silver=False);assert not again.run_requests and load_sensor_cursor(again.cursor)['details']['reason_code']=='all_ready';item['cursor_replay_zero_requests']=True
+   decisions.append(item)
+  # Verify the exact latest accepted actual materializations and evaluations.
+  for layer in ['raw','silver']:
+   key=dg.AssetKey(getattr(c,layer+'_asset'));mats=b.instance.fetch_materializations(dg.AssetRecordsFilter(asset_key=key,asset_partitions=days),limit=8).records
+   assert len(mats)==7
+   checks=b.instance.event_log_storage.get_asset_check_execution_history(dg.AssetCheckKey(key,getattr(c,layer+'_check')),limit=100);assert len(checks)<100
+   for old in [r for r in accepted['records'] if r['dataset']==ds]:
+    mat=next(x for x in mats if x.partition_key==old['trade_date']);check=next(x for x in checks if x.partition==old['trade_date'] and x.event and x.event.dagster_event and x.event.dagster_event.event_type_value=='ASSET_CHECK_EVALUATION');ev=check.event.dagster_event.event_specific_data;target=ev.target_materialization_data
+    assert mat.storage_id==old['layers'][layer]['mat_id'] and check.id==old['layers'][layer]['check_id'] and check.status.value=='SUCCEEDED' and ev.passed and ev.blocking and target.storage_id==mat.storage_id and target.run_id==check.run_id==old['layers'][layer]['run_id']
+    record_binding.append({'dataset':ds,'trade_date':old['trade_date'],'layer':layer,'mat_id':mat.storage_id,'check_id':check.id,'run_id':check.run_id})
+ assert dependency_files()==deps
+ report={'as_of':now().isoformat(),'date':at.date().isoformat(),'complete':True,'runtime':runtime,'dependencies':deps,'source_inventory':inventory,'unrelated_source_changes':[p for p,h in inventory.items() if p not in deps and proof['source_inventory'].get(p)!=h],'isolation':{'path':str(iso),'sha256':file_hash(iso)},'calendar_sha256':proof['calendar_sha256'],'config_sha256':proof['config_sha256'],'window_dates':days,'decisions':decisions,'delivery_binding':record_binding,'formal_file_sha256':hashes,'source_receipt_sha256':receipts,'expected_first_tick':{'new_partitions':0,'jobs':0,'source_requests':0,'file_changes':0,'reason':'All seven dates have current-day accepted Raw; current day is SSE closed.'},'pool':{'limits':limits,'slots':slots,'pending':pending},'active_runs':[{'id':r.run_id,'job':r.job_name,'status':r.status.value} for r in active],'reads':b.meter.count,'elapsed_seconds':time.monotonic()-start,'peak_rss_bytes':moneyflow_peak_rss_bytes(),'formal_mutations':0,'formal_source_requests':0,'resource_substitutions':['Lake health canary replaced with read-only directory/access check','managed DuckDB resource replaced with same configured connector,512MB/1thread/existing_no_spill'],'reload_performed':False}
+ assert len(record_binding)==98 and report['reads']<=400 and report['elapsed_seconds']<300 and report['peak_rss_bytes']<768*1024**2
+ write_json(out/'audit.json',report,immutable=True,limit=4*1024**2)
+ for name in ['definitions.json','definitions.log']:shutil.copyfile(iso.parent/name,out/name)
+ print(json.dumps({k:report[k] for k in ['complete','window_dates','unrelated_source_changes','expected_first_tick','reads','elapsed_seconds','peak_rss_bytes']}),flush=True)

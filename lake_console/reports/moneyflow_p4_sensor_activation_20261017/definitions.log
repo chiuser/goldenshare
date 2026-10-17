@@ -1,0 +1,38 @@
+
+  Telemetry:
+
+  As an open-source project, we collect usage statistics to inform development priorities. For more
+  information, read https://docs.dagster.io/about/telemetry.
+
+  We will not see or store any data that is processed by your code.
+
+  To opt-out, add the following to $DAGSTER_HOME/dagster.yaml, creating that file if necessary:
+
+    telemetry:
+      enabled: false
+
+
+  Welcome to Dagster!
+
+  If you have any questions or would like to engage with the Dagster team, please join us on Slack
+  (https://bit.ly/39dvSsF).
+
+The active virtual environment does not match the virtual environment found in the project
+root directory. This may lead to unexpected behavior when running `dg` commands.
+
+    active virtual environment: None
+    project virtual environment: /Users/congming/github/goldenshare/lake_console/orchestrator/.venv
+
+To suppress this warning, add "project_and_activated_venv_mismatch" to the `cli.suppress_warnings` list in your configuration.
+
+The active virtual environment does not match the virtual environment found in the project
+root directory. This may lead to unexpected behavior when running `dg` commands.
+
+    active virtual environment: None
+    project virtual environment: /Users/congming/github/goldenshare/lake_console/orchestrator/.venv
+
+To suppress this warning, add "project_and_activated_venv_mismatch" to the `cli.suppress_warnings` list in your configuration.
+
+All component YAML validated successfully.
+[32m2026-10-17 23:27:48 +0800[0m - dagster - [34mWARNING[0m - No dagster instance configuration file (dagster.yaml) found at /private/tmp/moneyflow-sensor-activation-20261017/instance. Defaulting to loading and storing all metadata with /private/tmp/moneyflow-sensor-activation-20261017/instance. If this is the desired behavior, create an empty dagster.yaml file in /private/tmp/moneyflow-sensor-activation-20261017/instance.
+All definitions loaded successfully.
