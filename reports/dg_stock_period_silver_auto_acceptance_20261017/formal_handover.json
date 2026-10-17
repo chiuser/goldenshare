@@ -1,0 +1,198 @@
+{
+  "formal_handover": "passed",
+  "baseline": {
+    "silver_execution_id": "d895bec0-8b69-4cd3-aabe-7f06a4c7e467",
+    "raw_new_materializations_after_silver": 0,
+    "raw_observations_before_handover": 0,
+    "sensor_after": 0
+  },
+  "new_sensors": {
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "typeSpecificData": {
+        "lastCursor": "{\"schema_version\":1,\"after\":0,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-17T19:57:34.789624+08:00\"}"
+      },
+      "ticks": [
+        {
+          "tickId": "2578125",
+          "status": "SKIPPED",
+          "timestamp": 1792238254.407372,
+          "endTimestamp": 1792238254.7933629,
+          "runIds": [],
+          "runKeys": [],
+          "skipReason": "silver_no_completion",
+          "cursor": "{\"schema_version\":1,\"after\":0,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-17T19:57:34.789624+08:00\"}",
+          "error": null
+        }
+      ]
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "typeSpecificData": {
+        "lastCursor": "{\"schema_version\":1,\"after\":0,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-17T19:57:35.357305+08:00\"}"
+      },
+      "ticks": [
+        {
+          "tickId": "2578126",
+          "status": "SKIPPED",
+          "timestamp": 1792238254.977664,
+          "endTimestamp": 1792238255.361226,
+          "runIds": [],
+          "runKeys": [],
+          "skipReason": "silver_no_completion",
+          "cursor": "{\"schema_version\":1,\"after\":0,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-17T19:57:35.357305+08:00\"}",
+          "error": null
+        }
+      ]
+    }
+  },
+  "prior_sensor_statuses_preserved": 113,
+  "raw": {
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "watermark": {
+        "adjusted_delivery_revision": 1785,
+        "examined_through": "2026-10-09",
+        "policy_version": "completed-week-v1",
+        "verified_through": "2026-10-09"
+      },
+      "unchanged": true
+    },
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "watermark": {
+        "examined_through": "2026-09",
+        "policy_version": "completed-month-v1",
+        "verified_through": "2026-09"
+      },
+      "unchanged": true
+    }
+  },
+  "raw_daily_unchanged": true,
+  "silver_completion_records_unchanged": true,
+  "related_silver_job_runs": 0,
+  "source_requests": 0,
+  "market_sql": 0,
+  "market_files_written": 0,
+  "materializations_or_checks_reported": 0,
+  "mutations": {
+    "reload_location": 1,
+    "set_new_sensor_cursor": 2,
+    "start_new_sensor": 2
+  },
+  "first_real_raw_silver_delivery": "pending_next_real_raw_update",
+  "daemon_health": {
+    "allDaemonStatuses": [
+      {
+        "daemonType": "SENSOR",
+        "healthy": true
+      },
+      {
+        "daemonType": "BACKFILL",
+        "healthy": true
+      },
+      {
+        "daemonType": "SCHEDULER",
+        "healthy": true
+      },
+      {
+        "daemonType": "QUEUED_RUN_COORDINATOR",
+        "healthy": true
+      },
+      {
+        "daemonType": "MONITORING",
+        "healthy": true
+      },
+      {
+        "daemonType": "ASSET",
+        "healthy": true
+      },
+      {
+        "daemonType": "FRESHNESS_DAEMON",
+        "healthy": true
+      }
+    ]
+  },
+  "evidence_directory": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/dg-period-silver-handover-bh9qe536",
+  "version": "6e6017712",
+  "observed_at": "2026-10-17T19:57:35+08:00",
+  "mutations_evidence": {
+    "reload": {
+      "data": {
+        "reloadRepositoryLocation": {
+          "__typename": "WorkspaceLocationEntry",
+          "name": "orchestrator",
+          "loadStatus": "LOADED",
+          "locationOrLoadError": {
+            "__typename": "RepositoryLocation"
+          }
+        }
+      }
+    },
+    "initialize-week": {
+      "data": {
+        "setSensorCursor": {
+          "__typename": "Sensor",
+          "name": "silver_stock_weekly_update_job_sensor",
+          "sensorState": {
+            "status": "STOPPED",
+            "typeSpecificData": {
+              "lastCursor": "{\"schema_version\":1,\"after\":0}"
+            }
+          }
+        }
+      }
+    },
+    "initialize-month": {
+      "data": {
+        "setSensorCursor": {
+          "__typename": "Sensor",
+          "name": "silver_stock_monthly_update_job_sensor",
+          "sensorState": {
+            "status": "STOPPED",
+            "typeSpecificData": {
+              "lastCursor": "{\"schema_version\":1,\"after\":0}"
+            }
+          }
+        }
+      }
+    },
+    "start-week": {
+      "data": {
+        "startSensor": {
+          "__typename": "Sensor",
+          "name": "silver_stock_weekly_update_job_sensor",
+          "sensorState": {
+            "status": "RUNNING",
+            "typeSpecificData": {
+              "lastCursor": "{\"schema_version\":1,\"after\":0}"
+            }
+          }
+        }
+      }
+    },
+    "start-month": {
+      "data": {
+        "startSensor": {
+          "__typename": "Sensor",
+          "name": "silver_stock_monthly_update_job_sensor",
+          "sensorState": {
+            "status": "RUNNING",
+            "typeSpecificData": {
+              "lastCursor": "{\"schema_version\":1,\"after\":0}"
+            }
+          }
+        }
+      }
+    }
+  },
+  "preflight": {
+    "r3_matches_previously_loaded": true,
+    "catalog_semantically_matches_commit": true,
+    "locks": {
+      "stock_period": "released",
+      "stock_period_silver": "released"
+    },
+    "related_manual_writers": []
+  }
+}

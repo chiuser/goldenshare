@@ -1,6 +1,6 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-更新：2026-10-17。**Raw第8步、一次完整性审计、Silver首次生成/登记均已完成。** Raw两频2,250文件/4,486,908行、baseline=ready，截止2026-10-16，见§5.15；审计无缺口或版本冲突，见§9.6。Silver实际810文件/3,105,684行，21列及原值同Raw，810物化/2,430项blocking检查均通过，首次实施结果见§10.10。**§11设计提交ba9507fca后，第1项部分开发遇到已复现的恢复门禁冲突，现已暂停，见§11.10；第2项未开始，日常实现未提交/未验收，本轮正式操作为0。** Prod后置、R3继续暂停。
+更新：2026-10-17。**Raw第8步、一次完整性审计、Silver首次生成/登记均已完成。** Raw两频2,250文件/4,486,908行、baseline=ready，截止2026-10-16，见§5.15；审计无缺口或版本冲突，见§9.6。Silver实际810文件/3,105,684行，21列及原值同Raw，810物化/2,430项blocking检查均通过，首次实施结果见§10.10。**§11日常恢复和自动接线开发/隔离验收已完成并提交6e6017712；正式加载、两个Silver sensor初始化/启用及无输入自然tick已通过，见§11.12—11.13。首个真实日常交付待周一原19:30窗口。** Prod后置、R3继续暂停。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -1165,7 +1165,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 ### 11.9 第2项正式交接与第3项结案清单
 
-本轮无正式操作授权。未来在程序隔离通过、固定版本后另给精确执行清单：工作目录为现有orchestrator，现有.venv/bin/python3 -B，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home；Lake/staging沿两正式根。只加载确认版本，其他任务改动若无法隔离先停，不切分支/worktree、不重启无关服务。
+此前开发轮无正式操作授权。2026-10-17管理员确认真实下载验收等周一，先完成当前可验证的正式接线；精确操作和读写边界见§11.13。工作目录为现有orchestrator，现有.venv/bin/python3 -B，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home；Lake/staging沿两正式根。只加载确认版本，其他任务改动若无法隔离先停，不切分支/worktree、不重启无关服务。
 
 1. **接线基线只核对一次。** 复用§10.10已验收文件/事件与截止2026-10-16事实，查询其后两Raw资产是否有新交付头记录；没有则直接作为基线，不重写810文件或历史事件。存在新交付时只按这些记录定位相应Raw完成receipt处理差额。旧记录缺本合同引用且无法准确定位receipt则暂停交接讨论，禁止把cursor直接设到最新而吞掉变化。
 2. **加载与启用分开。** 先加载新Raw通知和两个默认STOPPED的Silver sensor；只读确认定义、Raw原状态/水位、Silver基线及无冲突写者。经明确批准，初始化新sensor消费起点，再启用两个新sensor；不重置Raw cursor、不改19:30窗口、原source配置或其他sensor。具体event位置取实际基线，不写死本次审计的cursor数值。
@@ -1232,4 +1232,24 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 完整“硬口径→实现→正反证据→状态”见[本轮验收报告](../../../reports/dg_stock_period_silver_auto_acceptance_20261017/report.md)与results.json。范围/恢复/假引用/失败及错绑、回执失败和源在汇总期间漂移均有拒绝证据；原旧通知在后来合法更新后可直接复用已闭合回执。共享测试适配器已变为核对真实Raw metadata；未发布反例明确构造缺引用的真实物化，不靠生产者不再适用的旧假设。
 
-CodeGraph及源码清单复核后未分类消费者0；本轮默认Ruff、致命错误基线、文档与diff检查通过。catalog只提交本域三个说明字符串，原格式改动逐字保留。程序及隔离阶段完成，正式加载/初始化cursor/启用和首个真实日更未执行，仍沿§11.9另行授权；不推进Prod或R3，不推送、不覆盖其他任务改动。
+CodeGraph及源码清单复核后未分类消费者0；本轮默认Ruff、致命错误基线、文档与diff检查通过。catalog只提交本域三个说明字符串，原格式改动逐字保留。程序及隔离阶段完成，当时正式接线与首个真实日更未执行；其后授权和接线见§11.13，不推进Prod或R3、不推送、不覆盖其他任务改动。
+
+### 11.13 周末正式接线执行清单（2026-10-17）
+
+管理员要求先完成现在可验证的部分，真实下载及首个日常交付等周一。本节具体化§11.9，不改代码、合同、配置或算法。版本6e6017712；工作区R3执行模块hash与此前获准加载版本一致，catalog余下差异仅格式，其他未提交内容不在defs加载范围。R3继续暂停。
+
+**基线只核对一次。** 复用首次Silver执行d895bec0-8b69-4cd3-aabe-7f06a4c7e467及其810文件/2430检查记录。从2026-10-17T14:40:53.425214+08:00起分别限1条查询两Raw新物化，均无；两Raw历史observation分别限1条，均无。因此两个新sensor起点均为`{"schema_version":1,"after":0}`，没有跳过待办。四个目标job无在途运行，Raw/Silver既有锁可用、无相关手动写者。临时证据目录dg-period-silver-handover-bh9qe536；收尾复用，不再扫描历史/Parquet。
+
+**执行入口与影响面。** 工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，现有`.venv/bin/python3 -B`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。通过现有`http://127.0.0.1:3000/graphql`调用已核对本机安装schema的字段；selector固定`repositoryLocationName=orchestrator`、`repositoryName=__repository__`，sensorName只允许`silver_stock_weekly_update_job_sensor`、`silver_stock_monthly_update_job_sensor`。
+
+| 原步骤 | 精确操作 | 验收和中断规则 |
+| --- | --- | --- |
+| 加载 | 一次`reloadRepositoryLocation(repositoryLocationName:"orchestrator")` | 新sensor均可见且STOPPED、默认STOPPED；原Raw状态/业务水位和其他sensor状态不变。加载失败停止，不初始化/启用，不重启服务 |
+| 初始化 | 分别`setSensorCursor(sensorSelector:$selector,cursor:$cursor)`，cursor为上述实际基线JSON | 先读回两cursor及STOPPED。已有非空cursor/意外状态则停，不覆盖进度；中断后只补未完成项，不重置Raw |
+| 启用 | 分别`startSensor(sensorSelector:$selector)` | 两新sensor为RUNNING。部分成功后失败即保留事实并报告，不擅自回滚/停其他sensor |
+| 自然tick | 只读两sensor最新tick及目标job近期运行；不preview/dry-run/手工launch | 无新通知时两者自然SKIPPED、reason=silver_no_completion、after=0、无run请求。异常或真实待办停止报告；没有tick就标未完成，不伪造成功 |
+| 收尾 | 对比一次原sensor状态/Raw业务水位、Raw daily.json及原Silver完成记录 | 仅新sensor调度状态/cursor/tick变化；文件与旧完成记录保持。周一真实下载及Raw→Silver交付继续待验收 |
+
+**预算、禁止项与证据。** 至多1次reload、2次cursor设置、2次start；0源请求、0行情SQL/COPY、0行情文件写入、0物化/check补报。基线只读4资产最新记录、两Raw新头记录及4个job有界查询。daemon按原60秒间隔自然评估，每tick沿既有至多5次存储读取合同；只等待所需skip tick，不做长时间重复查询。不写Lake/staging、不补旧事件、不重新bootstrap；既有200项及末次23项定向隔离证据复用，不因接线重跑。周末skip只能证明无输入时不误触发，不能替代周一真实下载验收。
+
+**执行结果：通过。** 同日19:57完成上述5次控制面变更。两个新sensor当前RUNNING，定义默认仍STOPPED；自然tick周线2578125、月线2578126均SKIPPED，reason=silver_no_completion、after=0、runIds/runKeys为空、无error，两个Silver job无运行记录。原113项sensor开关状态、两Raw业务水位、Raw daily.json及Silver既有完成记录均保持；未请求源/写行情/补报物化或check，R3仍暂停。机器证据见[formal_handover.json](../../../reports/dg_stock_period_silver_auto_acceptance_20261017/formal_handover.json)。本次正式接线完成，剩余首个真实交付待周一原19:30窗口；不为验收手工重下旧数据。
