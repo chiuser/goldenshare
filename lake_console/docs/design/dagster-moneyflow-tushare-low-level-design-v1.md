@@ -4141,3 +4141,26 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 修正后工具、库存及七表真实job/文件/检查的隔离回归109项全部通过，新增两项反例修正前均失败，Ruff和文档检查通过。资金流84份业务代码保持，当前113依赖/737库存隔离Definitions验证通过，正式14资产合同、serverId和21停止状态保持。[当前隔离加载](../../reports/moneyflow_p4_continuation_sample_definitions_20261017.json)与[源码/服务核对证据](../../reports/moneyflow_p4_continuation_sample_verification_20261017.json)已持久保存。先前267项原业务回归和完整受保护门禁沿用本日先前记录，本次未重复冒充复跑；没有业务字段、API/CLI参数或依赖矩阵变化。
 
 **准确进度与下一步。** 只针对10-08、09、12～16七个成熟交易日重新只读核对七表，共49项，203次有界读取、未扫描全部历史。已完成2项（大盘10-08、10-09），剩47项/94个完整任务：大盘剩5天，其他六表各7天。7804项历史接入结果保留。已生成[剩余47项清单](../../reports/moneyflow_p4_continuation_remaining_plan_20261017.json)，SHA256 5d3da048513b7d99cd0051280f42c83bd2451182a625b1c15b9fb784d677b252，未apply；该清单及其代码证明保存于仓库reports，避免仅依赖临时目录。下一阶段按该范围接续，先各新表首日完整验收再继续同表，沿用§70的预算/原生恢复/不重发规则。当前单日步骤已收尾，没有未观察的活动资金流run；21自动更新保持STOPPED，启用及P5真实调度验证继续待办。
+
+### 70.20 整体第一步：47项正式接续执行说明
+
+**目标、授权与禁止项。** 用户本轮明确要求按方案继续并完成整体第一步，授权承接§70.19已列出的剩余47项/94完整任务。父清单为`lake_console/reports/moneyflow_p4_continuation_remaining_plan_20261017.json`，SHA256=5d3da048513b7d99cd0051280f42c83bd2451182a625b1c15b9fb784d677b252，47项、root_scope_digest=79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0。完成这一清单及独立物理/原生对账为本轮终点，21个sensor始终STOPPED；不启用调度、不进入P5、不新增成熟日期、不重跑大盘10-08/09、不补历史来源缺口，不访问Prod/BIYING、不修改其他家族、配置或重载服务。
+
+**当前代码及影响。** 原CLI、固定七表合同、原完整job及原检查不变。执行路径为CLI→plan/verification→既有状态核对/持久请求→固定GraphQL登记及launch→原生队列→原Raw/Silver writer与checks→物理和原生验收。84份已验收资金流业务源码保持；本次开工发现`run_contracts/stock_period_silver.py`增加周/月线`resume_from_execution_id/recovery_run_id`，当前catalog只导入该模块的check_names；资金流工具、七表asset/writer/check不调用新增函数。读取实际模块及import消费者核对后，仅更新无正式凭据的隔离加载、当前113项完整依赖和737源码库存证明，旧证明/旧清单保留，不修改shared period实现。CLI仍在defs之外，不需要reload；每次新动作由原guard重新验证源码、已加载14资产/21开关、日历、实例配置、容量1、挂载/空间及无冲突写入。
+
+**执行分段与命令。** 工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，正式DAGSTER_HOME=`/Users/congming/.goldenshare/dagster_home`。只用当前项目.venv。新源码证据与13段的scope/plan/精确SHA、正式控制请求和运行身份分别保存；每个子清单均通过CLI plan的`--parent-plan`继承同一47项root，不能新增或重置旧请求/预算。大盘5天；其他六表每表先10-08一天，独立读回完整schema、键/日期、源两轮/数量门禁/行数、摘要及精确mat/check绑定并保存表级样本报告，再处理同表10-09、12～16六天。每一日期仍Raw成功且准确绿检后才启动Silver。执行入口模板如下，实际绝对路径和摘要在开始该段前登记：
+
+```sh
+.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli plan --scope-file <本段scope.json> --output <新的本段plan.json> --parent-plan /Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_remaining_plan_20261017.json
+.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan <本段plan.json> --expect-plan-sha256 <本段实际SHA256>
+```
+
+只读准备文件位于`/private/tmp/moneyflow-full-20261017-fv3pao_e`，最终证明、13段清单/命令、表级样本与总验收持久保存至reports。正式请求及逐动作观察沿原工具保存到`/Volumes/datasource/data_lake_staging/moneyflow/continuation/<原root>`；每job候选沿原staging/run_id/dataset/date，正式文件仍只在`/Volumes/datasource/data_lake/raw|silver`，无跨日期长事务。
+
+**性能及失败规则。** 此次47个日期、最多47次登记/94次launch、94份正式文件及各94条物化/准确blocking检查；预估220次来源请求、每层约12.8万行。47轮稳定等待合计至少47分钟，Raw活动预算上限235分钟，不含排队/整理，不给出虚假整批ETA。原单Raw64请求/300秒/每轮20000行/768MiB、SQL512MB/1线程/no-spill、每动作40读、每run120次10秒观察及20分钟、总新增32GiB/余量64GiB保持；不并行占用资金流任务。计划和汇总每命令≤400读/300秒；固定13段额外只读规划成本有界（首日1项、同表后续最多6项），不能用重复执行规避动作或poll持久预算。每段只读初始核验及每表首日读回单独记录，最终49项汇总复用有界批读，不深扫7804日历史。
+
+中断先观察原run并使用原请求和预算接续，不重发；跨日只生成同范围、同root的剩余子清单，原授权继续覆盖，不自动扩大。原任务失败/未知响应、物理或check不一致、数量/分类门禁、相关代码/服务变化或预算超限均停止新动作、保留成功日期和现场。无关源码变化须按实际调用与加载核对后更新证明，不能擅自忽略全部shared文件；不取消其他调度，不修复或覆盖源数据来造绿检。每60秒内报告当前表/日期、实际完成数、剩余数和等待/失败原因。
+
+**验收。** 每个新表首日保存真实来源行数、规范化/Raw/Silver行数、reject及原因、表合同/全字段转换、准确run/mat/checktarget及文件摘要。47项全部两层就绪后，独立有界核对全49项的原生唯一run/物化/通过检查、当前文件及源证明，当前接续49/49、剩0；对同根完整剩余清单再apply必须0新登记/0新job/0新来源请求。记录实际请求/耗时/读取/文件及行数、原7804日历史结论保持、所有21sensor仍STOPPED，然后完成本步方案对账。测试沿用上一轮109项及原业务/受保护门禁记录，若生产代码不变不重复声称复跑；本轮增加的是正式执行证据，不拿隔离结果替代。
+
+§70.20执行前记录：当前隔离Definitions通过，113依赖保持；加载后改变的两个period helper不在该依赖闭包内，按原verification规则记录为无关变化，不重跑资金流采集或扩大读取权限。13段的绝对清单路径、SHA256、完整plan/apply命令已保存于[执行命令清单](../../reports/moneyflow_p4_continuation_full_20261017/execution_manifest.json)，当前源码及隔离加载证据也保存在该目录。首段为moneyflow_mkt_dc 10-12～16五日，plan SHA256=e3a083379fc08df15a4f3639feb26c091bb43a367c2b046fa3eb63edabfb72d9，执行其原CLI apply命令，首段写前guard已只读通过；准备阶段正式mutation为0。表级首日验收后才运行manifest中下一段，不把命令清单存在当作实际数据完成。
