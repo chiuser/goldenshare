@@ -1,6 +1,6 @@
 # 25股修复LLD v1：R3验收记录与R4正式修复设计
 
-更新：2026-10-17。R3代码及隔离验收提交ddea22236，事实与证据保留在§1—§13。§14—§22是本次补齐的R4实现及正式执行设计，待review、未开发、未正式执行；不能把设计写成现有能力。本轮仅改原方案和本文，不写正式staging/Lake、不freeze、不操作事件、sensor、Prod或serving，旧现场/hash保留。
+更新：2026-10-18。本次只修订原文档，修复代码及正式执行均未推进。R3提交ddea22236及历史证据保留在§1—§13；R4原设计提交5c420c6d7。现有R4代码部分落地，准备/CLI/协调器尚未完整接线，且含本次撤回的期限门禁，待按§14—§22纠正。93项针对性测试是此前版本的部分证据，不能证明修订后的整体验收或正式修复完成，详见§22.3。正式执行未授权；旧现场/hash不改。专项工具完成后的清退设计见§23，本次不执行清退。
 
 ## 1. 整改前实现、根因与消费者
 
@@ -235,7 +235,7 @@ CodeGraph已用explore、callers/impact及CLI sync/status核验协调器→worke
 
 边界仍需明确：现有CLI inspect包含完整库存收集，属于未修改、未执行的后续正式规划入口。R3隔离通过不能授权其全量读法；后续如推进正式冻结/候选/提升，须先按25股范围和现行全局读取规则另行评审，不直接启动inspect，也不把这一范围外改造混入本轮。
 
-## 14. R4目标、当前依据、改动文件与消费者（待review）
+## 14. R4目标、当前依据、改动文件与消费者
 
 ### 14.1 本步目标和禁止项
 
@@ -248,25 +248,26 @@ R3证明了候选计算和隔离恢复；它没有实现R4正式提升。R4完�
 | 当前实现 | 核实的缺口 | R4修正落点 |
 | --- | --- | --- |
 | _cli.main仅inspect/freeze/build/audit；execute_repair_candidates始终按单phase候选返回 | 无正式提升入口，无完整正式提交状态 | 新_promotion模块和promote动作；单phase完成不能代替全链通过 |
-| _cli._collect_profiles对所有ts_code/year做glob及全市场身份查询 | validation_paths把无关年度文件纳入冻结、hash和检查 | 新_planning模块按25股、实际键和有限依赖闭包收敛，旧全市场实现退出 |
-| freeze_stock_factor_repair要求run_root尚不存在，输入逐个hash | 无法承接有界准备阶段已保存的同run成果；prepare和freeze容易重复 | 只允许接手同版、同请求的本run准备记录；合并一次、原子冻结，不接受未知目录 |
-| inspect_repair_writers以所有相关触发器STOPPED作为idle条件 | 把RUNNING状态直接等同于冲突写入 | 分离实际在途/排队任务、手工写者、窗口有效性和调度状态，不自动停触发器 |
+| _collect_profiles已移入新_planning并收敛到目标股，但_cli.main仍沿原流程取源/启动inspection，未调用prepare_scoped_repair_inputs | 独立准备复用尚未接入真实CLI，旧准备路径不能算已迁移完毕 | freeze只接唯一有界planner；inspect保留可选只读诊断，正式流程不先运行它 |
+| freeze_stock_factor_repair已部分支持本run准备；当前要求writer_guard返回含idle的dict，_cli.main的回调却只抛错、不返回 | 真实CLI与freeze合同不一致；同run准备和冻结恢复也未整体验收 | 按§15删除准备/freeze的重复guard及强制窗口对象，只保留promote实际写入前的冲突回调；接入同版准备/冻结幂等路径 |
+| inspect_repair_writers仍以enabled_triggers和active_runs共同决定idle | RUNNING仍被当作阻塞，而不必要的cursor/旧事件深审尚未实现 | idle仅依据实际相关活动/排队任务；稳定前提直接采用管理员确认，不开发触发器预测系统 |
+| _promotion._check_window已要求approval/valid_until并在每个文件前比较时钟，且写checkpoint.execution_window；合同验证还强制maintenance_window | 已写出的期限门禁不符合本次确认口径 | 删除这些字段要求、检查和续期分支；不得只是不增加CLI参数而保留内部过期失败 |
 | read_repair_candidate_record绑定原件旧hash且要求候选仍在staging | 正式os.replace后候选已移走，不能继续按“未提升候选”读取 | 候选证明保持不变；正式恢复用专属逐文件提交记录与正式输出身份，不绕过reader的原件保护 |
-| 原checkpoint写方以phase摘要覆盖payload | 新的准备/全链/提升区块可能被后续写方覆盖 | 所有直接写方迁移到同一专项checkpoint合并规则，保留计量及其他区块，不建通用状态框架 |
+| runtime已有checkpoint区块合并；协调器与新准备/全链/提升流程尚未完整接线 | 局部测试不能证明各写方整合后仍保留彼此区块 | 各直接写方统一使用现有合并能力，以交错写入和取消恢复反测保留计量及其他区块，不另建状态框架 |
 
-CodeGraph已核对freeze、writer_guard、候选执行/读取链及直接测试；inspect_repair_writers静态调用图主要命中自身与测试，CLI动态调用已以源码补核。R4合同消费者清单包括freeze/validate_plan、validate_price/indicator_units、load_plan、RepairRuntime及proof、候选/指标批次验证、CLI worker/launcher和7份专项测试。实施前沿这些现行符号再次检查变更影响，不能只改planner输出而漏掉验证和恢复消费者；不重新审计市场数据。
+本次用CodeGraph codegraph_callers复核freeze_stock_factor_repair的CLI/测试消费者，以及promote_repair_files尚无调用方这一事实；源码检索补核动态调用和8个专项模块的引用，未发现日常asset/job/sensor调用专项入口。R4合同消费者包括freeze/validate_repair_scope_contract、validate_price/indicator_units、load_repair_plan、RepairRuntime/proof、候选/指标批次验证、CLI worker/launcher、准备/提交器和9份专项测试。合同修改须同时迁移这些消费者，不能只改planner或测试；此处不涉及前端/API或跨子系统依赖调整，不重新审计市场数据。
 
 ### 14.3 开发文件白名单
 
-以下路径均相对lake_console/orchestrator，表中的新函数名是拟实施接口，当前并不存在。
+以下路径均相对lake_console/orchestrator；新增模块已有部分工作代码，待完成项以§14.2、§22为准，不能把表中设计当作已实现。
 
 | 文件 | 具体内容 |
 | --- | --- |
-| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair.py | 新版计划/修复证明合同，精确validation_paths约束，freeze承接本run准备记录，writer检查拆分，新增模块纳入实现闭包 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair.py | 新版计划/修复证明合同、精确validation_paths；freeze承接本run准备记录；删除强制maintenance_window和freeze的writer_guard，修正RUNNING与实际写者判断 |
 | 同目录stock_adj_factor_history_repair_cli.py | inspect/freeze接唯一有界planner，promote参数路由；不保留旧全市场准备分支 |
-| 同目录stock_adj_factor_history_repair_planning.py（新增） | prepare_scoped_repair_inputs、collect_scoped_profiles、seal_preparation等专项规划/准备函数，负责输入去重、准备checkpoint及真实容量汇总 |
-| 同目录stock_adj_factor_history_repair_promotion.py（新增） | audit_repair_chain_for_promotion、seal_repair_candidate_chain、promote_repair_files及逐文件恢复；唯一正式写入模块 |
-| 同目录stock_adj_factor_history_repair_execution.py | 新合同准入、窗口/锁接入、准备进度取消复用、完整indicator结束时封存整链证明；提升开始后禁止再build/audit |
+| 同目录stock_adj_factor_history_repair_planning.py（新增） | prepare_scoped_repair_inputs、_collect_profiles、RepairPreparation.unit/seal的源/文件去重、准备checkpoint及容量汇总；退出window返回和重复guard |
+| 同目录stock_adj_factor_history_repair_promotion.py（新增） | audit_repair_chain_for_promotion、seal_repair_candidate_chain、promote_repair_files及逐文件恢复；删除_check_window/valid_until/执行窗口区块，统一writer_guard；唯一正式写入模块 |
+| 同目录stock_adj_factor_history_repair_execution.py | 新合同准入、专项能力锁接入、准备进度取消复用、完整indicator结束时封存整链证明；提升开始后禁止再build/audit |
 | 同目录stock_adj_factor_history_repair_runtime.py | 新版proof/索引及身份复用；checkpoint区块合并；准备/提升产物归属与本run计量；不新增业务公式 |
 | 同目录stock_adj_factor_history_repair_candidates.py | 受影响键/保留行证明接新合同；候选reader保持严格，不把正式恢复强塞到候选半成品恢复 |
 | 同目录stock_adj_factor_history_repair_indicators.py | 准确裁剪跨文件校验关系和声明证明范围，复用原谓词和原kernel，退出全市场价格/指标库存依赖 |
@@ -287,10 +288,12 @@ R4新执行统一使用plan.version=2、runtime.PROOF_VERSION=2，准备及正�
 | dependency_scope | 声明25股、每资产实际输入日期/年度、seed/context、前序实际行、必要完整历史范围和每条依赖用途；targets与只读依赖分开 |
 | validation_scope | 明确repair_scoped_v2、受影响股票/键/日期、完整文件结构检查及范围外行守恒；不得仅存validated=true |
 | validation_paths及source_inventory_paths | 只含上述闭包需要的真实路径；年度行情/结果路径的ts_code必须属于25股；共享日期文件按需要的日期并集列出，无全市场年度扩展 |
-| source_fingerprints和implementation_fingerprints | 去重文件强身份及当前完整实现闭包；包含新planning/promotion模块。一次建立，同版稳定窗口复用，不逐phase重复hash |
-| preparation_binding及maintenance_window | 绑定run_id、请求、实现、准备记录摘要及初始维护安排/边界；初始窗口是冻结时证据，后续有效执行窗口另记checkpoint.execution_window，不修改业务plan/hash，不能以一句“确认了”替代实际冲突写者核对 |
+| source_fingerprints和implementation_fingerprints | 去重文件强身份及当前完整实现闭包；包含新planning/promotion模块。一次建立，在同版稳定前提下复用，不逐phase重复hash |
+| preparation_binding | 只绑定run_id、请求、实现及准备记录摘要；管理员的休市稳定前提记在现有执行单/日志中，不新增必须持久化的业务计划字段 |
 
 source_inventory_paths的“完整”指完成本25股逻辑范围所需的源文件，不再指该数据集全市场库存。所有验证器同时改成依据dependency_scope验证精确闭包；缺目标所需前序行、seed、片段或源键仍拒绝，不能借收敛范围漏掉真实依赖。
+
+删除现有未验收代码对plan.maintenance_window的强制要求，不引入替代窗口字段；checkpoint不再新写execution_window，不用valid_until决定计划、候选或记录能否恢复。准备/freeze在稳定前提下退出重复写者核对：删除prepare_scoped_repair_inputs与freeze_stock_factor_repair的writer_guard参数、调用和相应窗口返回/保存，不保留空回调占位。promote将window_guard改为writer_guard，只在§17实际写入开始时调用一次，遇真实冲突抛FactorRepairError，无冲突返回None，不验证返回dict、approval或期限。生产者、加载器、验证器、CLI及全部测试同次迁移，不保留None/dict双口径或旧窗口兼容分支。已有未验收草稿与旧证据不原地改字段/hash；代码固定后用新隔离run验证，不借文档修订重下成功源片段或重扫正式数据。
 
 ### 15.2 修复证明的准确含义
 
@@ -304,7 +307,7 @@ source_inventory_paths的“完整”指完成本25股逻辑范围所需的源�
 
 ### 15.3 拟新增CLI及保持的行为
 
-原inspect/freeze/build/audit及其scope、as-of/end、phase、full/sample参数保留。inspect/freeze的读取范围修正为上述合同；inspect仍不创建run/候选/事件，freeze仍须显式维护确认才可冻结。正式流程不先inspect再freeze重复准备；freeze内部完成一次准备并保存成果。新promote仅接完整计划，不支持sample-target或只提升某个phase。
+原inspect/freeze/build/audit及其scope、as-of/end、phase、full/sample参数保留。inspect/freeze的读取范围修正为上述合同；inspect仍不创建run/候选/事件。原--maintenance-confirmed仅表示操作者确认本次动作，freeze仍须显式提供；它不表示期限或数值来源日期。正式流程不先inspect再freeze重复准备；freeze内部完成一次准备并保存成果。新promote仅接完整计划，不支持sample-target或只提升某个phase。不新增--maintenance-until或其他截止参数，不做时区/自动过期/续期实现。
 
 ```text
 python -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli promote \
@@ -337,19 +340,19 @@ python -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli pro
 
 新run只在批准的正式staging专项父目录下创建，正式根不放临时文件。尚未freeze时保存不可执行的准备记录，包含run_id、version、scope/参数hash、实现hash、源单元、已完成profile/库存单元及各自文件身份/摘要；位置为本run的checkpoints/preparation/，总checkpoint只存阶段和摘要。业务分片沿既有日期/月/股年及批次≤64，不新增更紧限制。
 
-准备按输入族/日期或股年去重，完成独立单元即持久化；同版、同参数、同有效稳定窗口恢复时，只检查该单元记录和对应文件版本，复用已完成来源/投影/计量，不重跑它的SQL或请求。未知文件、错误归属、实现或参数变化不接手；实现变化需新run，不能改旧hash强续。
+准备按输入族/日期或股年去重，完成独立单元即持久化；同版、同参数且已确认的稳定前提未被明确改变时恢复，只检查该单元记录和对应文件版本，复用已完成来源/投影/计量，不重跑它的SQL或请求。未知文件、错误归属、实现或参数变化不接手；实现变化需新run，不能改旧hash强续。
 
 source查询、文件批次、SQL和写准备记录前后检查取消。复用既有父进程监护、RSS/空间预算和可中断SQL；父进程不得用无进度的communicate等待整段准备结束。按实际工作报告已完成源单元/已规划文件/已核字节，实际最后emit≤30秒；ETA不可靠时明示未知。取消后不领新单元，worker退出、锁释放，已成功片段保留。
 
 ### 16.3 冻结与身份复用
 
-freeze允许本run已经存在自己的合法准备记录，但拒绝已有不同plan、未知目录或无对应plan的候选/正式提交痕迹。冻结前合并成功单元一次，验证25股/31资产/输入闭包/目标唯一归属、原预算及窗口，原子生成唯一plan.json。不得先造能执行的残缺plan再补字段。
+freeze允许本run已经存在自己的合法准备记录，但拒绝已有不同plan、未知目录或无对应plan的候选/正式提交痕迹。冻结前合并成功单元一次，验证25股/31资产/输入闭包/目标唯一归属及原预算，原子生成唯一plan.json。不得先造能执行的残缺plan再补字段。
 
 若plan已原子冻结但命令在返回前中断，重进相同run/request/实现时只读校验并返回原plan/hash，不再规划、请求源或重写计划。若此run已开始正式提升，返回实际状态并引导promote恢复，不能清空、重新freeze或回到build。不同请求/实现仍拒绝。
 
-源/原件强身份按唯一文件首次建立一次；同版准备中已有完整强证据且stat版本仍一致时可复用，不能只信存在或mtime。plan绑定这些真实身份和准备摘要。运行内/后续阶段通过有效稳定窗口、同一文件版本及plan绑定复用已核身份，不能freeze已hash一遍，worker又把同一输入全部hash一遍。真正首次使用且没有强证据的文件仍校验一次；复用的输出在重启时按对应范围验证，不hash未使用的潜在库存。
+源/原件强身份按唯一文件首次建立一次；同版准备中已有完整强证据且stat版本仍一致时可复用，不能只信存在或mtime。plan绑定这些真实身份和准备摘要。运行内/后续阶段在已确认的稳定前提下，凭同一文件版本及plan绑定复用已核身份，不能freeze已hash一遍，worker又把同一输入全部hash一遍。真正首次使用且没有强证据的文件仍校验一次；复用的输出在重启时按对应范围验证，不hash未使用的潜在库存。
 
-维护窗口失效、真实内容/版本冲突或新实现出现时，停止并报告，不通过stat/缓存掩盖已知变化。休市稳定输入是本次已确认前提，不周期性查网络或扫描数据证明它仍成立。
+真实内容/版本冲突、新实现或管理员明确改变稳定前提时，停止并报告，不通过stat/缓存掩盖已知变化。休市、无更新任务是本次已确认前提，不周期性查网络、读事件/cursor或扫描数据证明它仍成立；时间流逝本身不使准备成果失效。
 
 ### 16.4 候选计算与全链封存
 
@@ -359,29 +362,35 @@ freeze允许本run已经存在自己的合法准备记录，但拒绝已有不�
 
 每phase摘要继续只表示本phase完成。全链提升准入由专门汇总结果表达，不能把某phase的completed或all_chain_ready字段手工改真。候选封存后保持不变；正式提升开始后拒绝重新build/audit，明确引导使用同plan的promote恢复，避免对已替换原件重新算旧候选。
 
-## 17. 无冲突窗口、唯一写者与读写边界
+## 17. 休市稳定输入、唯一写者与读写边界
 
 ### 17.1 不以RUNNING状态代替实际写者判断
 
-inspect_repair_writers返回相关资产/job/触发器、实际在途/排队任务及检查范围；RUNNING/STOPPED只作事实摘要，不再决定idle。scope外任务不阻塞本专项；涉及目标或输入文件的真实写者、即将执行的冲突任务才是拒绝依据。不得通过试跑sensor evaluator获取结论，因为它可能写cursor或提交任务。
+本次直接采用管理员已确认的“休市、没有相关数据更新任务”。不开发sensor触发预测，不再读取旧SUCCESS、tick、cursor、continuity欠账来重新证明此前提；不要求sensor必须STOPPED，不运行sensor evaluator，不提出截止时间参数。稳定前提属于本次操作依据，不是通用调度算法。
 
-准备开始及正式提升开始这两个边界，各做一次有界只读检查：当前定义中的相关写job、对应活动/排队run、已核实的手工写进程、现行调度时间/交易日条件与管理员维护安排。复用已经核对的同窗口证据，不轮询全instance或深扫tick历史。不得运行或终止其他任务；无法确认某写者的身份/范围时报告具体对象。
+inspect_repair_writers保留已有的相关资产/job选择与活动run只读查询，修正idle只由实际相关活动/排队run决定，enabled_triggers仅作摘要，不参与拒绝。沿当前Dagster状态枚举查询，不新增状态、回看日期或数据库字段；__ASSET_JOB沿真实asset_selection排除明确不相交对象，其他无法证明不相交的实际相关run报告具体job/run，不猜安全。
 
-接受相关sensor保持RUNNING，需要同时满足：管理员确认的休市稳定窗口；没有实际冲突写者/待执行冲突run；现行调度条件在该窗口不会发起冲突写入。窗口结束边界来自现行调度和维护安排，写在正式执行单及计划中，不自行设“30分钟”等紧时限。若无法证明或确实存在冲突，则停在写入前报告原因，不能自动停sensor、改cursor或给普通job加新开关。
+正式promote尚有文件待写时，在取得本专项锁后至多调用一次该有界检查；同一命令内不按文件、phase或预览重复查询。准备/freeze/build按已确认前提执行，不另加一次全instance写者审计。只读dry-run和全完成幂等返回不查询写者。中断后重新开始一次写入命令时沿同一边界核对一次，不读取旧事件队列，也不重审市场范围。
+
+若真实发现冲突run、已核实的相交手工写进程或文件版本异常，停止并报告具体证据；不得终止其他任务或用停sensor消除冲突。不为了假想的手工写者反复枚举所有系统进程；同任务竞争由§17.2锁直接拒绝。已有有界检查结果写入本次日志即可，不新增持久化许可对象、签名、续期协议或长期状态表。
+
+正向验收必须证明sensor RUNNING不再阻塞、没有旧cursor/事件/continuity查询、每次实际写入命令最多一轮活动run检查；负向证明真正相交的活动/排队run及同任务竞争仍拒绝。测试使用隔离instance/替身和现有状态合同，不连接正式instance。
 
 ### 17.2 锁能保证什么
 
-复用fcntl.flock，在专项正式staging父目录使用一个固定writer.lock约束本专项正式协调器，同时保留原plan锁和父进程监护；隔离测试使用自己的临时父目录。锁文件不存业务状态，退出后内核释放，不能靠删除锁文件解锁。此锁不约束普通Dagster job，所以不能用“拿到锁”替代上一节的窗口事实。
+复用fcntl.flock，在专项正式staging父目录使用一个固定writer.lock约束本专项准备、候选及提升协调器，同时保留原plan锁和父进程监护；隔离测试使用自己的临时父目录。锁文件不存业务状态，退出后内核释放，不能删除锁文件解锁。此锁仅约束本工具，普通任务无更新按管理员确认执行，不声称锁能约束普通job。
 
-正式命令必须明确run_id，候选/提升还须完整plan；冻结前的准备记录只作为本run不可执行草稿。同专项竞争写者拒绝，不开第二协调器。窗口到期在下一个单元前停止，不领取新目标；一个已经进入原子替换临界段的文件完成fsync/状态记录后再退出。仍需写入的恢复先核窗口与自身锁，再读本run提交记录；不重新核市场、上市池、末端或基准。
+实现上沿_promotion.repair_writer_lock复用同一能力锁，补入_execution.execute_repair_candidates，避免不同run同时build或一边build一边promote。_cli.freeze外层持锁，prepare_scoped_repair_inputs接收并向准备worker传递已有父锁句柄，不再次竞争该锁；在同一持锁上下文调用freeze原子落plan后才释放，不能prepare返回先放锁再无锁freeze。worker复用父锁保护及父进程监护，不独立竞争同一锁造成自锁。获取顺序统一为能力锁→plan锁；只读inspect/dry-run不创建锁或目录，不新增锁服务。
 
-维护窗口是本次执行许可，不是业务计算输入。初次冻结保留当时证据；若之后过期，经明确批准的新窗口只在checkpoint.execution_window记录plan_hash、原/新窗口、批准依据、当前有界写者检查及有效边界，不改plan/hash、候选proof或数值截止日期，不为续窗口重新计算。没有新窗口授权或发现真实输入变化则停止；不能自动延长窗口，也不能因为原窗口到期就强迫重做全部候选。只读dry-run不创建或续写此记录。
+正式命令明确run_id，候选/提升还须完整plan；冻结前准备记录是不可执行草稿。同专项竞争拒绝，不开第二协调器。取消后不领新单元，已进入原子替换临界段的文件完成目录同步/状态收尾后退出；本任务worker退出、锁释放，成果保留。仍需写入的恢复沿§17.1核对一次实际写者，随后只读本run记录及所需文件身份；不重核市场、上市池、末端或基准。
+
+删除_promotion._check_window及每文件期限检查、window_guard参数、checkpoint.execution_window写入，promote使用§15.1的writer_guard。_planning不再收集/返回window，准备/freeze删除对应回调。保留原--maintenance-confirmed和正式动作授权，不再要求approval/valid_until；日志时间仅用于观察，不参与计划准入或自动失效。若管理员明确改变稳定前提或出现真实冲突，受控停止并讨论；不因跨阶段、重启、午夜或时钟变化要求新计划/重算。
 
 ### 17.3 路径和观测边界
 
 正式Lake只允许/Volumes/datasource/data_lake，候选/准备/提交记录只允许/Volumes/datasource/data_lake_staging的本run。新run形如stock_adj_factor_history_repair/run_id=<新UUID>，不能用R3临时根或旧run。冻结/提升边界核对挂载、同文件系统、目标归属、symlink和可用空间；不能在正式目标旁创建临时文件。
 
-DAGSTER_HOME仅用于读取现有instance状态/已有分区事实；配置读取及数据库查询继续只读，不初始化instance或写探测记录。CLI不import或执行asset job来写文件；不改数据库、分区、事件、sensor/schedule/cursor，不向Prod或serving发布。sensor状态/水位若本轮需要对账，使用开始时的有界只读摘要与结束摘要，不重置它们。
+DAGSTER_HOME仅用于读取现有instance状态/已有分区事实；配置读取及数据库查询继续只读，不初始化instance或写探测记录。CLI不import或执行asset job来写文件；不改数据库、分区、事件、sensor/schedule/cursor。此处读Dagster状态不表示修复其他数据库。本轮不新增sensor状态/水位首尾快照审计；以代码和隔离写入计数证明本工具没有状态写入。
 
 RUNNING的sensor可正常tick并自然推进cursor；验收要求本专项对调度/水位写入为0，不要求两次全局状态快照逐字相同，不把其他任务的合法推进回滚或当作本任务失败。
 
@@ -395,11 +404,11 @@ audit_repair_chain_for_promotion只沿plan.units/target_preimages及其record/re
 2. 冻结目标集合与成功候选/no-op记录集合完全一致，目标只能有一个owner；每条记录有新版完整proof，非sample，无commit_pending/business_pending；三个phase各自覆盖本phase目标，其并集覆盖本计划全部目标。
 3. 每条record_hash、proof的plan/实现/规则/范围/依赖摘要、overlay、seed/context和receipt链均匹配；输出hash/实际字节与持久化文件事实一致。缺一条目标或证明即未就绪，不能补造成功。
 4. 全链封存摘要绑定排序后的目标/record_hash/输出hash集合、变更行数、候选/no-op数量与字节；没有使用全市场库存或旧v1证明升级。
-5. 对实际提升还须满足维护窗口、专项锁、路径/同文件系统和空间条件。文件计算通过与“现在允许写”分别返回，dry-run不能替代正式授权。
+5. 实际提升还须取得正式写入授权、保留--maintenance-confirmed确认，并满足§17的专项锁、一次实际写者核对及路径/同文件系统/空间条件。没有期限字段；dry-run不能替代正式授权。
 
-candidate_chain封存是现有checkpoint中的一段证据，不是新的Dagster资产或数据库状态。promote --dry-run只读取它及必要绑定，输出plan_hash、整链是否齐全、按资产汇总的将替换/no-op/已完成/待完成数量、字节、完整目标清单引用、停止原因和窗口摘要，不默认向stdout倾倒全部文件记录，不重新执行validator/kernel/COPY，也不修复缺失封存。
+candidate_chain封存是现有checkpoint中的一段证据，不是新的Dagster资产或数据库状态。promote --dry-run只读取它及必要绑定，输出plan_hash、整链是否齐全、按资产汇总的将替换/no-op/已完成/待完成数量、字节、完整目标清单引用及停止原因，不默认向stdout倾倒全部文件记录，不重新执行validator/kernel/COPY，也不修复缺失封存或查询写者。
 
-候选输出的强身份由生成/读回时取得；同版同窗口的有效证据复用。新进程只验证这次要使用的输出/提交记录，建立一次缓存；同一次命令内预览、逐文件提交、最终对账共用，不对同一稳定文件反复hash。第一次正式提交之前，全链必须齐全，不能先提升因子再等待指标候选补齐。
+候选输出的强身份由生成/读回时取得；同版稳定输入的有效证据复用。新进程只验证这次要使用的输出/提交记录，建立一次缓存；同一次命令内准入、逐文件提交、最终对账共用，不对同一稳定文件反复hash。第一次正式提交之前，全链必须齐全，不能先提升因子再等待指标候选补齐。
 
 ### 18.2 正式逐文件checkpoint
 
@@ -413,7 +422,7 @@ candidate_chain封存是现有checkpoint中的一段证据，不是新的Dagster
 | 持久化与计量 | 源/目标同文件系统信息、rename及目录同步事实、输出身份读回证据、候选字节扣减归属 |
 | 完整性 | 本条checkpoint_hash，绑定上述字段；不能以exists/size或一个成功布尔值代替 |
 
-总checkpoint保留preparation、execution_window、candidate_chain、promotion和storage_accounting等明确区块；各写方只合并自己的区块，不丢弃另一区块。不在总JSON中每提交一文件重写全部文件明细，详细进度来自上述独立记录，避免O(目标数²)元数据写入。
+总checkpoint保留preparation、candidate_chain、promotion和storage_accounting等明确区块；不新建execution_window许可区块。各写方只合并自己的区块，不丢弃另一区块。不在总JSON中每提交一文件重写全部文件明细，详细进度来自上述独立记录，避免O(目标数²)元数据写入。
 
 runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的准备记录、最终清单和临时JSON；不放宽成任意前缀都可信。未知归属、symlink或真实计量不符仍拒绝，包含0字节未知文件。
 
@@ -421,7 +430,7 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 
 以批准的固定排序处理：Raw因子、Silver因子、日线/分钟价格、指标结果、对应state；同一资产内部按逻辑日期/股年及路径排序。目标范围在提交前已冻结，执行期间不发现新目标、不随文件是否存在改变清单。
 
-1. 检查取消、窗口和本文件归属。验证已有正式提交记录；若已COMMITTED/SKIPPED且对应输出事实一致，直接计入完成，不重写。
+1. 检查取消、本文件归属和持锁上下文，不重复查询Dagster或比较期限。验证已有正式提交记录；若已COMMITTED/SKIPPED且对应输出事实一致，直接计入完成，不重写。
 2. 对待处理目标，核对冻结原件版本/旧hash，以及已验收候选强身份。有效稳定上下文内直接复用已核身份；不能接受第三种内容。no-op要求候选hash等于旧hash且没有候选文件，记录SKIPPED即可，不改正式文件。
 3. 写入PREPARED checkpoint并fsync其文件及目录，绑定本条不可变候选record和旧/新hash。这个记录必须在rename前成功；失败不替换。
 4. 通过现有存储预留机制持久化“候选源路径即将移出staging”的未结计量，保持最多一个当前文件。候选文件已完整校验/fsync；再核对路径/设备及该文件版本，持有必要文件描述符，调用一次os.replace(candidate, formal_target)。禁止跨卷copy兜底，禁止在正式目标旁写临时文件。
@@ -433,7 +442,7 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 
 ## 19. 取消、崩溃及恢复状态表
 
-恢复先验同plan/实现和提交记录归属，仍需继续写入才要求有效窗口，再按下表处理本文件。全完成后的只读结果核验不要求重新取得维护窗口。只检查当前未结路径及准备复用的输出，不重新枚举Lake、请求源或计算指标。
+恢复先验同plan/实现和提交记录归属；尚需写入时沿§17取得锁并做一次有界实际写者核对，再按下表处理本文件。全完成后的只读结果核验不查询写者、不要求新确认或期限。只检查当前未结路径及准备复用的输出，不重新枚举Lake、请求源或计算指标。
 
 | 提交记录与文件事实 | 恢复动作 | 禁止动作 |
 | --- | --- | --- |
@@ -442,7 +451,8 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 | PREPARED；目标新hash；候选已移走 | 验证正式新输出与原提交绑定，补目录同步、计量及COMMITTED | 把目标当input_drift后另造计划，或再次替换 |
 | COMMITTED；目标新hash；候选已移走 | 保留成果，计入已完成并跳过 | 重新计算或覆盖同文件 |
 | 合法no-op/SKIPPED；目标旧hash=新hash | 只核身份/记录绑定，保持正式文件不动 | 为凑文件数生成/提升空变化候选 |
-| 原窗口过期，输入/实现及已完成成果仍合法，另获新窗口授权 | 核对新窗口的实际写者并更新执行许可区块，沿原plan/hash续剩余 | 改业务截止日期/指纹、自动延期，或为换窗口重算已完成成果 |
+| 仅时钟变化、跨阶段或进程重启，输入/实现及成果仍合法 | 沿原plan/hash续剩余；已完成文件直接复用 | 人造到期失败、追加截止参数或为时间变化重算成果 |
+| 管理员明确改变稳定前提，或发现实际相交写者 | 受控停止、保留成果并报告；讨论实际冲突的处理 | 自行改参数/hash、重算成果或操作其他任务 |
 | 目标第三种hash、输出缺失、错归属/错record_hash、未知候选 | 停止，报告具体文件/预期/实际，保留现场 | 删除残留、认领未知文件、吞错误或改hash |
 | 非no-op候选缺失且目标仍旧hash，或新目标与残留候选同时出现且无一致提交事实 | 停止并报告不一致；不自动重新生成 | 在已部分提升的混合输入上重新跑build |
 | 替换前/后checkpoint写入或fsync失败 | 保留实际文件，报告该边界；下次按PREPARED/目标事实恢复 | 声称全链完成或回滚已替换业务文件 |
@@ -487,7 +497,7 @@ space_required_bytes改按实际需要落盘的候选/投影/片段/metadata及s
 
 R3实测351.485秒和约1.11GiB只作结构/隔离证据，不能推出正式ETA。开发先测小样本新增准备/提交路径，正式freeze用去重footer/输入行及已有吞吐给出区间估计；源等待、共享大文件和未知阶段明确不确定，运行中显示实际进度，不能伪造剩余时间。
 
-不可接受条件包括：准备又回到全市场年度枚举；同一稳定输入按phase重复扫描/hash；已完成文件再次kernel/COPY/replace；完整文件按25股分别重写；无进度超过原门禁；真实超预算/空间不足/窗口失效。命中后停止并定位，不以增加无关审计、缩业务范围或吞异常通过。
+不可接受条件包括：准备又回到全市场年度枚举；同一稳定输入按phase重复扫描/hash；已完成文件再次kernel/COPY/replace；完整文件按25股分别重写；无进度超过原门禁；真实超预算/空间不足/实际写入冲突。命中后停止并定位，不以增加无关审计、缩业务范围或吞异常通过。时间流逝不是拒绝条件。
 
 ## 21. R4隔离正反测试及证据要求
 
@@ -499,7 +509,7 @@ R3实测351.485秒和约1.11GiB只作结构/隔离证据，不能推出正式ETA
 | 有界准备 | 临时目录放目标25股和无关股票/年度哨兵；所需共享文件正确投影/保留，源单元/库存/锚点去重 | 哨兵文件一旦被枚举为依赖、打开/强hash即失败；漏前序行/seed/context、缺所需源/结果键仍拒绝 |
 | 修复校验范围 | 使用原SQL谓词和字面小样本校验目标股；完整文件结构/保留行守恒一次 | 仅过滤一边掩盖覆盖差、丢量额/其他股票、错seed/carry/九转、写出范围外键或冒充普通全市场check |
 | 准备恢复 | 来源/准备单元完成后中断，同版恢复0重请求/0已完成SQL，未完成继续 | 未冻结草稿可执行、未知run被接手、改参数/实现后改hash强续、空源/缺页仍成功 |
-| 窗口与写者 | sensor RUNNING但有效窗口且无冲突run时可继续，本专项无状态/水位写入；本专项锁互斥；获准换窗口沿原hash续跑 | 相关活动/排队/手工写者、窗口不能确认/已到期拒绝；未经授权自动延期、为换窗口重算均拒绝；无关任务不被终止，不调用sensor evaluator |
+| 稳定前提与写者 | RUNNING且无实际冲突run仍可写；freeze无guard，promote的writer_guard返回None可接通；没有期限字段、跨时钟可恢复；实际写入命令最多一轮有界查询，全完成/dry-run为0轮 | 真正相关活动/排队run和本专项竞争仍拒绝；旧事件/cursor/continuity查询、逐文件重复查询、自动操作sensor及时间过期门禁不得出现 |
 | 全链准入 | 每目标完整proof/no-op，三阶段集合齐全，纯汇总后才准入 | 只完成factor/price、sample、缺目标/receipt/业务项、第三种hash、手改all_chain_ready，任何一项都不能写正式文件 |
 | 正式替换 | 真实临时候选经原子rename成为目标；同卷fsync/身份/计量/COMMITTED完整；no-op不写 | 错根/越界路径/symlink、跨卷、权限/空间不足、错误hash/归属拒绝；不得copy兜底或删现场 |
 | 崩溃与取消 | PREPARED前、写后、rename前后、目录同步/COMMITTED前后分别注入；同plan仅续未完成 | 状态失败回滚业务文件、候选丢失后偷偷重算、父退出留worker、取消后领新文件、未持久化即报完成 |
@@ -516,29 +526,110 @@ R3实测351.485秒和约1.11GiB只作结构/隔离证据，不能推出正式ETA
 
 | 步骤 | 必须落地 | 进入下一步的条件 |
 | --- | --- | --- |
-| D1 合同/有界准备 | §15—§16的v2合同及所有消费者、唯一planner、源/文件去重和准备续跑 | 缺依赖拒绝、无关股票年度哨兵不被读取、取消与准备复用小样本通过 |
-| D2 窗口/锁/真实候选接线 | §17窗口事实和锁；原候选链接v2精确关系及同一proof；全链封存 | 不操作sensor，实际冲突拒绝；所有受影响键的原业务谓词和范围外行守恒正反测试通过 |
-| D3 正式提升/恢复 | §18—§19的新模块/CLI、提交记录、字节扣减及已提升依赖定位 | 真实临时文件替换、取消/退出、状态失败、部分及全完成幂等通过 |
-| D4 收尾与开发交付 | CSV、归属/计量、性能计数、白名单和文档对账 | 仅相关回归通过，未完成项/正式未执行明确列出；申请下一阶段正式范围 |
+| D1 合同纠偏与有界准备接通 | .py的validate_repair_scope_contract/freeze删除强制窗口字段及freeze回调；_planning删除guard和window收集/返回；_cli.freeze接prepare_scoped_repair_inputs，把source_rows/anchors/observed/preparation同次交给freeze；已冻结同run直接只读返回；所有直接消费者同步迁移 | 缺依赖/错绑定拒绝；无窗口字段、无截止参数且真实CLI能接通；已完成准备0重复请求/SQL；未知run拒绝；准备至冻结持锁不中断 |
+| D2 唯一写者与候选接线 | .py的inspect_repair_writers仅以实际相关run判idle；_execution接能力锁及v2关系；完整indicator成功后调用seal_repair_candidate_chain；_runtime/_candidates/_indicators复用原缓存/计量/范围proof | RUNNING不阻塞，无cursor/旧事件查询；同任务竞争拒绝；目标缺键、错carry/seed和范围外行改动仍拒绝；缺phase/目标不能封存 |
+| D3 正式提升及恢复接通 | _promotion删除_check_window、window_guard、execution_window及逐文件时钟检查，按§15统一writer_guard；_cli增加promote互斥参数/路由；沿§18—§19提交记录、正式输出定位和字节扣减 | 真正相交活动run拒绝；每次实际写入最多一轮查询；临时文件rename前后取消/退出可恢复；dry-run/全完成0写入/0写者查询；不重算、不重复扣字节 |
+| D4 收尾及开发交付 | _promotion按已有事实输出CSV；9份直接测试按实际修改验证；原两文档填要求→代码→正反测试→版本证据→完成/未完成 | 只有当前固定代码的必要回归可作新验收；范围和性能计数符合§20—§21，正式未执行明确；按届时明确白名单提交 |
 
-D1—D4只有本文review及开发授权后才实施。必要代码改完并隔离验收后，按届时白名单提交；不推送、不改变其他任务脏文件。无源码/字段依据或发生范围外依赖冲突时先报告，禁止带着严重错误进入正式阶段。
+D1—D4细化此前前三个主要步骤的代码整改、正式替换能力和隔离验收，不增加一轮市场审计。本次只修订设计，不执行这些代码动作；后续按确认后的文档和相应授权推进。正式执行单中的数据操作尚未获授权。代码固定后只集中跑必要回归；不为每个小修复重跑25股完整公式链。不推送、不改变其他任务脏文件；无源码/字段依据或发生范围外依赖冲突时先报告。
 
 ### 22.2 获准后的正式执行清单
 
 每个正式步骤先核对该步授权，不把“可以审计”当“可以写”。一份执行单完整写明以下内容，不复制多个相互漂移的runbook：
 
-1. 当前dev-interface固定实现/提交及完整指纹；25股、逐股日期、688689例外和10月16日末端；批准维护窗口及结束边界；实际工作目录和已有解释器；只读DAGSTER_HOME来源；正式Lake/staging绝对路径；新run_id；原预算。代码未验收或窗口不明确则不开始。
+1. 当前dev-interface固定实现/提交及完整指纹；25股、逐股日期、688689例外和10月16日末端；管理员已确认的休市、无相关更新任务前提；实际工作目录和已有解释器；只读DAGSTER_HOME来源；正式Lake/staging绝对路径；新run_id；原预算及本次操作授权。代码未验收不开始；没有期限参数或重新核验休市的步骤。
 2. **正式准备/freeze。** 允许写入的仅为本run准备/staging和plan；命令包含25次--scope及现有--as-of 2026-10-16、--end 2026-10-16、--daily-basis-start 2021-01-27、--run-root及--maintenance-confirmed。不使用旧run/hash；不先跑一次完整inspect。源、profile、计量按§16保存/复用，输出新plan_path/hash、真实F/T、体积和估计。
 3. **真实候选。** 同一plan/hash依次build --phase factor、price、indicator --full。正式目标不写；成功片段与文件直接复用。最后封存全链、准备预览清单，不再重复三次业务audit。任一阶段失败停在该处，不带缺口进入提升。
-4. **提升预览。** promote --dry-run打印完整清单引用及按资产汇总的变更/跳过/待完成数量、实际字节、窗口和停止原因。若预览或容量需要调整执行范围，先确认，不自动推进；正常预览无正式写入、无状态修补。
-5. **正式提升。** 在已有明确正式写入授权下，promote --maintenance-confirmed使用同plan/hash和同窗口。确认真实写者与自身锁，逐文件按§18提交。命令需要的动作仅来自冻结计划，不允许新增代码范围或目标。
-6. **取消/失败恢复。** 保留日志、候选、提交记录、plan/hash和已替换文件；报告具体阶段、完成/未完成、当前文件、worker/锁退出及原因。同实现、同plan且窗口仍有效时，用同一promote命令只续剩余；窗口失效须先处理窗口，不能改截止日期/指纹强续。
-7. **一次收尾。** 用已有逐文件读回证据与目标集合归并，核对实际修改范围、候选/no-op/提交和空间；输出manifest/失败CSV、耗时和峰值。其他正式数据、调度状态和水位不改，事件0、Prod/serving0；报告R4文件完成或明确未完成。
+4. **提升预览。** promote --dry-run打印完整清单引用及按资产汇总的变更/跳过/待完成数量、实际字节和停止原因。若预览或容量需要调整执行范围，先确认，不自动推进；正常预览无正式写入、无状态修补、无写者查询。
+5. **正式提升。** 在已有明确正式写入授权下，promote --maintenance-confirmed使用同plan/hash。持有本专项能力锁后仅做一轮相关实际活动/排队任务核对，逐文件按§18提交，不逐文件查instance。命令动作仅来自冻结计划，不新增目标。
+6. **取消/失败恢复。** 保留日志、候选、提交记录、plan/hash和已替换文件；报告阶段、完成/未完成、当前文件、worker/锁退出及原因。同实现、同plan且没有实际冲突时，用同一promote命令只续剩余；不要求补期限或为时间变化重算。真实输入/实现冲突或管理员改变稳定前提时停止讨论，不能改hash强续。
+7. **一次收尾。** 用已有逐文件读回证据与目标集合归并，核对实际修改范围、候选/no-op/提交和空间；输出manifest/失败CSV、耗时和峰值。本任务对其他正式数据、调度状态和水位写入为0，不补DG事件；报告R4文件完成或明确未完成。
 
 正式准备/候选与正式提升可分别授权；执行单须明确本次获准停在哪一步。未知实际文件数和耗时在准备完成后报告，不引用历史13,005/15,743或夹具1,778为本次事实。所有新意外先停下来定位，不用恢复/验收名义扩大数据读取或写入。
 
-### 22.3 本轮文档交付状态
+### 22.3 当前开发状态及待修代码
 
-本轮已将R4四项审计缺口、开发文件、内部合同/CLI、读取模型、维护窗口、正式提交状态机、预算及正反验收落回原方案/LLD；这些均为设计，尚未实现。文档审查不代替代码或正式执行验收。
+管理员已授权前三步，当前代码开发已经开始。此前完成的是方案细化，不能追认成代码修复；当前也没有完成D1—D4全部交付。
 
-进入开发前需review确认本文设计，尤其是：promote入口、v2修复证明及消费者同步、运行中的sensor以窗口/实际写者判断、逐文件正式提交记录。它们用于完成已明确的R4目标；不会扩成全市场维护、普通调度改造或R5事件。无未处理设计冲突后才按D1—D4开发，本轮不提前动代码或数据。
+| 已落地部分 | 当前证据及实际限度 |
+| --- | --- |
+| v2计划/范围/proof合同、年度依赖限25股 | 基础合同和新反例拒绝旧版本、缺范围、错绑定及重算hash后的无关年度文件；原7份消费者仍需最终集中迁移/接线验收 |
+| 唯一planning模块、准备单元复用、Gold日期索引与九转计数同次读取 | 临时年度目录哨兵、已完成SQL/强身份复用、错误参数/实现/源版本、未知文件和取消反例通过；尚未接入freeze完整正式入口，不宣称准备退出/续跑全链通过 |
+| 因子与指标跨文件关系按实际股票/日期裁剪 | 完整文件结构/保留行仍保留；目标关系不从现有输出反推，缺键反例仍显示2条源/1条结果。SQL在读取时过滤，避免先物化非目标行再删除 |
+| promotion模块的逐文件提交和专属恢复定位器 | 真实临时文件正常替换、rename后异常、COMMITTED登记失败、第三种内容及错绑定反例通过；真实日线候选生产者接提交器，独立字面价格和控制股保持通过。这是单文件/状态机验收，不是31资产正式提升验收 |
+| runtime checkpoint合并及提升阶段计量 | 已有runtime正反测试通过；正式提升不再重复预留计算spill；完整协调器、全链封存、CLI及最终CSV接线仍待验收 |
+
+2026-10-17工作版本的scoped-current.xml共92项通过；macd-scoped-recheck.xml单项通过，合计93个不同用例。证据目录为/private/tmp/dg_r4_development_20261017/，版本绑定见其中current-development-evidence.json。早先independent.xml保留18通过、1失败的记录：新增作用域SQL漏写AS导致解析失败；已修正，并先以四列真实SQL投影的小样本验证范围/缺键，再单独复跑原失败MACD用例通过，没有重跑92秒的日线/分钟公式组合用例或25股完整链。旧R3结果仍仅作旧版证据。
+
+此前提出的--maintenance-until、旧SUCCESS/continuity深审和窗口续期方案已撤回，不再列为待确认项或开工卡点。现有代码中的强制maintenance_window、valid_until、execution_window和回调返回对象要求也须按D1/D3删除，不能只删除文档表述。CLI缺少prepare/promote接线、执行器缺少能力锁/全链封存，仍是应完成的真实开发项。
+
+本次文档修订未修这些代码、未重跑测试，也不提升93项证据的结论。下一轮依D1—D4完成代码与隔离验收后才可判断正式修复是否就绪。正式修复及必要DG登记完成后，再依§23清退专项工具；不在中途中断恢复能力，不重新扫描市场或复审已定范围。
+
+## 23. 专项工具清退与证据保留
+
+### 23.1 目标、时机及责任边界
+
+本工具仅为本次DG 25股修复服务，任务结束后不保留为日常CLI或通用修复平台。清退的必要条件是：R4正式文件修复及§20一次对账完成；后续必要DG登记和验收完成；本run没有未完成文件、待补登记或仍需使用工具的恢复动作。这些结论直接引用已有完成记录，不再请求源、算公式、扫正式Lake或重做完整性审计。
+
+R4代码退出/worker清理只说明进程已结束，不等于工具已清退；正式文件修好也不等于DG登记已完成。DG登记不在本次R4代码范围，开始前必须在原方案与LLD中补足具体登记合同和授权，不能先删除它仍需要的模块。本专项没有其他系统的数据修复或发布任务，清退条件不追加其他任务。
+
+清退只改专用源码、专用测试及原两份文档中的活动入口说明。没有配置中心、数据库schema、部署、服务重启、sensor操作或新清退命令；不建立保留天数、到期任务、自动清理状态表或权限登记。
+
+### 23.2 专用模块、入口及直接消费者清单
+
+以下路径相对lake_console/orchestrator，生产实现删除候选精确为这8个文件，不使用前缀递归删除：
+
+| 删除候选 | 清退前必须消除的直接依赖 |
+| --- | --- |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_cli.py | python -m专项入口、inspect/freeze/build/audit/promote路由及仍有效的运行说明 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair.py | 专项scope/budget/plan/证明合同、冻结器、实现闭包及writer检查；登记/报告若仍需调用它则先完成对应工作 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_execution.py | 专项worker/协调器、子进程启动模块路径及协议引用；确认本任务进程已退出 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_runtime.py | 专项上下文、身份缓存、计量及checkpoint消费 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_candidates.py | 专项因子/价格候选生成及reader；不删除它调用的日常价格核 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_indicators.py | 专项指标重放/片段/证明适配；不删除它调用的日常指标核 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_planning.py | 专项有界准备及准备worker入口 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_promotion.py | 专项提升、正式恢复定位器、清单汇总及能力锁实现 |
+
+本次源码检索中，生产引用只在这8个模块内部；CodeGraph和源码是当前依据，清退时仅补查它们的新增直接调用方、模块字符串和入口注册。若出现共享调用方，报告具体依赖，不按文件名猜“都是临时的”，也不顺手删除调用方或下沉成新的通用平台。
+
+直接测试候选共9份：tests/test_stock_adj_factor_history_repair.py，以及同前缀_candidates.py、_execution.py、_runtime.py、_indicators.py、_replay.py、_full_chain.py、_planning.py、_promotion.py。只删除专用于该工具的夹具、协议和恢复测试；其中独立字面价格/公式断言按下一节处理后才可删除，不能整批按前缀先删。
+
+repair_implementation_files的34文件是计算/校验指纹闭包，不是清退范围。stock_daily_qfq.py、stk_mins_qfq.py、stock_daily_trend_channel.py、stk_mins_qfq_macd_kdj.py、qfq_nineturn.py、nineturn_formula.py、stock_factor_price_checks.py，以及共享checks、paths、schemas、partitions、DuckDB和普通历史采集能力均保留。日常asset/job/sensor定义、保留数据集和sensor状态/水位不动。
+
+### 23.3 独立金样本与执行证据保留
+
+| 对象 | 清退处理 |
+| --- | --- |
+| 正式Lake中的因子、价格、指标结果/state | 全部保留；不删目录、不还原旧值、不重新导出或生成副本 |
+| Dagster历史、已有分区、检查/物化记录、sensor状态及水位 | 保留；清退不调用instance写接口，不清理数据库 |
+| 新修复run的原plan/hash、source_rows/anchors及其必要数值来源、实际修改清单和失败/收尾报告 | 原样保留并在原文档登记准确路径及版本；不能只保留hash而删除唯一数值依据 |
+| 解释完成结果/恢复边界所需的receipt、候选record/proof、正式提交checkpoint、日志及版本证据 | 原样保留，包含证明已提交正式输出所需的绑定链；清退源码不改变既有JSON/CSV/hash |
+| 旧R3计划、候选/重放片段、receipt/checkpoint及历史报告 | 不改不删，保留旧版本身份，不冒充新验收 |
+| 其他候选、spill、临时文件及staging目录 | 不随代码清退删除；本次没有产物删除授权，不递归清空run根、专项父目录或其他任务目录 |
+
+现有日常独立金样本tests/test_stk_mins_qfq_formula_golden_contracts.py、test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py、test_stock_daily_trend_channel_formula_golden.py、test_qfq_nineturn_formula_golden.py和test_nineturn_formula.py全部保留。清退前核对专项中的test_seven_frequency_literals_and_quantities、test_macd_replay_uses_price_candidate_and_literal_first_bar、test_all_seven_frequencies_share_literals_and_carry_across_years的独立业务断言：普通金样本已等价覆盖的直接复用；确有独有断言则移入相应现有普通测试，直接调用日常核，保留字面预期与来源，不引用将删除的专项夹具/模块。不为清退重跑一条完整修复链。
+
+证据仍放原位置，不做文件备份/快照、不修改旧指纹，也不新建证据存储服务。以后若确需删除执行产物，须明确哪些确切路径已不被证据链/登记/恢复引用再单独处理，不夹带进本次代码清退。
+
+### 23.4 清退顺序、读写范围和中断处理
+
+1. **引用既有完成事实。** 在原两文档记录R4实际完成、必要DG登记验收及无需恢复的证据引用；有未完成项就保留相关工具，不重复查行情或跑任务来“证明完成”。
+2. **做一轮直接引用核对。** CodeGraph callers/impact加源码检索，仅围绕§23.2的8模块、9测试、模块字符串和登记消费；不借机审计全仓或全部调度。引用是空还是未消除应写清楚，不能凭文档结论删除。
+3. **迁移必要金样本后清退专用代码。** 以当前dev-interface精确文件白名单删除/修改，检查动态import/worker模块字符串和测试收集引用同步清零。保留共享实现和无关未提交改动，不创建分支/worktree，不新增旧入口兼容壳。
+4. **执行有限的隔离验证。** 静态引用、测试收集和现有日常定义的隔离加载证明没有悬空import；只运行确实受迁移影响的独立金样本/直接回归。不加载正式code location，不访问正式instance/Lake，不请求Tushare，不运行已删除的修复命令。
+5. **更新关闭记录并按授权提交。** 原两文档保留目标、实际范围、实施版本、证据路径、清退文件及验证结果；活动步骤标记已完成/工具已退役，历史命令明确不可再执行，不增加新runbook。不推送、不部署、不清理执行目录。
+
+清退期间若中断，文件改动由Git当前差异说明；继续处理白名单剩余项，不重复修复业务数据。发现未知调用方或共享依赖则停在该文件并报告，不恢复整套旧入口或删除共享能力来绕过。源码清退不触碰执行产物，因此不需要设计新的数据删除/回滚/续期状态机。
+
+清退成本仅为上述文件和直接引用的静态读取、必要测试收集/隔离加载及有影响的金样本回归；源请求、业务SQL、行情文件hash、Lake目录扫描及正式写入均为0。不新增内存、并发或耗时上限；实际耗时记录即可，不用市场规模估算代码清退成本。
+
+### 23.5 清退验收清单
+
+| 检查 | 正向结果 | 反向保护 |
+| --- | --- | --- |
+| 工具及引用退出 | 8个专用模块和命令入口退出，生产调用/动态模块路径及测试收集无悬空引用 | 尚有DG登记/恢复依赖则不提前删；不得留兼容入口或定时自动运行入口 |
+| 共享与公式保留 | 普通定义隔离加载正常；共享核/检查/分区/路径和独立金样本仍可用；必要迁移断言通过 | 不把34文件指纹闭包或所有含repair名称的实现当删除清单；不以删测试掩盖断言丢失 |
+| 正式数据及证据 | 变更白名单只有专用源码/测试和原两文档，原执行证据引用保留 | 测试拦截正式路径、instance写入和网络；任何清目录/改旧JSON/hash/事件/sensor操作均不得发生 |
+| 中断与范围 | 白名单内部分改动可继续收尾，无关任务差异保留 | 未知调用方停止并报告；不能为清退重跑bootstrap/修复或清空staging |
+
+本节是任务完成后的退出设计；当前仍在R4开发阶段，本轮只补文档，未删除代码、数据或证据。
