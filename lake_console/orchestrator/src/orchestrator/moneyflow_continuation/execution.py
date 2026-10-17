@@ -14,6 +14,7 @@ from orchestrator.moneyflow_continuation.contract import (
     require,
 )
 from orchestrator.moneyflow_continuation.plan import validate_plan
+from orchestrator.moneyflow_continuation.recovery import ACTION
 from orchestrator.moneyflow_continuation.state import next_action
 from orchestrator.moneyflow_continuation.submission import (
     Journal,
@@ -159,12 +160,14 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                         journal,
                         unit,
                         layer,
-                        current[layer]["runs"][0],
+                        current["silver" if layer == ACTION else layer]["runs"][0],
                         stop,
                         progress,
                         clock,
                     )
-                    phase = {"raw": "silver", "silver": "complete"}[layer]
+                    phase = {"raw": "silver", "silver": "complete", ACTION: "complete"}[
+                        layer
+                    ]
                 for _ in range(POLICY.transitions_per_unit):
                     require(not stop.is_set(), "operator_stopped", 130)
                     prefix = unit["dataset"] + ":" + unit["trade_date"] + ":" + phase
@@ -191,7 +194,9 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                         break
                     if action.startswith("observe_"):
                         layer = action.removeprefix("observe_")
-                        native = snapshot[layer]["runs"][0]
+                        native = snapshot["silver" if layer == ACTION else layer][
+                            "runs"
+                        ][0]
                     else:
                         layer = action
                         progress.update(phase="submitting", layer=layer)
@@ -209,13 +214,16 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                             registered=progress.value["registered"]
                             + (action == "register"),
                         )
-                    if layer in {"raw", "silver"}:
+                    if layer in {"raw", "silver", ACTION}:
                         wait_run(
                             backend, journal, unit, layer, native, stop, progress, clock
                         )
-                    phase = {"register": "raw", "raw": "silver", "silver": "complete"}[
-                        layer
-                    ]
+                    phase = {
+                        "register": "raw",
+                        "raw": "silver",
+                        "silver": "complete",
+                        ACTION: "complete",
+                    }[layer]
                 else:
                     require(False, "transition_limit")
             progress.update(

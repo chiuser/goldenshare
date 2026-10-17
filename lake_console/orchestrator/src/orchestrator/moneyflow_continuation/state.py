@@ -67,6 +67,13 @@ from orchestrator.moneyflow_continuation.contract import (
     safe_path,
 )
 from orchestrator.moneyflow_continuation.plan import LAUNCH, REGISTER
+from orchestrator.moneyflow_continuation.recovery import (
+    ACTION,
+    REEXECUTE,
+    effective_runs,
+    matches,
+    request,
+)
 
 RUNTIME_QUERY = """query {version repositoriesOrError {__typename ... on RepositoryConnection{nodes{name location{name} jobs{name} sensors{name defaultStatus sensorState{status}}}}} workspaceOrError{__typename ... on Workspace{locationEntries{name loadStatus locationOrLoadError{__typename ... on RepositoryLocation{name serverId}}}}} instance{daemonHealth{allDaemonStatuses{daemonType required healthy lastHeartbeatTime}}}}"""
 ASSETS_QUERY = """query($keys:[AssetKeyInput!]){assetNodes(assetKeys:$keys){assetKey{path} pools dependencyKeys{path} partitionDefinition{dimensionTypes{dynamicPartitionsDefinitionName}} assetChecksOrError{__typename ... on AssetChecks{checks{name blocking}}}}}"""
@@ -187,7 +194,7 @@ def next_action(snapshot):
         item = snapshot[layer]
         if item["active"]:
             require(item["owned"], "foreign_moneyflow_run")
-            return "observe_" + layer
+            return "observe_" + item.get("action", layer)
         require(not item["failed"], "native_run_failed")
         clean = item["reason"] == "missing_materialization" or (
             layer == "silver"
@@ -202,7 +209,7 @@ def next_action(snapshot):
         return "complete"
     if snapshot["raw"]["ready"]:
         require(snapshot["registered"], "delivery_without_partition")
-        return "silver"
+        return snapshot["silver"].get("action", "silver")
     return "raw" if snapshot["registered"] else "register"
 
 
@@ -218,6 +225,7 @@ class NativeBackend:
         )
         self.control = CONTROL
         self.stopping = lambda: False
+        self.recovery_journal = None
 
     @contextmanager
     def connection(self):
@@ -268,7 +276,9 @@ class NativeBackend:
         return value
 
     def mutate(self, body):
-        require(body.get("query") in {REGISTER, LAUNCH}, "mutation_not_allowed")
+        require(
+            body.get("query") in {REGISTER, LAUNCH, REEXECUTE}, "mutation_not_allowed"
+        )
         return self.http(body, mutation=True)
 
     def runtime(self):
@@ -520,7 +530,11 @@ class NativeBackend:
         total, raw_ms = journal.size(), 0
         seen = set()
         for unit in plan["root_units"]:
-            for layer in ("raw", "silver"):
+            for layer in (
+                "raw",
+                "silver",
+                *([ACTION] if matches(plan.get("launch_recovery"), unit) else []),
+            ):
                 files = journal.read(unit, layer)
                 native = files.get("observation", {}).get("native") or {}
                 if not native and "response" in files:
@@ -634,6 +648,24 @@ class NativeBackend:
                 )
                 else None
             )
+        if action == ACTION:
+            journal = self.recovery_journal
+            require(journal is not None, "recovery_context")
+            value = journal.plan.get("launch_recovery")
+            require(
+                body == request(value, unit, value["raw_sha256"]),
+                "recovery_request_changed",
+            )
+            runs, _ = effective_runs(self, journal, unit, self.runs(unit, "silver"))
+            require(
+                file_hash(unit["raw"]["target"]) == value["raw_sha256"],
+                "recovery_raw_revision",
+            )
+            return (
+                {"run_id": runs[0].run_id, "status": runs[0].status.value}
+                if runs
+                else None
+            )
         key = next(
             t["value"]
             for t in body["variables"]["executionParams"]["executionMetadata"]["tags"]
@@ -678,6 +710,7 @@ class NativeBackend:
         return run.status.value
 
     def snapshots(self, units, journal=None):
+        self.recovery_journal = journal
         results = []
         for dataset in DATASETS:
             selected = [u for u in units if u["dataset"] == dataset]
@@ -700,19 +733,48 @@ class NativeBackend:
                     for layer in ("raw", "silver"):
                         delivery = facts[layer][unit["trade_date"]]
                         runs = self.runs(unit, layer)
-                        require(len(runs) <= 1, "duplicate_native_runs")
+                        recovery = (
+                            layer == "silver"
+                            and journal is not None
+                            and matches(journal.plan.get("launch_recovery"), unit)
+                        )
+                        failed_launch = None
+                        action = ACTION if recovery else layer
+                        if recovery:
+                            require(
+                                snap["raw"]["ready"]
+                                and snap["raw"]["sha256"]
+                                == journal.plan["launch_recovery"]["raw_sha256"],
+                                "recovery_raw_not_ready",
+                            )
+                            runs, failed_launch = effective_runs(
+                                self, journal, unit, runs
+                            )
+                        else:
+                            require(len(runs) <= 1, "duplicate_native_runs")
                         for run in runs:
                             self.validate_run(run, unit, layer)
-                        files = journal.read(unit, layer) if journal else {}
+                        files = (
+                            journal.read(unit, action)
+                            if journal and unit in journal.plan["root_units"]
+                            else {}
+                        )
                         owned = False
                         if runs and files:
-                            native = self.reconcile(
-                                unit, layer, files["request"]["body"]
+                            native = (
+                                {
+                                    "run_id": runs[0].run_id,
+                                    "status": runs[0].status.value,
+                                }
+                                if recovery
+                                else self.reconcile(
+                                    unit, layer, files["request"]["body"]
+                                )
                             )
                             owned = "send_intent" in files and native is not None
                             if "response" in files:
                                 self.check_response(
-                                    files["response"]["value"], layer, native
+                                    files["response"]["value"], action, native
                                 )
                         active = bool(runs and runs[0].status.value in ACTIVE)
                         if delivery.ready and not active:
@@ -738,6 +800,10 @@ class NativeBackend:
                             ],
                             "sha256": (delivery.metadata or {}).get("file_sha256"),
                         }
+                        if recovery:
+                            snap[layer].update(
+                                action=ACTION, failed_launch=failed_launch
+                            )
                         if delivery.ready and not active:
                             snap[layer]["proof"] = self.audit(unit, layer, delivery)
                     results.append(snap)

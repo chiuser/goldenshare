@@ -1,0 +1,133 @@
+{
+  "as_of": "2026-10-17T19:10:58.538829+08:00",
+  "parent": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/00-all-current-plan.json",
+  "parent_sha256": "c24244af80e71b998048e999e4f5b137df5e277fb0d5fc4dac89d29aba964255",
+  "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+  "steps": [
+    {
+      "name": "01-ths-oct14-silver",
+      "plan": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json",
+      "sha256": "e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603",
+      "plan_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "plan",
+        "--scope-file",
+        "/private/tmp/moneyflow-recovery-20261017/01-ths-oct14-silver-scope.json",
+        "--output",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json",
+        "--parent-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/00-all-current-plan.json"
+      ],
+      "apply_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "apply",
+        "--plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json",
+        "--expect-plan-sha256",
+        "e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603"
+      ],
+      "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "instance_home": "/Users/congming/.goldenshare/dagster_home"
+    },
+    {
+      "name": "02-ths-remaining",
+      "plan": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/02-ths-remaining-plan.json",
+      "sha256": "5575da6974ff6cd88c02965ac9d21460478e3cd5b8c433dc2bfeb14cdc1f93e4",
+      "plan_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "plan",
+        "--scope-file",
+        "/private/tmp/moneyflow-recovery-20261017/02-ths-remaining-scope.json",
+        "--output",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/02-ths-remaining-plan.json",
+        "--parent-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/00-all-current-plan.json"
+      ],
+      "apply_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "apply",
+        "--plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/02-ths-remaining-plan.json",
+        "--expect-plan-sha256",
+        "5575da6974ff6cd88c02965ac9d21460478e3cd5b8c433dc2bfeb14cdc1f93e4"
+      ],
+      "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "instance_home": "/Users/congming/.goldenshare/dagster_home"
+    },
+    {
+      "name": "03-moneyflow-first",
+      "plan": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/03-moneyflow-first-plan.json",
+      "sha256": "3ad247c0858084c399b54a9b996baa2f8592d3d33296c572aef7f9ec1d92993d",
+      "plan_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "plan",
+        "--scope-file",
+        "/private/tmp/moneyflow-recovery-20261017/03-moneyflow-first-scope.json",
+        "--output",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/03-moneyflow-first-plan.json",
+        "--parent-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/00-all-current-plan.json"
+      ],
+      "apply_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "apply",
+        "--plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/03-moneyflow-first-plan.json",
+        "--expect-plan-sha256",
+        "3ad247c0858084c399b54a9b996baa2f8592d3d33296c572aef7f9ec1d92993d"
+      ],
+      "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "instance_home": "/Users/congming/.goldenshare/dagster_home"
+    },
+    {
+      "name": "04-moneyflow-remaining",
+      "plan": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/04-moneyflow-remaining-plan.json",
+      "sha256": "f2da251f5e2205b3120b5d567cc55d2c9a63002eba95c87872749064f3b54e20",
+      "plan_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "plan",
+        "--scope-file",
+        "/private/tmp/moneyflow-recovery-20261017/04-moneyflow-remaining-scope.json",
+        "--output",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/04-moneyflow-remaining-plan.json",
+        "--parent-plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/00-all-current-plan.json"
+      ],
+      "apply_command": [
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "orchestrator.moneyflow_continuation_cli",
+        "apply",
+        "--plan",
+        "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/04-moneyflow-remaining-plan.json",
+        "--expect-plan-sha256",
+        "f2da251f5e2205b3120b5d567cc55d2c9a63002eba95c87872749064f3b54e20"
+      ],
+      "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "instance_home": "/Users/congming/.goldenshare/dagster_home"
+    }
+  ],
+  "order": "Single Silver recovery + acceptance first, then THS two dates, then moneyflow first date + independent acceptance, then six dates. Sensors remain stopped."
+}

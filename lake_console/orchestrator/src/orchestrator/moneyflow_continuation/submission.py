@@ -16,6 +16,7 @@ from orchestrator.moneyflow_continuation.contract import (
     safe_path,
 )
 from orchestrator.moneyflow_continuation.plan import request_for
+from orchestrator.moneyflow_continuation.recovery import ACTION, matches, request
 
 
 def sync_directory(path):
@@ -90,9 +91,12 @@ class Journal:
 
     def action_dir(self, unit, action):
         require(
-            unit in self.plan["root_units"] and action in {"register", "raw", "silver"},
+            unit in self.plan["root_units"]
+            and action in {"register", "raw", "silver", ACTION},
             "journal_scope",
         )
+        if action == ACTION:
+            require(matches(self.plan.get("launch_recovery"), unit), "recovery_scope")
         return safe_path(self.directory / unit["dataset"] / unit["trade_date"] / action)
 
     def read(self, unit, action):
@@ -110,7 +114,7 @@ class Journal:
             request.get("unit") == unit and request.get("action") == action,
             "journal_identity",
         )
-        expected = request_for(
+        expected = self.body(
             unit, action, request.get("attempt_day"), request.get("raw_sha256")
         )
         require(
@@ -129,10 +133,15 @@ class Journal:
         )
         return files
 
+    def body(self, unit, action, at, raw_sha):
+        if action == ACTION:
+            return request(self.plan.get("launch_recovery"), unit, raw_sha)
+        return request_for(unit, action, at, raw_sha)
+
     def prepare(self, unit, action, at, raw_sha, facts):
         existing = self.read(unit, action)
         if existing:
-            if action == "silver":
+            if action in {"silver", ACTION}:
                 require(existing["request"]["raw_sha256"] == raw_sha, "raw_revision")
             return existing
         directory = self.action_dir(unit, action)
@@ -144,7 +153,7 @@ class Journal:
             "prepared_at": at.isoformat(),
             "attempt_day": at.date().isoformat(),
             "raw_sha256": raw_sha,
-            "body": request_for(unit, action, at.date().isoformat(), raw_sha),
+            "body": self.body(unit, action, at.date().isoformat(), raw_sha),
             "before": facts,
         }
         write_json(directory / "request.json", request, immutable=True)
@@ -174,7 +183,12 @@ class Journal:
         total = budget_file.stat().st_size if budget_file.exists() else 0
         require(total <= POLICY.action_bytes, "control_budget_size")
         for unit in self.plan["root_units"]:
-            for action in ("register", "raw", "silver"):
+            for action in (
+                "register",
+                "raw",
+                "silver",
+                *([ACTION] if matches(self.plan.get("launch_recovery"), unit) else []),
+            ):
                 directory = self.action_dir(unit, action)
                 if directory.exists():
                     paths = list(directory.iterdir())
@@ -197,12 +211,12 @@ class Journal:
 def submit_once(backend, journal, unit, action, at, raw_sha=None):
     """Caller holds executor.lock. All mutation outcomes require native readback."""
     files = journal.read(unit, action)
-    if files and action == "silver":
+    if files and action in {"silver", ACTION}:
         require(files["request"]["raw_sha256"] == raw_sha, "raw_revision")
     body = (
         files["request"]["body"]
         if files
-        else request_for(unit, action, at.date().isoformat(), raw_sha)
+        else journal.body(unit, action, at.date().isoformat(), raw_sha)
     )
     found = backend.reconcile(unit, action, body)
     if found:

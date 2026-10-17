@@ -49,7 +49,15 @@ def run(args, backend):
         scope = read_json(args.scope_file)
         from orchestrator.moneyflow_continuation.contract import require
 
-        require(set(scope) == {"units", "verification"}, "scope_fields", 2)
+        require(
+            set(scope)
+            in (
+                {"units", "verification"},
+                {"units", "verification", "launch_recovery"},
+            ),
+            "scope_fields",
+            2,
+        )
         # Reject malformed input before any calendar query.
         entries = scope["units"]
         candidate_days = (
@@ -71,6 +79,7 @@ def run(args, backend):
             [],
             parent,
             file_hash(args.parent_plan) if parent else None,
+            scope.get("launch_recovery"),
         )
         from orchestrator.moneyflow_continuation.submission import Journal
 
