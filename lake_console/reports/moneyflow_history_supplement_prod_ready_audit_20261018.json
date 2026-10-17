@@ -1,0 +1,311 @@
+{
+  "report_type": "moneyflow_prod_ready_for_history_supplement_readonly_audit",
+  "as_of": "2026-10-18T01:03:44.019726+08:00",
+  "plan_commit": "78b444d53",
+  "scope": {
+    "datasets": 5,
+    "dataset_days": 7,
+    "only_fields": [
+      "trade_date",
+      "ts_code"
+    ],
+    "per_day_row_limit": 10001,
+    "global_detail_read": false
+  },
+  "prod_ready_by_date_and_keys": true,
+  "source_reference": {
+    "as_of": "2026-10-18 00:36 Asia/Shanghai",
+    "reused_same_session_mcp_identity_results": true,
+    "fields": [
+      "trade_date",
+      "ts_code"
+    ],
+    "market_fields": [
+      "trade_date"
+    ],
+    "fresh_source_calls_this_audit": 0
+  },
+  "records": [
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "date": "2026-07-09",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 1,
+      "source_identity_rows": 1,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 1,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 1,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "341d3458c3d56b1fa4153902a20045eb357e77eea4e000139167d621c82a31a0"
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "date": "2026-07-09",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 90,
+      "source_identity_rows": 90,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 90,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 90,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "1e0e22037a8a593522be2b2a7662d2afc58e35271eb8647060f61fa00d8b67a4"
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "date": "2026-08-05",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 90,
+      "source_identity_rows": 90,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 90,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 90,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "1e0e22037a8a593522be2b2a7662d2afc58e35271eb8647060f61fa00d8b67a4"
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "date": "2026-07-09",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 382,
+      "source_identity_rows": 382,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 382,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 382,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "53d2d43739a1550f7f6c7b381085536435f5115ce61898ec5e132eda5bd32b19"
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "date": "2026-07-06",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 5200,
+      "source_identity_rows": 5200,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 5200,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 5200,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "a75cc4d540515c6a5a91139896ddfb29ecb4d1e96ef3c7fce478d7db8cebbddb"
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "date": "2026-07-09",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 5205,
+      "source_identity_rows": 5205,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 5205,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        },
+        "silver": {
+          "rows": 0,
+          "exists": false,
+          "missing_from_prod": 5205,
+          "extra_vs_prod": 0,
+          "unique_keys": 0,
+          "invalid_keys": 0,
+          "sha256": null
+        }
+      },
+      "prod_sorted_key_sha256": "2f8ab5299a6979258fd51739cd8b5f1880dc29394b892e6a7d785c3f512c8905"
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "date": "2026-05-19",
+      "prod_as_of": "2026-10-18T01:03:44.019726+08:00",
+      "prod_rows": 5955,
+      "source_identity_rows": 5955,
+      "prod_missing_vs_source": 0,
+      "prod_extra_vs_source": 0,
+      "dg": {
+        "raw": {
+          "rows": 2812,
+          "exists": true,
+          "missing_from_prod": 3143,
+          "extra_vs_prod": 0,
+          "unique_keys": 2812,
+          "invalid_keys": 0,
+          "sha256": "67e22f627a79ffa4ad1abafe964e224b988bcbce4e8439ef7e6534f564c44d96"
+        },
+        "silver": {
+          "rows": 2812,
+          "exists": true,
+          "missing_from_prod": 3143,
+          "extra_vs_prod": 0,
+          "unique_keys": 2812,
+          "invalid_keys": 0,
+          "sha256": "9ea615b7de45f2400a0e66e4d16dc2f0f18a69f0d6b9a4e334903d2a56f29fbd"
+        }
+      },
+      "prod_sorted_key_sha256": "3eda60dd3daf2e312e7f396bb23c092d480549b58178274c7e8efcda6afe12dc"
+    }
+  ],
+  "totals": {
+    "prod_rows": 16923,
+    "dg_rows_per_layer": 2812,
+    "missing_per_layer": 14111,
+    "fully_missing_dataset_days": 6,
+    "dc_missing_keys": 3143,
+    "prod_missing_vs_source": 0,
+    "prod_extra_vs_source": 0,
+    "prod_duplicates": 0,
+    "prod_invalid_keys": 0,
+    "dg_dc_raw_silver_keysets_equal": true
+  },
+  "code_audit": {
+    "needs_development": true,
+    "supplement_entry_exists": false,
+    "missing_capabilities": [
+      "Seven explicit dataset-day scope and shared bounded budget using existing single-unit candidate API",
+      "DC anti-join merge preserving existing business field values",
+      "Append exact new materializations/checks for repaired file revisions and recover them without duplicate writes"
+    ],
+    "reused_capabilities": [
+      "PsqlMoneyflowHistorySource",
+      "build_moneyflow_history_unit_candidates",
+      "publish_moneyflow_update_file",
+      "physical SQL checks, metadata builders and native Dagster event API"
+    ],
+    "old_entry_limits": [
+      "cohort fixed to all seven datasets",
+      "promotion refuses different existing file hashes",
+      "history event state refuses unexpected existing revisions"
+    ],
+    "codegraph_tool": "codegraph_explore",
+    "cross_subsystem_change": false
+  },
+  "operations": {
+    "prod_readonly_transactions": 1,
+    "prod_queries": 7,
+    "dg_explicit_paths": 14,
+    "dg_existing_files_read": 2,
+    "prod_writes": 0,
+    "dg_lake_writes": 0,
+    "dagster_mutations": 0,
+    "source_requests": 0,
+    "business_code_changes": 0,
+    "tests_executed": 0
+  },
+  "limits": [
+    "This audit verifies dates and business key completeness, not all amount/name field values. Full projection/type/precision and source-to-candidate equality remain required by the approved design before formal publication.",
+    "The Tushare identity reference was obtained at 00:36 this session and explicitly reused; it is not a new source query at 01:03.",
+    "Formal run/check binding, service state, locks, sensor pause/restore and final execution plan are not executed or accepted by this data-only audit.",
+    "Existing DC field-value differences are excluded from the repair scope; this audit did not re-count those differences."
+  ],
+  "next_step": "Implement the scoped supplement entry and isolated tests according to plan section 76 / LLD section 71; do not apply formal data changes yet.",
+  "temporary_evidence_sha256": {
+    "prod_query": {
+      "path": "/private/tmp/moneyflow-prod-ready-audit-20261018.sql",
+      "sha256": "52f388778bd4f55fe6e20cafaf014d95ee72b3a001c7d916bb9165a2264da921"
+    },
+    "prod_bounded_key_result": {
+      "path": "/private/tmp/moneyflow-prod-ready-audit-20261018.jsonl",
+      "sha256": "2803d494939d1d7ac9352d396620a3dfd13909ee22281e90e5bb99c00545131a"
+    },
+    "dg_read_script": {
+      "path": "/private/tmp/moneyflow-dg-ready-audit-20261018.py",
+      "sha256": "eb2ebade75684bc72b81e32e73dc24e628bce6c4317986875f9ea3acc1fe612c"
+    },
+    "dg_bounded_key_result": {
+      "path": "/private/tmp/moneyflow-dg-ready-audit-20261018.json",
+      "sha256": "0bddf572a07e601487d6573e97cd15252e563ce158c0f572ef98cb16ba3c9620"
+    }
+  }
+}
