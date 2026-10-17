@@ -25,6 +25,8 @@ from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from . import test_moneyflow_mkt_dc_definitions as support
 from .test_moneyflow_mkt_dc_definitions import row, run
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):

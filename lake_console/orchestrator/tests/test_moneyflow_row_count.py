@@ -17,6 +17,8 @@ from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 from . import test_moneyflow_dc_definitions as support
 from .moneyflow_baseline_support import seed_moneyflow_baseline
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 env = support.env
 
 

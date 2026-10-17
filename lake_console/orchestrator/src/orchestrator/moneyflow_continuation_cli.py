@@ -16,6 +16,7 @@ from orchestrator.moneyflow_continuation.plan import (
 )
 from orchestrator.moneyflow_continuation.submission import (
     new_plan_output,
+    validate_new_output,
     verify_plan_file,
 )
 
@@ -34,6 +35,12 @@ def parser():
     apply = operations.add_parser("apply", help="执行已批准的精确清单或继续观察原任务")
     apply.add_argument("--plan", required=True)
     apply.add_argument("--expect-plan-sha256", required=True)
+    audit = operations.add_parser(
+        "audit", help="只读核验原49项，保留两次父失败，仅创建报告"
+    )
+    audit.add_argument("--plan", required=True)
+    audit.add_argument("--expect-plan-sha256", required=True)
+    audit.add_argument("--output", required=True)
     return result
 
 
@@ -50,11 +57,9 @@ def run(args, backend):
         from orchestrator.moneyflow_continuation.contract import require
 
         require(
-            set(scope)
-            in (
-                {"units", "verification"},
-                {"units", "verification", "launch_recovery"},
-            ),
+            {"units", "verification"}
+            <= set(scope)
+            <= {"units", "verification", "launch_recovery", "collection_recovery"},
             "scope_fields",
             2,
         )
@@ -80,6 +85,7 @@ def run(args, backend):
             parent,
             file_hash(args.parent_plan) if parent else None,
             scope.get("launch_recovery"),
+            scope.get("collection_recovery"),
         )
         from orchestrator.moneyflow_continuation.submission import Journal
 
@@ -99,12 +105,26 @@ def run(args, backend):
         }
     plan = (
         verify_plan_file(args.plan, args.expect_plan_sha256)
-        if args.mode == "apply"
+        if args.mode in {"apply", "audit"}
         else read_json(args.plan)
     )
     validate_plan(plan)
     if args.mode == "inspect":
-        return 0, inspect(backend, plan)
+        report = inspect(backend, plan)
+        return (3 if report["blocked"] or report["unknown"] else 0), report
+    if args.mode == "audit":
+        from orchestrator.moneyflow_continuation.acceptance import audit
+
+        validate_new_output(args.output)
+        code, report = audit(backend, plan)
+        report.update(
+            plan_path=args.plan,
+            plan_sha256=file_hash(args.plan),
+            verification=plan["verification"],
+            policy=plan["policy"],
+        )
+        new_plan_output(args.output, report)
+        return code, report
     with StopSignals() as stop:
         return apply(backend, plan, stop=stop)
 

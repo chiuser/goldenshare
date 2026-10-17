@@ -15,6 +15,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     market_moneyflow_row_hash,
     normalize_market_moneyflow_row,
 )
+from orchestrator.defs.source_readiness.moneyflow_transport import call_moneyflow_source
 from orchestrator.defs.tushare_request_policy import BoundedCodePageRequestSession
 
 
@@ -36,21 +37,29 @@ def collect_market_moneyflow(
     clock=perf_counter,
     sleep_fn=sleep,
     check_cancel=lambda: None,
+    raw_deadline=None,
 ):
     market_moneyflow_day(trade_date)
     session = BoundedCodePageRequestSession(
         policy=market_moneyflow_policy(), clock=clock, sleep_fn=sleep_fn
     )
+    deadline = clock() + MONEYFLOW_MAX_ELAPSED_SECONDS
+    if raw_deadline is not None:
+        deadline = min(deadline, raw_deadline)
 
     def guard(*, before_request=False):
         check_cancel()
         required = MONEYFLOW_REQUEST_TIMEOUT_SECONDS if before_request else 0
-        if session.elapsed_ms / 1000 + required >= MONEYFLOW_MAX_ELAPSED_SECONDS:
+        if (
+            session.elapsed_ms / 1000 + required >= MONEYFLOW_MAX_ELAPSED_SECONDS
+            or clock() + required >= deadline
+        ):
             raise MoneyflowContractError("request_budget_exceeded")
 
     def request(offset):
         guard(before_request=True)
-        response = tushare.call(
+        response = call_moneyflow_source(
+            tushare,
             "moneyflow_mkt_dc",
             {
                 "trade_date": trade_date.replace("-", ""),
@@ -58,6 +67,8 @@ def collect_market_moneyflow(
                 "offset": offset,
             },
             MONEYFLOW_MKT_DC_FIELDS,
+            deadline=deadline,
+            check_cancel=check_cancel,
         )
         guard()
         if tuple(response.columns) != MONEYFLOW_MKT_DC_FIELDS:
@@ -71,9 +82,12 @@ def collect_market_moneyflow(
     for round_number in (1, 2):
         guard()
         if round_number == 2:
-            while clock() - first_end < MONEYFLOW_STABILITY_SECONDS:
+            while True:
                 guard()
-                sleep_fn(min(1, MONEYFLOW_STABILITY_SECONDS - (clock() - first_end)))
+                remaining = MONEYFLOW_STABILITY_SECONDS - (clock() - first_end)
+                if remaining <= 0:
+                    break
+                sleep_fn(min(1, remaining))
         collected = []
 
         def consume(_offset, rows, collected=collected):

@@ -25,6 +25,8 @@ from orchestrator.defs.io.moneyflow_daily_silver_writer import (
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
 from orchestrator.defs.source_readiness.moneyflow_daily import collect_daily_moneyflow
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-09-30"
 DATASET = "moneyflow"
 FIELDS = (

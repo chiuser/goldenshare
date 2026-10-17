@@ -60,6 +60,7 @@ from orchestrator.moneyflow_continuation.contract import (
     POLICY,
     PROJECT,
     REPOSITORY,
+    ContinuationError,
     encoded,
     file_hash,
     read_json,
@@ -69,9 +70,14 @@ from orchestrator.moneyflow_continuation.contract import (
 from orchestrator.moneyflow_continuation.plan import LAUNCH, REGISTER
 from orchestrator.moneyflow_continuation.recovery import (
     ACTION,
+    RAW_ACTION,
+    RECOVERY_ACTIONS,
     REEXECUTE,
+    action_layer,
+    collection_evidence,
+    descriptor,
     effective_runs,
-    matches,
+    recovery_actions,
     request,
 )
 
@@ -190,6 +196,7 @@ class Counted:
 
 def next_action(snapshot):
     """Only clean absence can create work; contradictory evidence stops the batch."""
+    require(not snapshot.get("unknown"), snapshot.get("error", "native_fact_unknown"))
     for layer in ("raw", "silver"):
         item = snapshot[layer]
         if item["active"]:
@@ -210,7 +217,9 @@ def next_action(snapshot):
     if snapshot["raw"]["ready"]:
         require(snapshot["registered"], "delivery_without_partition")
         return snapshot["silver"].get("action", "silver")
-    return "raw" if snapshot["registered"] else "register"
+    return (
+        snapshot["raw"].get("action", "raw") if snapshot["registered"] else "register"
+    )
 
 
 class NativeBackend:
@@ -528,12 +537,12 @@ class NativeBackend:
 
         journal = Journal(plan, self.control)
         total, raw_ms = journal.size(), 0
-        seen = set()
+        seen, seen_targets = set(), set()
         for unit in plan["root_units"]:
             for layer in (
                 "raw",
                 "silver",
-                *([ACTION] if matches(plan.get("launch_recovery"), unit) else []),
+                *recovery_actions(plan, unit),
             ):
                 files = journal.read(unit, layer)
                 native = files.get("observation", {}).get("native") or {}
@@ -559,24 +568,49 @@ class NativeBackend:
                     if directory.exists():
                         total += self.run_disk_size(directory)
                         receipt = directory / "receipt.json"
-                        if layer == "raw" and receipt.exists():
+                        if action_layer(layer) == "raw" and receipt.exists():
                             value = read_json(receipt, POLICY.action_bytes)
                             elapsed = value.get("elapsed_ms")
-                            require(
-                                type(elapsed) in (int, float)
-                                and 0 <= elapsed < MONEYFLOW_MAX_ELAPSED_SECONDS * 1000,
-                                "raw_activity_proof",
-                            )
-                            raw_ms += elapsed
+                            recovery = descriptor(plan, unit, "raw")
+                            if (
+                                elapsed is None
+                                and layer == "raw"
+                                and recovery is not None
+                                and run_id == recovery["failed_run_id"]
+                            ):
+                                require(
+                                    value
+                                    == collection_evidence(recovery).get("receipt")
+                                    == {
+                                        "dataset": "moneyflow",
+                                        "stage": "collecting",
+                                        "trade_date": "2026-10-13",
+                                    },
+                                    "raw_activity_proof",
+                                )
+                                raw_ms += MONEYFLOW_MAX_ELAPSED_SECONDS * 1000
+                                elapsed = None
+                            else:
+                                require(
+                                    type(elapsed) in (int, float)
+                                    and 0
+                                    <= elapsed
+                                    < MONEYFLOW_MAX_ELAPSED_SECONDS * 1000,
+                                    "raw_activity_proof",
+                                )
+                                raw_ms += elapsed
                     seen.add(run_id)
                 target = safe_path(
-                    (raw_moneyflow_path if layer == "raw" else silver_moneyflow_path)(
-                        self.lake, unit["dataset"], unit["trade_date"]
-                    )
+                    (
+                        raw_moneyflow_path
+                        if action_layer(layer) == "raw"
+                        else silver_moneyflow_path
+                    )(self.lake, unit["dataset"], unit["trade_date"])
                 )
-                if target.exists():
+                if target.exists() and target not in seen_targets:
                     require(target.is_file(), "formal_target_kind")
                     total += target.stat().st_size
+                    seen_targets.add(target)
                 require(
                     total <= POLICY.disk_bytes
                     and raw_ms <= POLICY.raw_activity_seconds * 1000,
@@ -648,19 +682,21 @@ class NativeBackend:
                 )
                 else None
             )
-        if action == ACTION:
+        if action in RECOVERY_ACTIONS:
             journal = self.recovery_journal
             require(journal is not None, "recovery_context")
-            value = journal.plan.get("launch_recovery")
+            layer = action_layer(action)
+            value = descriptor(journal.plan, unit, layer)
             require(
-                body == request(value, unit, value["raw_sha256"]),
+                body == request(value, unit, value.get("raw_sha256")),
                 "recovery_request_changed",
             )
-            runs, _ = effective_runs(self, journal, unit, self.runs(unit, "silver"))
-            require(
-                file_hash(unit["raw"]["target"]) == value["raw_sha256"],
-                "recovery_raw_revision",
-            )
+            runs, _ = effective_runs(self, journal, unit, self.runs(unit, layer), layer)
+            if layer == "silver":
+                require(
+                    file_hash(unit["raw"]["target"]) == value["raw_sha256"],
+                    "recovery_raw_revision",
+                )
             return (
                 {"run_id": runs[0].run_id, "status": runs[0].status.value}
                 if runs
@@ -709,6 +745,34 @@ class NativeBackend:
         require(run is not None, "native_run_missing")
         return run.status.value
 
+    def _unknown_snapshot(self, unit, error, known=None):
+        reason = (
+            error.reason
+            if isinstance(error, ContinuationError)
+            else "io_or_native_error"
+        )
+        item = {
+            "ready": False,
+            "active": False,
+            "owned": False,
+            "failed": False,
+            "runs": [],
+            "sha256": None,
+            "materialized": False,
+            "reason": "unknown",
+        }
+        return {
+            "dataset": unit["dataset"],
+            "trade_date": unit["trade_date"],
+            "registered": None,
+            "raw": dict(item),
+            "silver": dict(item),
+            **(known or {}),
+            "unknown": True,
+            "error": reason,
+            "error_type": type(error).__name__,
+        }
+
     def snapshots(self, units, journal=None):
         self.recovery_journal = journal
         results = []
@@ -716,99 +780,104 @@ class NativeBackend:
             selected = [u for u in units if u["dataset"] == dataset]
             for offset in range(0, len(selected), POLICY.dates_per_read):
                 batch = selected[offset : offset + POLICY.dates_per_read]
-                facts = batch_moneyflow_readiness(
-                    self.instance,
-                    self.lake,
-                    [u["trade_date"] for u in batch],
-                    contract=CONTRACTS[dataset],
-                )
+                try:
+                    facts = batch_moneyflow_readiness(
+                        self.instance,
+                        self.lake,
+                        [u["trade_date"] for u in batch],
+                        contract=CONTRACTS[dataset],
+                    )
+                except Exception as error:  # noqa: BLE001 -- unknown cannot authorize work
+                    results.extend(
+                        self._unknown_snapshot(unit, error) for unit in batch
+                    )
+                    continue
                 for unit in batch:
-                    snap = {
-                        "dataset": dataset,
-                        "trade_date": unit["trade_date"],
-                        "registered": self.instance.has_dynamic_partition(
-                            unit["partition_set"], unit["trade_date"]
-                        ),
-                    }
-                    for layer in ("raw", "silver"):
-                        delivery = facts[layer][unit["trade_date"]]
-                        runs = self.runs(unit, layer)
-                        recovery = (
-                            layer == "silver"
-                            and journal is not None
-                            and matches(journal.plan.get("launch_recovery"), unit)
-                        )
-                        failed_launch = None
-                        action = ACTION if recovery else layer
-                        if recovery:
-                            require(
-                                snap["raw"]["ready"]
-                                and snap["raw"]["sha256"]
-                                == journal.plan["launch_recovery"]["raw_sha256"],
-                                "recovery_raw_not_ready",
-                            )
-                            runs, failed_launch = effective_runs(
-                                self, journal, unit, runs
-                            )
-                        else:
-                            require(len(runs) <= 1, "duplicate_native_runs")
-                        for run in runs:
-                            self.validate_run(run, unit, layer)
-                        files = (
-                            journal.read(unit, action)
-                            if journal and unit in journal.plan["root_units"]
-                            else {}
-                        )
-                        owned = False
-                        if runs and files:
-                            # This bounded date+job query has already proved uniqueness.
-                            # Check its canonical request tags directly; only submissions
-                            # need the independent exact-key/date reconciliation reads.
-                            if not recovery:
-                                self.validate_run(
-                                    runs[0], unit, layer, files["request"]["body"]
-                                )
-                            native = {
-                                "run_id": runs[0].run_id,
-                                "status": runs[0].status.value,
-                            }
-                            owned = "send_intent" in files and native is not None
-                            if "response" in files:
-                                self.check_response(
-                                    files["response"]["value"], action, native
-                                )
-                        active = bool(runs and runs[0].status.value in ACTIVE)
-                        if delivery.ready and not active:
-                            require(
-                                len(runs) == 1
-                                and runs[0].status.value == "SUCCESS"
-                                and delivery.record.event_log_entry.run_id
-                                == runs[0].run_id,
-                                "delivery_run_binding",
-                            )
-                        snap[layer] = {
-                            "ready": delivery.ready and not active,
-                            "reason": delivery.reason,
-                            "materialized": delivery.materialized,
-                            "active": active,
-                            "owned": owned,
-                            "failed": bool(
-                                runs and runs[0].status.value in {"FAILURE", "CANCELED"}
-                            ),
-                            "runs": [
-                                {"run_id": r.run_id, "status": r.status.value}
-                                for r in runs
-                            ],
-                            "sha256": (delivery.metadata or {}).get("file_sha256"),
-                        }
-                        if recovery:
-                            snap[layer].update(
-                                action=ACTION, failed_launch=failed_launch
-                            )
-                        if delivery.ready and not active:
-                            snap[layer]["proof"] = self.audit(unit, layer, delivery)
-                    results.append(snap)
+                    known = {}
+                    try:
+                        results.append(self._unit_snapshot(unit, facts, journal, known))
+                    except Exception as error:  # noqa: BLE001 -- preserve other unit facts, never write
+                        results.append(self._unknown_snapshot(unit, error, known))
         return results
+
+    def _unit_snapshot(self, unit, facts, journal, known=None):
+        dataset = unit["dataset"]
+        snap = known if known is not None else {}
+        snap.update(
+            {
+                "dataset": dataset,
+                "trade_date": unit["trade_date"],
+                "registered": self.instance.has_dynamic_partition(
+                    unit["partition_set"], unit["trade_date"]
+                ),
+            }
+        )
+        for layer in ("raw", "silver"):
+            delivery = facts[layer][unit["trade_date"]]
+            runs = self.runs(unit, layer)
+            recovery = descriptor(journal.plan, unit, layer) if journal else None
+            failed_launch = None
+            action = (
+                (ACTION if layer == "silver" else RAW_ACTION) if recovery else layer
+            )
+            if recovery:
+                if layer == "silver":
+                    require(
+                        snap["raw"]["ready"]
+                        and snap["raw"]["sha256"] == recovery["raw_sha256"],
+                        "recovery_raw_not_ready",
+                    )
+                runs, failed_launch = effective_runs(self, journal, unit, runs, layer)
+            else:
+                require(len(runs) <= 1, "duplicate_native_runs")
+            for run in runs:
+                self.validate_run(run, unit, layer)
+            files = (
+                journal.read(unit, action)
+                if journal and unit in journal.plan["root_units"]
+                else {}
+            )
+            owned = False
+            if runs and files:
+                # This bounded date+job query has already proved uniqueness.
+                # Check its canonical request tags directly; only submissions
+                # need the independent exact-key/date reconciliation reads.
+                if not recovery:
+                    self.validate_run(runs[0], unit, layer, files["request"]["body"])
+                native = {
+                    "run_id": runs[0].run_id,
+                    "status": runs[0].status.value,
+                }
+                owned = "send_intent" in files and native is not None
+                if "response" in files:
+                    self.check_response(files["response"]["value"], action, native)
+            active = bool(runs and runs[0].status.value in ACTIVE)
+            if delivery.ready and not active:
+                require(
+                    len(runs) == 1
+                    and runs[0].status.value == "SUCCESS"
+                    and delivery.record.event_log_entry.run_id == runs[0].run_id,
+                    "delivery_run_binding",
+                )
+            snap[layer] = {
+                "ready": delivery.ready and not active,
+                "reason": delivery.reason,
+                "materialized": delivery.materialized,
+                "active": active,
+                "owned": owned,
+                "failed": bool(
+                    runs and runs[0].status.value in {"FAILURE", "CANCELED"}
+                ),
+                "runs": [{"run_id": r.run_id, "status": r.status.value} for r in runs],
+                "sha256": (delivery.metadata or {}).get("file_sha256"),
+            }
+            if recovery:
+                snap[layer].update(action=action, preserved_failure=failed_launch)
+                if layer == "silver":
+                    snap[layer]["failed_launch"] = failed_launch
+            if delivery.ready and not active:
+                snap[layer]["proof"] = self.audit(unit, layer, delivery)
+        return snap
 
     def audit(self, unit, layer, delivery):
         day, dataset = unit["trade_date"], unit["dataset"]

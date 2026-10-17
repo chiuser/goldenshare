@@ -34,6 +34,8 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MoneyflowContractError,
 )
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-09-30"
 RAW = assets.raw_tushare_moneyflow_mkt_dc
 SILVER = assets.silver_moneyflow_mkt_dc

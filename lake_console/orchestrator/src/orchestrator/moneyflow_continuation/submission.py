@@ -16,7 +16,14 @@ from orchestrator.moneyflow_continuation.contract import (
     safe_path,
 )
 from orchestrator.moneyflow_continuation.plan import request_for
-from orchestrator.moneyflow_continuation.recovery import ACTION, matches, request
+from orchestrator.moneyflow_continuation.recovery import (
+    ACTION,
+    RECOVERY_ACTIONS,
+    action_layer,
+    descriptor,
+    recovery_actions,
+    request,
+)
 
 
 def sync_directory(path):
@@ -49,7 +56,7 @@ def write_json(path, value, *, immutable=False, limit=POLICY.action_bytes):
     sync_directory(path.parent)
 
 
-def new_plan_output(path, value):
+def validate_new_output(path):
     from orchestrator.moneyflow_continuation.contract import REPO
 
     path = safe_path(path)
@@ -64,7 +71,11 @@ def new_plan_output(path, value):
     require(
         path.parent.is_dir() and not path.exists(), "output_exists_or_parent_missing", 2
     )
-    write_json(path, value, immutable=True, limit=POLICY.plan_bytes)
+    return path
+
+
+def new_plan_output(path, value):
+    write_json(validate_new_output(path), value, immutable=True, limit=POLICY.plan_bytes)
 
 
 @contextmanager
@@ -92,11 +103,14 @@ class Journal:
     def action_dir(self, unit, action):
         require(
             unit in self.plan["root_units"]
-            and action in {"register", "raw", "silver", ACTION},
+            and action in {"register", "raw", "silver", *RECOVERY_ACTIONS},
             "journal_scope",
         )
-        if action == ACTION:
-            require(matches(self.plan.get("launch_recovery"), unit), "recovery_scope")
+        if action in RECOVERY_ACTIONS:
+            require(
+                descriptor(self.plan, unit, action_layer(action)) is not None,
+                "recovery_scope",
+            )
         return safe_path(self.directory / unit["dataset"] / unit["trade_date"] / action)
 
     def read(self, unit, action):
@@ -134,8 +148,10 @@ class Journal:
         return files
 
     def body(self, unit, action, at, raw_sha):
-        if action == ACTION:
-            return request(self.plan.get("launch_recovery"), unit, raw_sha)
+        if action in RECOVERY_ACTIONS:
+            return request(
+                descriptor(self.plan, unit, action_layer(action)), unit, raw_sha
+            )
         return request_for(unit, action, at, raw_sha)
 
     def prepare(self, unit, action, at, raw_sha, facts):
@@ -187,7 +203,7 @@ class Journal:
                 "register",
                 "raw",
                 "silver",
-                *([ACTION] if matches(self.plan.get("launch_recovery"), unit) else []),
+                *recovery_actions(self.plan, unit),
             ):
                 directory = self.action_dir(unit, action)
                 if directory.exists():

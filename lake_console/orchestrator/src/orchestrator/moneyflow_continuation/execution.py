@@ -14,7 +14,12 @@ from orchestrator.moneyflow_continuation.contract import (
     require,
 )
 from orchestrator.moneyflow_continuation.plan import validate_plan
-from orchestrator.moneyflow_continuation.recovery import ACTION
+from orchestrator.moneyflow_continuation.recovery import (
+    ACTION,
+    RAW_ACTION,
+    RECOVERY_ACTIONS,
+    action_layer,
+)
 from orchestrator.moneyflow_continuation.state import next_action
 from orchestrator.moneyflow_continuation.submission import (
     Journal,
@@ -96,23 +101,56 @@ def wait_run(backend, journal, unit, layer, native, stop, progress, clock=now):
         stop.wait(POLICY.poll_seconds)
 
 
+def unit_decisions(snapshots):
+    decisions = []
+    for snapshot in snapshots:
+        decision = {
+            "dataset": snapshot["dataset"],
+            "trade_date": snapshot["trade_date"],
+            "facts": snapshot,
+        }
+        try:
+            decision["next"] = next_action(snapshot)
+        except ContinuationError as error:
+            decision.update(
+                next="unknown" if snapshot.get("unknown") else "blocked",
+                reason=error.reason,
+                code=error.code,
+            )
+        decisions.append(decision)
+    return decisions
+
+
+def decision_summary(decisions):
+    completed = sum(d["next"] == "complete" for d in decisions)
+    return {
+        "total": len(decisions),
+        "completed": completed,
+        "remaining": len(decisions) - completed,
+        "blocked": sum(d["next"] == "blocked" for d in decisions),
+        "unknown": sum(d["next"] == "unknown" for d in decisions),
+        "preserved_failures": [
+            failure
+            for d in decisions
+            for layer in ("raw", "silver")
+            for failure in [
+                d["facts"][layer].get("preserved_failure")
+                or d["facts"][layer].get("failed_launch")
+            ]
+            if failure
+        ],
+    }
+
+
 def inspect(backend, plan, root=CONTROL):
     validate_plan(plan)
-    journal = Journal(plan, root)
-    snapshots = backend.snapshots(plan["units"], journal)
-    decisions = [
-        {
-            "dataset": s["dataset"],
-            "trade_date": s["trade_date"],
-            "next": next_action(s),
-            "facts": s,
-        }
-        for s in snapshots
-    ]
+    snapshots = backend.snapshots(plan["units"], Journal(plan, root))
+    decisions = unit_decisions(snapshots)
     return {
         "mode": "inspect",
         "complete": all(d["next"] == "complete" for d in decisions),
         "units": decisions,
+        **decision_summary(decisions),
     }
 
 
@@ -128,19 +166,23 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
             journal = Journal(plan, root)
             # Initial facts use the separate bounded plan audit, never a guessed local count.
             initial = backend.snapshots(plan["units"], journal)
+            decisions = unit_decisions(initial)
             progress.update(
-                completed=sum(next_action(s) == "complete" for s in initial),
-                registered=sum(s["registered"] for s in initial),
+                **decision_summary(decisions),
+                registered=sum(bool(s["registered"]) for s in initial),
                 submitted=sum(
                     len(s[layer]["runs"])
                     for s in initial
                     for layer in ("raw", "silver")
                 ),
             )
+            blocked = [d for d in decisions if "reason" in d]
+            if blocked:
+                raise ContinuationError(blocked[0]["reason"], blocked[0]["code"])
             finished = {
-                (s["dataset"], s["trade_date"])
-                for s in initial
-                if next_action(s) == "complete"
+                (d["dataset"], d["trade_date"])
+                for d in decisions
+                if d["next"] == "complete"
             }
             for unit in plan["units"]:
                 key = (unit["dataset"], unit["trade_date"])
@@ -160,14 +202,17 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                         journal,
                         unit,
                         layer,
-                        current["silver" if layer == ACTION else layer]["runs"][0],
+                        current[action_layer(layer)]["runs"][0],
                         stop,
                         progress,
                         clock,
                     )
-                    phase = {"raw": "silver", "silver": "complete", ACTION: "complete"}[
-                        layer
-                    ]
+                    phase = {
+                        "raw": "silver",
+                        RAW_ACTION: "silver",
+                        "silver": "complete",
+                        ACTION: "complete",
+                    }[layer]
                 for _ in range(POLICY.transitions_per_unit):
                     require(not stop.is_set(), "operator_stopped", 130)
                     prefix = unit["dataset"] + ":" + unit["trade_date"] + ":" + phase
@@ -187,6 +232,7 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                         finished.add(key)
                         progress.update(
                             completed=len(finished),
+                            remaining=len(plan["units"]) - len(finished),
                             phase="accepted",
                             run_id=None,
                             status=None,
@@ -194,9 +240,7 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                         break
                     if action.startswith("observe_"):
                         layer = action.removeprefix("observe_")
-                        native = snapshot["silver" if layer == ACTION else layer][
-                            "runs"
-                        ][0]
+                        native = snapshot[action_layer(layer)]["runs"][0]
                     else:
                         layer = action
                         progress.update(phase="submitting", layer=layer)
@@ -214,13 +258,14 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                             registered=progress.value["registered"]
                             + (action == "register"),
                         )
-                    if layer in {"raw", "silver", ACTION}:
+                    if layer in {"raw", "silver", *RECOVERY_ACTIONS}:
                         wait_run(
                             backend, journal, unit, layer, native, stop, progress, clock
                         )
                     phase = {
                         "register": "raw",
                         "raw": "silver",
+                        RAW_ACTION: "silver",
                         "silver": "complete",
                         ACTION: "complete",
                     }[layer]

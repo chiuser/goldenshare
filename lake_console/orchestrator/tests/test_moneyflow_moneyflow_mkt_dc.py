@@ -28,6 +28,8 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 from orchestrator.defs.source_readiness.moneyflow import collect_market_moneyflow
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-09-30"
 
 

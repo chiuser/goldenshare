@@ -30,6 +30,8 @@ from orchestrator.defs.source_readiness.moneyflow_daily import (
     collect_daily_moneyflow,
 )
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-09-30"
 DATASET = "moneyflow_cnt_ths"
 MONEYFLOW_CNT_THS_FIELDS = daily_fields(DATASET)

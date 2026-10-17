@@ -121,6 +121,7 @@ def make_plan(
     parent=None,
     parent_sha=None,
     launch_recovery=None,
+    collection_recovery=None,
 ):
     keys = validate_scope(entries, open_days, at)
     units = [unit_identity(*key) for key in keys]
@@ -138,8 +139,24 @@ def make_plan(
             2,
         )
         launch_recovery = parent["launch_recovery"]
+    if parent and parent.get("collection_recovery") is not None:
+        require(
+            collection_recovery in (None, parent["collection_recovery"]),
+            "collection_recovery_parent_changed",
+            2,
+        )
+        collection_recovery = parent["collection_recovery"]
+    elif collection_recovery is not None:
+        require(
+            parent is not None
+            and parent["units"] == parent["root_units"]
+            and len(root_units) == 47,
+            "collection_recovery_full_parent_required",
+            2,
+        )
     plan = {
         "launch_recovery": launch_recovery,
+        "collection_recovery": collection_recovery,
         "format": 1,
         "mode": "plan",
         "complete": False,
@@ -216,9 +233,13 @@ def validate_plan(plan):
         "root_scope_digest",
         2,
     )
-    from orchestrator.moneyflow_continuation.recovery import validate_descriptor
+    from orchestrator.moneyflow_continuation.recovery import (
+        validate_collection_descriptor,
+        validate_descriptor,
+    )
 
     validate_descriptor(plan.get("launch_recovery"), root)
+    validate_collection_descriptor(plan.get("collection_recovery"), root)
     require(isinstance(plan.get("verification"), dict), "verification_required", 2)
     try:
         created, expires = (

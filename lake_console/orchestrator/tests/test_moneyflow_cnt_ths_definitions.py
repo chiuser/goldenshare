@@ -35,6 +35,8 @@ from orchestrator.defs.run_contracts.moneyflow import (
 )
 from orchestrator.defs.run_contracts.moneyflow_daily import daily_fields
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-10-08"
 MONEYFLOW_CNT_THS_FIELDS = daily_fields("moneyflow_cnt_ths")
 RAW = assets.raw_tushare_moneyflow_cnt_ths

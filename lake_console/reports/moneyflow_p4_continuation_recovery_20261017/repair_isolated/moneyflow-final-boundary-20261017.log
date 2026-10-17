@@ -1,0 +1,30 @@
+.............................                                            [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220: PreviewWarning: Specifying a partitions_def on an AssetCheckSpec is currently in preview, and may have breaking changes in patch version releases. This feature is not considered ready for production use.
+    spec = AssetCheckSpec(
+
+src/orchestrator/defs/jobs/moneyflow.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_update_job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py::test_four_day_native_files_lost_response_restart_and_zero_repeat
+lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py::test_four_day_native_files_lost_response_restart_and_zero_repeat
+lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py::test_four_day_native_files_lost_response_restart_and_zero_repeat
+lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py::test_four_day_native_files_lost_response_restart_and_zero_repeat
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py:3326: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    evaluation_event_timestamp=datetime.utcfromtimestamp(event.timestamp),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+29 passed, 11 warnings in 7.31s

@@ -19,6 +19,7 @@ from orchestrator.defs.run_contracts.moneyflow_daily import (
     daily_fields,
     daily_request_scopes,
 )
+from orchestrator.defs.source_readiness.moneyflow_transport import call_moneyflow_source
 from orchestrator.defs.tushare_request_policy import BoundedCodePageRequestSession
 
 
@@ -43,6 +44,7 @@ def collect_daily_moneyflow(
     clock=perf_counter,
     sleep_fn=sleep,
     check_cancel=lambda: None,
+    raw_deadline=None,
 ):
     fields = daily_fields(dataset)
     scopes = daily_request_scopes(dataset)
@@ -50,12 +52,18 @@ def collect_daily_moneyflow(
     session = BoundedCodePageRequestSession(
         policy=market_moneyflow_policy(), clock=clock, sleep_fn=sleep_fn
     )
+    deadline = clock() + MONEYFLOW_MAX_ELAPSED_SECONDS
+    if raw_deadline is not None:
+        deadline = min(deadline, raw_deadline)
 
     def guard(*, before_request=False):
         check_cancel()
         assert_moneyflow_memory_budget()
         reserve = MONEYFLOW_REQUEST_TIMEOUT_SECONDS if before_request else 0
-        if session.elapsed_ms / 1000 + reserve >= MONEYFLOW_MAX_ELAPSED_SECONDS:
+        if (
+            session.elapsed_ms / 1000 + reserve >= MONEYFLOW_MAX_ELAPSED_SECONDS
+            or clock() + reserve >= deadline
+        ):
             raise MoneyflowContractError("request_budget_exceeded")
 
     def request(offset, content_type):
@@ -67,10 +75,13 @@ def collect_daily_moneyflow(
         }
         if content_type is not None:
             params["content_type"] = content_type
-        response = tushare.call(
+        response = call_moneyflow_source(
+            tushare,
             dataset,
             params,
             fields,
+            deadline=deadline,
+            check_cancel=check_cancel,
         )
         guard()
         if tuple(response.columns) != fields:
@@ -86,9 +97,12 @@ def collect_daily_moneyflow(
     for round_number in (1, 2):
         guard()
         if round_number == 2:
-            while clock() - first_end < MONEYFLOW_STABILITY_SECONDS:
+            while True:
                 guard()
-                sleep_fn(min(1, MONEYFLOW_STABILITY_SECONDS - (clock() - first_end)))
+                remaining = MONEYFLOW_STABILITY_SECONDS - (clock() - first_end)
+                if remaining <= 0:
+                    break
+                sleep_fn(min(1, remaining))
             gap = clock() - first_end
         round_count = [0]
         scope_counts = []

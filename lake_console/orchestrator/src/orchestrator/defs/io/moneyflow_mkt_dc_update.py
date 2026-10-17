@@ -67,6 +67,7 @@ def update_market_moneyflow_raw(
                 operation_id=operation_id,
                 trade_date=trade_date,
                 check_cancel=check_cancel,
+                raw_deadline=started + MONEYFLOW_MAX_ELAPSED_SECONDS,
                 **collection_options,
             )
         receipt = read_moneyflow_update_control(receipt_path)

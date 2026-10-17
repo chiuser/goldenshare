@@ -15,6 +15,8 @@ from orchestrator.moneyflow_continuation.execution import apply
 from orchestrator.moneyflow_continuation.state import NativeBackend
 from tests.test_moneyflow_continuation_plan import AT, DAY, plan_for
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 
 class LocalJobsBackend(NativeBackend):
     def __init__(self, env):

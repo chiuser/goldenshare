@@ -34,6 +34,8 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MoneyflowContractError,
 )
 
+pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+
 DAY = "2026-10-08"
 MONEYFLOW_DC_FIELDS = (
     "trade_date",

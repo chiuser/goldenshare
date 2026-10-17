@@ -1,0 +1,280 @@
+{
+  "report_type": "moneyflow_repair_isolated_acceptance",
+  "as_of": "2026-10-17T22:41:00.596299+08:00",
+  "design_commit": "61650e27",
+  "plan_sections": [
+    "75.18",
+    "75.19"
+  ],
+  "lld_sections": [
+    "70.25",
+    "70.26"
+  ],
+  "status": "repair_development_and_isolated_validation_passed_formal_recovery_not_executed",
+  "scope": {
+    "remaining_dataset": "moneyflow",
+    "dates": [
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16"
+    ],
+    "no_scope_expansion": true
+  },
+  "formal_operations_this_turn": {
+    "reload": 0,
+    "jobs": 0,
+    "source_requests": 0,
+    "partition_registration": 0,
+    "lake_writes": 0,
+    "sensor_changes": 0,
+    "formal_state_reverified": false
+  },
+  "last_formal_evidence": {
+    "as_of": "2026-10-17T20:40:00+08:00",
+    "completed": 45,
+    "total": 49,
+    "files": 90,
+    "rows_per_layer": 105996,
+    "preserved_failures": 2,
+    "sensors_stopped": 21,
+    "current_turn_evidence": false
+  },
+  "tests": {
+    "full_impacted": {
+      "modules": 33,
+      "passed": 1203,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 339.481,
+      "executed_once": true,
+      "followup_changes": "After this run, added preflight checks for worker capability/token and allowed evidence locations; affected tests rerun below, no full-suite repeat."
+    },
+    "final_boundary": {
+      "passed": 29,
+      "seconds": 7.261
+    },
+    "transport": {
+      "distinct_cases_verified_across_runs": 16,
+      "fast_final_passed": 12,
+      "sdk_page2000_final_passed": 1,
+      "sdk_normal_and_full_30_second_stream_passed": 1,
+      "capacity_rss_parent_lifecycle_passed": 3,
+      "overlap_note": "Capacity test appears in final page2000 run and earlier three-case run; counts are not additive. All source HTTP is loopback with dummy token.",
+      "slow_stream_run_seconds": 30.26
+    },
+    "protected_gates": {
+      "static": "passed",
+      "catalog": "passed",
+      "root_guard": "passed",
+      "launcher_unchanged": true
+    },
+    "scoped_ruff": {
+      "passed": true,
+      "python_paths": 43
+    }
+  },
+  "small_four_day_real_jobs": {
+    "days": 4,
+    "rows_per_day_per_layer": 3,
+    "successful_native_jobs": 8,
+    "preserved_native_failures": 1,
+    "fake_source_requests": 8,
+    "mutation_posts_including_registration": 11,
+    "new_posts_on_repeat": 0,
+    "max_action_reads_with_22_guard_reads_charged": 34,
+    "total_meter_reads": 95,
+    "legacy_parent_evidence_and_remote_origin_replaced": true
+  },
+  "sdk_page2000": {
+    "rows": 2000,
+    "wall_seconds": 0.9073452916927636,
+    "request_elapsed_ms": 833.3423328585923,
+    "child_peak_rss_bytes": 189513728,
+    "pair_peak_upper_bytes": 347389952,
+    "loopback_only": true
+  },
+  "isolated_definitions": {
+    "passed": true,
+    "dependencies": 117,
+    "source_inventory": 744,
+    "current_hashes_verified": true,
+    "formal_credentials": false,
+    "formal_load": false
+  },
+  "contract_boundaries": {
+    "generic_resource_and_shared_request_policy_unchanged": true,
+    "no_dataset_field_or_source_parameter_change": true,
+    "no_new_global_config": true,
+    "internal_limits": {
+      "cleanup_seconds": 2,
+      "poll_seconds": 0.1,
+      "rss_sample_seconds": 1,
+      "input_max_bytes": 65536,
+      "result_max_bytes": 33554432
+    },
+    "budgets_not_increased": true
+  },
+  "evidence_limits": [
+    "49-unit native-metadata/control acceptance uses explicit replacement storage; it is not 98 real Dagster jobs.",
+    "Four-day exercise uses 3 rows/day/layer, temporary Dagster SQLite, 8 actual successful jobs plus 1 actual retained failure, real Parquet and accurate asset checks. Formal remote origin, old failed-parent evidence and source boundary are replaced here and tested separately.",
+    "Legacy first-round validation uses the current producer to create 5574 rows/20 columns with actual Parquet SQL and scope-1 pages, not the formal candidate.",
+    "Installed SDK requests target local fake HTTP only. Formal GraphQL, shared PostgreSQL, actual origin dates, production pool and future Tushare revisions are not validated this turn.",
+    "Full 300-second Raw lifecycle uses bounded independent clocks; one full 30-second HTTP budget experiment was run, not four real one-minute waits.",
+    "Final formal 49-unit totals and original 47-unit zero-change replay remain unexecuted."
+  ],
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "root": "/Users/congming/github/goldenshare",
+    "files": 4210,
+    "status": "up_to_date",
+    "impact": "two moneyflow collectors -> transport/SDK; update deadline; plan/CLI/recovery/journal/state/execution/acceptance; tests. No Foundation/Ops/Biz/QTF or frontend contract changes.",
+    "manual_boundaries": "Formal loaded code, shared service tasks and remote source behavior remain for next approved formal phase."
+  },
+  "task_file_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "6cc1fbf910e7ff26e08441e66c7af8243c4cbd040339f0574fad399574484d53",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_request_worker.py": "2f9776e5ad3e84673b5329344591196e825d876580ab3c497ef6d0b9a99fc2f3",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_transport.py": "a3351281f786d826ce54e06dcc15610572a5ec9a27f936392f705fa6aef8505a",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/acceptance.py": "d8f05bb423d3e065a8fe41d512ec4772c559d7c8bacef44de6a456bda2563d39",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "6b68ae46208e86706e83fbedef4812feddbbece66317e77757504eec33a50aa1",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/plan.py": "2276918c15ca0dd807912ecaa397b11d8b1469b3e62b0c1bd4c0534614ad4539",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/recovery.py": "183497f48a5b7642e3c7c6650d639285091a95a99efa489538449206d0a21561",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/state.py": "f7f2a4e8114ef35715b16776b9f14a1f4a3f1dc81dd91a52d1a6f2c9430d1238",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "e0eee05f51a60b8d88a84e8266e2c78c33c30fff6837374ae0a004c2ef28a61d",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation_cli.py": "686e70fe7f8641b8402edb5ad9350c2bc200082a1094bd4dcd33440d9fc140fd",
+    "lake_console/orchestrator/tests/conftest.py": "3ceef99abed3c441d7f15a5fbcc462eff81ccc84a381b0955ca9bb7ac2bc3105",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py": "2b5a6fed1639d573aef2d79b3b1266128062ebafc0c48ef62218729852e604dd",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py": "99abc9cba7a388a5be278864b0a793b502b6956878c3b08d7378b0501621c36f",
+    "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py": "0f8bcc6408fa1874e2569d7f796aa42e8f587a30f54a711d60b3bdb1363bb980",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_acceptance.py": "aed50a8c1cf0a8363076f24d3f1fd988f8f49af670b31a5c7e7fd5e6fef1b145",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py": "7f65ddfbe67a6033821f5c23fba317eb514fa5e274f06592213c5654a2c8e86d",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_integration.py": "6ebcb78dbca45aa0e2208ea37011e966a17c55d8ea14709509cb711a1d12310d",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py": "91eb1e14f890c70d16650f26e40eb3850d27f3c7b5a7403fedf15abdcaf6698c",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py": "e69c590f3c69837fe4c7648560656e1f59b9ef5737418b73a9a73c1c3b3074d1",
+    "lake_console/orchestrator/tests/test_moneyflow_definitions.py": "0c8663dfb6d2f50561d48446bbac8afd5ef2c9e982433727ff0139bf780ac54f",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py": "a2b30c1b1e3960ecccbee54b9a67a699b17b74ce19cdd4cc6f714405af496cd9",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py": "7d99dd5972ee5b6b547674c25a0035b14bd9d05b75c5f42cfa90139bd4cbb27b",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py": "dbc39452c838e339ef3f9fc4e31cdfd1798f6828f593265a54579446404ee147",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py": "654db2d9ee3fb51f0f3ef19b8cce548eaddd96c36bf8adc0d585d9a989fccf3a",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py": "9e70396378680d74ec510b6186b6235c9cc2401a0aa20c02156e8fe3f29e63c5",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py": "2d732f55c29435f8ea3cafb203e896e8edbffd703838db555eeada2c7550b7d9",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py": "e6972dfd74eeed70e678a87cfe898f4eb77632598bfeb4c92fdb848c20dd682b",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_cnt_ths.py": "ae193efe27d1f7850fe73d6296ae5efd62f09d55fbf1d59cf645011f3f1a1daf",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_dc.py": "646cd80f7bfaa428a21b6168a61538fcca91f3843a22ab1a7e4c964641bd1067",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_dc.py": "9716655d6f3f605ceaebd0660b77fe87ff74b9333def09fe454f6eab4a1dc448",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_ths.py": "6c35ed9a3ad9aaf6708a5a2421c97c972431f727155a2af6fa55a279b9e693e1",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py": "133e1be71d2b4cfcfbbfae0695a4e3feb7a590d8a4df5ad6eab9063c3f5850ba",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ths.py": "7005b228ce680eb85ef2a28d8e17fa118788cb78216e7163a25a7a31007b9993",
+    "lake_console/orchestrator/tests/test_moneyflow_recovery_boundaries.py": "19f367d67fe47cc7cf0a3be5e3f92ca74f0f89c4582533e199d42927a01050ce",
+    "lake_console/orchestrator/tests/test_moneyflow_row_count.py": "86b2ae64378620b837a9e1740255a6bcbacc3f88713bc492866fd675e054a125",
+    "lake_console/orchestrator/tests/test_moneyflow_sensors.py": "46d7a6e8fa766708cfa478a2188f834ecc78a9a7b6c069f9070fe0a21d4bba5b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py": "fc52cda753eae3ca4a926c1bcdaddede8ccb961d91255f7b9c840edeed00173b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py": "e6faae25de231918650bf4e4d20c6568e4b947aa72cf686412c926f78502d787",
+    "lake_console/orchestrator/tests/test_moneyflow_transport.py": "4727be91688bd59b00e8e0d92c92adfc3ad5258505a1cc9abe491336148fe4ab"
+  },
+  "evidence_files": [
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.log",
+      "sha256": "c98fb0b61fc4895be9eb881324af93bd641e14ac9086d3508ff67a4d01ab21ac",
+      "original_path": "/private/tmp/moneyflow-full-repair-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+      "sha256": "6e3725e21767870285026bc7e2e5626cefbb7a34d99a8d17ba77fd2ed3358d3e",
+      "original_path": "/private/tmp/moneyflow-full-repair-20261017.xml"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.log",
+      "sha256": "7f952b85e8dc84192ebbb4561f9418f805e3c6e07910206ed4bf1e62ec762b09",
+      "original_path": "/private/tmp/moneyflow-final-boundary-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+      "sha256": "3dd3482f9e2f9d6b3dee0e105132aca351320af9c29fe6686651b4e8311206e8",
+      "original_path": "/private/tmp/moneyflow-final-boundary-20261017.xml"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.log",
+      "sha256": "24ee5ca413686c58190f9723fefde1c410046e46eff44bbff40b6cc261c1a70b",
+      "original_path": "/private/tmp/moneyflow-final-transport-fast-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.xml",
+      "sha256": "e1104a0417e3c4eebb9c56b4f2a247e9fa1aaf09b192f8acd1e3e4da5aa44502",
+      "original_path": "/private/tmp/moneyflow-final-transport-fast-20261017.xml"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.log",
+      "sha256": "cf52fd76b741ac1018538f43635af96ef6895ce63678c5cf6069ff8b734906ee",
+      "original_path": "/private/tmp/moneyflow-final-sdk-metrics-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.xml",
+      "sha256": "0144bfd48a9ab67d506d2dcfeef06323321eaba05be3c54df639b4f6ad6d8d23",
+      "original_path": "/private/tmp/moneyflow-final-sdk-metrics-20261017.xml"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-command-20261017.json",
+      "sha256": "3e8cb26053a5acefaa78754e51337db3914b9afe005a89f93b8600c3fc9871a8",
+      "original_path": "/private/tmp/moneyflow-full-repair-command-20261017.json"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-sdk-20261017.log",
+      "sha256": "37e7da27ee9aa40b91931a586d1a5836f4ccfd6f99295c4ed4b51a8303dac604",
+      "original_path": "/private/tmp/moneyflow-transport-sdk-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-capacity-lifecycle-20261017.log",
+      "sha256": "c14befb74e0ba1884d3433393713b000f83ecdedcc8167faec9133f093f56871",
+      "original_path": "/private/tmp/moneyflow-transport-capacity-lifecycle-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-final-ruff-20261017.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "original_path": "/private/tmp/moneyflow-repair-final-ruff-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/definitions.json",
+      "sha256": "bb75f7b1e7cc9f3c77381d1dd17fd2398f97480e69ced774f9e414bf12bb8229",
+      "original_path": "/private/tmp/moneyflow-repair-final-defs-eamw21pi/definitions.json"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/definitions.log",
+      "sha256": "3572324fc3a5327b37221446d38c45ac76be5a8b2627dcb83ed6333dd30fb5a0",
+      "original_path": "/private/tmp/moneyflow-repair-final-defs-eamw21pi/definitions.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-static-20261017.log",
+      "sha256": "ffc5b51dfad0cb82093958ecadfae431c9663183cee9e3368fe256a84c82eade",
+      "original_path": "/private/tmp/moneyflow-repair-static-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-catalog-20261017.log",
+      "sha256": "4bc53b84e97d398e84a2f68d441c5ac28b288fcc9cf093f56d3f0c15c647c461",
+      "original_path": "/private/tmp/moneyflow-repair-catalog-20261017.log"
+    },
+    {
+      "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-root-guard-20261017.log",
+      "sha256": "db6c16ce83be57815d26e51ebe6f2de7b8372b1fb2b1070c6416fc7c13ff4b41",
+      "original_path": "/private/tmp/moneyflow-repair-root-guard-20261017.log"
+    }
+  ],
+  "next_step": "Refresh current seven-date formal read-only status and loaded source, preserve root/budgets/identities; formal load and recovery require their stage authorization. Recover only moneyflow 10-13 Raw then ordinary Silver/readback, then 10-14..16; final 49 audit and 47 zero-change replay. Sensors stay off.",
+  "closeout_checks": {
+    "docs_integrity": "passed",
+    "task_diff_check": "passed",
+    "persisted_evidence_sha256_verified": 17,
+    "task_source_test_sha256_verified": 43,
+    "git_branch": "dev-interface",
+    "new_repair_changes_committed": false,
+    "pushed": false
+  }
+}

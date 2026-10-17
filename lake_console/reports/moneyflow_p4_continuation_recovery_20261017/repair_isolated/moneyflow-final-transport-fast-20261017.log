@@ -1,0 +1,11 @@
+............                                                             [100%]
+=============================== warnings summary ===============================
+lake_console/orchestrator/tests/test_moneyflow_transport.py::test_truncated_and_oversized_frames_never_become_empty_success[]
+lake_console/orchestrator/tests/test_moneyflow_transport.py::test_truncated_and_oversized_frames_never_become_empty_success[]
+lake_console/orchestrator/tests/test_moneyflow_transport.py::test_truncated_and_oversized_frames_never_become_empty_success[]
+lake_console/orchestrator/tests/test_moneyflow_transport.py::test_truncated_and_oversized_frames_never_become_empty_success[]
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 4 warnings in 1.82s

@@ -1,0 +1,158 @@
+........................................................................ [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 17%]
+........................................................................ [ 23%]
+........................................................................ [ 29%]
+........................................................................ [ 35%]
+........................................................................ [ 41%]
+........................................................................ [ 47%]
+........................................................................ [ 53%]
+........................................................................ [ 59%]
+........................................................................ [ 65%]
+........................................................................ [ 71%]
+........................................................................ [ 77%]
+........................................................................ [ 83%]
+........................................................................ [ 89%]
+........................................................................ [ 95%]
+...................................................                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/definitions/decorators/asset_check_decorator.py:220: PreviewWarning: Specifying a partitions_def on an AssetCheckSpec is currently in preview, and may have breaking changes in patch version releases. This feature is not considered ready for production use.
+    spec = AssetCheckSpec(
+
+src/orchestrator/defs/jobs/moneyflow_cnt_ths.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_cnt_ths.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_cnt_ths_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_cnt_ths.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_cnt_ths.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_cnt_ths_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_dc.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_dc.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_dc.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_dc.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ind_dc.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_dc.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_ind_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ind_dc.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_dc.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_ind_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ind_ths.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_ths.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_ind_ths_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ind_ths.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_ths.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_ind_ths_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_mkt_dc.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_mkt_dc.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_mkt_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_mkt_dc.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_mkt_dc.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_mkt_dc_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ths.py:11
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ths.py:11: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    raw_tushare_moneyflow_ths_update_job = dg.define_asset_job(
+
+src/orchestrator/defs/jobs/moneyflow_ths.py:19
+  /Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ths.py:19: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    silver_moneyflow_ths_update_job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py: 27 warnings
+lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py: 15 warnings
+lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py: 4 warnings
+lake_console/orchestrator/tests/test_moneyflow_continuation_integration.py: 6 warnings
+lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py: 35 warnings
+lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py: 15 warnings
+lake_console/orchestrator/tests/test_moneyflow_definitions.py: 48 warnings
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py: 38 warnings
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py: 15 warnings
+lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py: 29 warnings
+lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py: 15 warnings
+lake_console/orchestrator/tests/test_moneyflow_row_count.py: 53 warnings
+lake_console/orchestrator/tests/test_moneyflow_sensors.py: 15 warnings
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py: 39 warnings
+lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py: 15 warnings
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py:3326: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    evaluation_event_timestamp=datetime.utcfromtimestamp(event.timestamp),
+
+lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py::test_wrong_raw_date_records_failed_partition_check_and_blocks_silver
+lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py::test_silver_amount_difference_records_failed_partition_check
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py:400: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py::test_silver_rejects_other_day_stale_or_failed_raw_check[failed_check]
+lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('20260929'::VARCHAR AS trade_date)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('000001.SZ'::VARCHAR AS ts_code)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py::test_silver_field_change_records_failed_reconciliation
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py:224: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_silver_rejects_other_day_stale_or_failed_raw_check[failed_check]
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('20260929'::VARCHAR AS trade_date)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('000001.SZ'::VARCHAR AS ts_code)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_silver_field_change_records_failed_reconciliation[net_mf_amount-DECIMAL(20,4)]
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_silver_field_change_records_failed_reconciliation[net_mf_vol-BIGINT]
+lake_console/orchestrator/tests/test_moneyflow_definitions.py::test_silver_field_change_records_failed_reconciliation[buy_sm_vol-BIGINT]
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_definitions.py:192: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py::test_silver_rejects_other_day_stale_or_failed_raw_check[failed_check]
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py::test_wrong_date_or_scope_records_failed_blocking_check[* REPLACE('20260929'::VARCHAR AS trade_date)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py::test_wrong_date_or_scope_records_failed_blocking_check[* REPLACE('\u884c\u4e1a'::VARCHAR AS content_type)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py::test_silver_field_change_records_failed_reconciliation
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py:206: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py::test_wrong_raw_date_records_failed_partition_check_and_blocks_silver
+lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py::test_silver_amount_difference_records_failed_partition_check
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py:477: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py::test_wrong_raw_date_records_failed_partition_check_and_blocks_silver
+lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py::test_silver_amount_difference_records_failed_partition_check
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py:453: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_silver_rejects_other_day_stale_or_failed_raw_check[failed_check]
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('20260929'::VARCHAR AS trade_date)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_wrong_date_or_duplicate_stock_records_failed_blocking_check[* REPLACE('000001.SZ'::VARCHAR AS ts_code)-file_count_date_or_key]
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_silver_field_change_records_failed_reconciliation[net_amount-DECIMAL(24,4)]
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_silver_field_change_records_failed_reconciliation[net_d5_amount-DECIMAL(24,4)]
+lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py::test_silver_field_change_records_failed_reconciliation[latest-DECIMAL(18,4)]
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py:221: DeprecationWarning: Parameter `partitions_def` of function `define_asset_job` is deprecated and will be removed in 2.0.0. Partitioning is inferred from the selected assets, so setting this is redundant.
+    job = dg.define_asset_job(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1203 passed, 420 warnings in 339.51s (0:05:39)
