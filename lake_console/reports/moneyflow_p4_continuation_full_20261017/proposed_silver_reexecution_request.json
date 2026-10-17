@@ -1,0 +1,18 @@
+{
+  "proposed_only": true,
+  "executed": false,
+  "endpoint": "http://127.0.0.1:3000/graphql",
+  "request": {
+    "query": "mutation($parentRunId:String!){launchRun:launchRunReexecution(reexecutionParams:{parentRunId:$parentRunId,strategy:ALL_STEPS,useParentRunTags:true}){__typename ... on LaunchRunSuccess{run{runId status}}}}",
+    "variables": {
+      "parentRunId": "656aa7d0-94c5-477e-a72e-452a48618d2c"
+    }
+  },
+  "dataset": "moneyflow_ths",
+  "trade_date": "2026-10-14",
+  "raw_run_id": "4bc448cd-db99-4441-9c21-a2ab7f999101",
+  "raw_sha256": "d813d99b7739b622d358fb8cc58916c816b0c3371c93474c0bb079244e2e1fc9",
+  "new_native_run_max": 1,
+  "new_source_requests": 0,
+  "sensor_changes": 0
+}

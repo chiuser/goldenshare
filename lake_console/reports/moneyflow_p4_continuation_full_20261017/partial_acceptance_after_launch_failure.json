@@ -1,0 +1,2299 @@
+{
+  "as_of": "2026-10-17T18:22:59.438595+08:00",
+  "step_complete": false,
+  "reason": "native_silver_launch_failure_requires_explicit_recovery_step",
+  "completed": 39,
+  "remaining": 10,
+  "raw_ready": 40,
+  "silver_ready": 39,
+  "sensors_stopped": 21,
+  "server_id": "906ed8b6-8fd2-4f1f-b724-3ce491b35e69",
+  "pending": [
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw_ready": true,
+      "silver_ready": false,
+      "raw_runs": [
+        {
+          "run_id": "4bc448cd-db99-4441-9c21-a2ab7f999101",
+          "status": "SUCCESS"
+        }
+      ],
+      "silver_runs": [
+        {
+          "run_id": "656aa7d0-94c5-477e-a72e-452a48618d2c",
+          "status": "FAILURE"
+        }
+      ]
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-15",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-16",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-08",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-09",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-12",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-13",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-14",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-15",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-16",
+      "registered": false,
+      "raw_ready": false,
+      "silver_ready": false,
+      "raw_runs": [],
+      "silver_runs": []
+    }
+  ],
+  "facts": [
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "7f9ea4b6-171b-4177-b545-0d245b768e38",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "303338656986d7a84cb07d1baca2b544b9877915df3089156f9f18e46e10ce0b",
+        "proof": {
+          "run_id": "7f9ea4b6-171b-4177-b545-0d245b768e38",
+          "materialization_id": 7627129,
+          "timestamp": 1792217768.540416,
+          "sha256": "303338656986d7a84cb07d1baca2b544b9877915df3089156f9f18e46e10ce0b",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "06491beb-e782-4898-85f9-1b110f8cbfb0",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "d5e1f303bfe1e232f9e43e4c6274d161ddcd520c9ad1d4472c0a4ec07a2b790a",
+        "proof": {
+          "run_id": "06491beb-e782-4898-85f9-1b110f8cbfb0",
+          "materialization_id": 7627157,
+          "timestamp": 1792217805.099406,
+          "sha256": "d5e1f303bfe1e232f9e43e4c6274d161ddcd520c9ad1d4472c0a4ec07a2b790a",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "23b6eeee-9189-44bb-a812-0951bc20a5c7",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "5a1b514102d11e3bac35be81841833a8b10d0c6ff36f1056313569182eaec0df",
+        "proof": {
+          "run_id": "23b6eeee-9189-44bb-a812-0951bc20a5c7",
+          "materialization_id": 7630545,
+          "timestamp": 1792226894.483136,
+          "sha256": "5a1b514102d11e3bac35be81841833a8b10d0c6ff36f1056313569182eaec0df",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "09d2f9ee-903f-4fdb-adc6-d93d93b7361b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "f17e61165ae320ebd827dd939a60fea5c8eca8eb01b8de1dcae65eb672ce31ba",
+        "proof": {
+          "run_id": "09d2f9ee-903f-4fdb-adc6-d93d93b7361b",
+          "materialization_id": 7630573,
+          "timestamp": 1792227048.76036,
+          "sha256": "f17e61165ae320ebd827dd939a60fea5c8eca8eb01b8de1dcae65eb672ce31ba",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "b2a1161f-44a4-4af4-a91a-23f1167f6c19",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "521938f3129d8efef7048562d0d7c396d838755591643e54f38d9b8c2428928b",
+        "proof": {
+          "run_id": "b2a1161f-44a4-4af4-a91a-23f1167f6c19",
+          "materialization_id": 7630601,
+          "timestamp": 1792228389.0815082,
+          "sha256": "521938f3129d8efef7048562d0d7c396d838755591643e54f38d9b8c2428928b",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "411e5f23-05f7-4860-8f28-1083961ac9de",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "0aea7109b9a6c52d4d4984570bc8a9d2979c7ae4c8cb6a780dd70a94f3b89ebd",
+        "proof": {
+          "run_id": "411e5f23-05f7-4860-8f28-1083961ac9de",
+          "materialization_id": 7630629,
+          "timestamp": 1792228405.3249652,
+          "sha256": "0aea7109b9a6c52d4d4984570bc8a9d2979c7ae4c8cb6a780dd70a94f3b89ebd",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "641fb272-c23d-4ff0-97e6-50bfd386eea8",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "767ae33a4afdab30fd2cf613d23fef43eb9b359ff7a4f377ddc76e1fb6bb4407",
+        "proof": {
+          "run_id": "641fb272-c23d-4ff0-97e6-50bfd386eea8",
+          "materialization_id": 7630657,
+          "timestamp": 1792228480.867203,
+          "sha256": "767ae33a4afdab30fd2cf613d23fef43eb9b359ff7a4f377ddc76e1fb6bb4407",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "fac2eac2-2b30-480b-9b87-cc13df4c4c91",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "bdb6bd97748f6e60f7c1acddab2a4ce08907a1f3761d5e1f20efab61a4f674cf",
+        "proof": {
+          "run_id": "fac2eac2-2b30-480b-9b87-cc13df4c4c91",
+          "materialization_id": 7630685,
+          "timestamp": 1792228502.8410938,
+          "sha256": "bdb6bd97748f6e60f7c1acddab2a4ce08907a1f3761d5e1f20efab61a4f674cf",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "466683a8-6b0e-4235-9d72-1d964780d124",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "8cf41081209901cfdbc8a0cb0db4c8b92dad531697bfb73105e36b49069167b0",
+        "proof": {
+          "run_id": "466683a8-6b0e-4235-9d72-1d964780d124",
+          "materialization_id": 7630713,
+          "timestamp": 1792228583.6366599,
+          "sha256": "8cf41081209901cfdbc8a0cb0db4c8b92dad531697bfb73105e36b49069167b0",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "f4d89e03-acc7-4161-9897-6b6f14ed3ea0",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a63542eda97dd3afbb2db359f4d7db5fb5602d94aa2c2e095f1afeba075d6b3d",
+        "proof": {
+          "run_id": "f4d89e03-acc7-4161-9897-6b6f14ed3ea0",
+          "materialization_id": 7630741,
+          "timestamp": 1792228594.74156,
+          "sha256": "a63542eda97dd3afbb2db359f4d7db5fb5602d94aa2c2e095f1afeba075d6b3d",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-15",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "77ad7c98-0892-4470-beec-a512005dd39b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a923c26bf6153d6f15183229b98471d5bbcd29032cb5680a190620f0fd675026",
+        "proof": {
+          "run_id": "77ad7c98-0892-4470-beec-a512005dd39b",
+          "materialization_id": 7630769,
+          "timestamp": 1792228665.3008692,
+          "sha256": "a923c26bf6153d6f15183229b98471d5bbcd29032cb5680a190620f0fd675026",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "1a8fc779-1ad9-4ca2-8af1-5139c0eaf0f9",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "e5b2bccf2509f432ae0e6bd350e50e3faab031e13c181ba3e7dee17c2f449969",
+        "proof": {
+          "run_id": "1a8fc779-1ad9-4ca2-8af1-5139c0eaf0f9",
+          "materialization_id": 7630797,
+          "timestamp": 1792228676.265635,
+          "sha256": "e5b2bccf2509f432ae0e6bd350e50e3faab031e13c181ba3e7dee17c2f449969",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_mkt_dc",
+      "trade_date": "2026-10-16",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "e052a96b-3966-42a0-95e4-6a46f23d7f79",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "7dfe8b1d82e8388e0c104656f475ec01285feed578c161b2cb00ba639d3d9d94",
+        "proof": {
+          "run_id": "e052a96b-3966-42a0-95e4-6a46f23d7f79",
+          "materialization_id": 7630825,
+          "timestamp": 1792228751.7713861,
+          "sha256": "7dfe8b1d82e8388e0c104656f475ec01285feed578c161b2cb00ba639d3d9d94",
+          "rows": 1
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "e9738531-4867-4ce5-a205-185aa2158fae",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "fe3e82c4a6709f443494ac0a2d5feeab3487f13553be65b3190b74289b95d1bf",
+        "proof": {
+          "run_id": "e9738531-4867-4ce5-a205-185aa2158fae",
+          "materialization_id": 7630853,
+          "timestamp": 1792228773.756224,
+          "sha256": "fe3e82c4a6709f443494ac0a2d5feeab3487f13553be65b3190b74289b95d1bf",
+          "rows": 1
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "ea1efe96-37ba-4bb1-ac90-8b2f9ddf390c",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "69acd0f48ca45c58b1835213422d8362722b8127fdf73db5dee12e77b2c7ac31",
+        "proof": {
+          "run_id": "ea1efe96-37ba-4bb1-ac90-8b2f9ddf390c",
+          "materialization_id": 7630881,
+          "timestamp": 1792228881.4943218,
+          "sha256": "69acd0f48ca45c58b1835213422d8362722b8127fdf73db5dee12e77b2c7ac31",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "a305d800-cc98-43ed-aa21-6677f052e20d",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "f1bac6c2121098c9f36d64004f7d01c4cce1d5c94093c76d06332264a5b70832",
+        "proof": {
+          "run_id": "a305d800-cc98-43ed-aa21-6677f052e20d",
+          "materialization_id": 7630909,
+          "timestamp": 1792228901.4253042,
+          "sha256": "f1bac6c2121098c9f36d64004f7d01c4cce1d5c94093c76d06332264a5b70832",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "a1eed3bd-7e0a-493a-a7d7-e8af6047d9e0",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "105c217d3a7af10c8afa2d7de8d6efe6aecd4af66820c1492b60aad2e8a95cd8",
+        "proof": {
+          "run_id": "a1eed3bd-7e0a-493a-a7d7-e8af6047d9e0",
+          "materialization_id": 7630937,
+          "timestamp": 1792228998.581064,
+          "sha256": "105c217d3a7af10c8afa2d7de8d6efe6aecd4af66820c1492b60aad2e8a95cd8",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "4ff38180-2ecd-4e51-9fb4-f88677a6d67b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "b171f9f650fe356eb0c10576ae51d600585f07be79ddc3b345d8ac13a62699cf",
+        "proof": {
+          "run_id": "4ff38180-2ecd-4e51-9fb4-f88677a6d67b",
+          "materialization_id": 7630965,
+          "timestamp": 1792229019.637192,
+          "sha256": "b171f9f650fe356eb0c10576ae51d600585f07be79ddc3b345d8ac13a62699cf",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "767221e1-5917-4b47-85e6-6fd64a2c4c97",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "f3d9c2c4764afdc5487a52943b2a589797ec02c1973c0af4a125921c562423ea",
+        "proof": {
+          "run_id": "767221e1-5917-4b47-85e6-6fd64a2c4c97",
+          "materialization_id": 7630993,
+          "timestamp": 1792229101.638358,
+          "sha256": "f3d9c2c4764afdc5487a52943b2a589797ec02c1973c0af4a125921c562423ea",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "f03f315c-4423-418d-a1aa-842dedca3baf",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "ef6b70b3ed6cf0499da23879da82a437ad8f0eaae3f1be1fbbc75a96deaca907",
+        "proof": {
+          "run_id": "f03f315c-4423-418d-a1aa-842dedca3baf",
+          "materialization_id": 7631021,
+          "timestamp": 1792229121.946074,
+          "sha256": "ef6b70b3ed6cf0499da23879da82a437ad8f0eaae3f1be1fbbc75a96deaca907",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "c53b1c37-5360-4410-94e4-1a8e49ca9afe",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "6d03ffd4d4c367e27d27ac875c821c870f829b32da9b5157190832ab1224fd50",
+        "proof": {
+          "run_id": "c53b1c37-5360-4410-94e4-1a8e49ca9afe",
+          "materialization_id": 7631049,
+          "timestamp": 1792229193.243554,
+          "sha256": "6d03ffd4d4c367e27d27ac875c821c870f829b32da9b5157190832ab1224fd50",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "f4e9334f-4ee3-4ea2-a63f-935b33b66ecd",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "32699996aa3a75cf62aa6aee7d027f2c4675db17d86b1a6bdfbceb7e563bd6bd",
+        "proof": {
+          "run_id": "f4e9334f-4ee3-4ea2-a63f-935b33b66ecd",
+          "materialization_id": 7631077,
+          "timestamp": 1792229203.398676,
+          "sha256": "32699996aa3a75cf62aa6aee7d027f2c4675db17d86b1a6bdfbceb7e563bd6bd",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "94f483cb-64b6-411d-a2c0-72c07876c705",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "0e774141614be8857711f413e39d7e7dbdf5a28df3d68dbcc5a2fbafcfb16260",
+        "proof": {
+          "run_id": "94f483cb-64b6-411d-a2c0-72c07876c705",
+          "materialization_id": 7631105,
+          "timestamp": 1792229280.616222,
+          "sha256": "0e774141614be8857711f413e39d7e7dbdf5a28df3d68dbcc5a2fbafcfb16260",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "0aacc276-88a6-4a89-a911-3394b181eb33",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "43bf3823023c1ad828f21b5cfb166cc946103c5d97974eecefba47dd0349deff",
+        "proof": {
+          "run_id": "0aacc276-88a6-4a89-a911-3394b181eb33",
+          "materialization_id": 7631133,
+          "timestamp": 1792229300.6025689,
+          "sha256": "43bf3823023c1ad828f21b5cfb166cc946103c5d97974eecefba47dd0349deff",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-15",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "89947d81-de2e-47e7-ad80-59bc90627697",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "07b72935dc7e8788322e27c76757d821118da25a22ed051e046c4aaac4c15b93",
+        "proof": {
+          "run_id": "89947d81-de2e-47e7-ad80-59bc90627697",
+          "materialization_id": 7631161,
+          "timestamp": 1792229382.403602,
+          "sha256": "07b72935dc7e8788322e27c76757d821118da25a22ed051e046c4aaac4c15b93",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "4361db59-2f94-4f2d-9aaf-0e3c1311f5ac",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "3f3d94f35378f2198355e6d04b0b70533ed7a6f7f1a61bea2ed65245fcc6014a",
+        "proof": {
+          "run_id": "4361db59-2f94-4f2d-9aaf-0e3c1311f5ac",
+          "materialization_id": 7631189,
+          "timestamp": 1792229402.891069,
+          "sha256": "3f3d94f35378f2198355e6d04b0b70533ed7a6f7f1a61bea2ed65245fcc6014a",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_ths",
+      "trade_date": "2026-10-16",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "90dc096c-ae36-4670-9694-e83ba7de7571",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a0867f47d992afa9a5a977a8c5538b8c6272f21378d236bb40481ad14c93da71",
+        "proof": {
+          "run_id": "90dc096c-ae36-4670-9694-e83ba7de7571",
+          "materialization_id": 7631217,
+          "timestamp": 1792229480.119266,
+          "sha256": "a0867f47d992afa9a5a977a8c5538b8c6272f21378d236bb40481ad14c93da71",
+          "rows": 90
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "e7627373-aaea-4a09-882a-124312a0eacd",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "0a2ac0043522aa4ad1b276c2866ab0858bbbde924c1c37f5bb694e729a6ae922",
+        "proof": {
+          "run_id": "e7627373-aaea-4a09-882a-124312a0eacd",
+          "materialization_id": 7631245,
+          "timestamp": 1792229494.848875,
+          "sha256": "0a2ac0043522aa4ad1b276c2866ab0858bbbde924c1c37f5bb694e729a6ae922",
+          "rows": 90
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "f869af69-ee0f-49b2-b665-bfb0858a4687",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "90f52420633c7c10dcdb09ec6f96f298e0e594e5af239b70ecc194ddfb143144",
+        "proof": {
+          "run_id": "f869af69-ee0f-49b2-b665-bfb0858a4687",
+          "materialization_id": 7631273,
+          "timestamp": 1792229586.7500029,
+          "sha256": "90f52420633c7c10dcdb09ec6f96f298e0e594e5af239b70ecc194ddfb143144",
+          "rows": 387
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "266eaba2-388f-458d-b308-8bd975b8a08a",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "59f14e483d7b48b55e1294408dd2028d90c65d124b5e53440b1f4c46a74c0a85",
+        "proof": {
+          "run_id": "266eaba2-388f-458d-b308-8bd975b8a08a",
+          "materialization_id": 7631301,
+          "timestamp": 1792229607.143549,
+          "sha256": "59f14e483d7b48b55e1294408dd2028d90c65d124b5e53440b1f4c46a74c0a85",
+          "rows": 387
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "09ddec6d-4323-4412-bf3a-de7fbb6714ae",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "37ecec81e9a3ed9d8a72286489a5f100656f69f6a6069e9c268bfd9d5591ca4b",
+        "proof": {
+          "run_id": "09ddec6d-4323-4412-bf3a-de7fbb6714ae",
+          "materialization_id": 7631329,
+          "timestamp": 1792229694.550774,
+          "sha256": "37ecec81e9a3ed9d8a72286489a5f100656f69f6a6069e9c268bfd9d5591ca4b",
+          "rows": 387
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "2b02127f-8c4d-412e-8421-006cc8146414",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "7c876f5948c5f32cc49ceffbf2b292b26cc83c0b6a1b6390d66f4ede3fd71d1c",
+        "proof": {
+          "run_id": "2b02127f-8c4d-412e-8421-006cc8146414",
+          "materialization_id": 7631357,
+          "timestamp": 1792229714.4615092,
+          "sha256": "7c876f5948c5f32cc49ceffbf2b292b26cc83c0b6a1b6390d66f4ede3fd71d1c",
+          "rows": 387
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "7ce19e4a-e2d3-474d-89b7-abe647c28a5d",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "ef02c0292c03ce808d455a0e3e0b1f264320ad3bef7e3eb4fa62579a5225e315",
+        "proof": {
+          "run_id": "7ce19e4a-e2d3-474d-89b7-abe647c28a5d",
+          "materialization_id": 7631385,
+          "timestamp": 1792229797.407202,
+          "sha256": "ef02c0292c03ce808d455a0e3e0b1f264320ad3bef7e3eb4fa62579a5225e315",
+          "rows": 386
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "984a6115-70c3-406f-9992-e02b4021837d",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "396f9b61975f4c20afae8f6d787dd16d83899f2c28ce0b3286a6d54b40c49eb7",
+        "proof": {
+          "run_id": "984a6115-70c3-406f-9992-e02b4021837d",
+          "materialization_id": 7631413,
+          "timestamp": 1792229817.1207051,
+          "sha256": "396f9b61975f4c20afae8f6d787dd16d83899f2c28ce0b3286a6d54b40c49eb7",
+          "rows": 386
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "16148e08-d4e0-447c-b595-7d470bc1b4c4",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "64acf88c825939da4507721887852d3792e46d119c1f9b792433e7f86f96174c",
+        "proof": {
+          "run_id": "16148e08-d4e0-447c-b595-7d470bc1b4c4",
+          "materialization_id": 7631441,
+          "timestamp": 1792229894.070538,
+          "sha256": "64acf88c825939da4507721887852d3792e46d119c1f9b792433e7f86f96174c",
+          "rows": 386
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "ef658f1e-bd51-40b4-ab16-0e54da077539",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "85a9540fc57ecc27267b6c2172c0979e2f5d905ff416745c4e06f40be59a4637",
+        "proof": {
+          "run_id": "ef658f1e-bd51-40b4-ab16-0e54da077539",
+          "materialization_id": 7631469,
+          "timestamp": 1792229908.998215,
+          "sha256": "85a9540fc57ecc27267b6c2172c0979e2f5d905ff416745c4e06f40be59a4637",
+          "rows": 386
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "103ba028-5865-4256-adae-a2a1836a2a9f",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "bf6d6f81e8262314464cac88ddab9f38dc5d4a0cdde2bd77e9cf4bf83078ab3b",
+        "proof": {
+          "run_id": "103ba028-5865-4256-adae-a2a1836a2a9f",
+          "materialization_id": 7631497,
+          "timestamp": 1792229986.090254,
+          "sha256": "bf6d6f81e8262314464cac88ddab9f38dc5d4a0cdde2bd77e9cf4bf83078ab3b",
+          "rows": 386
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "ad2f1bca-1d73-4745-aa22-ab05c8279eb1",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "e0015fd09f7937a1d0ed23309a786ea01bbbbb2e541726a840628af58cc6feb6",
+        "proof": {
+          "run_id": "ad2f1bca-1d73-4745-aa22-ab05c8279eb1",
+          "materialization_id": 7631525,
+          "timestamp": 1792230005.6313128,
+          "sha256": "e0015fd09f7937a1d0ed23309a786ea01bbbbb2e541726a840628af58cc6feb6",
+          "rows": 386
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-15",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "38531b4c-31f7-4437-9775-9b70dd422adb",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "15c9399613ee7e819e4e97863a710e51a85abf18920c93ce0b847d15aa110204",
+        "proof": {
+          "run_id": "38531b4c-31f7-4437-9775-9b70dd422adb",
+          "materialization_id": 7631553,
+          "timestamp": 1792230077.925256,
+          "sha256": "15c9399613ee7e819e4e97863a710e51a85abf18920c93ce0b847d15aa110204",
+          "rows": 386
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "3d3652ac-8b57-4153-9d03-b91f913c47c5",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "918a7bf58676b1cd3d0e0b60f7fcd89ee85d3ba1a2c49e6c2f7c5454c795d5c8",
+        "proof": {
+          "run_id": "3d3652ac-8b57-4153-9d03-b91f913c47c5",
+          "materialization_id": 7631581,
+          "timestamp": 1792230098.514165,
+          "sha256": "918a7bf58676b1cd3d0e0b60f7fcd89ee85d3ba1a2c49e6c2f7c5454c795d5c8",
+          "rows": 386
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-16",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "56f73df5-e7bf-4489-b652-abf88e4b436a",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "f9f51c6dfa03a2d69d38948dbbdd5ff51fe0cf4705432b80ebc353d53d5e961f",
+        "proof": {
+          "run_id": "56f73df5-e7bf-4489-b652-abf88e4b436a",
+          "materialization_id": 7631609,
+          "timestamp": 1792230175.465653,
+          "sha256": "f9f51c6dfa03a2d69d38948dbbdd5ff51fe0cf4705432b80ebc353d53d5e961f",
+          "rows": 386
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "b03991e9-ad02-4d92-b7f6-b80a3936bb1b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "8b3231d1db3ce5517236d354f028c4730ba1a7a5c72d5c30118c6c1c74db2b8f",
+        "proof": {
+          "run_id": "b03991e9-ad02-4d92-b7f6-b80a3936bb1b",
+          "materialization_id": 7631637,
+          "timestamp": 1792230191.055829,
+          "sha256": "8b3231d1db3ce5517236d354f028c4730ba1a7a5c72d5c30118c6c1c74db2b8f",
+          "rows": 386
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "755800ad-fe56-4289-ae5d-45bf5d681019",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "c1dbd0fdf9bf6fa279917b3ebd651bc13f6a28b3b9f3ab7bab9351bd43beeb13",
+        "proof": {
+          "run_id": "755800ad-fe56-4289-ae5d-45bf5d681019",
+          "materialization_id": 7631665,
+          "timestamp": 1792230287.442689,
+          "sha256": "c1dbd0fdf9bf6fa279917b3ebd651bc13f6a28b3b9f3ab7bab9351bd43beeb13",
+          "rows": 1032
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "9d870aad-958e-4567-86e4-e89d638bf35c",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "537f5fbfc183177216a97d9a9cf0cee4a715eb42ebcfab6a0d2aabd40cb4c0ae",
+        "proof": {
+          "run_id": "9d870aad-958e-4567-86e4-e89d638bf35c",
+          "materialization_id": 7631693,
+          "timestamp": 1792230303.280051,
+          "sha256": "537f5fbfc183177216a97d9a9cf0cee4a715eb42ebcfab6a0d2aabd40cb4c0ae",
+          "rows": 1032
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "7666c109-1365-4ff6-9805-821029cd4a9e",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "5beab9f7de674a0c69c80d82bec25230c2455bced31ed5f3b4faf7e41e757502",
+        "proof": {
+          "run_id": "7666c109-1365-4ff6-9805-821029cd4a9e",
+          "materialization_id": 7631721,
+          "timestamp": 1792230404.983351,
+          "sha256": "5beab9f7de674a0c69c80d82bec25230c2455bced31ed5f3b4faf7e41e757502",
+          "rows": 1033
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "fed7093f-fc8d-4c26-9814-3c1734b86c8f",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "c7576425b6308b5e05472dd82f461ea98e63eb336d49a6d851213c8253e4a5c1",
+        "proof": {
+          "run_id": "fed7093f-fc8d-4c26-9814-3c1734b86c8f",
+          "materialization_id": 7631749,
+          "timestamp": 1792230421.0273411,
+          "sha256": "c7576425b6308b5e05472dd82f461ea98e63eb336d49a6d851213c8253e4a5c1",
+          "rows": 1033
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "7d8d47c1-ffe1-4178-a70b-e9f747560517",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "3a7fa4d3ce2d91ccf5e27a2fb2e437a675138b4914537bb0cf26087cd9051611",
+        "proof": {
+          "run_id": "7d8d47c1-ffe1-4178-a70b-e9f747560517",
+          "materialization_id": 7631777,
+          "timestamp": 1792230507.100634,
+          "sha256": "3a7fa4d3ce2d91ccf5e27a2fb2e437a675138b4914537bb0cf26087cd9051611",
+          "rows": 1033
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "0facbfb7-6391-4d7a-a957-98380e35f706",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "1af7586655c13a38cc5154e3c696472c087560a97299b95d6fd11c12f0d3c330",
+        "proof": {
+          "run_id": "0facbfb7-6391-4d7a-a957-98380e35f706",
+          "materialization_id": 7631805,
+          "timestamp": 1792230523.848466,
+          "sha256": "1af7586655c13a38cc5154e3c696472c087560a97299b95d6fd11c12f0d3c330",
+          "rows": 1033
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "62ed7bc7-8e79-4958-9e5f-a2164392a700",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "934e42ddc8a518a28afb297bb5c166bbd3c25cb68ebf4fdf2bce3fac43bb2012",
+        "proof": {
+          "run_id": "62ed7bc7-8e79-4958-9e5f-a2164392a700",
+          "materialization_id": 7631833,
+          "timestamp": 1792230609.882359,
+          "sha256": "934e42ddc8a518a28afb297bb5c166bbd3c25cb68ebf4fdf2bce3fac43bb2012",
+          "rows": 1033
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "cf141615-1e71-4d56-87ea-49ed51bd093b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "031da0f70791bc4dd7d7a9726f7567fe8c7c1664c99eed022008000d6d94ea3d",
+        "proof": {
+          "run_id": "cf141615-1e71-4d56-87ea-49ed51bd093b",
+          "materialization_id": 7631861,
+          "timestamp": 1792230625.5983732,
+          "sha256": "031da0f70791bc4dd7d7a9726f7567fe8c7c1664c99eed022008000d6d94ea3d",
+          "rows": 1033
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "bf8b3b16-a2d4-4d2c-84a0-e09ce47a5a56",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a5f8afb4af4353373e70a9e791a515eb737b37d7049691301f368e901fe70ee9",
+        "proof": {
+          "run_id": "bf8b3b16-a2d4-4d2c-84a0-e09ce47a5a56",
+          "materialization_id": 7631889,
+          "timestamp": 1792230707.515501,
+          "sha256": "a5f8afb4af4353373e70a9e791a515eb737b37d7049691301f368e901fe70ee9",
+          "rows": 1033
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "5efa9c7d-c5f2-41c5-b95c-36355cb36d71",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "3f75a274342b33ec8d95a164cd4e0e38ab62a15ed7feaafcd365b9e396fd0e7e",
+        "proof": {
+          "run_id": "5efa9c7d-c5f2-41c5-b95c-36355cb36d71",
+          "materialization_id": 7631917,
+          "timestamp": 1792230718.445934,
+          "sha256": "3f75a274342b33ec8d95a164cd4e0e38ab62a15ed7feaafcd365b9e396fd0e7e",
+          "rows": 1033
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-15",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "9008a280-c4d1-4e9d-a37a-de2cfe7f62a8",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "fb62f3b3fcabcf0717e4826dae404bcc25c4a4ff10216dc3662f10b2eec580f8",
+        "proof": {
+          "run_id": "9008a280-c4d1-4e9d-a37a-de2cfe7f62a8",
+          "materialization_id": 7631945,
+          "timestamp": 1792230798.879887,
+          "sha256": "fb62f3b3fcabcf0717e4826dae404bcc25c4a4ff10216dc3662f10b2eec580f8",
+          "rows": 1035
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "e420d926-62c4-4583-a70c-cde52c9f8ae3",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "233e1d80c27072773bf26d830a22e03357dfe0579558e7f2eb621c72f6c81f0e",
+        "proof": {
+          "run_id": "e420d926-62c4-4583-a70c-cde52c9f8ae3",
+          "materialization_id": 7631973,
+          "timestamp": 1792230815.956387,
+          "sha256": "233e1d80c27072773bf26d830a22e03357dfe0579558e7f2eb621c72f6c81f0e",
+          "rows": 1035
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-16",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "6c643e6f-dd22-4a4f-a004-8bbb51f3829d",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "c0e63fba7a54871c4d8958220ca735c026143ea966c4a31ce8589605d00552e4",
+        "proof": {
+          "run_id": "6c643e6f-dd22-4a4f-a004-8bbb51f3829d",
+          "materialization_id": 7632001,
+          "timestamp": 1792230901.9971,
+          "sha256": "c0e63fba7a54871c4d8958220ca735c026143ea966c4a31ce8589605d00552e4",
+          "rows": 1046
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "6fce09c0-2fc9-4a3b-844e-d2a9e4d83444",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "85cbc264272feaeb3a644baeb9766b48c3c7b460083723c6b0e08fbbb3e088a5",
+        "proof": {
+          "run_id": "6fce09c0-2fc9-4a3b-844e-d2a9e4d83444",
+          "materialization_id": 7632029,
+          "timestamp": 1792230918.366433,
+          "sha256": "85cbc264272feaeb3a644baeb9766b48c3c7b460083723c6b0e08fbbb3e088a5",
+          "rows": 1046
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "f501ba62-2da9-4c55-8f2e-2bde803f3288",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+        "proof": {
+          "run_id": "f501ba62-2da9-4c55-8f2e-2bde803f3288",
+          "materialization_id": 7632057,
+          "timestamp": 1792231014.931648,
+          "sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+          "rows": 6024
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "51e2c73e-5273-441b-9641-22912d72b9a9",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "eda0ea0a394ce347b4f3c326127070aeff6d26a0e5561c0b2b8508fe55d8b50c",
+        "proof": {
+          "run_id": "51e2c73e-5273-441b-9641-22912d72b9a9",
+          "materialization_id": 7632085,
+          "timestamp": 1792231036.011839,
+          "sha256": "eda0ea0a394ce347b4f3c326127070aeff6d26a0e5561c0b2b8508fe55d8b50c",
+          "rows": 6024
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "6755b9f1-551b-4041-8781-01c92d098134",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+        "proof": {
+          "run_id": "6755b9f1-551b-4041-8781-01c92d098134",
+          "materialization_id": 7632113,
+          "timestamp": 1792231139.807127,
+          "sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+          "rows": 6025
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "5d65c6d7-36f7-4109-a383-abe5b0b1362b",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "bad78cab0c0135b895c08a7907304851c92e4e793ae496dcca786b0a35f302da",
+        "proof": {
+          "run_id": "5d65c6d7-36f7-4109-a383-abe5b0b1362b",
+          "materialization_id": 7632141,
+          "timestamp": 1792231154.871163,
+          "sha256": "bad78cab0c0135b895c08a7907304851c92e4e793ae496dcca786b0a35f302da",
+          "rows": 6025
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "0a337f26-b168-497a-b2c6-6698b6184d2d",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+        "proof": {
+          "run_id": "0a337f26-b168-497a-b2c6-6698b6184d2d",
+          "materialization_id": 7632172,
+          "timestamp": 1792231241.959976,
+          "sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+          "rows": 6025
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "148b8a6d-cc57-4ffb-93b2-e9c421d082ef",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "ca5b99bed225154ac406cc45b361e218d9e19307edece48dd2de5b9f19fe68b8",
+        "proof": {
+          "run_id": "148b8a6d-cc57-4ffb-93b2-e9c421d082ef",
+          "materialization_id": 7632225,
+          "timestamp": 1792231261.9890509,
+          "sha256": "ca5b99bed225154ac406cc45b361e218d9e19307edece48dd2de5b9f19fe68b8",
+          "rows": 6025
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "ccc3836c-7635-403a-8040-0f2941c05610",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+        "proof": {
+          "run_id": "ccc3836c-7635-403a-8040-0f2941c05610",
+          "materialization_id": 7632253,
+          "timestamp": 1792231345.484583,
+          "sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+          "rows": 6025
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "1c719ee3-4b83-433c-889f-5878a9493635",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "12a087874a3db01054822cbc6822b1edf78f0c20567ef94511b4950fb7b2c321",
+        "proof": {
+          "run_id": "1c719ee3-4b83-433c-889f-5878a9493635",
+          "materialization_id": 7632281,
+          "timestamp": 1792231360.059735,
+          "sha256": "12a087874a3db01054822cbc6822b1edf78f0c20567ef94511b4950fb7b2c321",
+          "rows": 6025
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "73fe8cd5-133c-4867-8ea8-c6fdf8b2d2f0",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+        "proof": {
+          "run_id": "73fe8cd5-133c-4867-8ea8-c6fdf8b2d2f0",
+          "materialization_id": 7632309,
+          "timestamp": 1792231442.345494,
+          "sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+          "rows": 6025
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "a658b7fa-ea8d-4a88-9140-72bb2e74005f",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "eae136e7d99f848cbe911d8c0e28f920a4adc12311230e20b88f10d384c0b141",
+        "proof": {
+          "run_id": "a658b7fa-ea8d-4a88-9140-72bb2e74005f",
+          "materialization_id": 7632337,
+          "timestamp": 1792231457.053946,
+          "sha256": "eae136e7d99f848cbe911d8c0e28f920a4adc12311230e20b88f10d384c0b141",
+          "rows": 6025
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-15",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "b93f8ef4-e4d1-40b6-93de-b52621728256",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92",
+        "proof": {
+          "run_id": "b93f8ef4-e4d1-40b6-93de-b52621728256",
+          "materialization_id": 7632365,
+          "timestamp": 1792231544.60592,
+          "sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92",
+          "rows": 6026
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "ab09ebdc-5056-4e57-b00c-069eef22ea53",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "673db7768904c5b7f121c6887c78ec19c6bd8ed095e0e04f1eba27187c13e170",
+        "proof": {
+          "run_id": "ab09ebdc-5056-4e57-b00c-069eef22ea53",
+          "materialization_id": 7632393,
+          "timestamp": 1792231559.066905,
+          "sha256": "673db7768904c5b7f121c6887c78ec19c6bd8ed095e0e04f1eba27187c13e170",
+          "rows": 6026
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-16",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "34939a25-a6ec-42de-8b98-b668e6587750",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "46efcf89215d1e95db931d964c59ee6e05c39ee5a1128192cd54d085161aab9f",
+        "proof": {
+          "run_id": "34939a25-a6ec-42de-8b98-b668e6587750",
+          "materialization_id": 7632421,
+          "timestamp": 1792231642.20225,
+          "sha256": "46efcf89215d1e95db931d964c59ee6e05c39ee5a1128192cd54d085161aab9f",
+          "rows": 6027
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "6bf3f89e-43e0-4afc-9989-13df1e0a0c08",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "887aa630b4b970f2079f3a48dc5e6303a20f37e95e07fd8d8c545ebf81f3e983",
+        "proof": {
+          "run_id": "6bf3f89e-43e0-4afc-9989-13df1e0a0c08",
+          "materialization_id": 7632449,
+          "timestamp": 1792231656.644775,
+          "sha256": "887aa630b4b970f2079f3a48dc5e6303a20f37e95e07fd8d8c545ebf81f3e983",
+          "rows": 6027
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-08",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "a113f027-03c3-475a-b5b1-3384d0133647",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "b40484f0a4dfc90d9f5033e6115efadce03b4dacac81369bf70da02f281feb99",
+        "proof": {
+          "run_id": "a113f027-03c3-475a-b5b1-3384d0133647",
+          "materialization_id": 7632477,
+          "timestamp": 1792231753.61588,
+          "sha256": "b40484f0a4dfc90d9f5033e6115efadce03b4dacac81369bf70da02f281feb99",
+          "rows": 5219
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "3e7a8cf7-e446-4b98-b937-85420611062c",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "58680bd5b7c9aa04723a434206acff11981940b864aa249826ce3bb5cd939bf2",
+        "proof": {
+          "run_id": "3e7a8cf7-e446-4b98-b937-85420611062c",
+          "materialization_id": 7632505,
+          "timestamp": 1792231769.475113,
+          "sha256": "58680bd5b7c9aa04723a434206acff11981940b864aa249826ce3bb5cd939bf2",
+          "rows": 5219
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-09",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "9538f243-3b78-4094-a74c-571446209779",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "bf48aa340b26940685db377f8b5d31133935aceca62246f95a5d47f16bb5bef8",
+        "proof": {
+          "run_id": "9538f243-3b78-4094-a74c-571446209779",
+          "materialization_id": 7632533,
+          "timestamp": 1792231865.353431,
+          "sha256": "bf48aa340b26940685db377f8b5d31133935aceca62246f95a5d47f16bb5bef8",
+          "rows": 5217
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "964c709a-ee68-478a-9687-41df402beaf8",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "e2e8752f65b895589b46f7833e8bb87281a62d269354049347d0c36e6b018ae8",
+        "proof": {
+          "run_id": "964c709a-ee68-478a-9687-41df402beaf8",
+          "materialization_id": 7632561,
+          "timestamp": 1792231881.8001778,
+          "sha256": "e2e8752f65b895589b46f7833e8bb87281a62d269354049347d0c36e6b018ae8",
+          "rows": 5217
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-12",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "58f45308-383e-4bb7-8b95-d4b0f875746a",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "9e1b4b2376f02ecd1f0e2d6cfbb43922cc0474f5152c83a4261ea817aef26846",
+        "proof": {
+          "run_id": "58f45308-383e-4bb7-8b95-d4b0f875746a",
+          "materialization_id": 7632589,
+          "timestamp": 1792231968.381778,
+          "sha256": "9e1b4b2376f02ecd1f0e2d6cfbb43922cc0474f5152c83a4261ea817aef26846",
+          "rows": 5217
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "a0cd09cf-66d2-4c68-b37d-ea502e8afba6",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "98f73eae4d29336877c1d2ae5c15902b5b9893b420e10c4520dba666926d8c6c",
+        "proof": {
+          "run_id": "a0cd09cf-66d2-4c68-b37d-ea502e8afba6",
+          "materialization_id": 7632617,
+          "timestamp": 1792231984.665884,
+          "sha256": "98f73eae4d29336877c1d2ae5c15902b5b9893b420e10c4520dba666926d8c6c",
+          "rows": 5217
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-13",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "de3c1378-96b9-4cc0-b04a-ea1bdbb2c65f",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "39eec84fc80c798c27ca9b2e7ebe37b514f5adf702cdbd66d4515b9b1363b9d8",
+        "proof": {
+          "run_id": "de3c1378-96b9-4cc0-b04a-ea1bdbb2c65f",
+          "materialization_id": 7632645,
+          "timestamp": 1792232060.86962,
+          "sha256": "39eec84fc80c798c27ca9b2e7ebe37b514f5adf702cdbd66d4515b9b1363b9d8",
+          "rows": 5217
+        }
+      },
+      "silver": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "fcfe6df4-ca09-45c7-b6ff-d08631878e02",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "f8be51d2442365bb6c11c14d4081c289e2f2da2831ec13040b2ab69b1c0c5f3c",
+        "proof": {
+          "run_id": "fcfe6df4-ca09-45c7-b6ff-d08631878e02",
+          "materialization_id": 7632673,
+          "timestamp": 1792232076.6478012,
+          "sha256": "f8be51d2442365bb6c11c14d4081c289e2f2da2831ec13040b2ab69b1c0c5f3c",
+          "rows": 5217
+        }
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-14",
+      "registered": true,
+      "raw": {
+        "ready": true,
+        "reason": "ready",
+        "materialized": true,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [
+          {
+            "run_id": "4bc448cd-db99-4441-9c21-a2ab7f999101",
+            "status": "SUCCESS"
+          }
+        ],
+        "sha256": "d813d99b7739b622d358fb8cc58916c816b0c3371c93474c0bb079244e2e1fc9",
+        "proof": {
+          "run_id": "4bc448cd-db99-4441-9c21-a2ab7f999101",
+          "materialization_id": 7632701,
+          "timestamp": 1792232157.823304,
+          "sha256": "d813d99b7739b622d358fb8cc58916c816b0c3371c93474c0bb079244e2e1fc9",
+          "rows": 5215
+        }
+      },
+      "silver": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": true,
+        "runs": [
+          {
+            "run_id": "656aa7d0-94c5-477e-a72e-452a48618d2c",
+            "status": "FAILURE"
+          }
+        ],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-15",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow_ths",
+      "trade_date": "2026-10-16",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-08",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-09",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-12",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-13",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-14",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-15",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    },
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-16",
+      "registered": false,
+      "raw": {
+        "ready": false,
+        "reason": "missing_materialization",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      },
+      "silver": {
+        "ready": false,
+        "reason": "raw_not_ready",
+        "materialized": false,
+        "active": false,
+        "owned": false,
+        "failed": false,
+        "runs": [],
+        "sha256": null
+      }
+    }
+  ],
+  "reads": 256,
+  "elapsed_seconds": 5.308271790854633,
+  "peak_rss_bytes": 340901888,
+  "formal_mutations_this_audit": 0,
+  "recovery_executed": false,
+  "history_cutoff_unchanged": "2026-09-30"
+}

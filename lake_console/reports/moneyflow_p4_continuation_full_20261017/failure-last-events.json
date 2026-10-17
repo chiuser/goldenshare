@@ -1,0 +1,62 @@
+[
+  {
+    "event": "ENGINE_EVENT",
+    "message": "Process for run exited (pid: 3228).",
+    "detail_type": "EngineEventData",
+    "detail": "EngineEventData(metadata={}, error=None, marker_start=None, marker_end=None)"
+  },
+  {
+    "event": "ENGINE_EVENT",
+    "message": "Ignoring a run worker that started after the run had already finished.",
+    "detail_type": "EngineEventData",
+    "detail": "EngineEventData(metadata={}, error=None, marker_start=None, marker_end=None)"
+  },
+  {
+    "event": "ENGINE_EVENT",
+    "message": "Started process for run (pid: 3228).",
+    "detail_type": "EngineEventData",
+    "detail": "EngineEventData(metadata={'pid': TextMetadataValue(text='3228')}, error=None, marker_start=None, marker_end=None)"
+  },
+  {
+    "event": "PIPELINE_FAILURE",
+    "message": "This run has been marked as failed from outside the execution context.",
+    "detail_type": "NoneType",
+    "detail": "None"
+  },
+  {
+    "event": "ENGINE_EVENT",
+    "message": "Caught an unrecoverable error while dequeuing the run. Marking the run as failed and dropping it from the queue",
+    "detail_type": "EngineEventData",
+    "detail": "EngineEventData(metadata={}, error=SerializableErrorInfo(message='dagster._core.errors.DagsterUserCodeUnreachableError: Could not reach user code server. gRPC Error code: UNKNOWN\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_daemon/run_coordinator/queued_run_coordinator_daemon.py\", line 418, in _dequeue_run\\n    instance.run_launcher.launch_run(LaunchRunContext(dagster_run=run, workspace=workspace))\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/launcher/default_run_launcher.py\", line 122, in launch_run\\n    DefaultRunLauncher.launch_run_from_grpc_client(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        self._instance, run, cast(\"GrpcServerCodeLocation\", code_location).client\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/launcher/default_run_launcher.py\", line 82, in launch_run_from_grpc_client\\n    grpc_client.start_run(\\n    ~~~~~~~~~~~~~~~~~~~~~^\\n        ExecuteExternalJobArgs(\\n        ^^^^^^^^^^^^^^^^^^^^^^^\\n    ...<3 lines>...\\n        )\\n        ^\\n    ),\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_grpc"
+  },
+  {
+    "event": "ENGINE_EVENT",
+    "message": "Unexpected error in IPC client",
+    "detail_type": "EngineEventData",
+    "detail": "EngineEventData(metadata={}, error=SerializableErrorInfo(message='dagster._core.errors.DagsterUserCodeUnreachableError: Could not reach user code server. gRPC Error code: UNKNOWN\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_grpc/client.py\", line 709, in start_run\\n    res = self._query(\\n        \"StartRun\",\\n        dagster_api_pb2.StartRunRequest,\\n        serialized_execute_run_args=serialize_value(execute_run_args),\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_grpc/client.py\", line 212, in _query\\n    self._raise_grpc_exception(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        e, timeout=timeout, custom_timeout_message=custom_timeout_message\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_grpc/client.py\", line 195, in _raise_grpc_exception\\n    raise DagsterUserCodeUnreachableError(\\n        f\"Could not reach user code server. gRPC Error code: {e.code().name}\"  # type: ignore  # (bad stubs)\\n    ) from e\\n'], cls_name='DagsterUserCodeUnreachableError', cause=SerializableErrorInfo(message='grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\\n\\tstatus = StatusCode.UNKNOWN\\n\\tdetails = \"Exception calling application: <_InactiveRpcError of RPC that terminated with:\\n\\tstatus = StatusCode.UNKNOWN\\n\\t"
+  },
+  {
+    "event": "PIPELINE_STARTING",
+    "message": "",
+    "detail_type": "NoneType",
+    "detail": "None"
+  },
+  {
+    "event": "PIPELINE_ENQUEUED",
+    "message": "",
+    "detail_type": "RunEnqueuedData",
+    "detail": "RunEnqueuedData(code_location_name='orchestrator', repository_name='__repository__', partition_key='2026-10-14')"
+  },
+  {
+    "event": "ASSET_CHECK_EVALUATION_PLANNED",
+    "message": "silver_moneyflow_ths_update_job intends to execute asset check silver_moneyflow_ths_standardization_check on asset [\"silver_moneyflow_ths\"]",
+    "detail_type": "AssetCheckEvaluationPlanned",
+    "detail": "AssetCheckEvaluationPlanned(asset_key=AssetKey(['silver_moneyflow_ths']), check_name='silver_moneyflow_ths_standardization_check', partitions_subset=DefaultPartitionsSubset(subset={'2026-10-14'}))"
+  },
+  {
+    "event": "ASSET_MATERIALIZATION_PLANNED",
+    "message": "silver_moneyflow_ths_update_job intends to materialize asset [\"silver_moneyflow_ths\"]",
+    "detail_type": "AssetMaterializationPlannedData",
+    "detail": "AssetMaterializationPlannedData(asset_key=AssetKey(['silver_moneyflow_ths']), partition='2026-10-14', partitions_subset=None)"
+  }
+]

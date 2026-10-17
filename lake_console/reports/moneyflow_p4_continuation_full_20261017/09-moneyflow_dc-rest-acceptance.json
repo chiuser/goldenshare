@@ -1,0 +1,682 @@
+{
+  "as_of": "2026-10-17T18:07:54.444335+08:00",
+  "complete": true,
+  "plan_path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_full_20261017/09-moneyflow_dc-rest-plan.json",
+  "plan_sha256": "8e8122eced92ca97da880959a94f2cff4b8669a1f8e6e26bb7246359bbbf9d81",
+  "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+  "include_previous_market_samples": false,
+  "totals": {
+    "dataset_days": 6,
+    "native_runs": 12,
+    "materializations": 12,
+    "blocking_checks": 12,
+    "files": 12,
+    "rows_per_layer": 36153,
+    "source_requests": 48,
+    "source_retries": 0,
+    "raw_activity_ms": 400302.1816671826,
+    "file_bytes": 4870606
+  },
+  "records": [
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-09",
+      "layers": {
+        "raw": {
+          "mat_id": 7632113,
+          "check_id": 1636371,
+          "run_id": "6755b9f1-551b-4041-8781-01c92d098134",
+          "timestamp": 1792231139.807127,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-09/part-000.parquet",
+          "bytes": 409666,
+          "sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+          "rows": 6025,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632141,
+          "check_id": 1636372,
+          "run_id": "5d65c6d7-36f7-4109-a383-abe5b0b1362b",
+          "timestamp": 1792231154.871163,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-09/part-000.parquet",
+          "bytes": 409642,
+          "sha256": "bad78cab0c0135b895c08a7907304851c92e4e793ae496dcca786b0a35f302da",
+          "rows": 6025,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66701.11566688865,
+        "peak_rss_bytes": 373800960,
+        "raw_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6025,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6023
+          },
+          "candidate_scope_counts": {
+            "all": 6025
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-24",
+              "file_sha256": "fde35141aa6a21d17c2a427ad64e29a9070c8c2c2c732666027054c13535cb51",
+              "materialization_storage_id": 7453815,
+              "row_count": 6022,
+              "scope_row_counts": {
+                "all": 6022
+              }
+            },
+            {
+              "date": "2026-09-28",
+              "file_sha256": "d6fb4b6ea3d0dd31acf40bb5c43ed6fdff208de393b6505832de8f0b5d93b6e5",
+              "materialization_storage_id": 7453817,
+              "row_count": 6022,
+              "scope_row_counts": {
+                "all": 6022
+              }
+            },
+            {
+              "date": "2026-09-29",
+              "file_sha256": "989106751d7b99af218859a23bd3a32e04f4db6a2389e49a73782d1a30db6bb1",
+              "materialization_storage_id": 7452309,
+              "row_count": 6023,
+              "scope_row_counts": {
+                "all": 6023
+              }
+            },
+            {
+              "date": "2026-09-30",
+              "file_sha256": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+              "materialization_storage_id": 7452311,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-08",
+              "file_sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+              "materialization_storage_id": 7632057,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6025
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.010061874985695,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-09",
+        "verification_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d"
+      },
+      "source_receipt_sha256": "29960a22beb5d3ee16658dc96c48e2fd5fe44c22b9ab6f017f7103f453e6e522",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-12",
+      "layers": {
+        "raw": {
+          "mat_id": 7632172,
+          "check_id": 1636373,
+          "run_id": "0a337f26-b168-497a-b2c6-6698b6184d2d",
+          "timestamp": 1792231241.959976,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-12/part-000.parquet",
+          "bytes": 406705,
+          "sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+          "rows": 6025,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632225,
+          "check_id": 1636375,
+          "run_id": "148b8a6d-cc57-4ffb-93b2-e9c421d082ef",
+          "timestamp": 1792231261.9890509,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-12/part-000.parquet",
+          "bytes": 406681,
+          "sha256": "ca5b99bed225154ac406cc45b361e218d9e19307edece48dd2de5b9f19fe68b8",
+          "rows": 6025,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66685.52054231986,
+        "peak_rss_bytes": 362348544,
+        "raw_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6025,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6024
+          },
+          "candidate_scope_counts": {
+            "all": 6025
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-28",
+              "file_sha256": "d6fb4b6ea3d0dd31acf40bb5c43ed6fdff208de393b6505832de8f0b5d93b6e5",
+              "materialization_storage_id": 7453817,
+              "row_count": 6022,
+              "scope_row_counts": {
+                "all": 6022
+              }
+            },
+            {
+              "date": "2026-09-29",
+              "file_sha256": "989106751d7b99af218859a23bd3a32e04f4db6a2389e49a73782d1a30db6bb1",
+              "materialization_storage_id": 7452309,
+              "row_count": 6023,
+              "scope_row_counts": {
+                "all": 6023
+              }
+            },
+            {
+              "date": "2026-09-30",
+              "file_sha256": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+              "materialization_storage_id": 7452311,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-08",
+              "file_sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+              "materialization_storage_id": 7632057,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-09",
+              "file_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+              "materialization_storage_id": 7632113,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6025
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.008563209325075,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-12",
+        "verification_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c"
+      },
+      "source_receipt_sha256": "310c47be5270a88ed737295107e9bd2a379f520920eed2a2272115675fc229c0",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-13",
+      "layers": {
+        "raw": {
+          "mat_id": 7632253,
+          "check_id": 1636376,
+          "run_id": "ccc3836c-7635-403a-8040-0f2941c05610",
+          "timestamp": 1792231345.484583,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-13/part-000.parquet",
+          "bytes": 403570,
+          "sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+          "rows": 6025,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632281,
+          "check_id": 1636377,
+          "run_id": "1c719ee3-4b83-433c-889f-5878a9493635",
+          "timestamp": 1792231360.059735,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-13/part-000.parquet",
+          "bytes": 403546,
+          "sha256": "12a087874a3db01054822cbc6822b1edf78f0c20567ef94511b4950fb7b2c321",
+          "rows": 6025,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66715.12587508187,
+        "peak_rss_bytes": 396640256,
+        "raw_sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6025,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6024
+          },
+          "candidate_scope_counts": {
+            "all": 6025
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-29",
+              "file_sha256": "989106751d7b99af218859a23bd3a32e04f4db6a2389e49a73782d1a30db6bb1",
+              "materialization_storage_id": 7452309,
+              "row_count": 6023,
+              "scope_row_counts": {
+                "all": 6023
+              }
+            },
+            {
+              "date": "2026-09-30",
+              "file_sha256": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+              "materialization_storage_id": 7452311,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-08",
+              "file_sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+              "materialization_storage_id": 7632057,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-09",
+              "file_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+              "materialization_storage_id": 7632113,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-12",
+              "file_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+              "materialization_storage_id": 7632172,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6025
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.01006037462503,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-13",
+        "verification_sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa"
+      },
+      "source_receipt_sha256": "e309f3f1111734e626a919bd6704fdb5a80db035035e5ec66e71309d1fdb4eed",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-14",
+      "layers": {
+        "raw": {
+          "mat_id": 7632309,
+          "check_id": 1636378,
+          "run_id": "73fe8cd5-133c-4867-8ea8-c6fdf8b2d2f0",
+          "timestamp": 1792231442.345494,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-14/part-000.parquet",
+          "bytes": 405368,
+          "sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+          "rows": 6025,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632337,
+          "check_id": 1636379,
+          "run_id": "a658b7fa-ea8d-4a88-9140-72bb2e74005f",
+          "timestamp": 1792231457.053946,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-14/part-000.parquet",
+          "bytes": 405344,
+          "sha256": "eae136e7d99f848cbe911d8c0e28f920a4adc12311230e20b88f10d384c0b141",
+          "rows": 6025,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66687.23404221237,
+        "peak_rss_bytes": 359923712,
+        "raw_sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6025,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6025
+          },
+          "candidate_scope_counts": {
+            "all": 6025
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-30",
+              "file_sha256": "70fda8fd7a63552c3b5d5ea99e48cf1583ed5fc207f9a21f85e68da7f72afad4",
+              "materialization_storage_id": 7452311,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-08",
+              "file_sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+              "materialization_storage_id": 7632057,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-09",
+              "file_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+              "materialization_storage_id": 7632113,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-12",
+              "file_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+              "materialization_storage_id": 7632172,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-13",
+              "file_sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+              "materialization_storage_id": 7632253,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6025
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.012219625059515,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-14",
+        "verification_sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048"
+      },
+      "source_receipt_sha256": "0d5a54fcb99951e7a7ebeb4638b3287006b374e214973e11d0f86a451335c9a2",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-15",
+      "layers": {
+        "raw": {
+          "mat_id": 7632365,
+          "check_id": 1636380,
+          "run_id": "b93f8ef4-e4d1-40b6-93de-b52621728256",
+          "timestamp": 1792231544.60592,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-15/part-000.parquet",
+          "bytes": 406145,
+          "sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92",
+          "rows": 6026,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632393,
+          "check_id": 1636381,
+          "run_id": "ab09ebdc-5056-4e57-b00c-069eef22ea53",
+          "timestamp": 1792231559.066905,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-15/part-000.parquet",
+          "bytes": 406121,
+          "sha256": "673db7768904c5b7f121c6887c78ec19c6bd8ed095e0e04f1eba27187c13e170",
+          "rows": 6026,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66808.91162483022,
+        "peak_rss_bytes": 382763008,
+        "raw_sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6026,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6025
+          },
+          "candidate_scope_counts": {
+            "all": 6026
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-10-08",
+              "file_sha256": "a40e7f7ac1dc9a39a6790ba89802ca8afb98bbe203b4c30985540dcb284f733c",
+              "materialization_storage_id": 7632057,
+              "row_count": 6024,
+              "scope_row_counts": {
+                "all": 6024
+              }
+            },
+            {
+              "date": "2026-10-09",
+              "file_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+              "materialization_storage_id": 7632113,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-12",
+              "file_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+              "materialization_storage_id": 7632172,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-13",
+              "file_sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+              "materialization_storage_id": 7632253,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-14",
+              "file_sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+              "materialization_storage_id": 7632309,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6026
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.01003691693768,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-15",
+        "verification_sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92"
+      },
+      "source_receipt_sha256": "a0b253a008afbebfb084157596a08b9dfcb6365d74e3844a065bc82ddbfcd817",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    },
+    {
+      "dataset": "moneyflow_dc",
+      "trade_date": "2026-10-16",
+      "layers": {
+        "raw": {
+          "mat_id": 7632421,
+          "check_id": 1636382,
+          "run_id": "34939a25-a6ec-42de-8b98-b668e6587750",
+          "timestamp": 1792231642.20225,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-16/part-000.parquet",
+          "bytes": 403921,
+          "sha256": "46efcf89215d1e95db931d964c59ee6e05c39ee5a1128192cd54d085161aab9f",
+          "rows": 6027,
+          "columns": 15
+        },
+        "silver": {
+          "mat_id": 7632449,
+          "check_id": 1636383,
+          "run_id": "6bf3f89e-43e0-4afc-9989-13df1e0a0c08",
+          "timestamp": 1792231656.644775,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-16/part-000.parquet",
+          "bytes": 403897,
+          "sha256": "887aa630b4b970f2079f3a48dc5e6303a20f37e95e07fd8d8c545ebf81f3e983",
+          "rows": 6027,
+          "columns": 15
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_dc",
+        "elapsed_ms": 66704.27391584963,
+        "peak_rss_bytes": 400818176,
+        "raw_sha256": "46efcf89215d1e95db931d964c59ee6e05c39ee5a1128192cd54d085161aab9f",
+        "request_count": 8,
+        "retry_count": 0,
+        "row_count": 6027,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 6025
+          },
+          "candidate_scope_counts": {
+            "all": 6027
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-10-09",
+              "file_sha256": "a8632cdbc1fc34cdd324c17d9a5212ca0de420ee5b4aa48e2a9ceef7ed6e725d",
+              "materialization_storage_id": 7632113,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-12",
+              "file_sha256": "330eef2528dda9d1d73c8f3ebad7ba2cabd76320ff2d78b1d213a78b62479e2c",
+              "materialization_storage_id": 7632172,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-13",
+              "file_sha256": "88c40c5ae4b7eb50123caef4b1cbf20bce4ef8b54d98104ddf40207a2ef9affa",
+              "materialization_storage_id": 7632253,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-14",
+              "file_sha256": "1001c5265c8298c3b26bb046c5a9f46a330daa89f5e935878e6b2095c8bb7048",
+              "materialization_storage_id": 7632309,
+              "row_count": 6025,
+              "scope_row_counts": {
+                "all": 6025
+              }
+            },
+            {
+              "date": "2026-10-15",
+              "file_sha256": "2dcdf770e4ad0ac948094f212fd2afb74a55f271d9de010ca943512d542d6e92",
+              "materialization_storage_id": 7632365,
+              "row_count": 6026,
+              "scope_row_counts": {
+                "all": 6026
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 6027
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.00380762480199,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-16",
+        "verification_sha256": "46efcf89215d1e95db931d964c59ee6e05c39ee5a1128192cd54d085161aab9f"
+      },
+      "source_receipt_sha256": "b8aba8cd847c746c80b237605b7f9d2517228febc2626e4b10df60708b904fb8",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    }
+  ],
+  "sensors_stopped": 21,
+  "native_server_id": "906ed8b6-8fd2-4f1f-b724-3ce491b35e69",
+  "reads": 43,
+  "elapsed_seconds": 1.3120945831760764,
+  "peak_rss_bytes": 277561344,
+  "formal_mutations": 0
+}

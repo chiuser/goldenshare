@@ -4164,3 +4164,37 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 **验收。** 每个新表首日保存真实来源行数、规范化/Raw/Silver行数、reject及原因、表合同/全字段转换、准确run/mat/checktarget及文件摘要。47项全部两层就绪后，独立有界核对全49项的原生唯一run/物化/通过检查、当前文件及源证明，当前接续49/49、剩0；对同根完整剩余清单再apply必须0新登记/0新job/0新来源请求。记录实际请求/耗时/读取/文件及行数、原7804日历史结论保持、所有21sensor仍STOPPED，然后完成本步方案对账。测试沿用上一轮109项及原业务/受保护门禁记录，若生产代码不变不重复声称复跑；本轮增加的是正式执行证据，不拿隔离结果替代。
 
 §70.20执行前记录：当前隔离Definitions通过，113依赖保持；加载后改变的两个period helper不在该依赖闭包内，按原verification规则记录为无关变化，不重跑资金流采集或扩大读取权限。13段的绝对清单路径、SHA256、完整plan/apply命令已保存于[执行命令清单](../../reports/moneyflow_p4_continuation_full_20261017/execution_manifest.json)，当前源码及隔离加载证据也保存在该目录。首段为moneyflow_mkt_dc 10-12～16五日，plan SHA256=e3a083379fc08df15a4f3639feb26c091bb43a367c2b046fa3eb63edabfb72d9，执行其原CLI apply命令，首段写前guard已只读通过；准备阶段正式mutation为0。表级首日验收后才运行manifest中下一段，不把命令清单存在当作实际数据完成。
+
+### 70.21 待确认的单次启动前失败恢复设计
+
+**现场事实与为何需要新处理。** 2026-10-17 18:16:15，第十一段因`moneyflow_ths / 2026-10-14` Silver原生run 656aa7d0-94c5-477e-a72e-452a48618d2c失败而退出3。引擎记录为启动RPC的`DagsterUserCodeUnreachableError`/嵌套`Stream removed`，队列标记失败后，迟到worker 3228记录“Ignoring a run worker that started after the run had already finished”并退出；当前PID已不存在。无RUN_START/STEP_START、业务物化或实际check评估，只有创建run时的计划事件。正式Silver目标及该run的Silver staging目录均不存在；原Raw run 4bc448cd-db99-4441-9c21-a2ab7f999101成功且绿检/来源证明完整，5215行，SHA256=d813d99b7739b622d358fb8cc58916c816b0c3371c93474c0bb079244e2e1fc9。当前runtime再次检查通过、serverId仍906ed8b6-8fd2-4f1f-b724-3ce491b35e69，21个sensor均STOPPED。证据：[事件及错误链](../../reports/moneyflow_p4_continuation_full_20261017/failure-engine-cause.json)、[全部末次事件](../../reports/moneyflow_p4_continuation_full_20261017/failure-last-events.json)。只能确认这次启动连接中断和无业务执行，不能凭此声称已定位底层网络断流的永久原因；目前无须重启或reload。
+
+旧能力不能直接接回：当前DefaultRunLauncher继承RunLauncher.supports_resume_run=False，Instance.resume_run也只允许IN_PROGRESS状态，不允许将FAILED原run改回执行中。当前工具的snapshots/reconcile要求同日每层最多一个run，Journal已持久保存本次失败响应；直接多发一次会破坏原合同。§70.7明确禁止自动失败重跑，故本节是待确认的新恢复步骤，不从原47项执行批准推定额外提交授权。
+
+**精确范围。** 只新增一次上述Silver完整任务；沿用原Raw、原日期、原七表合同与根记录目录。原失败run/status/events/request/response/poll和提交预算完整保留，不删除、不改状态、不复写旧请求。禁止Raw重采、业务步骤/质量失败重试、已有Silver文件但缺交付的恢复、源修订、任意其他failed run、任意来源/根/配置/子步骤选择、递归重试及开启sensor。恢复再次失败即停止，不能自动申请第二个run。完成后仅继续原剩余10项中的其他9日：THS个股10-15/16、moneyflow10-08/09/12～16。整体成功仍为49项，不把一次失败从历史中抹掉。
+
+**原生请求依据及读写。** 已读安装版dagster_graphql/schema/roots/mutation.py的GrapheneLaunchRunReexecutionMutation与implementation/execution/launch_execution.py的launch_reexecution_from_parent_run；原生支持parentRunId＋ALL_STEPS＋继承父tags，可得到保留父子关系的完整job新run，不传局部asset/op/check选择，也不靠run key自动去重。候选请求已保存为[明确请求草案](../../reports/moneyflow_p4_continuation_full_20261017/proposed_silver_reexecution_request.json)，executed=False，不代表已执行。请求为launchRunReexecution(reexecutionParams:{parentRunId:"656aa7d0-94c5-477e-a72e-452a48618d2c",strategy:ALL_STEPS,useParentRunTags:true})；parent ID为String，实际query与变量须在安装schema纯验证通过后使用。新run继承原job/partition/config/标准Silver run key，parent_run_id/root_run_id明确指向原失败run，仍应恰有原asset＋blocking check两个步骤。
+
+**参数/配置审计。** 不新增env、Settings、数据库配置或业务开关。拟在本工具明确scope/子plan增加可选`launch_recovery`描述，默认无恢复（None）；仅允许1项，字段含dataset、trade_date、layer=silver、failed_run_id、Raw SHA及有摘要的只读失败证据。字段由本次运营批准范围生成，持久保存在新子清单，不能由错误消息自动推导批准。plan/CLI负责结构、原47项范围和单次上限；state负责真实父run/原请求/步骤和文件事实；submission负责独立发送意图；execution只在描述明确且全部门槛通过时动作；inspect和最终报告保留失败事实。旧无恢复清单仍按同一合同的默认无恢复语义执行，不能悄悄将它解释成通用重试许可。新证据/子清单仍需用户确认后生成并记录准确SHA；不得修改旧47项或13段清单。
+
+**实现位置及全消费者审计。** CodeGraph explore已覆盖CLI→plan.request_for→Journal.read/submit_once→NativeBackend.snapshots/reconcile→execution.apply/inspect及对应测试，当前代码逐项确认：
+
+| 落点 | 必须同步的行为 |
+| --- | --- |
+| moneyflow_continuation/plan.py、CLI | 明确解析/验证可选恢复描述，parent子清单只缩范围；原普通计划不产生重执行请求 |
+| 独立moneyflow_continuation/recovery.py | 集中单次描述验证、失败前置条件及原生完整重执行请求；不能把特殊判断散落在七个业务writer |
+| state.py | 对指定父run做有界事件、原请求、终态/worker退出/无业务副作用核验；严格区分已知启动失败与唯一有效子run，其他额外/未知/部分执行失败仍拒绝 |
+| submission.py | 增加固定silver_reexecution动作目录（原silver目录并列），同一47项root内独立request/send_intent/response/observation；原记录不改；按parent＋标准身份只读接回，不明响应不重发 |
+| execution.py | 原记录无恢复描述时仍失败停止；有明确描述时只提交一次完整重执行，观察它并验收；成功后正常下一日期，重复调用0新提交 |
+| tests/test_moneyflow_continuation_*及新的恢复测试 | 更新每个真实消费者，普通失败反例保持，新增原生父子/明确许可/不确定结果/旧日志保护/预算/字段文件合同反例 |
+| 本轮只读验收工具与报告 | 对这一个日期明确报告1个启动失败＋1个成功Silver；只计真实ASSET_CHECK_EVALUATION，区分失败run的计划记录；其他48项仍唯一正常run |
+
+不修改资产、jobs、checks、sensors、catalog、Lake字段/路径、Tushare参数、资源和全局并发，不影响Ops/Web/qtf/Prod或架构依赖矩阵。重执行仍在原CLI受控动作中，不复制旧临时正式驱动链。新底层helper及恢复分支须覆盖所有上述调用方，不允许只在最终验收时过滤掉失败来冒充完成。
+
+**执行前门槛。** 同日Raw成功且准确绿检/当前文件/来源凭证及固定SHA保持；父run确为原Journal已发送/响应绑定的这个Silver完整任务，FAILURE、父链无已有恢复；有明确的队列启动/IPC失败和worker最终退出记录，且不存在RUN_START/STEP_START/业务物化/实际check评估、正式Silver或任何该run候选目录。原始事件查询有界，截断或不明即拒绝；不得只匹配一句错误文本。原生服务/当前源码与加载、21个停止状态、单资金流任务、日历、挂载/空间和原父范围再次核对；有任一实质变化就停止。
+
+**身份与幂等。** 原失败记录只读保留。新固定动作silver_reexecution单独fsync请求与发送意图后仅一次POST；读回须找到唯一parent_run_id正确、继承同job/partition/config/Raw run key和完整步骤的子run，不能只选最新成功。HTTP超时或进程退出仍先读parent关联及原意图；未找到不盲重发，已有子run则只观察。该父ID只许一个子run，第三个同层run或其他父链都拒绝。NativeBackend的“同日最多1run”只对清单明确记载且证明无副作用的这一个已知失败改为“原父失败＋唯一有效子run”，在报告中完整暴露两者；Raw和其他日期仍原口径。不能笼统忽略FAILED/CANCELED。
+
+**性能预算与失败处理。** 原47项提交上限94增加为95，仅多1次原生重执行POST、1次独立发送/观察动作及1个Silver候选/正式文件；Tushare新增请求0，Raw活动、每轮行数、768MiB RSS、SQL512MB/1线程/no-spill、32GiB新增/64GiB余量等原界限不变。新动作读≤40、观察≤120次/20分钟、每次10秒；原预算不清零，新动作单独持久计数，不把上限扩给其他日期。启动失败证据读取≤20条该run事件、≤3条同日运行，超界拒绝。重执行成功前不得继续另外9日；再次失败或未知状态保留并停止，不再造新的恢复。恢复后预期原47项94次成功任务＋保留的1次启动失败；全49项98次成功任务＋该1次失败，实际物化/通过检查仍每层49条，不增加补造事件。
+
+**测试、验收与批准顺序。** 先确认本节及额外1次Silver提交，再进入生产Python修改。隔离反例至少覆盖：无描述拒绝、错误dataset/date/layer/parent/Raw SHA、运行未终止、已有子run、存在RUN_START/STEP_START/物化/check/候选/正式文件、原请求不符、任何非指定失败与第三run、子run只执行局部步骤、HTTP丢响应及重启接回、旧记录/预算保持、第二次调用0提交。使用本次真实事件顺序与独立字面父子身份作为fixture依据，不用待测helper生成expected；新父子链与原七表真实job/SQL/文件隔离回归分开说明证据范围，并复跑已有109项及受影响静态/隔离加载/Ruff/文档门禁。完成后刷新源码证明、生成明确恢复子清单和准确请求SHA，通过原CLI只执行1次Silver，读回同日5215行13列及全字段转换、新run/物化/精准check target和Raw SHA；只此一步通过后才接回原剩余9日并完成49项全验收与重放。当前没有作此批准，不编码、不提交重执行、不设置pool/reload，不声称第一步完成。

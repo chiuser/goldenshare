@@ -1,0 +1,70 @@
+{
+  "as_of": "2026-10-17T18:22:59.438595+08:00",
+  "first_step_complete": false,
+  "completed": 39,
+  "remaining": 10,
+  "datasets": {
+    "moneyflow_mkt_dc": {
+      "complete": 7,
+      "remaining": 0,
+      "raw_ready": 7,
+      "silver_ready": 7
+    },
+    "moneyflow_ind_ths": {
+      "complete": 7,
+      "remaining": 0,
+      "raw_ready": 7,
+      "silver_ready": 7
+    },
+    "moneyflow_cnt_ths": {
+      "complete": 7,
+      "remaining": 0,
+      "raw_ready": 7,
+      "silver_ready": 7
+    },
+    "moneyflow_ind_dc": {
+      "complete": 7,
+      "remaining": 0,
+      "raw_ready": 7,
+      "silver_ready": 7
+    },
+    "moneyflow_dc": {
+      "complete": 7,
+      "remaining": 0,
+      "raw_ready": 7,
+      "silver_ready": 7
+    },
+    "moneyflow_ths": {
+      "complete": 4,
+      "remaining": 3,
+      "raw_ready": 5,
+      "silver_ready": 4
+    },
+    "moneyflow": {
+      "complete": 0,
+      "remaining": 7,
+      "raw_ready": 0,
+      "silver_ready": 0
+    }
+  },
+  "raw_ready": 40,
+  "silver_ready": 39,
+  "raw_rows": 78848,
+  "silver_rows": 73633,
+  "successful_runs": 79,
+  "native_run_attempts": 80,
+  "launch_failures": 1,
+  "formal_files": 79,
+  "actual_source_requests_including_previous_samples": 170,
+  "sensors_stopped": 21,
+  "recovery_authorized": false,
+  "recovery_executed": false,
+  "production_code_changed_this_turn": false,
+  "remaining_scope": "THS stock 10-14 Silver, 10-15/16 Raw+Silver; moneyflow 10-08/09/12-16 Raw+Silver",
+  "remaining_after_one_recovery": "9 dataset-days / 18 new regular jobs",
+  "extra_silver_reexecution_max": 1,
+  "old_run_and_journal_preserved": true,
+  "service_and_original_guard_healthy": true,
+  "committed_plan": "87574519",
+  "documents": "Plan 75.13-75.14 and LLD 70.21"
+}

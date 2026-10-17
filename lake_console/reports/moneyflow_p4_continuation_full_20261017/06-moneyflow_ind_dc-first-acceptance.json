@@ -1,0 +1,153 @@
+{
+  "as_of": "2026-10-17T17:45:21.211451+08:00",
+  "complete": true,
+  "plan_path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_full_20261017/06-moneyflow_ind_dc-first-plan.json",
+  "plan_sha256": "3d1f169509be4dc3b0b9ce30d402e4e9373b6d23e1ab36242d4a66406b420829",
+  "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+  "include_previous_market_samples": false,
+  "totals": {
+    "dataset_days": 1,
+    "native_runs": 2,
+    "materializations": 2,
+    "blocking_checks": 2,
+    "files": 2,
+    "rows_per_layer": 1032,
+    "source_requests": 6,
+    "source_retries": 0,
+    "raw_activity_ms": 64575.700083747506,
+    "file_bytes": 191554
+  },
+  "records": [
+    {
+      "dataset": "moneyflow_ind_dc",
+      "trade_date": "2026-10-08",
+      "layers": {
+        "raw": {
+          "mat_id": 7631665,
+          "check_id": 1636355,
+          "run_id": "755800ad-fe56-4289-ae5d-45bf5d681019",
+          "timestamp": 1792230287.442689,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-08/part-000.parquet",
+          "bytes": 95789,
+          "sha256": "c1dbd0fdf9bf6fa279917b3ebd651bc13f6a28b3b9f3ab7bab9351bd43beeb13",
+          "rows": 1032,
+          "columns": 18
+        },
+        "silver": {
+          "mat_id": 7631693,
+          "check_id": 1636356,
+          "run_id": "9d870aad-958e-4567-86e4-e89d638bf35c",
+          "timestamp": 1792230303.280051,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-08/part-000.parquet",
+          "bytes": 95765,
+          "sha256": "537f5fbfc183177216a97d9a9cf0cee4a715eb42ebcfab6a0d2aabd40cb4c0ae",
+          "rows": 1032,
+          "columns": 18
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_ind_dc",
+        "elapsed_ms": 64575.700083747506,
+        "peak_rss_bytes": 329875456,
+        "raw_sha256": "c1dbd0fdf9bf6fa279917b3ebd651bc13f6a28b3b9f3ab7bab9351bd43beeb13",
+        "request_count": 6,
+        "retry_count": 0,
+        "row_count": 1032,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "地域": 31,
+            "概念": 504,
+            "行业": 496
+          },
+          "candidate_scope_counts": {
+            "地域": 31,
+            "概念": 505,
+            "行业": 496
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-23",
+              "file_sha256": "da3bc259a5323b5eb5f6af7957def5291d4c47d396c31e226f44d218de56bfd6",
+              "materialization_storage_id": 7452237,
+              "row_count": 1031,
+              "scope_row_counts": {
+                "地域": 31,
+                "概念": 504,
+                "行业": 496
+              }
+            },
+            {
+              "date": "2026-09-24",
+              "file_sha256": "736921b4bdab2c4af871ad6214256f5d01399eef4c763c7d16943a3d3dafa86b",
+              "materialization_storage_id": 7452239,
+              "row_count": 1031,
+              "scope_row_counts": {
+                "地域": 31,
+                "概念": 504,
+                "行业": 496
+              }
+            },
+            {
+              "date": "2026-09-28",
+              "file_sha256": "30c853d4085f7744940e51024f71c053a3875431c8f969a80b79dafcae4a69e9",
+              "materialization_storage_id": 7452241,
+              "row_count": 1031,
+              "scope_row_counts": {
+                "地域": 31,
+                "概念": 504,
+                "行业": 496
+              }
+            },
+            {
+              "date": "2026-09-29",
+              "file_sha256": "e6840a0f99c69c905df065bcfc4f328309682385b4c781e758668daa84f31761",
+              "materialization_storage_id": 7450761,
+              "row_count": 1031,
+              "scope_row_counts": {
+                "地域": 31,
+                "概念": 504,
+                "行业": 496
+              }
+            },
+            {
+              "date": "2026-09-30",
+              "file_sha256": "7387b327e4b3bc9cc42885cb9fc2eb2e962620e9544296b7dd62c3071c1effaa",
+              "materialization_storage_id": 7450763,
+              "row_count": 1031,
+              "scope_row_counts": {
+                "地域": 31,
+                "概念": 504,
+                "行业": 496
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "地域": 31,
+          "概念": 505,
+          "行业": 496
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.00678816717118,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-08",
+        "verification_sha256": "c1dbd0fdf9bf6fa279917b3ebd651bc13f6a28b3b9f3ab7bab9351bd43beeb13"
+      },
+      "source_receipt_sha256": "54bd609704eebbb93f24e32afb5ada8fa5480156660d01dac86daa8f9c90c23a",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    }
+  ],
+  "sensors_stopped": 21,
+  "native_server_id": "906ed8b6-8fd2-4f1f-b724-3ce491b35e69",
+  "reads": 18,
+  "elapsed_seconds": 0.7223896672949195,
+  "peak_rss_bytes": 240582656,
+  "formal_mutations": 0
+}

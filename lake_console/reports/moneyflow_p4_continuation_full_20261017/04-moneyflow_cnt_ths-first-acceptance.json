@@ -1,0 +1,137 @@
+{
+  "as_of": "2026-10-17T17:33:37.642350+08:00",
+  "complete": true,
+  "plan_path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_full_20261017/04-moneyflow_cnt_ths-first-plan.json",
+  "plan_sha256": "cef8cc711e861eadfa94ea9738675db0a41d216d5d20e5c1aa918d9c56b89c2c",
+  "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+  "include_previous_market_samples": false,
+  "totals": {
+    "dataset_days": 1,
+    "native_runs": 2,
+    "materializations": 2,
+    "blocking_checks": 2,
+    "files": 2,
+    "rows_per_layer": 387,
+    "source_requests": 2,
+    "source_retries": 0,
+    "raw_activity_ms": 60555.85083272308,
+    "file_bytes": 49174
+  },
+  "records": [
+    {
+      "dataset": "moneyflow_cnt_ths",
+      "trade_date": "2026-10-08",
+      "layers": {
+        "raw": {
+          "mat_id": 7631273,
+          "check_id": 1636341,
+          "run_id": "f869af69-ee0f-49b2-b665-bfb0858a4687",
+          "timestamp": 1792229586.7500029,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-08/part-000.parquet",
+          "bytes": 24599,
+          "sha256": "90f52420633c7c10dcdb09ec6f96f298e0e594e5af239b70ecc194ddfb143144",
+          "rows": 387,
+          "columns": 12
+        },
+        "silver": {
+          "mat_id": 7631301,
+          "check_id": 1636342,
+          "run_id": "266eaba2-388f-458d-b308-8bd975b8a08a",
+          "timestamp": 1792229607.143549,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-08/part-000.parquet",
+          "bytes": 24575,
+          "sha256": "59f14e483d7b48b55e1294408dd2028d90c65d124b5e53440b1f4c46a74c0a85",
+          "rows": 387,
+          "columns": 12
+        }
+      },
+      "source": {
+        "dataset": "moneyflow_cnt_ths",
+        "elapsed_ms": 60555.85083272308,
+        "peak_rss_bytes": 296730624,
+        "raw_sha256": "90f52420633c7c10dcdb09ec6f96f298e0e594e5af239b70ecc194ddfb143144",
+        "request_count": 2,
+        "retry_count": 0,
+        "row_count": 387,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 387
+          },
+          "candidate_scope_counts": {
+            "all": 387
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-09-23",
+              "file_sha256": "fe16e9515bc4a39ccce74005fe130558aba66df6d27dcf95b05175ce60c0391a",
+              "materialization_storage_id": 7450661,
+              "row_count": 387,
+              "scope_row_counts": {
+                "all": 387
+              }
+            },
+            {
+              "date": "2026-09-24",
+              "file_sha256": "1e5727fbf1987cada3360d1b3e2de9f452b49a96f4f41800d539fd9376b001c0",
+              "materialization_storage_id": 7450663,
+              "row_count": 387,
+              "scope_row_counts": {
+                "all": 387
+              }
+            },
+            {
+              "date": "2026-09-28",
+              "file_sha256": "780f443e701171ea97b42203a569752a19f066309587334174f2b766cde346d6",
+              "materialization_storage_id": 7450665,
+              "row_count": 387,
+              "scope_row_counts": {
+                "all": 387
+              }
+            },
+            {
+              "date": "2026-09-29",
+              "file_sha256": "819a4f0316555fd18b2bd64db1925c6743bfeff3a22ab734c1219e05313362d8",
+              "materialization_storage_id": 7449577,
+              "row_count": 387,
+              "scope_row_counts": {
+                "all": 387
+              }
+            },
+            {
+              "date": "2026-09-30",
+              "file_sha256": "c54ba5d826a3216ce51bd6ea87ab9641bc9e244a13575eeac47fb79e127d68d0",
+              "materialization_storage_id": 7449579,
+              "row_count": 387,
+              "scope_row_counts": {
+                "all": 387
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 387
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.00664745783433,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-08",
+        "verification_sha256": "90f52420633c7c10dcdb09ec6f96f298e0e594e5af239b70ecc194ddfb143144"
+      },
+      "source_receipt_sha256": "5d88798a88e9703d82d5d3839abd64709dea97dab5725266b175295c819f246a",
+      "normalization_or_write_rejects": 0,
+      "reject_basis": "Original writers use fail-closed validation; accepted source count equals both physical layer counts, no row-filter fallback."
+    }
+  ],
+  "sensors_stopped": 21,
+  "native_server_id": "906ed8b6-8fd2-4f1f-b724-3ce491b35e69",
+  "reads": 18,
+  "elapsed_seconds": 0.6471606250852346,
+  "peak_rss_bytes": 246415360,
+  "formal_mutations": 0
+}
