@@ -56,7 +56,7 @@ def test_preparation_reuses_completed_sql_and_one_strong_identity(
 
     source = tmp_path / "source"
     source.write_bytes(b"independent source bytes")
-    # The subprocess producer returns JSON arrays, never Python tuple objects.
+    # Persisted preparation records contain JSON arrays, not Python tuples.
     st = source.stat()
     result = {
         "input_paths": [str(source)],
@@ -310,3 +310,302 @@ def test_real_freeze_cli_reuses_preparation_and_holds_lock_through_plan(
     assert observed["status"] == "PROMOTING" and observed["next_action"] == "promote"
     assert (root / "plan.json").read_bytes() == plan_bytes
     assert len(calls) == (51 if interrupted_source else 50) and reads == [True]
+
+
+@pytest.fixture
+def saved_source_case(tmp_path, monkeypatch):
+    """Literal source rows and record shape follow the saved 2026-10-18 producer.
+
+    Only the temporary roots are substituted; record reading and SQL are real.
+    """
+    import hashlib
+
+    from orchestrator.defs.bootstrap import stock_adj_factor_history_repair as contract
+
+    lake = tmp_path / "lake"
+    staging = tmp_path / "staging"
+    lake.mkdir()
+    staging.mkdir()
+    monkeypatch.setattr(paths, "DEFAULT_LAKE_ROOT", str(lake))
+    monkeypatch.setattr(contract, "DEFAULT_LAKE_ROOT", str(lake))
+    monkeypatch.setattr(contract, "DEFAULT_LAKE_STAGING_ROOT", str(staging))
+    old = staging / "stock_adj_factor_history_repair/run_id=11111111-1111-4111-8111-111111111111"
+    new = old.with_name("run_id=22222222-2222-4222-8222-222222222222")
+    sc = FactorRepairScope("001331.SZ", (("2026-06-26", "2026-06-29"),),
+                           "2026-10-16", "2026-10-16")
+    rows = [{"ts_code": "001331.SZ", "trade_date": d, "adj_factor": "1.25"}
+            for d in ("20260626", "20260629")]
+    anchor = {"ts_code": "001331.SZ", "trade_date": "2026-10-16", "adj_factor": 1.25}
+    marker = {"version": 2, "run_id": old.name.removeprefix("run_id="),
+              "request_hash": repair_hash({"scopes": [asdict(sc)]}),
+              "implementation_hash": "a" * 64}
+    directory = old / "checkpoints/preparation"
+    directory.mkdir(parents=True)
+    (directory / "request.json").write_text(json.dumps(marker))
+    for name, request, result in (
+        ("source:001331.SZ", asdict(sc), rows),
+        ("anchor:001331.SZ", {"ts_code": "001331.SZ", "trade_date": "20261016",
+                              "limit": 6000, "offset": 0}, anchor),
+    ):
+        record = {**marker, "unit": name, "unit_request_hash": repair_hash(request),
+                  "result": result, "identities": []}
+        record["record_hash"] = repair_hash(record)
+        (directory / (hashlib.sha256(name.encode()).hexdigest() + ".json")).write_text(json.dumps(record))
+    return lake, old, new, sc, rows, anchor
+
+
+def make_factor_inputs(lake, rows, anchors):
+    """Real minimal Parquet producer, using current factor/lifecycle/date contracts.
+
+    Existing Raw and Silver factors are independently set 0.125 above source;
+    all supplied keys must be reported changed. No prices/formulas are tested.
+    """
+    import duckdb
+
+    from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+
+    def copy(con, query, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        con.execute(copy_query_to_parquet(query, path))
+
+    with duckdb.connect() as con:
+        con.execute("CREATE TABLE factors(ts_code VARCHAR,trade_date VARCHAR,adj_factor DOUBLE)")
+        con.executemany("INSERT INTO factors VALUES (?,?,?)", [
+            (r["ts_code"], r["trade_date"], float(r["adj_factor"]) + 0.125) for r in rows])
+        for day in sorted({r["trade_date"] for r in rows}):
+            iso = f"{day[:4]}-{day[4:6]}-{day[6:]}"
+            copy(con, f"SELECT * FROM factors WHERE trade_date='{day}'", paths.raw_adj_factor_path(lake, iso))
+            copy(con, f"SELECT ts_code,strptime(trade_date,'%Y%m%d')::DATE trade_date,adj_factor FROM factors WHERE trade_date='{day}'",
+                 paths.silver_adj_factor_path(lake, iso))
+        con.execute("CREATE TABLE anchors(ts_code VARCHAR,trade_date DATE,adj_factor DOUBLE)")
+        con.executemany("INSERT INTO anchors VALUES (?,?,?)", [
+            (r["ts_code"], r["trade_date"], float(r["adj_factor"])) for r in anchors])
+        for day in sorted({r["trade_date"] for r in anchors}):
+            copy(con, f"SELECT * FROM anchors WHERE trade_date=DATE '{day}'", paths.silver_adj_factor_path(lake, day))
+        copy(con, "SELECT DISTINCT ts_code,DATE '2000-01-01' list_date,NULL::DATE delist_date,TRUE is_cny_stock,'L' list_status FROM factors",
+             paths.silver_stock_lifecycle_path(lake))
+        copy(con, "SELECT DATE '2026-10-16' trade_date,TRUE is_open,'SSE' exchange",
+             paths.silver_trade_calendar_path(lake))
+
+
+def test_saved_rows_go_through_real_factor_preparation_in_same_process(saved_source_case, tmp_path, monkeypatch):
+    import os
+
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_planning as module,
+    )
+
+    lake, old, _, sc, rows, anchor = saved_source_case
+    before = {p: p.read_bytes() for p in old.rglob("*.json")}
+    saved = module.read_saved_repair_sources(old, [sc])
+    assert saved["source:001331.SZ"][0] == rows
+    assert saved["anchor:001331.SZ"][0] == anchor
+    make_factor_inputs(lake, rows, [anchor])
+    monkeypatch.setattr(module, "DEFAULT_DUCKDB_TEMP_DIRECTORY", tmp_path)
+    # The real dispatcher and SQL run, not a precomputed inspection result.
+    seen = []
+    result = module.run_repair_preparation_phase("factor", {
+        "scopes": [asdict(sc)], "source_rows": rows, "anchors": [anchor]},
+        progress=lambda p: seen.append((os.getpid(), p)))
+    assert result["source_rows"] == result["changed_factor_keys"] == 2
+    assert result["factor_days"] == ["2026-06-26", "2026-06-29"]
+    assert len(result["factor_files"]) == 4 and result["completed_sql"] > 0
+    assert seen and all(pid == os.getpid() for pid, _ in seen)
+    assert seen[-1][1]["completed_sql"] == result["completed_sql"]
+    assert "peak_rss_bytes" not in result and not hasattr(module, "subprocess")
+    assert {p: p.read_bytes() for p in before} == before
+
+
+@pytest.mark.parametrize("fault", ["missing", "hash", "code", "date", "fields", "request"])
+def test_saved_source_error_is_rejected_without_source_request(saved_source_case, fault):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_planning as module,
+    )
+
+    _, old, _, sc, _, _ = saved_source_case
+    path = next(p for p in (old / "checkpoints/preparation").glob("*.json")
+                if p.name != "request.json" and json.loads(p.read_text())["unit"].startswith("source:"))
+    record = json.loads(path.read_text())
+    if fault == "missing":
+        path.unlink()
+    else:
+        if fault == "hash":
+            record["result"][0]["adj_factor"] = "99"
+        elif fault == "code":
+            record["result"][0]["ts_code"] = "000001.SZ"
+        elif fault == "date":
+            record["result"][0]["trade_date"] = "20260625"
+        elif fault == "fields":
+            record["result"][0]["extra"] = "invalid"
+        else:
+            record["unit_request_hash"] = "0" * 64
+        if fault != "hash":
+            record["record_hash"] = repair_hash({k: v for k, v in record.items() if k != "record_hash"})
+        path.write_text(json.dumps(record))
+    with pytest.raises((FactorRepairError, FileNotFoundError)):
+        module.read_saved_repair_sources(old, [sc])
+
+
+def test_preparation_import_records_keep_origin_and_resume_without_network(saved_source_case, monkeypatch):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_planning as module,
+    )
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_promotion import (
+        repair_writer_lock,
+    )
+
+    _, old, new, sc, rows, _ = saved_source_case
+    # This is a source-persistence/cancellation test, not a 31-asset SQL test.
+    monkeypatch.setattr(module, "repair_implementation_files", list)
+    calls = []
+    def stop_at_first_profile(*args, **kwargs):
+        calls.append(True)
+        raise FactorRepairError("canceled")
+    with repair_writer_lock(new) as lock:
+        for _ in range(2):
+            with pytest.raises(FactorRepairError, match="canceled"):
+                module.prepare_scoped_repair_inputs(root=new, scopes=[sc], source=None,
+                    source_root=old, parent_lock=lock, run_phase=stop_at_first_profile)
+    records = [json.loads(p.read_text()) for p in (new / "checkpoints/preparation").glob("*.json")
+               if p.name != "request.json"]
+    assert len(records) == 2 and len(calls) == 2
+    assert {r["unit"] for r in records} == {"source:001331.SZ", "anchor:001331.SZ"}
+    for record in records:
+        origin = record["source_origin"]
+        original = json.loads(Path(origin["path"]).read_text())
+        assert original["record_hash"] == origin["record_hash"]
+        assert record["result"] == original["result"]
+        assert record["implementation_hash"] != original["implementation_hash"]
+    assert next(r["result"] for r in records if r["unit"].startswith("source:")) == rows
+    with repair_writer_lock(new):
+        pass
+
+
+def test_slow_sql_does_not_have_a_point_one_second_deadline():
+    import time
+
+    import duckdb
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import (
+        RepairInspectionConnection,
+    )
+
+    with duckdb.connect() as con:
+        def slow_value() -> int:
+            time.sleep(0.25)
+            return 42
+        con.create_function("slow_value", slow_value)
+        progress = []
+        started = time.monotonic()
+        result = RepairInspectionConnection(con, "slow", progress.append).execute("SELECT slow_value()").fetchone()
+        assert result == (42,) and time.monotonic() - started >= 0.25
+        assert progress[-1]["completed_sql"] == 1
+
+
+def test_cancel_interrupts_real_sql_and_does_not_leave_it_running():
+    import threading
+
+    import duckdb
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import (
+        RepairInspectionConnection,
+    )
+
+    cancel = threading.Event()
+    timer = threading.Timer(0.2, cancel.set)
+    with duckdb.connect() as con:
+        timer.start()
+        try:
+            with pytest.raises(FactorRepairError, match="canceled"):
+                RepairInspectionConnection(con, "cancel", None, cancel.is_set).execute(
+                    "SELECT sum(sin(i)) FROM range(1000000000) t(i)")
+        finally:
+            timer.cancel()
+            timer.join()
+        assert con.execute("SELECT 42").fetchone() == (42,)
+
+
+def test_removed_preparation_worker_entry_cannot_start(monkeypatch):
+    from orchestrator.defs.bootstrap import stock_adj_factor_history_repair_cli as cli
+    monkeypatch.delenv("TUSHARE_TOKEN", raising=False)
+    monkeypatch.delenv("DAGSTER_HOME", raising=False)
+    with pytest.raises(SystemExit) as error:
+        cli.main(["_inspect_worker", "factor"])
+    assert error.value.code == 2
+
+
+def test_term_releases_lock_and_saved_sql_result_can_resume(tmp_path):
+    import select
+    import signal
+    import subprocess
+    import sys
+    import textwrap
+
+    import duckdb
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_promotion import (
+        repair_writer_lock,
+    )
+
+    root = tmp_path / "stock_adj_factor_history_repair/run_id=33333333-3333-4333-8333-333333333333"
+    script = textwrap.dedent(f"""
+        import sys
+        from pathlib import Path
+        import duckdb
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import RepairPreparation, RepairInspectionConnection
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import repair_coordinator_termination_guard
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_promotion import repair_writer_lock
+        root = Path({str(root)!r})
+        try:
+            with repair_coordinator_termination_guard(), repair_writer_lock(root), duckdb.connect() as con:
+                db = RepairInspectionConnection(con, 'term', None)
+                draft = RepairPreparation(root, request={{'test': 'TERM'}}, implementation=[])
+                draft.unit('profile:done', {{}}, lambda: {{'value': db.execute('SELECT 42').fetchone()[0]}})
+                print('SAVED', flush=True)
+                draft.unit('profile:pending', {{}}, lambda: {{'value': db.execute('SELECT sum(sin(i)) FROM range(1000000000) t(i)').fetchone()[0]}})
+        except KeyboardInterrupt:
+            sys.exit(130)
+    """)
+    child = subprocess.Popen([sys.executable, "-B", "-c", script], text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        assert select.select([child.stdout], [], [], 5)[0], "preparation did not save first result"
+        assert child.stdout.readline().strip() == "SAVED"
+        child.send_signal(signal.SIGTERM)  # Only this test's owned process.
+        stdout, stderr = child.communicate(timeout=5)
+        assert child.returncode == 130, (stdout, stderr)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)
+    with repair_writer_lock(root), duckdb.connect() as con:
+        draft = RepairPreparation(root, request={"test": "TERM"}, implementation=[])
+        assert draft.unit("profile:done", {}, lambda: pytest.fail("saved SQL repeated")) == {"value": 42}
+        assert draft.unit("profile:pending", {}, lambda: {"value": con.execute("SELECT 43").fetchone()[0]}) == {"value": 43}
+        assert len(draft.seal([])["artifacts"]) == 3
+
+
+def test_inspect_progress_consumer_does_not_require_removed_memory_fields(monkeypatch, capsys):
+    """Only the CLI progress consumer is isolated here, not real SQL acceptance."""
+    from types import SimpleNamespace
+
+    from orchestrator.defs import resources
+    from orchestrator.defs.bootstrap import stock_adj_factor_history_repair_cli as cli
+
+    class Source:
+        def call(self, api, params, fields):
+            rows = [{"ts_code": "001331.SZ", "trade_date": d, "adj_factor": 1.25}
+                    for d in ([params["trade_date"]] if "trade_date" in params else ["20260626", "20260629"])]
+            return SimpleNamespace(columns=fields, rows=rows)
+
+    def inspection(payload, *, progress):
+        progress("factor", {"elapsed_seconds": 0.25, "completed_sql": 1})
+        return {"stop_reasons": []}
+
+    monkeypatch.setattr(resources, "TushareResource", lambda **kwargs: Source())
+    monkeypatch.setattr(cli, "run_repair_inspection", inspection)
+    assert cli.main(["inspect", "--scope", "001331.SZ:2026-06-26:2026-06-29",
+                     "--as-of", "2026-10-16", "--end", "2026-10-16"]) == 0
+    output = capsys.readouterr()
+    assert json.loads(output.err.splitlines()[-1])["completed_sql"] == 1
+    assert "peak_rss" not in output.err

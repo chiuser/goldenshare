@@ -1,6 +1,6 @@
 """Inspection, explicit freeze and staging candidates for the approved repair.
 
-Fresh, sequential workers keep DuckDB memory bounded across asset families.
+Preparation runs sequentially in this process and reuses saved source records.
 No Dagster instance, job, event or formal file writer is imported here.
 """
 
@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
-import resource
-import subprocess
-import sys
+import threading
 import time
 from dataclasses import asdict
 from itertools import pairwise
@@ -37,6 +36,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     inspect_repair_daily_seed,
     inspect_repair_file_inventory,
     inspect_repair_minute_seed,
+    normalized_factor_rows,
     plan_repair_calculation_windows,
     repair_hash,
     repair_implementation_files,
@@ -45,14 +45,10 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
 )
 from orchestrator.defs.duckdb_connection import (
     DEFAULT_DUCKDB_TEMP_DIRECTORY,
+    DuckDBConnectionSettings,
     connect_configured_duckdb,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
-
-
-def _rss_bytes() -> int:
-    value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(value if sys.platform == "darwin" else value * 1024)
 
 
 def _scopes(payload) -> tuple[FactorRepairScope, ...]:
@@ -484,33 +480,63 @@ def _collect_profiles(connection, *, payload, root, scopes, phase, calendar):
 
 
 class RepairInspectionConnection:
-    """Expose completed SQL work, without inventing a total or recalculating it."""
+    """Run one SQL at a time; allow cancellation without a second process."""
 
-    def __init__(self, connection, phase, progress):
+    def __init__(self, connection, phase, progress, cancel=None):
         self.connection = connection
         self.phase = phase
         self.progress = progress
+        self.cancel = cancel
         self.completed = 0
 
-    def execute(self, *args, **kwargs):
-        self.connection.execute(*args, **kwargs)
-        self.completed += 1
+    def emit(self):
         if self.progress:
-            self.progress(
-                {
-                    "phase": self.phase,
-                    "completed_sql": self.completed,
-                    "updated_at": time.time(),
-                }
-            )
-        return self
+            self.progress({"phase": self.phase, "completed_sql": self.completed,
+                           "updated_at": time.time()})
+
+    def execute(self, *args, **kwargs):
+        check_repair_cancel(self.cancel)
+        done = threading.Event()
+        errors = []
+
+        def query():
+            try:
+                self.connection.execute(*args, **kwargs)
+            except BaseException as error:  # noqa: BLE001 -- Re-raised on the calling thread.
+                errors.append(error)
+            finally:
+                done.set()
+
+        self.emit()
+        query_thread = threading.Thread(target=query, daemon=True)
+        query_thread.start()
+        last_emit = time.monotonic()
+        try:
+            # This interval observes cancellation; it is never a SQL deadline.
+            while not done.wait(0.1):
+                check_repair_cancel(self.cancel)
+                if time.monotonic() - last_emit >= RepairBudget().progress_interval * 5 / 6:
+                    self.emit()
+                    last_emit = time.monotonic()
+            check_repair_cancel(self.cancel)
+            if errors:
+                raise errors[0]
+            self.completed += 1
+            self.emit()
+            return self
+        finally:
+            # Repeat until exited, including cancellation before SQL starts.
+            while query_thread.is_alive():
+                if not done.is_set():
+                    self.connection.interrupt()
+                query_thread.join(0.1)
 
     def __getattr__(self, name):
         return getattr(self.connection, name)
 
 
-def inspect_repair_worker(
-    payload: dict, phase: str, *, lake_root=None, temp_directory=None, progress=None
+def inspect_repair_phase(
+    payload: dict, phase: str, *, lake_root=None, temp_directory=None, progress=None, cancel=None
 ) -> dict:
     """One bounded read-only family. Dependency paths are injectable only for tests."""
     root = Path(paths.DEFAULT_LAKE_ROOT if lake_root is None else lake_root)
@@ -518,9 +544,10 @@ def inspect_repair_worker(
     scopes = _scopes(payload) if phase != "inventory" else ()
     started = time.monotonic()
     with connect_configured_duckdb(
-        RepairBudget().connection_settings(temp), temp_policy="existing_no_spill"
+        DuckDBConnectionSettings(temp_directory=temp, threads=RepairBudget().threads),
+        temp_policy="existing_no_spill"
     ) as raw_connection:
-        connection = RepairInspectionConnection(raw_connection, phase, progress)
+        connection = RepairInspectionConnection(raw_connection, phase, progress, cancel)
         if phase == "factor":
             result = inspect_factor_rows(
                 connection, root, scopes, payload["source_rows"]
@@ -567,17 +594,14 @@ def inspect_repair_worker(
     result.update(
         phase=phase,
         elapsed_seconds=time.monotonic() - started,
-        peak_rss_bytes=_rss_bytes(),
     )
     result["completed_sql"] = connection.completed
-    if result["peak_rss_bytes"] > RepairBudget().max_rss:
-        raise FactorRepairError("repair_rss_budget_exceeded")
     return result
 
 
 def run_repair_inspection(payload: dict, *, progress=None, run_phase=None) -> dict:
-    """Sequential workers: no source/metadata footer accumulation in a DuckDB process."""
-    result = {"workers": [], "profiles": [], "validation_paths": {}}
+    """Prepare the approved families sequentially, without transferring requests."""
+    result = {"steps": [], "profiles": [], "validation_paths": {}}
     inputs, targets, observed_stats = set(), set(), {}
     for phase in (
         "factor",
@@ -595,20 +619,8 @@ def run_repair_inspection(payload: dict, *, progress=None, run_phase=None) -> di
             {"paths": sorted(inputs | targets)} if phase == "inventory" else payload
         )
         observed = (run_phase or run_repair_preparation_phase)(phase, request)
-        observed["combined_peak_rss_bytes"] = observed["peak_rss_bytes"] + _rss_bytes()
-        if observed["combined_peak_rss_bytes"] > RepairBudget().max_rss:
-            raise FactorRepairError("repair_rss_budget_exceeded")
-        result["workers"].append(
-            {
-                k: observed[k]
-                for k in (
-                    "phase",
-                    "elapsed_seconds",
-                    "peak_rss_bytes",
-                    "combined_peak_rss_bytes",
-                )
-            }
-        )
+        result["steps"].append({k: observed[k] for k in
+                                ("phase", "elapsed_seconds", "completed_sql")})
         if phase == "inventory":
             result["inventory"] = observed
             actual_stats = {r[0]: tuple(r[1:3]) for r in observed["files"]}
@@ -678,79 +690,22 @@ def run_repair_inspection(payload: dict, *, progress=None, run_phase=None) -> di
     result.update(
         input_paths=sorted(inputs),
         target_paths=sorted(targets),
-        budget=asdict(RepairBudget()),
+        budget={k: v for k, v in asdict(RepairBudget()).items()
+                if k not in ("memory_limit", "max_rss")},
         status="inspected_not_frozen",
     )
     return result
 
 
-def run_repair_preparation_phase(
-    phase, request, *, cancel=None, progress=None, parent_lock=None
-):
-    """Owned subprocess, bounded polling and real completed-SQL progress."""
+def run_repair_preparation_phase(phase, request, *, cancel=None, progress=None):
+    """Call the preparation function directly in this process."""
     from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
-        _stop_worker,
         repair_coordinator_termination_guard,
     )
 
-    if parent_lock is not None:
-        request = {
-            **request,
-            "_parent": {
-                "coordinator_pid": os.getpid(),
-                "plan_lock_fd": parent_lock.fileno(),
-                "plan_path": parent_lock.name,
-            },
-        }
-    command = [
-        sys.executable,
-        "-B",
-        "-m",
-        "orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli",
-        "_inspect_worker",
-        phase,
-    ]
-    with (
-        repair_coordinator_termination_guard(),
-        subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-            pass_fds=(() if parent_lock is None else (parent_lock.fileno(),)),
-        ) as child,
-    ):
-        initial = json.dumps(request, allow_nan=False)
-        seen = 0
-        try:
-            while True:
-                check_repair_cancel(cancel)
-                try:
-                    stdout, stderr = child.communicate(input=initial, timeout=0.1)
-                    break
-                except subprocess.TimeoutExpired as waiting:
-                    initial = None
-                    messages = (
-                        (waiting.stderr or b"").decode()
-                        if isinstance(waiting.stderr, bytes)
-                        else (waiting.stderr or "")
-                    )
-                    for line in messages[seen:].splitlines(keepends=True):
-                        if not line.endswith("\n"):
-                            break
-                        seen += len(line)
-                        data = json.loads(line)
-                        if progress:
-                            progress(data)
-            if child.returncode:
-                raise FactorRepairError(
-                    f"repair_inspection_worker_failed:{phase}:{stderr.strip()[-300:]}"
-                )
-            return json.loads(stdout)
-        finally:
-            _stop_worker(child)
+    with repair_coordinator_termination_guard():
+        check_repair_cancel(cancel)
+        return inspect_repair_phase(request, phase, cancel=cancel, progress=progress)
 
 
 class RepairPreparation:
@@ -778,7 +733,7 @@ class RepairPreparation:
             atomic_repair_json(marker, self.binding)
         self.artifacts.add(marker.relative_to(self.root).as_posix())
 
-    def unit(self, name, request, produce, *, cancel=None):
+    def unit(self, name, request, produce, *, cancel=None, source_origin=None):
         path = check_repair_path(
             self.directory / (hashlib.sha256(name.encode()).hexdigest() + ".json")
         )
@@ -793,6 +748,8 @@ class RepairPreparation:
                 "record_hash"
             ) != repair_hash({k: v for k, v in record.items() if k != "record_hash"}):
                 raise FactorRepairError("repair_preparation_unit_invalid")
+            if source_origin is not None and record.get("source_origin") != source_origin:
+                raise FactorRepairError("repair_source_origin_changed")
             for identity in record.get("identities", []):
                 p = check_repair_path(Path(identity["path"]))
                 st = p.stat()
@@ -832,6 +789,8 @@ class RepairPreparation:
                     raise FactorRepairError("input_drift")
                 identities.append(identity)
             record = {**binding, "result": value, "identities": identities}
+            if source_origin is not None:
+                record["source_origin"] = source_origin
             record["record_hash"] = repair_hash(record)
             check_repair_cancel(cancel)
             atomic_repair_json(path, record)
@@ -861,8 +820,61 @@ class RepairPreparation:
         }
 
 
+def read_saved_repair_sources(source_root, scopes, *, cancel=None):
+    """Read only the explicitly selected run's source and anchor records."""
+    source_root = check_repair_path(Path(source_root))
+    check_repair_roots(Path(paths.DEFAULT_LAKE_ROOT), source_root)
+    directory = source_root / "checkpoints/preparation"
+    marker = json.loads(check_repair_path(directory / "request.json").read_text())
+    request = {"scopes": [asdict(s) for s in scopes]}
+    if (not isinstance(marker, dict) or marker.get("version") != 2
+            or marker.get("run_id") != source_root.name.removeprefix("run_id=")
+            or marker.get("request_hash") != repair_hash(request)
+            or not marker.get("implementation_hash")):
+        raise FactorRepairError("repair_saved_source_binding_invalid")
+    saved = {}
+    for scope in scopes:
+        for name, params in (
+            ("source:" + scope.ts_code, asdict(scope)),
+            ("anchor:" + scope.ts_code, {"ts_code": scope.ts_code,
+                "trade_date": scope.as_of_trade_date.replace("-", ""),
+                "limit": 6000, "offset": 0}),
+        ):
+            check_repair_cancel(cancel)
+            path = check_repair_path(directory / (hashlib.sha256(name.encode()).hexdigest() + ".json"))
+            before = path.stat()
+            record = json.loads(path.read_text())
+            after = path.stat()
+            if (not isinstance(record, dict)
+                    or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)
+                    or any(record.get(k) != v for k, v in marker.items())
+                    or record.get("unit") != name
+                    or record.get("unit_request_hash") != repair_hash(params)
+                    or record.get("identities") != []
+                    or record.get("record_hash") != repair_hash(
+                        {k: v for k, v in record.items() if k != "record_hash"})):
+                raise FactorRepairError("repair_saved_source_record_invalid")
+            result = record["result"]
+            if name.startswith("source:"):
+                normalized_factor_rows(scope, result)
+            else:
+                if (not isinstance(result, dict) or set(result) != set(FACTOR_SOURCE_COLUMNS)
+                        or result["ts_code"] != scope.ts_code
+                        or result["trade_date"] != scope.as_of_trade_date):
+                    raise FactorRepairError("repair_anchor_source_invalid")
+                try:
+                    value = float(result["adj_factor"])
+                except (ValueError, TypeError) as error:
+                    raise FactorRepairError("repair_anchor_source_invalid") from error
+                if not math.isfinite(value) or value <= 0:
+                    raise FactorRepairError("repair_anchor_source_invalid")
+            saved[name] = (result, {"path": str(path), "record_hash": record["record_hash"]})
+    return saved
+
+
 def prepare_scoped_repair_inputs(
-    *, root, scopes, source, parent_lock, progress=None, cancel=None, run_phase=None
+    *, root, scopes, source, parent_lock, progress=None, cancel=None, run_phase=None,
+    source_root=None
 ):
     """One resumable authoritative planner for freeze; inspect remains read-only."""
     request = {"scopes": [asdict(s) for s in scopes]}
@@ -882,11 +894,14 @@ def prepare_scoped_repair_inputs(
         return {"frozen_plan": plan}
     if parent_lock.closed:
         raise FactorRepairError("repair_parent_guard_invalid")
+    if source_root is not None and Path(source_root) == Path(root):
+        raise FactorRepairError("repair_new_run_required")
     # The CLI holds this lock through preparation and the atomic plan freeze.
     implementation = [
         asdict(file_identity(p, cancel=cancel))
         for p in repair_implementation_files()
     ]
+    saved = read_saved_repair_sources(source_root, scopes, cancel=cancel) if source_root is not None else {}
     draft = RepairPreparation(root, request=request, implementation=implementation)
     rows = []
     anchors = []
@@ -896,10 +911,11 @@ def prepare_scoped_repair_inputs(
             draft.unit(
                 "source:" + scope.ts_code,
                 asdict(scope),
-                lambda s=scope: list(
+                lambda s=scope: (saved["source:" + s.ts_code][0] if saved else list(
                     fetch_current_factor_rows(s, source, cancel=cancel)
-                ),
+                )),
                 cancel=cancel,
+                source_origin=saved["source:" + scope.ts_code][1] if saved else None,
             )
         )
         params = {
@@ -910,6 +926,8 @@ def prepare_scoped_repair_inputs(
         }
 
         def anchor(params=params, scope=scope):
+            if saved:
+                return saved["anchor:" + scope.ts_code][0]
             response = source.call("adj_factor", params, FACTOR_SOURCE_COLUMNS)
             if (
                 tuple(response.columns) != FACTOR_SOURCE_COLUMNS
@@ -921,7 +939,8 @@ def prepare_scoped_repair_inputs(
             return {**response.rows[0], "trade_date": scope.as_of_trade_date}
 
         anchors.append(
-            draft.unit("anchor:" + scope.ts_code, params, anchor, cancel=cancel)
+            draft.unit("anchor:" + scope.ts_code, params, anchor, cancel=cancel,
+                       source_origin=saved["anchor:" + scope.ts_code][1] if saved else None)
         )
         if progress:
             progress(
@@ -941,7 +960,7 @@ def prepare_scoped_repair_inputs(
                 run_phase(phase, data)
                 if run_phase
                 else run_repair_preparation_phase(
-                    phase, data, cancel=cancel, progress=progress, parent_lock=parent_lock
+                    phase, data, cancel=cancel, progress=progress
                 )
             ),
             cancel=cancel,
@@ -955,7 +974,7 @@ def prepare_scoped_repair_inputs(
                 {
                     "phase": phase,
                     "elapsed_seconds": data["elapsed_seconds"],
-                    "peak_rss_bytes": data["peak_rss_bytes"],
+                    "completed_sql": data["completed_sql"],
                 }
             )
             if progress

@@ -27,7 +27,6 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     repair_units_from_inspection,
 )
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import (
-    inspect_repair_worker,
     prepare_scoped_repair_inputs,
     run_repair_inspection,
 )
@@ -69,7 +68,7 @@ def _writer_guard(plan):
             raise FactorRepairError("repair_writers_not_idle")
 
 
-def _freeze(args, scopes, source):
+def _freeze(args, scopes, source, *, source_root=None):
     from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
         repair_coordinator_termination_guard,
     )
@@ -80,7 +79,7 @@ def _freeze(args, scopes, source):
 
     with repair_coordinator_termination_guard(), repair_writer_lock(args.run_root) as lock:
         prepared = prepare_scoped_repair_inputs(root=args.run_root, scopes=scopes,
-            source=source, parent_lock=lock,
+            source=source, parent_lock=lock, source_root=source_root,
             progress=lambda data: print(json.dumps(data), file=sys.stderr, flush=True))
         if "frozen_plan" in prepared:
             return prepared["frozen_plan"]
@@ -148,24 +147,6 @@ def main(argv=None) -> int:
             progress=lambda data: print(json.dumps(data), file=sys.stderr, flush=True))
         print(json.dumps(result))
         return 0
-    if len(argv) == 2 and argv[0] == "_inspect_worker":
-        request = sys.stdin.read(4 * 1024**2 + 1)
-        if len(request) > 4 * 1024**2:
-            raise FactorRepairError("repair_inspection_input_budget_exceeded")
-        payload=json.loads(request)
-        def worker_progress(data):
-            print(json.dumps(data),file=sys.stderr,flush=True)
-        parent=payload.pop("_parent",None)
-        if parent is not None:
-            from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
-                repair_worker_parent_guard,
-            )
-            with repair_worker_parent_guard(parent):
-                result=inspect_repair_worker(payload,argv[1],progress=worker_progress)
-        else:
-            result=inspect_repair_worker(payload,argv[1],progress=worker_progress)
-        print(json.dumps(result,allow_nan=False))
-        return 0
     parser = argparse.ArgumentParser(description="只读核验批准股票的历史因子修复范围；不创建候选或正式任务。",
         epilog="专项候选：build/audit --plan PATH --expected-plan-hash HASH --phase factor|price|indicator (--full|--sample-target PATH)。")
     parser.add_argument("command", choices=("inspect", "freeze"))
@@ -225,7 +206,7 @@ def main(argv=None) -> int:
     observed = run_repair_inspection({"scopes": [asdict(s) for s in scopes],
                                      "source_rows": rows, "anchors": anchors},
                 progress=lambda phase, data: print(json.dumps({"phase": phase,
-                    "elapsed_seconds": data["elapsed_seconds"], "peak_rss_bytes": data["peak_rss_bytes"]}),
+                    "elapsed_seconds": data["elapsed_seconds"], "completed_sql": data["completed_sql"]}),
                     file=sys.stderr, flush=True))
     print(json.dumps(observed, allow_nan=False))
     return int(bool(observed["stop_reasons"]))
