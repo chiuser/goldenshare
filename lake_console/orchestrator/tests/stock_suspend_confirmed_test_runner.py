@@ -123,6 +123,13 @@ CONSUMER_SOURCE_FILES = (
     "defs/stock_period_update.py",
     "defs/bootstrap/stock_period_history.py",
     "defs/bootstrap/stock_period_history_cli.py",
+    # Current period Silver definitions and AST-discovered entry: exact files only.
+    "defs/bootstrap/stock_period_silver_cli.py",
+    "defs/checks/stock_period_silver_checks.py",
+    "defs/io/stock_period_silver.py",
+    "defs/run_contracts/stock_period_silver.py",
+    "defs/stock_period_silver.py",
+    "defs/asset_guards/stock_period_silver_readiness.py",
 
     "defs/stock_factor_price_checks.py",
     "defs/bootstrap/stock_adj_factor_history_repair.py",
@@ -260,15 +267,9 @@ CONSUMER_SOURCE_FILES = (
     'defs/bootstrap/stk_mins_gap_recovery_fetch.py',
     'defs/bootstrap/stk_mins_gap_recovery_raw.py',
     'defs/bootstrap/stk_mins_gap_recovery_source.py',
-    'defs/bootstrap/stock_weekly_event_files.py',
-    'defs/bootstrap/stock_weekly_event_instance.py',
-    'defs/bootstrap/stock_weekly_events.py',
     'defs/bootstrap/stock_weekly_events_cli.py',
-    'defs/bootstrap/stock_weekly_history.py',
-    'defs/bootstrap/stock_weekly_adj_bootstrap.py',
     'defs/bootstrap/stock_weekly_history_cli.py',
     'defs/prod_db/daily_basic.py',
-    'defs/prod_db/stock_weekly.py',
 
     "defs/daily_basic_contract.py",
     "defs/daily_basic_raw_io.py",
@@ -934,12 +935,13 @@ REGRESSION_SUITES = {
         ("G-runner-exit", 6, ("test_runner_child_exit",)),
         ("G-runtime-path", 10, ("test_runner_environment_path",)),
     ),
-    "root-guard": (("G-retirement", 13, (
+    "root-guard": (("G-retirement", 24, (
         "test_retired_console_has_no_versioned_or_new_source_files",
         "test_current_python_sources_do_not_import_retired_backend",
         "test_import_guard_rejects_retired_import_forms",
         "test_import_guard_preserves_current_modules_and_historical_text",
         "test_current_runtime_and_versioned_config_have_no_legacy_console_or_kopia_reference",
+        "test_runtime_reference_guard_separates_evidence_from_executable_sources",
         "test_current_lake_consumers_and_clickhouse_tools_are_present",
     )),),
     "test_stock_suspend_confirmed_bootstrap.py": (

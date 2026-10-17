@@ -1,0 +1,316 @@
+{
+  "format": 1,
+  "as_of": "2026-10-17T15:50:12.519285+08:00",
+  "scope": "seven-moneyflow continuation controller development only",
+  "status": "implemented_validation_blocked",
+  "prior_documents_commit": "d631ae974",
+  "pushed": false,
+  "new_tests": 99,
+  "related_regressions": 267,
+  "passed_tests": 366,
+  "tests": [
+    {
+      "suite": "continuation",
+      "tests": 99,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/continuation.xml",
+        "sha256": "5f9b079894ff46265765cbeb3a130c55bf9f06ebd6e625106505a4a1f468f758"
+      }
+    },
+    {
+      "suite": "test_moneyflow_cnt_ths_definitions",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_cnt_ths_definitions.xml",
+        "sha256": "b6904946f5a8baf41296acf3f587c6a0f45d334a646b4b5bcb0854c41dab60eb"
+      }
+    },
+    {
+      "suite": "test_moneyflow_dc_definitions",
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_dc_definitions.xml",
+        "sha256": "ea462a728d6c5feb11828062c087b59edc1ebcb89b39bb8755bd3868b39c2a23"
+      }
+    },
+    {
+      "suite": "test_moneyflow_definitions",
+      "tests": 48,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_definitions.xml",
+        "sha256": "2572b9cc3445ba6ff85569de94ccd5e5b4a7ed0c823f4049a074bdff799999c0"
+      }
+    },
+    {
+      "suite": "test_moneyflow_ind_dc_definitions",
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_ind_dc_definitions.xml",
+        "sha256": "981fdb0119a643d43512f0871b7f075953177367275b3d8d72d9107652539179"
+      }
+    },
+    {
+      "suite": "test_moneyflow_ind_ths_definitions",
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_ind_ths_definitions.xml",
+        "sha256": "c511a1d7ebd0a7ee4afa399ac3bb90f96a244fa54f5f7c8ed33fac207cfbcebf"
+      }
+    },
+    {
+      "suite": "test_moneyflow_mkt_dc_definitions",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_mkt_dc_definitions.xml",
+        "sha256": "220468c33e00d9fa0de778f0142728863f2d73bcf91c0e7b440b3d246af36e97"
+      }
+    },
+    {
+      "suite": "test_moneyflow_row_count",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_row_count.xml",
+        "sha256": "89dd236933f921530784dad5d310b13875681b2d11f65cf616adb38ef7badb8a"
+      }
+    },
+    {
+      "suite": "test_moneyflow_ths_definitions",
+      "tests": 39,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": {
+        "path": "/private/tmp/moneyflow-development-final.WqNkzm/test_moneyflow_ths_definitions.xml",
+        "sha256": "135a76787228c03b32f7ab85d88346a2dd4e80a2677c65906fb5359f7a84ccf1"
+      }
+    }
+  ],
+  "peak_new_suite_rss_bytes": 368492544,
+  "ruff_new_files": "PASS",
+  "ruff_fatal_baseline": "PASS",
+  "codegraph": [
+    "codegraph_explore",
+    "codegraph sync",
+    "codegraph status"
+  ],
+  "definitions_isolated": {
+    "path": "lake_console/reports/moneyflow_p4_continuation_definitions_isolated_20261017.json",
+    "sha256": "55b06df53de8d130b322afc005b7965dfb76aefa8e68e735533a0d6e6bec8672"
+  },
+  "readonly_existing_sample": {
+    "mode": "readonly_existing_market_sample",
+    "as_of": "2026-10-17T15:49:03.251258+08:00",
+    "units": [
+      {
+        "dataset": "moneyflow_mkt_dc",
+        "trade_date": "2026-10-08",
+        "registered": true,
+        "raw": {
+          "ready": true,
+          "reason": "ready",
+          "materialized": true,
+          "active": false,
+          "owned": false,
+          "failed": false,
+          "runs": [
+            {
+              "run_id": "7f9ea4b6-171b-4177-b545-0d245b768e38",
+              "status": "SUCCESS"
+            }
+          ],
+          "sha256": "303338656986d7a84cb07d1baca2b544b9877915df3089156f9f18e46e10ce0b",
+          "proof": {
+            "run_id": "7f9ea4b6-171b-4177-b545-0d245b768e38",
+            "materialization_id": 7627129,
+            "timestamp": 1792217768.540416,
+            "sha256": "303338656986d7a84cb07d1baca2b544b9877915df3089156f9f18e46e10ce0b",
+            "rows": 1
+          }
+        },
+        "silver": {
+          "ready": true,
+          "reason": "ready",
+          "materialized": true,
+          "active": false,
+          "owned": false,
+          "failed": false,
+          "runs": [
+            {
+              "run_id": "06491beb-e782-4898-85f9-1b110f8cbfb0",
+              "status": "SUCCESS"
+            }
+          ],
+          "sha256": "d5e1f303bfe1e232f9e43e4c6274d161ddcd520c9ad1d4472c0a4ec07a2b790a",
+          "proof": {
+            "run_id": "06491beb-e782-4898-85f9-1b110f8cbfb0",
+            "materialization_id": 7627157,
+            "timestamp": 1792217805.099406,
+            "sha256": "d5e1f303bfe1e232f9e43e4c6274d161ddcd520c9ad1d4472c0a4ec07a2b790a",
+            "rows": 1
+          }
+        }
+      }
+    ],
+    "decision": "complete",
+    "native_reads": 9,
+    "formal_mutations": 0,
+    "tushare_calls": 0
+  },
+  "constraints": {
+    "C01": [
+      "plan whitelist/maturity/child scope rejection",
+      "actual DuckDB calendar SQL with synthetic typed input"
+    ],
+    "C02": [
+      "seven real Raw/Silver jobs/checks with existing source fixtures",
+      "installed GraphQL schema and canonical whole-job requests",
+      "read-only verification of accepted formal market sample"
+    ],
+    "C03": [
+      "seven real isolated jobs repeated with zero additional source calls/runs",
+      "raw-only and ready state tests"
+    ],
+    "C04": [
+      "two actual processes contend for flock",
+      "actual process exits after durable intent",
+      "real jobs can acquire original writer lock while executor lock held"
+    ],
+    "C05": [
+      "lost response unit reconciliation",
+      "actual local HTTP consumes POST and drops response: one POST observed",
+      "exact-key plus partition native-query tests"
+    ],
+    "C06": [
+      "own queued run resumed by controller",
+      "readonly pool/foreign writer rejection; no broad all-jobs idle gate"
+    ],
+    "C07": [
+      "parent-child root digest retained; expansion rejected",
+      "prepared identities preserved across date; expiry stops new mutation"
+    ],
+    "C08": [
+      "failed native job stops following date",
+      "physical corruption rejected by all seven isolated chains",
+      "267 related existing definition/quantity regressions"
+    ],
+    "C09": [
+      "actual SIGINT/SIGTERM; no next action",
+      "observation quota persists across controller instances; background status retained"
+    ],
+    "C10": [
+      "corrupt/missing/symlink journal rejection",
+      "response-save failure preserves created native run; no re-POST"
+    ],
+    "C11": [
+      "49-unit metadata stress",
+      "persistent reads; ten-date batches; run disk walk count/depth/symlink rejection",
+      "full new suite peak RSS 368492544 bytes"
+    ],
+    "C12": [
+      "CLI option rejection and mutation-call static checks",
+      "global protected gates are NOT passed; see blockers"
+    ],
+    "C13": [
+      "113 dependency files,736 source inventory entries",
+      "source/calendar/config/server/isolated-report drift rejection; unrelated existing changes allowed and listed",
+      "14-asset/21-switch runtime mock boundary; real isolated Definitions loaded"
+    ]
+  },
+  "blockers": [
+    {
+      "id": "B1",
+      "checks": [
+        "catalog governance",
+        "run contract static gates"
+      ],
+      "stage": "launcher preflight; assertions not run",
+      "reason": "protected source allowlist still requires a weekly bootstrap file removed in committed period refactor",
+      "file": "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py:263",
+      "missing_file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_weekly_event_files.py",
+      "removal_commit": "09ea909fd",
+      "modified_by_this_task": false
+    },
+    {
+      "id": "B2",
+      "checks": [
+        "root retirement guard"
+      ],
+      "stage": "assertion in third source slice",
+      "reason": "historical JSON report stores the name of a forbidden-reference test; source scan treats that test name as runtime code",
+      "file": "tests/architecture/test_lake_console_retirement_guardrails.py:160",
+      "historical_report": "lake_console/reports/moneyflow_p4_daily_guard_evidence_20261013.json",
+      "modified_by_this_task": false
+    }
+  ],
+  "logs": {
+    "continuation.log": {
+      "path": "/private/tmp/moneyflow-development-final.WqNkzm/continuation.log",
+      "sha256": "07236be4f0cd776d273bf15696836267a00fbd00291d81f19f0b964fdc12d723"
+    },
+    "protected-test_asset_governance_contracts.py.log": {
+      "path": "/private/tmp/moneyflow-development-final.WqNkzm/protected-test_asset_governance_contracts.py.log",
+      "sha256": "8aecb593619691ccb5e4661a53729b369bb3585c10b7173967f25c98c5b96b37"
+    },
+    "protected-test_run_contract_static_gates.py.log": {
+      "path": "/private/tmp/moneyflow-development-final.WqNkzm/protected-test_run_contract_static_gates.py.log",
+      "sha256": "8aecb593619691ccb5e4661a53729b369bb3585c10b7173967f25c98c5b96b37"
+    },
+    "protected-root-guard.log": {
+      "path": "/private/tmp/moneyflow-development-final.WqNkzm/protected-root-guard.log",
+      "sha256": "d763ebbad93f23e763486059a13c812a08ecf4cea6f62613fa5964a36e5342b7"
+    },
+    "definitions.log": {
+      "path": "/private/tmp/moneyflow-development-final.WqNkzm/definitions.log",
+      "sha256": "6726a59033c29d7ac07913aff665c010cb1db4a9fc8338b20fa7df1f90e0166b"
+    }
+  },
+  "formal_actions": {
+    "registrations": 0,
+    "runs_launched": 0,
+    "lake_writes": 0,
+    "sensor_changes": 0,
+    "pool_changes": 0,
+    "reloads": 0,
+    "service_restarts": 0,
+    "tushare_calls": 0
+  },
+  "not_covered": [
+    "formal controller submit/interrupt/resume sample on market 2026-10-09",
+    "formal native queue and GraphQL-to-PG end-to-end recovery",
+    "48 remaining dates; automatic sensor enablement; P5"
+  ],
+  "next": "resolve existing protected-test blockers under a documented scoped design; rerun those gates before formal sample",
+  "new_source_sha256": {
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/__init__.py": "66fe9c3b8c51a60f08ae6cc57d105f61573723652c6390194b43674299771913",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/contract.py": "6fd8a5c5a983214dffb93e2bff07a9b1a13426afdaf3576cb518d77d136eeadf",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "ab9a0ed05d8e1ee51b2f9ae21b4bf0ae1875204b03d537b62f62be8cd9a2a0ac",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/plan.py": "26cbe880f3970ae4026ff66ce85bcf3efdec93e0665425240ff04b34d46fdfd5",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/state.py": "0310fbb94cd1e11e14cde28ddf5dee393e2cfbde9dbd116a077efc0afeb600e4",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "c2748dee4dd00e17fdda9da8508d2655838ccc28843b8b0e6c2a2674f7ad52da",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation_cli.py": "55094e507fce982fcb9394d4b022dbab1c377b6d090b84161611d2d40c2bd099"
+  }
+}

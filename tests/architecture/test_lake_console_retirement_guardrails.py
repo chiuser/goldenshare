@@ -111,8 +111,8 @@ def test_import_guard_preserves_current_modules_and_historical_text(source):
     assert _retired_imports(source) == []
 
 
-def test_current_runtime_and_versioned_config_have_no_legacy_console_or_kopia_reference():
-    issues = []
+def _is_runtime_source(relative: Path) -> bool:
+    """Report JSON is data; executable files and runtime config remain guarded."""
     suffixes = {
         ".py",
         ".ts",
@@ -125,28 +125,34 @@ def test_current_runtime_and_versioned_config_have_no_legacy_console_or_kopia_re
         ".yml",
         ".sh",
     }
-    for path in _source_files():
-        relative = path.relative_to(REPO_ROOT)
-        # Historical docs and negative test assertions are allowed evidence.
-        if (
-            path.suffix not in suffixes
-            or "tests" in relative.parts
-            or ".test." in path.name
-        ):
-            continue
-        if not relative.as_posix().startswith(
-            (
-                "src/",
-                "qtf/",
-                "scripts/",
-                "frontend/",
-                "wealth/",
-                "lake_console/",
-                ".github/",
-            )
-        ):
-            continue
-        source = path.read_text(encoding="utf-8").lower()
+    if (
+        relative.suffix not in suffixes
+        or "tests" in relative.parts
+        or ".test." in relative.name
+        or (
+            relative.parts[:2] == ("lake_console", "reports")
+            and relative.suffix == ".json"
+        )
+    ):
+        return False
+    return relative.as_posix().startswith(
+        (
+            "src/",
+            "qtf/",
+            "scripts/",
+            "frontend/",
+            "wealth/",
+            "lake_console/",
+            ".github/",
+        )
+    )
+
+
+def _runtime_reference_issues(relative: Path, source: str) -> list[str]:
+    if not _is_runtime_source(relative):
+        return []
+    return [
+        fragment
         for fragment in (
             "kopia",
             "lake_console.backend",
@@ -154,9 +160,60 @@ def test_current_runtime_and_versioned_config_have_no_legacy_console_or_kopia_re
             "lake_console/frontend",
             "local-lake-console.sh",
             "config.local.example.toml",
-        ):
-            if fragment in source:
-                issues.append(f"{relative}: {fragment}")
+        )
+        if fragment in source.lower()
+    ]
+
+
+@pytest.mark.parametrize(
+    "relative,source,expected",
+    [
+        (
+            "lake_console/reports/evidence.json",
+            '{"cases":["test_no_kopia_reference"]}',
+            [],
+        ),
+        (
+            "lake_console/reports/history/evidence.json",
+            '{"old_import":"lake_console.backend"}',
+            [],
+        ),
+        (
+            "lake_console/reports/run.py",
+            "subprocess.run(['kopia','snapshot','create'])",
+            ["kopia"],
+        ),
+        ("lake_console/reports/run.sh", "kopia snapshot create", ["kopia"]),
+        ("lake_console/reports/run.mjs", "spawn('kopia', [])", ["kopia"]),
+        (
+            "lake_console/orchestrator/config.json",
+            '{"command":"kopia snapshot create"}',
+            ["kopia"],
+        ),
+        (".github/workflows/job.yaml", "run: kopia snapshot create", ["kopia"]),
+        ("src/reports/config.json", '{"command":"kopia"}', ["kopia"]),
+        ("lake_console/reports_backup/config.json", '{"command":"kopia"}', ["kopia"]),
+        ("src/ops/config.json", '{"table":"ops.dataset_status_snapshot"}', []),
+        ("lake_console/reports/run.yaml", "run: kopia snapshot create", ["kopia"]),
+    ],
+)
+def test_runtime_reference_guard_separates_evidence_from_executable_sources(
+    relative, source, expected
+):
+    assert _runtime_reference_issues(Path(relative), source) == expected
+
+
+def test_current_runtime_and_versioned_config_have_no_legacy_console_or_kopia_reference():
+    issues = []
+    for path in _source_files():
+        relative = path.relative_to(REPO_ROOT)
+        if _is_runtime_source(relative):
+            issues.extend(
+                f"{relative}: {fragment}"
+                for fragment in _runtime_reference_issues(
+                    relative, path.read_text(encoding="utf-8")
+                )
+            )
     assert issues == []
 
 

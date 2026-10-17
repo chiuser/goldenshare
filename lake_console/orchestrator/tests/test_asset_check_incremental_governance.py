@@ -10,6 +10,7 @@ from pathlib import Path
 
 import orchestrator.defs.checks as checks_pkg
 import orchestrator.defs.sensors as sensors_pkg
+from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET, ANNOUNCEMENT_CHECKS
 from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
@@ -52,6 +53,16 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_checks,
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
+)
+from orchestrator.defs.run_contracts.moneyflow_automation import (
+    BOARD_DC_MONEYFLOW_AUTOMATION,
+    CONCEPT_THS_MONEYFLOW_AUTOMATION,
+    INDUSTRY_THS_MONEYFLOW_AUTOMATION,
+    MARKET_MONEYFLOW_AUTOMATION,
+    STOCK_DC_MONEYFLOW_AUTOMATION,
+    STOCK_MONEYFLOW_AUTOMATION,
+    STOCK_THS_MONEYFLOW_AUTOMATION,
+    MoneyflowAutomationContract,
 )
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
@@ -967,6 +978,27 @@ ASSET_CHECK_GOVERNANCE.update({
     for source in StockMonthlySource
 })
 
+# These existing checks are mandatory delivery evidence. Their actual consumer
+# uses MoneyflowAutomationContract, rather than the AssetReadinessSpec adapter.
+MONEYFLOW_GOVERNANCE_CONTRACTS = (
+    MARKET_MONEYFLOW_AUTOMATION, INDUSTRY_THS_MONEYFLOW_AUTOMATION,
+    CONCEPT_THS_MONEYFLOW_AUTOMATION, BOARD_DC_MONEYFLOW_AUTOMATION,
+    STOCK_DC_MONEYFLOW_AUTOMATION, STOCK_THS_MONEYFLOW_AUTOMATION,
+    STOCK_MONEYFLOW_AUTOMATION,
+)
+ASSET_CHECK_GOVERNANCE.update({
+    getattr(contract, layer + "_asset"): _rules(
+        (getattr(contract, layer + "_check"),),
+        category=KEEP_BLOCKING_DAGSTER, phase="moneyflow-P4",
+        readiness=True, retention_allowed=False,
+    )
+    for contract in MONEYFLOW_GOVERNANCE_CONTRACTS for layer in ("raw", "silver")
+})
+ASSET_CHECK_GOVERNANCE[ANNOUNCEMENT_ASSET] = _rules(
+    ANNOUNCEMENT_CHECKS, category=KEEP_BLOCKING_DAGSTER,
+    phase="anns-d-onboarding", readiness=False, retention_allowed=False,
+)
+
 PROTECTED_CHECK_GOVERNANCE = {
     check_name: _rule(
         category=KEEP_BLOCKING_DAGSTER,
@@ -1024,6 +1056,8 @@ def _readiness_check_pairs() -> set[tuple[str, str]]:
     )
     for module in sensor_modules:
         for value in vars(module).values():
+            if isinstance(value, MoneyflowAutomationContract):
+                pairs.update(((value.raw_asset, value.raw_check), (value.silver_asset, value.silver_check)))
             for spec in _iter_readiness_specs(value):
                 for check_name in spec.blocking_check_names:
                     pairs.add((spec.asset_key.to_user_string(), check_name))
@@ -1053,6 +1087,18 @@ class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
         catalog_checks = _catalog_blocking_checks_by_asset()
 
         self.assertEqual(set(ASSET_CHECK_GOVERNANCE), set(catalog_checks))
+        from orchestrator.defs.bootstrap.asset_check_event_retention import ASSET_CHECK_RETENTION_ASSET_KEYS
+        delivery_assets = {ANNOUNCEMENT_ASSET} | {
+            getattr(contract, layer + "_asset")
+            for contract in MONEYFLOW_GOVERNANCE_CONTRACTS for layer in ("raw", "silver")
+        }
+        self.assertEqual(len(delivery_assets), 15)
+        self.assertTrue(delivery_assets.isdisjoint(ASSET_CHECK_RETENTION_ASSET_KEYS))
+        for asset in delivery_assets:
+            for rule in ASSET_CHECK_GOVERNANCE[asset].values():
+                self.assertEqual(rule.category, KEEP_BLOCKING_DAGSTER)
+                self.assertFalse(rule.retention_allowed)
+                self.assertEqual(rule.participates_in_sensor_readiness, asset != ANNOUNCEMENT_ASSET)
         for asset_key, check_names in catalog_checks.items():
             with self.subTest(asset=asset_key):
                 rules = ASSET_CHECK_GOVERNANCE[asset_key]

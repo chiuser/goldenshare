@@ -940,12 +940,31 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertIn('ColumnContract("points_json", "JSON"', schema_source)
         self.assertNotIn('ColumnContract("points_json", "VARCHAR"', schema_source)
-        self.assertIn(
-            "GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (\n"
-            '    "gold_wealth_market_turnover_integrity_check",\n'
-            ")",
-            catalog_source,
-        )
+        def declared_checks(source):
+            assignments = [
+                node for node in ast.parse(source).body
+                if isinstance(node, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id == "GOLD_WEALTH_MARKET_TURNOVER_CHECKS"
+                    for target in node.targets
+                )
+            ]
+            self.assertEqual(len(assignments), 1)
+            return ast.literal_eval(assignments[0].value)
+
+        expected = ("gold_wealth_market_turnover_integrity_check",)
+        self.assertEqual(declared_checks(catalog_source), expected)
+        # Literal formatting variants and forbidden values are independent of
+        # the current catalog text. The guard must check content, not wrapping.
+        for expression, accepted in (
+            ('("gold_wealth_market_turnover_integrity_check",)', True),
+            ('(\n    "gold_wealth_market_turnover_integrity_check",\n)', True),
+            ('()', False),
+            ('("wrong_check",)', False),
+            ('("gold_wealth_market_turnover_integrity_check", "extra_check")', False),
+        ):
+            with self.subTest(expression=expression):
+                actual = declared_checks("GOLD_WEALTH_MARKET_TURNOVER_CHECKS = " + expression)
+                self.assertEqual(actual == expected, accepted)
         self.assertEqual(check_source.count("@dg.asset_check"), 1)
 
     def test_gold_wealth_market_turnover_prod_sync_boundary(self) -> None:

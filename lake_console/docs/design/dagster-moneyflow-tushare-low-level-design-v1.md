@@ -3805,7 +3805,7 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 ### 70.1 本步目标、现状与明确边界
 
-本节落实上一轮方案审计发现的8项缺口，作为下一步开发依据；方案总览见[实施方案§75](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-continuation-design)。**这是设计，工具尚未实现，测试与正式执行均未开始。** 本轮授权是补齐原方案、LLD和根规则，不包含开发、正式任务提交或打开自动更新。§69是已完成的大盘单日操作记录，不能把其中的临时脚本当作七表工具实现。
+本节落实上一轮方案审计发现的8项缺口，作为开发依据；方案总览见[实施方案§75](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-continuation-design)。本节开工设计及§70.13保留当时记录；用户随后批准提交、开发并修正复验，**本步开发验收已完成，当前结果见§70.16；§70.14保留修正前失败记录，尚未进入新的正式数据执行。** §69是已完成的大盘单日操作记录，不能把其中的临时脚本当作七表工具实现。
 
 本步只增加一个运营命令行工具：对明确清单里的“数据集＋日期”，调用原有完整Raw/Silver任务，读取它们真实生成的文件、物化和检查，支持工具退出后的继续观察和跳过已验收日期。它不自己采集业务数据、生成Parquet、补发物化或检查，也不接入新的调度链。
 
@@ -3846,7 +3846,7 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 不改旧CLI行为、`definitions.py`、正式asset/job/check/sensor、共享resources、run-key builder、受保护测试启动器或pyproject依赖。不把工具模块导入active Definitions，不再保留一条临时脚本正式执行链。后续若发现必须越出此表，先回原方案/LLD说明原因、影响与测试，满足确认规则后才改。
 
-拟定命令形式如下，当前**不可执行**，也不表示本轮授权正式动作：
+命令形式如下，实现状态见§70.14；能执行命令不代表已批准正式apply：
 
 ```text
 工作目录 /Users/congming/github/goldenshare/lake_console/orchestrator
@@ -3870,6 +3870,10 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 这是新增CLI输入与固定工具策略的配置审计；没有新增系统env、Settings、DB配置或用户页面。Tushare凭据由原任务资源获取，工具不读取/复制token，不把环境、连接密码或完整异常堆栈写进报告。
 
 ### 70.4 七表验收方式和固定执行顺序
+
+开发时真实生产者校准：`partition_set`字段表示动态分区定义（`cn_a_moneyflow…_trade_days`），用于登记及资产分区核对；原生run的`dagster/partition_set`标签则是`<job_name>_partition_set`。Dagster 1.13.26完整任务会生成该标签，并将两个完整执行步骤写入`step_keys_to_execute`。已只读核对10-08原Raw/Silver任务及安装版本生产代码。新工具按完整job的原生标签和完整两步骤核对，不能要求标签等于动态分区名，也不能把原生保存的完整步骤误判为运营请求子步骤。请求仍不包含step/asset/check选择字段。
+
+开发输入细化（2026-10-17）：`scope-file`采用`{"units":[{"dataset":"…","trade_date":"YYYY-MM-DD"}],"verification":{"path":"绝对证据路径","sha256":"文件摘要"}}`。verification只引用只读审计证据，不是新增业务参数或批准开关。证据必须包含当前运行依赖文件摘要、日历/instance配置摘要、当前serverId及14资产/21开关读回、隔离Definitions验证报告的路径和摘要；工具逐项重新比对，不接受单独的`approved=true`。依赖按七表入口及本工具的本地Python导入闭包计算，含共享模块；全库存另外记录。隔离报告须注明实际命令、退出码、覆盖的源码摘要及无正式凭据/隔离instance事实，不能用报告文件存在代替其内容核对。正式使用前由只读审计生成这份证据；本轮只在临时资源测试证据读取和拒绝分支。
 
 固定顺序为大盘→THS行业→THS概念→DC板块→DC个股→THS个股→moneyflow；每表日期升序。同日Raw及其blocking check完成后，才提交同日Silver及其blocking check。本工具每次最多拥有一个尚未终结的资金流任务，不提前把整批任务塞入队列。
 
@@ -3953,6 +3957,8 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 ### 70.10 性能测算和拒绝条件
 
+工具元数据的有界实现补充：源码库存最多3000个文件、导入依赖闭包最多1000个文件、单动作目录最多8个控制文件（含中断残留临时文件），均收敛到`ContinuationPolicy`；超界停止，不能递归扩大读取。原采集的请求/时间/SQL内存上限直接引用既有moneyflow合同常量，不在新工具复制一套可调整值。
+
 以下均为开发约束，不是新实测结果；原账户配额已确认够用，不再审计配额。实际行数估算引用10-17验收报告中的09-30物理行数，不能冒充48天的实测：90、387、1031、6024、5215、5572行，加大盘每天1行，预计本批约128239行/层；未来合法增长不因此裁剪。
 
 | 项目 | 本步预算/估算及处置 |
@@ -4003,7 +4009,9 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 新工具样本通过后，在明确批准的完整剩余清单内逐表处理；其他六表第一天完整读回验收后继续同表剩余日期。失败任务修复、sensor启用、未来新交易日及P5至少3个交易日验收均不属于本步开发或上述一个日期样本许可。最终批量退出条件是批准范围每项都有准确的原生/物理证明，已完成不重跑，未决/失败/停止数明确、完整历史保留证据充分，21资金流sensor仍STOPPED；未完成项不能省略或标成整个P4完成。
 
-### 70.13 设计审计对账与当前状态
+### 70.13 设计审计对账（开工前记录）
+
+下表及本小节末尾是写设计时的审计事实；当前实现与未通过项统一见§70.14，不再以当时的“未实现”描述当前代码。
 
 | 前次审计问题 | 已写明的决定 | 后续怎样证明，不冒充已完成 |
 | --- | --- | --- |
@@ -4019,3 +4027,74 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 本轮完成原方案/LLD互引与本地链接核验、14个Raw/Silver字段结构核对、48项/96任务/222请求/128239行估算和21120次执行读上界算术对账，8项审计问题与13条实现/测试硬口径均有唯一落点。文档检查未访问正式资源、未运行功能测试。
 
 本轮静态审计已给这8项问题逐项确定处理方式，并对照当前真实代码/消费者和原性能规则校核设计；**结论仅为文档设计缺项已补齐，不是新工具已实现、已测试或获准正式执行。** 后续若实测证明某个前提不成立，必须先回本节及方案§75修订影响和验证，再满足已有确认规则进入下一动作，不能以临时脚本绕过。
+
+### 70.14 2026-10-17实现、实测及验收阻塞（修正前记录）
+
+以下为问题发现时的历史事实；修正后状态及复验结果见§70.16。
+
+用户批准“提交修改，如果没有新的卡点就推进完成本步”后，先提交三份原文档/根规则，提交号`d631ae974`；随后按§70.3新增七个工具源码文件和六份测试，未更改已有Dagster定义、共享合同、受保护启动器或其配置。CodeGraph开工分析覆盖原合同、writer、readiness及调用入口，开发后执行`codegraph sync/status`，索引正常；没有跨子系统依赖、Lake路径或架构矩阵调整。
+
+工具已经实现plan/inspect/apply、固定七表和成熟SSE日期白名单、父子范围限制、跳过已验收/仅补Silver、独立跨进程锁、请求和发送意图先持久化、未知响应核对、观察原run、失败停止、信号停止、持久化读取/观察预算、代码/配置/加载核对及有界文件核验。它不直接写业务Parquet或补造事件。原生分区标签/完整步骤的真实差异已先同步§70.4再修正新工具。
+
+证据文件：
+
+- [开发及验收报告](../../reports/moneyflow_p4_continuation_development_20261017.json)：本轮源码摘要、99项新测试、267项相关回归、C01～C13测试映射、真实只读结果、未通过门禁及日志摘要。
+- [隔离Definitions加载报告](../../reports/moneyflow_p4_continuation_definitions_isolated_20261017.json)：实际命令`.venv/bin/dg check defs`、退出0、临时instance/无正式凭据、113个依赖文件及736项源码库存；加载前后库存一致。它只证明隔离加载，不能代替正式serverId/加载确认。
+
+99项新测试覆盖真实双进程锁竞争、意图后真实进程退出、实际SIGINT/SIGTERM、真实本机假HTTP服务响应丢失、独立原生身份反例、49项压力、代码/加载漂移和文件遍历边界；新测试进程峰值RSS为368492544字节，低于768MiB。七表隔离链路使用当前真实Raw/Silver job、asset check、临时SQLite事件存储和Parquet，来源/时钟及HTTP提交边界使用替身。in-process测试适配器显式核对它与正式GraphQL在origin及空asset selection上的差别，没有放宽正式validator；正式native identity另以独立反例及10-08既有任务只读核验。每表重复调用均新增0源请求/0任务；故意损坏文件后停止。267项既有回归分别在新进程运行，覆盖七表定义/写入/恢复/来源及数量门禁；不宣称真实网络采集或正式队列恢复已验收。
+
+另外用新只读backend核对既有正式`moneyflow_mkt_dc / 2026-10-08`：9次原生读取，两层各1行，准确绑定原run、物化、blocking检查、当前摘要和来源证明，判为complete。没有重新提交、登记、采集或写湖。原Raw/Silver run分别仍为`7f9ea4b6-171b-4177-b545-0d245b768e38`及`06491beb-e782-4898-85f9-1b110f8cbfb0`。本轮未作任何正式mutation、启用sensor、设置容量、reload或重启服务。
+
+| 未通过项 | 当前代码/实测依据 | 本步处理与退出条件 |
+| --- | --- | --- |
+| B1：受保护启动器仍要求已删除文件 | `tests/stock_suspend_confirmed_test_runner.py:263`仍列`defs/bootstrap/stock_weekly_event_files.py`；文件已由`09ea909fd`正式删除，当前Git无该路径。目录治理和run-contract静态套件均在启动器预检退出，不能记为测试断言通过 | 保留原失败日志，不恢复退役实现、不拓宽目录读权限、不改启动器。后续须先审计重构后的精确文件白名单/消费者并完成修正设计和既有确认，再改并复跑 |
+| B2：根门禁将历史报告中的测试名误作运行引用 | 原启动器执行根门禁，到第三份源码切片失败；`tests/architecture/test_lake_console_retirement_guardrails.py:160`扫描`moneyflow_p4_daily_guard_evidence_20261013.json`，命中的只是其中保存的测试函数名称，无实际被禁命令或import | 保留不可改写的历史报告，不删字段迎合检查。后续须审计运行代码、运行配置与历史证据的识别边界，保留真实禁用引用的反例测试，再修正原门禁并复跑 |
+
+上述两项在本轮首次实测发现，说明此前开工审计没有覆盖测试基础设施当前可运行性；不能用历史通过或本轮366项通过替代。**当前状态为“功能实现及局部验收完成，完整开发收尾阻塞”，不满足§70.12全部退出条件。** 新增实现和本小节记录留待提交；正式10-09样本、剩余48项、自动更新及P5均未开始。本次授权未扩展到受保护启动器/根门禁修正，下一步先落实其方案与审计，满足原确认要求后处理B1/B2；通过后再回到§70.12既定正式样本顺序。
+
+### 70.15 两项测试问题的修正设计（2026-10-17，用户已批准修正并复验）
+
+目标是消除§70.14的B1/B2，让原检查真实运行；不恢复周线旧实现、不削弱网络/正式Lake/数据库隔离、不删除历史报告，不借本步登记分区、运行正式job、切换sensor或重载服务。用户本轮已明确要求“马上修正这俩问题，然后复验，继续推进”，覆盖以下测试修正及隔离验证，无需重复请求同一授权。
+
+**代码与影响面审计。** 已核对原启动器`source_files_for_scope/policy_for`、consumer套件真实imports及当前defs文件库存，CodeGraph检索后用当前代码补足测试文件未清晰索引的部分。isolation/adapter/regression/root-guard源码列表均无失效路径；仅consumer列表残留6项：`stock_weekly_event_files.py`、`stock_weekly_event_instance.py`、`stock_weekly_events.py`、`stock_weekly_history.py`、`stock_weekly_adj_bootstrap.py`和`prod_db/stock_weekly.py`。它们已被周/月线重构提交`09ea909fd`删除，现行调用方为`stock_period_history`及其CLI；保留的旧CLI明确抛出retired错误，不能写入。删除这6个失效权限条目，保留上述拒绝入口的测试读取权限。
+
+consumer用于真实全量定义导入/AST审计，当前还必须读取5个已存在的新模块：`defs/bootstrap/stock_period_silver_cli.py`、`defs/checks/stock_period_silver_checks.py`、`defs/io/stock_period_silver.py`、`defs/run_contracts/stock_period_silver.py`、`defs/stock_period_silver.py`。已逐项读取其imports：它们与现有周/月线asset/check/catalog相连，其余本地依赖已在精确列表内。只新增这5个普通文件字面路径，不自动收集目录、不新增目录递归权限；consumer唯一文件数从728变为727。其余4种scope保持原列表，原runtime目录身份校验、network deny、正式路径deny及启动/计数/skip/xfail门禁保持。`CONSUMER_SOURCE_FILES`本身是原有隔离配置：默认仍为精确静态tuple，来源/持久化为原启动器源码，仅consumer套件消费，下次生成隔离policy生效，不新增env、DB、CLI或全局设置。
+
+**历史证据与运行代码分开。** 根门禁保留Git跟踪/非忽略新文件的完整库存，以及所有Python文件的真实退役import检查。将现有运行引用判断提成测试文件内纯函数：只将`lake_console/reports/`下的`.json`识别为报告数据，允许包含测试名称/历史引用；不排除整个reports目录。该目录中的`.py/.sh/.mjs`仍检查，正式代码/配置路径下的JSON/YAML仍检查，名称相似的`reports_backup`也不能绕过。原错误报告只保存了`cases`里的测试函数名，不是运行配置，不改写其内容。新增独立字面正反样本，证明历史报告允许、真正命令/import/配置仍能抓住；根套件固定断言数随新增参数样本同步，原断言不减少。
+
+**实现文件。** 仅修改`orchestrator/tests/stock_suspend_confirmed_test_runner.py`、根`tests/architecture/test_lake_console_retirement_guardrails.py`，新增`orchestrator/tests/test_protected_test_runner_inventory.py`核对当前真实文件库存和失效/符号链接拒绝。两份资金流原方案/LLD同步记录；既有周/月线实现、共享脏文件及旧执行证据不改。
+
+**验证与预算。** 先用新增反例证明修正前失败，再复跑原consumer目录治理、run-contract静态、asset-check增量治理、root-guard与I03～I08；这些仍只通过原受保护启动器执行，不直接pytest绕过。新增启动器静态库存测试只读本地源码，使用项目现有venv和临时资源，无Dagster/网络/正式数据访问。复跑资金流99项新测试；上一轮267项既有回归代码/依赖未变，保留其摘要，不为测试基础设施修正重复源采集。根门禁仍按原每1000文件切片，原完整Git库存不缩减；每child沿原时限/资源/失败即停策略。只保存小型元数据/日志到临时目录和reports，不读写业务行、无源请求；无新增数据量/事务/配额成本。
+
+中断保留日志后重跑测试，不撤回或改写业务事实；失败不跳过、不降断言、不扩大文件/网络权限。完成条件是新增正反样本、上述原门禁、当前隔离Definitions、Ruff和文档检查全部通过，并记录准确数量和代码摘要，再将本步开发验收状态改为完成。若发现新的真实依赖差异，先回本节说明具体路径和调用方再调整，不恢复旧代码或盲放行整个目录。正式单日样本与全量接续继续遵守§70.12的阶段边界。
+
+§70.15复验补充：B1修正后目录治理已能执行；静态套件暴露一个同源的旧断言问题：`test_gold_wealth_market_turnover_keeps_single_json_integrity_check`按三行源码字符串寻找`GOLD_WEALTH_MARKET_TURNOVER_CHECKS`，当前catalog只是排版成一行，真实值仍是唯一integrity检查。已读取真实赋值、check定义及目录治理消费者，并对全静态套件可解析的多行assertIn做只读核对，仅发现这一处失配。修正范围补入`tests/test_run_contract_static_gates.py`该断言：解析实际赋值AST，要求赋值唯一且字面tuple恰为原单一检查名称；原JSON类型、唯一check断言均保留，113个逻辑测试不减少。补同方法内独立单/多行及空/多项/错名样本；不修改catalog或期望业务值。该修正是完成原静态复验所必需，继续按本轮已批准的修正/复验范围执行，原隔离边界和正式动作禁区不变。
+
+§70.15增量治理对账补充：原目录/静态检查已通过后，增量治理套件实际执行发现测试矩阵未登记七表Raw/Silver共14个资产及已存在公告Raw资产。已读取七表真实blocking checks、`moneyflow_delivery_readiness`及各sensor转发的`MoneyflowAutomationContract`，确认检查参与同日就绪判断；当前通用测试适配器仅识别AssetReadinessSpec，漏识别这类合同。公告实际有file_contract、delivery_reconciliation两个blocking check，无对应sensor readiness入口；正式保留清单也未包含这些资产。只在已被其他任务修改的`tests/test_asset_check_incremental_governance.py`新增独立资金流/公告段：category保持KEEP_BLOCKING_DAGSTER、retention_allowed=False；资金流readiness=True、公告False；测试实际消费者发现补识别sensor模块中真实导入并转发的MoneyflowAutomationContract。保留周/月线原有未提交段，不重排或收走他人差异，不改生产检查、retention列表或任何调度。对账仍由原6个完整方法核对catalog、实际checks和实际consumer，补独立保护断言，不能仅把缺项过滤掉。该项属于本轮完整复验中发现的测试清单缺失，按用户要求修正后复验；不是新增数据集或业务能力。
+
+§70.15当前工作区刷新：收尾核对发现16:05周/月线另有实际修改：两个period合同变化，并新增`defs/asset_guards/stock_period_silver_readiness.py`。已读取该文件及两个合同的新增接口，内容只服务周/月线update/event evidence，不修改资金流合同；但当前全量defs审计确需读取新模块。白名单在已审计5项之外再补此1个普通文件，consumer现为728项；仍不开放目录，不改动这些他人源码。旧隔离加载证明因此不能继续当作当前证明，最后一次验收须重新采集库存和加载结果；资金流源码本身未变，不凭“无关”跳过实际影响核对。若加载前后库存再次变化，则该次证明作废，不标当前验收通过。
+
+### 70.16 两项问题已修正、开发验收完成及下一步准备
+
+本轮按用户指令完成§70.15修正，并以原受保护启动器完成复验；当前本步开发状态从“验收阻塞”变为“开发验收完成”，不是P4全部完成。证据见[复验报告](../../reports/moneyflow_p4_continuation_gate_recheck_20261017.json)、[本轮隔离加载报告](../../reports/moneyflow_p4_continuation_gate_recheck_definitions_20261017.json)。先前失败报告和10-13历史报告全部保留，已核对后者与当前Git HEAD的字节摘要相同。
+
+| 要求/修正 | 真实落点及证据 |
+| --- | --- |
+| 周线旧文件不再需要 | 读取现行stock_period历史实现、旧CLI的retired拒绝及`09ea909fd`删除事实；consumer移除6条失效路径，按当前imports/全定义发现补入6个精确普通文件，最终唯一文件数728。其余4种scope列表不变，不使用exists过滤来默默丢检查 |
+| 历史报告误报消除 | 根测试先按用途判断文件，报告目录JSON仅作为数据；同目录Python/Shell/JS、正式目录JSON/YAML及相似目录仍检查。11个独立正反样本通过；真实Python退役import检查仍覆盖原完整Git库存 |
+| 拒绝坏权限条目 | 新增8项启动器库存测试；修正前实际2失败/6通过，修正后8项全过，包括真实缺文件、符号链接必须拒绝，当前defs发现与显式名单逐项对账 |
+| 格式变化不改变合同 | 静态检查改读实际AST唯一赋值及原单元素tuple；单/多行都接受，空、多项、错名拒绝，原JSON类型及唯一check断言保留；113项逻辑测试不减少 |
+| 治理记录与生产者一致 | 仅补测试矩阵漏登的14资金流资产及公告Raw资产，读取现行真实checks与readiness消费者；blocking/不进入专用retention的现状保持，原周/月线未提交段保留。6项原方法及180个子测试通过 |
+| 原门禁真实复跑 | 目录治理12项、run-contract静态113项、增量治理6项通过；root-guard每切片24逻辑用例，8个切片均通过，完整Git库存7633项，无删减；I03～I08全部通过，包含启动防护正反、Python/native网络隔离及正式根拒绝 |
+| 新工具仍正确 | 七表接续工具99项加库存8项，共107项最新复验通过，无skip/xfail代替通过；七个工具源码摘要与上一轮一致。此前267项既有回归保留其原日期/摘要，本轮不冒充重跑 |
+| 当前隔离加载与边界 | 临时HOME/instance、无正式凭据执行`.venv/bin/dg check defs`，退出0，加载期间737项源码库存稳定；113项资金流依赖在收尾核对一致。Ruff新库存/根测试默认规则、项目致命错误检查及文档检查通过 |
+
+本轮实际修改4份已有测试文件、增加1份库存测试，并同步两份原文档和新增复验报告；没有修改资金流业务代码、共享目录/依赖矩阵、正式Lake路径、asset/check/job/sensor、源请求或保留执行逻辑。测试代码层的新增读取严格为上文逐项审计的普通文件；I03～I08证明原网络、正式数据与启动边界未放宽。
+
+**共享工作区的准确限制。** 隔离加载之后，三个既有周/月线模块又有修改：`stock_period_silver_readiness.py`、`stock_period_silver_cli.py`、`stock_period_silver.py`。它们不在已审计的113项资金流执行/工具导入闭包内；全库存文件集合未新增/删除，相关路径与当前摘要已单列在复验报告。不能声称整个共享项目源码从此不变，也不因此重跑资金流源采集或退回旧实现。本步结论绑定报告时间与资金流依赖；下一正式动作仍按§70.9重新核对当时实际源码/加载证明。隔离报告不是正式服务加载批准。
+
+继续完成了下一步的只读准备：正式实例中`moneyflow_mkt_dc / 2026-10-09`未登记、无两层交付，确为已成熟SSE开市日；21个资金流sensor全部STOPPED；资金流池显式容量1、未占用、无pending，daemon/14资产合同读回通过。下一动作应从登记这一天开始，再按§70.12执行Raw提交后停止工具/接回原run/Silver/重复零新增的样本。此处只读准备不构成可执行清单或正式写入授权，正式源码加载绑定尚需在该步骤核对；未悄悄扩大到剩余48项。
+
+本轮正式mutation、分区登记、运行提交、Tushare请求、写湖、开关修改、容量设置、reload及服务重启均为0。源码/文档/报告改动尚未提交或推送；后续按用户提交指令白名单处理，不混入周/月线他人修改。
+
+§70.16末次核对补充：在上述全套复验通过、生成报告之后，周/月线继续修改了`run_contracts/stock_period.py`与`run_contracts/stock_period_silver.py`，另有4个period helper实现变化。两个合同位于保守导入闭包内，**末次核对已不再与本轮隔离加载摘要一致**；不能沿用上文“生成报告时一致”的事实证明当前正式加载。五份本次修正测试的摘要未变，全套测试通过记录保留，但正式执行就绪为False，已追加`post_report_recheck`及精确路径/时间。不自行修改、回退或锁住周/月线实现，不因此重复重跑已经通过的测试；待共享代码稳定后，刷新受影响验证与正式加载绑定，再进入10-09正式样本。本步已完成测试缺陷修正和对应复验，不能据此声称共享工作区从此稳定或正式样本可以直接运行。
