@@ -1,0 +1,170 @@
+{
+  "as_of": "2026-10-17T19:31:59.719291+08:00",
+  "run_id": "ca3d12ad-717e-4291-a87f-6c2a3d37204a",
+  "status": "FAILURE",
+  "error": "ValueError: sleep length must be non-negative",
+  "source_file": "defs/source_readiness/moneyflow_daily.py:91",
+  "candidate_path": "/Volumes/datasource/data_lake_staging/moneyflow/ca3d12ad-717e-4291-a87f-6c2a3d37204a/moneyflow/2026-10-13/raw.parquet",
+  "candidate_sha256": "63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4",
+  "first_round_schema_columns": 20,
+  "first_round_rows": 5574,
+  "first_round_pages": [
+    {
+      "file": "page-0.json",
+      "rows": 2000,
+      "sha256": "6ccfb5bbbab469277933ccfa887b4a705cb2871e9da751a49a16a16aed63b19e"
+    },
+    {
+      "file": "page-2000.json",
+      "rows": 2000,
+      "sha256": "d4ad181d6d20d13cd52839682e4f9bc04bf016818ebc0e6cf71bccbdff1029a7"
+    },
+    {
+      "file": "page-4000.json",
+      "rows": 1574,
+      "sha256": "38c517a85ad49fd2b0dfe6d90c2503a5c84a58a5ac39a788dc775cb18aa27169"
+    }
+  ],
+  "successful_page_calls_lower_bound": 3,
+  "total_requests_exact": null,
+  "request_upper_bound_per_original_run": 64,
+  "unknown_reason": "The failed run never produced the final source receipt containing request/retry counters; successful persisted pages prove a lower bound only.",
+  "receipt": {
+    "dataset": "moneyflow",
+    "stage": "collecting",
+    "trade_date": "2026-10-13"
+  },
+  "verification_exists": false,
+  "round2_exists": false,
+  "promotion_exists": false,
+  "active_moneyflow_runs": [],
+  "formal_writes_this_audit": 0,
+  "failed_run_retained": true,
+  "new_retry_submitted": false,
+  "native_events": {
+    "run_id": "ca3d12ad-717e-4291-a87f-6c2a3d37204a",
+    "status": "FAILURE",
+    "events": [
+      {
+        "id": 7633061,
+        "event": "ASSET_MATERIALIZATION_PLANNED",
+        "message": "raw_tushare_moneyflow_update_job intends to materialize asset [\"raw_tushare_moneyflow\"]",
+        "error": []
+      },
+      {
+        "id": 7633062,
+        "event": "ASSET_CHECK_EVALUATION_PLANNED",
+        "message": "raw_tushare_moneyflow_update_job intends to execute asset check raw_tushare_moneyflow_file_contract_check on asset [\"raw_tushare_moneyflow\"]",
+        "error": []
+      },
+      {
+        "id": 7633063,
+        "event": "PIPELINE_ENQUEUED",
+        "message": "",
+        "error": []
+      },
+      {
+        "id": 7633064,
+        "event": "PIPELINE_STARTING",
+        "message": "",
+        "error": []
+      },
+      {
+        "id": 7633065,
+        "event": "ENGINE_EVENT",
+        "message": "Started process for run (pid: 31776).",
+        "error": []
+      },
+      {
+        "id": 7633066,
+        "event": "PIPELINE_START",
+        "message": "Started execution of run for \"raw_tushare_moneyflow_update_job\".",
+        "error": []
+      },
+      {
+        "id": 7633067,
+        "event": "ENGINE_EVENT",
+        "message": "Executing steps using multiprocess executor: parent process (pid: 31776)",
+        "error": []
+      },
+      {
+        "id": 7633068,
+        "event": "STEP_WORKER_STARTING",
+        "message": "Launching subprocess for \"raw_tushare_moneyflow\".",
+        "error": []
+      },
+      {
+        "id": 7633069,
+        "event": "STEP_WORKER_STARTED",
+        "message": "Executing step \"raw_tushare_moneyflow\" in subprocess.",
+        "error": []
+      },
+      {
+        "id": 7633070,
+        "event": "RESOURCE_INIT_STARTED",
+        "message": "Starting initialization of resources [io_manager, lake_root, tushare].",
+        "error": []
+      },
+      {
+        "id": 7633071,
+        "event": "RESOURCE_INIT_SUCCESS",
+        "message": "Finished initialization of resources [io_manager, lake_root, tushare].",
+        "error": []
+      },
+      {
+        "id": 7633072,
+        "event": "LOGS_CAPTURED",
+        "message": "Capturing logs for process (pid: 31842).",
+        "error": []
+      },
+      {
+        "id": 7633073,
+        "event": "STEP_START",
+        "message": "Started execution of step \"raw_tushare_moneyflow\".",
+        "error": []
+      },
+      {
+        "id": 7633074,
+        "event": "STEP_FAILURE",
+        "message": "Execution of step \"raw_tushare_moneyflow\" failed.",
+        "error": [
+          {
+            "class": "DagsterExecutionStepExecutionError",
+            "message": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_moneyflow\":\n"
+          },
+          {
+            "class": "ValueError",
+            "message": "ValueError: sleep length must be non-negative\n"
+          }
+        ]
+      },
+      {
+        "id": 7633076,
+        "event": "ENGINE_EVENT",
+        "message": "Multiprocess executor: parent process exiting after 1m5s (pid: 31776)",
+        "error": []
+      },
+      {
+        "id": 7633077,
+        "event": "PIPELINE_FAILURE",
+        "message": "Execution of run for \"raw_tushare_moneyflow_update_job\" failed. Steps failed: ['raw_tushare_moneyflow'].",
+        "error": [
+          {
+            "class": "DagsterExecutionStepExecutionError",
+            "message": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_moneyflow\":\n"
+          },
+          {
+            "class": "ValueError",
+            "message": "ValueError: sleep length must be non-negative\n"
+          }
+        ]
+      },
+      {
+        "id": 7633078,
+        "event": "ENGINE_EVENT",
+        "message": "Process for run exited (pid: 31776).",
+        "error": []
+      }
+    ]
+  }
+}

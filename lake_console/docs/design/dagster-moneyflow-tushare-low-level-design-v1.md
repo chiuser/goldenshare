@@ -4223,3 +4223,28 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 §70.22开发复验已通过：旧代码次数断言实际4次、预期2次而失败，4个身份反例原本通过；修正后5项全部通过，全156项隔离回归（含原七表真实job/检查/Parquet和42项恢复测试）、原受保护113项静态、Ruff致命基线及本次默认规则均通过。当前114依赖、740源码隔离加载稳定；仍无正式Definitions、源参数、配置或业务文件合同变更。
 
 当前THS两日已结束并独立验收，各5215行，两层共4任务/4物化/4实际绿检、来源请求12，reject0。当前总42/49，剩moneyflow7日。更新当前核对依据后的精确命令见[最终剩余执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/final/execution_manifest.json)，同根47项SHA256=3566965e64feed34092a4f32c614eacf057159f884dd9bd686a9172c1a989b70，moneyflow10-08首日SHA256=a3ee1a2fc9185f213c47a0fb194b03f12430be67ccddedfa6a842ceb3e47bb1a，余六日SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9。沿原CLI按manifest执行，Python加-u只确保进度日志即时可读，不改变业务参数；正式home、路径、停止/续跑及原预算不变。首日独立读回后才继续六日。
+
+
+moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、原始与规范化全字段转换正确，来源两轮6请求、retry0、reject0，准确绿检及物化均绑定成功run。证据见[首日验收](../../reports/moneyflow_p4_continuation_recovery_20261017/03-moneyflow-first-acceptance.json)。当前43/49，依原命令清单继续10-09、12～16六日，SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9；无新增范围和源码修改。
+
+
+### 70.23 新发现：60秒等待边界错误及待确认的单日Raw恢复
+
+**已证实的失败。** 2026-10-17 19:27，moneyflow10-13 Raw run ca3d12ad-717e-4291-a87f-6c2a3d37204a在真实STEP_START之后失败。原生STEP_FAILURE异常链为ValueError: sleep length must be non-negative，准确堆栈指向defs/source_readiness/moneyflow_daily.py:91。该循环先用clock判断未满60秒，经过guard（包含另一次时间读取）后又用clock计算sleep；如果刚好跨过60秒，会传入负数。第一轮Raw候选已写完，收据仍collecting，无第二轮、无正式Raw/Silver、无物化或实际check评估，故不能把第一轮直接提升或报成功。大盘采集器source_readiness/moneyflow.py:74～76存在相同实现。现有测试Clock只有sleep才推进，遗漏了代码运行期间跨过边界的真实情况；此前测试通过不能证明这个边界安全。
+
+当前已完成45/49；moneyflow10-08、09、12已通过，10-13失败，10-14～16未执行。六日CLI已经退出3，未跳过失败日期。既有THS10-14单次Silver启动恢复已用完，不能把§70.21的批准挪用于本次已开始业务的Raw失败。下面是待确认的新修复及执行方案，未修改生产采集器、未reload、未重试该Raw。
+
+**修复目标、范围与依据。** CodeGraph已审计collect_daily_moneyflow→daily_raw_writer→daily_update→六个daily Raw资产及相应测试，同时追到大盘collect_market_moneyflow独立writer。只修正两个既存采集器的同一等待计算错误：每轮先guard，再读取一次remaining；remaining≤0直接退出，否则sleep(min(1,remaining))，再次循环仍执行取消/300秒/RSS门禁。保留两轮独立请求、至少60秒的真实间隔、分页/字段/行数/内容一致性及所有拒绝条件；不缩短等待、不吞ValueError、不改Tushare参数、配置、schema、job、check、sensor或DatasetDefinition。修复同时覆盖7表的同类缺陷，已经完成的45项不重采。
+
+**生产代码加载及影响面。** 修改仅两个source_readiness模块及独立回归；恢复控制涉及现有plan/CLI、recovery、state、submission、execution与全部测试消费者。实现前核对当前差异和CodeGraph影响面，不能改周/月线或共享合同。修复验证后，核对无活动资金流任务，按现行code location加载流程加载当前修正源码，再刷新当前隔离Definitions、原生14资产合同、21停止状态和依赖证明；不重启DG服务，不修改并发/pool或启用sensor。正式加载的完整GraphQL请求须先按安装版schema验证并列入本节执行清单，不能以只读名义调用reload。
+
+**单日恢复的明确输入与持久记录。** 原launch_recovery（已执行Silver）保持原值及全部证据。拟新增可选collection_recovery，默认None、最多1项，只绑定本次moneyflow/10-13/Raw父run、首轮候选摘要、完整失败证据引用；不得由错误文本自动推断批准。plan/CLI验证root范围及不可更换父run；recovery集中验证这类真实等待失败，不复用“无业务执行”的启动失败断言；Journal固定新增raw_reexecution动作目录，原raw/request/intent/response/预算及候选全部只读保留。原生仅一次ALL_STEPS父run重执行，产生新run和新候选目录，重新完成两轮下载，不复用collecting候选；原run仍FAILURE。子run须同job/日期/空配置/标准原Raw key、parent/root均指原父、完整asset+blocking check。没有批准项或未知/额外父子、第三个同层run、其他业务失败均拒绝。不能做成通用retry-failed开关，也不支持第二次恢复。新Raw成功且准确绿检/来源证明通过后，原正常Silver按新Raw摘要执行，然后才进入10-14～16。
+
+**执行前门槛及副作用核对。** 固定父run确为原Journal已发送并有响应的完整Raw任务，终态FAILURE、worker退出，事件有界≤60条且不截断；唯一STEP_FAILURE为上述ValueError且堆栈准确指向等待计算，必须无STEP_SUCCESS、业务物化、实际check评估或正式Raw/Silver。候选只允许已核对的首轮目录、raw.parquet及collecting收据，没有第二轮验证或promotion；独立按现行20列/主键/日期审计首轮并固定摘要。此旧候选仅证明现场，不作为正式数据。原Raw已实际请求来源，缺少最终收据中的计数，必须明确已存在的成功分页数和未知重试数，不能声称请求为0或精确总请求数已知。
+
+**预算及中断。** 原47项最大任务尝试从95增为96，仅增加本次Raw恢复1次提交；原成功目标仍94个完整任务，全49项最终98成功＋2保留失败。失败父候选和新候选均计入原32GiB/余量64GiB；由于collecting收据没有elapsed_ms，不改旧收据，按已验证事件绑定并保守占用单Raw完整300秒活动预算，计入原4小时总上限。失败请求按已有成功分页数作为下界、原单run64请求作为上界计账；新run仍≤64请求/300秒/768MiB、每轮≤20000行、等待≥60秒，预期新完整两轮6请求。新raw_reexecution动作≤40读、观察≤120次/20分钟/10秒，旧计数不清零；元数据总命令≤400读/300秒。仅明确这一个失败允许collecting证据改按上述保守计量，其他不完整收据仍拒绝。写前持久化新请求/发送意图，响应不明先读原生唯一子run，未找到不盲重发。新恢复失败即停、不递归重试；传输失败、源修订、质量或数量失败仍保留现场并停止。
+
+**测试及验收。** 独立时钟夹具必须模拟在循环判断、guard、计算remaining之间自然跨过60秒，先证明旧代码对六表及大盘都能传负数失败；修正后断言每次sleep严格为正、第二轮请求前真实间隔≥60秒、时间未满不提前、取消/超时仍拒绝。不得让测试时钟只有sleep才走时。复跑7表采集/真实job/check/Parquet回归、156项控制回归及受影响保护/静态/Ruff/加载。恢复新增反例覆盖未授权/错父/错候选/实际业务成功或正式文件/非该错误/额外子run/部分选择/响应丢失/旧记录预算保持/失败不再重试/重复0新增。修复及加载通过后先只执行10-13完整Raw＋Silver并独立读回，成功再继续三日；全49项独立验收须同时保留2失败与2条计划但未评估的check记录，原47项重放0新增。完成前不得把45/49写成第一步完成。
+
+
+§70.23只读收尾补充：独立核对已完成45项、每层105996行，共90份正式文件、90次成功任务、90条真实物化及90条准确通过检查，核验311读、原400上限保持。另保留THS10-14启动失败和moneyflow10-13等待失败，整个49项范围当前92次任务（90成功＋2失败），无活动资金流任务，21sensor仍STOPPED。详见[45项独立验收与剩余状态](../../reports/moneyflow_p4_continuation_recovery_20261017/45-partial-acceptance.json)。失败Raw首轮5574行20列、3个持久化成功分页，collecting收据无最终request/retry计数；完整成功来源收据证明200次请求，失败任务额外请求下界3、原策略上界64，整个范围当前来源请求只能报告203～264，不能伪称精确总数203。证据见[失败现场](../../reports/moneyflow_p4_continuation_recovery_20261017/moneyflow-oct13-failure.json)。此首轮未提升，既有45项不重采；新恢复问题已向管理员明确提出，尚未收到答复前不修改采集器、加载或提交新Raw。
