@@ -1,0 +1,59 @@
+{
+  "mode": "isolated_read_only_code_audit",
+  "formal_resources_used": false,
+  "source_fixture_basis": [
+    "tests/test_moneyflow_moneyflow.py:literal20-field public contract",
+    "tests/test_moneyflow_moneyflow_mkt_dc.py:literal15-field market contract"
+  ],
+  "results": [
+    {
+      "case": "clock_boundary_daily",
+      "independent_expected": "Never call sleep with a negative duration; second round only after>=60s",
+      "actual": "sleep length must be non-negative",
+      "negative_sleep": -0.0001500000000120849,
+      "source_calls_before_failure": 1,
+      "defect_reproduced": true
+    },
+    {
+      "case": "clock_boundary_market",
+      "independent_expected": "Never call sleep with a negative duration; second round only after>=60s",
+      "actual": "sleep length must be non-negative",
+      "negative_sleep": -0.0001500000000120849,
+      "source_calls_before_failure": 1,
+      "defect_reproduced": true
+    },
+    {
+      "case": "resume_progress_with_one_complete_one_failed",
+      "independent_expected": {
+        "completed": 1,
+        "remaining": 1,
+        "new_posts": 0
+      },
+      "actual": {
+        "completed": 0,
+        "remaining": 2,
+        "new_posts": 0,
+        "reason": "native_run_failed"
+      },
+      "defect_reproduced": true
+    },
+    {
+      "case": "inspect_partial_failure",
+      "independent_expected": "Return completed and failed unit facts without permitting mutations",
+      "actual": "native_run_failed",
+      "status_reporting_gap": true,
+      "new_posts": 0
+    },
+    {
+      "case": "lost_response_and_repeat",
+      "independent_expected": "one native run and one POST",
+      "actual": {
+        "posts": 1,
+        "native_runs": 1,
+        "same_run": true
+      },
+      "protection_passed": true
+    }
+  ],
+  "production_code_changed": false
+}

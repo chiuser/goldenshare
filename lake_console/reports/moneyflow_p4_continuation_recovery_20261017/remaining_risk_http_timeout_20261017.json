@@ -1,0 +1,11 @@
+{
+  "mode": "isolated_loopback_transport_probe",
+  "sdk_timeout_seconds": 0.1,
+  "server_gap_between_chunks_seconds": 0.04,
+  "actual_total_request_seconds": 0.2768829590640962,
+  "request_succeeded": true,
+  "whole_response_timeout_not_enforced": true,
+  "production_source_requests": 0,
+  "formal_resources_used": false,
+  "scope": "Installed SDK Requests timeout is per socket inactivity, not overall wall-clock deadline; scaled localhost transport demonstration only."
+}

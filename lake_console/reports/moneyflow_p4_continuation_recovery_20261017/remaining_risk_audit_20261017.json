@@ -1,0 +1,214 @@
+{
+  "as_of": "2026-10-17T20:40:46.082694+08:00",
+  "scope": {
+    "dataset": "moneyflow",
+    "dates": [
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16"
+    ],
+    "whole_step_completed": 45,
+    "whole_step_total": 49,
+    "formal_execution_ready": false
+  },
+  "findings": [
+    {
+      "id": "R1",
+      "classification": "confirmed_defect",
+      "title": "Both stability waits can pass a negative sleep duration",
+      "code": [
+        "defs/source_readiness/moneyflow_daily.py:89",
+        "defs/source_readiness/moneyflow.py:74"
+      ],
+      "evidence": "Both current collectors reproduced -0.000150s in an advancing-clock/early-wakeup scenario; each failed after one source round. Native10-13 stack independently pins the daily implementation.",
+      "required": "Single remaining-time sample after guard; break when<=0; positive sleeps only. Add advancing clock, early wakeup, deadline crossing, cancel and total-budget negatives for both collectors.",
+      "must_close_before_formal_execution": true
+    },
+    {
+      "id": "R2",
+      "classification": "unimplemented_recovery_dependency_with_confirmed_precondition_failure",
+      "title": "Fixing collection alone cannot resume the old failed Raw through the approved controller",
+      "code": [
+        "moneyflow_continuation/plan.py:validate_plan",
+        "moneyflow_continuation_cli.py:run",
+        "moneyflow_continuation/state.py:next_action",
+        "moneyflow_continuation/state.py:snapshots",
+        "moneyflow_continuation/state.py:disk_budget",
+        "moneyflow_continuation/recovery.py:effective_runs",
+        "moneyflow_continuation/submission.py:Journal",
+        "moneyflow_continuation/execution.py:apply"
+      ],
+      "evidence": "Current scope accepts launch_recovery only for Silver. Raw failure remains terminal; creating a child without migrating the controller creates duplicate_native_runs. Current disk_budget independently returns raw_activity_proof because the collecting receipt has no elapsed_ms.",
+      "required": "Implement the already proposed explicit single Raw recovery across all consumers; preserve old journals and failed candidate; count both old and new disk; charge failed Raw conservatively300s; use a separate durable action budget; inherit original Raw identity; transition recovered Raw to ordinary Silver, never directly complete. Keep unknown failures rejected.",
+      "must_close_before_formal_execution": true
+    },
+    {
+      "id": "R3",
+      "classification": "confirmed_observability_defect",
+      "title": "Existing completed units disappear from reported progress when a later unit failed",
+      "code": [
+        "moneyflow_continuation/execution.py:132",
+        "moneyflow_continuation/execution.py:99"
+      ],
+      "evidence": "Isolated native boundary with one literal completed unit and one failed unit returns completed0/remaining2 instead of1/1. inspect raises native_run_failed and suppresses unit facts. No POST is sent.",
+      "required": "Count immutable ready facts before failure decisions; report all unit states and a failure exit status without allowing writes. Separate effective successes from preserved failures. Keep subsequent submission blocked.",
+      "must_close_before_formal_execution": true
+    },
+    {
+      "id": "R4",
+      "classification": "confirmed_timeout_semantics_gap_potential_slow_network_stall",
+      "title": "Socket inactivity timeout is not a whole-request or whole-run deadline",
+      "code": [
+        "defs/resources.py:TushareResource.call",
+        "defs/tushare_request_policy.py:_BoundedRequestRunner.execute",
+        "defs/source_readiness/moneyflow_daily.py:guard"
+      ],
+      "evidence": "Installed Tushare1.4.29 uses Requests2.34.2 timeout=30. Loopback SDK probe with timeout0.1s succeeds after0.277s when chunks arrive every0.04s. Current300s guard runs before/after blocking calls; current job has no max-runtime tag and formal monitoring config has no explicit max-runtime.",
+      "required": "Complete a moneyflow-scoped total-deadline/cancellation design before coding. It must stop an in-flight slow call, release request/worker resources, preserve candidate/journal facts, and be tested with a real loopback slow response. A Future timeout that leaves the request running, a larger timeout, or a global resource/config change is not an acceptable substitute. Transport choice and process/connection/RSS cost are not yet approved or implemented.",
+      "official_reference": "https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts",
+      "must_close_before_formal_execution": true
+    },
+    {
+      "id": "R5",
+      "classification": "confirmed_environment_provenance_drift",
+      "title": "Previous loaded-service proof is stale even though dependencies are unchanged",
+      "code": [
+        "moneyflow_continuation/state.py:verification",
+        "moneyflow_continuation/state.py:guard",
+        "moneyflow_continuation/plan.py:make_plan"
+      ],
+      "evidence": {
+        "old_server_id": "906ed8b6-8fd2-4f1f-b724-3ce491b35e69",
+        "current_server_id": "1dee22e1-cff8-4af2-8195-f70354f9c35a",
+        "changed_dependencies": [],
+        "old_plan_valid_until": "2026-10-18T00:00:00+08:00"
+      },
+      "required": "After fixes, audit current code/load and refresh isolated definitions and runtime binding; generate same-root remaining4-date children from the full47 parent. Do not reload merely because the server ID changed; reload fixed production modules only when needed and authorized. After midnight use a newly dated child without broadening dates or resetting persisted budgets.",
+      "must_close_before_formal_execution": true
+    },
+    {
+      "id": "R6",
+      "classification": "unimplemented_final_acceptance_dependency",
+      "title": "Final audit and repeat currently understand only the older Silver recovery",
+      "code": [
+        "moneyflow_continuation/execution.py:inspect",
+        "moneyflow_continuation/state.py:snapshots",
+        "existing_read_only_acceptance_helper"
+      ],
+      "evidence": "Existing readback helper special-cases launch_recovery/Silver; other same-date duplicate runs and planned-only check rows are rejected. Once Raw recovery succeeds its parent must also remain visible.",
+      "required": "Use the same approved recovery identities in inspect, aggregate counts and zero-write repeat:98 successful jobs+2 retained failed jobs=100 runs for all49;98 physical files/materializations/evaluated passed checks;2 distinct planned-only checks do not count as failures or passes. Archive readback logic/commands in the existing maintained tool rather than relying solely on ephemeral /private/tmp scripts. Migrate all consumers together.",
+      "must_close_before_formal_execution": true
+    }
+  ],
+  "verified_protections": [
+    {
+      "area": "Existing45 deliveries",
+      "result": "All90 physical hashes/rows and ready identities rechecked; unchanged; no new source calls."
+    },
+    {
+      "area": "Disk and mounts",
+      "result": {
+        "lake_parent_is_mount": true,
+        "same_device": true,
+        "free_bytes": 2923913666560,
+        "required_free_bytes": 68719476736
+      }
+    },
+    {
+      "area": "Concurrency and automation",
+      "result": {
+        "pool": {
+          "limits": [
+            [
+              1,
+              false
+            ]
+          ],
+          "slots": [
+            [
+              null
+            ]
+          ],
+          "pending": 0
+        },
+        "active_moneyflow_runs": [],
+        "sensors_stopped": 21
+      }
+    },
+    {
+      "area": "Dates and counts",
+      "result": {
+        "open_days": [
+          "2026-10-13",
+          "2026-10-14",
+          "2026-10-15",
+          "2026-10-16"
+        ],
+        "oct13_first_round_rows": 5574,
+        "five_day_median": 5572,
+        "count_gate_passed": true,
+        "future_actual_source_results_not_claimed": true
+      }
+    },
+    {
+      "area": "Pagination/data gates/cancel/persistence",
+      "result": "37 selected existing tests passed, covering real public5572-row fixture, exact page termination, duplicate/changed source rejection, bounded retry/cancel, file hash binding, per-file intent/replace recovery and controller journals."
+    },
+    {
+      "area": "Lost HTTP response",
+      "result": "Independent fake native probe confirms one POST/one native run across recovery and repeat."
+    }
+  ],
+  "remaining_limits": [
+    {
+      "area": "External source behavior",
+      "limit": "No real Tushare requests were made in this audit; Oct14-16 future source schemas/rows/two-round equality cannot be guaranteed before formal fetch. Real inconsistency or count drop must still stop, not be swallowed."
+    },
+    {
+      "area": "Queue and observer lifetime",
+      "limit": "Current20-minute/120-read observation budget includes queue wait and is persisted. Controller exit does not cancel native work. Reconnect to the same native identity; do not reset quotas or resubmit because of waiting."
+    },
+    {
+      "area": "Publication helper vs native run recovery",
+      "limit": "Existing interrupted-publication tests reuse operation_id=resume in isolated helpers. They do not prove that a failed Dagster run with a new run ID can reuse the original operation. A file published without native delivery remains a separate explicit repair scope; no generic automatic recovery claim."
+    },
+    {
+      "area": "Old worker PID",
+      "limit": "Historical Silver recovery checks os.kill(pid,0) on a numeric PID even after a successful child. A future PID reuse could cause a false stop; current audit passed this check. Avoid a broad new process-management feature; pin a final-readback regression so an unrelated reused PID cannot invalidate an already verified delivery."
+    }
+  ],
+  "verification": {
+    "selected_existing_isolated_tests_passed": 37,
+    "adversarial_isolated_cases": 5,
+    "confirmed_defects_reproduced": 3,
+    "partial_inspect_reporting_gap_reproduced": true,
+    "loopback_transport_cases": 1,
+    "formal_read_only_reads": 288,
+    "formal_read_only_seconds": 5.8490779576823115,
+    "formal_mutations": 0,
+    "production_source_requests": 0,
+    "codegraph_scope": "collectors/request session/raw writer/publication/assets; CLI/plan/Journal/state/execution/recovery; no Ops/Web/qtf changes",
+    "tested_code_sha256": {
+      "src/orchestrator/defs/source_readiness/moneyflow_daily.py": "b761f6f1b754664659c983531c581a33634e8ea4c1b939ffb47410c2a33f1ef7",
+      "src/orchestrator/defs/source_readiness/moneyflow.py": "7910ece96c7d667bf66c4fcaddeb785af833154d4bb5a51dba8da2e48f33a596",
+      "src/orchestrator/defs/tushare_request_policy.py": "a623e25cee26382f26f74176fe77f2552ec3538dfcaa7676df29e3852dde5658",
+      "src/orchestrator/defs/resources.py": "30311abe87116c3dae5413ac5c99912c203d4eddd6a630a01a49b56be6281a6e",
+      "src/orchestrator/moneyflow_continuation/plan.py": "99cb2b145992630946268b11246fcf548861fbf141f57eb08c0002ad9963c270",
+      "src/orchestrator/moneyflow_continuation/state.py": "523b6fb93a36ec14a68ac739886724362d2f53b20a1b81a8de220bc89b884678",
+      "src/orchestrator/moneyflow_continuation/submission.py": "28d906cc8745adda537d54bfa09b3a5e17119709b552679f96c905a966321fc4",
+      "src/orchestrator/moneyflow_continuation/execution.py": "1da4d9357b2d93804522f8ad52c48a09ec1ebad3a92e8107d69eb69d1ecfafd3",
+      "src/orchestrator/moneyflow_continuation/recovery.py": "0a1e9bad02155fce834bdfddb4087d5eb58f9bdebbc121ea591471dd38923e24",
+      "src/orchestrator/moneyflow_continuation_cli.py": "1cfa66114640e60b7ce4efc3748e07a8d3cf0fc09d535cbccfaa5f218ddc9ff6"
+    },
+    "targeted_test_log": {
+      "path": "/private/tmp/moneyflow-remaining-risk-targeted-tests.log",
+      "sha256": "d4277b87f52032f1c38acd474f70dd217642d0dd59fad1675759ea7a2fb83faf"
+    }
+  },
+  "decision": "Do not proceed by fixing sleep only. Complete one coherent repair design and implementation, then exercise the exact failure-to-Raw-to-Silver-to-next3-to-final49-to-zero-write-repeat path with isolated resources before formal resumption.",
+  "production_code_changed": false,
+  "new_configuration_added": false,
+  "dependencies_or_boundary_changed": false,
+  "new_retry_submitted": false
+}
