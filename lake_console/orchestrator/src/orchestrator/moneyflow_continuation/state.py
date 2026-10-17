@@ -761,16 +761,17 @@ class NativeBackend:
                         )
                         owned = False
                         if runs and files:
-                            native = (
-                                {
-                                    "run_id": runs[0].run_id,
-                                    "status": runs[0].status.value,
-                                }
-                                if recovery
-                                else self.reconcile(
-                                    unit, layer, files["request"]["body"]
+                            # This bounded date+job query has already proved uniqueness.
+                            # Check its canonical request tags directly; only submissions
+                            # need the independent exact-key/date reconciliation reads.
+                            if not recovery:
+                                self.validate_run(
+                                    runs[0], unit, layer, files["request"]["body"]
                                 )
-                            )
+                            native = {
+                                "run_id": runs[0].run_id,
+                                "status": runs[0].status.value,
+                            }
                             owned = "send_intent" in files and native is not None
                             if "response" in files:
                                 self.check_response(

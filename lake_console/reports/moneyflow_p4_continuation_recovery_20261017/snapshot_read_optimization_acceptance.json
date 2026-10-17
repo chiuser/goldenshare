@@ -1,0 +1,16 @@
+{
+  "as_of": "2026-10-17T19:19:40.138593+08:00",
+  "root_units": 47,
+  "completed_in_root": 40,
+  "current_whole49_completed": 42,
+  "actual_reads": 250,
+  "elapsed_seconds": 3.5980762080289423,
+  "formal_mutations": 0,
+  "before_optimization": {
+    "completed_in_root": 38,
+    "actual_reads": 396
+  },
+  "new_tests_passed": 5,
+  "full_regression_passed": 156,
+  "old_code_regression_failed_as_expected": "4 actual reads vs2 expected for one Raw-active/Silver-absent unit; four identity negatives passed before and after."
+}

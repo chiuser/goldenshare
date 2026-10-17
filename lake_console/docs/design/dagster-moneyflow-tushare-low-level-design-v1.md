@@ -4203,3 +4203,23 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 §70.21执行前实测（2026-10-17 19:11）：恢复代码覆盖plan/CLI、Journal、NativeBackend与apply/inspect，42项新恢复测试通过；完整旧109项加首批41项恢复测试共150项通过，补充原生reconcile绑定测试1项随后通过，合计151项不同用例。临时HTTP端口及受保护启动器子进程使用工具规定的提权执行；没有以正式资源做测试。原受保护目录治理及113项静态门禁通过，项目Ruff致命基线、本次文件默认规则和文档检查通过。当前隔离Definitions加载通过，114份依赖、740份源码清单加载期间稳定，84份已验收资金流生产文件及共享moneyflow AST均保持；当前正式服务身份未变、14资产合同一致、21sensor停止，无须reload。
 
 本轮精确四段命令见[恢复及余下执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/execution_manifest.json)。工作目录仍为orchestrator，正式DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home，CLI只读PG并通过原生GraphQL提交，写入只限原已批准Raw/Silver目标及其run staging/事件和同一控制根。第一段仅THS个股10-14 Silver，plan SHA256=e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603；完整命令为 `.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan /Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json --expect-plan-sha256 e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603`。当前只读plan已验证原失败全部10条事件、worker退出、5215行Raw原摘要及无Silver/候选；没有提前POST。中断仍只读接回原恢复任务，响应不明不重发；成功读回后继续其余三段，不启用sensor。
+
+
+§70.21恢复结果及源码核对刷新：10-14 Silver新run 3a5b03dc-c6c1-4284-b6c0-e981e26576ea已SUCCESS；独立读回确认5215行13列、两层全字段转换/摘要和真实blocking检查target正确，原失败run仍FAILURE；本次恢复新增来源请求0。当前40/49、剩9。CLI在成功后的源码检查因catalog摘要变化退出3，未继续任何下一日期；不是恢复任务失败，不能再提交第二个恢复任务。对比当前代码及已验收commit的AST，catalog变更仅周/月线Raw/Silver的3处notes说明，资金流35节点及84份生产文件保持；不涉及资金流数据合同或调用。按§70.9重新做当前隔离加载及源码证明，生成原47项同根新只读清单和3段剩余执行清单（THS两日、moneyflow首日、其余六日）；保留本节一次恢复描述，旧清单/记录/预算不改、不启用sensor，不因无关说明文字变更重跑数据。刷新仅更新当前核验依据，执行日期、完整job、预算及一次恢复上限均保持。
+
+
+源码核对刷新已完成：114份当前依赖及740份源码加载期间稳定，正式服务serverId保持、21sensor停止。新的同范围总清单SHA256=b4b01f914d89e56068e47605ac8e466f4c8f7b8650a8670b844ac23de0a46cc7；三段剩余命令见[刷新后的执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/refresh/execution_manifest.json)。先执行THS 10-15/16，清单SHA256=d8f58632ef3335855c5e3d123c2be043a0587a7385cf0fea4f495f7f99d61b9e；其后moneyflow首日及六日摘要分别为77c87df9ece4751ec14529d6f01612b08c6102625c69ff0af601c577ed004d48、89d4d1cd865e2b26b170555582f7de37773ea699d828676a29969f08d0d71681。旧执行退出及恢复成功分别记录；本次不新增恢复任务或重写旧请求。
+
+
+### 70.22 最终汇总前去除重复任务查询
+
+**目标及当前依据。** 在§70.21的同根47项只读实测中，38项完成、9项待做时snapshots已耗396次读取。state.snapshots每层已按job＋partition读过至多3个run并拒绝重复，却在有Journal时又调用reconcile，重复按同样日期读一次、按run key再读一次。全部47项完成预计450次，超过原400次上限；不能通过提高上限、过滤失败或分次清零掩盖。CodeGraph已覆盖snapshots→reconcile/validate_run、CLI plan/apply/inspect及测试消费者。此步是完成原第一步验收所需的有界读取修正，不改变业务任务及外部契约。
+
+**实现及硬边界。** 只改state.snapshots：复用本轮已经查到的唯一run，直接用validate_run核对原Journal完整job、partition、标准run key、空配置、origin、完整步骤，再核对持久化intent和原响应绑定；两层各少2次重复查询。原submit_once中的写前/写后reconcile继续独立实时查询，不复用缓存；重复run、错误key/日期/父链、未知响应、原失败拒绝、绿检及物理文件验证均保持。单次恢复仍按§70.21完整父子核验并保留失败，不能把本优化扩展为忽略失败。预计完整47项约266次snapshots读取，最终49项含额外事件汇总仍≤400；原300秒、768MiB、动作40次及所有写入预算不变。无新增配置，无源码加载或服务变更，无正式数据写入。当前THS两日正式段结束后再改本工具，避免在运行中改变依赖导致guard中止；之后刷新当前隔离Definitions/源码证明和同范围剩余清单，不改变已提交身份及持久预算。
+
+**测试及验收。** 新增独立字面run key/原生run合同样本，断言snapshots每层只查1次且错误key、重复run、无intent、错误响应仍拒绝；先证明旧代码的查询次数断言失败，再修正。复跑受影响状态/提交/控制器/恢复和七表隔离真实job链路、Ruff/静态/加载/文档；用正式只读快照验证读取下降和当前全部已完成日期事实保持。剩余7日沿原完整job执行；最终49项独立审计、原47项重放0新增均必须在原预算内通过。失败/中断仍保留原请求、已成功日期与预算，不放开自动重试或sensor。
+
+
+§70.22开发复验已通过：旧代码次数断言实际4次、预期2次而失败，4个身份反例原本通过；修正后5项全部通过，全156项隔离回归（含原七表真实job/检查/Parquet和42项恢复测试）、原受保护113项静态、Ruff致命基线及本次默认规则均通过。当前114依赖、740源码隔离加载稳定；仍无正式Definitions、源参数、配置或业务文件合同变更。
+
+当前THS两日已结束并独立验收，各5215行，两层共4任务/4物化/4实际绿检、来源请求12，reject0。当前总42/49，剩moneyflow7日。更新当前核对依据后的精确命令见[最终剩余执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/final/execution_manifest.json)，同根47项SHA256=3566965e64feed34092a4f32c614eacf057159f884dd9bd686a9172c1a989b70，moneyflow10-08首日SHA256=a3ee1a2fc9185f213c47a0fb194b03f12430be67ccddedfa6a842ceb3e47bb1a，余六日SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9。沿原CLI按manifest执行，Python加-u只确保进度日志即时可读，不改变业务参数；正式home、路径、停止/续跑及原预算不变。首日独立读回后才继续六日。

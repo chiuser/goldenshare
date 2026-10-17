@@ -1,0 +1,73 @@
+{
+  "failed_run_id": "656aa7d0-94c5-477e-a72e-452a48618d2c",
+  "events": [
+    {
+      "event": "ASSET_MATERIALIZATION_PLANNED",
+      "message": "silver_moneyflow_ths_update_job intends to materialize asset [\"silver_moneyflow_ths\"]",
+      "errors": []
+    },
+    {
+      "event": "ASSET_CHECK_EVALUATION_PLANNED",
+      "message": "silver_moneyflow_ths_update_job intends to execute asset check silver_moneyflow_ths_standardization_check on asset [\"silver_moneyflow_ths\"]",
+      "errors": []
+    },
+    {
+      "event": "PIPELINE_ENQUEUED",
+      "message": "",
+      "errors": []
+    },
+    {
+      "event": "PIPELINE_STARTING",
+      "message": "",
+      "errors": []
+    },
+    {
+      "event": "ENGINE_EVENT",
+      "message": "Unexpected error in IPC client",
+      "errors": [
+        {
+          "class": "DagsterUserCodeUnreachableError",
+          "message": "dagster._core.errors.DagsterUserCodeUnreachableError: Could not reach user code server. gRPC Error code: UNKNOWN\n"
+        },
+        {
+          "class": "_InactiveRpcError",
+          "message": "grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.UNKNOWN\n\tdetails = \"Exception calling application: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.UNKNOWN\n\tdetails = \"Stream removed\"\n\tdebug_error_string = \"UNKNOWN:Error received from peer  {grpc_status:2, grpc_message:\"Stream removed\"}\"\n>\"\n\tdebug_error_string = \"UNKNOWN:Error received from peer  {grpc_message:\"Exception calling application: <_InactiveRpcError of RPC that terminated with:\\n\\tstatus = StatusCode.UNKNOWN\\n\\tdetails = \\\"Stream removed\\\"\\n\\tdebug_error_string = \\\"UNKNOWN:Error received from peer  {grpc_status:2, grpc_message:\\\"Stream removed\\\"}\\\"\\n>\", grpc_status:2}\"\n>\n"
+        }
+      ]
+    },
+    {
+      "event": "ENGINE_EVENT",
+      "message": "Caught an unrecoverable error while dequeuing the run. Marking the run as failed and dropping it from the queue",
+      "errors": [
+        {
+          "class": "DagsterUserCodeUnreachableError",
+          "message": "dagster._core.errors.DagsterUserCodeUnreachableError: Could not reach user code server. gRPC Error code: UNKNOWN\n"
+        },
+        {
+          "class": "_InactiveRpcError",
+          "message": "grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.UNKNOWN\n\tdetails = \"Exception calling application: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.UNKNOWN\n\tdetails = \"Stream removed\"\n\tdebug_error_string = \"UNKNOWN:Error received from peer  {grpc_status:2, grpc_message:\"Stream removed\"}\"\n>\"\n\tdebug_error_string = \"UNKNOWN:Error received from peer  {grpc_message:\"Exception calling application: <_InactiveRpcError of RPC that terminated with:\\n\\tstatus = StatusCode.UNKNOWN\\n\\tdetails = \\\"Stream removed\\\"\\n\\tdebug_error_string = \\\"UNKNOWN:Error received from peer  {grpc_status:2, grpc_message:\\\"Stream removed\\\"}\\\"\\n>\", grpc_status:2}\"\n>\n"
+        }
+      ]
+    },
+    {
+      "event": "PIPELINE_FAILURE",
+      "message": "This run has been marked as failed from outside the execution context.",
+      "errors": []
+    },
+    {
+      "event": "ENGINE_EVENT",
+      "message": "Started process for run (pid: 3228).",
+      "errors": []
+    },
+    {
+      "event": "ENGINE_EVENT",
+      "message": "Ignoring a run worker that started after the run had already finished.",
+      "errors": []
+    },
+    {
+      "event": "ENGINE_EVENT",
+      "message": "Process for run exited (pid: 3228).",
+      "errors": []
+    }
+  ]
+}

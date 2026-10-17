@@ -424,3 +424,78 @@ def test_guard_uses_readonly_pool_and_ignores_unrelated_queue(
     else:
         with pytest.raises(ContinuationError):
             backend.guard(plan_for(), AT)
+
+
+@pytest.mark.parametrize(
+    "problem", ["none", "wrong_key", "duplicate", "no_intent", "wrong_response"]
+)
+def test_snapshot_reuses_one_native_read_per_layer_and_keeps_identity_checks(
+    tmp_path, monkeypatch, problem
+):
+    from orchestrator.moneyflow_continuation import state
+    from orchestrator.moneyflow_continuation.contract import digest
+    from orchestrator.moneyflow_continuation.submission import Journal, write_json
+    from tests.test_moneyflow_continuation_plan import AT
+
+    plan = plan_for()
+    unit = plan["units"][0]
+    journal = Journal(plan, tmp_path)
+    files = journal.prepare(unit, "raw", AT, None, {})
+    if problem != "no_intent":
+        write_json(
+            journal.action_dir(unit, "raw") / "send_intent.json",
+            {"request_sha256": digest(files["request"])},
+        )
+    if problem == "wrong_response":
+        write_json(
+            journal.action_dir(unit, "raw") / "response.json",
+            {
+                "request_sha256": digest(files["request"]),
+                "value": {
+                    "data": {
+                        "launchRun": {
+                            "__typename": "LaunchRunSuccess",
+                            "run": {"runId": "wrong"},
+                        }
+                    }
+                },
+            },
+        )
+    run = native_run(unit)
+    run.run_id, run.status = "one", SimpleNamespace(value="QUEUED")
+    # Literal key follows the public run-key contract and accepted 10-08 sample.
+    run.tags["dagster/run_key"] = "raw_tushare_moneyflow_mkt_dc:2026-10-08:2026-10-17:1"
+    if problem == "wrong_key":
+        run.tags["dagster/run_key"] = "different"
+    queries = []
+
+    def runs(filters, **kwargs):
+        queries.append(filters)
+        if filters.job_name.startswith("silver_"):
+            return []
+        return [run, run] if problem == "duplicate" else [run]
+
+    backend = NativeBackend(
+        SimpleNamespace(get_runs=runs, has_dynamic_partition=lambda *_: True)
+    )
+    missing = SimpleNamespace(
+        ready=False, reason="missing_materialization", materialized=False, metadata=None
+    )
+    monkeypatch.setattr(
+        state,
+        "batch_moneyflow_readiness",
+        lambda *a, **k: {
+            layer: {unit["trade_date"]: missing} for layer in ("raw", "silver")
+        },
+    )
+    if problem == "none":
+        value = backend.snapshots([unit], journal)[0]
+        assert next_action(value) == "observe_raw"
+        assert (
+            len(queries) == 2
+        )  # One date+job read for each layer, no exact-key requery.
+        assert all(q.tags == {"dagster/partition": "2026-10-08"} for q in queries)
+    else:
+        with pytest.raises(ContinuationError):
+            value = backend.snapshots([unit], journal)[0]
+            next_action(value)
