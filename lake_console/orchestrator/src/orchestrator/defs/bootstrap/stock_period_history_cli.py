@@ -51,13 +51,13 @@ def main(argv=None):
     parser.add_argument(
         "--rss-limit-gib",
         type=int,
-        help="Override process RSS for this existing bootstrap resume only (positive GiB).",
+        help="Override process RSS for an existing bootstrap resume or bound handoff resume (positive GiB).",
     )
     args = parser.parse_args(argv)
     if args.rss_limit_gib is not None and (
-        args.action != "resume" or args.rss_limit_gib <= 0
+        args.action not in ("resume", "handoff") or args.rss_limit_gib <= 0
     ):
-        parser.error("--rss-limit-gib requires resume and a positive integer")
+        parser.error("--rss-limit-gib requires resume/handoff and a positive integer")
     root, staging = roots(args.lake_root, args.staging_root)
     if args.action == "prepare":
         print(
@@ -98,6 +98,12 @@ def main(argv=None):
             and frozen["identity"]["intent"]["mode"] != "bootstrap"
         ):
             parser.error("--rss-limit-gib requires an existing bootstrap")
+        if (
+            args.rss_limit_gib is not None
+            and args.action == "handoff"
+            and "handoff" not in frozen
+        ):
+            parser.error("--rss-limit-gib requires an existing bound handoff")
         if args.action == "events" and frozen["phase"] not in (
             "files_complete",
             "events_complete",
@@ -165,6 +171,9 @@ def main(argv=None):
                     root=root,
                     staging=staging,
                     run=staging / "stock_period/runs" / args.run_id,
+                    runtime_rss_bytes=args.rss_limit_gib * 1024**3
+                    if args.rss_limit_gib is not None
+                    else None,
                     events=lambda item: report_file_events(
                         instance, item, context=context
                     ),

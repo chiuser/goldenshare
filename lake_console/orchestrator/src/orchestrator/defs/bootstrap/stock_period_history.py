@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import re
 import shutil
 import signal
 import threading
@@ -320,6 +321,43 @@ def _finish_files(run, saved, baseline, intent, changed):
     atomic_json(run / "manifest.json", saved)
 
 
+def verify_rss_resume(staging, run_id, identity):
+    """Allow an existing bootstrap or its exact frozen handoff child only."""
+    if not safe_path(
+        staging / "stock_period/runs" / run_id / "manifest.json"
+    ).is_file():
+        raise ValueError("period_runtime_rss_resume_required")
+    intent = identity["intent"]
+    if intent["mode"] == "bootstrap":
+        return
+    parent_id = intent.get("bootstrap_parent")
+    if (
+        intent["mode"] != "upsert"
+        or not isinstance(parent_id, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", parent_id)
+    ):
+        raise ValueError("period_runtime_rss_handoff_invalid")
+    parent_path = safe_path(staging / "stock_period/runs" / parent_id / "manifest.json")
+    if not parent_path.is_file():
+        raise ValueError("period_runtime_rss_handoff_invalid")
+    parent = read_json(parent_path)
+    verify_execution(parent, parent_id)
+    baseline = read_json(safe_path(staging / "stock_period/baseline.json"))
+    work = parent.get("handoff", {})
+    if (
+        parent["identity"]["intent"]["mode"] != "bootstrap"
+        or parent["phase"] != "events_complete"
+        or parent["identity"]["root"] != identity["root"]
+        or parent["identity"]["policy"] != identity["policy"]
+        or work.get("intent") != intent
+        or work.get("listed") != identity["listed"]
+        or work.get("aliases") != identity["aliases"]
+        or baseline.get("run_id") != parent_id
+        or baseline.get("status") not in ("files_ready", "ready")
+    ):
+        raise ValueError("period_runtime_rss_handoff_invalid")
+
+
 def run_period(
     *,
     root,
@@ -389,13 +427,8 @@ def run_period(
         "aliases": aliases,
     }
     run_id = execution_id(intent.get("request_id"))
-    if runtime_rss_bytes is not None and (
-        mode != "bootstrap"
-        or not safe_path(
-            staging / "stock_period/runs" / run_id / "manifest.json"
-        ).is_file()
-    ):
-        raise ValueError("period_runtime_rss_resume_required")
+    if runtime_rss_bytes is not None:
+        verify_rss_resume(staging, run_id, identity)
     with (
         writer(staging) as control,
         process_memory_budget(policy, runtime_rss_bytes, progress=progress),

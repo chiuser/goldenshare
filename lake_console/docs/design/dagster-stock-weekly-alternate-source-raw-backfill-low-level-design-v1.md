@@ -1,6 +1,6 @@
 # DG 周/月Raw直接源下载与更新共享 LLD v1
 
-更新：2026-10-16。**第8步此前周线COPY完成后因多片段接收bug停止。本轮按§5.12完成候选归并修复及隔离验收，148项唯一用例通过；此前RSS修正一并纳入提交范围。未再次正式续跑，月线0，正式Raw、事件和handoff仍未完成，baseline未ready。** 本轮未触及正式现场、原意图/hash或源片段，未启停sensor或重置水位。原中断历史见§5.10，正式6GiB复测见§5.11，最新修复对账见§5.12；旧程序及日历验收保留在§5.8—5.9。Silver、Prod、R3不推进。
+更新：2026-10-17。**第8步已完成，两频Raw共2,250文件/4,486,908行；45股两频历史和当前周/月补更、事件及截止点登记全部完成，baseline=ready、handoff_complete=true，截止2026-10-16。** 显式6GiB收尾已通过；46份成功周线源保持原版本，仅剩余月线首次补取46页。父子身份、sensor状态和cursor保持，worker退出、锁释放；自动化继续停用。最新对账见§5.15，修正记录见§5.11—5.14；Silver、Prod、R3不推进。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -377,7 +377,9 @@ CodeGraph explore核验daily→calendar_days及handoff、sensor消费者，独�
 第8步仍未完成。该停点已汇报；管理员随后确认按§5.11先补方案并实施最小修正，完成隔离验收后报告。本轮不正式续跑，不自动恢复定时任务，不改原冻结policy/hash、不重做COPY或下载。Silver、Prod与R3不推进。
 
 <a id="step8-memory-resume"></a>
-### 5.11 第8步中间修正：执行RSS与下载身份分开（隔离通过；正式复测COPY完成，后续新冲突暂停）
+### 5.11 第8步中间修正：执行RSS与下载身份分开（历史：首次修正与复测）
+
+本节保留首次仅bootstrap resume的设计及验收记录。当前handoff覆盖准入以§5.14为准，最终正式结果见§5.15。
 
 **根因与目标。** 3,618,218条周线源记录已成功保存，分区COPY因当前RSS超过4GiB主动中断，完整写出峰值未知。原实现把整个StockPeriodPolicy同时写入执行身份和源单元身份；直接改默认值不会覆盖resume加载的冻结值，改冻结policy又会使原身份失配或源单元换目录。只新增本次执行的RSS覆盖，不改既有身份算法，不迁移/重写5,577份完成记录。
 
@@ -412,7 +414,7 @@ CodeGraph explore核验daily→calendar_days及handoff、sensor消费者，独�
 本任务进程均退出、锁释放；原identity_hash仍为f4d98138e62d512c96a0e86804d3f6828934e0569b9da978ea712385f8510a10。源片段、完整COPY/片段、copy.json和日志全部保留。月线未开始，两套正式Raw根仍不存在，事件/handoff未执行，不继续盲目resume。证据为/private/tmp/dg_period_step8_formal_hod_6is1/resume4.log、safe_stop5_candidate_count.json及candidate_count_diagnostic.json；自动续跑仍未恢复，Silver/Prod/R3未推进。
 
 <a id="step8-candidate-fragments"></a>
-### 5.12 第8步中间修正：临时多片段归并为单文件候选（已实现、隔离通过，未正式续跑）
+### 5.12 第8步中间修正：临时多片段归并为单文件候选（历史：开发验收，正式执行见§5.13、§5.15）
 
 **位置与根因。** 错误发生在周线源下载完成、分区COPY成功之后，候选receipt生成之前。io/stock_period_raw.py的assemble使用COPY PARTITION_BY(period)，同一目录可能由多个线程写出多个Parquet；_candidate_receipts却以len(outputs)==1作为前提。DuckDB[分区写出说明](https://duckdb.org/docs/current/data/partitioning/partitioned_writes.html)明确说明每线程可向同一分区目录写文件。一个协调写者不等于DuckDB内部只有一个输出线程。不能把这个错误归为源异常，也不通过调成单线程、只取第一片或允许正式分区多文件来掩盖。
 
@@ -474,6 +476,68 @@ CodeGraph explore/impact已覆盖assemble→_candidate_receipts→_validate_cand
 
 本轮隔离执行移除DAGSTER_HOME和TUSHARE_TOKEN，使用临时根、替身和独立instance；真实源请求、正式Lake/staging写入、重载、正式事件、sensor及自动化操作均为0。原第8步仍暂停，未进行正式归并/下载/发布，因此不能据此标记基线ready或第8步完成。
 
+
+<a id="step8-handoff-memory-stop"></a>
+### 5.13 第8步正式续跑：两频文件与事件完成，交接RSS门禁停止（历史停点，2026-10-17凌晨）
+
+本轮沿73e48cfa已验收实现、原父run_id及identity_hash，以resume --rss-limit-gib 6续跑。5,577个周线成功源单元及原copy.json全部复用，周线无新增下载请求、无重新导入或全频率partition COPY；必要多片段归并及1,819分区校验通过。月线5,577单元为首次下载，431分区全部校验通过；两频成功源11,154单元，源行与准入行均4,486,908，无范围排除。退市不请求及北交所新码准入沿冻结身份执行。
+
+| 频率 | 正式文件 | 交付行数 | 物化/检查完成文件 |
+| --- | ---: | ---: | ---: |
+| week | 1,819 | 3,618,218 | 1,819 |
+| month | 431 | 868,690 | 431 |
+
+日志单次汇总确认：月线实际请求代码集合与冻结5,577只上市集合完全相同，351只北交所均为920新码；本轮源worker5,577次，均属于月线首次下载。源导入与全频率partition COPY各1次、仅月线；必要片段归并为周线1,721分区/月线97分区，其余单片未重写。此为resume5日志证据，不含另列handoff的合法增量请求。
+
+全部文件按既有原子提升及checkpoint完成。独立events动作只补事件，真实补报运行660d0b44-9a38-4a6f-bcf9-edee05e7687d为SUCCESS，父phase=events_complete。恢复过程RSS采样最大4,054,351,872字节（约3.78GiB），只代表本次恢复采样，不能证明交接预算。事件的控制台未持续输出时仅做一次有界定位，并按已有完成checkpoint观察进度，没有重复启动或重算行情。
+
+**交接范围与停点。** handoff按原规则冻结2026-10-15—2026-10-16捕获区间，只处理周2026-10-16、月2026-10及45只因子变化股票，没有退市/换码差异。子run_id=6452ece7da82a812650dad7df67dc7dfae893deb45fd0e4f7e4d07c2ad1e7d64，identity_hash=e1894fbd543a474315f1c11e5e1d800fbfa5f981b08ca65d094d66d204496cf8。周线46个单元（45股历史+当周全市场）、36,375行均捕获成功；候选阶段复用已有范围定位到1,671个周分区，按频率一次读取/组装，partition COPY期间抛出period_process_memory_exceeded。周线COPY无成功copy.json，交接提交0；月线子任务尚未开始。
+
+这是§5.11资源覆盖没有接到后续handoff的范围缺口：现有CLI只允许bootstrap resume显式覆盖RSS，handoff子upsert仍受冻结4GiB约束。不能在handoff直接加现有flag、修改原policy/hash或套外层脚本绕过门禁。交接具体峰值未记录，不补造数值。真实交接运行0c5480e0-cf1b-4a77-b8b4-32f71378ecc8为FAILURE。
+
+**安全核验与剩余工作。** 父2,250正式文件版本逐项与完成receipt一致，父事件完成记录齐全，原identity_hash仍为f4d98138e62d512c96a0e86804d3f6828934e0569b9da978ea712385f8510a10；本任务协调器及记录的worker全部退出，writer.lock释放。两个sensor仍RUNNING、周/月旧水位2026-10-09/2026-09及revision1785保留，自动化dg-raw-8仍PAUSED。本轮不重载定义、不改代码、不操作Silver/Prod/R3。基线files_ready、handoff_complete=false，不能把物理重建与父事件完成写成日常交接或第8步完成。
+
+管理员已确认：45只跨日因子不同的股票统一重新下载两频历史，不再逐股判断原下载是否已经包含更新；同时批准6GiB覆盖扩展到本次收尾补更。相邻日因子不同不等于下载后源又发生变化，这是明确采用的保守刷新规则。按§5.14先完成最小修正和隔离验收，再复用父两频成果与46份成功周线源续跑；不重做父bootstrap，不改旧指纹。
+
+完整证据在/private/tmp/dg_period_step8_formal_hod_6is1/：resume5.log、resume5_files_result.json、events1_result.json、handoff1.log、safe_stop6_handoff_memory.json、stopped_handoff_control.json及resume5_report.md；原报告与日志均保留。已核对本轮3个运行文件指纹与开工一致，原3份文档只更新真实状态，未提交。
+
+<a id="step8-handoff-memory-resume"></a>
+### 5.14 第8步中间修正：收尾补更沿用显式6GiB（2026-10-17已批准、隔离通过）
+
+**目标与范围。** §5.11原范围只覆盖bootstrap resume；本节将同一个可选参数扩到已有、绑定原bootstrap父任务的handoff子任务。CLI的handoff接收`--rss-limit-gib 6`，stock_period_update.handoff_bootstrap传给run_period；不改变默认4GiB、DuckDB3GiB/2线程、HTTP30秒/2重试/280次每分钟、分页、空间及业务合同。events、apply、prepare、日常upsert及主动history不能借此覆盖。原父子run_id、policy、identity_hash和源单元身份保持不变，不新增配置来源、状态表或执行框架。
+
+**准入与失效。** 协调器只在显式覆盖时额外核对已有子manifest；bootstrap仍仅限已有任务。handoff子任务必须是upsert，bootstrap_parent是合法任务ID，父manifest身份有效、mode=bootstrap、phase=events_complete，根/policy与本次一致；父已冻结handoff的intent、listed、aliases与子执行身份完全一致，baseline仍绑定该父任务且为files_ready或ready。缺少绑定、漂移、普通日常请求即拒绝；原子任务身份及源片段校验继续执行，不能仅凭一个bootstrap_parent字段放行。覆盖只在run_period执行作用域生效，退出恢复默认；超限仍中断并等待SQL退出，锁和worker保护保持。
+
+**恢复与必要工作。** 父2,250正式文件及事件全部保留，46份完成周线源不再请求。失败周线COPY没有完成记录，其私有未完成build按现有规则重建，不把半成品当成功候选；下载源与完成记录不清理。继续周线未完成组装、月线45股历史及当月首次补取、两频文件原子提交、相关事件及截止点登记，最终baseline=ready/handoff_complete=true。不再做第二套因子探测或扩大截止区间；使用已冻结2026-10-15—16及45股。sensor运行状态和旧cursor不改，Silver、Prod、R3不推进。
+
+**配置审计与成本。** `--rss-limit-gib`来源仍为现有CLI显式参数，默认None沿原冻结值；正整数GiB换算字节，实际额度和采样最大值写原进度日志，不写入policy/hash或自动继承。新增消费者仅handoff_bootstrap及run_period的父子绑定核验；下载worker不接新参数。核验后以现有作用域覆盖handoff预检和子协调器，正常/异常退出均恢复默认，不新增采样机制。父子核验只读少量既有JSON，不增加行情扫描、SQL或源请求。现有周线46单元/36,375行复用；月线预计46单元，页数按完整分页合同，不将单元数冒称HTTP请求数。旧数据仅按已有范围索引选中的受影响分区一次读取/组装，原空间门禁和逐文件提升不变。6GiB足够性由本次正式执行实测，不先承诺峰值或耗时。
+
+**验收与执行顺序。** 生产文件白名单为stock_period_history_cli.py、stock_period_history.py、stock_period_update.py；测试仅RSS及直接handoff消费者，文档为原三份。先证明旧实现不能接收handoff覆盖，再补5GiB/6GiB/超6、默认隔离、非法action、普通日常拒绝、父子绑定/源漂移拒绝、取消锁释放与成功源复用。临时根中使用真实CLI、候选/原子提交和隔离Dagster instance，源与RSS用明确替身，不用正式资源做测试。通过后从orchestrator目录沿原父run_id执行现有handoff并显式6GiB，新日志另存handoff2.log；不重新resume父bootstrap、不apply、不清根。执行结束以现有receipt/checkpoint、一次文件元数据集合对账及少量真实登记样本验收，不重下成功源、不全量源比对或重新计算行情。自动化保持暂停至任务完成后停用，不反复盲目重试。
+
+**本次开发验收。** 两项修正前回归分别因handoff不接收内部额度、CLI拒绝handoff参数而失败。修正后82项唯一用例通过（81项文件/状态/RSS测试，1项localhost真实worker/CLI/两频job组合）；其中RSS值为字面替身，不声称实际分配5/6GiB或正式COPY通过。真实CLI在临时instance中成功登记、重复handoff无新请求/SQL/改写，源/父子身份漂移、超限、普通调用和取消恢复均覆盖。CodeGraph explore/impact及sync/status完成；修改限三生产文件、两测试和原三文档，不涉及API/前端/跨域依赖。证据在/private/tmp/dg_period_handoff_rss_itmzbj6b/（before_fix.txt、final.xml、http.xml、constraints.md）。初次测试临时根落在系统TMPDIR被路径门禁拒绝，已改用获准/private/tmp；localhost测试首次被沙箱端口权限拒绝，改用本机权限后通过；均不作为生产缺陷或额外通过数。
+
+<a id="step8-complete"></a>
+### 5.15 第8步完成与最终对账（2026-10-17 12:01）
+
+**正式结果。** 按管理员确认的45股统一刷新及6GiB扩展，通过82项唯一隔离用例后，从orchestrator现有.venv运行原父run_id的handoff --rss-limit-gib 6，正式DAGSTER_HOME不变；未重新resume父bootstrap、不apply、不清根。真实Dagster运行4c226259-130b-4864-b0b7-fa4a720f3a04为SUCCESS，CLI退出0。父phase仍events_complete、handoff_complete=true；子phase=events_complete，baseline=ready，交接截止2026-10-16。父run_id/identity_hash和子run_id/identity_hash完全保持§5.13原值。
+
+| 对账项 | 实现/已有证据 | 本次结果 |
+| --- | --- | --- |
+| 45股两频统一刷新 | handoff冻结intent；run_period/capture_unit/assemble | 两频均包含同一45股完整历史，不另审计原下载是否已最新；本轮新增的46个HTTP worker/46页全部为month，week完成源46单元均复用、完成记录版本及hash不变 |
+| 源与落地范围 | 原21字段/完整分页/上市与BSE新码准入保持；已校验候选receipt | 收尾week源/准入36,375行，month源/准入12,952行；两频含各45股历史和一个当前周期单元，无范围扩大或源缺口 |
+| 文件一次组装与逐文件提交 | 原范围索引、批量assemble、候选校验、publish/checkpoint | week更新1,671文件，month更新397文件；各文件仅一次提交。两频最终1,819/431文件、3,618,218/868,690行，合计2,250文件/4,486,908行；未命中182文件版本未变 |
+| 6GiB执行覆盖、原身份不变 | CLI→handoff→run_period的准入和RSS作用域；正反测试 | 冻结RSS仍4GiB，显式上限6GiB；日志采样最大4,373,872,640字节（约4.07GiB，非连续精确峰值）。DuckDB仍3GiB/2线程，原HTTP30秒/2重试/280每分钟及空间预算不变 |
+| 物化与blocking checks | replay_events/report_file_events；child事件checkpoint | 2,068个修改文件事件完成记录齐全并绑定最终版本；抽查周2026-10-16、月2026-10，各三项真实blocking检查通过且绑定本次实际物化和成功运行。不重扫行情或重算公式 |
+| 截止点与日常状态 | 原handoff末尾状态更新 | factor_through与两频last_refresh为2026-10-16；completed_through为week=2026-10-16、month=2026-09，10月只刷新到16日，不冒记整月完成 |
+| 写入隔离与退出 | 写锁、原任务worker监护、原子提交、一次元数据对账 | 最终文件集合和版本与父/子receipt合并结果完全一致；本任务无存活协调器/worker，锁已释放；运行期间四个执行模块指纹未变 |
+| 调度与阶段范围 | 正式sensor只读状态、原cursor对照 | 两sensor仍RUNNING，cursor业务水位保持week=2026-10-09、month=2026-09及原revision1785；未重载、启停或重置。自动化dg-raw-8仍PAUSED（已停用），不另开启或重复触发。Silver、Prod、R3未推进 |
+
+**验收边界。** 82项是本版本隔离回归，不重复累加旧修复的148项；RSS门限用字面采样替身，真实6GiB足够性由上述正式执行证明。最终核验只合并已有完成receipt和新事件checkpoint、做一次2,250文件元数据集合/版本对账及两个分区真实登记抽样，没有全量源比对、重复下载、Parquet内容深扫或重复公式计算。不存在待补正式事件或handoff步骤；第8步独立关闭，Silver仍待后续批准。
+
+**改动与证据。** 本次代码仅stock_period_history_cli.py、stock_period_history.py、stock_period_update.py；测试为test_stock_period_memory_resume.py、test_stock_period_handoff_memory.py；原三份方案/LLD同步。CodeGraph explore/impact分析到CLI→handoff→run_period及日常直接消费者，未改资产key、API、字段、跨域依赖或R3模块。静态/Ruff/格式、文档完整性及本任务diff检查通过。其他任务文件未被覆盖、提交或回退；工作区存在并发的其他任务修改，保留现场。
+
+正式日志/private/tmp/dg_period_step8_formal_hod_6is1/handoff2.log；本次开发及收尾证据/private/tmp/dg_period_handoff_rss_itmzbj6b/：before_fix.txt、final.xml、http.xml、before_handoff2.json、final_audit.json、final_audit.log、constraints.md及step8_final_report.md。旧中断报告/日志保持追溯用途，当前事实以本节为准。本轮实现和文档按上述白名单提交，不推送；提交结果以Git记录为准。
+
 ## 6. 配置与性能依据
 
 ### 6.1 保留已有证据，补真实路径成本（纠偏12）
@@ -496,7 +560,7 @@ N=5576是已留存对象快照，不重新审计全市场。单元行数r时请�
 
 ### 6.2 专项配置审计与预算（纠偏1、9）
 
-本表为当前专项配置基线；前五步已实现DG局部HTTP配置、脱敏有效值、冻结身份、同policy透传和累计预算/当前RSS保护，证据见§5.4—5.5。第6步仅清理无消费者旧配置，第7步补缺失成本；第8步中间修正已按§5.11增加显式执行RSS覆盖。数值属于实现选择，非用户业务硬上限；需变更时先给测量依据并更新本表，不散落多个默认。冻结配置仍由父进程解析后传给HTTP/分页、DuckDB及恢复消费者，非敏感值保留在原manifest；新增RSS覆盖仅用于本次执行监护、有效值写既有进度日志，不进入原manifest、policy或下载身份。续跑不得静默换policy或改旧指纹；凭据轮换不写进任务身份。
+本表为当前专项配置基线；前五步已实现DG局部HTTP配置、脱敏有效值、冻结身份、同policy透传和累计预算/当前RSS保护，证据见§5.4—5.5。第6步仅清理无消费者旧配置，第7步补缺失成本；第8步中间修正按§5.11增加显式执行RSS覆盖，并按§5.14扩到已绑定的handoff续跑。数值属于实现选择，非用户业务硬上限；需变更时先给测量依据并更新本表，不散落多个默认。冻结配置仍由父进程解析后传给HTTP/分页、DuckDB及恢复消费者，非敏感值保留在原manifest；新增RSS覆盖仅用于本次执行监护、有效值写既有进度日志，不进入原manifest、policy或下载身份。续跑不得静默换policy或改旧指纹；凭据轮换不写进任务身份。
 
 | 配置/默认 | 来源、持久化与作用域 | 依据、失败与验收 |
 | --- | --- | --- |
@@ -506,7 +570,7 @@ N=5576是已留存对象快照，不重新审计全市场。单元行数r时请�
 | page_limit6000；response16MiB；unit128MiB | StockPeriodPolicy及manifest，源分页/有界回包/完整单元共同消费 | 样本约155字节/行，6000约0.9MiB；16MiB留余量，128MiB非历史行数上限；超限保留有界证据，不静默截断 |
 | 并发1、单次总期限30秒、重试2次、退避1/2秒 | 同一policy传监督器；运行级请求间隔贯穿worker生命周期 | 当前保守起点，真实路径样本后再评估进程粒度/并发，不无依据另加紧上限；网络重试有界，合同错误不重试 |
 | DuckDB3GiB、threads2、spill16GiB；RSS4GiB观察阈值 | 同一policy传所有SQL/验证/监护，spill仅本次staging | 已有稀疏样本峰值约1.11GiB，非全市场证明；3GiB在允许范围内，4GiB不是DuckDB或进程树等价值；当前进程RSS、历史高水位和worker占用分清，不用共享进程旧峰值冒充本次超限 |
-| resume的--rss-limit-gib，默认None；本次显式6GiB | CLI仅已有bootstrap续跑→runtime_rss_bytes→本次执行RSS作用域；原policy/身份不变，日志记录有效值及采样；不从env或旧日志继承 | 详见§5.11；超限仍拒绝，默认/其他执行不受覆盖；零重下、取消复原隔离通过，本次周线COPY已越过内存门禁，完整交付仍未完成 |
+| resume/handoff的--rss-limit-gib，默认None；本次显式6GiB | CLI已有bootstrap或严格绑定的已有handoff子任务→runtime_rss_bytes→本次RSS作用域；原policy/身份不变，日志记录有效值及采样；不从env或旧日志继承 | 准入见§5.14；日常upsert/history、events及新apply不开放覆盖。默认/超限/漂移/取消复原隔离通过；正式收尾采样最大4,373,872,640字节，交付完成见§5.15 |
 | workspace32GiB | 同一policy；本意图源证据、CSV、候选、spill与目标新增占用按设备分开计量 | 按所有5576股均取老股2209行约1232万行、文本约1.9GiB仅是容量参考，非最保守上界；32GiB暂定，须用真实路径测量验证 |
 | progress5秒、本地取消检查0.2秒 | 统一执行器/监督器；不作为每0.2秒查询Dagster的配置 | 单元完成即时报告；长操作报告阶段及已有完成量，连续可见更新≤30秒；远端取消观测有界且计入样本，取消后不领取新单元 |
 

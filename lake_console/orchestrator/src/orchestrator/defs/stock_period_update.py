@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -11,6 +12,7 @@ from orchestrator.defs.io.stock_period_raw import (
     check_cancel,
     connection,
     execute,
+    process_memory_budget,
     read_json,
     safe_path,
 )
@@ -803,6 +805,7 @@ def handoff_bootstrap(
     aliases=None,
     through=None,
     now=None,
+    runtime_rss_bytes=None,
     cancel=lambda: False,
     progress=lambda _: None,
 ):
@@ -812,6 +815,7 @@ def handoff_bootstrap(
         replay_events,
         roots,
         run_period,
+        verify_rss_resume,
         writer,
     )
     from orchestrator.defs.run_contracts.stock_period import (
@@ -819,8 +823,12 @@ def handoff_bootstrap(
         verify_execution,
     )
 
+    if runtime_rss_bytes is not None and (
+        type(runtime_rss_bytes) is not int or runtime_rss_bytes <= 0
+    ):
+        raise ValueError("period_runtime_rss_limit_invalid")
     root, staging = roots(root, staging)
-    with writer(staging):
+    with writer(staging), ExitStack() as execution:
         run = safe_path(run)
         parent = read_json(run / "manifest.json")
         verify_execution(parent, run.name)
@@ -842,6 +850,18 @@ def handoff_bootstrap(
         if parent["phase"] != "events_complete":
             raise ValueError("period_handoff_events_incomplete")
         policy = StockPeriodPolicy(**parent["identity"]["policy"])
+        if runtime_rss_bytes is not None:
+            if "handoff" not in parent:
+                raise ValueError("period_runtime_rss_handoff_invalid")
+            child_id = execution_id(parent["handoff"]["intent"]["request_id"])
+            child = read_json(
+                safe_path(staging / "stock_period/runs" / child_id / "manifest.json")
+            )
+            verify_execution(child, child_id)
+            verify_rss_resume(staging, child_id, child["identity"])
+            execution.enter_context(
+                process_memory_budget(policy, runtime_rss_bytes, progress=progress)
+            )
         days = calendar_days(root, staging / "stock_period/calendar", policy)
         now = now or datetime.now(ZoneInfo("Asia/Shanghai"))
         now = now.astimezone(ZoneInfo("Asia/Shanghai"))
@@ -958,6 +978,7 @@ def handoff_bootstrap(
             confirmed_retired=work["confirmed_retired"],
             transport=transport,
             policy=policy,
+            runtime_rss_bytes=runtime_rss_bytes,
             cancel=cancel,
             progress=progress,
         )

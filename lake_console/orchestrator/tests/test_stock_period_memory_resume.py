@@ -132,11 +132,12 @@ def test_real_rss_observation_is_emitted():
 
 @pytest.mark.parametrize(
     "argv",
-    [
-        [action, "--rss-limit-gib", "6"]
-        for action in ("prepare", "apply", "events", "handoff")
-    ]
-    + [["resume", "--rss-limit-gib", value] for value in ("0", "-1", "1.5")],
+    [[action, "--rss-limit-gib", "6"] for action in ("prepare", "apply", "events")]
+    + [
+        [action, "--rss-limit-gib", value]
+        for action in ("resume", "handoff")
+        for value in ("0", "-1", "1.5")
+    ],
 )
 def test_invalid_cli_override_rejects_before_root_or_source_access(monkeypatch, argv):
     monkeypatch.setattr(
