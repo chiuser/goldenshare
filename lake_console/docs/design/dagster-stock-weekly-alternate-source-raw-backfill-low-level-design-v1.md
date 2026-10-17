@@ -1,6 +1,6 @@
-# DG 周/月Raw直接源下载、更新与Silver完整性审计共享 LLD v1
+# DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-更新：2026-10-17。**第8步已完成，两频Raw共2,250文件/4,486,908行；45股两频历史和当前周/月补更、事件及截止点登记全部完成，baseline=ready、handoff_complete=true，截止2026-10-16。** 显式6GiB收尾已通过；46份成功周线源保持原版本，仅剩余月线首次补取46页。父子身份、sensor状态和cursor保持，worker退出、锁释放；自动化继续停用。最新对账见§5.15，修正记录见§5.11—5.14。**§9为已确认、尚未执行的周/月完整性审计及Silver规则；本轮只落文档，不开发、不审计或生成Silver。** Prod后置，R3继续暂停。
+更新：2026-10-17。**Raw第8步已完成，两频2,250文件/4,486,908行，baseline=ready、handoff_complete=true，截止2026-10-16；正式对账见§5.15。周/月完整性审计随后通过，两频缺口与最新版本冲突均为0，见§9.6。** 本轮补齐§10生成设计；管理员已确认Silver与Raw字段完全一致，具体实现/入口/路径待review，Silver尚未开发、生成或登记。Raw原父子身份、sensor状态与cursor保持，自动化仍停用；Prod后置、R3继续暂停。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -628,9 +628,9 @@ N=5576是已留存对象快照，不重新审计全市场。单元行数r时请�
 以上旧锚点只保留历史引用定位，不提供当前执行步骤。
 
 <a id="period-completeness-audit"></a>
-## 9. 周/月完整性审计与Silver规则（2026-10-17已确认，尚未执行）
+## 9. 周/月完整性审计与Silver规则（2026-10-17审计已通过，Silver未生成）
 
-本节是本次新增审计的唯一细则。先按本节完成一次完整性审计，通过后才生成Silver；不是重新下载或重做第8步。当前仅更新原方案和两份LLD，未开发代码、执行本节审计或生成Silver；未写正式Lake、移动盘staging、事件，未重载定义或操作sensor，Prod后置、R3继续暂停。
+本节是已确认审计的唯一细则，实际完成结果见§9.6。先完成一次完整性审计，通过后才生成Silver；不是重新下载或重做第8步。本轮仅补齐§10生成设计，不再审计、不开发或写正式Lake/移动盘staging，不重载定义、登记事件或操作sensor；Prod后置、R3继续暂停。
 
 ### 9.1 对象、历史起点与完整周期
 
@@ -654,7 +654,7 @@ trade_date是源周期标签，不是每天的运行日期；周五、自然月�
 
 已有000001.SZ月线源证据：20200228/end_date=20250910的close_qfq为12.01，20200229/end_date=20261015为11.14，两条close均14.50。Silver选择后者这一完整行；Raw两条均保留。这是复用已有样本，不要求为本节再次请求源。
 
-Silver保留未复权、前复权、后复权三套源OHLC及其他业务字段；日期按标准类型表达，Decimal不降精度，合法NULL及源单位保持。不重算复权价格、涨跌额或涨跌幅，不用日线全量聚合证明周/月公式。具体Silver schema、job/check及写入实现尚未落地，不能将本节已确认规则标成代码已实现。
+Silver保留未复权、前复权、后复权三套源OHLC及其余全部源业务字段。按管理员本轮明确口径，字段名、顺序、类型、值、单位及NULL均与Raw一致，日期仍为YYYYMMDD的VARCHAR，不改为DATE；SQL比较日期时的临时转换不写入输出。不得将change改为change_amount，不增加身份、审计或派生字段。不重算价格、涨跌额或涨跌幅，不用日线聚合证明公式。完整schema、job/check及落盘设计见§10，尚未实现。
 
 ### 9.3 参考事实与完整性判定
 
@@ -714,4 +714,189 @@ Silver保留未复权、前复权、后复权三套源OHLC及其他业务字段�
 | 字段/范围 | 三套价格、Decimal、单位及合法NULL保持；Raw不变 | 新增无依据重算、误改Raw、截断完整源历史、隐藏不符合现有合同的字段/日期/频度错误 |
 | 后续生成 | 审计通过才生成，实际变化的所有历史分区传递；取消后复用已完成成果 | 审计未通过即生成、只更新当前期、重复处理未变化分区或恢复时从头重审 |
 
-本轮交付只是规则和流程落档。实际审计报告、CSV、Silver代码和正式文件均未因本文存在而完成；审计通过也不代替生成阶段必要的文件落盘与读回验收。文档更新不授权执行代码开发、正式审计或任何Lake、staging、定义、事件、sensor操作。
+原文档落档不代表执行完成；本节审计此后已由管理员批准并完成，实际证据见§9.6。Silver仍未开发或生成，审计通过不代替生成阶段必要的落盘及读回验收。本轮文档补齐不授权代码开发、Lake/staging写入、定义重载、事件或sensor操作。
+
+### 9.6 已完成审计与复用基线
+
+完整报告：[2026-10-17 Silver生成前审计](../../../reports/dg_stock_period_silver_readiness_20261017_135833/report.md)。文档基线585b0a041；输入文件清单、实际SQL和逐频统计分别保存在同目录inputs.json、audit.sql、summary.json。该主审计4.571秒、RSS约2.40GiB；准备阶段小参考文件的别名语法错误已在报告单列，没有Raw或停牌历史重复扫描。
+
+| 当前上市5,577股，截止2026-10-16 | week | month |
+| --- | ---: | ---: |
+| 本次范围Raw文件/行 | 656 / 2,533,758 | 154 / 606,752 |
+| 完全上市前排除行 | 23,682 | 7,570 |
+| 旧计算版本排除行 | 0 | 3,574 |
+| 通过规则选中的周期行，作为生成预期 | 2,510,076 | 595,608 |
+| 应有且已覆盖周期 | 2,510,069 | 595,608 |
+| 缺失/最新版本冲突/普通整期停牌矛盾 | 0 / 0 / 0 | 0 / 0 / 0 |
+
+周线额外7个属于跨年或上市首期边界，按完整周期保留；不得为了让行数等于“应有周期”再删7行。首周2014-01-03保留2,159股。缺口范围、逐期缺口及最新版本冲突CSV均已输出，数据行数0。后续生成复用此基线，不重跑本节审计；表中选择数量不是已落盘Silver数量。
+
+<a id="period-silver-generation"></a>
+## 10. 第5步：Silver生成实施设计（待review；同字段口径已确认）
+
+本节只细化原五步流程的第5步，不新增审计、源验证或全链阶段。目标是在已审计范围内将选中的Raw完整行落盘，建立两个Silver资产的生成、检查和恢复能力。当前仅补文档，以下新增定义、入口和文件布局均为实施设计，未经后续确认不编码或正式执行。
+
+### 10.1 字段合同：与Raw完全一致
+
+唯一字段顺序复用run_contracts/stock_period.py的FIELDS，以及现行周/月Raw column_specs；在asset_column_schemas.py注册两个Silver schema时直接复用对应Raw合同，不复制出另一套可漂移类型表。完整顺序如下：
+
+```text
+ts_code, trade_date, end_date, freq, open, high, low, close, pre_close,
+open_qfq, high_qfq, low_qfq, close_qfq,
+open_hfq, high_hfq, low_hfq, close_hfq,
+vol, amount, change, pct_chg
+```
+
+| 字段 | Silver与Raw相同的物理类型/含义 |
+| --- | --- |
+| ts_code、trade_date、end_date、freq | VARCHAR；代码、YYYYMMDD源日期及week/month原值保留 |
+| 普通/QFQ/HFQ各组OHLC、pre_close、change | DECIMAL(18,4)，源值不变 |
+| vol、amount | DECIMAL(20,4)，源单位不变 |
+| pct_chg | DECIMAL(10,4)，源单位不变 |
+
+保持全部21列、列顺序、类型、精度、合法NULL及选中整行的每个值。身份映射和日期解析只在WHERE/JOIN/分组中使用，不重写ts_code或trade_date，不新增period、source_trade_date、is_final、asof、审计/版本/运行标识列。不得投影SELECT *带出filename、Hive目录列或临时比较列；显式按FIELDS输出，读取Parquet使用hive_partitioning=false。
+
+这是管理员明确的两套周/月Silver合同：不套用日线change_amount改名、DOUBLE转换，或编码规范/模板的一般Silver日期转DATE范例；不修改其他Silver资产的合同，也不据此改变通用规范。
+
+### 10.2 定义、主键、分区与路径
+
+| 项目 | 周线 | 月线 |
+| --- | --- | --- |
+| asset | silver_stock_weekly | silver_stock_monthly |
+| dataset / contract | stock_weekly / stock_weekly@1 | stock_monthly / stock_monthly@1 |
+| job，仅选本Silver及其检查，不选择Raw | silver_stock_weekly_update_job | silver_stock_monthly_update_job |
+| 复用现有分区定义 | cn_a_stock_week_ends | cn_a_stock_months |
+| 新catalog分区模型 | week_end_partition_silver_stock_weekly | month_partition_silver_stock_monthly |
+| 正式文件，相对唯一Lake根 | silver/quote/stock_weekly/week_end=YYYY-MM-DD/part-000.parquet | silver/quote/stock_monthly/month=YYYY-MM/part-000.parquet |
+| 首次范围及预期 | 2014-01-03—2026-10-16，656文件/2,510,076行 | 2014-01—2026-10，154文件/595,608行 |
+
+正式Lake根仍为/Volumes/datasource/data_lake。候选、执行记录及spill仅放/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=本次UUID/下；不能使用Raw执行目录、旧Lake或正式Silver根作staging。两频共用该次运行，按(freq,period)逐文件checkpoint；行情文件中不增加period列。
+
+业务唯一性是同一证券每周期一行，周期由外部分区键与源trade_date的自然周/月归属确定；分区内ts_code唯一、freq一致。源trade_date可以不是自然月末，不能为了对齐分区把原值改写。主键口径不能退回仅按原始trade_date区分同月多版本。
+
+catalog使用DERIVED_CONTRACT、DERIVED_FROM_ASSETS及逐分区原子替换政策，来源是对应Raw和身份/生命周期事实；不是另一次Tushare接入。定义metadata注册21列schema，运行metadata仅记录实际路径、行数、源引用、执行标识和观察结果，不把这些写成业务列。
+
+### 10.3 选行与一次生成算法
+
+首次输入直接使用§9.6审计报告及inputs.json列出的656周/154月Raw文件，截止点和起点取报告范围。文件清单不是新freeze或待执行计划，不重新扫描全市场发现输入，不重做停牌/日历完备性查询。生命周期及身份参考一次加载共用，上市、币种、退市范围沿审计口径，遇真实身份问题停止相关处理并报告。
+
+每个执行unit就是一个已列明的Raw周期文件→一个Silver周期文件：
+
+1. 读取这个Raw文件的显式21列，按身份确认对象，临时解析trade_date/end_date用于周期与版本比较；不读取其他周期Raw或日线。
+2. 选择报告范围内、当前上市对象、上市所在期及其后周期的记录。上市首期/跨年首周整根保留，§9.6的7个边界周期不再受局部停牌条件二次过滤。
+3. 同一对象/周期先找最大源end_date；最新版本业务字段冲突则停止，不以ROW_NUMBER提前掩盖冲突。相同业务值的并列最新版只保留一条原始整行，以原trade_date降序作确定性定位；这只处理值相同的重复，不改变“最新计算版本优先”。当前审计没有此类并列，不能凭空生成一条新日期。
+4. 将选中完整行的21列原样COPY到本unit独立候选文件。使用非PARTITION_BY的单目标COPY，一个周期明确一个文件，避免再次出现多片段只接收第一片的问题；不用Python行循环写Parquet。
+5. 选中关系在本unit内保留，候选一次读回时共用查询验证schema、周期/唯一性、行数和21字段的EXCEPT ALL双向差集；与内存选中关系比较，不再读Raw或重算价格。合格后持久化验证记录，再逐文件原子提升。
+
+两频按已列明周期顺序串行处理，共用一个协调进程和DuckDB连接，不为每个周期启动进程或连接。内存只随参考表和单周期增长，不常驻全部历史；一个Raw周期读取一次、选择一次、COPY一次、完整读回校验一次。复用正确性的独立字面金样本，不在生成后又做全量源比对或完整性审计。
+
+### 10.4 提升、状态、取消与续跑
+
+正式执行开工只做一次必要写入边界检查：真实挂载、两固定目标根/符号链接、同文件系统、相关写者及可用空间；不读取其他数据、不逐文件hash。首次目标应不存在；存在未归属本次执行的文件即报告，不删除旧根、不覆盖未知成果、不做Kopia或备份。
+
+Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有Raw业务锁阻挡Raw其他工作。每个unit生成时记录其已打开Raw/候选/目标前像的文件版本；这是该次读写的提交证据，不是重新审计库存。休市窗口复用审计结论，不因假设漂移而反复核验输入；实际发现冲突只使相关unit停下，不自动全市场重跑。
+
+| 持久化状态 | 恢复动作 |
+| --- | --- |
+| unit未开始/候选未完成 | 只重新处理本unit，保留已完成文件 |
+| 候选已校验、尚未提升 | 复用同版本候选与校验记录，不再次COPY或完整校验 |
+| 候选fsync→os.replace→目标父目录fsync已完成，checkpoint未记成功 | 由提升前已持久化的候选身份及目标文件事实确认同一次rename，补记checkpoint；不能认领第三方文件 |
+| 文件已提交、事件未完成 | 只补缺失事件，不下载、不跑选行SQL、不重写文件 |
+| 文件及事件均完成 | 幂等跳过，不重读数据或重发事件 |
+
+每次COPY前后、校验前后和提升前检查取消；取消后不领取下一unit，保留已完成文件/候选/checkpoint并释放锁。采用单进程执行，不新建下载worker；TERM/KILL后只涉及本进程，内核释放文件锁，重启从同一run_id续跑。DuckDB长SQL须支持安全取消，进度显示真实阶段、当前周期、完成/总量及最后emit时间；不得用伪造完成数充心跳。不得因取消清根、改旧执行身份或删除证据。
+
+合法空选择结果按原21列写0行Parquet并明确原因，不用空文件冒充失败成功；本次810个周期预期均非空，出现非预期空结果先报告。Raw缺失或读取失败不能触发清空既有Silver。状态/事件写入失败不回滚已落盘行情；不引入跨810文件的大事务或“整体原子”承诺。
+
+### 10.5 三项blocking检查、事件与必要验收
+
+每个资产固定三项check：silver_stock_weekly_file_contract_check、silver_stock_weekly_key_partition_check、silver_stock_weekly_source_projection_check；月线对应silver_stock_monthly_前缀。
+
+| check | 真实校验内容 |
+| --- | --- |
+| file_contract | 文件可读、21列/顺序/类型及Decimal/合法NULL合同；日线式DATE/DOUBLE/改名或额外字段拒绝 |
+| key_partition | freq、源日期所属周期与路径匹配、周期内证券唯一、范围/身份正确；不要求标签当天开市 |
+| source_projection | 完整输出行集合等于本unit按已确认规则选中的源整行，行数/所有字段/NULL一致；不是复权公式二次计算 |
+
+三项共用一次验证结果，按精确输入/输出文件版本及规则版本绑定缓存。写入当次和CLI events复用已持久化的合格证据，不为三项check各重读一次文件。后续独立check没有适用证据时，只对该分区做一次真实文件/源投影核验，三项共用；不得把bootstrap临时证明变成日常运行长期必备依赖。证据缺失或版本确已不符不得伪造通过，不因此扩成全历史审计。
+
+每次提升使用已校验候选，rename后只确认同一文件身份及必要页脚/行数事实，不再次全量读取21字段；累计逐文件完成证据做最终汇总。先完成实际文件再登记物化和blocking结果。每个检查绑定该资产、该分区的真实物化ID，PLANNED、错误分区或旧物化均不能顶替。CLI登记沿已验证的“一个真实Dagster补报run批量登记”方式；不用runless空run_id检查，不伪造run，不改Dagster库/schema。
+
+810个文件预计810条物化、2,430条检查，共3,240条必要事件；这是按3项check计算的计划数，不冒充实际登记完成数。事件checkpoint与文件checkpoint分开，续报只补缺项。收尾只汇总已完成文件/事件及抽取必要登记证据，不逐分区再做全套readiness。首次生成完成、文件验收完成和DG登记完成分开报告。
+
+### 10.6 明确入口及首次执行边界
+
+新增bootstrap/stock_period_silver_cli.py，不扩展或更改现有Raw CLI：无action只显示帮助且不写入，明确action为build、resume、events。build要求--run-id（本次canonical UUID）和--audit-report（§9.6报告目录）；resume/events沿同一run_id，读取其既有run-scoped记录。--lake-root/--staging-root默认使用paths.py的正式根；临时根仅隔离测试显式传入，正式路径不得指向旧Lake。
+
+首次build把报告范围、已列明输入、同字段规则版本、两固定输出根写入本次小型执行记录；不创建可变的新业务范围，不新增prepare/freeze/apply/handoff/删除阶段。身份不能因恢复日期改变；新任务用新ID，本次旧ID不能改范围。events只操作已经完成且校验通过的文件登记，不读取Tushare、生成候选或补算行情。其内部真实补报job名为silver_stock_period_event_backfill_job，不新增一组长期业务状态表。
+
+单周期job调用同一个生成器，仅处理该资产的显式partition_key；配置只传本次执行身份和已确认审计范围引用，不能从run_key反解范围，不能顺便执行Raw job。首次范围以外的日期不通过本次审计引用获准。未来补早期历史用新的获准范围引用，沿同一周期算法，不修改列合同或硬编码特例。
+
+本次实施范围是首次生成和可复用单周期job，不新增或启用Silver sensor，也不修改Raw sensor状态/水位。后续自动日常接线另行明确：应消费Raw既有complete.json/files中的全部实际变更周期，含两频历史因子刷新，而非只追当前anchor；本轮不为该未来接线修改Raw metadata或新增自动化步骤，不把首次生成写成日常自动维护已完成。
+
+正式执行前按获准文件白名单加载新增定义，不夹带其他任务未获准改动；无法隔离先报告，不切分支/worktree或重启无关服务。正式build和events必须使用最终确认的精确命令及DAGSTER_HOME；本节命名不代表本轮已获代码开发、重载、写湖或事件执行授权。
+
+### 10.7 成本、资源与配置来源
+
+| 项目 | 本次有据规模/执行选择 |
+| --- | --- |
+| 对象/频度 | 5,577只当前上市股票、2频；按周期执行，不按股票×周期扇出 |
+| 输入/输出 | 810个Raw文件/3,140,510行；预计810个Silver文件/3,105,684行，不读取2014年前Raw |
+| 源请求/进程 | Tushare/Prod请求0；一个协调进程、一条复用DuckDB连接，无下载worker |
+| 数据SQL | 每文件一次Raw投影/选择、一次单文件COPY及一次合并读回校验；三项check复用结果，不是三次重算 |
+| 业务持久化边界 | 每周期独立候选、验证、原子提升及checkpoint；失败最多重做尚未完成unit |
+| 登记 | 最多810次实际文件登记单元，事件预计3,240条；独立真实补报run批量处理，不启动810次历史asset run |
+| 费用与耗时 | 无外部配额消耗；已知4.571秒只是审计成本，Silver COPY/fsync/事件尚无实测，不编造ETA。必要隔离验收顺带记录这些成本，不另开性能实验或重新bootstrap |
+
+不新增env、Settings、数据库或长期配置文件。以下均为现有配置来源或本次显式执行输入，不能散落成另一套阈值：
+
+| 配置/输入 | 默认、来源及消费者 | 生效/失败处理 |
+| --- | --- | --- |
+| Lake/staging根 | paths.py既有默认；新CLI显式参数和job既有LakeRootResource | 本次执行固定、路径/设备不符拒绝，不更改全局路径 |
+| run_id/audit_report | 无隐式“最新”默认；CLI/job显式传入，本次执行记录保存范围引用 | 同ID恢复，非法身份/未通过审计/范围越界拒绝 |
+| DuckDB memory/threads/spill | 复用DuckDBConnectionSettings既有默认16GB/4线程/512GB；只将temp_directory指向本次staging/spill | 这些是现行引擎上限而非实际分配或业务门禁；不套Raw HTTP policy，不新增Silver小额阈值，异常留证退出 |
+| 并发/批次/空间 | 单协调器、每周期一个持久化unit；不新增可配置并发或未经测量的固定MB上限 | 空间开工检查一次，按已知候选/提升/实际spill增量计量并在提交边界确认，不递归扫描累积目录 |
+
+空间峰值考虑现有Raw、已生成Silver、本unit候选/旧目标（更新时）和实际spill；无备份副本。压缩体积、fsync/事件耗时未实测，不能用行数伪造精确GiB或时间承诺。空间不足/真实目标冲突只停止当前执行并保留成功unit，不擅自放宽额度、安装依赖、换盘或改合同。隔离验收记录真实配置与资源，不因尚无全量写入测量先加一轮全市场审计。
+
+全部Silver入口显式调用connect_configured_duckdb并传入temp_directory为本次staging/spill的DuckDBConnectionSettings，其他参数沿上述既有默认；不直接调用会使用全局临时目录的无参DuckDBResource.connect()，不修改共享resource默认或让spill落到正式Lake/全局移动盘临时目录。
+
+### 10.8 具体开发文件与影响面白名单
+
+以下路径相对lake_console/orchestrator/；只为本Silver生成落地，当前仅为待review清单：
+
+| 文件 | 落地职责 |
+| --- | --- |
+| 新src/orchestrator/defs/run_contracts/stock_period_silver.py | 两频Silver身份、范围引用、字段不变/周期唯一合同及小型执行记录版本 |
+| src/orchestrator/defs/run_contracts/asset_column_schemas.py、paths.py | 注册两个同Raw schema与两固定Silver路径，不修改既有Raw合同 |
+| 新src/orchestrator/defs/stock_period_silver.py | 纯源整行投影/择行、协调逐周期生成与共用检查结果，不放HTTP或Prod依赖 |
+| 新src/orchestrator/defs/io/stock_period_silver.py | Silver目标/候选边界、单写锁、原子提交与逐文件恢复；不直接调用写死Raw目标的publish/audit_file |
+| src/orchestrator/defs/assets/stock_weekly.py、stock_monthly.py | 在原模块新增各自Silver asset，原Raw asset函数及入口行为不变 |
+| src/orchestrator/defs/jobs/stock_weekly.py、stock_monthly.py | 各新增只选Silver及检查的job，保留原Raw job |
+| 新src/orchestrator/defs/checks/stock_period_silver_checks.py | 两频六项blocking checks，共用一次实际验证，不依赖一次性bootstrap证明长期供数 |
+| 新src/orchestrator/defs/bootstrap/stock_period_silver_cli.py | build/resume/events入口及真实补报run；无删除、下载或旧计划兼容 |
+| src/orchestrator/defs/catalog/lake_assets.py | 新增两个asset、分区模型、六项治理登记及来源/字段/读写/性能合同；保留其他任务格式和改动 |
+| 新tests/test_stock_period_silver_contracts.py、test_stock_period_silver_projection.py | 21列完全一致、独立字面金样本、范围/整期/择行/NULL/身份正反例 |
+| 新tests/test_stock_period_silver_execution.py、test_stock_period_silver_events.py、test_stock_period_silver_jobs.py | 原子性、取消恢复、同版本复用、事件失败、真实运行绑定与定义/直接消费者回归 |
+
+复用前已查当前Raw入口→deliver_asset→run_period→io.publish及事件链：report_file_events固定Raw asset/check/路径，不能直接给Silver用；_replace_parquet_from_query的旁路.tmp也不能当完整staging/checkpoint能力。safe_path/file_version/fsync等根无关底层能力可在确认真实语义后窄复用，不搬动或泛化现有Raw主链。通用schema、paths、catalog的直接消费者仅本次新增资产/检查/CLI和治理测试；不触及Prod DatasetDefinition、业务API、前端、日线/分钟算法或依赖矩阵，不新增对src/ops/app的依赖。
+
+### 10.9 隔离验收、正式生成与交付
+
+| 验收点 | 正向 | 负向/故障 |
+| --- | --- | --- |
+| 字段完全一致 | 真实Raw schema及已有有界源样本核对21列/顺序/Decimal/NULL，输出整行逐值相同 | 日期转DATE、数字转DOUBLE、change改名、额外period/审计列、改码/改价均失败 |
+| 审计范围/完整周期 | 2014-01-03首周、上市首周/月及7个边界周期按既定规则保留 | 2014年前、完全上市前、未获准日期进入输出；首期截断或漏首周失败 |
+| 择行 | 20200228/29真实样本与独立expected选择更新end_date整行；同值重复可确定性选择原行 | 最新同版本异值不得提前ROW_NUMBER跳过，不拼字段、不制造新日期 |
+| 文件/单位 | 周/月各一个固定目标，单Raw周期读一次，三个check共用校验 | 错根/旧Lake/符号链接/跨设备/未知目标、同周期冲突writer或候选不符均拒绝 |
+| 取消与退出 | COPY前后、提升前后取消，TERM/KILL后沿同ID续成功unit，不留本任务worker/锁 | 清根、重写已完成文件、改身份认领旧结果、失败空结果冒充成功均失败 |
+| checkpoint/事件 | rename后记录失败读回补记；文件和事件分开，真实补报run绑定当前资产/分区/物化 | 事件失败不得重写行情；PLANNED、错分区、错物化及空run_id不能冒充检查成功 |
+| 隔离集成/效率 | 临时Lake/staging、隔离instance走实际Silver asset/job/check/CLI，复用既有Raw样本 | 任何Tushare/Prod请求、Raw写入、正式资源操作、每股/每check扫全历史和恢复重跑完整审计均拒绝 |
+
+先在上述白名单实施并完成必要隔离验收，再review最终正式执行清单；不因本轮文档补齐自动开始开发或正式操作。这是第5步的开发/落盘安全要求，不新增上游审计或源验证步骤。修复时只跑受影响测试，固定版本后一次直接回归；不默认全仓/完整bootstrap。
+
+获准正式执行时先加载确定版本（其他任务加载冲突先汇报），在保持Raw sensor状态/水位及R3暂停的条件下，以§9.6作为审计门禁执行一次build；随后只补需要的events，并汇总810个unit的既有写入/检查记录。预期week=656文件/2,510,076行、month=154文件/595,608行、总3,105,684行；真实结果不符先报告，不擅自修订审计数字或扩大范围。不能把7个边界周期误删后仍声称对账通过。
+
+交付：实际文件数/行数/路径和按期范围，21字段守恒证据，三项检查及真实登记绑定，取消/续跑/事件失败覆盖，SQL/I/O/资源实测和未覆盖项，正式操作清单与其他任务保留情况。最终状态分别写“设计、代码、隔离验收、正式文件、DG登记”；自动日常接线、Prod、R3不冒记完成。后续新增问题按根AGENTS先讨论，不靠新增验证步骤或反复审计掩盖。
+
+设计证据：本轮使用CodeGraph explore查看report_file_events、Raw发布和DuckDB连接的真实实现及直接调用方，结合Raw asset/job/check、字段schema、catalog和审计产物核对；未扫描数据湖或请求Tushare。Dagster依据为[asset metadata](https://dagster.io/docs/guides/build/assets/metadata-and-tags)、[asset checks](https://dagster.io/docs/guides/test/asset-checks)及[partitioning assets](https://dagster.io/docs/guides/build/partitions-and-backfills/partitioning-assets)，仅用于定义/检查/分区设计，不授权升级当前安装版本。当前目录未发现既有周/月Silver实现，本节新增命名、路径和CLI设计仍需本次review，不能以历史Raw实现冒充已具备。

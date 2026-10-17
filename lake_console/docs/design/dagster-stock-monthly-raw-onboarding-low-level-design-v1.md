@@ -1,6 +1,6 @@
-# DG 复权月线直接源 Bootstrap、每日更新与Silver完整性审计 LLD v1
+# DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
-更新：2026-10-17。**第8步已完成：月线Raw共431文件/868,690行；45股月线历史及当前月补更397文件，事件和截止点登记完成，baseline=ready，刷新到2026-10-16，10月仍为未结束月份。** 收尾新增46页月线请求，成功周线未重下；父子身份、sensor状态和cursor保持，worker退出、锁释放。共同最终对账见共享LLD §5.15。**月线与周线共用的完整性审计方案已确认并落档，见本文§6及共享LLD §9；按新口径的完整审计与Silver生成均未执行。** Prod后置，R3继续暂停。
+更新：2026-10-17。**Raw第8步已完成，月线431文件/868,690行、baseline=ready，截止2026-10-16；共同正式对账见共享LLD §5.15。随后月线完整性审计通过，应有595,608个股票月全部覆盖，缺失与最新版本冲突均为0，见共享LLD §9.6。** 本轮补齐本文§7及共享LLD §10生成设计；Silver与Raw字段完全一致已确认，具体入口/路径/实现待review，未开发或生成Silver。Raw sensor状态/水位保持；Prod后置，R3继续暂停。
 
 目标/阶段见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，完整字段、北交所请求、捕获/候选/恢复、性能与正反验收唯一引用[共享LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。本文只记录月线差异，旧逐月修补及Prod搬运步骤退出DG方案。
 
@@ -74,11 +74,11 @@ stock_monthly_update.py、stock_monthly_update_state.py的旧“仅已结束月�
 
 <a id="12-m10c-落地与验收2026-10-05"></a>
 <a id="后续真实验收执行卡2026-10-06准备完成"></a>
-Raw完成后先做本文§6及共享LLD §9的一次完整性审计，通过后生成月线Silver，不重下源。共用仍上市集合、保留三套源价格，规范日期和确认身份，按最新end_date整行择取。以[共享LLD的上市周期边界](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#silver-listing-boundary)保留上市所在整月，排除完全上市前的月份，不切割上市首月或检查首月内部上市前成交。具体Silver schema与job/check仍待后续开发落实，不得把已确认审计方案写成已实现。历史刷新涉及的每个月都传递，不能只处理当前月；Silver未完成不能关闭周/月主线。
+Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；下一步按本文§7生成月线Silver，不重下源。共用仍上市集合、保留全部21列及源日期字符串，身份/日期解析只用于选行，按最新end_date选完整行。以[共享LLD的上市周期边界](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#silver-listing-boundary)保留上市所在整月，排除完全上市前的月份，不切割上市首月或检查首月内部上市前成交。具体Silver字段、job/check与落盘设计见共享LLD §10，仍未实现。后续历史刷新涉及的每个月都应传递，不能只处理当前月；首次生成不等于日常自动接线完成。
 
 2026-10-05旧bootstrap两源402文件的搬运事实只作历史；2026-10-15未复权月线201文件已删除。旧排除20200229及双源执行卡不再是当前计划，完整记录见[历史结案](../../../reports/stock_period_raw_closeout_20261006.md)和Git。Silver未实施，后续按真实变更月消费，不只消费最新月。
 
-## 6. 月线完整性审计及Silver边界（2026-10-17已确认，尚未执行）
+## 6. 月线完整性审计及Silver边界（2026-10-17审计通过，Silver未生成）
 
 月线共用[总方案§7.3](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#silver-audit-plan)的五步流程及[共享LLD §9](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-completeness-audit)的全部判定、输出和通过标准，不另跑一套审计或增加月线专项步骤：
 
@@ -89,4 +89,23 @@ Raw完成后先做本文§6及共享LLD §9的一次完整性审计，通过后�
 - 与周线共用一次读取的参考事实和本轮集合结果，输出月线汇总、缺失股票及范围CSV、最新版本冲突CSV和规则排除汇总；已确认Raw验收及源证据复用，不重新请求源、逐股逐日扫湖或聚合整月日线。
 - 休市窗口按静态输入处理，报告整理及之后生成Silver不再重复完整审计、逐文件hash或库存核验。审计有真实问题先列明并讨论，只补验受影响范围；通过后生成时仅做必要的文件写入及读回验收。不得擅自新增步骤、配置、性能实验或更紧预算。
 
-本轮仅修订文档，未执行本节审计、代码开发或Silver生成，不改Raw、正式Lake/staging、定义、事件及sensor；Prod后置，R3继续暂停。
+本节审计已于2026-10-17完成，实际证据见[审计报告](../../../reports/dg_stock_period_silver_readiness_20261017_135833/report.md)及共享LLD §9.6；月线154个范围内Raw文件/606,752行，排除完全上市前7,570行和旧计算版本3,574行，得到595,608条有效股票月，无缺口或版本冲突。完整Raw继续保留，不修改旧报告；本轮只补生成文档，不再次审计、不开发或写湖，不重载、登记事件或操作sensor。
+
+## 7. 月线Silver生成设计（待review，字段不变已确认）
+
+本节只补月线差异，完整实现白名单、配置来源、原子性/取消恢复、检查/事件及验收唯一见[共享LLD §10](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-generation)，不另立月线执行框架或增加审计步骤。
+
+| 项目 | 设计 |
+| --- | --- |
+| 来源 | §6已审计的154个Raw月文件，2014-01—2026-10，沿本次交易日截止2026-10-16 |
+| 输出资产/job | silver_stock_monthly / silver_stock_monthly_update_job，只选择Silver及其三项检查，不触发Raw请求 |
+| 正式文件 | /Volumes/datasource/data_lake/silver/quote/stock_monthly/month=YYYY-MM/part-000.parquet；预计154文件/595,608行，尚未生成 |
+| 分区 | 复用cn_a_stock_months；catalog登记month_partition_silver_stock_monthly；不增加行情period列 |
+| 字段 | 原21列顺序、列名、类型、值、单位和NULL全同Raw；trade_date/end_date仍VARCHAR，不转DATE，change不改名，三套价格不变 |
+| 写入unit | 一个已列明Raw月文件选行→一个候选→一次共用读回校验→同设备原子提升→checkpoint；不每股或每项检查重读整月/全历史 |
+
+月内多个源日期按最新end_date整行择取；20200229/end_date=20261015这一整行优先于20200228/end_date=20250910，不改写源日期或拼字段。月末非交易日及未结束10月均合法；上市所在整月保留，不切割上市日之前部分。已通过的停牌/生命周期完备性不在生成时再算一遍，Raw完整历史不截断。
+
+三项blocking检查名为silver_stock_monthly_file_contract_check、silver_stock_monthly_key_partition_check、silver_stock_monthly_source_projection_check，共用一次实际验证。首次月线预计154条物化、462条检查；只登记已完成/校验文件，事件失败只补事件，不重做月线COPY。阶段事实与源版本记录放运行metadata/checkpoint，不写进业务列。
+
+复用同一个stock_period_silver_cli的build/resume/events及本次run_id，不新增月线bootstrap/freeze/删除入口。后续日常/因子更新应将Raw实际变更的全部月文件交给同一生成器，不能只处理当前月；自动接线不在首次生成执行清单内，本轮不新建或启停sensor、不改Raw CLI/job/水位。月线隔离测试复用共享正反样本与真实Raw schema，不重下源或聚合日线；最终正式文件、检查与登记均须实际通过后才标完成。
