@@ -1,0 +1,1833 @@
+{
+  "report_type": "moneyflow_p5_exception_evidence_reconciliation",
+  "as_of": "2026-10-18T00:19:29.617316+08:00",
+  "complete": true,
+  "p5_complete": false,
+  "activation_commit": "07dd36df2",
+  "scope": "repository-only evidence reconciliation; no formal services, files or source accessed",
+  "plan_section": "75.24",
+  "lld_section": "70.29",
+  "categories": [
+    {
+      "id": "E01",
+      "topic": "临时错误允许重试",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_retry_shared_request_budget",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 395
+        }
+      ],
+      "evidence_boundary": "七表临时失败来自临时Dagster真实失败metadata；假源/假时钟。sensor允许请求与采集器重试分别验证，不声称正式daemon错误恢复全链已发生。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E02",
+      "topic": "非法或不可重试错误停止",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 179
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_real_transient_failure_metadata_allows_retry_but_fatal_does_not",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 177
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses0]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 257
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses1]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 257
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses2]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 257
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses3]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 257
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses0]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 273
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses1]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 273
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses2]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 273
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses3]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 273
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses0]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 275
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses1]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 275
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses2]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 275
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_source_failure_never_publishes_or_materializes[responses3]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 275
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[date]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 445
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[duplicate]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 445
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 445
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[cross_scope]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 445
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 445
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[date]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[duplicate]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[empty_code]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[board_schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 451
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[date]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[duplicate]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable_d5]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[empty_code]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[board_schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[dc_close]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 462
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[date]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[duplicate]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[unstable_net_vol]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[empty_code]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[board_schema]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_invalid_or_unstable_source_cannot_publish_green_events[ths_latest]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 417
+        }
+      ],
+      "evidence_boundary": "非法精度真实job失败，拒绝发布；各表字段/错误样本分别运行，来源响应由测试替代。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E03",
+      "topic": "六次尝试上限不因游标丢失重置",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 198
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 199
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 199
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 197
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 197
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 197
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_six_persistent_keys_limit_survives_cursor_loss",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 197
+        }
+      ],
+      "evidence_boundary": "真实临时Dagster run key，错误分类在该用例被替代；分类的独立证据见E01/E02。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E04",
+      "topic": "取消与采集父进程退出",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_transport.py": "a3351281f786d826ce54e06dcc15610572a5ec9a27f936392f705fa6aef8505a",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_request_worker.py": "2f9776e5ad3e84673b5329344591196e825d876580ab3c497ef6d0b9a99fc2f3",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_cancel_preserves_page_or_unready_round[False]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 415
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_cancel_preserves_page_or_unready_round[True]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 415
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.xml",
+          "module": "test_moneyflow_transport",
+          "testcase": "test_cancel_kills_owned_worker_even_if_term_is_ignored",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_transport.py",
+          "line": 183
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.xml",
+          "module": "test_moneyflow_transport",
+          "testcase": "test_parent_death_closes_real_inflight_sdk_request",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_transport.py",
+          "line": 250
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_cancel_after_intent_preserves_candidate_and_resumes_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 541
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_cancel_after_intent_preserves_candidate_and_resumes_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 569
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_cancel_after_intent_preserves_candidate_and_resumes_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 467
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_cancel_after_intent_resumes_verified_raw_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 638
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_cancel_after_intent_resumes_verified_raw_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 641
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_cancel_after_intent_resumes_verified_raw_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 666
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_cancel_after_intent_resumes_verified_raw_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 621
+        }
+      ],
+      "evidence_boundary": "取消保留页/候选且可续接；真实拥有的子进程被回收。SDK仅本地回环、假token，未杀正式任务。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E05",
+      "topic": "文件已替换但完成记录未写入的续接",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_complete_checkpoint_failure_resumes_moved_file_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 325
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_complete_checkpoint_failure_resumes_moved_file_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 341
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_complete_checkpoint_failure_resumes_moved_file_without_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 325
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[raw]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 602
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[silver]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 602
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[raw]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 605
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[silver]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 605
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[raw]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 630
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[silver]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 630
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[raw]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 585
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_exit_after_replace_resumes_without_source_or_rebuild[silver]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 585
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_silver_replace_exit_resumes_without_rebuilding_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 598
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_silver_replace_exit_resumes_without_rebuilding_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 635
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_silver_replace_exit_resumes_without_rebuilding_candidate",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 514
+        }
+      ],
+      "evidence_boundary": "真实临时Parquet/原子替换，替代checkpoint写入以模拟中断；四表合并用例逐层覆盖Raw和Silver。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E06",
+      "topic": "提交丢响应与不明状态",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "e0eee05f51a60b8d88a84e8266e2c78c33c30fff6837374ae0a004c2ef28a61d",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/recovery.py": "183497f48a5b7642e3c7c6650d639285091a95a99efa489538449206d0a21561",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "6b68ae46208e86706e83fbedef4812feddbbece66317e77757504eec33a50aa1",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/acceptance.py": "d8f05bb423d3e065a8fe41d512ec4772c559d7c8bacef44de6a456bda2563d39"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_submission",
+          "testcase": "test_response_loss_recovers_native_and_never_posts_twice",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_submission.py",
+          "line": 147
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_submission",
+          "testcase": "test_intent_before_real_post_is_ambiguous_not_retriable",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_submission.py",
+          "line": 158
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_submission",
+          "testcase": "test_real_process_crash_releases_lock_but_retains_uncertain_intent",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_submission.py",
+          "line": 288
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_integration",
+          "testcase": "test_actual_http_response_loss_has_one_post_and_no_automatic_retry",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_integration.py",
+          "line": 193
+        }
+      ],
+      "evidence_boundary": "控制器存储替身与真实本地HTTP断响应、真实子进程退出分层验证；不声称正式服务发生丢响应。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E07",
+      "topic": "重复执行不新增数据或任务",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "e0eee05f51a60b8d88a84e8266e2c78c33c30fff6837374ae0a004c2ef28a61d",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/recovery.py": "183497f48a5b7642e3c7c6650d639285091a95a99efa489538449206d0a21561",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "6b68ae46208e86706e83fbedef4812feddbbece66317e77757504eec33a50aa1",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/acceptance.py": "d8f05bb423d3e065a8fe41d512ec4772c559d7c8bacef44de6a456bda2563d39"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 291
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 307
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 309
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 556
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 561
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 586
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 541
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_four_days",
+          "testcase": "test_four_day_native_files_lost_response_restart_and_zero_repeat",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py",
+          "line": 80
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+          "module": "test_moneyflow_continuation_four_days",
+          "testcase": "test_four_day_native_files_lost_response_restart_and_zero_repeat",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py",
+          "line": 80
+        }
+      ],
+      "evidence_boundary": "文件同值保留mtime；四日演练为每天3行的临时SQLite/真实job/check，来源与旧父证据替代；正式重放另有实证。",
+      "additional_evidence": [
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-acceptance.json",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-before.json",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-after.json"
+      ],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E08",
+      "topic": "Raw修订后Silver识别并更新",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537",
+        "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_delivery_readiness.py": "ed8a52c46d54ee86cdabb6ab0f44a8449fc11ea22a9d48000ab607e8c1e339bd"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 135
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 135
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 135
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 133
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 133
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 133
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_real_delivery_current_check_file_and_safe_upstream_revision",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 133
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 291
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 307
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_same_values_reuse_and_source_revision_updates_only_raw",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 309
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 556
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 561
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 586
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_same_files_replay_is_idempotent_and_revision_updates_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 541
+        }
+      ],
+      "evidence_boundary": "七表分别证明sensor请求与真实临时job更新；未在正式环境伪造来源修订，也未把人工运行job冒称daemon消费RunRequest的完整演练。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E09",
+      "topic": "文件与检查身份不符不得继续",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609",
+        "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_delivery_readiness.py": "ed8a52c46d54ee86cdabb6ab0f44a8449fc11ea22a9d48000ab607e8c1e339bd",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 222
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 224
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 224
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 222
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 221
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 221
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_blocking_check_wrong_identity_is_not_green",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 221
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_definitions",
+          "testcase": "test_changed_raw_after_green_event_cannot_feed_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py",
+          "line": 282
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_definitions",
+          "testcase": "test_changed_raw_after_green_event_cannot_feed_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py",
+          "line": 298
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_definitions",
+          "testcase": "test_changed_raw_after_green_event_cannot_feed_silver",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py",
+          "line": 300
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_definitions",
+          "testcase": "test_raw_physical_hash_change_blocks_silver_before_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py",
+          "line": 510
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_definitions",
+          "testcase": "test_raw_physical_hash_change_blocks_silver_before_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py",
+          "line": 515
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_definitions",
+          "testcase": "test_raw_physical_hash_change_blocks_silver_before_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py",
+          "line": 532
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_definitions",
+          "testcase": "test_raw_physical_hash_change_blocks_silver_before_source",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_definitions.py",
+          "line": 487
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_mkt_dc_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py",
+          "line": 375
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_ths_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py",
+          "line": 386
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_cnt_ths_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py",
+          "line": 386
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ind_dc_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py",
+          "line": 384
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_dc_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py",
+          "line": 379
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_ths_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py",
+          "line": 379
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_sensors",
+          "testcase": "test_non_executed_check_does_not_erase_prior_green_proof",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_sensors.py",
+          "line": 379
+        }
+      ],
+      "evidence_boundary": "临时真实文件/物化/检查绑定；planned记录不会抹掉原成功，但坏摘要或错身份仍拒绝。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E10",
+      "topic": "行数下降与板块分类缺失",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_row_count.py": "e0232fca2319d32892f80649c961b5f00903f088b5d136a374ecd26dfcfa5dc4",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+        "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow_ind_ths]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow_cnt_ths]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow_ind_dc]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow_dc]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow_ths]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_all_six_jobs_stable_drop_retains_candidates_without_success[moneyflow]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 118
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_row_count",
+          "testcase": "test_per_class_drop_even_when_total_grows",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_row_count.py",
+          "line": 171
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow_mkt_dc",
+          "testcase": "test_bad_source_not_ready[responses0]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py",
+          "line": 125
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow_mkt_dc",
+          "testcase": "test_bad_source_not_ready[responses1]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py",
+          "line": 125
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow_mkt_dc",
+          "testcase": "test_bad_source_not_ready[responses2]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py",
+          "line": 125
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow_mkt_dc",
+          "testcase": "test_bad_source_not_ready[responses3]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py",
+          "line": 125
+        }
+      ],
+      "evidence_boundary": "六表5行降至1行真实job拒绝发布并保留候选；分类下降用独立5→3/5/100小样本；大盘用单行合同，不能误说七表共用下降规则。",
+      "additional_evidence": [],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E11",
+      "topic": "时间、请求与内存预算",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_transport.py": "a3351281f786d826ce54e06dcc15610572a5ec9a27f936392f705fa6aef8505a",
+        "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_request_worker.py": "2f9776e5ad3e84673b5329344591196e825d876580ab3c497ef6d0b9a99fc2f3",
+        "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "6cc1fbf910e7ff26e08441e66c7af8243c4cbd040339f0574fad399574484d53"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_retry_shared_request_budget",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 395
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_elapsed_budget_includes_conversion_and_wait",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 443
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_moneyflow",
+          "testcase": "test_memory_budget_before_source_call",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py",
+          "line": 532
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.xml",
+          "module": "test_moneyflow_transport",
+          "testcase": "test_budget_rejection_precedes_worker_creation",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_transport.py",
+          "line": 198
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.xml",
+          "module": "test_moneyflow_transport",
+          "testcase": "test_rss_observation_failure_ends_owned_request",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_transport.py",
+          "line": 241
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.xml",
+          "module": "test_moneyflow_transport",
+          "testcase": "test_installed_sdk_single_page_capacity_cost",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_transport.py",
+          "line": 223
+        }
+      ],
+      "evidence_boundary": "完整30秒持续响应实验日志另附；300秒用独立时钟边界验证。单元64请求预算拒绝、768MiB及进程回收分别核对，不预测真实网络耗时。",
+      "additional_evidence": [
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-sdk-20261017.log",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-capacity-lifecycle-20261017.log"
+      ],
+      "result": "covered_with_stated_limits"
+    },
+    {
+      "id": "E12",
+      "topic": "正式失败保留并恢复验收",
+      "implementation": {
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "e0eee05f51a60b8d88a84e8266e2c78c33c30fff6837374ae0a004c2ef28a61d",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/recovery.py": "183497f48a5b7642e3c7c6650d639285091a95a99efa489538449206d0a21561",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "6b68ae46208e86706e83fbedef4812feddbbece66317e77757504eec33a50aa1",
+        "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/acceptance.py": "d8f05bb423d3e065a8fe41d512ec4772c559d7c8bacef44de6a456bda2563d39"
+      },
+      "passed_test_evidence": [
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_then_ordinary_silver_resume_and_zero_repeat[False]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 351
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_then_ordinary_silver_resume_and_zero_repeat[True]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 351
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_then_ordinary_silver_resume_and_zero_repeat[False]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 351
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_then_ordinary_silver_resume_and_zero_repeat[True]",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 351
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_failure_is_not_retried",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 384
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+          "module": "test_moneyflow_collection_recovery",
+          "testcase": "test_raw_reexecution_failure_is_not_retried",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py",
+          "line": 384
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml",
+          "module": "test_moneyflow_continuation_four_days",
+          "testcase": "test_four_day_native_files_lost_response_restart_and_zero_repeat",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py",
+          "line": 80
+        },
+        {
+          "report": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml",
+          "module": "test_moneyflow_continuation_four_days",
+          "testcase": "test_four_day_native_files_lost_response_restart_and_zero_repeat",
+          "test_file": "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py",
+          "line": 80
+        }
+      ],
+      "evidence_boundary": "正式THS Silver启动失败和moneyflow Raw失败均由当时批准的一次恢复处理；不是无限自动重试或正式异常注入。",
+      "additional_evidence": [
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-acceptance.json",
+        "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-acceptance.json"
+      ],
+      "result": "covered_with_stated_limits"
+    }
+  ],
+  "category_count": 12,
+  "distinct_selected_testcases": 138,
+  "reused_junit_reports": {
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml": {
+      "sha256": "6e3725e21767870285026bc7e2e5626cefbb7a34d99a8d17ba77fd2ed3358d3e",
+      "passed": 1203,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml": {
+      "sha256": "3dd3482f9e2f9d6b3dee0e105132aca351320af9c29fe6686651b4e8311206e8",
+      "passed": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.xml": {
+      "sha256": "e1104a0417e3c4eebb9c56b4f2a247e9fa1aaf09b192f8acd1e3e4da5aa44502",
+      "passed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.xml": {
+      "sha256": "0144bfd48a9ab67d506d2dcfeef06323321eaba05be3c54df639b4f6ad6d8d23",
+      "passed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "test_file_sha256_and_db67e7d8_equality": {
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py": "2b5a6fed1639d573aef2d79b3b1266128062ebafc0c48ef62218729852e604dd",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py": "99abc9cba7a388a5be278864b0a793b502b6956878c3b08d7378b0501621c36f",
+    "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py": "0f8bcc6408fa1874e2569d7f796aa42e8f587a30f54a711d60b3bdb1363bb980",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_acceptance.py": "aed50a8c1cf0a8363076f24d3f1fd988f8f49af670b31a5c7e7fd5e6fef1b145",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_cli.py": "a5a1935b9984ab28017e9dc760d68a40acf91bdab6b6b33a487397acce0f5026",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_execution.py": "3c65122a85eea09faea1d27d826804dbf063eac25a18785856218fb91870136a",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py": "7f65ddfbe67a6033821f5c23fba317eb514fa5e274f06592213c5654a2c8e86d",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_integration.py": "6ebcb78dbca45aa0e2208ea37011e966a17c55d8ea14709509cb711a1d12310d",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_plan.py": "b169d9aae9adbbb77417f0787a8d60e7df75473e9a9c93bef50edcaecfb2281f",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_recovery.py": "5aff86bcae1f8de5d7554ea1127af3466cedf0a5634cd3d12554965f635c52c8",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_state.py": "5815be263cf029ce9cbef4bb948768c1e7cab59c67498974539416a48e2bf510",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_submission.py": "52cd5f973cb8e890d4e9d6a4aa7e8bb94fb28369a637f4c72b233c528fec507d",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py": "91eb1e14f890c70d16650f26e40eb3850d27f3c7b5a7403fedf15abdcaf6698c",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py": "e69c590f3c69837fe4c7648560656e1f59b9ef5737418b73a9a73c1c3b3074d1",
+    "lake_console/orchestrator/tests/test_moneyflow_definitions.py": "0c8663dfb6d2f50561d48446bbac8afd5ef2c9e982433727ff0139bf780ac54f",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py": "a2b30c1b1e3960ecccbee54b9a67a699b17b74ce19cdd4cc6f714405af496cd9",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py": "7d99dd5972ee5b6b547674c25a0035b14bd9d05b75c5f42cfa90139bd4cbb27b",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py": "dbc39452c838e339ef3f9fc4e31cdfd1798f6828f593265a54579446404ee147",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py": "654db2d9ee3fb51f0f3ef19b8cce548eaddd96c36bf8adc0d585d9a989fccf3a",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py": "9e70396378680d74ec510b6186b6235c9cc2401a0aa20c02156e8fe3f29e63c5",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py": "2d732f55c29435f8ea3cafb203e896e8edbffd703838db555eeada2c7550b7d9",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py": "e6972dfd74eeed70e678a87cfe898f4eb77632598bfeb4c92fdb848c20dd682b",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_cnt_ths.py": "ae193efe27d1f7850fe73d6296ae5efd62f09d55fbf1d59cf645011f3f1a1daf",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_dc.py": "646cd80f7bfaa428a21b6168a61538fcca91f3843a22ab1a7e4c964641bd1067",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_dc.py": "9716655d6f3f605ceaebd0660b77fe87ff74b9333def09fe454f6eab4a1dc448",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_ths.py": "6c35ed9a3ad9aaf6708a5a2421c97c972431f727155a2af6fa55a279b9e693e1",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py": "133e1be71d2b4cfcfbbfae0695a4e3feb7a590d8a4df5ad6eab9063c3f5850ba",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ths.py": "7005b228ce680eb85ef2a28d8e17fa118788cb78216e7163a25a7a31007b9993",
+    "lake_console/orchestrator/tests/test_moneyflow_recovery_boundaries.py": "19f367d67fe47cc7cf0a3be5e3f92ca74f0f89c4582533e199d42927a01050ce",
+    "lake_console/orchestrator/tests/test_moneyflow_row_count.py": "86b2ae64378620b837a9e1740255a6bcbacc3f88713bc492866fd675e054a125",
+    "lake_console/orchestrator/tests/test_moneyflow_sensors.py": "46d7a6e8fa766708cfa478a2188f834ecc78a9a7b6c069f9070fe0a21d4bba5b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py": "fc52cda753eae3ca4a926c1bcdaddede8ccb961d91255f7b9c840edeed00173b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py": "e6faae25de231918650bf4e4d20c6568e4b947aa72cf686412c926f78502d787",
+    "lake_console/orchestrator/tests/test_moneyflow_transport.py": "4727be91688bd59b00e8e0d92c92adfc3ad5258505a1cc9abe491336148fe4ab"
+  },
+  "repair_task_hashes_verified": 43,
+  "activation_dependencies_verified": 117,
+  "pinned_evidence_and_source_sha256_verified": {
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.log": "c98fb0b61fc4895be9eb881324af93bd641e14ac9086d3508ff67a4d01ab21ac",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-20261017.xml": "6e3725e21767870285026bc7e2e5626cefbb7a34d99a8d17ba77fd2ed3358d3e",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.log": "7f952b85e8dc84192ebbb4561f9418f805e3c6e07910206ed4bf1e62ec762b09",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-boundary-20261017.xml": "3dd3482f9e2f9d6b3dee0e105132aca351320af9c29fe6686651b4e8311206e8",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.log": "24ee5ca413686c58190f9723fefde1c410046e46eff44bbff40b6cc261c1a70b",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-transport-fast-20261017.xml": "e1104a0417e3c4eebb9c56b4f2a247e9fa1aaf09b192f8acd1e3e4da5aa44502",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.log": "cf52fd76b741ac1018538f43635af96ef6895ce63678c5cf6069ff8b734906ee",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-final-sdk-metrics-20261017.xml": "0144bfd48a9ab67d506d2dcfeef06323321eaba05be3c54df639b4f6ad6d8d23",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-full-repair-command-20261017.json": "3e8cb26053a5acefaa78754e51337db3914b9afe005a89f93b8600c3fc9871a8",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-sdk-20261017.log": "37e7da27ee9aa40b91931a586d1a5836f4ccfd6f99295c4ed4b51a8303dac604",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-capacity-lifecycle-20261017.log": "c14befb74e0ba1884d3433393713b000f83ecdedcc8167faec9133f093f56871",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-final-ruff-20261017.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/definitions.json": "bb75f7b1e7cc9f3c77381d1dd17fd2398f97480e69ced774f9e414bf12bb8229",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/definitions.log": "3572324fc3a5327b37221446d38c45ac76be5a8b2627dcb83ed6333dd30fb5a0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-static-20261017.log": "ffc5b51dfad0cb82093958ecadfae431c9663183cee9e3368fe256a84c82eade",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-catalog-20261017.log": "4bc53b84e97d398e84a2f68d441c5ac28b288fcc9cf093f56d3f0c15c647c461",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-repair-root-guard-20261017.log": "db6c16ce83be57815d26e51ebe6f2de7b8372b1fb2b1070c6416fc7c13ff4b41",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-plan.json": "b036e672b870ad7e9a4368befb85c9e889456d1b4d1290e0d6f212e7de89bf42",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-plan.log": "7a37cf127fbcbf38c5abc30081cd36e2d5af7e97f7a23c33e116978f49b34389",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-scope.json": "d355047444914b4c8d2966b39a82010aa272bd075824eabd54f63634fa70bfe0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-acceptance.json": "96ad149ddd4cad77c76318c0bf7c21e796855a1561dcee6bf48fd8e86f8eb05a",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-apply.log": "4a08a4b3f0fc25c973ed6ed5e3dde5267f6a4da66664068d59907222a0260bba",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-inspect.json": "01e5ebfff7d7b54a09480fdf9c6af70715a35e69efc173210d3339974edd40ee",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-plan.json": "5f709a1311031f893ba1c033b2916aa62fdab6ebd3982755931b817f906ff646",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-plan.log": "72933b128e4869bf72f844dc11687a69d1b8205392d6ccb08548716f1df1af27",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-scope.json": "29cb8c891eb3f1f6e3fe62163a7a14c77ca60a2a12b30c8f66a15aa97a54f920",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-acceptance.json": "27e4e1055ce8eaad65defc2dcffbd611441b7a674cb7fb77c6eb0f42b559a195",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-apply.log": "1abf55a47b95a85863ae9dbee1a438e2a5880e124c3b4d9e7171b38dcfdacac7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-inspect.json": "c07334c0d76207be6dcdc28b220d387783e09d8cc7a2aa060980d569702461e9",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-plan.json": "2117e4b42bbdfd239ba052db75ec10e868e29c5d1d706a8e7a384192d535477e",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-plan.log": "ea9a0bcd93e47cf386cc53ef00a4f7826c3e8b2e4ed59368d876349c097252e5",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-scope.json": "be1a32ef523f86a96860901e347a026b4ccbce52967bb373f1b5b9b1ad579ca7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-acceptance.json": "5306d8b548b16b8a1bea0d870f71a13dadc2a0c81e20b3d9bb2fd44775fabec6",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-apply.log": "1e1a8d84243f5dfb9fdeed4cecb6ef5224a14201a23445db863d24ff337c00d2",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-inspect.json": "c9dcbcf4c13e0f67d29757280874489db1d1ba85c12a4d0807338634d5448f0a",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-plan.json": "337e0ac92275437a5d40b66a1162a098005c84cdc12549753b722fa8ad55fe60",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-plan.log": "e7d1e06aa384621caecccdfa189cad2086c1bfda62413edf68851bf26305f048",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-scope.json": "90c47f01fb64564ac7a0425cd7e20d3de40ec1cf9ecbbd4a8d42010e9a5690b0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-acceptance.json": "e2f6a84bb0a804aad0df80dfc3adeda8f4f2297a3f11940b04293b97e2d6fba1",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-apply.log": "40f0e4ec38986a390e7c9ca8990ec8f05ce4f2d0348ac9af3872e758dbc0358c",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-inspect.json": "8003b156e66216045c69e15cf8e06868fa77eb6902c1f75d89563bfc11439477",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-plan.json": "2a8d41856a1cb0f36a866b9947c362ab1d516ce217d2a16144be68a342f76e97",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-plan.log": "3e13a27dccdb8c0be4f787d8d9a95d9734c0850f0bf2324b721b5d7762607138",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-scope.json": "9a7fb8abd02c78117a40aba8432f4d76ca415a82ab6a6d8afa889c88025ed985",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-after.json": "7198c6325104cc8392fc4b0abcf7e30bf4beaaae8bc709935f8fad4d29bee67d",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-before.json": "0626cb55c515b9b87d617953f230964b4046f73e87ef6917ff2b76ab93366a19",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-zero-change-replay.log": "a9e37c6e5cc773304a600a1e17b88bf9cb401814d939253f568d8cd76bd60218",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-acceptance.json": "fa4693fd30bf0a5c025f5b1f00e88632fd29e18e627bf71de9378c837be68915",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-audit.log": "fa4693fd30bf0a5c025f5b1f00e88632fd29e18e627bf71de9378c837be68915",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-acceptance.json": "b0a2dde95a33f396b76ea3f619e563a1ee8c1fbac77357d8a020a8d47e1bc640",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-audit.log": "b0a2dde95a33f396b76ea3f619e563a1ee8c1fbac77357d8a020a8d47e1bc640",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/execution_manifest.json": "3c549adf8780d4ccb67dc1ea5a0b367ff7d02cf2ec8cb429d6aae892c4f53bc7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/control_fingerprint.py.txt": "ff3259a3b866597ff1229e9ad091cbca4e02122ac3d52e4fdafe61ff74bcda54",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/plans.py.txt": "16880e67227c3278917035c5382ce2b108a68ac03254e2dbf77e32daaf5790dd",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/preflight.py.txt": "f1259f615adee9c25649e455cad9bb9295ff33edd4ac49361e7ad81c0e569869",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/readback.py.txt": "be4e5f3d0daa9925923b23094a21beb209e3859c26a0dedd4b2bb3a07843d620",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/reload.py.txt": "5364276239b7570afe58633d5c3cb35c633a7d859106594e25e48f9be2105c2f",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/preflight.json": "5334f4b03715ff917e8999c66bfd2196baabe646b1e985a37a6d109309a02309",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-intent.json": "1ae4e8555c38dd3aa4f5a58fefc1a466c58c257a2560c108600ce207fdf668d3",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-request.json": "51c3fe478c6b92139a3e426fb43eba4f3fae3b1eff275a09aef12d246c006e81",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-response.json": "40a6f5b651e73c349c0edc48f8de64c6bf6cd106112fda6c0405596b369283b0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/verification.json": "4beeea0907a53d55f99d61403520bfeb6a97bd5db3bcf808b73addc94f662ce5",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_cnt_ths_trade_day_sensor/start-intent.json": "10b64b213feaea6a9d43815ce1d76f0b63c7aaa8fb256b4061880a9f72e09d55",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_cnt_ths_trade_day_sensor/start-request.json": "e70c88006b6ce1aeae04a8fa134ef6053fc1ca1169ec6ff802bf33e13c54c565",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_cnt_ths_trade_day_sensor/start-response.json": "4e9b75313e843c823d4d7861d7f3a742a24cf7490a1bc137176b0767f5e4f0c6",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_cnt_ths_trade_day_sensor/started.json": "f7b04d9ef6ef505bb7af5a97d6d26520124821feac15ee10c4d11ac8265bab46",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_dc_trade_day_sensor/start-intent.json": "19590dd9fd4296a332f88ad9ae49d14de995145a7cc5a56ed93c8d22e76a1cf8",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_dc_trade_day_sensor/start-request.json": "42a2a7db32f5cae919077376b736300722e77c47f8c49cff8db9b444f68626b7",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_dc_trade_day_sensor/start-response.json": "e7cffdb8e6c148f89bf9662955fe046aa354c59c4b488fce3ec55186d3130f1f",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_dc_trade_day_sensor/started.json": "a4cc019c990576186b5c2cd32ab12fb7c9a90d89bd3ed7994353ec04ee6f8f01",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_dc_trade_day_sensor/start-intent.json": "9a509c8890ea7f16cde463116443ddabff81d87c2a5b9aa3715dd5c884fb35df",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_dc_trade_day_sensor/start-request.json": "1e3b469edfc30e663477bd94c473e63f63074b8ad80b0a7dc70ea95718525afa",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_dc_trade_day_sensor/start-response.json": "06ecdc83d8803e9a39f9748e2f5ddd953e61b5c5a5c848bf1e0a975a25c787ca",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_dc_trade_day_sensor/started.json": "292ab3077cd8d7241958f9e630ea87bdd4049251f6a1335487b5366fd4408366",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_ths_trade_day_sensor/start-intent.json": "1f6e94a96cb994fe3e68284e495c1d802bc81a07daf3a1a96d57835c4c73ac45",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_ths_trade_day_sensor/start-request.json": "2015166875b57280e188dd2e7325fb098bd6a824e5a35a1eb6c81a2ef5df8114",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_ths_trade_day_sensor/start-response.json": "b29792f003c18b38d95a999a6f8ed14e7584a890cbfa3859a70ae0cba968739e",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ind_ths_trade_day_sensor/started.json": "7ac90c979adab4f6f3659772c43902fa49faef28fb29ebda668a67c64021c83e",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_mkt_dc_trade_day_sensor/start-intent.json": "2ad8e054050b5316b030dfa0ec10ea21c5df065ec321b38ac5e72b74439ede97",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_mkt_dc_trade_day_sensor/start-request.json": "7110b98a1509931a24ea147f920e1dbc5a427277d3b4e849e2f9c22a528ef90d",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_mkt_dc_trade_day_sensor/start-response.json": "d2c72af2170dec98aed5274f19a055d11b63ea06dfaabd0381d33dfe6ef26b84",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_mkt_dc_trade_day_sensor/started.json": "d1429e015ffa25b72a9252f68a6c565106c6870a52102a311cf0979737f61537",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ths_trade_day_sensor/start-intent.json": "566f9b47741d8fb9c7e53c8121aaf6d73b69d01ba8c0c2fbcc908e84652c3695",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ths_trade_day_sensor/start-request.json": "7d759d693892c4f5d674c779192bc591e2b0bc7509770722c64e1f150914f891",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ths_trade_day_sensor/start-response.json": "a4089d0b364af9b24211cf30952fd64f3a3dd1f552b26e177039c851432b9572",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_ths_trade_day_sensor/started.json": "68d2d0ca54f46bba7f2cbf70196d4c137f5117d0c2f5a1b00cf6f72ed185ce0e",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_trade_day_sensor/start-intent.json": "77d79ad1c27666e5a954d20e5419a94b39016e8ba719671c6aefc7fbc14a70ee",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_trade_day_sensor/start-request.json": "0e07a6713019740295e2381f5d51f4257e1eb92b9e36b1e70b39adc20d264bdd",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_trade_day_sensor/start-response.json": "8bf283271891c86f491d766bd4a8fbf422cea14b33b3fedfc0748a35800298b5",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/cn_a_moneyflow_trade_day_sensor/started.json": "976a013ecd626f3318034010cb772c4fcc0e3f05c9b3c947ded2e21803d751c6",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_cnt_ths_update_job_sensor/start-intent.json": "02f1a2963b604b79421eca0327bb30aa7c1cb36b99d7e0ee561a0490024990cd",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_cnt_ths_update_job_sensor/start-request.json": "5d92762d81c6110f2a850dbcb77e6f8b41b2555cef1f46a2eaa86a2f1f52b637",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_cnt_ths_update_job_sensor/start-response.json": "42a1f7b5f099a328f52cbce65104e4308bd5556ae5f1252d58f91459334e14ef",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_cnt_ths_update_job_sensor/started.json": "c8a88a0035ae7cee3a7ff33edcb34696cd4ba9d6fc86231d695b72dad6618b0c",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_dc_update_job_sensor/start-intent.json": "dfd06636f177ee6250d7e068d3d50bf9956fc82461ba45c8379692561e582c8b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_dc_update_job_sensor/start-request.json": "cdc6409eafe628290ba9006d4936b8b5d82c0034b531f2cf04bc252d72f8c29b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_dc_update_job_sensor/start-response.json": "f529be617f5bf52a640e57ed3c67f82680b3c845639b2f419770c6d574f82ab9",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_dc_update_job_sensor/started.json": "374764e56c39fe4f0c5fe00bdb5180f60b4beb89402c80cd272979b73bf26e3e",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_dc_update_job_sensor/start-intent.json": "82055fec4fe6a46db607170f4cd1f46bc9b92b24964f120ce04acfaedfc8adbe",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_dc_update_job_sensor/start-request.json": "0b5f9dc0789428238aa2d54906b07c994bdb0db104ef1263f24f51ea0d86925c",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_dc_update_job_sensor/start-response.json": "5fdeb0930528590f928201e10b478706d798ff2f3f732bde2831d8c3ba282883",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_dc_update_job_sensor/started.json": "c7deb93fcc9637d4edd1fbea7403f7819aa8dbb7dd99c23a04a2b58e9cf06d83",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_ths_update_job_sensor/start-intent.json": "921dabd92d3c3a6d97ea34a58418a7a4a73ad047b0629defeac47005655da8df",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_ths_update_job_sensor/start-request.json": "beac80bf1c0d18d95a7b310918f3a4a3459d26f77aad335544d1a10febe84170",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_ths_update_job_sensor/start-response.json": "2fd95bdd7df71e1f235776769810d75f184a8ba6abd2e5704f78c8944668b9e4",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ind_ths_update_job_sensor/started.json": "219e95454819044dc6b7bbcf3e7c678ef6fac466fadb07442b4c9ee6d34f7c01",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_mkt_dc_update_job_sensor/start-intent.json": "77bb0dd2ddf88e9aa82e7af506420af7a96b77826b7ecc2ad985085200c60d9a",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_mkt_dc_update_job_sensor/start-request.json": "1c47ff282fb3ac5f1dd633c9588c67202051ff4f5126abc9aadd88ed6fd37d9e",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_mkt_dc_update_job_sensor/start-response.json": "c1c6e139e34653b3c98b0ad86476a4a71841e8a8c65976cb556f960970cc13f4",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_mkt_dc_update_job_sensor/started.json": "fdd5a26c032527bbb563fa8c55d3306a025d7bbb0c7c8ba9ebdca01a39fc2e29",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ths_update_job_sensor/start-intent.json": "94daa3bd6714255457ff5b44a5e1bcfccbaea9191e9a814e80d5fade34c9f9f9",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ths_update_job_sensor/start-request.json": "2ad71e3ce77f988e303946661ee49ef03a9a5aebb034c2b7ddb00416c2a8e4ee",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ths_update_job_sensor/start-response.json": "9578d84176ee80757713fb7221be4aff38aa93b5dedd10f24687d1b7eeeaf34b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_ths_update_job_sensor/started.json": "0d203402b1b6e330346b89b89c0ca96d6606202e07d9bbd93886c747d4935e84",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_update_job_sensor/start-intent.json": "888dff03e15343654f171d660acd3019256bef8a2ab88c3a9a3983d278a326d4",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_update_job_sensor/start-request.json": "cdfde41f7172bde9016fa04d65caeac253044852c90b55809508ca1f15027e15",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_update_job_sensor/start-response.json": "d802878a8348168bdf4d6055146ad4dbbb491d12686975f12883f3018b2b1659",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/raw_tushare_moneyflow_update_job_sensor/started.json": "5f7e491366a18626bd968dcded217aaeaa1bf60660dfe3555e1527b2aa893f6b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_cnt_ths_update_job_sensor/start-intent.json": "7b1f824ed375e1d09fab1bda06e5dbd5e2b7a0625424c379efc79b01b1f5975b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_cnt_ths_update_job_sensor/start-request.json": "28aa467ab6ad7eb3fe576d0833da332b6c9f62e08118832ed14b984317d31822",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_cnt_ths_update_job_sensor/start-response.json": "d6a2d394a57070c6466c9d957f354e481d32c7eea034de75b9cebc7b0e1a5d98",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_cnt_ths_update_job_sensor/started.json": "d8ff618c6f53fe65737afb39f566a4da59e34943d9f3eb53ff8d761b0d4e8401",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_dc_update_job_sensor/start-intent.json": "b2c7ec688f6010695367d77e0ede12adf93fd5f3b8aa4e6a4ce5e70c583a550c",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_dc_update_job_sensor/start-request.json": "ac6f13d7c9a6f8c2e60a9bdc993cef50c14c69ecd8c7dcffe1ed4f1334292c67",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_dc_update_job_sensor/start-response.json": "953b4dd993d50305361a9fd86d32b0e6df21635acc10f89dc2bb1d96bae232fb",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_dc_update_job_sensor/started.json": "e1a536e92df5c7910d0683085464763268b6524612a7d9e31aceba1162d363be",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_dc_update_job_sensor/start-intent.json": "aa49d4e9f85f67d9b4860a2d5386c5f8e1f7dc83c18a4f954b788d7579b3db37",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_dc_update_job_sensor/start-request.json": "7eb4805bb72d64dd8217afe5e9094dc78a387bd4004aecb74c8cc1e2540ee235",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_dc_update_job_sensor/start-response.json": "18203ecaecb58bc7a0955a048c818dcaea288e2ab8c1c9cc679cc2e2c94770b9",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_dc_update_job_sensor/started.json": "065a738d9b18140a5b9ea1a3b1d563c8fbb2531a55bc7644bca9b1c4d2f214f5",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_ths_update_job_sensor/start-intent.json": "f2d57778e8e77b15b339f86f9a31f84d984db05dba32e3998111fc1d53028340",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_ths_update_job_sensor/start-request.json": "5f0b5162997689a3a51b3b89389f7fab2fef80fbeddb04fd9d9126f32139da87",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_ths_update_job_sensor/start-response.json": "161cc010ea81e109e24100c9a64d6c852e043daa9199b860258fe7d05afdbd33",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ind_ths_update_job_sensor/started.json": "7a8d08e1a2f50050d88b48cd812e2c77cf61e4e1ceb755cb719a73d86280be5b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_mkt_dc_update_job_sensor/start-intent.json": "1c6ac91dd24952ddb0184a2e242575449133e8a6aae92a5e48523b72ca63e1a0",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_mkt_dc_update_job_sensor/start-request.json": "fee47e941d191d8fdce632c5b3cd634c00da0d5a12eeb177a16ddf5d6ad8522b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_mkt_dc_update_job_sensor/start-response.json": "a74efd137707a886103b30479aead10dca6e98afd72d99d9f59923c45ac3f5f6",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_mkt_dc_update_job_sensor/started.json": "3e4060e279bc37a49933249cfdafd1548b29bc53aca82cc48657f5ead1b7227d",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ths_update_job_sensor/start-intent.json": "e445c0ef15724929bf33f119e1208eaffeaefd57c84f7e116a2ec20260758c27",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ths_update_job_sensor/start-request.json": "22389a2d4dea946dd7baa0928fbfa5ddf0182a950fc6a82230f2d4bf5ea923e4",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ths_update_job_sensor/start-response.json": "80cc0ee2f0a9612c95ef47c89f71db8fdbbb2e20b87bc1e4ac0d154beef05e5d",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_ths_update_job_sensor/started.json": "525350e5b4134b24e3b1a357e0acbff8d915507c4ec227657145e2362212c7c0",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_update_job_sensor/start-intent.json": "7e018cff2c2a2ef24af4a7cb80725c78992c57526674d493dca9b528fa8946d6",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_update_job_sensor/start-request.json": "9441649d5a86851075faf9d0528a32a89dcbb40d5ec1685db6cb1dcd6edf664c",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_update_job_sensor/start-response.json": "b7008d43a20429a1ac5f02e86c795279ec610a4970cd8c2326aa549c74c4aa22",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/actions/silver_moneyflow_update_job_sensor/started.json": "d78c1e3a6c3c7e45ea9f7996fd2484b1f49f84547f74e1a2ca68198c70c4d0d9",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/activation-progress.json": "dd1d19f9a1953401ae953414aa67c6dbd4e461f93c3900620732af9b62186c9b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/activation-result.json": "be2ca4780a77a4ef2e6cc55b2abaf068de4d022fd06e10b5b5b31f4e4aa22cf4",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/activation.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/activation.log": "e046835123184c9fe1abe63dae66af8a1c944be6f3d9298f34041b061dafc8f6",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/audit.json": "611ed94424553eaae323068ebe3f0c70504842864f927fcfcebb7ec647051eef",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/before-sensors.json": "728b1fd9cb9289a517fe8696040fb96b2f9672ca90321296335576c64e4c09be",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/definitions.json": "d003608424ed331561165e922b2ecf9cd7851aafebcf0e6d794425a335711255",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/definitions.log": "f80baff4556ea367aa58e653300d8f037cdb3dd3033f32e4bb9e00a76b571d14",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/execution_manifest.json": "e5bdcd3122fa6943baa3af0e9147e3be015def7441d64773e17fff61cfd32c2a",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/final-readback-command.json": "5d078a3cbd7473cd27eefa9f45c89ca1ef8cf3e1e1067d0422542f298e6df954",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/final-readback.json": "1b5f84bed72563e7df6325cff267c413a7d667e5e10c3b5ce4e23abd30d82199",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow-accepted.json": "bc9296fff3fbdcff971a93c5ce20b5f7e18a6a153cfef1e32c3f4319931c465b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow-observation.json": "e668a4aa9843bd5385367db78ddb4a0f366bd008f1148bffc96ab13c411e001d",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_cnt_ths-accepted.json": "2b2cabc7bb0b2055aab6eeb7e794f53d8ea352889c72c25b0eee1633996e4d78",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_cnt_ths-observation.json": "2073b58ce2a86e18690d3db415b6f4cfd198045bc9c05c3776c505d00cf6eb74",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_dc-accepted.json": "6e76d7a43b0e2b553dbf5ba46b451b30dfa38e223b274aa56516df4708cc2a66",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_dc-observation.json": "a1f5f8d7b248f653442eb8c89530c043a824bede029bebde400d252120ede79a",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ind_dc-accepted.json": "7e83b31fd11f7547cf4cc2c118c2b04cda9edb6819cb36969ca55e84f445c372",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ind_dc-observation.json": "8d973c0c90e098cdb0bdd718a849765658e633f5d5455269833c45f7140892d7",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ind_ths-accepted.json": "7d05d3b73f28220d48c2cf86653b785708498feea07305a706b7dd2613e6134d",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ind_ths-observation.json": "13788493c803fe5be833de6dbbaff620c6822f754ae4a7fd05f20105f2500284",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_mkt_dc-accepted.json": "cf8ff3eebb2ddf0ac24cd4a0f55c8a7dc76c411c16ce8d7d8b0d37b464728117",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_mkt_dc-observation.json": "b6520b316042d7640d775369bfc07adcd0a08175309fee78171b67d2c5387724",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ths-accepted.json": "a4b0cbe1f5ea506d01547b75c0a6861a4915d015dfaea2fa083406fe399710be",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/moneyflow_ths-observation.json": "797b02a2c8e4d967fb18606e5d337ffe6e2b0089ab04130b5f734cdb1c484330",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/activate.py.txt": "46c426f9dac2f98b5466ad6a6f9328e5e4b7a3ee57a3ae5834b3a6b84c914d5b",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/audit.py.txt": "7398294afc956aad91271df123ac8162dc1fe0ad79755621603b62d12d1529fd",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/common.py.txt": "7a2ab0b7fbb46a67d7d3c3a51e5a2ecf4394c1f22137dbfb2fc92965e4879ab3",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/isolated-definitions.py.txt": "0bc17c7e8644de0fba2e77df03f4f483c6df12073c1b66f9d242a081898c413c",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/prepare.py.txt": "8232351e42b3ca9ac3e2186bd567110b03824d5697c977e7ef5ad34bf4858dc8",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/operation_sources/readback.py.txt": "5771cb12bcc48eecbd7a59000c49beeae9f4c0006313f952d52dbc253715a6ad",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_update.py": "ebd144a1df1c6d7e9e4d54ca5573a5e96a7364acf933c5e5ef15eb7320cac50e",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_mkt_dc_update.py": "259ec19d12ad783f696bb2f57956ea934342c343d252e3e94a907563f6d41c95",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow.py": "6cc1fbf910e7ff26e08441e66c7af8243c4cbd040339f0574fad399574484d53",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow.py": "b1e31bdc2f42af59faee47136540e555c5f310c99aaf4fca10ff9841a387330c",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_daily.py": "237d303a466dea2285e693dea087c747d8557c9d09f888e6c3e39735cc66afc1",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_request_worker.py": "2f9776e5ad3e84673b5329344591196e825d876580ab3c497ef6d0b9a99fc2f3",
+    "lake_console/orchestrator/src/orchestrator/defs/source_readiness/moneyflow_transport.py": "a3351281f786d826ce54e06dcc15610572a5ec9a27f936392f705fa6aef8505a",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/acceptance.py": "d8f05bb423d3e065a8fe41d512ec4772c559d7c8bacef44de6a456bda2563d39",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/execution.py": "6b68ae46208e86706e83fbedef4812feddbbece66317e77757504eec33a50aa1",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/plan.py": "2276918c15ca0dd807912ecaa397b11d8b1469b3e62b0c1bd4c0534614ad4539",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/recovery.py": "183497f48a5b7642e3c7c6650d639285091a95a99efa489538449206d0a21561",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/state.py": "f7f2a4e8114ef35715b16776b9f14a1f4a3f1dc81dd91a52d1a6f2c9430d1238",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/submission.py": "e0eee05f51a60b8d88a84e8266e2c78c33c30fff6837374ae0a004c2ef28a61d",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation_cli.py": "686e70fe7f8641b8402edb5ad9350c2bc200082a1094bd4dcd33440d9fc140fd",
+    "lake_console/orchestrator/tests/conftest.py": "3ceef99abed3c441d7f15a5fbcc462eff81ccc84a381b0955ca9bb7ac2bc3105",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_definitions.py": "2b5a6fed1639d573aef2d79b3b1266128062ebafc0c48ef62218729852e604dd",
+    "lake_console/orchestrator/tests/test_moneyflow_cnt_ths_sensors.py": "99abc9cba7a388a5be278864b0a793b502b6956878c3b08d7378b0501621c36f",
+    "lake_console/orchestrator/tests/test_moneyflow_collection_recovery.py": "0f8bcc6408fa1874e2569d7f796aa42e8f587a30f54a711d60b3bdb1363bb980",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_acceptance.py": "aed50a8c1cf0a8363076f24d3f1fd988f8f49af670b31a5c7e7fd5e6fef1b145",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_four_days.py": "7f65ddfbe67a6033821f5c23fba317eb514fa5e274f06592213c5654a2c8e86d",
+    "lake_console/orchestrator/tests/test_moneyflow_continuation_integration.py": "6ebcb78dbca45aa0e2208ea37011e966a17c55d8ea14709509cb711a1d12310d",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_definitions.py": "91eb1e14f890c70d16650f26e40eb3850d27f3c7b5a7403fedf15abdcaf6698c",
+    "lake_console/orchestrator/tests/test_moneyflow_dc_sensors.py": "e69c590f3c69837fe4c7648560656e1f59b9ef5737418b73a9a73c1c3b3074d1",
+    "lake_console/orchestrator/tests/test_moneyflow_definitions.py": "0c8663dfb6d2f50561d48446bbac8afd5ef2c9e982433727ff0139bf780ac54f",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_definitions.py": "a2b30c1b1e3960ecccbee54b9a67a699b17b74ce19cdd4cc6f714405af496cd9",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_dc_sensors.py": "7d99dd5972ee5b6b547674c25a0035b14bd9d05b75c5f42cfa90139bd4cbb27b",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_definitions.py": "dbc39452c838e339ef3f9fc4e31cdfd1798f6828f593265a54579446404ee147",
+    "lake_console/orchestrator/tests/test_moneyflow_ind_ths_sensors.py": "654db2d9ee3fb51f0f3ef19b8cce548eaddd96c36bf8adc0d585d9a989fccf3a",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_definitions.py": "9e70396378680d74ec510b6186b6235c9cc2401a0aa20c02156e8fe3f29e63c5",
+    "lake_console/orchestrator/tests/test_moneyflow_mkt_dc_sensors.py": "2d732f55c29435f8ea3cafb203e896e8edbffd703838db555eeada2c7550b7d9",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow.py": "e6972dfd74eeed70e678a87cfe898f4eb77632598bfeb4c92fdb848c20dd682b",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_cnt_ths.py": "ae193efe27d1f7850fe73d6296ae5efd62f09d55fbf1d59cf645011f3f1a1daf",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_dc.py": "646cd80f7bfaa428a21b6168a61538fcca91f3843a22ab1a7e4c964641bd1067",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_dc.py": "9716655d6f3f605ceaebd0660b77fe87ff74b9333def09fe454f6eab4a1dc448",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ind_ths.py": "6c35ed9a3ad9aaf6708a5a2421c97c972431f727155a2af6fa55a279b9e693e1",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_mkt_dc.py": "133e1be71d2b4cfcfbbfae0695a4e3feb7a590d8a4df5ad6eab9063c3f5850ba",
+    "lake_console/orchestrator/tests/test_moneyflow_moneyflow_ths.py": "7005b228ce680eb85ef2a28d8e17fa118788cb78216e7163a25a7a31007b9993",
+    "lake_console/orchestrator/tests/test_moneyflow_recovery_boundaries.py": "19f367d67fe47cc7cf0a3be5e3f92ca74f0f89c4582533e199d42927a01050ce",
+    "lake_console/orchestrator/tests/test_moneyflow_row_count.py": "86b2ae64378620b837a9e1740255a6bcbacc3f88713bc492866fd675e054a125",
+    "lake_console/orchestrator/tests/test_moneyflow_sensors.py": "46d7a6e8fa766708cfa478a2188f834ecc78a9a7b6c069f9070fe0a21d4bba5b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_definitions.py": "fc52cda753eae3ca4a926c1bcdaddede8ccb961d91255f7b9c840edeed00173b",
+    "lake_console/orchestrator/tests/test_moneyflow_ths_sensors.py": "e6faae25de231918650bf4e4d20c6568e4b947aa72cf686412c926f78502d787",
+    "lake_console/orchestrator/tests/test_moneyflow_transport.py": "4727be91688bd59b00e8e0d92c92adfc3ad5258505a1cc9abe491336148fe4ab",
+    "lake_console/orchestrator/src/orchestrator/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/definitions.py": "372820529383d259094b5135a638171466830b341cdf7e597d4f9ea3a080405f",
+    "lake_console/orchestrator/src/orchestrator/defs/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/defs/anns_d_contract.py": "f15939610486fb364deece0a065179c9b6db892e9de1dccc6a75bc5b50cad97d",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/__init__.py": "6f224d65d791553a179112d1bd416f7f32bd3ea5dc430a2f328b3a45d3f32bbc",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_delivery_readiness.py": "ed8a52c46d54ee86cdabb6ab0f44a8449fc11ea22a9d48000ab607e8c1e339bd",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/moneyflow_row_count.py": "e0232fca2319d32892f80649c961b5f00903f088b5d136a374ecd26dfcfa5dc4",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow.py": "ed275e95817b56d34379d51e7dcd453af2143e35543ee274a625a6dc8116cc58",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_cnt_ths.py": "91776a7234d29161a0c0013ec4986ea88cabe13d3b1843721eaf1c1b72b534c7",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_dc.py": "db0548be4aaa43d7e9803c3378c6e689cda1b76c34caea662e04913f139b40e9",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_ind_dc.py": "a686322579cd90da723a810548cb6af3c67104e266e669afc23d58566a440ffd",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_ind_ths.py": "b037b4e740f98cb7d582c6b684bc6fb0aed67159e9594cd4356365be8376e7fd",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_mkt_dc.py": "c96074361eac37a05b132ad4123275b8c0815ea87f16024e52af6b9f9a74d808",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/moneyflow_ths.py": "023ef623bf2c644db8c33480eb594b6b54b81fc65f6fc3a39b4182f55d004469",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/__init__.py": "45e23a92fa75ceb6f4c871185fcaeef90307e4540de5575dbee327ae1624232e",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/daily_basic_event_instance.py": "444e315a20449b9d14555a2898696225f613b0676828b514775dccabf6946753",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/__init__.py": "0213c6cec39a55ccee38815b34a4aca7bfa369b4379e64a65a1bb88598ea1c89",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "104ee36b8c3db64c4e6a85b74405d9b3576cbbd90d483cd2e0cdd0ad33fba574",
+    "lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "67d4e20fb549820677c778b22a1cec2af605f5956f2ffb164cf70da78743345a",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow.py": "1b06ae109f2fda01d788201cc94e1b589027b80ec53f5d3c969e97bbd633a634",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_cnt_ths.py": "54ced03f0a15798c36e60ff1b65d6a6fb963f98d461686a3d861dddd8b90479b",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_daily.py": "14eb686385c749eb353671c73dd61a2fe9767f03b5dab009e71f47e7bd97be2d",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_dc.py": "0a02a53e86809ba30a2c6110d1541e67d929d2295c26854f5e8854a12ceefed4",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_ind_dc.py": "f42b8ec28917ee47dec1d3b8d2c4764987a3102ef30887ad51d8468ab76288c2",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_ind_ths.py": "9f0ee23cde47f457c48e9aa1da1a086e2b46a2d550d9491c36745e16060a03f2",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_mkt_dc.py": "d69422c7f93c8b73cb95099611aa54ff1eab3b12b358ff1caae45ed2247a3371",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_stock.py": "f9079ce93d7195ecfa6171b25199c87ace35cd57818cae1469c35953441356ad",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/moneyflow_ths.py": "96a06078be1c920f1a6ae3d8ab405465b1cafcb9f97077a5396f44647fb2ba90",
+    "lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py": "fec6a4b83b34943c71f4a85b4adc70188b35810fedd2b79b25d611622ea3b04d",
+    "lake_console/orchestrator/src/orchestrator/defs/duckdb_connection.py": "215ebe188ab6f4e55e36bbce95fb48c8d250cea588f93eba46ac75603eac2a35",
+    "lake_console/orchestrator/src/orchestrator/defs/health/__init__.py": "7262d3495d4a5b37b6e0bd81a0ad3267b7f105fcab7164428893416edbc9736c",
+    "lake_console/orchestrator/src/orchestrator/defs/health/lake_root.py": "09550c89f3d11a2b8479e695a3d2f6987f88382c9c991795b8de67e65ee880ac",
+    "lake_console/orchestrator/src/orchestrator/defs/io/__init__.py": "9830078c67b479e5f9fc81a4ff0e30787d2dcfd26f9c0e66c6061c38b1c928bd",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_candidates.py": "10cbc79bead6eeb54962918bf98a431a0a26075dbfb69966401da8ebbfe10f57",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_daily_raw_writer.py": "618db87da1981f313b2d38ffd81b88c5b7161d6f7121d62ab02afa7bfe86500e",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_raw_writer.py": "23754d03553c4f449e3bc12e16ed1dbc4eae0012c93858f93700b48f1173f5e7",
+    "lake_console/orchestrator/src/orchestrator/defs/io/moneyflow_update_publication.py": "aea2571f58261a00a1b7ee6ff47cb41bc7808fb19039cc9076a87daf0fef1537",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow.py": "2748bd0b21b8474c8c880a6069d747b99d43d6f3b09eff5a5ff7fa2ca39239b9",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_cnt_ths.py": "32a7e9012629773d85055b5f0b739decae58b0cc8e008460ada123527096e34f",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_dc.py": "b8b85841be488a82aa57bff95451659ded98e6a48fd40866747288a7e20cbf68",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_dc.py": "16ed94e811fe0b12caa53686f6b99b970cc51ae751c58929dc80f7b88e03d9b9",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ind_ths.py": "d335509401ab118c8c89b0eb5abada7f4daffbbd0d4105d792ed517cd5a41b27",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_mkt_dc.py": "f4414a6fdf9b1a8c5fad7697146e9d2b15440d6d322909836d66272304e0c9cd",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/moneyflow_ths.py": "a05e0a542deabbf74a87c4c3d1c0027fe3b7755637483ee51777b823c9789b75",
+    "lake_console/orchestrator/src/orchestrator/defs/notifications/__init__.py": "586cc22cbf3f1e4af2a6d93f4e78d52793a3b29df4e6de9a927a4c225c3ddd49",
+    "lake_console/orchestrator/src/orchestrator/defs/notifications/feishu.py": "b9a6a724957d6861dc715838e2ef3f9c91d7d53cec84f3c621c7dbe25c786140",
+    "lake_console/orchestrator/src/orchestrator/defs/partitions.py": "d973ddbebd9597060cf00787cbaf4bcf79dda76a6f975c9fcb1931b1b1f49399",
+    "lake_console/orchestrator/src/orchestrator/defs/paths.py": "7431d064325c130eb60a21ebba1c2e9c79c03ceed99a5e2eeac580f07663ae62",
+    "lake_console/orchestrator/src/orchestrator/defs/resources.py": "30311abe87116c3dae5413ac5c99912c203d4eddd6a630a01a49b56be6281a6e",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/__init__.py": "29867f3928bc8e575c24c3c7117e92c5506b205164897dc892513549883530ab",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py": "44cfe6f7fdd75043fdfbeec235b651ad1f579358d3561db00be63cb31ff44fa8",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_tags.py": "b1108eda84e9b36ac3a4f2914ae37e8be9ad0a427eaac2c3f6379f16a91b3fdf",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py": "cdf17e57c7ad7e29e28b70e73cf5c507d300e3f8629970fae113b315579bbba9",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/column_schema.py": "2e3e78ea4d020e666b949a21ea2a0a92a43b3789bebaafe25298da8e369e290b",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/configs.py": "aae4f8f4a0b82bb5b8d44676aebe858cfc3f4588bb4ebc9d5042f32a9e010b13",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/cursor_payloads.py": "ffd3d5d5b3bc3eecaf4a16c27c0b4a90b2c4843b205e04d4e80ee1ef8da40e31",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/cursors.py": "aa76ecc74c3da56c15d89601da32e3f2e7a6fb8a5e826c2551789dc450b591d3",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/dc_board.py": "c4f5d3361f83b9425b9f8b477e6be0335618fcd4a0632ab099885ecc8153aa0e",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/dc_daily_technical.py": "6fb43863dea9788df72490baef2854a65d061dbe9770d3b020d6a20f0ffe7a26",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/dc_daily_technical_serving.py": "7adb249f8374782fd86bdd7050c26aec00d97d81372bb325a9ea23d721bbb16a",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/etf_basic.py": "00692ba551ec9b7b496dac35d2ecda97ed9993dc39786b6972b42df5aea2c05b",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/etf_daily.py": "e3b2fc3c227978693f2488874d39cb6c6c1cfeafbb912017be6ae068130edd6b",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/etf_mins.py": "692be6f557d6442a64aae7449dba89e657c6f54140ec343db1e3ae7850da7e5f",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/idx_factor_pro.py": "3dc0db2258adbfce3cd5f784fe4d9bde1ac5196752055be7b3c32dcf32690123",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/index_global.py": "a475f7767e362bbdc7c8b25839de2ad82ab87843f00156be7717b07185fb19a1",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/index_mins.py": "e322add52d75f19291b41068bc0d240007d48dfd653d5794c2783b1736e47172",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_mins.py": "30d1619b1f0ade64cc441604eba2936bedc03ddc11edb0729e2313f662db31d9",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_mins_technical.py": "3ab9bdb4026ea1083b6f8c0ad5380f83d3de4305deaaa5735e81e9ad59a28cf6",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_nineturn.py": "e0dcac5f84747606e9d13d90f35831a203b8782e7573426b0e7acab1d08a2384",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/metadata.py": "be57ae87da831306fa54988eb6e7a4f35cceeb9974db59db16ff7bff7db3d4d1",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow_automation.py": "e4c5f83094c957a1c206c8a5a98ddc8db812f09bf08cda7a5849f362e2f4fc67",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/moneyflow_daily.py": "6d192d704c928e9c5ed09dba75c2341c7abfe34dc6d33ad1703b9d9fb36f2fa0",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py": "10a07e93557448aa37d548ba7015bdb88339ebedef6d5c7b9d3b827bb17555a5",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/requests.py": "4174e791780c7d47f34d5ce6f615deb5f9fe0780a8d24d1682dcbd518186522b",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/run_keys.py": "78d568f8e7b2e5c87b8ac10cf5f581ecf970688b640b6d88243742230889876f",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/sensor_tags.py": "76a8312b4381ba100d2ae2493a9ce25269745fd50246f35605eb1b53e7eef8ca",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stk_mins.py": "1ddfd23fcd594b1d1e4827d5f36d7a663bf8f96fe7166413d6894950a12f77aa",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_monthly.py": "105a7188ef8be98be36b5c252791e1edc0f983677c08bf10d8a22ce290f2119c",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period.py": "39a8c8b0aee9c3bcc6224b23f8a5da2adf94da4fa12c5c5635dfff0b2624b394",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py": "9b0edab9910847d6c88c304653cd454e401a2ba4b42d2c28ee906f705d182180",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_weekly.py": "67ab7acb5e696164a06abc281859eee7baa570f4601b5ede445be591469e267d",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/cn_a_trade_day_sensor.py": "d50fda4754a2b0838bf14416e0fa5262e3cba5b4f0621f9b9043e5d39201d2ce",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_cnt_ths_sensor.py": "c3a1182e0be8dd4979d55550fa3bd1424ff3844a5345969af102298a69644414",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_dc_sensor.py": "cad6e09f5e54a87e0fe4c419bd8998f72e98361854fd2a684e46f77845edeff0",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_ind_dc_sensor.py": "42fa0af706244492ad8d309bcb4c3941815f6183a28d05bc466187a14b90b281",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_ind_ths_sensor.py": "1ca21716d9c9a1d06c0f94c064734478dabedbba4520575184df71486fbe7190",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_mkt_dc_sensor.py": "506448ea4866d9e093cc293006b1c959ae049b2a2dba6912c910ea8078daba51",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_sensor.py": "27475d3ba9c71841cae7858325a4a372620e9ad279e4c4679497c1f96d1f61d4",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_ths_sensor.py": "95ba112c32b7813b7f262a493402c54528b3038f721ed9c4981b12a1bedb6417",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py": "ca32e7b3f34cd8769bd1e8c54acc088407e530aabc5bb40960263af752257609",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/readiness.py": "bba7ee12e034ed7f0a2a45b68e2ba9ab6eb4288409a7edfdd99c61a1f4150922",
+    "lake_console/orchestrator/src/orchestrator/defs/stock_suspend_confirmed_contract.py": "4d34f304a9d8b3dbe975cb7a7c8ea845ac27a0744d2efd8b470b1814ba346514",
+    "lake_console/orchestrator/src/orchestrator/defs/tushare_errors.py": "2cd256681ac1f3b5d20ec32d797c5894899dc3cc8d2e9996879e6e9e177d9292",
+    "lake_console/orchestrator/src/orchestrator/defs/tushare_request_policy.py": "a623e25cee26382f26f74176fe77f2552ec3538dfcaa7676df29e3852dde5658",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/__init__.py": "66fe9c3b8c51a60f08ae6cc57d105f61573723652c6390194b43674299771913",
+    "lake_console/orchestrator/src/orchestrator/moneyflow_continuation/contract.py": "6fd8a5c5a983214dffb93e2bff07a9b1a13426afdaf3576cb518d77d136eeadf",
+    "lake_console/orchestrator/src/orchestrator/seeds/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/seeds/market/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "lake_console/orchestrator/src/orchestrator/seeds/market/major_indices.py": "35557cf0ba28f2bd2e55f1ecdbc39e6a751fc8339f81dd5ad941ca1390e3683b"
+  },
+  "input_report_sha256": {
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated_acceptance_20261017.json": "28305ac5d6a2629c7d499dd5b146d002aafa078ae0d36b5673b935f373b93341",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json": "260400539445716399cf5ba15ce06553ea6ae118c35d8cd4f2c97391b7541467",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/closeout.json": "4472c2c847a802111b09fed8423be7cc493b25c11c3bb97fcaa5f47a0a758a31",
+    "lake_console/reports/moneyflow_p4_sensor_activation_20261017/audit.json": "611ed94424553eaae323068ebe3f0c70504842864f927fcfcebb7ec647051eef"
+  },
+  "formal_proof_as_of": "2026-10-17T23:03:06.264884+08:00",
+  "activation_proof_as_of": "2026-10-17T23:37:08.515158+08:00",
+  "new_tests_executed": 2,
+  "new_business_code_changes": 0,
+  "formal_reads": 0,
+  "formal_writes": 0,
+  "source_requests": 0,
+  "formal_fault_injections": 0,
+  "isolated_parent_exit_test": 1,
+  "decision": "Existing evidence plus named reruns of the existing parent-exit and RSS-read-failure tests cover all 12 categories; no new test/business code or redundant full-suite run required.",
+  "limits": [
+    "The archived lifecycle log had only an unnamed three-case summary; parent-exit and RSS-read-failure now each have a named one-case JUnit rerun; capacity already had named XML.",
+    "Full 1203 run preceded final two preflight guards; relevant final 29 cases were rerun afterwards, not another full suite.",
+    "Tests use explicit fake source/time, temporary SQLite/Parquet and SDK local loopback; these do not prove future formal daemon fault recovery.",
+    "All formal conclusions refer to archived 2026-10-17 evidence; no current daemon/sensor state was re-read in this step.",
+    "At least three distinct real trading days of automatic collection and final operational handover remain pending."
+  ],
+  "codegraph": {
+    "tool": "codegraph_explore",
+    "query": "evaluate_moneyflow_update update_daily_moneyflow_raw update_daily_moneyflow_silver",
+    "impact": "seven sensor adapters -> shared selection; six daily updaters + independent market updater; no cross-subsystem change"
+  },
+  "audit_cost": {
+    "unique_files_read": 334,
+    "bytes_read": 7244105,
+    "elapsed_seconds": 0.7782205417752266,
+    "peak_rss_bytes": 41025536
+  },
+  "new_test_artifact_sha256": {
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.xml": "4e1e49445af8797a4ccf2a928917a80e301fa7da90b282333d13739d1a7033b1",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.log": "144bd05befba973a94cf3bb11b7f81cea78dafc58d5d0533a29109df40f925c6",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit-command.json": "e65717db94cc7bfc309ca69fe82868caeb9c56eb11fc80ce3126f397b7003ff5",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.xml": "9729d8a5c0ee8e10f41bd9d34e72b42db3bb807354fb5ce494f8f2101c25211d",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.log": "68f2abc5171d368ff0a95026bfc9ecb4cf269ae5b130ce9ff8edeb07e46804b6",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit-command.json": "aa7c9e56053f5d221410dd4789c6dd46658af49db6fc4621c0c599609621a5c8"
+  },
+  "archived_named_slow_sdk_log": {
+    "path": "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated/moneyflow-transport-sdk-20261017.log",
+    "sha256": "37e7da27ee9aa40b91931a586d1a5836f4ccfd6f99295c4ed4b51a8303dac604",
+    "testcase": "test_installed_sdk_round_trip_and_normal_30s_stream_deadline",
+    "passed": 1,
+    "seconds": 30.26,
+    "rerun_this_step": false
+  },
+  "supplemental_rss_test": {
+    "path": "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.xml",
+    "sha256": "9729d8a5c0ee8e10f41bd9d34e72b42db3bb807354fb5ce494f8f2101c25211d",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "suite_seconds": 0.53,
+    "command": {
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "argv": [
+        "env",
+        "-u",
+        "DAGSTER_HOME",
+        "-u",
+        "TUSHARE_TOKEN",
+        "-u",
+        "PGPASSWORD",
+        "-u",
+        "DATABASE_URL",
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "junit_family=legacy",
+        "--junitxml=/private/tmp/moneyflow-p5-rss-exit-20261018.xml",
+        "tests/test_moneyflow_transport.py::test_rss_observation_failure_ends_owned_request"
+      ],
+      "exit_code": 0,
+      "scope": "one pre-existing test; owned process and replaced RSS reader; no HTTP or formal access"
+    }
+  },
+  "supplemental_test": {
+    "path": "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.xml",
+    "sha256": "4e1e49445af8797a4ccf2a928917a80e301fa7da90b282333d13739d1a7033b1",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "console_seconds": 2.43,
+    "suite_seconds": 2.411,
+    "command": {
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "argv": [
+        "env",
+        "-u",
+        "DAGSTER_HOME",
+        "-u",
+        "TUSHARE_TOKEN",
+        "-u",
+        "PGPASSWORD",
+        "-u",
+        "DATABASE_URL",
+        ".venv/bin/python3",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "junit_family=legacy",
+        "--junitxml=/private/tmp/moneyflow-p5-parent-exit-20261018.xml",
+        "tests/test_moneyflow_transport.py::test_parent_death_closes_real_inflight_sdk_request"
+      ],
+      "exit_code": 0,
+      "scope": "one pre-existing test; local fake HTTP and owned processes; no formal access"
+    }
+  },
+  "verification_source_sha256": "002c743b96264fe887f14d628601a1550b0a0f0fd48b651b5ae0348f1357570f"
+}

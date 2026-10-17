@@ -1,0 +1,252 @@
+"""One-off repository-only evidence audit, not a pipeline or a formal CLI."""
+import ast
+import hashlib
+import json
+import resource
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+ROOT = Path('/Users/congming/github/goldenshare')
+OUT = ROOT / 'lake_console/reports/moneyflow_p5_exception_evidence_20261018'
+BASE = 'lake_console/reports/moneyflow_p4_continuation_recovery_20261017/'
+ACT = 'lake_console/reports/moneyflow_p4_sensor_activation_20261017/'
+PROJ = 'lake_console/orchestrator/'
+START = time.monotonic()
+cache = {}
+bytes_read = 0
+
+def read(path):
+    global bytes_read
+    p = ROOT / path
+    assert not Path(path).is_absolute() and '..' not in Path(path).parts
+    assert p.resolve().is_relative_to(ROOT) and p.is_file()
+    if path not in cache:
+        size = p.stat().st_size
+        assert size <= 16 * 1024**2 and len(cache) < 1000
+        bytes_read += size
+        assert bytes_read <= 128 * 1024**2
+        cache[path] = p.read_bytes()
+    return cache[path]
+
+def sha(path):
+    return hashlib.sha256(read(path)).hexdigest()
+
+def doc(path):
+    return json.loads(read(path))
+
+pinned = {}
+def pin(path, expected):
+    assert sha(path) == expected, f'evidence/source changed: {path}'
+    if path in pinned:
+        assert pinned[path] == expected
+    pinned[path] = expected
+
+repair_path = BASE + 'repair_isolated_acceptance_20261017.json'
+formal_path = BASE + 'formal_recovery/closeout.json'
+activation_path = ACT + 'closeout.json'
+repair, formal, activation = map(doc, (repair_path, formal_path, activation_path))
+for entry in repair['evidence_files']:
+    pin(entry['path'], entry['sha256'])
+for report in (formal, activation):
+    for path, digest in report['evidence_sha256'].items():
+        pin(path, digest)
+for path, digest in repair['task_file_sha256'].items():
+    pin(path, digest)
+audit = doc(ACT + 'audit.json')
+for path, digest in audit['dependencies'].items():
+    pin(PROJ + path, digest)
+
+xml_reports = {}
+cases = []
+for name in ('moneyflow-full-repair-20261017.xml', 'moneyflow-final-boundary-20261017.xml',
+             'moneyflow-final-transport-fast-20261017.xml', 'moneyflow-final-sdk-metrics-20261017.xml'):
+    path = BASE + 'repair_isolated/' + name
+    tree = ET.fromstring(read(path))
+    entries = list(tree.iter('testcase'))
+    assert not any(list(tree.iter(kind)) for kind in ('failure', 'error', 'skipped'))
+    xml_reports[path] = {'sha256': sha(path), 'passed': len(entries),
+                         'failures': 0, 'errors': 0, 'skipped': 0}
+    cases.extend((path, t.get('classname').split('.')[-1], t.get('name')) for t in entries)
+assert [r['passed'] for r in xml_reports.values()] == [1203, 29, 12, 1]
+supplemental_xml = 'lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.xml'
+supplemental_tree = ET.fromstring(read(supplemental_xml))
+supplemental_cases = list(supplemental_tree.iter('testcase'))
+assert len(supplemental_cases) == 1
+assert supplemental_cases[0].get('name') == 'test_parent_death_closes_real_inflight_sdk_request'
+assert not any(list(supplemental_tree.iter(k)) for k in ('failure', 'error', 'skipped'))
+cases.extend((supplemental_xml, t.get('classname').split('.')[-1], t.get('name')) for t in supplemental_cases)
+
+
+rss_xml = 'lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.xml'
+rss_tree = ET.fromstring(read(rss_xml))
+rss_cases = list(rss_tree.iter('testcase'))
+assert len(rss_cases) == 1 and rss_cases[0].get('name') == 'test_rss_observation_failure_ends_owned_request'
+assert not any(list(rss_tree.iter(k)) for k in ('failure', 'error', 'skipped'))
+cases.extend((rss_xml, t.get('classname').split('.')[-1], t.get('name')) for t in rss_cases)
+modules = sorted({m for _, m, _ in cases})
+test_files = {}
+for module in modules:
+    path = PROJ + 'tests/' + module + '.py'
+    actual = read(path)
+    accepted = subprocess.check_output(['git', 'show', 'db67e7d8:' + path], cwd=ROOT)
+    assert actual == accepted, f'current test drift: {path}'
+    test_files[path] = sha(path)
+
+def tests(module, function, exact=None):
+    path = PROJ + 'tests/' + module + '.py'
+    parsed = ast.parse(read(path))
+    functions = [n for n in ast.walk(parsed) if isinstance(n, ast.FunctionDef) and n.name == function]
+    assert len(functions) == 1, (module, function)
+    matches = [{'report': report, 'module': m, 'testcase': name,
+                'test_file': path, 'line': functions[0].lineno}
+               for report, m, name in cases if m == module and
+               (name == exact if exact else name.split('[')[0] == function)]
+    assert matches, (module, function, exact)
+    return matches
+
+DS = ['moneyflow_mkt_dc', 'moneyflow_ind_ths', 'moneyflow_cnt_ths', 'moneyflow_ind_dc',
+      'moneyflow_dc', 'moneyflow_ths', 'moneyflow']
+
+def seven(suffix, function):
+    result = []
+    for ds in DS:
+        first = (function[0] if ds in DS[:3] else function[1]) if isinstance(function, tuple) else function
+        result += tests('test_' + ds + '_' + suffix, first)
+    assert len({r['module'] for r in result}) == 7
+    return result
+
+SRC = PROJ + 'src/orchestrator/'
+SEL = SRC + 'defs/sensors/moneyflow_update_selection.py'
+COL = [SRC + 'defs/source_readiness/' + x + '.py' for x in ['moneyflow', 'moneyflow_daily']]
+UP = [SRC + 'defs/io/' + x + '.py' for x in ['moneyflow_mkt_dc_update', 'moneyflow_daily_update', 'moneyflow_update_publication']]
+TRANS = [SRC + 'defs/source_readiness/' + x + '.py' for x in ['moneyflow_transport', 'moneyflow_request_worker']]
+CONT = [SRC + 'moneyflow_continuation/' + x + '.py' for x in ['submission', 'recovery', 'execution', 'acceptance']]
+GUARDS = [SRC + 'defs/asset_guards/' + x + '.py' for x in ['moneyflow_delivery_readiness', 'moneyflow_row_count']]
+rows = []
+def add(key, title, code, evidence, boundary, formal_evidence=None):
+    rows.append({'id': key, 'topic': title, 'implementation': {p: sha(p) for p in code},
+                 'passed_test_evidence': evidence, 'evidence_boundary': boundary,
+                 'additional_evidence': formal_evidence or [], 'result': 'covered_with_stated_limits'})
+
+classification = seven('sensors', 'test_real_transient_failure_metadata_allows_retry_but_fatal_does_not')
+add('E01', '临时错误允许重试', [SEL] + COL, classification + tests('test_moneyflow_moneyflow', 'test_retry_shared_request_budget'),
+    '七表临时失败来自临时Dagster真实失败metadata；假源/假时钟。sensor允许请求与采集器重试分别验证，不声称正式daemon错误恢复全链已发生。')
+add('E02', '非法或不可重试错误停止', [SEL] + COL, classification + seven('definitions', ('test_source_failure_never_publishes_or_materializes', 'test_invalid_or_unstable_source_cannot_publish_green_events')),
+    '非法精度真实job失败，拒绝发布；各表字段/错误样本分别运行，来源响应由测试替代。')
+add('E03', '六次尝试上限不因游标丢失重置', [SEL], seven('sensors', 'test_six_persistent_keys_limit_survives_cursor_loss'),
+    '真实临时Dagster run key，错误分类在该用例被替代；分类的独立证据见E01/E02。')
+add('E04', '取消与采集父进程退出', COL + TRANS + UP,
+    tests('test_moneyflow_moneyflow', 'test_cancel_preserves_page_or_unready_round') +
+    tests('test_moneyflow_transport', 'test_cancel_kills_owned_worker_even_if_term_is_ignored') +
+    tests('test_moneyflow_transport', 'test_parent_death_closes_real_inflight_sdk_request') +
+    seven('definitions', ('test_cancel_after_intent_preserves_candidate_and_resumes_without_source', 'test_cancel_after_intent_resumes_verified_raw_candidate')),
+    '取消保留页/候选且可续接；真实拥有的子进程被回收。SDK仅本地回环、假token，未杀正式任务。')
+add('E05', '文件已替换但完成记录未写入的续接', UP,
+    seven('definitions', ('test_complete_checkpoint_failure_resumes_moved_file_without_source', 'test_exit_after_replace_resumes_without_source_or_rebuild')) +
+    [t for ds in DS[:3] for t in tests('test_' + ds + '_definitions', 'test_silver_replace_exit_resumes_without_rebuilding_candidate')],
+    '真实临时Parquet/原子替换，替代checkpoint写入以模拟中断；四表合并用例逐层覆盖Raw和Silver。')
+add('E06', '提交丢响应与不明状态', CONT,
+    tests('test_moneyflow_continuation_submission', 'test_response_loss_recovers_native_and_never_posts_twice') +
+    tests('test_moneyflow_continuation_submission', 'test_intent_before_real_post_is_ambiguous_not_retriable') +
+    tests('test_moneyflow_continuation_submission', 'test_real_process_crash_releases_lock_but_retains_uncertain_intent') +
+    tests('test_moneyflow_continuation_integration', 'test_actual_http_response_loss_has_one_post_and_no_automatic_retry'),
+    '控制器存储替身与真实本地HTTP断响应、真实子进程退出分层验证；不声称正式服务发生丢响应。')
+add('E07', '重复执行不新增数据或任务', UP + CONT,
+    seven('definitions', ('test_same_values_reuse_and_source_revision_updates_only_raw', 'test_same_files_replay_is_idempotent_and_revision_updates_silver')) +
+    tests('test_moneyflow_continuation_four_days', 'test_four_day_native_files_lost_response_restart_and_zero_repeat'),
+    '文件同值保留mtime；四日演练为每天3行的临时SQLite/真实job/check，来源与旧父证据替代；正式重放另有实证。',
+    [formal_path, BASE + 'formal_recovery/49-replay-acceptance.json', BASE + 'formal_recovery/47-replay-control-before.json', BASE + 'formal_recovery/47-replay-control-after.json'])
+add('E08', 'Raw修订后Silver识别并更新', [SEL] + UP + GUARDS[:1],
+    seven('sensors', 'test_real_delivery_current_check_file_and_safe_upstream_revision') +
+    seven('definitions', ('test_same_values_reuse_and_source_revision_updates_only_raw', 'test_same_files_replay_is_idempotent_and_revision_updates_silver')),
+    '七表分别证明sensor请求与真实临时job更新；未在正式环境伪造来源修订，也未把人工运行job冒称daemon消费RunRequest的完整演练。')
+add('E09', '文件与检查身份不符不得继续', [SEL] + GUARDS[:1] + UP,
+    seven('sensors', 'test_blocking_check_wrong_identity_is_not_green') +
+    seven('definitions', ('test_changed_raw_after_green_event_cannot_feed_silver', 'test_raw_physical_hash_change_blocks_silver_before_source')) +
+    seven('sensors', 'test_non_executed_check_does_not_erase_prior_green_proof'),
+    '临时真实文件/物化/检查绑定；planned记录不会抹掉原成功，但坏摘要或错身份仍拒绝。')
+count_tests = []
+for ds in DS[1:]:
+    count_tests += tests('test_moneyflow_row_count', 'test_all_six_jobs_stable_drop_retains_candidates_without_success',
+                         'test_all_six_jobs_stable_drop_retains_candidates_without_success[' + ds + ']')
+assert len(count_tests) == 6
+add('E10', '行数下降与板块分类缺失', GUARDS[1:] + UP,
+    count_tests + tests('test_moneyflow_row_count', 'test_per_class_drop_even_when_total_grows') +
+    tests('test_moneyflow_moneyflow_mkt_dc', 'test_bad_source_not_ready'),
+    '六表5行降至1行真实job拒绝发布并保留候选；分类下降用独立5→3/5/100小样本；大盘用单行合同，不能误说七表共用下降规则。')
+add('E11', '时间、请求与内存预算', COL + TRANS + [SRC + 'defs/run_contracts/moneyflow.py'],
+    tests('test_moneyflow_moneyflow', 'test_retry_shared_request_budget') +
+    tests('test_moneyflow_moneyflow', 'test_elapsed_budget_includes_conversion_and_wait') +
+    tests('test_moneyflow_moneyflow', 'test_memory_budget_before_source_call') +
+    tests('test_moneyflow_transport', 'test_budget_rejection_precedes_worker_creation') +
+    tests('test_moneyflow_transport', 'test_rss_observation_failure_ends_owned_request') +
+    tests('test_moneyflow_transport', 'test_installed_sdk_single_page_capacity_cost'),
+    '完整30秒持续响应实验日志另附；300秒用独立时钟边界验证。单元64请求预算拒绝、768MiB及进程回收分别核对，不预测真实网络耗时。',
+    [BASE + 'repair_isolated/moneyflow-transport-sdk-20261017.log', BASE + 'repair_isolated/moneyflow-transport-capacity-lifecycle-20261017.log'])
+add('E12', '正式失败保留并恢复验收', CONT,
+    tests('test_moneyflow_collection_recovery', 'test_raw_reexecution_then_ordinary_silver_resume_and_zero_repeat') +
+    tests('test_moneyflow_collection_recovery', 'test_raw_reexecution_failure_is_not_retried') +
+    tests('test_moneyflow_continuation_four_days', 'test_four_day_native_files_lost_response_restart_and_zero_repeat'),
+    '正式THS Silver启动失败和moneyflow Raw失败均由当时批准的一次恢复处理；不是无限自动重试或正式异常注入。',
+    [formal_path, BASE + 'formal_recovery/49-final-acceptance.json', BASE + 'formal_recovery/01-moneyflow-2026-10-13-acceptance.json'])
+assert len(rows) == 12
+assert formal['complete'] and formal['zero_change_replay']['unchanged']
+assert formal['zero_change_replay']['control_files'] == 573
+assert len(formal['preserved_failures']) == 2
+assert activation['p4_scheduling_complete'] and not activation['p5_complete']
+for row in rows:
+    for path in row['additional_evidence']:
+        read(path)
+slow_log = BASE + 'repair_isolated/moneyflow-transport-sdk-20261017.log'
+assert b'test_installed_sdk_round_trip_and_normal_30s_stream_deadline' in read(slow_log)
+assert b'1 passed' in read(slow_log)
+unique = {(t['module'], t['testcase']) for row in rows for t in row['passed_test_evidence']}
+result = {
+    'report_type': 'moneyflow_p5_exception_evidence_reconciliation',
+    'as_of': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
+    'complete': True, 'p5_complete': False, 'activation_commit': '07dd36df2',
+    'scope': 'repository-only evidence reconciliation; no formal services, files or source accessed',
+    'plan_section': '75.24', 'lld_section': '70.29', 'categories': rows,
+    'category_count': len(rows), 'distinct_selected_testcases': len(unique),
+    'reused_junit_reports': xml_reports,
+    'test_file_sha256_and_db67e7d8_equality': test_files,
+    'repair_task_hashes_verified': len(repair['task_file_sha256']),
+    'activation_dependencies_verified': len(audit['dependencies']),
+    'pinned_evidence_and_source_sha256_verified': pinned,
+    'input_report_sha256': {p: sha(p) for p in (repair_path, formal_path, activation_path, ACT + 'audit.json')},
+    'formal_proof_as_of': formal['as_of'], 'activation_proof_as_of': activation['as_of'],
+    'new_tests_executed': 2, 'new_business_code_changes': 0, 'formal_reads': 0,
+    'formal_writes': 0, 'source_requests': 0, 'formal_fault_injections': 0, 'isolated_parent_exit_test': 1,
+    'decision': 'Existing evidence plus named reruns of the existing parent-exit and RSS-read-failure tests cover all 12 categories; no new test/business code or redundant full-suite run required.',
+    'limits': ['The archived lifecycle log had only an unnamed three-case summary; parent-exit and RSS-read-failure now each have a named one-case JUnit rerun; capacity already had named XML.',
+               'Full 1203 run preceded final two preflight guards; relevant final 29 cases were rerun afterwards, not another full suite.',
+               'Tests use explicit fake source/time, temporary SQLite/Parquet and SDK local loopback; these do not prove future formal daemon fault recovery.',
+               'All formal conclusions refer to archived 2026-10-17 evidence; no current daemon/sensor state was re-read in this step.',
+               'At least three distinct real trading days of automatic collection and final operational handover remain pending.'],
+    'codegraph': {'tool': 'codegraph_explore', 'query': 'evaluate_moneyflow_update update_daily_moneyflow_raw update_daily_moneyflow_silver',
+                  'impact': 'seven sensor adapters -> shared selection; six daily updaters + independent market updater; no cross-subsystem change'},
+    'audit_cost': {'unique_files_read': len(cache), 'bytes_read': bytes_read,
+                   'elapsed_seconds': time.monotonic() - START,
+                   'peak_rss_bytes': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss},
+    'new_test_artifact_sha256': {p: sha(p) for p in [
+        'lake_console/reports/moneyflow_p5_exception_evidence_20261018/' + f
+        for f in ('parent-exit.xml', 'parent-exit.log', 'parent-exit-command.json',
+                  'rss-exit.xml', 'rss-exit.log', 'rss-exit-command.json')]},
+    'archived_named_slow_sdk_log': {'path': slow_log, 'sha256': sha(slow_log),
+                                   'testcase': 'test_installed_sdk_round_trip_and_normal_30s_stream_deadline',
+                                   'passed': 1, 'seconds': 30.26, 'rerun_this_step': False},
+    'supplemental_rss_test': {'path': rss_xml, 'sha256': sha(rss_xml), 'passed': 1, 'failed': 0, 'skipped': 0, 'suite_seconds': 0.530,
+                             'command': doc('lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit-command.json')},
+    'supplemental_test': {'path': supplemental_xml, 'sha256': sha(supplemental_xml), 'passed': 1, 'failed': 0, 'skipped': 0, 'console_seconds': 2.43, 'suite_seconds': 2.411,
+                         'command': doc('lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit-command.json')},
+    'verification_source_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+}
+assert result['audit_cost']['elapsed_seconds'] < 10
+OUT.mkdir(exist_ok=True)
+(OUT / 'evidence.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+(OUT / 'audit_source.py.txt').write_bytes(Path(__file__).read_bytes())
+print(json.dumps({k: result[k] for k in ['complete','category_count','distinct_selected_testcases','repair_task_hashes_verified','activation_dependencies_verified','audit_cost']}, ensure_ascii=False))

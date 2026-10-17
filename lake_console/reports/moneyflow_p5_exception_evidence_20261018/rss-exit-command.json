@@ -1,0 +1,25 @@
+{
+  "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "argv": [
+    "env",
+    "-u",
+    "DAGSTER_HOME",
+    "-u",
+    "TUSHARE_TOKEN",
+    "-u",
+    "PGPASSWORD",
+    "-u",
+    "DATABASE_URL",
+    ".venv/bin/python3",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-o",
+    "junit_family=legacy",
+    "--junitxml=/private/tmp/moneyflow-p5-rss-exit-20261018.xml",
+    "tests/test_moneyflow_transport.py::test_rss_observation_failure_ends_owned_request"
+  ],
+  "exit_code": 0,
+  "scope": "one pre-existing test; owned process and replaced RSS reader; no HTTP or formal access"
+}

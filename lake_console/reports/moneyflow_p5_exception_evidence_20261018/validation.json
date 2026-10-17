@@ -1,0 +1,28 @@
+{
+  "as_of": "2026-10-18T00:21:14.410456+08:00",
+  "docs_integrity": "passed",
+  "scoped_git_diff_check": "passed",
+  "new_evidence_hashes": "passed",
+  "verification_source_hash": "passed",
+  "new_scoped_markdown_links": "passed",
+  "categories": 12,
+  "existing_testcases_reconciled": 138,
+  "existing_tests_rerun": 2,
+  "new_test_code": 0,
+  "business_code_changes": 0,
+  "formal_operations": 0,
+  "activation_commit": "07dd36df2",
+  "new_exception_records_committed": false,
+  "pushed": false,
+  "file_sha256": {
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/README.md": "128b3b42a1c8e4db0af92bb45a87b54661e0715f7982c78091149797909fb9fd",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/audit_source.py.txt": "002c743b96264fe887f14d628601a1550b0a0f0fd48b651b5ae0348f1357570f",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/evidence.json": "84af1cf87ef0b9c1d47bc512d32305ee6011f325636431d061ab91c7c027c544",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit-command.json": "e65717db94cc7bfc309ca69fe82868caeb9c56eb11fc80ce3126f397b7003ff5",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.log": "144bd05befba973a94cf3bb11b7f81cea78dafc58d5d0533a29109df40f925c6",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/parent-exit.xml": "4e1e49445af8797a4ccf2a928917a80e301fa7da90b282333d13739d1a7033b1",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit-command.json": "aa7c9e56053f5d221410dd4789c6dd46658af49db6fc4621c0c599609621a5c8",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.log": "68f2abc5171d368ff0a95026bfc9ecb4cf269ae5b130ce9ff8edeb07e46804b6",
+    "lake_console/reports/moneyflow_p5_exception_evidence_20261018/rss-exit.xml": "9729d8a5c0ee8e10f41bd9d34e72b42db3bb807354fb5ce494f8f2101c25211d"
+  }
+}

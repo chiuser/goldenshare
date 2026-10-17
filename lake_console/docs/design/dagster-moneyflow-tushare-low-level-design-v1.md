@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 2026-10-17 23:37 当前结果：正式接续证据已提交ed79cba5，§70.28启用前审计、21个sensor逐表正式启动和21次真实首次tick/独立读回均通过，P4关闭；P5至少3个不同交易日观察未完成。本次启用记录/文档回填尚未提交，未推送。
+> 2026-10-18 最新状态：原P4接入及P5异常证据整理已完成，真实自动日更至少3个交易日及最终交付仍待验收。本轮新增“先补Prod、再定点补DG”的7项历史补缺设计，见原方案§76与LLD§71；只更新方案/LLD，新增补录入口尚未开发，未执行Prod/DG补录或sensor操作。
 
 日期：2026-10-06；最近更新：2026-10-17。以下长段保留历次历史接入阶段说明，正式接续最新结果以§70.27.7为准。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§44.3，三个STOPPED sensor及历史预演、执行器和两日样本已完成，见§45～47；739日全量登记及本表P4历史接入已关闭，见§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog和完整隔离验收已完成，见§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§51；两日正式登记及读回已通过，见§52；739日全量登记及本表P4历史接入已关闭，见§53；739分区/1478物化/最近20来源日40检查齐全。moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§54；三个STOPPED sensor/readiness与431历史日只读预演已通过，见§55；可恢复执行器、隔离两日样本和431日冻结清单已通过，见§56；两日正式登记及读回已通过，见§57；431日全量登记及本表P4历史接入已关闭，见§58；431分区/862物化/最近20来源日40检查齐全。此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～63.3为准。moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§59；三个STOPPED sensor/readiness和4067历史日只读预演已通过，见§60；本表可恢复历史登记执行器、隔离两日样本和4067日五单元冻结清单已验收，见§61；正式两日登记、读回及零新增重放已通过，见§62.5；4067日五单元全量历史登记、读回和零新增重放已完成，见§63.3。
 
@@ -4616,3 +4616,196 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 审核前隔离Definitions117依赖/746库存加载成功，资金流依赖不变；7份无关复权支持文件没有被本轮修改、提交或重载。当前阶段复用已通过的生产代码/测试和1203项回归及既有完整49项SQL验收，只新增真实现场预演/原生tick/摘要和准确身份复核。操作记录脚本5份语法核验、3个非白名单名称反例拒绝、42个原生start/stop body均经安装schema校验；原生启用实际21次，预演0副作用。临时脚本原文归档operation_sources/供追溯，不作为新的正式CLI/采集主链。资源canary正常发生并清理，只声明业务数据无新增，不谎称本轮零正式写入。
 
 §64.5第五项和本节退出条件满足，P4调度接入关闭；P5仍需至少3个不同交易日的实际自动采集/字段与行数/耗时/资源、暂时失败与非重试错误、修订/续跑/幂等证据。首次真实skip只证明启用及当前判断正确，不证明未来源端一定成功，也不替代P5。后续新步骤仍先写回原方案和LLD，不借本次启用自动扩大历史补缺或改变热窗口。前三步完成；本轮新启用报告及两文档尚未提交、未推送，旧接续记录提交ed79cba5已完成。
+
+
+### 70.29 P5异常证据对账（执行前设计）
+
+#### 70.29.1 目标、范围与代码审计
+
+本步承接方案§75.24，只完成“提交启用记录”和“异常证据整理”。启用记录已提交07dd36df；这里不运行正式job，不开关sensor，不重新加载共享代码。当前代码由CodeGraph `codegraph_explore`检查`evaluate_moneyflow_update`及Raw/Silver更新调用链，并直接核验七表sensor/definition测试、两个更新器、采集/传输、行数检查和恢复控制器。影响限于orchestrator现有链路及本步文档/报告，无Foundation/Ops/Biz/QTF、Web/API或依赖矩阵调整。
+
+当前关键语义：Raw仅明确临时错误可自动重试，未知失败停止；六次持久run key不能被丢游标重置。Silver按同日Raw摘要识别修订；Raw未通过或文件/检查不符不能继续。文件发布按已有intent/checkpoint及原子替换续接；提交不明先找既有run，不能重复POST。六表行数下降门禁与大盘恰好一行分别检查，不能把六表规则套到大盘。
+
+#### 70.29.2 对账清单和证据边界
+
+| 项目 | 当前实现位置 | 必须找到的独立验收 |
+| --- | --- | --- |
+| 临时错误 | sensors/moneyflow_update_selection.py；source_readiness/moneyflow*.py | 七表真实临时失败metadata可重试；超时后成功及请求计数另有采集测试 |
+| 不可重试错误 | 同上及字段合同 | 七表非法精度真实失败后停止；不得发布空/非法文件 |
+| 尝试上限 | sensors/moneyflow_update_selection.py | 七表六个持久key用完后，即使cursor丢失也不再提交；该用例替代错误分类，不能独自证明分类 |
+| 取消和进程退出 | source_readiness/moneyflow_transport.py及worker；采集器 | 保留页/候选、取消结束自有进程、父进程退出也结束请求；SDK实验为本地假HTTP |
+| 文件发布中断 | io/moneyflow_*update.py及既有发布helper | Raw/Silver替换后checkpoint失败可续接；不重新请求来源、不损坏旧文件 |
+| 提交响应不明 | moneyflow_continuation/submission.py（含Journal） | 丢响应只提交一次；只有意图无run时停止；真实子进程退出后保留不明状态 |
+| 重复执行 | 更新器及continuation控制器 | 内容相同不重写；正式原47项重放0新增，573控制文件保持 |
+| 源端修订 | sensors/moneyflow_update_selection.py；更新器/readiness | 七表Raw修订后Silver判为待更新；独立job测试证明Silver更新且来源请求不增加 |
+| 文件/检查不符 | asset_guards及blocking checks | 七表错日期/摘要/检查身份不能被当成就绪；已有成功不能掩盖坏文件 |
+| 行数下降 | asset_guards/moneyflow_row_count.py；六表Raw更新器 | 六表从5行降为1行不得发布，候选保留且非临时失败；分类下降不能由总量增长掩盖。大盘单行合同独立验证 |
+| 预算边界 | run_contracts/moneyflow.py；采集/传输 | 64请求、300秒Raw、30秒请求含回收等现有边界的拒绝与资源回收证据；不为审计重新等待 |
+| 正式恢复 | continuation recovery及原正式报告 | 两个失败父run保留、新Raw/Silver成功及49项独立验收；不把手动恢复说成daemon自动重试 |
+
+复用的测试夹具依据原源接口字段合同与真实生产者；本步不修改夹具或预期。源错误/分钟等待可用明确假源与独立时钟，真实Parquet/临时Dagster/check不能被mock替代；进程生命周期另用安装版SDK的本地回环实验证明。sensor发请求判断和job实际处理由各自测试证明，这不等于正式daemon遇错后全链已演练。未来真实自动交易日仍须验收，不用休市skip或手动历史job充数。
+
+#### 70.29.3 文件、执行和成本边界
+
+只读当前仓库代码、Git对象和已归档报告；写入仅限两份原文档、`lake_console/reports/moneyflow_p5_exception_evidence_20261018/`与/private/tmp的本次审计临时文件。报告保存12项映射、实际JUnit testcase身份、当前源码/测试及旧报告SHA256、验证方法和未覆盖项；审计脚本仅作本次验证动作原文归档，不注册Definitions或新增正式CLI。
+
+不新增配置、env或持久业务状态；正式Lake/staging、正式Dagster home/数据库、网络和来源读取/写入均为0。不启动测试子进程或请求，不重复长回归。审计只用Python标准库读取文本/JSON/XML和Git只读命令，单文件≤16MiB，最多1000个文件/总读取≤128MiB，预期小于10秒，不加载业务Definitions。报告可覆盖本次尚未完成的审计输出，旧证据不可改；失败必须非零退出并列明不一致，不生成完成结论。中断重跑只重复本地读取，没有正式续跑动作。
+
+退出条件：12项均有代码和通过证据映射；七表对应测试不得漏表，参数化用例不得只按函数名算通过；所引用报告原摘要一致，当前相关源码/测试与已验收提交或固定摘要一致；测试替身、正式恢复、未来交易日的证明边界明确。若证据足够，不为增加测试数新增重复测试。若存在真实缺口，先记录缺口并补齐精确隔离设计再实施，不降标准。
+
+本步完成只关闭异常证据整理，不关闭P5整体。后续仍是至少3个不同交易日的真实自动采集、行数/字段/检查与请求/耗时/资源记录，以及据此进行最终操作文档和项目收尾；本轮不新建未来提醒或计划任务。
+
+
+#### 70.29.4 唯一补测：父进程退出的具名证据
+
+证据核验第一次在“父进程退出”项停止，未生成完成报告：旧日志仅有三项通过的汇总，缺逐项身份。这里调整§70.29.3“不启动测试”的范围，仅执行现有`tests/test_moneyflow_transport.py::test_parent_death_closes_real_inflight_sdk_request`一次，补具名JUnit和完整命令/日志；不新增或修改代码/夹具，不重复30秒实验。
+
+已逐行核验该测试：安装版SDK访问127.0.0.1随机端口的临时HTTP服务器；20字段独立fixture、假token；创建本测试独占的父/请求子进程，确认一条请求已发出后结束该父进程，断言连接两秒内断开、子进程退出，finally清理仅本测试进程组。请求子进程使用现有环境白名单，剔除正式Dagster/数据库/Tushare凭据；pytest入口也移除DAGSTER_HOME、TUSHARE_TOKEN、PGPASSWORD、DATABASE_URL。测试既不加载正式instance也不读写Lake。该transport专项不是受保护静态启动器的测试目标；沿既有专项命令执行，不改或绕过静态启动器。
+
+执行目录`lake_console/orchestrator`，命令：`env -u DAGSTER_HOME -u TUSHARE_TOKEN -u PGPASSWORD -u DATABASE_URL .venv/bin/python3 -B -m pytest -q -o junit_family=legacy --junitxml=/private/tmp/moneyflow-p5-parent-exit-20261018.xml tests/test_moneyflow_transport.py::test_parent_death_closes_real_inflight_sdk_request`。如工具需要本地loopback/进程权限，按工具提权机制申请；不增加业务审批。本轮用户已批准完成异常证据整理及必要隔离补验。
+
+最多1个测试、1次本地假源请求，预期小于5秒、总上限40秒、临时响应最多1行；没有业务明细计算或正式数据读写。失败保留日志并停止该项结论，不能改成skip或降低断言；超时由外层终止本次测试并检查其专属进程。重跑只能在分析原因后按同一隔离范围进行，不反复盲试。JUnit必须记录该精确名称、1 passed/0失败/0跳过，之后才并入12项证据表。旧匿名日志仍保留，不修改成具名记录。
+
+
+#### 70.29.5 同一匿名日志的第二条身份补证
+
+逐项匹配全部用例后确认，旧匿名三项日志的另外两条是2000行容量和RSS读数失败；容量已有具名JUnit可复用，只有`test_rss_observation_failure_ends_owned_request`仍缺具名记录。父进程退出已单独通过，不能把这次审计脚本停止说成业务测试失败；它没有生成完成报告。
+
+补测仅该现有函数一次：沿§70.29.4相同env清理/目录/解释器/pytest参数，改JUnit为`/private/tmp/moneyflow-p5-rss-exit-20261018.xml`，目标为`tests/test_moneyflow_transport.py::test_rss_observation_failure_ends_owned_request`。测试启动自身的sleep临时请求进程，替代`_pair_rss`抛出明确`source_worker_rss_unavailable`，断言拒绝且workers fixture确认进程和管道全部结束；不发HTTP，不读正式进程或正式资源。最多1用例、预期小于3秒、40秒总上限；没有独立采集/文件输入，不能用其证明真实内存采样值准确。本轮累计2条既有用例，不重复父退出或2000行/30秒测试。通过后分别保留两份JUnit及命令，证据审计仍要求所有12项完整才输出完成。
+
+
+#### 70.29.6 实际验收与计划对账
+
+本步代码/方案审计及归档核验通过，12/12类已映射到实际代码、138个不同测试用例及所需正式历史证据；不是本轮运行138条测试。117依赖、43修复文件均与原摘要一致，34个相关测试模块与db67e7d8逐字相同；总计323份固定摘要核验通过。最终本地核验334份文件/7244105字节、约0.78秒，无业务Definitions加载。没有业务、测试、配置、源参数、主体边界/依赖矩阵或Lake路径变化。
+
+§70.29.2每条验收的具体模块/函数、参数化case名称、JUnit路径、源码行和SHA均保存在[evidence.json](../../reports/moneyflow_p5_exception_evidence_20261018/evidence.json)；人读结论见[证据表](../../reports/moneyflow_p5_exception_evidence_20261018/README.md)。第一次核验因旧匿名日志缺逐项身份而停止，没有形成通过结论；依§70.29.4～5补跑两条现有用例后完整核验通过。父进程退出1 passed（suite 2.411秒）；RSS读取失败1 passed（suite 0.530秒），均0错误/失败/跳过；精确命令、XML和日志各自归档。前者1次本地假HTTP、后者0次HTTP；正式读取/写入/源请求/新故障注入均0。没有绕过静态启动器或改测试预期，旧1203项及后续29项的时间边界说明保持。
+
+12项中：临时/致命错误及尝试上限由七表临时原生失败/持久key证明；取消/发布中断由真实临时文件和拥有的进程证明；丢响应由控制器替身、本地真实HTTP和进程退出分别证明；重复执行另有正式573控制文件/49交付/98文件不变记录；修订由七表sensor判断和实际临时job处理分别证明；坏文件/check身份及六表下降/大盘单行合同均有反例；时间、请求、内存边界复用独立假时钟及真实安装SDK回环证据；两次正式失败及一次性获批恢复另有历史正式验收。上述边界不能互相冒充，不将一次手动恢复称为自动重试，也不将休市skip称为真实交易日采集。
+
+前两项已完成：启用记录07dd36df已提交；本步异常证据与文档已落地、尚未提交，未推送。下一阶段仍只按原P5收集至少3个不同交易日真实自动更新及其运行/数据/成本，再进行最终运行文档和项目收尾。本步不新增其他开发切片，不需要新的实现决策，不提前宣布整体接入完成。
+
+## 71. 从Prod定点补齐DG历史数据（补充LLD；2026-10-18）
+
+### 71.1 目标、范围和来源依据
+
+承接原方案§76：管理员先补齐Prod，DG再导入五个数据集的7个明确日期；Raw、Silver都要补齐，不修改Prod。本轮交付仅方案和LLD，不进入编码或正式写入。7项名单、00:36只读基线、源端资料依据及14111条缺失见§76.2与P0原始对账；其中源端数量已在本次对话逐项用MCP身份字段再次核对，Prod已用日期条件count复查，DG已查14个精确文件路径。当前没有逐字段重新核验7日来源，不能把这些计数当成补录完成证据。
+
+输入严格为`moneyflow_mkt_dc: 2026-07-09`、`moneyflow_ind_ths: 2026-07-09/2026-08-05`、`moneyflow_cnt_ths: 2026-07-09`、`moneyflow_ths: 2026-07-06/2026-07-09`、`moneyflow_dc: 2026-05-19`。截止标记仍2026-09-30，作用仅为历史范围边界，不把查询展开成截止日前全表。五表使用[历史字段合同](../../orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_plan.py)，不给字段加列，不读api_name/fetched_at/raw_payload等内部字段；不使用BIYING、证券池、旧Lake或Kopia。
+
+### 71.2 当前实现与最小改动落点
+
+CodeGraph `codegraph_explore`追到source→date plan→candidate→promotion及event plan；`codegraph_impact`确认`publish_moneyflow_update_file`消费者为大盘/六表日更更新器，单unit候选函数目前没有其他正式调用入口。动态调用和全历史证明限制已直接阅读实现补齐；没有Foundation/Ops/Biz/QTF、Web/API消费者需要迁移。
+
+| 当前文件/能力 | 本步复用方式 | 必须保留的边界 |
+| --- | --- | --- |
+| `bootstrap/moneyflow_history_metadata.py` | 单表`selected_dates`元数据请求及验证 | 不用None作为日期默认值，名单外禁止COPY；元数据SQL的NULL日期统计可保留，不能借此读取全量明细 |
+| `bootstrap/moneyflow_history_plan.py` | 每个明确日期一个plan/unit，固定字段COPY SQL | 不把7项展开成“七表×四日期”；沿现有类型、主键、日期规则 |
+| `bootstrap/moneyflow_history_source.py` | `PsqlMoneyflowHistorySource`及可取消有界管道 | 固定psql入口、READ ONLY、120秒；无任意SQL/DSN/表名参数 |
+| `bootstrap/moneyflow_history_candidates.py`、`moneyflow_history_receive.py` | `build_moneyflow_history_unit_candidates`生成两轮一致的Prod Raw/Silver候选；`audit_history_day`实际校验 | 单日候选复验和source proof保持；不伪造cohort或把合并候选说成完整Prod镜像 |
+| `io/moneyflow_update_publication.py` | 经本次计划校验后调用`publish_moneyflow_update_file`，逐文件CAS、intent、原子替换及恢复 | 函数没有“只补缺键”保护；调用前必须自己完成§71.4的旧值保留证明及目标旧摘要核对 |
+| `io/moneyflow_candidates.py`及配置连接 | 路径/摘要/全资金流writer锁、512MB/1线程/no-spill连接 | 不新增锁实现，不在持有该锁时再次调用会自行获取同锁的候选入口 |
+| `run_contracts/moneyflow_automation.py`与`metadata.py` | 固定asset/partition/check身份及现有metadata builder | 不修改既有自动化合同、字段或cursor版本 |
+| `bootstrap/moneyflow_history_events.py`、`moneyflow_history_event_preview.py` | 复用原生事件协议、检查绑定和SQL验收语义 | 旧完整入口依赖全七表cohort且拒绝旧物化摘要变化，不直接执行、不放宽旧validator |
+
+计划新增一个内部入口`defs/bootstrap/moneyflow_history_supplement.py`，集中负责7项范围校验、持久总预算、阶段推进、DC合并和本次原生事件接回；不注册active Definitions，不新增正式job/sensor或通用force开关。测试落在`tests/test_moneyflow_history_supplement.py`；如模块需进一步拆分，先回填本节，不能自行复制7套实现。正式操作薄脚本只调用该入口和既有GraphQL API，不自行实现导出/合并/写事件主逻辑。旧API/CLI及全历史cohort、promotion、event validator行为保持。
+
+本次publisher的`audit_file`参数沿既有更新器绑定：大盘用`audit_market_moneyflow_file`，其余用`partial(audit_daily_moneyflow_file, dataset=...)`，以满足其`(connection, path, day, silver=...)`接口；`audit_history_day`用于两层成对的历史验收，不能当作单文件callback传入。底层函数签名和语义保持不变。
+
+### 71.3 操作计划与配置审计
+
+每份执行计划必须有版本、operation_id、计划SHA、代码摘要、正式instance只读身份、两根目录、固定截止日、7项有序列表、当前schema/日期/键数、源端身份依据和Prod两轮证明、目标旧文件SHA/大小、已有最新物化/check身份、动作阶段及写入上限。条目分别为`insert_day`（6项）或`append_missing_keys`（仅DC/05-19）。同一operation_id更改任一日期、数据集、来源、目标或保留规则均拒绝；新operation也不能借改名字重复登记已完成事实。
+
+| 配置/输入 | 默认与来源/持久位置 | 消费者、生效方式与验收 |
+| --- | --- | --- |
+| 来源连接 | 复用`.env.web.local`与`PsqlMoneyflowHistorySource`，计划不保存凭据 | 只读source；每次沿现有psql入口；禁止env/DSN覆盖参数 |
+| 路径 | 正式`/Volumes/datasource/data_lake`；候选`/Volumes/datasource/data_lake_staging/moneyflow/<operation_id>/...` | 原路径helper/validator；执行前核对挂载、同设备、拒绝符号链接/旧路径；/private/tmp仅操作报告 |
+| 数据范围和模式 | 无宽泛默认值；必须显式传入并核对上述7项及模式，写入本次计划 | source、merge、publisher、event全部使用同一计划；增删日期/换模式反例必须0业务COPY/写入 |
+| 既有共享限值 | 复用32MiB接收、512MB DuckDB/1线程/no-spill、768MiB RSS、单SQL120秒、64GiB最低余量 | 当前`run_contracts/moneyflow.py`及connector；本步不改其默认，不扩大其他数据集预算 |
+| 本次更窄上限 | 每日候选≤10000行、总来源候选≤20000行；业务COPY14正常/最多16；元数据10正常，总只读连接24正常/最多26；已消耗数持久保存 | 补录入口计划中的固定政策，不新增env/DB/页面配置；读取/重试前计费，重启不清零，超限拒绝 |
+| 操作成本 | 本次全部staging/控制证据≤128MiB、活动处理≤1200秒、DG元数据读取总计≤400次 | 含样本、恢复及开关核对，不能分表重置；预计2～5分钟只是估计，首次样本实测后复核 |
+| 执行开关 | `apply=False`；物理发布、runless登记与暂停/恢复开关按审核清单分别批准 | dry-run只读正式环境，不能暗藏canary/目录/分区写；候选生成也是staging写入阶段，不能混称只读 |
+
+候选API内部的`_Control`只记录本unit的业务COPY；新入口须在传入的source适配层对`copy`和`metadata`都先持久计费，根账本统一约束全部7项的连接/语句/耗时/磁盘。不能仅把每unit局部进度相加当成已有全局限额，也不能在补第2张表时重新开始计时。根账本写入失败时不发下一次来源请求。
+
+单unit候选的路径以`operation_id+dataset+cutoff`识别，不能在同一个子operation下为THS或行业的两个日期分别传入不同plan，否则第二次会触发现有`history_plan_changed`。父补录计划固定派生每日期的`candidate_operation_id = parent_operation_id + "-" + YYYYMMDD`；每条仍是单日plan/unit-0，dataset维度由原路径保留。根计划保存7项到子路径的唯一映射，子ID不是可自由输入的新执行计划，所有子项共用父预算，不得借派生ID重置计费。仅遍历这7个子目录及父控制目录做空间核对，最多512个本操作文件，不能扫描整个staging。
+
+上述更窄预算是拟新增补录入口的运行限制，不改变现行通用组件常量；消费者只有该入口和其测试。计划/进度报告显示阶段、当前表/日期、候选/发布/登记完成量、总数、最后更新时间、累计读取/时间及停止原因，ETA不确定时写“暂无法估算”。没有新增页面、服务或数据库状态表。
+
+### 71.4 Prod就绪、候选生成和DC缺键合并
+
+1. 管理员完成相应Prod任务后，按五表各自明确日期读一次元数据。审核Prod任务结束及当前无同日写入，不能只凭成功状态认定数据完整；复用同次可靠来源证据，缺失时对7日各做一次MCP日期/代码身份查询，确认返回未达到接口截断上限、日期正确、无重复，Prod候选键集合与来源一致。最多7个点请求，不拉其他日期；权限/截断/空结果不明时停止，不能换成全历史请求。
+2. 逐日调用既有单unit候选构建：第一次COPY直接生成当日Prod Raw/Silver候选，第二次独立COPY逐字段验证。7项各自单unit，源行数当前合计16923、两轮33846；生成后五表再读一次元数据，比较schema、日期/键数保持。若数量与设计基线不同，先更新本步计划/预算与清单，不自动把未知差异纳入写入。
+3. 六个`insert_day`必须在预检时确认对应两层目标都不存在。若已存在，只能在同一补录操作的持久证据能够解释时接回；未知文件、仅一层存在、其他写入者或旧事件不匹配均停止，不能一概覆盖。
+4. DC旧Raw/Silver先通过物理合同、逐字段转换、已有物化文件摘要及当前同日检查核对，固定旧文件SHA和旧事件身份。原历史登记只保证最近20来源日检查，不能要求05-19一定已有check：若该日缺检查，本次只读完整SQL建立基线证明，不伪造旧passed事件；若已有同日检查，则核对其实际状态/目标物化，失败或过期先停止分析，不能继承别日绿灯。通过实际SQL确认：旧键是Prod候选键的子集；旧键数=2812，新增键数应由当前对账得到（本次基线3143）。有旧键不在Prod、重复键或错日期即停止。现有值与Prod的差异数量只作旁证，不能成为自动覆盖理由；此前212是历史数字，不要求重采后必定还是212。
+5. DuckDB SQL生成最终Raw：`SELECT <合同字段> FROM old_raw UNION ALL SELECT <合同字段> FROM prod_raw ANTI JOIN old_raw USING (trade_date,ts_code)`，按原业务键排序后`COPY ... TO parquet`；所有Parquet读取显式`hive_partitioning=false`。不是Python逐行合并，不插入NULL/0代替来源值。
+6. 合并前后双向EXCEPT证明旧键对应的全部字段保留；新键对应值与Prod候选双向EXCEPT为0；最终键集合=Prod键集合、无重复、日期唯一。然后从合并Raw按`history_schema`的同一合同字段投影，仅将trade_date从YYYYMMDD转换成DATE，生成最终Silver并调用现有物理标准化SQL核对。不要调用要求Tushare两轮receipt的日更Silver candidate builder并伪造其证明；本输入是历史Prod候选加DG旧记录。
+7. 合并证明记录旧Raw/Silver摘要、Prod候选摘要、缺键集合摘要/数量、保留/新增/最终行数、最终两层候选摘要及SQL差异计数。与Prod的来源候选证明分开保存，不改写原receipt，不把合并结果的摘要塞回Prod镜像证明。旧Raw被原子替换后，恢复仅需核对已持久证明所绑定的候选/新文件摘要，不能要求重读已不存在的旧Raw或重新从Prod推算旧值；不复制旧文件作备份。
+
+### 71.5 发布、自动更新与原生登记
+
+正式前保存七表14个Raw/Silver更新sensor的原状态/身份/cursor摘要，只暂停原来RUNNING的这些项并读回；7个日期登记器和其他sensor不动。等相关活动/排队任务归零；发现其他资金流writer持锁则停止，不抢锁或取消任务。七表更新器共用`moneyflow/writer.lock`且为非阻塞获取，只停目标五表不足以避免另一表与本步冲突。
+
+候选构建入口自行持有/释放现有writer锁；跨入发布/登记阶段再次获取同一锁并重新核对目标摘要、正式instance、计划和来源证明，不能外层持锁再调用单unit入口造成嵌套锁冲突。每个阶段重进都核对累计预算；全部写入串行。不修改原并发池、600秒评估间隔、22点、10日窗口、2026-10-01自动更新起点或默认STOPPED。
+
+先完成该日期两层候选全量校验，再逐文件调用现有publication helper；DC调用前必须将当前旧摘要与计划基线比较，防止helper把“刚刚读到的新文件”误当成已批准旧基线。Raw/Silver分别os.replace，不声称两文件整体原子。日期未完成两层和SQL读回之前，不登记新的成功物化/check。已有DC旧事件保留，文件更新过程中的旧检查不能被当成新文件通过。
+
+本次不调用要求完整cohort的旧`report_moneyflow_history_events`主入口，也不放宽其`history_event_existing_revision`。补录入口复用固定自动化合同、metadata builder和原生`report_runless_asset_event`：核对/补注册对应动态分区，写Raw物化→实际Raw检查并绑定该新物化→Silver物化→实际Silver标准化检查并绑定该新物化。全部7项都生成准确检查，不受旧“最近20来源日”抽查范围限制。metadata保存当前file_sha256、行数、Silver的raw_sha256、补录计划SHA/operation_id/来源及DC合并证明引用；不用假的cohort_hash，不伪造run或job成功。
+
+原生状态是续接依据：写前按明确asset+partition查询当前物化/check；同计划、同文件摘要且绑定准确则接回，无则单次追加。DC只允许从计划所列旧storage_id/旧摘要前进到新摘要；发现另一操作或未知修订停止，不能忽略已有冲突。事件已提交、checkpoint未写时，按计划身份和原生记录接回；不能只看本地计数重发。保持旧物化/check/失败记录，禁止删除或reset。
+
+当前预期12份新增文件、2份更新文件，14条新物化、14条新检查，至多6个新增partition key；DC原key复用。动作实际缺项在正式前逐项算出，不强行凑数；样本已完成的项在余下清单中只读接回。纯检查失败时不写passed事件，记录原因/有限样本并停，不以“登记”掩盖业务错误。
+
+完成后独立进程读回7项文件/准确检查，再按原状态恢复本次暂停的sensor并读回，cursor不重置。若失败但尚未动正式文件，确认原数据事实保持、无活动写入后恢复原状态；若已有文件更新且该日期未完整交付，保持本次更新sensor暂停、显式报告已完成/剩余和具体原因，待同清单续接完成再恢复；不能在finally里无条件全部开启。恢复开关失败单独显示为未收尾，不回滚已提交数据，不自行重启daemon或reload代码。该入口不接active Definitions，正常不需要加载共享location。
+
+### 71.6 持久阶段、中断和幂等
+
+全部7项已accepted且文件/原生证据仍匹配时，重放在只读预检后直接返回；不再暂停/恢复sensor，不重新请求Tushare或Prod，不为重放另建候选。这样最终零新增验收也包含0开关变化。
+
+每项按`planned → prod_verified → merged_or_passthrough_verified → raw_published → silver_published → events_complete → accepted`持久推进；总计划另保存原sensor状态、累计预算、样本完成及原生动作发送意图/响应。只有两层文件和准确事件都完成才增加“完成日期”。每个来源请求、单文件替换、原生事件前后检查取消和预算，长SQL沿现有可中断连接；不能把全7项置于长数据库事务。
+
+- 完整Prod候选已验证时，发布/登记重放只查候选/目标摘要、证明和原生记录，0新增业务COPY；本次适配以已有验证证明作为续接依据，不盲目重调会独立复查来源的单unit构建入口。
+- 在候选读取中断且无完整验证证明时，可重新读取该日，旧attempt保留并计入总预算；只有2次额外读取余量，耗尽即停止报告，不能换operation_id清零续跑成本。
+- 替换前取消保留候选/旧目标；替换后checkpoint失败由原publication协议按intent和新目标摘要接回，不重建旧文件，不还原到旧版本。新目标与新候选不符、候选被改、旧基线被另一写入者改动均停止。
+- 原生写入丢响应，先只读查相同身份；查不到明确结果时保持“不明”并停止，不盲重发。跨进程重启前先恢复原操作计划/暂停状态，不重新抓取一份新计划覆盖现场。
+- 总阶段、行数、读取次数和已耗时间都从持久状态恢复；报告必须显示当前真实完成量，不把错误项导致整个完成数归零。每次重放的只读成本也计入上限。
+
+### 71.7 性能和请求量
+
+| 项目 | 本次基线/预算 | 拒绝条件与核验 |
+| --- | --- | --- |
+| 处理规模 | 五表7个单日unit；Prod候选16923行，DC旧2812行；最终每层16923、净增14111 | 不读名单外日期，不做全局明细；source/旧目标变化先更新审核依据 |
+| Prod读取 | 元数据前后各5次＋每unit独立COPY两次14次=24连接/96语句；最多26/104 | 元数据请求与COPY均先计费；无自动重试；源只读COUNT例外不能扩大成全历史明细 |
+| 来源返回 | 两轮业务读取33846行；MCP预检0～7次身份点查询，最多20000身份行 | MCP返回到单次上限、字段/日期/键异常或证明不足停止，不自行无限翻页 |
+| DG读取/输出 | 旧DC两文件有界读取；7项候选/发布文件复核；最终14文件、约几MiB，精确大小由候选给出 | 不全历史hash/逐日readiness；审计只围绕14路径和对应原生事件 |
+| 内存/磁盘 | 原32MiB缓冲、DuckDB512MB/1线程/no-spill、进程RSS768MiB保持；本操作staging/控制证据≤128MiB，现有最低空闲64GiB保持 | 含候选、校验、中断保留attempt、合并文件及证据；超限停止，不安装扩展、不spill或做快照 |
+| 时间/观测 | 预计2～5分钟待实测；SQL≤120秒、累计活动≤1200秒、DG元数据读取≤400次 | 暂停等待不重复清零；等待已有任务单次≤120秒，不取消它们；超时结束本次预检并报告 |
+| 正式动作 | 业务job0；文件12新增/2更新；物化14、检查14、分区新增≤6；sensor最多14次stop/14次start | 每类动作独立计数；实际原本STOPPED不操作；开关和资源canary不得伪称“零正式写入” |
+
+本次只读审计与将来补录均不需要全局数据读取。开发/执行前若认为必须全局读某数据集明细，须按根“数据集全局读取审批”说明范围/方式/成本并另获批准，禁止拆批绕过。不得为本方案追加全7804日期审计、全21百万行比较或重分区。
+
+### 71.8 测试和真实验收清单
+
+先复用现有`test_moneyflow_history_plan.py`、`test_moneyflow_history_candidates.py`、`test_moneyflow_history_selected_dates.py`、`test_moneyflow_history_promote.py`及`test_moneyflow_dc_events.py`对应能力；不修改其已有预期来迎合补录。新补录测试必须覆盖下表，不用数量代替语义。
+
+| 硬口径 | 正向证明 | 反例必须拒绝 |
+| --- | --- | --- |
+| 只处理7项 | FakeSource记录SQL，明确7个单日unit；源=两层候选行数/字段正确 | None日期、七表×日期展开、其他源/表/日期、scope或plan摘要改变，0业务COPY/正式写入 |
+| Prod已补齐 | 真实合同小样本/独立预期键集合与当前候选一致 | 只有任务成功但少键、空日、截断、重复键、schema/字段/日期错误 |
+| DC只补缺 | 独立3行金样本：DG旧2行、Prod3行且一个旧键数值不同，最终旧2行不变、仅新增第3行；NULL/负值保留 | 整日替换覆盖旧值、旧键丢失/重复/错误日期；不得调用merge helper生成expected |
+| 来源证明分离 | Prod全候选证明与合并证明各自摘要可读回，最终Silver与合并Raw一致 | 把合并候选当Prod逐字段一致、伪造Tushare两轮receipt/cohort |
+| 原子发布/恢复 | 复用真实临时文件和os.replace；Raw替换后退出、Silver替换后checkpoint失败均可续接 | 外部改旧目标、新候选篡改、路径/跨设备/符号链接，保留已提交文件，不覆盖冲突 |
+| 原生事件不重复 | 临时Dagster SQLite、真实Parquet/SQL，旧DC物化及已有check保留，新检查准确绑定新物化；旧历史无同日check可经完整基线SQL进入；丢响应/退出续接0重复 | 旧绿检查冒认新文件、只更Raw就记完成、未知旧revision、伪passed、只有checkpoint无原生事件 |
+| 自动更新隔离 | 14个更新sensor实际状态替身/当前schema验证，原本STOPPED保持、注册器不动 | 未暂停共同writer就写、活动任务未结束、无条件finally开启、游标reset或开其他sensor |
+| 成本与进度 | 一个计划跨7项累计，取消/重启/样本后续跑均不清零；完成量单调 | 超128MiB/1200秒/400读/26连接、重复COPY、失去预算仍继续 |
+
+隔离集成只用3行DC和1行大盘等字面样本、临时instance与临时Lake，不访问正式源或故障注入；复用原传输/30秒实验，不重新等待长稳定轮次。源字段夹具以本地原接口文档、P0真实样本和当前Prod生产者为依据，错误fixture标注为反例。新增测试运行规则：开发前确认`tests/test_moneyflow_history_supplement.py`存在后，从orchestrator目录用现有`.venv/bin/python3 -B -m pytest -q -o junit_family=legacy --junitxml=/private/tmp/moneyflow-history-supplement.xml tests/test_moneyflow_history_supplement.py`执行；再只跑受影响既有模块中的相关用例，总隔离验收预算≤120秒，不人为等待60秒、30秒或拉取真实网络。共享helper若未修改，不重复其整套回归；若发生必须修改共享helper的范围变化，先更新本节/方案并按影响面补相应回归。默认Ruff只检查本步新改Python文件，原受保护静态/目录/catalog检查通过既有启动器执行，不改其库存或豁免规则。若环境不能满足预算，先解释实测瓶颈再调整方案，不能跳过负向断言。以上均使用现有环境，不安装包、不绕过受保护启动器。
+
+正式先做大盘1行的2文件/2物化/2检查及分区读回，再按同清单完成剩6项。最终验收需同时满足：五表7项键集合完整；六项新增字段与Prod逐字段相同；DC旧2812行保留、新键值与Prod一致；两层schema/日期/键/行数/转换一致；14文件摘要与14准确物化/检查绑定一致；旧DC事件保留；更新sensor恢复原状态；同一清单重放0新增业务COPY/文件变化/分区/物化/check。任何来源变化导致实际规模不同，先刷新该计划及文档中的准确数字，再进入正式apply，不提前填通过。
+
+### 71.9 本轮设计审计结论与后续授权
+
+审计已处理当前实现不适配的位置：旧cohort七表共同范围、旧promotion拒绝不同摘要、旧事件validator拒绝修订、单unit同数据集多日期的plan路径冲突，以及旧历史只保证最近20日check而非05-19必有check；选择单unit候选＋现有publication＋范围专用事件接回，保持旧保护不变。已审计共享writer、日期窗口、readiness的file_sha256/raw_sha256/准确check绑定消费者；已将DC缺键与已有值修订分开，并补齐Raw后退出、事件后退出、暂停状态恢复和计费续接设计。上述结论来自当前代码，CodeGraph影响面与人工核对补足边界已列§71.2。
+
+本方案具备指导下一步补录入口开发和最小隔离验收的内容，但入口/新测试尚未实现，不能把本节称为新增代码验收。正式执行清单还需等待Prod补齐后产生当前来源/目标/原生身份及源码SHA，再按阶段批准数据/事件写入和短暂停止/恢复更新器。现在不实施任何正式操作；不把本轮写文档的授权当作补录批准。若后续改成DG直采或允许覆盖已有值，先回填原方案和本LLD、审计新成本与范围，再继续。
+
+本轮文档门禁：原文档相对引用、7项/16923总行/14111增量对账及`git diff --check`通过；全仓`check_docs_integrity.py`通过。未运行新增补录测试或正式操作，这些仍属于后续开发/执行验收，文档检查不能替代它们。
