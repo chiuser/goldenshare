@@ -1,10 +1,10 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 2026-10-18 最新状态：补充方案§76/本LLD§71已提交78b444d5；01:03只读审计Prod七项16923条日期/键齐全，DG仍缺14111条/层。本次需补的范围专用入口及测试尚未开发，未补写DG；审计与边界见§71.10。
+> 当前状态（2026-10-18）：P0～P4开发、历史登记和49项接续完成，12类异常证据已整理，原7项补缺已验收并提交`cd89b4b04`。尚待P5至少3个不同真实交易日的自动采集验收（已验收0/3）及最终交付。本机后台DG已按管理员要求停止，等待管理员手动启动；持久化sensor开关未改变。当前说明与辅助代码审计见§72；代码清退设计见§73（待审阅，未实施）。
 
-日期：2026-10-06；最近更新：2026-10-17。以下长段保留历次历史接入阶段说明，正式接续最新结果以§70.27.7为准。P3-F及P3历史物理文件阶段已关闭，实际结果见§28。P4首个数据集moneyflow_mkt_dc的资产/check/job/catalog、sensor、预演和事件执行器已完成，见§29～31；两日样本与全量正式登记均读回通过，见§32～33；本表839分区/1678物化/最近20日40检查齐全，moneyflow_ind_ths的独立资产/check/job/catalog及隔离验收已完成，见§34；三个STOPPED sensor及历史只读预演已完成，见§35，可恢复事件执行器和两日/全量冻结清单已完成，见§36，正式两日样本读回通过，见§37；全494日正式登记已读回通过，见§38，494分区/988物化/最近20来源日40检查齐全。moneyflow_cnt_ths独立资产/check/job/catalog及完整隔离验收已关闭，见§39.6；三个STOPPED sensor和历史只读预演已通过，见§40，可恢复历史登记执行器与两日/495日冻结清单已完成，见§41，完整当前门禁已复验并收尾，见§41.6，两日正式样本登记已读回通过，见§42；495日全量历史登记与收尾已完成，见§43，495分区/990物化/最近20来源日40检查齐全；moneyflow_ind_dc的独立资产/check/job/catalog及完整隔离验收已关闭，见§44.3，三个STOPPED sensor及历史预演、执行器和两日样本已完成，见§45～47；739日全量登记及本表P4历史接入已关闭，见§48，739分区/1478物化/最近20来源日40检查齐全；moneyflow_dc独立资产/check/job/catalog和完整隔离验收已完成，见§49；三个STOPPED sensor、readiness及739历史日只读预演已通过，见§50；可恢复登记执行器、隔离两日样本和739日冻结清单已通过，见§51；两日正式登记及读回已通过，见§52；739日全量登记及本表P4历史接入已关闭，见§53；739分区/1478物化/最近20来源日40检查齐全。moneyflow_ths独立资产/check/job/catalog及完整隔离验收已完成，见§54；三个STOPPED sensor/readiness与431历史日只读预演已通过，见§55；可恢复执行器、隔离两日样本和431日冻结清单已通过，见§56；两日正式登记及读回已通过，见§57；431日全量登记及本表P4历史接入已关闭，见§58；431分区/862物化/最近20来源日40检查齐全。此前阻塞记录保留；sensor启用和正式job未执行，整个P4未关闭，P5真实日更未执行。当前历史设计为七表日期批次直接生成每日候选，见§4和§19。P0/P1/P2验收记录保留；§17～18仅为旧路线记录，日期代码/隔离验收见§20，真实Prod查询见§21，索引及复测见§22。§25保留样本清单、§26保留正式两日样本、§27保留全量执行前的范围/成本与准确命令；最新进度以§28～63.3为准。moneyflow独立资产/check/job/catalog及完整隔离验收已通过，见§59；三个STOPPED sensor/readiness和4067历史日只读预演已通过，见§60；本表可恢复历史登记执行器、隔离两日样本和4067日五单元冻结清单已验收，见§61；正式两日登记、读回及零新增重放已通过，见§62.5；4067日五单元全量历史登记、读回和零新增重放已完成，见§63.3。
+日期：2026-10-06；最近整理：2026-10-18。§1的影响面描述和§2～71的设计、实现与执行结果保留各阶段记录；其中“未实现”“待后续”“尚未提交”等均有当时的时间边界，不能越过后续验收当作当前状态。P4最终结果见§70.27.7/70.28，异常证据见§70.29.6，7项补缺结果见§71.16，当前收尾见§72。
 
-最新状态（2026-10-17 23:37）：数据接续49/49及21个sensor实际RUNNING均已验收，21次真实首次tick正常SKIPPED，98文件/49来源收据/100原生任务保持，P4关闭。尚待P5真实自动日更至少3交易日及异常/修订验收，不能提前关闭整体接入。
+历史启用验收（2026-10-17 23:37；服务启停现状见§72）：数据接续49/49及21个sensor实际RUNNING均已验收，21次真实首次tick正常SKIPPED，98文件/49来源收据/100原生任务保持，P4关闭。当时尚待P5真实自动日更及异常/修订证据。异常证据后已按§70.29.6整理完成，真实交易日观察仍待，不能提前关闭整体接入。
 
 历史状态（2026-10-13 14:11）：上次执行记录和两份文档已提交cdfed8af，未推送。另一项历史复权因子开发仍在进行，DG共用检查及分钟指标代码有未提交修改，代码尚未稳定，见§68.4。10-08大盘尚未登记、运行或生成文件；21个自动更新触发器继续关闭，一次只跑一个资金流任务的设置保持。管理员“现在执行”的时间许可保留，待另一项开发完成并核对实际代码后继续。P4整体和P5未完成。
 
@@ -14,7 +14,7 @@
 
 当前调用链为资源→有界分页→writer→文件check→asset/job→sensor/catalog。CodeGraph explore命中了分页会话及BSE调用，但结果混入同名符号；已直接核验 resources.py、tushare_request_policy.py、duckdb_connection.py、cn_a_trade_day_sensor.py、dc_board_partition_sensor.py。现有无时钟门禁的calendar-only helper不能直接满足22:00；使用有same_day_register_start参数的注册helper，限定本次七个注册器，不改变既有注册器。
 
-改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，两日及全量正式历史登记均已通过；moneyflow_cnt_ths与moneyflow_ind_dc全量历史登记也已关闭；moneyflow_dc独立资产/check/job/catalog及隔离验收已通过，三个STOPPED sensor、readiness及历史只读预演已通过；可恢复登记执行器和冻结清单、两日及全量正式历史登记均已通过；moneyflow_ths独立资产/check/job/catalog、sensor/readiness、执行器及全量正式历史登记已通过；moneyflow独立定义、三个STOPPED sensor/readiness和4067日只读预演已通过，本表正式登记执行器及清单留下一片。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
+改动落点沿用原方案§12，并按数据集拆分模块。moneyflow_mkt_dc已完成资产、sensor及历史event执行器代码和隔离验收，两日样本及全量正式历史事件登记已通过；moneyflow_ind_ths已完成资产/check/job/catalog、三个STOPPED sensor、只读历史预演、可恢复事件执行器和冻结清单，两日及全量正式历史登记均已通过；moneyflow_cnt_ths与moneyflow_ind_dc全量历史登记也已关闭；moneyflow_dc独立资产/check/job/catalog及隔离验收已通过，三个STOPPED sensor、readiness及历史只读预演已通过；可恢复登记执行器和冻结清单、两日及全量正式历史登记均已通过；moneyflow_ths独立资产/check/job/catalog、sensor/readiness、执行器及全量正式历史登记已通过；moneyflow独立定义、三个STOPPED sensor/readiness和4067日只读预演已通过，本表正式登记执行器、两日及4067日全量历史登记也已完成，见§61～63.3。生产DatasetDefinition/request builder、Web/API、其他资产消费者均不改变。无子系统边界或依赖矩阵变更。
 
 ## 2. 日更完成、异常与修订
 
@@ -4682,7 +4682,7 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 
 12项中：临时/致命错误及尝试上限由七表临时原生失败/持久key证明；取消/发布中断由真实临时文件和拥有的进程证明；丢响应由控制器替身、本地真实HTTP和进程退出分别证明；重复执行另有正式573控制文件/49交付/98文件不变记录；修订由七表sensor判断和实际临时job处理分别证明；坏文件/check身份及六表下降/大盘单行合同均有反例；时间、请求、内存边界复用独立假时钟及真实安装SDK回环证据；两次正式失败及一次性获批恢复另有历史正式验收。上述边界不能互相冒充，不将一次手动恢复称为自动重试，也不将休市skip称为真实交易日采集。
 
-前两项已完成：启用记录07dd36df已提交；本步异常证据与文档已落地、尚未提交，未推送。下一阶段仍只按原P5收集至少3个不同交易日真实自动更新及其运行/数据/成本，再进行最终运行文档和项目收尾。本步不新增其他开发切片，不需要新的实现决策，不提前宣布整体接入完成。
+前两项已完成：启用记录07dd36df已提交；本步异常证据与文档随后已提交`78b444d53`；该次操作未推送。下一阶段仍只按原P5收集至少3个不同交易日真实自动更新及其运行/数据/成本，再进行最终运行文档和项目收尾。本步不新增其他开发切片，不需要新的实现决策，不提前宣布整体接入完成。
 
 ## 71. 从Prod定点补齐DG历史数据（补充LLD；2026-10-18，原7项正式验收完成）
 
@@ -4938,6 +4938,284 @@ apply须在任何正式写入前确认原父目录已有候选且其摘要与审
 
 开发约束对账：相关依赖变化由新源码闭包和显式审核摘要拒绝；原计划/候选/7项范围由原validate和审核父身份共同约束；DC旧值由原独立SQL证明及最终候选摘要约束；正式文件用原发布协议逐文件原子提升，原生记录用既有准确绑定验收；暂停恢复与计费沿同一父state，不新增配置、定义或跨子系统依赖。CodeGraph explore/impact和实际AST/源码核对已记录于§71.15，未发现需要人工确认的调用或业务边界。静态/隔离测试与真实正式验收分别列证，未将原测试通过当成数据补齐。
 
-本次补缺已完成，不再领取正式写入；原源端缺口、早期覆盖不足、DC已有字段修订与未来交易日运行验证不属于这7项修复。没有为本轮提交Git、推送、reload、重启、安装依赖或改动其他任务源码；后续若需提交，只能按本任务文件清单处理。
+本次补缺已完成，不再领取正式写入；原源端缺口、早期覆盖不足、DC已有字段修订与未来交易日运行验证不属于这7项修复。源码、文档及报告随后已按本任务清单提交`cd89b4b04`；该次操作没有推送、reload、重启、安装依赖或改动其他任务源码。
 
 自动更新开关次数另作实际对账：§71.7的28次stop/start是正常候选、发布两轮的设计数；本次样本完成后因共享代码变化安全恢复、经批准续跑再暂停/恢复，实际共三轮，各42次stop和start，全部只涉及原14项，最终状态仍与执行前一致。这额外一轮已由§71.14.2的安全收尾和§71.15的批准续跑覆盖，读取开销包含在上述398次内，不增加业务job、来源请求或重复事件。
+
+
+## 72. 后台服务停止及收尾审计（2026-10-18）
+
+### 72.1 操作设计与审核
+
+对应原方案§77。目标仅停止已识别的后台DG并整理现有文档；辅助代码只读审计。操作依据为进程父子关系、安装的`dg dev`说明及正式instance只读活动任务统计（全部活动状态0项）。停止对象为主进程81192和已确认的子进程81219/81243/81244/46319/48671；先TERM主进程，最多等待45秒，必要时仅TERM确认残留的原子进程，再核对进程和127.0.0.1:3000监听。不发sensor mutation、不更新数据库或Lake、不终止数据库服务、不重启；停止期间网页与自动调度均不可用，持久化开关保持原状态。中断后重新只读识别原进程再继续，不盲目复用PID，不扩大范围。
+
+代码审计范围为本需求的history、supplement、continuation、运行时请求/检查及相关测试和临时执行脚本，核对真实入口、依赖、固定历史日期及复用范围。结果写回本节；不删除代码、测试、checkpoint或报告。本地源码审计不访问业务明细，文档修改不影响架构边界、API或调度规则；只做必要文档检查，不重复完整数据验收。
+
+### 72.2 本次停止结果与文档处理
+
+只读查询正式instance的全部QUEUED/NOT_STARTED/STARTING/STARTED/CANCELING状态，计数均为0；未读取业务明细。向已核对的主进程81192发送TERM后，网页81243、调度81244及代码进程81219/46319/48671均已退出；两轮进程核验及端口核验确认原启动组无残留、TCP3000无监听。未发KILL，未操作数据库进程、sensor开关、游标或业务数据，未重新启动。后续由管理员手动启动；已保存的21个启用状态不会因停止进程而改为STOPPED。
+
+本次仅整理原方案、本文和P0合同的状态说明：用实际提交`78b444d53`/`cd89b4b04`纠正尚未提交描述，用§71.16纠正文首仍称补缺未开发/未执行的描述，初始影响面补齐moneyflow已完成登记事实。长篇重复的文首进度改为最终章节导航，详细阶段记录仍在原节；旧JSON和报告生成时的未提交字段保留为历史。P5至少3个不同真实自动采集交易日仍为0/3，验收项目沿§70.29.6，不用手动任务或休市SKIP替代。当前没有获批范围内的剩余补缺或开发项。
+
+### 72.3 辅助代码审计结果（只审计，未删除）
+
+**依据与范围。** CodeGraph explore覆盖supplement、continuation、history入口，impact核对`apply_moneyflow_history_supplement`与`report_moneyflow_history_events`；同名audit结果混入其他模块，因此另读当前具体实现。AST核对orchestrator当前src和tests的绝对import：相关辅助代码46模块（历史31、补缺6、接续9），32个测试文件直接引用；辅助代码集合以外的src未发现显式导入它们。此结果不代表启动时完全不加载：`definitions.py`使用`load_from_defs_folder`，现有安装版`components/core/decl.py`会遍历defs目录并导入Python模块，bootstrap不在忽略名单内。未启动DG或为本次审计加载整套Definitions，不能把“没有业务调用”说成“没有加载成本”。本次没有实测启动耗时，不把存在导入直接定性为性能故障。
+
+| 代码 | 当前真实用途/限制 | 审计建议 |
+| --- | --- | --- |
+| `defs/source_readiness/moneyflow_transport.py`、`moneyflow_request_worker.py` | `moneyflow.py`和`moneyflow_daily.py`实际调用，用于每次日更请求、取消和超时回收 | 保留；不是一次性恢复脚本 |
+| `defs/io/moneyflow_*`、assets/checks/sensors、asset_guards/run_contracts | 日更使用候选校验、Raw/Silver发布、源修订判断和对应检查 | 保留，不随历史接入完成清理 |
+| 31个历史导入/登记模块中的共用能力 | 按日期Prod读取、候选生成与逐文件恢复、正式读回；补缺仍导入plan/metadata/source/receive/candidates/event_plan等，单表入口也有对应测试 | 保留为明确的手动历史维护能力；未发现旧代码导出路线需要再删除，不因首次全量完成整批删除 |
+| `defs/bootstrap/moneyflow_history_supplement*.py`共6文件 | control.SCOPE写死原7项日期与行数；主入口仅支持该范围，完成后只读重放仍用这组模块；没有新日期维护入口 | 原7项已结束，可列入整组清理审核；当前仍可读回原操作，不能声称可直接用于任意未来补缺 |
+| `moneyflow_continuation_cli.py`和`moneyflow_continuation/` | plan/inspect/apply支持七表截止2026-09-30之后、每次最多49项的显式日期；CLI仍暴露audit，其他模块相互调用 | 保留手动接续能力；不把整个目录当作一次性代码删除 |
+| `moneyflow_continuation/acceptance.py` | DAYS固定2026-10-08～16的7个交易日，只验原49项，并要求两次原恢复记录 | 一次性验收部分，可列入清理审核；删除前同步CLI的audit子命令、其分支和相关测试，属于入口行为变更，须明确批准 |
+| `moneyflow_continuation/recovery.py`中的Raw恢复部分 | `validate_collection_descriptor`固定moneyflow/2026-10-13及失败run `ca3d12ad-717e-4291-a87f-6c2a3d37204a`，并要求原47项；execution/state/plan/submission/acceptance仍引用本模块 | 一次性Raw恢复部分可列入清理审核；不能删整个文件，Silver恢复与其他调用须分别保留或迁移 |
+| 32个直接消费者测试文件及其他日更回归 | 测试共用历史能力、维护入口、错误拒绝及真实文件处理 | 保留；未来能力正式退出时再同步删除对应专用测试，不能以“只被测试引用”为理由直接删除 |
+| `/private/tmp/moneyflow-supplement-execute-20261018.py`与`/private/tmp/moneyflow-sensor-activation-20261017/activate.py` | 本轮补缺/启用临时执行脚本；不是Git内维护入口，后续日更不调用它们 | 不再用于新日期；报告和原操作证明保留，本次未删除临时文件 |
+| `reports/moneyflow_p5_exception_evidence_20261018/audit_source.py.txt` | 归档只读审计原文，非可执行入口 | 保留证据，不当作运行时死代码 |
+
+6个补缺文件完整名单：`moneyflow_history_supplement.py`、`moneyflow_history_supplement_code.py`、`moneyflow_history_supplement_control.py`、`moneyflow_history_supplement_events.py`、`moneyflow_history_supplement_files.py`、`moneyflow_history_supplement_sensors.py`。其依赖不是6个相互独立的文件：主入口调用后五者，control依赖code，events/files/sensors依赖control，主入口及code有专用测试。删除前必须决定是否保留原操作只读重放能力，之后同步处理调用与测试，不能只删主入口或把固定日期改成任意日期来假装通用化。
+
+旧`moneyflow_history_export.py`和`moneyflow_history_csv.py`当前源码中均不存在；spool仅见禁止旧路线的回归用例名。`moneyflow_history_plan.moneyflow_history_export_sql`现按plan内明确日期生成SQL，仍被`MoneyflowHistoryCopyRequest.sql`调用，不属于旧按代码导出残留。未发现需要立即删除才能继续日更的中间代码；可清理项的确认和实施不包含在本次审计内。任何后续清理先补原方案/本LLD、列清入口变化和最小回归，再获删除/入口调整授权；不得删正式候选、checkpoint、原失败记录或证据来代替清理代码。
+
+### 72.4 本轮检查及交付边界
+
+仓库文档检查`python3 scripts/check_docs_integrity.py`通过；它只扫描根docs，不能代替本次lake_console文档核验，故另外核对这三份资金流文档的全部本地链接（识别已有`:行号`写法），目标文件均存在。三文件`git diff --check`通过。没有修改业务代码，未重复运行数据/网络或完整回归测试，未把本地AST审计当成运行验收。仅三份文档有本轮差异，其他任务工作区保持；本轮未提交或推送。管理员手动启动后继续§70.29.6的真实交易日验收；辅助代码删除只作为审计建议，尚未实施。
+
+
+## 73. 已完成历史操作的专用代码清退LLD（2026-10-18，待审阅，未实施）
+
+### 73.1 目标、依据及权限
+
+对应原方案§78，接续§72.3的审计。本轮是设计交付，不进入源码/测试修改或正式执行。目标是删除已经完成、范围写死、后续日更不会调用的专用能力，同时明确维护入口和通用检查如何保留；不能靠“看起来没用”删文件，也不把它们改成一个新通用平台。
+
+设计时HEAD为`b476f1bccf53e363815ed5566df1b56f16bca60a`；下表7个待删和5个待改源码相对HEAD无差异。代码行号指此时版本，实施以函数/类名定位，不能按旧行号机械删行。CodeGraph explore分析Raw恢复/49项验收，impact分析`validate_collection_descriptor`、`collection_evidence`；索引未完整追到别名调用，另用当前src/tests的AST import及仓库Python/shell/TOML搜索补齐。没有读取业务明细、重新跑旧操作或连接Tushare来制定本设计。
+
+正式操作依据：原7项已全部accepted、最终读回通过且重放writes=0，见[补缺完成报告](../../reports/moneyflow_history_supplement_completion_20261018.json)；原49项及旧父失败保留见§70.27.7和对应[正式收尾报告](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json)。本设计不撤回这些历史结果，但清退后不再承诺用现行代码重放已退出的专用入口。
+
+需确认的实施范围是：下述源码/测试删除、CLI audit退出、清单format=2和旧格式退出、原操作专用重放退出、两个临时脚本删除。管理员只要求编写LLD，不视为这些删除和入口变化已经获准。不得顺带修改受保护测试启动器、正式服务、配置、数据或其他需求源码。
+
+### 73.2 保留能力与不会改动的对象
+
+| 必须保留 | 当前代码依据 | 本次约束 |
+| --- | --- | --- |
+| 七表独立Raw/Silver日更 | `defs/assets/moneyflow*.py`、`defs/jobs/moneyflow*.py`、`defs/sensors/moneyflow*_sensor.py`及update_selection | 不改资产/任务/21个sensor身份、22:00登记、最近10交易日、请求字段和分页 |
+| 请求取消/超时/真实子进程回收 | `defs/source_readiness/moneyflow.py`、`moneyflow_daily.py`→`moneyflow_transport.py`→`moneyflow_request_worker.py` | 全部保留；不能因旧Raw恢复退出而删除日更请求保护 |
+| 发布、行数下降与文件/检查判断 | `defs/io/moneyflow_*`、`defs/checks/moneyflow*.py`、`defs/asset_guards/moneyflow_delivery_readiness.py`及moneyflow_row_count | 全部保留；文件摘要、实际物化/检查对应和Raw→Silver来源绑定不变 |
+| 按日期Prod历史维护与事件登记 | `defs/bootstrap/`下其余31个moneyflow模块、`daily_basic_event_instance.py` | 保留原字段、精确日期、候选校验和逐文件恢复；不把source/receive/plan等共用代码随补缺模块删掉 |
+| 普通手动接续 | CLI的plan/inspect/apply，continuation的contract/plan/state/execution/submission | 范围仍七表、2026-09-30之后、一次≤49项；不新增任意目标或失败强制重试开关 |
+| Silver启动失败的受控恢复 | recovery的`ACTION="silver_reexecution"`、`validate_descriptor/event_facts/validate_failure/worker_absent` | 保留原全部业务未执行证明、父子任务关系、Raw摘要绑定、只提交一次及失败即停止 |
+| 源码/运行环境检查 | state的`source_inventory/dependency_files/verification/guard/runtime` | 原文件集合/内容/日历/配置/加载/并发/剩余空间检查保留，不为让旧清单继续使用而过滤删除文件 |
+
+特别说明：`NativeBackend.runtime()`当前要求21个相关sensor实际STOPPED，故手动接续不是在日更已开启时随意运行的入口。保留该条件，不因清退而停sensor、放宽条件或宣称接续命令可直接在当前开关状态执行。
+
+`batch_moneyflow_readiness`判断已保存的字段摘要、物化、准确通过检查和Raw→Silver关系，不导入补缺模块，也不重新调用补缺的源码检查。删除专用生产者不应使已生成数据失效。后续隔离验证须覆盖带`supplement_plan_sha256`附加metadata的runless成功记录仍可ready，错摘要/错检查仍不ready；不改readiness代码来迎合测试。
+
+### 73.3 精确删除清单：7个源码文件
+
+下表路径相对`lake_console/orchestrator/src/orchestrator/`。整文件删除，不搬入legacy、utils、备用目录或报告作为可执行副本；表内函数/类的完整清单附于本节末尾。
+
+| 文件 | 删除原因与调用方处理 |
+| --- | --- |
+| `defs/bootstrap/moneyflow_history_supplement.py` | prepare/apply限定原7项，原操作已结束；唯一仓内直接调用来自专用测试，随本节删除 |
+| `defs/bootstrap/moneyflow_history_supplement_code.py` | AST源码摘要仅服务该补缺；control导入和专用测试一起退出；不能误删state中的通用依赖检查 |
+| `defs/bootstrap/moneyflow_history_supplement_control.py` | SCOPE/CUTOFF/LIMITS、Control/Source及路径/账本只服务原7项；其余5模块和专用测试引用同步删除 |
+| `defs/bootstrap/moneyflow_history_supplement_events.py` | 原7项的baseline/accepted/register等；只被主入口和专用测试引用，不改已写事件或其他历史登记工具 |
+| `defs/bootstrap/moneyflow_history_supplement_files.py` | 原7项候选、旧DC2812行保留合并及发布；只被主入口和专用测试引用，不保留其固定行数/日期变体 |
+| `defs/bootstrap/moneyflow_history_supplement_sensors.py` | 原14更新器的本次暂停/恢复协调，只被主入口和专用测试引用；删除代码不操作开关/游标 |
+| `moneyflow_continuation/acceptance.py` | DAYS固定7日/49项、45项旧基线和两次旧恢复；调用方为CLI.run的audit分支、专用验收测试、四日演练，分别按§73.5/7处理 |
+
+**整文件退出的代码点（当前行号，仅供定位）：**
+
+| 文件 | 当前函数/类 |
+| --- | --- |
+| `moneyflow_history_supplement.py` | `_metadata`（68～78）；`prepare_moneyflow_history_supplement`（81～190）；`_readback`（193～214）；`_review_partial`（217～251）；`_candidate_manifest`（254～265）；`_prepare_candidates`（268～356）；`apply_moneyflow_history_supplement`（359～569） |
+| `moneyflow_history_supplement_code.py` | `_require`（18～20）；`_module_path`（23～26）；`dependency_paths`（29～72）；`supplement_code_identity`（75～95） |
+| `moneyflow_history_supplement_control.py` | `require`（53～55）；`digest`（58～63）；`report_progress`（66～67）；`read_json`（70～75）；`save_json`（78～79）；`code_identity`（82～83）；`validate_code`（86～106）；`target`（109～113）；`file_hash`（116～119）；`child_directory`（122～128）；`root_directory`（131～137）；`validate_plan`（140～204）；`Control`（207～346）：`__init__`, `save`, `check`, `disk`, `charge`, `read`, `intent`；`Source`（349～379）：`__init__`, `_call`, `copy`, `metadata` |
+| `moneyflow_history_supplement_events.py` | `metadata`（23～27）；`facts`（30～45）；`valid_check`（48～66）；`baseline`（69～94）；`unchanged_baseline`（97～109）；`_materialization_identity`（112～125）；`accepted`（128～135）；`register`（138～264） |
+| `moneyflow_history_supplement_files.py` | `date_plan`（39～45）；`keys`（48～61）；`audit_pair`（64～72）；`candidates`（75～121）；`_difference`（124～128）；`merge_dc`（131～204）；`final_candidates`（207～268）；`publish`（271～325） |
+| `moneyflow_history_supplement_sensors.py` | `same_sensor_cursor`（24～53）；`same_sensor_state`（56～64）；`same_sensor_snapshot`（67～70）；`snapshot_body`（73～84）；`Updates`（87～124）：`__init__`, `snapshot`, `set_status`；`transition`（127～172）；`_active_update_run`（175～185）；`idle`（188～196） |
+| `acceptance.py` | `acceptance_units`（48～60）；`native_deliveries`（63～193）；`accepted_records`（196～277）；`verify_completed_baseline`（280～311）；`audit`（314～414） |
+
+这些模块常量和import随整文件退出，尤其是SCOPE、CUTOFF、LIMITS、ROOT_MODULES、START/STOP/FIELDS/NAMES及验收DAYS。不从中抽取新的共享模块，也不保留为应付旧调用的空函数。其他31个历史模块及常量不在删除范围。
+
+### 73.4 recovery.py逐函数清退与保留
+
+路径`src/orchestrator/moneyflow_continuation/recovery.py`，不能删除整文件。
+
+| 代码点 | 当前行号 | 目标行为 |
+| --- | ---: | --- |
+| `RAW_ACTION` | 17 | 删除；不再存在raw_reexecution动作 |
+| `RECOVERY_ACTIONS` | 18 | 精确改为`frozenset({ACTION})`，保留ACTION和REEXECUTE原值 |
+| `action_layer` | 22 | 只将ACTION映射为silver；register/raw/silver原样；对其他动作明确拒绝，不能把raw_reexecution当普通层传下去 |
+| `descriptor` | 26 | layer=raw恒返回None，layer=silver才查launch_recovery；其他layer拒绝。移除collection_recovery选择和读取 |
+| `recovery_actions` | 31 | 仅在当前unit有Silver恢复描述时返回`(ACTION,)`，否则空tuple；不枚举RAW_ACTION |
+| `validate_collection_descriptor` | 37～70 | 整函数删除，原日期、失败UUID、47项限制退出 |
+| `collection_evidence_path`、`collection_evidence` | 73～101 | 整函数删除；仅为旧Raw读取路径和旧sleep_fn失败证据，不改变通用safe_path/read_json |
+| `validate_collection_failure` | 334～424 | 整函数删除，含旧源码行91、sleep_fn错误及原60条事件核验 |
+| `validate_collection_candidate` | 427～489 | 整函数删除，含5574条/20列、3页及旧receipt校验/`_collection_candidate_audit`缓存赋值 |
+| `request` | 151 | 保留Silver父任务重执行请求；开头明确要求描述layer=silver、匹配unit且Raw摘要一致。任何Raw描述都拒绝，不能只删if后留下不校验的分支 |
+| `effective_runs` | 245～331 | 先明确只接受silver；保留父FAILURE、根关系、旧请求/响应、Raw摘要、事件序列、worker退出、无父候选、子关系及send_intent校验。删除所有Raw else、collection验证、Raw还要求Silver目标不存在的分支；action固定ACTION，保留返回的旧父失败说明 |
+| `validate_descriptor/matches/event_facts/validate_failure/worker_absent` | 104～148、158～242 | 保留原语义及反例；Silver父失败后的已有文件、活动worker或业务执行事件仍必须拒绝 |
+
+删除Raw专用函数后，移除未用的`REPO`导入；POLICY、file_hash、read_json、safe_path、os/re/UUID仍用于Silver，不误删。直接给request/effective_runs传Raw描述的负向用例必须在任何父任务读取或HTTP提交前失败；仅删除入口但底层还能执行不算清退完成。
+
+### 73.5 CLI与清单格式：同步退出旧入口
+
+只改`src/orchestrator/moneyflow_continuation_cli.py`和`moneyflow_continuation/plan.py`，不新增CLI、兼容参数或自动转换脚本。
+
+**CLI.parser（24～43）。** 删除audit子parser及其三个参数；plan/inspect/apply现有参数保持。`audit`应由argparse以退出码2拒绝，发生在main打开instance之前；help中不再出现audit。不得保留同名命令打印“已退出”后返回成功。
+
+**CLI.run（46～134）。** scope字段集合只允许必需`units/verification`和可选`launch_recovery`；含collection_recovery（包括None）按scope_fields拒绝，早于calendar、verification、snapshot和输出写入。make_plan实参去掉最后的collection_recovery。计划文件校验仅apply要求摘要，inspect仍按原语义读计划；原`args.mode in {"apply","audit"}`改为apply，整段acceptance导入/audit/report写入删除。保留plan/inspect/apply返回与错误处理。main不新增新后端、不放宽只读instance或正式操作授权。
+
+**plan.make_plan（114～180）。** 删除参数`collection_recovery`、父清单继承分支、47项完整父范围要求及输出键；`format`固定输出2。保留launch_recovery继承/不允许改父描述、root_units和parent_sha256约束、日期/49项上限/时区及到期逻辑。
+
+**plan.validate_plan（183起）。** 首先要求format=2和mode=plan；然后明确禁止出现collection_recovery键（含None），保留现行其他键语义，不趁清退扩展清单契约。只导入并调用validate_descriptor校验launch_recovery，不再导入Raw校验函数。旧format=1全部按plan_format拒绝；format=2夹带旧键按scope_fields拒绝。不从旧清单自动删字段或修改格式号，不把旧父清单当新计划生成器的合法输入。
+
+**使用边界。** 原旧操作的清单、账本、候选、来源证明与报告保留原字节；不做原地迁移、不重置预算、不自动继续旧47/49项。新格式计划只能基于清退后的代码/依赖和经确认的日期重新生成、重新审核授权。state.verification仍会因源码文件集合/依赖变化拒绝旧证明，这是应有行为，不能为复用旧hash而忽略已删除文件。CLI已有inspect能核对新格式的精确清单，但不是原49项固定验收的等价替代，不声称输出同样报告。
+
+### 73.6 状态、执行和账本中Raw分支的清退
+
+| 文件及函数 | 必须删除/修改 | 必须保留 |
+| --- | --- | --- |
+| `execution.py` imports、`apply`（157～299） | 移除RAW_ACTION import；删除两处phase映射的`RAW_ACTION: "silver"`项 | ACTION映射、register→raw→silver、观察已有任务、停止后不领新任务、预算累计、进度、失败停止整批和不自动取消后台job |
+| `state.py` recovery imports（71～82） | 删除RAW_ACTION、collection_evidence等Raw专用导入，保留仍在调用的Silver/共用函数 | 不动ReadMeter、HTTP超时、来源依赖/环境检查与物理审计 |
+| `NativeBackend.disk_budget`（535～618） | 删除“旧Raw receipt只有collecting而无elapsed_ms，按300秒计入”的整个特殊分支；所有实际Raw receipt统一按原正常分支校验elapsed_ms | 仍要求数值非负且小于MONEYFLOW_MAX_ELAPSED_SECONDS、累计Raw活动时间、文件数/字节/剩余空间限制；缺elapsed_ms不当0、不能忽略损坏receipt |
+| `NativeBackend._unit_snapshot`（803～880） | recovery只可能来自Silver，action改为`ACTION if recovery else layer`；删除Raw恢复选择路径 | Raw失败仍被next_action阻断；Silver的ready/摘要、effective_runs和保留父失败说明；已拥有活动任务观察与准确文件/check绑定 |
+| `NativeBackend.reconcile`（676～719） | RECOVERY_ACTIONS现在仅Silver；保留共用调用结构，在恢复分支显式确认silver/Raw摘要，不保留Raw分叉 | 原普通分区/任务唯一性检查、请求身份校验、丢响应只读对账、不盲目重发 |
+
+`submission.py`不改源码：Journal.action_dir/body/size及submit_once消费RECOVERY_ACTIONS、descriptor和recovery_actions，集合缩为Silver后自然拒绝Raw动作。必须用测试证明`journal.read/prepare/submit_once(...,"raw_reexecution",...)`按journal_scope拒绝，且尚未创建动作目录、消耗预算、调用guard/reconcile/mutate。不能给它加旧动作兜底。`contract.py`不改，POLICY的49项/请求/内存/空间/轮询上限保持；`state.source_inventory/dependency_files/verification/guard/runtime`也不改现行比较规则。
+
+### 73.7 测试逐文件处理：退出专用检查，保留通用检查
+
+路径均相对`lake_console/orchestrator/tests/`。删除专用能力的测试是随能力正式退出，不是为了让剩余实现过测；历史JUnit/日志和用例身份保持为原版本证据，不能把删除后数量减少写成原全部用例仍通过。
+
+| 文件 | 精确处理 |
+| --- | --- |
+| `test_moneyflow_history_supplement.py` | 整文件删除；其prepare/apply、旧2812行合并、14开关协调、源码重新审核均属于退出的7项专用实现；不删除共用历史/发布/日更相关测试 |
+| `test_moneyflow_history_supplement_code.py` | 整文件删除；当前无其他生产消费者，不把专用AST扫描器迁入共享层 |
+| `test_moneyflow_collection_recovery.py` | 整文件删除，含full_parent/setup/RawRecoveryNative、固定失败及5574行夹具；先移除四日演练和acceptance测试对它的导入 |
+| `test_moneyflow_continuation_acceptance.py` | 删除固定49项的bundle及其余专用测试；先把`test_unknown_unit_is_not_clean_absence_or_a_write_permission`迁到execution测试。该例只用state.snapshot和unit_decisions，不依赖acceptance，不应跟着退出 |
+| `test_moneyflow_continuation_execution.py` | 增加上述通用unknown反例，保持其独立字面snapshot/error断言；原停止/续跑/预算/49项控制器等测试保留。这里49项是数量上限测试，不是原49个特定日期验收，不删除 |
+| `test_moneyflow_continuation_cli.py` | 保留危险参数拒绝和安装版GraphQL schema测试；增加audit解析拒绝、help只列三命令、旧scope键拒绝且fake后端调用0次、旧格式文件不能进入run分支、apply摘要要求仍在 |
+| `test_moneyflow_continuation_plan.py` | plan_for自然生成format=2；增加输出无collection_recovery、format1/旧键含None拒绝、旧parent拒绝；原七表字面合同/日期/49项/父范围和Silver占位参数检查保留 |
+| `test_moneyflow_continuation_state.py` | 增加普通Raw缺elapsed_ms或非数字仍拒绝、不出现原collecting特例；Raw失败仍阻断；补充runless成功metadata附带supplement_plan_sha256时仍ready及错hash/check拒绝，使用真实临时文件/SQLite，不导入待删模块 |
+| `test_moneyflow_continuation_four_days.py` | 保留一个四日真实临时Raw/Silver job演练，按下述说明改写；删除对collection_recovery/acceptance的导入、旧失败父创建、旧验证monkeypatch和旧5574行假设 |
+| 新增`test_moneyflow_code_retirement.py` | 本需求清退的静态/局部调用检查：7源码/4专用测试路径确实不存在、src/tests无旧模块导入和动态模块字符串、Raw专用声明/调用消失、动作集合只有ACTION；构造一个旧导入和一份恢复RAW_ACTION声明的小临时源码证明扫描能抓住反例。报告文本/文档/当前负向字面输入不当残留 |
+
+**四日演练的实现口径。** 保留原测试函数`test_four_day_native_files_lost_response_restart_and_zero_repeat`，日期用测试自己的字面四日`2026-10-13/14/15/16`；测试日期是可人工理解的例子，不是生产范围限制。使用原`support.env`、`support.sample(day=...)`、`support.pages`和LocalJobsBackend；原2026-10-08/09/12三份各3行基线继续通过`seed_moneyflow_baseline`构造，不调用退出的setup/full_parent。
+
+移除ReexecutionJobsBackend，改为LocalJobsBackend的局部测试子类：保留每次guard计入原22次模拟读取；mutate先执行super，只有第一次普通Raw的LAUNCH在真实临时job成功后主动丢响应一次，其余返回正常。不拦截REEXECUTE、不创建失败父或重执行子任务、不绕过恢复验证。先按submit_once提交首日register，再提交Raw并确认丢响应；之后以原Journal根先运行一次apply完成，再重建后端并运行一次apply验证进程重新接回同一本地记录。重建后复用同一实例/Lake/Journal，不清空持久记录；重建前保存旧后端posts数量和来源calls，重建后的新后端posts必须为0，两次合计仍为12，不能拿新对象计数清零冒充全程没有提交。来源calls仍累计，第二次不能新增请求。
+
+独立预期为：4个分区、8个SUCCESS任务、8份新增正式模拟文件、8个对应通过检查（不把前置三日基线算在内）、每文件3行、8次假源请求、12次mutation=4注册+4Raw+4Silver；首日Raw只有send_intent、没有response但可从原生成功事实接回，重复运行新增mutation/源请求/文件变化均0。原11次提交/9个run/1个失败父的预期退出。直接用`backend.snapshots`的proof、SQLite真实记录、receipt和文件摘要核对结果，删除acceptance.accepted_records/Path映射；不重新写一个49项验收函数。读取预算仍≤40/动作、未因异常重置，record_property清楚标明假源/假时钟/HTTP适配替代及新的12/8计数。
+
+**保留且必须复验的现有文件。** `test_moneyflow_continuation_recovery.py`保持Silver恢复反例及原合法请求schema检查；submission测试保持双进程互斥、丢响应、退出重连、预算不重置；integration测试保留七表各1日真实临时job/check/Parquet；七表definitions/sensor和共用history/candidates/events测试不随专用模块清退删除。受保护启动器的113项固定清单不含本节待删测试，当前无需改启动器或数量阈值。
+
+### 73.8 完成结果、报告及临时脚本如何保留
+
+1. `lake_console/reports/moneyflow_history_supplement_*.json`、P4正式恢复目录、P5异常证据README/JSON/XML/log及`audit_source.py.txt`全部保留原字节。归档中的旧路径、SHA、旧用例数是当时事实，不能替换成清退后代码或重新生成报告掩盖已删文件。
+2. 在本LLD和原方案标注：清退后查看历史报告和Git中的`cd89b4b04`及当时恢复代码；这些历史代码只用于阅读，不恢复到现行src或对正式环境执行。已关闭专用操作不再提供当前代码的重放入口；若以后发现这些历史日期数据变化，先按新事实重新设计，不用恢复旧脚本绕过现行检查。
+3. state.verification及P5归档审计原文若引用清退前文件集合，旧字节核验脚本将不能在现行树原样跑通；这是版本变化，不能继续引用“334份当前文件已核验”或篡改旧名单。P5后续依据清退后代码、现有真实读回和新的交易日证据验收，不能把已退audit当未来3日验收器。本次不开发新的P5验收平台。
+4. 以下两个临时文件可随源码清退最后退出，**只删这两个文件本身**：`/private/tmp/moneyflow-supplement-execute-20261018.py`、`/private/tmp/moneyflow-sensor-activation-20261017/activate.py`。实施前确认不是symlink、内容仍是本次脚本、没有进程在执行，记录SHA256和原操作/报告对应；有变化或缺少身份依据则先停，不用模糊通配符删目录。已不存在则记“原文件已不在”，不能创建空文件再删。
+设计时两个临时脚本的SHA256如下；实施时字节不同则不删除，先核对变更原因，不执行脚本来判断身份。
+
+| 文件 | 当前SHA256 |
+| --- | --- |
+| `/private/tmp/moneyflow-supplement-execute-20261018.py` | `787e2838bc527ecb7f16b25372e930c4d1797de5c11f75696e9a7e8496e9cb0b` |
+| `/private/tmp/moneyflow-sensor-activation-20261017/activate.py` | `46c426f9dac2f98b5466ad6a6f9328e5e4b7a3ee57a3ae5834b3a6b84c914d5b` |
+
+5. 正式Lake/staging、原操作的plan/state/candidates/source-review/proof/receipt、writer锁、旧父/子任务、动态分区、物化和check全部保留。不删除临时脚本所在父目录，不清理其他/tmp内容、依赖环境、`.venv`或venv.bak，不执行Kopia或重新发布。
+
+### 73.9 源码实施顺序、共享工作区及中断处理
+
+本轮仅编写本节；以下步骤均为获确认后的实施清单。
+
+1. **先核对再开工。** 仍在dev-interface；读取本节精确名单的Git差异和源文件版本，确认无他人改动。复用已归档7项/49项完成事实；补缺仅核对`/Volumes/datasource/data_lake_staging/moneyflow/history-supplement-20261018/supplement/state.json`（≤1MiB）的stage=complete及7个item全部accepted。49项接续没有集中state.json，不能发明一个状态文件；用closeout.complete、49项零变化重放和原根摘要`79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0`，再结合本次进程/已有executor锁的只读占用核对确认未在续跑，不重新扫描573份记录。锁核验不新建锁文件、不覆盖锁内容。读取正式业务文件/明细0，staging状态最多1文件；状态缺失、未完成、锁被持有或有原操作进程时先停止，不清退它的恢复代码。
+2. **确认不会被DG边改边加载。** 只读检查DG进程及是否有本次CLI/临时执行脚本在运行；前次停止记录不代表此时仍停着。管理员已启动时，不擅自再杀；先取得本次维护停止许可，确认退出后才删改。无临时worktree、分支或目录替身。修改期间不启动DG，不reload，不测试正式端口。
+3. **记录保留基线。** 从当前源码/声明提取七表14资产、14任务、21sensor、14阻断检查的准确名字、分区、字段、路径和调度配置；固定本次明确名单的源码/测试及保留报告摘要到/private/tmp审计文件，不复制业务文件。已知非本任务脏文件（如catalog）保留，比较同一审计前后字节，不假定它等于HEAD。
+4. **迁移仍有效的检查。** 先迁移unknown用例、改写四日演练并准备CLI/清单/Raw拒绝及readiness反例。此时可暂时有失败测试，不能以skip或mock消除待退入口的真实调用；不把中途状态提交/启动。
+5. **一次完成源码与测试。** 按§73.4～6更新CLI、plan、recovery、state、execution，同批删除7源码和4专用测试；submission/contract/通用历史和日更源码不动。消除全部实际调用后再运行测试收集，不在源码内留兼容路径。
+6. **验收和对账。** 按§73.10～12执行，失败只修改本节已列路径；需要扩范围或发现新消费者则先补两文档审核。全部通过后写明每项删除、保留检查和实际数量，不提前启动服务。
+7. **最后退出临时脚本。** 在源码验收通过、归档证据对应确认且无脚本进程后，精确删除两个临时文件；再做一次静态引用与diff检查。此动作不授权删任何目录或数据。
+
+中断时保留已改源码及测试和审计记录，不接触数据；恢复前核对实际已改名单及内容，再继续未完成步骤。中途因导入失败不能启动DG。若整体撤回，只从已记录的Git版本精确恢复本次代码差异；不能执行整仓git reset/clean或覆盖无关脏文件。本轮之前已有三份文档整理未提交，保留其内容，不用HEAD整文件覆盖文档。Git提交仅在管理员要求时白名单提交；恢复历史源码也不是获准恢复正式写入入口。
+
+### 73.10 最小验证命令及成本
+
+所有Python测试在`/Users/congming/github/goldenshare/lake_console/orchestrator`，用现有`.venv/bin/python3 -B`，不uv sync、不安装、无正式凭据。测试资源全部来自临时目录和SQLite，来源为已标注的假源/本地进程；不得指向正式DAGSTER_HOME、Lake、数据库、3000或Tushare。
+
+**第一组：静态/局部回归。** 一次执行，不每改一行重跑整组：
+
+```bash
+.venv/bin/python3 -B -m pytest -q tests/test_moneyflow_code_retirement.py tests/test_moneyflow_continuation_cli.py tests/test_moneyflow_continuation_plan.py tests/test_moneyflow_continuation_state.py tests/test_moneyflow_continuation_submission.py tests/test_moneyflow_continuation_execution.py tests/test_moneyflow_continuation_recovery.py
+```
+
+**第二组：最小真实临时文件与任务。**
+
+```bash
+.venv/bin/python3 -B -m pytest -q tests/test_moneyflow_continuation_integration.py tests/test_moneyflow_continuation_four_days.py tests/test_moneyflow_history_candidates.py::test_multiple_explicit_dates_generated_without_spool tests/test_moneyflow_mkt_dc_events.py::test_native_registration_readiness_and_idempotent_replay
+```
+
+七表integration合计7个日期/数据集单元，四日演练4个；这两组共26次假源调用（18+8），对真实源请求0，新增临时文件/任务只按小样本运行；四日最大每层12条，七表integration的moneyflow_mkt_dc/ind_ths/cnt_ths各1、ind_dc/dc/ths/moneyflow各3行，每层共15条。候选与历史登记用既有有界小夹具，不拉历史或全市场；日志只写/private/tmp。fixture先从真实字段合同与现有来源定义样本独立核对，预期不要调用待测统计函数来生成。
+
+**第三组：原受保护静态检查及现有catalog治理。** 不改启动器：
+
+```bash
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py
+.venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_asset_governance_contracts.py
+.venv/bin/ruff check --no-cache --select E9,F63,F7,F82 src tests
+```
+
+另外对§73.12所列5个改动源码、5个改动测试和1个新测试执行`.venv/bin/ruff check --no-cache <11个精确路径>`默认规则，不把删除路径传给Ruff。七表保留的资产和sensor测试使用已确认存在的以下14文件，不使用可能匹配待删测试的通配符：
+
+```bash
+.venv/bin/python3 -B -m pytest -q tests/test_moneyflow_mkt_dc_definitions.py tests/test_moneyflow_ind_ths_definitions.py tests/test_moneyflow_cnt_ths_definitions.py tests/test_moneyflow_ind_dc_definitions.py tests/test_moneyflow_dc_definitions.py tests/test_moneyflow_ths_definitions.py tests/test_moneyflow_definitions.py tests/test_moneyflow_mkt_dc_sensors.py tests/test_moneyflow_ind_ths_sensors.py tests/test_moneyflow_cnt_ths_sensors.py tests/test_moneyflow_ind_dc_sensors.py tests/test_moneyflow_dc_sensors.py tests/test_moneyflow_ths_sensors.py tests/test_moneyflow_sensors.py
+```
+
+候选重放测试和事件小样本分别证明保留的history导入/登记入口没被删；不要求重跑全量历史。
+
+**Definitions加载。** 在测试隔离进程中按现有`test_major_index_mins_technical_definitions.py::test_project_definitions_register_exactly_fourteen_assets_and_seventy_checks`使用的`project_defs()`路径加载一次全工程并检查资金流14/14/21/14身份，操作本身不得执行job/sensor或探测正式资源。新retirement测试在临时DAGSTER_HOME、缺省正式凭据已移除、对网络连接和正式路径读写明确拒绝的条件下进行；若现有导入会访问正式资源，停止并说明实际调用，不给它加放行。不为清退运行正式`dg check defs`或新建正式instance。
+
+预算：无真实源请求、无业务SQL、无正式文件/事件/调度写入；局部测试优先≤120秒，总隔离检查目标≤5分钟，临时产物≤128MiB（不含既有解释器），不并行跑持有全局monkeypatch的测试。单组超过120秒先读取已有日志确认阶段，不盲目重跑；超预算不跳过失败，也不扩大到全量数据。CLI/readiness测试的有界读取数单独记录为测试事实，不冒称正式审计。本轮设计只核对命令/路径和代码，不提前记测试通过。
+
+### 73.11 完整验收矩阵
+
+| 要求 | 正向证据 | 必须拒绝的反例 |
+| --- | --- | --- |
+| 专用源码与调用一并退出 | 7源码/4专用测试不存在，全部其余Python可解析、测试可收集 | 残留import、from包导入、动态旧模块字符串、RAW_ACTION或旧collection函数声明/调用 |
+| CLI只保留三命令 | plan/inspect/apply参数和输出路径规则仍有效 | audit/--force等在parser拒绝；旧scope键即使为None也不能被忽略，fake后端0调用 |
+| 清单版本变更明确 | make_plan输出format2、无旧字段；Silver父范围及根摘要不变 | format1、旧parent、format2夹带collection_recovery、只改格式号但未更新依赖证明不能执行 |
+| 旧Raw动作无法从底层提交 | 普通Raw缺数据可执行原采集动作 | 直接调用旧动作、Raw恢复描述给request/effective_runs、旧失败Raw仍强行跳过；0mutation/0动作目录写入 |
+| Silver恢复没被破坏 | 原schema、合法父子任务、丢响应后只读认领、重复0提交 | 父已业务执行、worker未退出、错误Raw摘要、子关系错、第二次失败、模糊状态再发 |
+| 正常Raw预算仍严格 | elapsed_ms按原范围累计且跨重启不归零 | 旧collecting receipt缺耗时不得再特殊放行，NULL/非数字/负数/超限均拒绝 |
+| 已补数据仍被日更识别 | 临时runless物化/check及附加补缺metadata正常ready | 改文件hash、错check目标、旧Silver Raw摘要、读取错误均不当缺数据重采 |
+| 通用unknown检查保留 | 原独立snapshot/error例迁入execution | 存储失败不得返回register/raw/silver或任何提交许可 |
+| 日更与历史维护未变 | 七表隔离任务、声明/调度前后相同，日期候选和事件登记小样本通过 | 资产/check改名、sensor/字段/路径变化或bootstrap共用模块缺失 |
+| 真实临时多日续接 | 四日8成功任务、12提交、8源请求，重建后端后重复0新增 | 靠旧父替身、acceptance替身、清空Journal或把旧失败改成功凑通过 |
+| 历史证据与数据保留 | 明确列出的报告摘要、保护源码及原操作文件前后相同 | 改旧JSON/hash、删候选/checkpoint、重写历史文件、恢复旧可写代码替代清退 |
+
+P5的真实自动交易日证据与本次隔离证据分别记录。以上通过只说明本次清退范围满足设计，不能据此宣布资金流项目整体完成或未来交易日已采集。
+
+### 73.12 本次允许变更的完整文件范围
+
+以下路径相对`lake_console/orchestrator/`；新增/修改/删除必须逐项对账，未列文件不自行扩展。
+
+- **删除7源码：** §73.3所列6个`src/orchestrator/defs/bootstrap/moneyflow_history_supplement*.py`精确文件及`src/orchestrator/moneyflow_continuation/acceptance.py`。
+- **修改5源码：** `src/orchestrator/moneyflow_continuation_cli.py`；`src/orchestrator/moneyflow_continuation/plan.py`、`recovery.py`、`state.py`、`execution.py`。
+- **删除4测试：** `tests/test_moneyflow_history_supplement.py`、`test_moneyflow_history_supplement_code.py`、`test_moneyflow_collection_recovery.py`、`test_moneyflow_continuation_acceptance.py`。
+- **修改5测试：** `tests/test_moneyflow_continuation_cli.py`、`test_moneyflow_continuation_plan.py`、`test_moneyflow_continuation_state.py`、`test_moneyflow_continuation_execution.py`、`test_moneyflow_continuation_four_days.py`。
+- **新增1测试：** `tests/test_moneyflow_code_retirement.py`，只检查本次明确退出的代码与保留Definitions/拒绝路径，不扫描磁盘其他数据或增加运行时约束。
+- **文档：** 本LLD和原方案回填设计与后续实际验收；不改P0历史证据、不新建平行主方案，不改根docs/README中其他任务内容。
+- **仓库外：** §73.8精确2个/private/tmp文件；不在Git提交范围，删除结果单独记录。
+
+合计源码/测试22个路径（11删除、10修改、1新增），另2份原文档、2个仓外临时文件。pyproject.toml、uv.lock、catalog、paths、schema、正式配置、受保护启动器、submission/contract、日更与其余历史模块以及全部已归档报告不在改动范围。
+
+### 73.13 设计审计结论与实施前尚需确认
+
+本设计已补齐上一轮审计没展开的调用：Raw恢复的CLI/plan/state/execution各处分支、receipt耗时特例、四日演练对旧夹具与acceptance的引用、unknown通用用例迁移，以及旧源文件证明在删除后的失效说明。src/tests AST核对的7个待退模块外部消费者已在§73.3/7覆盖，仓库脚本/TOML搜索没有发现其他现行入口；两个临时脚本属于明确仓外调用方。bootstrap会被现行Definitions遍历导入，故专用工具删除仍需隔离加载核验，不能凭没有业务调用就跳过。
+
+没有设计期需要新装依赖、新数据库、新权限或扩大数据修复范围的前提。需要管理员审阅的是§73.1/5/8列明的能力退出和旧入口/清单不再使用；实施前再只读确认工作区、无未完成操作及DG停机条件。若实情与这些前提不同，先说明具体冲突、同步两文档，不临时放宽校验或恢复旧入口。当前仅两份文档写入，任何源码、测试、脚本、服务和正式数据操作均未实施。
+
+### 73.14 本轮设计交付的实际核验
+
+本轮已核对21个现有待删/待改源码测试路径、14个保留definitions/sensor测试文件及3个精确测试函数；新增retirement测试只是设计路径，未创建。两个临时脚本只读记录摘要，未执行/删除。两文档的新章节编号无重复，312处本地链接目标存在；仓库`check_docs_integrity.py`及这两文档`git diff --check`通过。待改源码相对设计基线仍无差异。这里只证明设计依据、路径/命令和文档一致，未运行上述实现回归，未修改源码/测试、未连接正式服务、未操作数据、未提交或推送。下一步是审阅本节明确的清退范围与入口变化，获确认后再按§73.9实施。

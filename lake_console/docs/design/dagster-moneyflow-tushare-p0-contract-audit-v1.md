@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集 P0 核验与实施合同
 
-> 日期：2026-10-06。范围和技术方案已批准提交，管理员授权开展 P0。第一轮来源证据及本次只读收尾已完成；P0设计与来源门禁通过，未进入P1。
+> 历史核验报告（2026-10-06）：以下结论保留当时的来源、样本及P0范围，不是当前项目进度。P0之后的开发/历史接入及原7项补缺均已完成，当前状态与P5待办见[原方案§77](dagster-moneyflow-tushare-onboarding-plan-v1.md)和[LLD§72](dagster-moneyflow-tushare-low-level-design-v1.md)。本文的Prod缺日及“建议补录”是历史基线；原7项的实际修复以原方案§76.13/LLD§71.16为准，既有源端缺口不改写。
 
 技术方案基线提交：`bf7df7ff`。本报告与[原方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-moneyflow-tushare-onboarding-plan-v1.md)共同使用，发现的问题已回填原方案。
 
