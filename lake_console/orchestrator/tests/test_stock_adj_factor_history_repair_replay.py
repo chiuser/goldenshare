@@ -482,7 +482,7 @@ def test_result_and_state_tails_are_independent_without_new_state_coverage(
             ).fetchone()[0]
             for f in fragments
         )
-        assert str(result_last) == "2026-10-12" and str(state_last) == cut
+        assert str(result_last) == "2026-10-16" and str(state_last) == cut
 
 
 def test_macd_reports_1024_bar_progress_and_stops_before_next_segment(

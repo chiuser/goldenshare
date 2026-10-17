@@ -12,15 +12,28 @@ from pathlib import Path
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     FactorRepairError,
     RepairBudget,
-    atomic_repair_json,
     check_repair_cancel,
     check_repair_path,
-    file_identity,
     repair_hash,
     repair_price_dates,
     sync_repair_directory,
     validate_price_repair_units,
-    write_candidate_record,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    RepairRuntime,
+    current_repair_runtime,
+    remove_repair_file,
+    repair_runtime_entry,
+    replace_repair_file,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    verified_file_identity as file_identity,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    write_repair_json as atomic_repair_json,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    write_runtime_candidate_record as write_candidate_record,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 
@@ -52,7 +65,7 @@ def build_scoped_file_candidate(
     connection, *, lake_root: Path, run_root: Path, target: Path,
     replacement_relation: str, approved_keys_relation: str, schema,
     key_columns: tuple[str, ...], plan_hash: str, unit_id: str,
-    asset_key: str, partition_key: str, validator, finalize_record, cancel=None,
+    asset_key: str, partition_key: str, validator, finalize_record, cancel=None, prepare_commit=None,
 ) -> dict:
     """Replace existing approved keys exactly; unchanged business rows create no file.
 
@@ -124,7 +137,7 @@ def build_scoped_file_candidate(
         for unfinished in (candidate,working):
             check_repair_path(unfinished)
             if unfinished.exists():
-                unfinished.unlink()
+                remove_repair_file(unfinished)
     write_candidate_record(run_root,{**common,"validated":False,
         "candidate_relative_path":candidate.relative_to(run_root).as_posix()})
     join = " AND ".join(f'o."{key}" IS NOT DISTINCT FROM k."{key}"' for key in key_columns)
@@ -174,9 +187,11 @@ def build_scoped_file_candidate(
         check_repair_storage,
     )
     check_repair_storage(run_root)
-    os.replace(candidate,candidate_output)
-    sync_repair_directory(candidate_output.parent)
     record["candidate_relative_path"] = candidate_output.relative_to(run_root).as_posix()
+    if prepare_commit is not None:
+        prepare_commit(record)
+    replace_repair_file(candidate, candidate_output)
+    sync_repair_directory(candidate_output.parent)
     finalize_record(record)
     return record
 
@@ -199,7 +214,8 @@ class RepairCandidateInputs:
     def __init__(self, connection, plan, cancel=None):
         self.connection, self.plan, self.cancel = connection, plan, cancel
         self.lake_root, self.run_root = Path(plan["lake_root"]), Path(plan["run_root"])
-        self.identities = {i["path"]: i for i in plan["source_fingerprints"]}
+        self.runtime = current_repair_runtime(plan) or RepairRuntime(plan)
+        self.identities = self.runtime.sources
         self.verified = set()
         self.require_factor_candidates = False
         self.require_price_candidates = False
@@ -207,20 +223,15 @@ class RepairCandidateInputs:
         self.codes = ",".join("'" + s["ts_code"] + "'" for s in plan["scopes"])
 
     def frozen(self, path: Path) -> Path:
-        path = check_repair_path(path)
-        identity = self.identities.get(str(path))
-        if identity is None:
-            raise FactorRepairError("repair_input_not_frozen")
-        if str(path) not in self.verified:
-            if asdict(file_identity(path, cancel=self.cancel)) != identity:
-                raise FactorRepairError("input_drift")
-            self.verified.add(str(path))
+        path = Path(path)
+        self.runtime.verify_source(path, cancel=self.cancel)
+        self.verified.add(str(path))
         return path
 
     def resolve(self, path: Path) -> Path:
-        self.frozen(path)
         record_path = repair_record_path(self.run_root, path, self.lake_root)
         if not record_path.exists():
+            self.frozen(path)
             if self.require_price_candidates and any(str(path) in u['target_paths']
                 for u in self.plan['units'] if u['asset_key'] in PRICE_REPAIR_ASSETS[2:]):
                 raise FactorRepairError("repair_price_candidate_required")
@@ -230,6 +241,7 @@ class RepairCandidateInputs:
                     raise FactorRepairError("repair_factor_candidate_required")
             return path
         record = read_repair_candidate_record(self.plan, path)
+        self.frozen(path)
         self.overlays[str(path)] = record["candidate_sha256"]
         return path if record["no_op"] else self.run_root / record["candidate_relative_path"]
 
@@ -239,7 +251,10 @@ class RepairCandidateInputs:
         relative = path.relative_to(self.lake_root)
         output = self.run_root / "inputs" / relative
         receipt = output.with_suffix(".json")
-        identity = asdict(file_identity(source, cancel=self.cancel))
+        identity = asdict(self.runtime.identity(source, cancel=self.cancel))
+        cache_key = (str(path), identity["sha256"], self.codes)
+        if cache_key in self.runtime.projections:
+            return self.runtime.projections[cache_key]
         if source == path and identity != self.identities[str(path)]:
             raise FactorRepairError("input_drift")
         if source != path:
@@ -256,12 +271,13 @@ class RepairCandidateInputs:
             if proof.get("validated") is True:
                 if proof.get("output") != asdict(file_identity(output,cancel=self.cancel)) or working.exists():
                     raise FactorRepairError("repair_projection_drift")
+                self.runtime.projections[cache_key] = output
                 return output
             if proof.get("validated") is not False:
                 raise FactorRepairError("repair_projection_drift")
             for unfinished in (output,working):
                 if unfinished.exists():
-                    unfinished.unlink()
+                    remove_repair_file(unfinished)
         elif output.exists() or working.exists():
             raise FactorRepairError("repair_projection_unowned")
         output.parent.mkdir(parents=True,exist_ok=True)
@@ -285,19 +301,27 @@ class RepairCandidateInputs:
         check_repair_cancel(self.cancel)
         if asdict(file_identity(source,cancel=self.cancel)) != identity:
             raise FactorRepairError("input_drift")
-        os.replace(working,output)
+        replace_repair_file(working,output)
         sync_repair_directory(output.parent)
         atomic_repair_json(receipt,{**ownership,"validated":True,
             "output":asdict(file_identity(output,cancel=self.cancel))})
+        self.runtime.projections[cache_key] = output
         return output
 
 
+@repair_runtime_entry
 def read_repair_candidate_record(plan, target: Path) -> dict:
     root, run = Path(plan["lake_root"]), Path(plan["run_root"])
+    runtime = current_repair_runtime(plan)
+    if str(target) in runtime.records:
+        return runtime.records[str(target)]
     record = json.loads(check_repair_path(repair_record_path(run, target, root)).read_text())
+    if record.get("commit_pending") is True:
+        raise FactorRepairError("repair_candidate_commit_pending")
     relative = target.relative_to(root).as_posix()
-    preimage = next((i for i in plan["target_preimages"] if i["path"] == str(target)), None)
-    owner = next((u["asset_key"] for u in plan["units"] if str(target) in u["target_paths"]),None)
+    preimage = runtime.preimages.get(str(target))
+    unit = runtime.targets.get(str(target))
+    owner = unit["asset_key"] if unit else None
     if (record.get("asset_key") != owner or record.get("unit_id") != repair_hash([plan["plan_hash"],owner,str(target)])
         or any(type(record.get(k)) is not int or record[k] < 0 for k in ("original_rows","replacement_rows","changed_stock_rows","candidate_rows","candidate_bytes"))
         or record.get("candidate_rows") != record.get("original_rows")
@@ -311,7 +335,7 @@ def read_repair_candidate_record(plan, target: Path) -> dict:
             or record.get("validated") is not True or record.get("record_hash") != repair_hash(
                 {k: v for k, v in record.items() if k != "record_hash"})):
         raise FactorRepairError("repair_candidate_record_invalid")
-    if asdict(file_identity(target)) != preimage:
+    if not runtime.admitted and asdict(file_identity(target)) != preimage:
         raise FactorRepairError("target_drift")
     if record["no_op"]:
         if record.get("candidate_relative_path") is not None or record["candidate_sha256"] != preimage["sha256"] or record["candidate_bytes"] != 0:
@@ -323,13 +347,121 @@ def read_repair_candidate_record(plan, target: Path) -> dict:
         output = file_identity(check_repair_path(run / expected))
         if output.sha256 != record["candidate_sha256"] or output.size != record["candidate_bytes"]:
             raise FactorRepairError("repair_candidate_drift")
+    if str(target) not in record.get("input_paths", []):
+        raise FactorRepairError("repair_candidate_record_invalid")
+    runtime.restore_binding(record)
+    verify_repair_record_dependencies(plan, target, record)
+    runtime.records[str(target)] = record
+    return record
+
+
+def verify_repair_record_dependencies(plan, target, record):
+    runtime = current_repair_runtime(plan)
+    run = runtime.root
+    for name, digest in record.get("overlay_hashes", {}).items():
+        if name == str(target) or read_repair_candidate_record(plan, Path(name))["candidate_sha256"] != digest:
+            raise FactorRepairError("repair_overlay_drift")
+    for identity in record.get("replay_files", []):
+        path = check_repair_path(Path(identity["path"]))
+        if not path.is_relative_to(run / "inputs/indicator_replay") or asdict(file_identity(path)) != identity:
+            raise FactorRepairError("repair_indicator_fragment_drift")
+    if record.get("replay_tasks"):
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+            indicator_replay_tasks,
+            read_indicator_task,
+        )
+        tasks = runtime.once("tasks_by_id", lambda: {t["task_id"]: t for t in indicator_replay_tasks(plan)})
+        for replay in record["replay_tasks"]:
+            task = tasks.get(replay["task_id"])
+            if task is None:
+                raise FactorRepairError("repair_indicator_task_invalid")
+            marker = run / "inputs/indicator_replay" / task["task_id"] / "task.json"
+            if replay["marker"] != asdict(file_identity(marker)):
+                raise FactorRepairError("repair_indicator_fragment_drift")
+            read_indicator_task(plan, task)
+
+
+def transfer_record_hash(record):
+    return repair_hash({k: v for k, v in record.items() if k not in ("record_hash", "transfer_hash")})
+
+
+@repair_runtime_entry
+def resume_repair_candidate_transfer(plan, target, record=None):
+    """Complete one proven rename/acknowledgement, never run SQL or COPY."""
+    runtime = current_repair_runtime(plan)
+    if record is None:
+        record = json.loads(repair_record_path(runtime.root, target, runtime.lake_root).read_text())
+    unit = runtime.targets.get(str(target))
+    preimage = runtime.preimages.get(str(target))
+    relative = target.relative_to(runtime.lake_root).as_posix()
+    if (unit is None or preimage is None or record.get("plan_hash") != plan["plan_hash"]
+            or record.get("asset_key") != unit["asset_key"]
+            or record.get("unit_id") != repair_hash([plan["plan_hash"], unit["asset_key"], str(target)])
+            or record.get("target_relative_path") != relative
+            or record.get("preimage_sha256") != preimage["sha256"]
+            or record.get("transfer_hash") != transfer_record_hash(record)
+            or "record_hash" in record and record["record_hash"] != repair_hash({k: v for k, v in record.items() if k != "record_hash"})
+            or record.get("validated") is not (record.get("business_pending") is not True)
+            or type(record.get("commit_pending")) is not bool
+            or any(type(record.get(k)) is not int or record[k] < 0 for k in
+                   ("original_rows", "replacement_rows", "changed_stock_rows", "candidate_rows", "candidate_bytes"))
+            or record["candidate_rows"] != record["original_rows"]
+            or record["changed_stock_rows"] > record["replacement_rows"]
+            or type(record.get("no_op")) is not bool
+            or record["no_op"] != (record["changed_stock_rows"] == 0)
+            or str(target) not in record.get("input_paths", [])):
+        raise FactorRepairError("repair_transfer_proof_invalid")
+    runtime.restore_binding(record, transfer=True)
+    verify_repair_record_dependencies(plan, target, record)
+    if record["no_op"]:
+        if (record.get("candidate_relative_path") is not None or record["candidate_bytes"] != 0
+                or asdict(file_identity(target)) != preimage or record["candidate_sha256"] != preimage["sha256"]):
+            raise FactorRepairError("repair_candidate_drift")
+    else:
+        expected = "candidates/" + relative
+        if record.get("candidate_relative_path") != expected:
+            raise FactorRepairError("repair_candidate_path_invalid")
+        output = check_repair_path(runtime.root / expected)
+        partial = check_repair_path(output.with_suffix(output.suffix + ".partial"))
+        if output.exists() and partial.exists():
+            raise FactorRepairError("repair_unowned_candidate")
+        actual = output if output.exists() else partial
+        if actual == partial and record["commit_pending"] is not True:
+            raise FactorRepairError("repair_transfer_proof_invalid")
+        identity = file_identity(actual)
+        if identity.sha256 != record["candidate_sha256"] or identity.size != record["candidate_bytes"]:
+            raise FactorRepairError("repair_candidate_drift")
+        if actual == partial:
+            from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
+                check_repair_storage,
+            )
+            check_repair_storage(runtime.root, plan=plan)
+            replace_repair_file(partial, output)
+            sync_repair_directory(output.parent)
+    if record["commit_pending"]:
+        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
+            check_repair_storage,
+        )
+        check_repair_storage(runtime.root, plan=plan)
+        if record.get("business_pending") is True:
+            record["commit_pending"] = False
+            record["transfer_hash"] = transfer_record_hash(record)
+        else:
+            for key in ("commit_pending", "transfer_hash", "transfer_proof", "record_hash"):
+                record.pop(key, None)
+            record["record_hash"] = repair_hash(record)
+        write_candidate_record(runtime.root, record)
     return record
 
 
 def repair_target_scope(plan, unit, target: Path) -> dict:
     """Recheck frozen price dates against exact source keys; never infer a wider repair."""
     from orchestrator.defs import paths
-    validate_price_repair_units(plan)
+    runtime = current_repair_runtime(plan)
+    if runtime is None:
+        validate_price_repair_units(plan)
+    else:
+        runtime.once("price_contract", lambda: validate_price_repair_units(plan))
     asset = unit["asset_key"]
     if asset not in PRICE_REPAIR_ASSETS or str(target) not in unit["target_paths"]:
         raise FactorRepairError("repair_phase_not_supported")
@@ -396,6 +528,7 @@ def prepare_repair_replacement(connection, plan, unit, target: Path, *, cancel=N
     asset, root = unit["asset_key"], Path(plan["lake_root"])
     selected = repair_target_scope(plan, unit, target)
     inputs = RepairCandidateInputs(connection, plan, cancel)
+    runtime = inputs.runtime
     inputs.require_factor_candidates = asset not in PRICE_REPAIR_ASSETS[:2]
     inputs.frozen(target)
     codes_sql = ",".join(duckdb_string(c) for c in selected["codes"])
@@ -421,31 +554,40 @@ def prepare_repair_replacement(connection, plan, unit, target: Path, *, cancel=N
             code, as_of = profile["code"], profile["as_of"]
             anchor = inputs.project(paths.silver_adj_factor_path(root, as_of))
             expected_anchor = next(a for a in plan["anchors"] if a["ts_code"] == code)
-            anchor_rows = connection.execute(f"SELECT adj_factor FROM {read_parquet(anchor, hive_partitioning=False)} WHERE ts_code=? AND trade_date=CAST(? AS DATE)", [code, as_of]).fetchall()
+            anchor_rows = runtime.once(("anchor_rows", code, as_of), lambda anchor=anchor, code=code, as_of=as_of: connection.execute(
+                f"SELECT adj_factor FROM {read_parquet(anchor, hive_partitioning=False)} WHERE ts_code=? AND trade_date=CAST(? AS DATE)",
+                [code, as_of]).fetchall())
             if len(anchor_rows) != 1 or anchor_rows[0][0] != float(expected_anchor["adj_factor"]):
                 raise FactorRepairError("repair_anchor_drift")
             if selected["freq"] is None:
                 day = selected["day"]
-                inventory_key = repair_hash([plan["plan_hash"],profile["source_inventory_paths"]])
-                exists = connection.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name='repair_daily_source_inventory'").fetchone()[0]
-                if not exists:
-                    connection.execute("CREATE TEMP TABLE repair_daily_source_inventory(ts_code VARCHAR,trade_date DATE)")
-                    for offset in range(0,len(profile["source_inventory_paths"]),64):
-                        batch = [inputs.project(Path(p)) for p in profile["source_inventory_paths"][offset:offset+64]]
-                        source_sql = "read_parquet([" + ",".join(duckdb_string(p) for p in batch) + "],hive_partitioning=false)"
-                        connection.execute(f"INSERT INTO repair_daily_source_inventory SELECT ts_code,trade_date FROM {source_sql}")
-                    connection.execute("CREATE TEMP TABLE repair_daily_inventory_binding AS SELECT ?::VARCHAR binding",[inventory_key])
-                if connection.execute("SELECT binding FROM repair_daily_inventory_binding").fetchone()[0] != inventory_key:
+                inventory = profile["source_inventory_paths"]
+                inventory_key = runtime.once(("daily_inventory_key", id(inventory)), lambda inventory=inventory: repair_hash([plan["plan_hash"], inventory]))
+                def prepare_daily_index(inventory=inventory, inventory_key=inventory_key):
+                    exists = connection.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name='repair_daily_source_inventory'").fetchone()[0]
+                    if not exists:
+                        connection.execute("CREATE TEMP TABLE repair_daily_source_inventory(ts_code VARCHAR,trade_date DATE)")
+                        for offset in range(0, len(inventory), 64):
+                            batch = [inputs.project(Path(p)) for p in inventory[offset:offset+64]]
+                            source_sql = "read_parquet([" + ",".join(duckdb_string(p) for p in batch) + "],hive_partitioning=false)"
+                            connection.execute(f"INSERT INTO repair_daily_source_inventory SELECT ts_code,trade_date FROM {source_sql}")
+                        connection.execute("CREATE TEMP TABLE repair_daily_inventory_binding AS SELECT ?::VARCHAR binding", [inventory_key])
+                    if connection.execute("SELECT binding FROM repair_daily_inventory_binding").fetchone()[0] != inventory_key:
+                        raise FactorRepairError("repair_daily_source_inventory_drift")
+                    for name in inventory:
+                        inputs.frozen(Path(name))
+                    return inventory_key
+                if runtime.once(("daily_index", id(connection)), prepare_daily_index) != inventory_key:
                     raise FactorRepairError("repair_daily_source_inventory_drift")
-                # Cached business index is bounded by 25 stocks x actual daily dates.
-                # Each target still binds every inventory source fingerprint independently.
-                for name in profile["source_inventory_paths"]:
-                    inputs.frozen(Path(name))
-                rows = connection.execute("SELECT CAST(trade_date AS VARCHAR),count(*) FROM repair_daily_source_inventory WHERE ts_code=? AND trade_date<=CAST(? AS DATE) GROUP BY trade_date ORDER BY trade_date",[code,profile["source_dates"][-1]]).fetchall()
-                if any(n != 1 for d,n in rows):
-                    raise FactorRepairError("repair_daily_source_duplicate_key")
-                if [d for d,n in rows] != list(profile["source_dates"]):
-                    raise FactorRepairError("repair_daily_source_inventory_drift")
+                inputs.verified.update(inventory)
+                def validate_daily_dates(code=code, profile=profile):
+                    rows = connection.execute("SELECT CAST(trade_date AS VARCHAR),count(*) FROM repair_daily_source_inventory WHERE ts_code=? AND trade_date<=CAST(? AS DATE) GROUP BY trade_date ORDER BY trade_date", [code, profile["source_dates"][-1]]).fetchall()
+                    if any(n != 1 for d, n in rows):
+                        raise FactorRepairError("repair_daily_source_duplicate_key")
+                    if [d for d, n in rows] != list(profile["source_dates"]):
+                        raise FactorRepairError("repair_daily_source_inventory_drift")
+                    return True
+                runtime.once(("daily_dates", id(connection), inventory_key, code), validate_daily_dates)
                 previous = profile["previous"].get(day)
                 previous_daily = [] if previous is None else [inputs.project(paths.silver_stock_daily_path(root, previous))]
                 if previous is not None and _scalar(connection, f"SELECT count(*) FROM {read_parquet(previous_daily[0], hive_partitioning=False)} WHERE ts_code={duckdb_string(code)} AND trade_date=DATE {duckdb_string(previous)}") != 1:
@@ -559,71 +701,57 @@ def validate_repair_business_file(connection, plan, target, output, selected, in
             raise FactorRepairError("repair_minute_source_coverage_failed")
 
 
+@repair_runtime_entry
 def build_repair_target_candidate(connection, plan, unit, target, *, cancel=None, audit=False):
+    runtime = current_repair_runtime(plan)
+    runtime.once("price_contract", lambda: validate_price_repair_units(plan))
     record_path = repair_record_path(Path(plan["run_root"]), target, Path(plan["lake_root"]))
-    if not audit and record_path.exists() and "record_hash" in json.loads(record_path.read_text()):
-        record = read_repair_candidate_record(plan, target)
-        inputs = RepairCandidateInputs(connection, plan, cancel)
-        for path in record.get("input_paths", ()):
-            inputs.frozen(Path(path))
-        if str(target) not in record.get("input_paths", ()):
+    if record_path.exists():
+        previous_record = json.loads(record_path.read_text())
+        if "record_hash" in previous_record:
+            if previous_record.get("commit_pending") is True:
+                if audit:
+                    raise FactorRepairError("repair_candidate_commit_pending")
+                resume_repair_candidate_transfer(plan, target, previous_record)
+            return read_repair_candidate_record(plan, target)
+        if "transfer_hash" in previous_record:
             raise FactorRepairError("repair_candidate_record_invalid")
-        for path, fingerprint in record.get("overlay_hashes", {}).items():
-            if read_repair_candidate_record(plan, Path(path))["candidate_sha256"] != fingerprint:
-                raise FactorRepairError("repair_overlay_drift")
-        schema = repair_asset_schema(unit["asset_key"])
-        selected = repair_target_scope(plan, unit, target)
-        output = target if record["no_op"] else Path(plan["run_root"]) / record["candidate_relative_path"]
-        validate_repair_business_file(connection, plan, target, output, selected, inputs, schema)
-        return record
-    schema, keys, selected, inputs = prepare_repair_replacement(connection, plan, unit, target, cancel=cancel)
-    validate = lambda c, p, _day: validate_repair_business_file(c, plan, target, p, selected, inputs, schema)
     if audit:
-        record = read_repair_candidate_record(plan, target)
-        output = target if record["no_op"] else Path(plan["run_root"]) / record["candidate_relative_path"]
-        validate(connection, output, selected["day"])
-        columns = _columns(schema)
-        computed_changed = _scalar(connection, f"SELECT count(*) FROM (SELECT {columns} FROM repair_replacement EXCEPT ALL SELECT {columns} FROM {read_parquet(target, hive_partitioning=False)})")
-        if (computed_changed != record["changed_stock_rows"] or bool(computed_changed) == record["no_op"]
-                or record["candidate_rows"] != _scalar(connection, f"SELECT count(*) FROM {read_parquet(output, hive_partitioning=False)}")):
-            raise FactorRepairError("repair_candidate_record_invalid")
-        join = " AND ".join(f'o."{k}" IS NOT DISTINCT FROM a."{k}"' for k in keys)
-        for left, right in ((output, target), (target, output)):
-            def retained(p):
-                return f"SELECT {columns} FROM {read_parquet(p, hive_partitioning=False)} o WHERE NOT EXISTS(SELECT 1 FROM repair_approved a WHERE {join})"
-            if _scalar(connection, f"SELECT count(*) FROM ({retained(left)} EXCEPT ALL {retained(right)})"):
-                raise FactorRepairError("repair_retained_rows_changed")
-        actual = f"SELECT {columns} FROM {read_parquet(output, hive_partitioning=False)} o WHERE EXISTS(SELECT 1 FROM repair_approved a WHERE {join})"
-        for left, right in ((actual, "SELECT * FROM repair_replacement"), ("SELECT * FROM repair_replacement", actual)):
-            if _scalar(connection, f"SELECT count(*) FROM ({left} EXCEPT ALL {right})"):
-                raise FactorRepairError("repair_candidate_value_mismatch")
-        for path in inputs.verified:
-            if asdict(file_identity(Path(path), cancel=cancel)) != inputs.identities[path]:
-                raise FactorRepairError("input_drift")
-        return read_repair_candidate_record(plan, target)
-    def finalize(record):
-        preimage = next(i for i in plan["target_preimages"] if i["path"] == str(target))
-        if record["preimage_sha256"] != preimage["sha256"] or asdict(file_identity(target,cancel=cancel)) != preimage:
+        raise FactorRepairError("repair_candidate_record_required")
+    runtime = current_repair_runtime(plan)
+    schema, keys, selected, inputs = prepare_repair_replacement(connection, plan, unit, target, cancel=cancel)
+    def validate(c, output, _day):
+        validate_repair_business_file(c, plan, target, output, selected, inputs, schema)
+        runtime.counters["business_validations"] += 1
+
+    def finalize(record, *, commit_pending=False):
+        preimage = runtime.preimages[str(target)]
+        if record["preimage_sha256"] != preimage["sha256"]:
             raise FactorRepairError("target_drift")
-        for path in inputs.verified:
-            if asdict(file_identity(Path(path),cancel=cancel)) != inputs.identities[path]:
-                raise FactorRepairError("input_drift")
-        from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
-            check_repair_storage,
-        )
-        check_repair_storage(Path(plan["run_root"]),plan=plan)
-        complete = {"format_version":1, **record, "input_paths":sorted(inputs.verified),
-                    "overlay_hashes":inputs.overlays,
-                    "max_source_amount_abs_difference":selected.get("max_source_amount_abs_difference",0)}
+        complete = {"format_version": 1, **record,
+                    "input_paths": sorted(inputs.verified), "overlay_hashes": dict(inputs.overlays),
+                    "max_source_amount_abs_difference": selected.get("max_source_amount_abs_difference", 0)}
+        for key in ("record_hash", "transfer_hash", "transfer_proof", "commit_pending", "business_proof"):
+            complete.pop(key, None)
+        if commit_pending:
+            complete["commit_pending"] = True
+            complete["transfer_proof"] = runtime.transfer_proof(complete, target)
+        complete["business_proof"] = runtime.business_proof(complete,
+            approved_keys=runtime.approved_scope(target),
+            dependencies=runtime.dependency_digest(complete))
+        if commit_pending:
+            complete["transfer_hash"] = transfer_record_hash(complete)
         complete["record_hash"] = repair_hash(complete)
-        write_candidate_record(Path(plan["run_root"]),complete)
-        record.clear(); record.update(complete)
-    return build_scoped_file_candidate(connection,lake_root=Path(plan["lake_root"]),
-        run_root=Path(plan["run_root"]),target=target,replacement_relation="repair_replacement",
-        approved_keys_relation="repair_approved",schema=schema,key_columns=keys,
-        plan_hash=plan["plan_hash"],unit_id=repair_hash([plan["plan_hash"],unit["asset_key"],str(target)]),
-        asset_key=unit["asset_key"],partition_key=selected["day"] or target.parent.name,
-        validator=validate,finalize_record=finalize,cancel=cancel)
+        write_candidate_record(Path(plan["run_root"]), complete)
+        record.clear()
+        record.update(complete)
+    return build_scoped_file_candidate(connection, lake_root=Path(plan["lake_root"]),
+        run_root=Path(plan["run_root"]), target=target, replacement_relation="repair_replacement",
+        approved_keys_relation="repair_approved", schema=schema, key_columns=keys,
+        plan_hash=plan["plan_hash"], unit_id=repair_hash([plan["plan_hash"], unit["asset_key"], str(target)]),
+        asset_key=unit["asset_key"], partition_key=selected["day"] or target.parent.name,
+        validator=validate, finalize_record=finalize, cancel=cancel,
+        prepare_commit=lambda record: finalize(record, commit_pending=True))
 
 
 

@@ -11,18 +11,14 @@ from orchestrator.defs import paths
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
     FactorRepairError,
     RepairBudget,
-    atomic_repair_json,
     check_repair_cancel,
     check_repair_path,
-    file_identity,
     indicator_repair_assets,
     indicator_repair_target,
     plan_repair_calculation_windows,
-    repair_asset_for_path,
     repair_hash,
     sync_repair_directory,
     validate_indicator_repair_units,
-    write_candidate_record,
 )
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates import (
     RepairCandidateInputs,
@@ -30,6 +26,23 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates impo
     build_scoped_file_candidate,
     read_repair_candidate_record,
     repair_record_path,
+    resume_repair_candidate_transfer,
+    transfer_record_hash,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    current_repair_runtime,
+    remove_repair_file,
+    repair_runtime_entry,
+    replace_repair_file,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    verified_file_identity as file_identity,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    write_repair_json as atomic_repair_json,
+)
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    write_runtime_candidate_record as write_candidate_record,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.run_contracts import asset_column_schemas as schemas
@@ -77,6 +90,9 @@ def indicator_schema(asset):
 
 def indicator_replay_tasks(plan):
     """One stock/family/frequency; result and state share a continuous calculation."""
+    runtime = current_repair_runtime(plan)
+    if runtime is not None and "indicator_tasks" in runtime.indexes:
+        return runtime.indexes["indicator_tasks"]
     tasks = []
     for unit in plan["units"]:
         asset = unit["asset_key"]
@@ -110,34 +126,55 @@ def indicator_replay_tasks(plan):
             }
             task["task_id"] = repair_hash([plan["plan_hash"], task])
             tasks.append(task)
-    return sorted(tasks, key=lambda t: (t["asset_key"], t["profile"]["ts_code"]))
+    tasks = sorted(tasks, key=lambda t: (t["asset_key"], t["profile"]["ts_code"]))
+    if runtime is not None:
+        runtime.indexes["indicator_tasks"] = tasks
+    return tasks
 
 
 def _task_root(plan, task):
+    runtime = current_repair_runtime(plan)
+    key = ("task_root", task.get("task_id"))
+    if runtime is not None and key in runtime.indexes:
+        return runtime.indexes[key]
     if task.get("task_id") != repair_hash(
         [plan["plan_hash"], {k: v for k, v in task.items() if k != "task_id"}]
     ):
         raise FactorRepairError("repair_indicator_task_invalid")
-    return check_repair_path(
-        Path(plan["run_root"]) / "inputs/indicator_replay" / task["task_id"]
-    )
+    path = check_repair_path(Path(plan["run_root"]) / "inputs/indicator_replay" / task["task_id"])
+    if runtime is not None:
+        runtime.indexes[key] = path
+    return path
 
 
 def _receipt(plan, task, number):
     return _task_root(plan, task) / f"segment-{number}.json"
 
 
+@repair_runtime_entry
 def read_indicator_fragment(plan, task, number):
     path = check_repair_path(_receipt(plan, task, number))
+    runtime = current_repair_runtime(plan)
+    cache_key = ("fragment", str(path))
+    if cache_key in runtime.indexes:
+        return runtime.indexes[cache_key]
     proof = json.loads(path.read_text())
     if (
-        proof.get("plan_hash") != plan["plan_hash"]
+        proof.get("proof_version") != 1
+        or proof.get("runtime_binding") != runtime.binding
+        or proof.get("plan_hash") != plan["plan_hash"]
         or proof.get("task_id") != task["task_id"]
         or proof.get("number") != number
         or proof.get("validated") is not True
         or proof.get("record_hash")
         != repair_hash({k: v for k, v in proof.items() if k != "record_hash"})
     ):
+        raise FactorRepairError("repair_indicator_fragment_invalid")
+    if (not isinstance(proof.get("outputs"), dict) or not proof["outputs"]
+            or set(proof["outputs"]) - {"result", "state", "seed", "source", "context"}
+            or not isinstance(proof.get("row_counts"), dict)
+            or set(proof["row_counts"]) != set(proof["outputs"])
+            or any(type(n) is not int or n < 0 for n in proof["row_counts"].values())):
         raise FactorRepairError("repair_indicator_fragment_invalid")
     for kind, identity in proof["outputs"].items():
         expected = _task_root(plan, task) / f"{kind}-{number}.parquet"
@@ -146,6 +183,7 @@ def read_indicator_fragment(plan, task, number):
             or asdict(file_identity(expected)) != identity
         ):
             raise FactorRepairError("repair_indicator_fragment_drift")
+    runtime.indexes[cache_key] = proof
     return proof
 
 
@@ -179,18 +217,6 @@ def _persist_fragment(
             raise FactorRepairError("repair_indicator_fragment_binding_drift")
         if old.get("validated") is True:
             proof = read_indicator_fragment(plan, task, number)
-            for kind, query in queries.items():
-                stored = read_parquet(
-                    Path(proof["outputs"][kind]["path"]), hive_partitioning=False
-                )
-                for left, right in (
-                    (f"SELECT * FROM {stored}", query),
-                    (query, f"SELECT * FROM {stored}"),
-                ):
-                    if _count(connection, f"({left}) EXCEPT ALL ({right})"):
-                        raise FactorRepairError(
-                            "repair_indicator_fragment_value_mismatch"
-                        )
             return proof
         if old.get("validated") is not False:
             raise FactorRepairError("repair_indicator_fragment_invalid")
@@ -203,45 +229,42 @@ def _persist_fragment(
         raise FactorRepairError("repair_indicator_fragment_required")
     atomic_repair_json(receipt, {**ownership, "validated": False})
     outputs = {}
+    row_counts = {}
     for kind, query in queries.items():
         check_repair_cancel(cancel)
         output = check_repair_path(Path(ownership["output_paths"][kind]))
         working = check_repair_path(Path(str(output) + ".partial"))
         for unfinished in (output, working):
             if unfinished.exists():
-                unfinished.unlink()
-        bounded_repair_copy(connection, query, Path(plan["run_root"]), working)
+                remove_repair_file(unfinished)
+        copied_rows = bounded_repair_copy(connection, query, Path(plan["run_root"]), working)
         with working.open("rb") as stream:
             os.fsync(stream.fileno())
         if _count(
             connection,
             f"SELECT * FROM {read_parquet(working, hive_partitioning=False)}",
-        ) != _count(connection, query):
+        ) != copied_rows:
             raise FactorRepairError("repair_indicator_fragment_row_mismatch")
-        os.replace(working, output)
+        replace_repair_file(working, output)
         sync_repair_directory(directory)
         outputs[kind] = asdict(file_identity(output, cancel=cancel))
+        row_counts[kind] = copied_rows
         check_repair_storage(Path(plan["run_root"]), plan=plan)
-    for name in inputs.verified:
-        if asdict(file_identity(Path(name), cancel=cancel)) != inputs.identities[name]:
-            raise FactorRepairError("input_drift")
-    proof = {**ownership, "validated": True, "outputs": outputs}
+    runtime = current_repair_runtime(plan)
+    proof = {**ownership, "validated": True, "outputs": outputs,
+             "row_counts": row_counts, "proof_version": 1, "runtime_binding": runtime.binding}
     proof["record_hash"] = repair_hash(proof)
     atomic_repair_json(receipt, proof)
     return proof
 
 
 def _input_relation(connection, plan, inputs, profile):
-    root = Path(plan["lake_root"])
     freq = profile["freq"]
     code = profile["ts_code"]
     asset = "gold_stock_daily_qfq" if freq is None else f"gold_stk_mins_qfq_{freq}m"
-    frozen = [
-        Path(i["path"])
-        for i in plan["source_fingerprints"]
-        if repair_asset_for_path(root, Path(i["path"])) == asset
-        and (freq is None or Path(i["path"]).parent.parent.name == "ts_code=" + code)
-    ]
+    runtime = current_repair_runtime(plan)
+    runtime.release_connection_tables(connection, (asset, code))
+    frozen = runtime.source_paths(asset, code if freq is not None else None)
     files = []
     for offset in range(0, len(frozen), 64):
         files.extend(inputs.project(p) for p in frozen[offset : offset + 64])
@@ -252,13 +275,22 @@ def _input_relation(connection, plan, inputs, profile):
     return time_field
 
 
+@repair_runtime_entry
 def replay_indicator_task(
     connection, plan, task, *, audit=False, cancel=None, progress=None
 ):
     """Persist each complete replay segment; no annual reset and no formal writer."""
-    validate_indicator_repair_units(plan)
-    if task not in indicator_replay_tasks(plan):
+    runtime = current_repair_runtime(plan)
+    runtime.once("indicator_contract", lambda: validate_indicator_repair_units(plan))
+    task_index = runtime.once("tasks_by_id", lambda: {t["task_id"]: t for t in indicator_replay_tasks(plan)})
+    if task_index.get(task.get("task_id")) != task:
         raise FactorRepairError("repair_indicator_task_invalid")
+    marker = _task_root(plan, task) / "task.json"
+    if marker.exists():
+        read_indicator_task(plan, task)
+        return json.loads(marker.read_text())
+    if audit:
+        raise FactorRepairError("repair_indicator_task_required")
     p = task["profile"]
     sp = task["state_profile"]
     asset = task["asset_key"]
@@ -270,12 +302,12 @@ def replay_indicator_task(
     calendar_path = inputs.frozen(
         paths.silver_trade_calendar_path(Path(plan["lake_root"]))
     )
-    actual_calendar = tuple(
+    actual_calendar = runtime.once(("calendar", str(calendar_path)), lambda: tuple(
         r[0]
         for r in connection.execute(
             f"SELECT DISTINCT CAST(trade_date AS VARCHAR) FROM {read_parquet(calendar_path, hive_partitioning=False)} WHERE exchange='SSE' AND is_open AND trade_date<=DATE {duckdb_string(max(s['repair_end_trade_date'] for s in plan['scopes']))} ORDER BY 1"
         ).fetchall()
-    )
+    ))
     if actual_calendar != tuple(task["calendar_dates"]):
         raise FactorRepairError("repair_indicator_calendar_drift")
     root = Path(plan["lake_root"])
@@ -383,13 +415,7 @@ def replay_indicator_task(
             freq=freq,
             first_trade_date=first,
             expected_dates=task["calendar_dates"],
-            price_paths=[
-                Path(i["path"])
-                for i in plan["source_fingerprints"]
-                if repair_asset_for_path(root, Path(i["path"]))
-                == f"gold_stk_mins_qfq_{freq}m"
-                and Path(i["path"]).parent.parent.name == "ts_code=" + code
-            ],
+            price_paths=runtime.source_paths(f"gold_stk_mins_qfq_{freq}m", code),
             state_path=seed_path,
         )
         if any(
@@ -416,6 +442,22 @@ def replay_indicator_task(
                     ),
                 }
             )
+        existing = _receipt(plan, task, number * 2 + 1)
+        if existing.exists() and json.loads(existing.read_text()).get("validated") is True:
+            proof = read_indicator_fragment(plan, task, number * 2 + 1)
+            if (proof.get("dates") != list(days)
+                    or proof["binding"]["previous_record_hash"] != (previous["record_hash"] if previous else None)):
+                raise FactorRepairError("repair_indicator_fragment_binding_drift")
+            _verify_fragment_binding(plan, proof)
+            for name in proof["binding"]["input_paths"]:
+                inputs.frozen(Path(name))
+            inputs.overlays.update(proof["binding"]["overlay_hashes"])
+            previous = proof
+            proofs.append(proof)
+            seed_path = Path(proof["outputs"]["seed"]["path"])
+            context_path = Path(proof["outputs"]["context"]["path"]) if "context" in proof["outputs"] else None
+            continue
+        runtime.counters["kernel_windows"] += 1
         source = f"SELECT * FROM indicator_source WHERE trade_date IN {_days(days)}"
         if nine:
             source += f" AND {field}<={('DATE' if freq is None else 'TIMESTAMP')} {duckdb_string(p['end_time'])}"
@@ -624,18 +666,13 @@ def replay_indicator_task(
     for kind, profile in (("result", p), ("state", sp)):
         if profile is None:
             continue
-        n = sum(
-            _count(
-                connection,
-                f"SELECT * FROM {read_parquet(Path(r['outputs'][kind]['path']), hive_partitioning=False)}",
-            )
-            for r in proofs
-        )
+        n = sum(r["row_counts"][kind] for r in proofs)
         if n != sum(v for d, v in profile["trade_date_rows"]):
             raise FactorRepairError("repair_indicator_output_inventory_mismatch")
     result = {
         "plan_hash": plan["plan_hash"],
         "task_id": task["task_id"],
+        "proof_version": 1, "runtime_binding": runtime.binding,
         "fragments": len(proofs),
         "completed_rows": sum(n for d, n in p["trade_date_rows"]),
         "receipts": [
@@ -644,7 +681,7 @@ def replay_indicator_task(
                     _receipt(plan, task, int(name.stem.removeprefix("segment-")))
                 )
             )
-            for name in sorted(_task_root(plan, task).glob("segment-*.json"))
+            for name in sorted(_task_root(plan, task).glob("segment-*.json"), key=lambda path: int(path.stem.removeprefix("segment-")))
         ],
     }
     result["record_hash"] = repair_hash(result)
@@ -659,11 +696,18 @@ def replay_indicator_task(
     return result
 
 
+@repair_runtime_entry
 def read_indicator_task(plan, task):
     marker = check_repair_path(_task_root(plan, task) / "task.json")
+    runtime = current_repair_runtime(plan)
+    key = ("task_proofs", task["task_id"])
+    if key in runtime.indexes:
+        return runtime.indexes[key]
     result = json.loads(marker.read_text())
     if (
-        result.get("plan_hash") != plan["plan_hash"]
+        result.get("proof_version") != 1
+        or result.get("runtime_binding") != runtime.binding
+        or result.get("plan_hash") != plan["plan_hash"]
         or result.get("task_id") != task["task_id"]
         or result.get("record_hash")
         != repair_hash({k: v for k, v in result.items() if k != "record_hash"})
@@ -680,11 +724,33 @@ def read_indicator_task(plan, task):
         proof = read_indicator_fragment(
             plan, task, int(path.stem.removeprefix("segment-"))
         )
+        _verify_fragment_binding(plan, proof)
         if "result" in proof["outputs"]:
+            if proof["binding"]["previous_record_hash"] != (proofs[-1]["record_hash"] if proofs else None):
+                raise FactorRepairError("repair_indicator_fragment_binding_drift")
             proofs.append(proof)
     if len(proofs) != result["fragments"]:
         raise FactorRepairError("repair_indicator_task_invalid")
+    if sum(r["row_counts"]["result"] for r in proofs) != result["completed_rows"]:
+        raise FactorRepairError("repair_indicator_task_invalid")
+    runtime.indexes[key] = proofs
     return proofs
+
+
+def _verify_fragment_binding(plan, proof):
+    runtime = current_repair_runtime(plan)
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import FileIdentity
+    for name in proof["binding"]["input_paths"]:
+        expected = runtime.sources.get(name)
+        if expected is None:
+            raise FactorRepairError("repair_input_not_frozen")
+        if runtime.admitted:
+            runtime.identities.setdefault(name, FileIdentity(**expected))
+        elif asdict(file_identity(Path(name))) != expected:
+            raise FactorRepairError("input_drift")
+    for name, digest in proof["binding"]["overlay_hashes"].items():
+        if read_repair_candidate_record(plan, Path(name))["candidate_sha256"] != digest:
+            raise FactorRepairError("repair_overlay_drift")
 
 
 def _batch_rows(connection, name, files, days, *, annual=False, columns="*"):
@@ -713,8 +779,22 @@ def _batch_rule_rows(connection, days, counts_sql):
     return connection.execute(" UNION ALL ".join(queries)).fetchall()
 
 
-def audit_indicator_batch(connection, plan, unit, targets, *, pending=None):
+@repair_runtime_entry
+def audit_indicator_batch(connection, plan, unit, targets, *, pending=None, completed=None):
     """Materialize only one asset/month, then bind the complete batch evidence."""
+    runtime = current_repair_runtime(plan)
+    if (len(set(targets)) != len(targets)
+            or any(runtime.targets.get(str(name), {}).get("asset_key") != unit["asset_key"] for name in targets)):
+        raise FactorRepairError("repair_indicator_target_not_frozen")
+    for record in (completed or {}).values():
+        proof = record.get("business_validation")
+        if not proof or not set(targets) <= set(proof.get("targets", [])):
+            continue
+        if (proof.get("runtime_binding") != runtime.binding
+                or proof.get("validation_hash") != repair_hash({k: v for k, v in proof.items() if k != "validation_hash"})
+                or any(proof["output_hashes"].get(name) != ((pending or {}).get(name) or completed[name])["candidate_sha256"] for name in targets)):
+            raise FactorRepairError("repair_indicator_business_proof_required")
+        return proof
     asset = unit["asset_key"]
     freq = unit["calculation_windows"][0]["freq"]
     root = Path(plan["lake_root"])
@@ -750,13 +830,20 @@ def audit_indicator_batch(connection, plan, unit, targets, *, pending=None):
         )
         names.update(proof["input_paths"])
         overlays.update(proof["overlay_hashes"])
-    return {
-        "asset_key": asset,
-        "targets": sorted(targets),
-        "checked_dates": len(days),
-        "input_paths": sorted(names),
-        "overlay_hashes": overlays,
-    }
+    output_hashes = {}
+    for name in targets:
+        if name in (pending or {}):
+            output_hashes[name] = pending[name]["candidate_sha256"]
+        elif name in (completed or {}):
+            output_hashes[name] = completed[name]["candidate_sha256"]
+        else:
+            output_hashes[name] = file_identity(inputs.resolve(Path(name))).sha256
+    result = {"asset_key": asset, "targets": sorted(targets), "checked_dates": len(days),
+              "input_paths": sorted(names), "overlay_hashes": overlays,
+              "output_hashes": output_hashes, "runtime_binding": runtime.binding}
+    result["validation_hash"] = repair_hash(result)
+    return result
+
 
 
 def _audit_indicator_month(
@@ -832,17 +919,6 @@ def _audit_indicator_month(
             for p in price_unit["validation_paths"]
             if Path(p).parent.name.removeprefix("year=") in {d[:4] for d in days}
         ]
-    if freq is not None:
-        directory = paths.gold_stk_mins_qfq_path(
-            root, freq, plan["scopes"][0]["ts_code"], days[0][:4]
-        ).parents[2]
-        current = {
-            str(p)
-            for year in {d[:4] for d in days}
-            for p in directory.glob(f"ts_code=*/year={year}/part-000.parquet")
-        }
-        if current != {str(p) for p in price_paths}:
-            raise FactorRepairError("repair_price_source_inventory_drift")
     price_files = [inputs.resolve(p) for p in price_paths]
     _batch_rows(
         connection,
@@ -1027,9 +1103,20 @@ def _audit_indicator_month(
     }
 
 
+@repair_runtime_entry
 def build_indicator_target_candidate(
     connection, plan, unit, target, *, audit=False, cancel=None
 ):
+    record_path = repair_record_path(Path(plan["run_root"]), target, Path(plan["lake_root"]))
+    if record_path.exists() and "record_hash" in json.loads(record_path.read_text()):
+        return read_repair_candidate_record(plan, target)
+    if record_path.exists() and "transfer_hash" in json.loads(record_path.read_text()):
+        if audit:
+            raise FactorRepairError("repair_indicator_business_proof_required")
+        return resume_repair_candidate_transfer(plan, target)
+    if audit:
+        raise FactorRepairError("repair_candidate_record_required")
+    runtime = current_repair_runtime(plan)
     asset = unit["asset_key"]
     schema = indicator_schema(asset)
     root = Path(plan["lake_root"])
@@ -1039,7 +1126,18 @@ def build_indicator_target_candidate(
     inputs.frozen(target)
     replacements = []
     fragment_files = []
-    for task in indicator_replay_tasks(plan):
+    replay_tasks = []
+    def target_tasks():
+        index = {}
+        for task in indicator_replay_tasks(plan):
+            for key, profile in ((task["asset_key"], task["profile"]), (task["state_asset"], task["state_profile"])):
+                if profile is not None:
+                    for day in profile["target_dates"]:
+                        name = str(indicator_repair_target(root, key, profile["ts_code"], profile["freq"], day))
+                        if task not in index.setdefault(name, []):
+                            index[name].append(task)
+        return index
+    for task in runtime.once("target_tasks", target_tasks).get(str(target), []):
         if asset not in (task["asset_key"], task["state_asset"]):
             continue
         p = task["profile"] if asset == task["asset_key"] else task["state_profile"]
@@ -1052,7 +1150,10 @@ def build_indicator_target_candidate(
         if not wanted:
             continue
         kind = "result" if asset == task["asset_key"] else "state"
-        for proof in read_indicator_task(plan, task):
+        task_proofs = read_indicator_task(plan, task)
+        replay_tasks.append({"task_id": task["task_id"],
+            "marker": asdict(file_identity(_task_root(plan, task) / "task.json"))})
+        for proof in task_proofs:
             for name in proof["binding"]["input_paths"]:
                 inputs.frozen(Path(name))
             for name, h in proof["binding"]["overlay_hashes"].items():
@@ -1105,7 +1206,7 @@ def build_indicator_target_candidate(
             raise FactorRepairError("repair_duplicate_keys")
         # Scope transfer is checked independently in build_scoped_file_candidate and audit below.
 
-    def finalize(record):
+    def finalize(record, *, commit_pending=False):
         from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
             check_repair_storage,
         )
@@ -1126,58 +1227,18 @@ def build_indicator_target_candidate(
             "input_paths": sorted(inputs.verified),
             "overlay_hashes": inputs.overlays,
             "replay_files": fragment_files,
+            "replay_tasks": replay_tasks,
         }
         # Business completion is sealed only after this whole asset/month batch audit.
-        complete.update(validated=False, business_pending=True)
+        complete.update(validated=False, business_pending=True, commit_pending=commit_pending)
+        complete.pop("record_hash", None)
+        complete.pop("transfer_hash", None)
+        complete["transfer_proof"] = runtime.transfer_proof(complete, target)
+        complete["transfer_hash"] = transfer_record_hash(complete)
         write_candidate_record(run, complete)
         record.clear()
         record.update(complete)
 
-    record_path = repair_record_path(run, target, root)
-    if audit or (
-        record_path.exists() and "record_hash" in json.loads(record_path.read_text())
-    ):
-        record = read_repair_candidate_record(plan, target)
-        validation = record.get("business_validation")
-        if (
-            not validation
-            or validation.get("asset_key") != asset
-            or str(target) not in validation.get("targets", [])
-        ):
-            raise FactorRepairError("repair_indicator_business_proof_required")
-        for name in validation["input_paths"]:
-            inputs.frozen(Path(name))
-        for name, h in validation["overlay_hashes"].items():
-            if read_repair_candidate_record(plan, Path(name))["candidate_sha256"] != h:
-                raise FactorRepairError("repair_overlay_drift")
-        output = target if record["no_op"] else run / record["candidate_relative_path"]
-        validate(connection, output, None)
-        join = " AND ".join(f"o.{k} IS NOT DISTINCT FROM a.{k}" for k in keys)
-        actual = f"SELECT {_columns(schema)} FROM {read_parquet(output, hive_partitioning=False)} o WHERE EXISTS(SELECT 1 FROM repair_approved a WHERE {join})"
-        for left, right in (
-            (actual, "SELECT * FROM repair_replacement"),
-            ("SELECT * FROM repair_replacement", actual),
-        ):
-            if _count(connection, f"({left}) EXCEPT ALL ({right})"):
-                raise FactorRepairError("repair_candidate_value_mismatch")
-        for left, right in ((output, target), (target, output)):
-
-            def retained(file):
-                return f"SELECT {_columns(schema)} FROM {read_parquet(file, hive_partitioning=False)} o WHERE NOT EXISTS(SELECT 1 FROM repair_approved a WHERE {join})"
-
-            if _count(connection, f"{retained(left)} EXCEPT ALL {retained(right)}"):
-                raise FactorRepairError("repair_retained_rows_changed")
-        changed = _count(
-            connection,
-            f"SELECT {_columns(schema)} FROM repair_replacement EXCEPT ALL SELECT {_columns(schema)} FROM {read_parquet(target, hive_partitioning=False)}",
-        )
-        if (
-            changed != record["changed_stock_rows"]
-            or record.get("replay_files") != fragment_files
-            or record.get("overlay_hashes") != inputs.overlays
-        ):
-            raise FactorRepairError("repair_candidate_record_invalid")
-        return record
     return build_scoped_file_candidate(
         connection,
         lake_root=root,
@@ -1193,10 +1254,12 @@ def build_indicator_target_candidate(
         partition_key=target.parent.name,
         validator=validate,
         finalize_record=finalize,
+        prepare_commit=lambda record: finalize(record, commit_pending=True),
         cancel=cancel,
     )
 
 
+@repair_runtime_entry
 def seal_indicator_batch(plan, records, validation):
     """After complete blocking semantics, bind all inputs/outputs and seal each file."""
     from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
@@ -1206,11 +1269,16 @@ def seal_indicator_batch(plan, records, validation):
     run = Path(plan["run_root"])
     if (
         not validation
-        or set(validation["targets"]) != set(records)
+        or not set(records) <= set(validation["targets"])
         or validation["checked_dates"] <= 0
+        or validation.get("runtime_binding") != current_repair_runtime(plan).binding
+        or validation.get("validation_hash") != repair_hash({k: v for k, v in validation.items() if k != "validation_hash"})
+        or set(validation.get("output_hashes", {})) != set(validation["targets"])
+        or any(current_repair_runtime(plan).targets.get(name, {}).get("asset_key") != validation["asset_key"] for name in validation["targets"])
     ):
         raise FactorRepairError("repair_indicator_business_proof_required")
-    identities = {i["path"]: i for i in plan["source_fingerprints"]}
+    runtime = current_repair_runtime(plan)
+    identities = runtime.sources
     for name in validation["input_paths"]:
         if (
             name not in identities
@@ -1223,10 +1291,10 @@ def seal_indicator_batch(plan, records, validation):
     for target, record in records.items():
         if record.get("business_pending") is not True:
             continue
-        preimage = next(i for i in plan["target_preimages"] if i["path"] == target)
+        preimage = runtime.preimages[target]
         if asdict(file_identity(Path(target))) != preimage:
             raise FactorRepairError("target_drift")
-        identities = {i["path"]: i for i in plan["source_fingerprints"]}
+        identities = runtime.sources
         for name in record["input_paths"]:
             if asdict(file_identity(Path(name))) != identities[name]:
                 raise FactorRepairError("input_drift")
@@ -1242,10 +1310,17 @@ def seal_indicator_batch(plan, records, validation):
         if file_identity(output).sha256 != record["candidate_sha256"]:
             raise FactorRepairError("repair_candidate_drift")
         check_repair_storage(run, plan=plan)
-        if record["asset_key"] != validation["asset_key"]:
+        if (record["asset_key"] != validation["asset_key"]
+                or validation["output_hashes"].get(target) != record["candidate_sha256"]):
             raise FactorRepairError("repair_indicator_business_proof_required")
         record["business_validation"] = validation
         record.update(validated=True)
         record.pop("business_pending")
+        for key in ("commit_pending", "transfer_hash", "transfer_proof"):
+            record.pop(key, None)
+        runtime = current_repair_runtime(plan)
+        record["business_proof"] = runtime.business_proof(record,
+            approved_keys=runtime.approved_scope(Path(target)), dependencies=runtime.dependency_digest(record))
+        runtime.counters["business_validations"] += 1
         record["record_hash"] = repair_hash(record)
         write_candidate_record(run, record)

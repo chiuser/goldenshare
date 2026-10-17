@@ -1,10 +1,10 @@
 # 25股修复LLD v1：R3执行优化、隔离验收与开工边界
 
-更新：2026-10-17。本轮依据原[总方案](dagster-stock-adj-factor-history-repair-plan-v1.md)及最新休市稳定输入要求修订。R1/R2已提交；旧R3未最终验收、代码/现场保留。本文规定后续R3开发，不表示新运行上下文或增量计量已经实现，也不授权正式freeze、候选/提升、事件、serving或sensor操作。
+更新：2026-10-17。本轮依据原[总方案](dagster-stock-adj-factor-history-repair-plan-v1.md)完成R3代码整改与隔离验收，逐条对账见§13。R1/R2已提交，旧R3现场及hash保留。正式freeze、候选/提升、事件、serving、sensor、Prod和R4均未执行，不能将隔离通过写成正式修复完成。
 
-## 1. 当前实现、根因与消费者
+## 1. 整改前实现、根因与消费者
 
-| 当前代码 | 已核实行为 | R3落点 |
+| 代码 | 整改前已核实行为 | R3落点 |
 | --- | --- | --- |
 | bootstrap/stock_adj_factor_history_repair.py | FactorRepairScope、approved_repair_asset_keys、repair_price_dates、指纹闭包与冻结合同 | 业务范围/公式不改；新runtime纳入实现闭包，验证结论及索引交给上下文复用 |
 | _execution.py:load_repair_plan/execute_repair_candidates | 每阶段重新加载/全输入hash，逐重放/文件批次启动worker；轮询和COPY调用全目录扫描 | 一次准入、顺序长驻worker、增量计量和真实取消 |
@@ -57,7 +57,7 @@ runtime只依赖专项合同及现有纯IO/身份能力，由execution/candidate
 
 保留现有父进程监护、继承plan锁和顺序执行，默认每个phase复用一个worker与一条configured DuckDB连接；月/年逻辑批次仍是工作单元，不再意味着新建进程。结果/state共用单股/频率重放。活跃股/频率切换后释放其大表/计算缓存，不能把全部历史长期留在Python或DuckDB临时表里。
 
-内部_worker改用有界JSON消息：init绑定plan_path/expected_hash/phase/coordinator_pid/plan_lock_fd；work沿原unit_index/targets或replay_task_index；finish结束该phase。每条消息沿用当前16KiB门禁，工作按既有批次分发，不把全plan/全文件清单塞进消息。子进程解码计划和建本地索引一次，仅核请求子集及父绑定，不重复正式库存和全输入hash。回应ready/batch_done/finished/error仍为有界摘要，不在stdout累积全量记录。
+内部_worker改用有界JSON消息：init绑定plan_path/expected_hash/phase/coordinator_pid/plan_lock_fd；work沿原unit_index/targets或replay_task_index；finish结束该phase。每条消息沿用当前16KiB门禁，工作按既有批次分发，不把全plan/全文件清单塞进消息。子进程解码计划和建本地索引一次，仅核请求子集及父绑定，不重复正式库存和全输入hash。正常回应ready/batch_done/finished为有界摘要；错误沿有界stderr及退出状态交给父进程处理，不另造错误消息协议，也不在stdout累积全量记录。
 
 父进程按每条消息读取输出，不把整个worker生命周期的多条消息累计成16KiB。进度继续沿既有active/checkpoint，不另建状态框架。公开CLI build/audit、--phase、--full、--sample-target及其范围和完成语义保持；生产入口、所有内部worker/test launcher一次迁移，不能保留旧协议或旧扫描路径兜底。
 
@@ -97,6 +97,8 @@ COPY前保留轻量disk_usage和本unit预留判断，不递归目录；worker�
 正式Lake唯一/Volumes/datasource/data_lake，正式staging唯一/Volumes/datasource/data_lake_staging；R3只用/private/tmp专属临时Lake/run与隔离instance，禁止网络和正式资源访问。保留旧现场，不改旧plan/hash。候选→校验→fsync→原子rename→目录同步→逐文件完成记录沿原实现边界，不引入备份/快照，也不声称多文件整体原子。
 
 复用现有receipt/checkpoints/active/checkpoint.json；必要计量摘要及未结预留写入原checkpoint，不新建长期状态表、缓存库或新的运行账本文件。提交产物在记录前中断时，以已绑定候选/输出身份补记；未知残留拒绝，不重新算已经完成的文件。缺失业务证明不能靠补一个成功标志修复。
+
+这条恢复要求在原逐文件record内落地：候选校验、fsync后，先持久化包含输出强身份、范围及输入依赖的transfer_proof/transfer_hash和commit_pending，再原子rename并补记提交状态。价格候选同时已有完整业务证明；指标候选先保留真实的business_pending，恢复时复用已写文件，只完成尚无持久化证据的blocking校验。批次业务证明必须绑定各目标输出hash；若部分文件已完成登记，同批剩余文件可复用这份完整证明，不能再COPY或重算。没有保存成功证明的检查仍须执行，不补造通过；旧格式或未知残留不能冒充这一状态。不新增记录文件、表或公开动作。
 
 取消在消息/批次、SQL/片段/文件提交边界检查，取消后不领新work。父TERM/KILL后本任务worker退出、锁释放；已完成文件/receipt保留。按实际最后emit时间提前调度，真实可见更新间隔≤30秒；完成量只在封存后增加，不能伪造业务进度。SQL可中断，ETA不可靠就明确不估算。
 
@@ -162,10 +164,10 @@ COPY前保留轻量disk_usage和本unit预留判断，不递归目录；worker�
 | 基准范围 | 24股100有效样本未新增混基准证据、688689阳性对照命中；抽样边界明确，不新增“全历史排除一切错误”的开工审计 |
 | 消费者与实现落点 | 当前入口/函数及测试已定位；CodeGraph缺项由源码和已有正式依赖图补核，无未确认业务契约/新配置/公开CLI变更 |
 | 旧现场和版本 | 两现场仍在，plan hash未改，末端10月13日；正常链749/749但audited/all_chain_ready未通过，取消链130/749；新实现建新隔离plan，不强续 |
-| 环境与授权 | 现有orchestrator .venv与隔离测试框架此前可用，当前dev-interface；四个原R3脏文件保留。本轮仅文档，不借测试安装套件或操作正式资源 |
+| 环境与授权 | 开工审计时现有orchestrator .venv与隔离测试框架可用，当前dev-interface；四个原R3脏文件保留。随后获准执行A—D；未安装套件或操作正式资源 |
 | 重复动作 | 计划/输入缓存、预算计量、完成识别、一次业务验证和单条完整链均有具体落点；不会以休市数据可能变化追加审计 |
 
-**结论：可以进入R3代码整改与隔离验收；没有需要先重做市场/因子/基准/完整性审计的前置项。** 当前旧实现的重复开销与未完成验收属于A—D开发内容，不是新的开工阻塞。进入耗时完整链前须先通过小样本成本/恢复测试；正式freeze/候选/提升/事件/serving仍未获本轮授权。文档通过不代表代码或正式修复完成。
+**开工时结论：可以进入R3代码整改与隔离验收，没有需要先重做市场/因子/基准/完整性审计的前置项。** 原重复开销与未完成验收属于A—D开发内容。后续已先完成小样本成本/恢复验证，再执行一次固定版本全链，结果见§13；正式操作仍未获本轮授权。
 
 <a id="r1-candidate-development-20261014"></a>
 <a id="r1-acceptance-fixes-20261014"></a>
@@ -181,3 +183,54 @@ R1提交75e86447，R2提交5ef585f9e9abe053db13e214b572a96e0c2ee909；原合同/
 旧隔离根/private/tmp/r2-tests-ff4463b7-6810-4070-9847-baf1832e5f84/test_full_25_stock_chain_cance0/，run_id分别0cf90e14-b2d0-407c-b7b7-813595b57bc4和3b98a680-9f5f-4ec2-a48f-ad8188b1026b，plan hash分别1ac8d8238786276c6f2930d994f7f034f5c59ae1419a186828a2c11792a5fd87和94073ce777fcfc6a33cbc1dbf761743212289b9b7845822fed4c57a3f1167240。正常链1,778封存记录/1,491候选，取消链1,159封存/877候选，receipt各1,874；这些仅为保留现场数量，不作为新目标数量。
 
 暂停证据/private/tmp/r3_safe_pause_summary_20261015.json、r3_pause_evidence_20261015.json、r3_pause_preserved_manifest_20261015.json、r3_pause_profile_20261015.json和旧日志保留。暂停时2,848原输入无漂移、进程退出和锁释放；10月17日已核对旧计划/现场仍在及本任务进程0，不再重hash该输入集。本轮新范围和基准证据唯一见总方案§6；临时文件都不是日常/生产依赖。
+
+## 13. 本轮实现与隔离验收对账（2026-10-17）
+
+### 13.1 实现范围与逐项结果
+
+代码白名单为§9的合同、runtime、execution、candidates、indicators共5文件，以及原6份专项测试和新增runtime测试共7文件。合同仅把runtime加入实现指纹闭包；未修改公式、RepairBudget、字段、CLI、assets/jobs/checks/sensors、catalog/schema/paths或Prod消费者。新协议已迁移内部worker及所有直接测试launcher；没有旧协议兜底。
+
+| 已确认要求 | 实现位置 | 正反测试与实际结果 |
+| --- | --- | --- |
+| 范围、末端及合同不扩大 | execution.load_repair_plan、candidates.repair_target_scope及原合同 | 本轮66项合同测试通过；错误范围、缺目标/依赖、实现漂移、消息超界拒绝；25股链到10月16日/15:00，不改周/月 |
+| 首次验证后复用输入/投影 | runtime.RepairRuntime、candidates.RepairCandidateInputs及prepare_repair_replacement | 强hash首次执行、热缓存不重复探测路径，锚点/日期索引每股一次；错误原件、缺依赖、错overlay及同大小/还原mtime损坏在新上下文拒绝；最后缓存调整后12项定向复测通过 |
+| 计量不反复扫描 | runtime.RepairStorageLedger、execution.check_repair_storage/bounded_repair_copy | 累积目录预留/实际结算、失败写入/JSON临时文件恢复；空间不足、真超额、symlink、权限/I/O、未知文件（含0字节）拒绝。全链扫描2次，均限本run；文件归属来自计划及task/receipt清单，不靠字节总量掩盖未知产物 |
+| 完成成果0重算 | candidates.read_repair_candidate_record/build_repair_target_candidate、indicators.replay_indicator_task/read_indicator_task | 先读完整proof再执行SQL；完成任务不跑kernel，片段数字顺序恢复，部分任务只续后缀；缺证明、坏receipt/候选、错seed/context拒绝；整链证据audit和全完成续跑业务SQL/kernel/COPY=0 |
+| 文件提交中断可恢复 | candidates.resume_repair_candidate_transfer、indicators.seal_indicator_batch及原record | rename前/后中断、批次部分登记均复用已写文件；价格0 SQL/COPY补记，指标只完成未封存检查或复用已有完整批次证明。只读reader/audit仍拒绝commit_pending，不能替执行器做写恢复 |
+| worker/连接顺序复用 | execution.serve_repair_worker/run_repair_candidate_worker/execute_repair_candidates | 多批次一worker/连接；原父监护、锁和真实RSS拒绝保留。父TERM/KILL、子进程提前退出、OOM/SQL取消、超额输出均隔离验证；取消后worker退出、锁释放，成果保留 |
+| 原业务语义及范围外保留 | candidates.validate_repair_business_file、indicators.audit_indicator_batch及原kernel | 七频独立字面金样本、跨年、停牌carry、九转连续、result/state独立末端通过；范围外股票/量额损坏、错前序行/未冻结输入/缺实际检查仍拒绝；未用同一公式第二次全量重算 |
+| 单条隔离链与正式边界 | tests/test_stock_adj_factor_history_repair_full_chain.py | 一份新plan内三阶段取消续跑，之后只做proof审计和全完成续跑；隔离guard禁止网络、正式Lake/staging/instance及输入写入，正式操作0，不启动正常日更job或触发serving |
+
+182项必要回归分组通过（runtime/execution/candidates 55；indicators/replay 15；合同66；进程/目录/加载等46）。最后仅调整输入索引复用后，针对受影响路径重跑12项，含2项新增；最终全链再通过1项，去重合计185项。182项不能写成“最终版本重新跑过182项”：未变组件复用本轮证据，末次变更由12项定向复测和最终全链覆盖。Ruff致命错误基线、本次12份Python默认规则、文档完整性及diff空白检查均通过。没有全仓pytest、历史bootstrap或第二条计算链。
+
+CodeGraph已用explore、callers/impact及CLI sync/status核验协调器→worker→候选/重放→runtime和直接测试消费者；动态调用缺项以源码补核。改动只在orchestrator内部，无跨子系统依赖方向、API/前端或正式资产定义变化。图索引已同步；它不代替实际代码与隔离证据。
+
+### 13.2 最终单条25股链与性能实测
+
+最终实现闭包32文件的SHA256映射保存在final-implementation.json，排序JSON的SHA256为1499172645789273c32d3db2a5b912bf05bbff6efe88f6bca333ee9a2ef4d0d4，最终测试后复核未变。新隔离run_id为1c3bcd35-b0d5-4271-8c81-83ecdcf38923，plan_hash为93f85d83c5321c5a629ec0ae4aad8a379c0858711c827887228e7b3705cdf61e；旧计划未改。
+
+夹具使用25目标股和1只保留行对照股，2,847个冻结输入，31资产、1,778目标、325个重放任务。因子2×2,489=4,978行变更；价格326行、指标104,423行是本夹具结果，不是正式Lake变更统计。实际1,492候选、286 no-op（价格279、指标7），不强凑旧记录数量。
+
+| 阶段 | 完成目标 | 续跑阶段实测秒数 | proof audit秒数 | 全完成续跑秒数 |
+| --- | ---: | ---: | ---: | ---: |
+| 因子 | 740/740 | 23.248 | 6.466 | 6.327 |
+| 价格 | 289/289 | 18.238 | 6.217 | 6.050 |
+| 指标/state | 749/749；重放325/325 | 128.635 | 70.435 | 68.323 |
+
+全测试351.485秒包含夹具/计划构建、三阶段取消及上表三种执行，不是170.122秒的续跑阶段合计。取消延迟因子0.135秒、价格0.020秒、指标0.056秒；最大真实可见进度间隔1.903秒。成功退出的worker共9个，另3个在阶段取消时退出；每阶段各一次已取消worker及一次续跑worker，之后audit和全完成续跑各3个。audit不建DuckDB连接；全完成续跑仅连接配置，不在工作unit执行SQL/COPY/kernel。
+
+峰值父子RSS1,192,247,296字节（约1.11GiB），峰值staging 65,864,975字节（约62.81MiB），最终候选5,925,006字节、input投影22,771,098字节，spill为0。沿§8原预算，无额度调整。目录扫描恰好2次：首次建账及最终归属/计量对账，扫描限本任务临时run，不是全局数据扫描；两次之间7,333次轻量存储门禁合计约1.260秒。正常完成worker记录SQL/COPY/hash/fsync等明细供定位，取消worker未写最终profile，不能用汇总冒充包含取消过程的精确总量。
+
+小样本先验证累计计量、最长1m、共享文件及跨年/恢复路径，再跑上述一次完整链。旧profile和新夹具/版本不同，只能证明重复目录扫描从调用链退出，不能直接给出同比提速百分比或正式市场ETA。proof审计和全完成续跑仍需验证本次使用的record/输出强身份，耗时已分别列出；没有隐藏为0耗时，也未再次计算公式。
+
+### 13.3 证据位置与阶段结论
+
+证据均保留在/private/tmp：
+
+- /private/tmp/dg_r3_implementation_20261017/：final-implementation.json及fixed-a.xml、fixed-b.xml、fixed-c.xml、fixed-d.xml、input-reuse-r2.xml、full-chain.xml。full-chain.xml记录1项通过、0错误/失败。
+- /private/tmp/dg-r3-final-chain-20261017/test_full_25_stock_chain_cance0/staging/stock_adj_factor_history_repair/run_id=1c3bcd35-b0d5-4271-8c81-83ecdcf38923：新plan、候选、projection、record、receipt、checkpoint和日志，未清理或改指纹。
+- 同级r3-evidence/run_id=1c3bcd35-b0d5-4271-8c81-83ecdcf38923/：r3-isolated-acceptance.json、r3-progress.jsonl、r3-worker-metrics.jsonl、r3-full-chain.jsonl、r3-directory-scans.jsonl。观测日志在run目录外，避免测试自身污染计量。
+
+**结论：R3 A—D代码及隔离验收通过；正式25股修复未执行，不推进R4。** 所有正式操作为0；没有请求源、扫描正式数据、写正式Lake或移动盘staging、重载定义、写事件、启停sensor、重置水位或动Prod/serving，其他任务改动保留。
+
+边界仍需明确：现有CLI inspect包含完整库存收集，属于未修改、未执行的后续正式规划入口。R3隔离通过不能授权其全量读法；后续如推进正式冻结/候选/提升，须先按25股范围和现行全局读取规则另行评审，不直接启动inspect，也不把这一范围外改造混入本轮。

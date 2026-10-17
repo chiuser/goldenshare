@@ -861,6 +861,7 @@ def repair_implementation_files() -> tuple[Path, ...]:
         "bootstrap/stock_adj_factor_history_repair_cli.py",
         "bootstrap/stock_adj_factor_history_repair_candidates.py",
         "bootstrap/stock_adj_factor_history_repair_execution.py",
+        "bootstrap/stock_adj_factor_history_repair_runtime.py",
         "bootstrap/stock_adj_factor_history_repair_indicators.py",
         "stk_mins_qfq_macd_kdj_rules.py", "checks/stk_mins_qfq_macd_kdj_checks.py",
         "qfq_nineturn_integrity.py", "nineturn_formula.py", "run_contracts/qfq_nineturn.py",

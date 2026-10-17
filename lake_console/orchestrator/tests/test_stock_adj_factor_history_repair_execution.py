@@ -35,12 +35,11 @@ def guard(event,args):
         raise RuntimeError('formal resource forbidden in R1 isolated worker')
 sys.addaudithook(guard)
 from orchestrator.defs.bootstrap import stock_adj_factor_history_repair as contract
-from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import run_repair_candidate_worker
-request=json.loads(sys.stdin.read())
-plan=json.load(open(request['plan_path']))
-contract.DEFAULT_LAKE_ROOT=plan['lake_root']
-contract.DEFAULT_LAKE_STAGING_ROOT=str(__import__('pathlib').Path(plan['run_root']).parents[1])
-print(json.dumps(run_repair_candidate_worker(request)))
+from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import serve_repair_worker
+def prepare(plan):
+    contract.DEFAULT_LAKE_ROOT=plan['lake_root']
+    contract.DEFAULT_LAKE_STAGING_ROOT=str(__import__('pathlib').Path(plan['run_root']).parents[1])
+serve_repair_worker(prepare=prepare)
 """)
     return [sys.executable,"-B",str(script)]
 
@@ -92,17 +91,15 @@ def test_child_exit_and_cancel_leave_no_live_worker(price_plan,tmp_path):
     args={"plan_path": Path(plan["run_root"])/"plan.json","expected_hash": plan["plan_hash"],"phase": "factor","selected_targets": [str(raw_target(plan))]}
     with pytest.raises(FactorRepairError,match="worker_failed"):
         execution.execute_repair_candidates(**args,worker_command=[sys.executable,"-c","import os;os._exit(23)"])
-    checks=[]
     def cancel():
-        checks.append(1)
-        return len(checks)>len(plan["source_fingerprints"])+4
+        return pid_file.exists()
     script=tmp_path/"wait_worker.py";pid_file=tmp_path/"worker.pid"
     script.write_text(f"import os,time\nopen({str(pid_file)!r},'w').write(str(os.getpid()))\ntime.sleep(30)\n")
     with pytest.raises(FactorRepairError,match="canceled"):
         execution.execute_repair_candidates(**args,worker_command=[sys.executable,str(script)],cancel=cancel)
-    if pid_file.exists():
-        with pytest.raises(ProcessLookupError):
-            os.kill(int(pid_file.read_text()),0)
+    assert pid_file.exists()
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()),0)
     checkpoint=json.loads((Path(plan["run_root"])/"checkpoint.json").read_text())
     assert checkpoint["status"]=="CANCELLED" and checkpoint["completed"]==0
 
@@ -140,7 +137,7 @@ def test_batches_are_bounded_and_do_not_cross_assets_or_years():
 
 def test_storage_budget_is_checked_before_any_worker(price_plan,monkeypatch):
     plan=price_plan;target=raw_target(plan);before=file_identity(target)
-    monkeypatch.setattr(execution,"repair_storage_bytes",lambda _root:(10*1024**3+1,0))
+    monkeypatch.setattr(execution,"repair_storage_totals",lambda _root:{"candidate_bytes":10*1024**3+1,"spill_bytes":0,"staging_bytes":10*1024**3+1,"input_bytes":0})
     with pytest.raises(FactorRepairError,match="storage_budget_exceeded"):
         execution.execute_repair_candidates(Path(plan["run_root"])/"plan.json",plan["plan_hash"],phase="factor",selected_targets=[str(target)])
     assert file_identity(target)==before
@@ -178,23 +175,25 @@ def test_real_price_batch_consumes_sealed_factor_candidates(price_plan,tmp_path)
     assert [file_identity(Path(p)) for p in targets]==before
 
 
-def test_hash_progress_is_time_bounded_before_any_worker(price_plan,monkeypatch):
-    clock=[0.0];updates=[]
-    original=execution.file_identity
-    def hashing(path,*,cancel=None,progress=None):
-        if progress:
-            clock[0]+=31
-            progress(max(1,path.stat().st_size//2),path.stat().st_size)
-        return original(path,cancel=cancel)
-    monkeypatch.setattr(execution.time,'monotonic',lambda:clock[0])
-    monkeypatch.setattr(execution,'file_identity',hashing)
-    def canceled(): return any(u.get('hashed_current_bytes',0)>0 for u in updates)
-    with pytest.raises(FactorRepairError,match='canceled'):
-        execution.execute_repair_candidates(Path(price_plan['run_root'])/'plan.json',price_plan['plan_hash'],phase='factor',selected_targets=[str(raw_target(price_plan))],cancel=canceled,progress=updates.append)
-    partial=next(u for u in updates if u.get('hashed_current_bytes',0)>0)
-    assert partial['verified_inputs']==partial['completed']==partial['verified_bytes']==0
-    assert partial['total_input_bytes']>0 and partial['updated_at']>0
-    assert not (Path(price_plan['run_root'])/'candidates').exists()
+def test_first_use_hash_cancellation_stops_before_any_candidate(price_plan):
+    """The removed parent-wide hash loop is replaced by cancellable actual use."""
+    import time
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+        RepairRuntime,
+    )
+    runtime = RepairRuntime(price_plan)
+    target = raw_target(price_plan)
+    canceled, chunks = [], []
+    def progress(read, total):
+        chunks.append((read, total))
+        canceled.append(True)
+    started = time.monotonic()
+    with pytest.raises(FactorRepairError, match="canceled"):
+        runtime.identity(target, cancel=lambda: bool(canceled), progress=progress)
+    assert chunks and chunks[0][0] > 0 and time.monotonic() - started <= 30
+    assert str(target) not in runtime.identities
+    assert not (Path(price_plan["run_root"]) / "candidates").exists()
 
 
 def test_space_accounts_for_frozen_remaining_work_and_unsealed_files(tmp_path,monkeypatch):
@@ -230,7 +229,7 @@ def crash_after_copy(*args,**kwargs):
         if counter==2: os._exit(23)
 ex.bounded_repair_copy=crash_after_copy
 """
-    source=source.replace('print(json.dumps(run_repair_candidate_worker(request)))',insertion+'print(json.dumps(run_repair_candidate_worker(request)))')
+    source=source.replace('serve_repair_worker(prepare=prepare)',insertion+'serve_repair_worker(prepare=prepare)')
     script.write_text(source)
     args={'plan_path':run/'plan.json','expected_hash':plan['plan_hash'],'phase':'factor','selected_targets':[str(p) for p in targets]}
     originals=[file_identity(p) for p in targets]
@@ -258,7 +257,7 @@ from orchestrator.defs.bootstrap import stock_adj_factor_history_repair_executio
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import RepairBudget,FactorRepairError
 root=Path(sys.argv[1]);output=root/'candidates/limited.parquet.partial'
 output.parent.mkdir(exist_ok=True)
-ex.repair_storage_bytes=lambda root:(RepairBudget().max_candidate_bytes-1024,0)
+ex.repair_storage_totals=lambda root:{"candidate_bytes":RepairBudget().max_candidate_bytes-1024,"spill_bytes":0,"staging_bytes":RepairBudget().max_candidate_bytes-1024,"input_bytes":0}
 before=resource.getrlimit(resource.RLIMIT_FSIZE)
 try:
     with duckdb.connect(config={'threads':2,'memory_limit':'512MiB','max_temp_directory_size':'0B'}) as c:

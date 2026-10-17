@@ -353,7 +353,7 @@ def freeze_case(tmp_path, monkeypatch, repair_endpoints):
     all_scopes, source, anchors, endpoints = [], [], [], []
     from dataclasses import replace
     for code, start, end, count in APPROVED_FACTOR_RANGES:
-        s = FactorRepairScope(code, ((start, end),), "2026-10-13", "2026-10-13",
+        s = FactorRepairScope(code, ((start, end),), "2026-10-16", "2026-10-16",
                               "2021-01-27" if code == "688689.SH" else None)
         all_scopes.append(s)
         d = date.fromisoformat(start)
@@ -374,7 +374,7 @@ def freeze_case(tmp_path, monkeypatch, repair_endpoints):
             extra = ({"previous_expected_date": seed_day.isoformat(), "context_times": context,
                       "seed_last_trade_time": context[-1]} if "macd_kdj" in e.asset_key else {})
             endpoints.append(replace(e, ts_code=code, calculation_start_date=first,
-                                     expected_dates=(first, "2026-10-12"), **extra))
+                                     end_time="2026-10-16" + e.end_time[10:], expected_dates=(first, "2026-10-16"), **extra))
     from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
     catalog = {e.asset_key: e for e in LAKE_ASSET_CATALOG}
     units, targets, stats = [], [], []
@@ -785,10 +785,10 @@ def test_explicit_no_price_impact_is_not_an_omitted_profile(freeze_case):
     args,_=freeze_case
     unit=next(u for u in args['units'] if u['asset_key']=='gold_stk_mins_qfq_1m')
     profile=next(p for p in unit['calculation_windows'] if p['ts_code']=='600016.SH')
-    profile.update(observed_dates=['2026-10-12'],target_dates=[],windows=[['2026-10-12']],trade_date_rows=[['2026-10-12',1]])
+    profile.update(observed_dates=['2026-10-16'],target_dates=[],windows=[['2026-10-16']],trade_date_rows=[['2026-10-16',1]])
     for index,endpoint in enumerate(args['endpoints']):
         if endpoint.asset_key==unit['asset_key'] and endpoint.ts_code=='600016.SH':
-            args['endpoints'][index]=replace(endpoint,calculation_start_date='2026-10-12',expected_dates=('2026-10-12',),calculation_rows=1)
+            args['endpoints'][index]=replace(endpoint,calculation_start_date='2026-10-16',expected_dates=('2026-10-16',),calculation_rows=1)
     unit['target_paths']=[p for p in unit['target_paths'] if '/ts_code=600016.SH/' not in p]
     args['target_paths']=sorted({p for u in args['units'] for p in u['target_paths']})
     complete_indicator_contract(args)

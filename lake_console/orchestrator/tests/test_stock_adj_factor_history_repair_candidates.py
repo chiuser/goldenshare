@@ -43,7 +43,7 @@ def price_plan(freeze_case, request):
     root = args["lake_root"]
     codes = [s.ts_code for s in args["scopes"]]
     market_codes = [*codes,"000001.SZ"]
-    day,previous,anchor,tail = "2026-06-29","2026-06-26","2026-10-13","2026-10-12"
+    day,previous,anchor,tail = "2026-06-29","2026-06-26","2026-10-16","2026-10-16"
     source_days = sorted({r["trade_date"] for r in args["source_rows"]})
     daily_days = sorted({"2021-01-27",day,tail,*[s.factor_ranges[0][0] for s in args["scopes"]]})
     minute_days = sorted({day,tail,*[s.factor_ranges[0][0] for s in args["scopes"]]})
@@ -508,3 +508,103 @@ def test_projection_without_ownership_is_preserved_and_rejected(price_plan,candi
     with pytest.raises(FactorRepairError,match='projection_unowned'):
         RepairCandidateInputs(candidate_connection,price_plan).project(source)
     assert output.read_bytes()==b'unknown projection owner'
+
+
+def test_completed_candidate_reuses_full_proof_without_business_sql(price_plan, candidate_connection):
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import repair_hash
+    target = paths.raw_adj_factor_path(Path(price_plan["lake_root"]), "2026-06-29")
+    unit = unit_for(price_plan, "raw_tushare_adj_factor")
+    built = build_repair_target_candidate(candidate_connection, price_plan, unit, target)
+    class NoBusinessSQL:
+        def execute(self, *_args, **_kwargs):
+            raise AssertionError("a sealed candidate must not execute SQL")
+    for audit in (False, True):
+        assert build_repair_target_candidate(NoBusinessSQL(), price_plan, unit, target, audit=audit) == built
+    path = repair_record_path(Path(price_plan["run_root"]), target, Path(price_plan["lake_root"]))
+    broken = dict(built)
+    broken.pop("business_proof")
+    broken["record_hash"] = repair_hash({k: v for k, v in broken.items() if k != "record_hash"})
+    path.write_text(json.dumps(broken))
+    with pytest.raises(FactorRepairError, match="business_proof_required"):
+        build_repair_target_candidate(NoBusinessSQL(), price_plan, unit, target, audit=True)
+
+
+@pytest.mark.parametrize("when", ["before", "after"])
+def test_prepared_candidate_finishes_commit_without_sql_or_copy(price_plan, candidate_connection, monkeypatch, when):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_candidates as candidates,
+    )
+    plan = price_plan
+    target = paths.raw_adj_factor_path(Path(plan["lake_root"]), "2026-06-29")
+    unit = unit_for(plan, "raw_tushare_adj_factor")
+    replace = candidates.replace_repair_file
+    def interruption(source, output):
+        if when == "after":
+            replace(source, output)
+        raise OSError("interrupted candidate commit")
+    monkeypatch.setattr(candidates, "replace_repair_file", interruption)
+    with pytest.raises(OSError, match="interrupted candidate"):
+        build_repair_target_candidate(candidate_connection, plan, unit, target)
+    saved = json.loads(repair_record_path(Path(plan["run_root"]), target, Path(plan["lake_root"])).read_text())
+    assert saved["commit_pending"] is True and saved["transfer_hash"] and saved["business_proof"]
+    with pytest.raises(FactorRepairError, match="commit_pending"):
+        read_repair_candidate_record(plan, target)
+    with pytest.raises(FactorRepairError, match="commit_pending"):
+        build_repair_target_candidate(None, plan, unit, target, audit=True)
+    output = Path(plan["run_root"]) / saved["candidate_relative_path"]
+    present = output if output.exists() else output.with_suffix(output.suffix + ".partial")
+    proof = file_identity(present)
+    monkeypatch.setattr(candidates, "replace_repair_file", replace)
+    class NoSQL:
+        def execute(self, *_args, **_kwargs):
+            raise AssertionError("prepared output must not be recalculated")
+    resumed = build_repair_target_candidate(NoSQL(), plan, unit, target)
+    assert resumed["candidate_sha256"] == proof.sha256
+    assert file_identity(output).sha256 == proof.sha256
+    assert "commit_pending" not in resumed
+    assert read_repair_candidate_record(plan, target) == resumed
+
+
+def test_warm_input_identity_does_not_repeat_path_probes(price_plan, monkeypatch):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_candidates as module,
+    )
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+        RepairRuntime,
+        use_repair_runtime,
+    )
+    target = paths.raw_adj_factor_path(Path(price_plan["lake_root"]), "2026-06-29")
+    runtime = RepairRuntime(price_plan)
+    with use_repair_runtime(runtime):
+        module.RepairCandidateInputs(None, price_plan).frozen(target)
+        def forbidden(_path):
+            raise AssertionError("a stable verified input must not repeat path probes")
+        monkeypatch.setattr(module, "check_repair_path", forbidden)
+        for _ in range(20):
+            assert module.RepairCandidateInputs(None, price_plan).frozen(target) == target
+    assert runtime.counters["hash_files"] == 1
+
+
+def test_daily_anchor_and_source_dates_are_checked_once_per_stock(price_plan, candidate_connection):
+    from collections import Counter
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+        RepairRuntime,
+        use_repair_runtime,
+    )
+    plan = price_plan
+    build_factor_day(candidate_connection, plan, "2023-06-01")
+    observed = Counter()
+    class CountQueries:
+        def execute(self, query, *args, **kwargs):
+            observed["anchor"] += query.startswith("SELECT adj_factor FROM")
+            observed["dates"] += query.startswith("SELECT CAST(trade_date AS VARCHAR),count(*) FROM repair_daily_source_inventory")
+            return candidate_connection.execute(query, *args, **kwargs)
+    connection = CountQueries()
+    with use_repair_runtime(RepairRuntime(plan)):
+        for day in ("2021-01-27", "2023-06-01"):
+            build_repair_target_candidate(connection, plan, unit_for(plan, "gold_stock_daily_qfq"),
+                paths.gold_stock_daily_qfq_path(Path(plan["lake_root"]), day))
+    # Jan27 uses 688689; Jun1 uses 688689 and 600016. The same 688689
+    # anchor/history has no new evidence on Jun1 and must not be queried again.
+    assert observed == {"anchor": 2, "dates": 2}

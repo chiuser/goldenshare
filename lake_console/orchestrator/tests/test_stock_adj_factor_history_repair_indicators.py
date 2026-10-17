@@ -252,23 +252,53 @@ def indicator_plan(price_plan):
         daily_files = sorted(
             p for p in input_paths if "/gold/quote/stock_daily_qfq/" in str(p)
         )
+        original_daily_files = set(daily_files)
+        # State can carry on dates with no approved-stock QFQ observation. Keep
+        # a real, nonempty market input for the existing retained stock instead
+        # of inventing observations or new repair targets for the approved 25.
+        state_days = {
+            d
+            for p in by_asset["gold_stock_daily_trend_channel_state"][
+                "calculation_windows"
+            ]
+            for d in p["target_dates"]
+        }
+        for day in sorted(state_days):
+            target = paths.gold_stock_daily_qfq_path(root, day)
+            if target.exists():
+                continue
+            _write(
+                c,
+                target,
+                f"SELECT '000001.SZ'::VARCHAR ts_code,DATE {duckdb_string(day)} trade_date,"
+                '5.0::DOUBLE open,5.5::DOUBLE high,4.5::DOUBLE low,5.0::DOUBLE AS "close",'
+                "5.0::DOUBLE pre_close,0.0::DOUBLE change_amount,0.0::DOUBLE pct_chg,"
+                "100.0::DOUBLE vol,1000.0::DOUBLE amount",
+            )
+            input_paths.add(target)
+            daily_files.append(target)
         for asset in (
             "gold_stock_daily_trend_channel",
             "gold_stock_daily_trend_channel_state",
             "gold_stock_daily_qfq_nineturn",
         ):
-            for day in {
-                d
-                for p in by_asset[asset]["calculation_windows"]
-                for d in p["target_dates"]
-            } | {
-                p["daily_seed"]["previous_expected_date"]
-                for p in by_asset[asset]["calculation_windows"]
-                if "daily_seed" in p and not p["daily_seed"]["initialized_from_listing"]
-            } | (set(calendar) if asset.endswith("_state") else set()):
+            for day in (
+                {
+                    d
+                    for p in by_asset[asset]["calculation_windows"]
+                    for d in p["target_dates"]
+                }
+                | {
+                    p["daily_seed"]["previous_expected_date"]
+                    for p in by_asset[asset]["calculation_windows"]
+                    if "daily_seed" in p
+                    and not p["daily_seed"]["initialized_from_listing"]
+                }
+                | (set(calendar) if asset.endswith("_state") else set())
+            ):
                 if asset == "gold_stock_daily_trend_channel":
                     source = paths.gold_stock_daily_qfq_path(root, day)
-                    if not source.exists():
+                    if source not in original_daily_files:
                         continue
                     v = {
                         col.name: col.name
@@ -308,11 +338,20 @@ def indicator_plan(price_plan):
                         col.name: col.name
                         for col in schemas.GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA
                     }
-                    observed = paths.gold_stock_daily_qfq_path(root, day).exists()
+                    source = paths.gold_stock_daily_qfq_path(root, day)
+                    observed = (
+                        f"ts_code IN (SELECT ts_code FROM {read_parquet(source, hive_partitioning=False)})"
+                        if source.exists()
+                        else "false"
+                    )
                     v.update(
                         trade_date="DATE " + duckdb_string(day),
-                        state_source_trade_date="DATE " + duckdb_string(day),
-                        observed_on_partition="true" if observed else "false",
+                        state_source_trade_date=(
+                            f"coalesce((SELECT max(q.trade_date) FROM {_read(daily_files)} q "
+                            f"WHERE q.ts_code=life.ts_code AND q.trade_date<=DATE {duckdb_string(day)}),"
+                            f"DATE {duckdb_string(calendar[0])})"
+                        ),
+                        observed_on_partition=observed,
                         short_upper_raw="5.5",
                         short_lower_raw="4.5",
                         long_upper_raw="5.5",
@@ -325,7 +364,7 @@ def indicator_plan(price_plan):
                     _write(
                         c,
                         target,
-                        f"SELECT {_projection(schemas.GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA, v)} FROM {read_parquet(paths.silver_stock_lifecycle_path(root), hive_partitioning=False)} WHERE list_date<=DATE {duckdb_string(day)}",
+                        f"SELECT {_projection(schemas.GOLD_STOCK_DAILY_TREND_CHANNEL_STATE_SCHEMA, v)} FROM {read_parquet(paths.silver_stock_lifecycle_path(root), hive_partitioning=False)} life WHERE list_date<=DATE {duckdb_string(day)}",
                     )
                 input_paths.add(target)
         for p in by_asset["gold_stock_daily_qfq_nineturn"]["calculation_windows"]:
@@ -615,3 +654,75 @@ def test_replay_refuses_raw_price_fallback_and_owned_fragment_corruption(
         with pytest.raises(FactorRepairError, match="fragment_drift"):
             read_indicator_task(plan, task)
     assert all(file_identity(Path(p)) == i for p, i in before.items())
+
+
+def test_transferred_indicator_does_not_repeat_copy_before_business_seal(indicator_plan, tmp_path, monkeypatch):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_candidates as candidates,
+    )
+    plan = indicator_plan
+    task = _task(plan)
+    target = paths.gold_stk_mins_qfq_macd_kdj_path(Path(plan["lake_root"]), 1, "688689.SH", "2026")
+    unit = prices.unit_for(plan, task["asset_key"])
+    with connect_configured_duckdb(RepairBudget().connection_settings(tmp_path), temp_policy="existing_no_spill") as connection:
+        _prepare_price(connection, plan, task)
+        replay_indicator_task(connection, plan, task)
+        replace = candidates.replace_repair_file
+        def interrupted(source, output):
+            replace(source, output)
+            raise OSError("after indicator rename")
+        monkeypatch.setattr(candidates, "replace_repair_file", interrupted)
+        with pytest.raises(OSError, match="after indicator rename"):
+            build_indicator_target_candidate(connection, plan, unit, target)
+        output = Path(plan["run_root"]) / "candidates" / target.relative_to(Path(plan["lake_root"]))
+        identity = file_identity(output)
+        monkeypatch.setattr(candidates, "replace_repair_file", replace)
+        class NoSQL:
+            def execute(self, *_args, **_kwargs):
+                raise AssertionError("transferred indicator must not be recalculated")
+        record = build_indicator_target_candidate(NoSQL(), plan, unit, target)
+        assert record["business_pending"] is True and record["validated"] is False
+        assert file_identity(output) == identity
+        proof = audit_indicator_batch(connection, plan, unit, [str(target)], pending={str(target): record})
+        seal_indicator_batch(plan, {str(target): record}, proof)
+        assert read_repair_candidate_record(plan, target)["validated"] is True
+
+
+def test_partial_batch_seal_reuses_durable_full_proof_without_business_sql(indicator_plan, tmp_path, monkeypatch):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_indicators as module,
+    )
+    plan = indicator_plan
+    root = Path(plan["lake_root"])
+    asset = "gold_stk_mins_qfq_macd_kdj_1m"
+    unit = prices.unit_for(plan, asset)
+    targets = [paths.gold_stk_mins_qfq_macd_kdj_path(root, 1, code, "2026") for code in ("688689.SH", "600016.SH")]
+    with connect_configured_duckdb(RepairBudget().connection_settings(tmp_path), temp_policy="existing_no_spill") as connection:
+        for code in ("688689.SH", "600016.SH"):
+            task = _task(plan, asset, code)
+            _prepare_price(connection, plan, task)
+            replay_indicator_task(connection, plan, task)
+        records = {str(target): build_indicator_target_candidate(connection, plan, unit, target) for target in targets}
+        identities = [file_identity(Path(plan["run_root"]) / record["candidate_relative_path"]) for record in records.values()]
+        proof = audit_indicator_batch(connection, plan, unit, list(records), pending=records)
+        write = module.write_candidate_record
+        def interrupted(run, record):
+            if record.get("validated") is True and record["target_relative_path"] == targets[1].relative_to(root).as_posix():
+                raise OSError("before second business seal")
+            return write(run, record)
+        monkeypatch.setattr(module, "write_candidate_record", interrupted)
+        with pytest.raises(OSError, match="before second"):
+            seal_indicator_batch(plan, records, proof)
+        monkeypatch.setattr(module, "write_candidate_record", write)
+        class NoSQL:
+            def execute(self, *_args, **_kwargs):
+                raise AssertionError("persisted batch proof must not rerun SQL")
+        first = build_indicator_target_candidate(NoSQL(), plan, unit, targets[0])
+        second = build_indicator_target_candidate(NoSQL(), plan, unit, targets[1])
+        assert first["validated"] is True and second["business_pending"] is True
+        restored = audit_indicator_batch(NoSQL(), plan, unit, [str(t) for t in targets],
+            pending={str(targets[1]): second}, completed={str(targets[0]): first})
+        assert restored == proof
+        seal_indicator_batch(plan, {str(targets[1]): second}, restored)
+        assert all(read_repair_candidate_record(plan, target)["validated"] for target in targets)
+        assert [file_identity(Path(identity.path)) for identity in identities] == identities
