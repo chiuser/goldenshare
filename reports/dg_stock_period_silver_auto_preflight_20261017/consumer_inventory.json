@@ -1,0 +1,1215 @@
+{
+  "schema": "dg-period-consumer-preflight@1",
+  "base_commit": "b9ba7163ce5cefee7731fda4b284012b81156694",
+  "scope": "Repository source references; no Lake, instance, imports, network, or pipeline execution",
+  "scan_command": [
+    "rg",
+    "-l",
+    "stock_period_history|stock_period_update|stock_period_silver|report_stock_weekly_bootstrap_checks",
+    "-g",
+    "*.py",
+    "-g",
+    "*.sh",
+    "-g",
+    "*.toml",
+    "-g",
+    "*.yaml",
+    "-g",
+    "*.yml",
+    "-g",
+    "*.service",
+    "."
+  ],
+  "matched_files": 44,
+  "unclassified_files": [],
+  "omission_negative_control": "Removing handoff_memory classification is detected",
+  "initial_classification_guard": "First run rejected unclassified test_stock_period_update.py; classified as already-planned entry regression before reporting pass",
+  "current_definition_files": 690,
+  "current_protected_inventory_missing": [],
+  "planned_two_file_inventory_failure": [
+    "defs/sensors/silver_stock_monthly_update_job_sensor.py",
+    "defs/sensors/silver_stock_weekly_update_job_sensor.py"
+  ],
+  "proposed_exact_additions_only": [
+    "defs/sensors/silver_stock_monthly_update_job_sensor.py",
+    "defs/sensors/silver_stock_weekly_update_job_sensor.py"
+  ],
+  "proposed_addition_result": "set difference empty; not applied or authorized",
+  "entries": [
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py",
+      "classification": "planned_shared_review",
+      "sha256": "720c821dbf2c2af412c8e13a471ddf77b62c99a4fed9e03daeadf16238d55e29",
+      "references": [
+        {
+          "line": 28,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    VERSION,\n    asset_name,\n    check_names,\n)"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py",
+      "classification": "production_migration",
+      "sha256": "4d30a523db6fbeff3166bfd0ccd5104234d6b5c29606472958e48d81daa187f8",
+      "references": [
+        {
+          "line": 35,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import StockPeriodSilverConfig"
+        },
+        {
+          "line": 36,
+          "source": "from orchestrator.defs.stock_period_silver import deliver_asset as deliver_silver_asset"
+        },
+        {
+          "line": 37,
+          "source": "from orchestrator.defs.stock_period_update import deliver_asset"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py",
+      "classification": "production_migration",
+      "sha256": "be6915adac2e827e4cd119ac03e16a864c25fa1d10a70420906e71ba55b13b0a",
+      "references": [
+        {
+          "line": 28,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import StockPeriodSilverConfig"
+        },
+        {
+          "line": 36,
+          "source": "from orchestrator.defs.stock_period_silver import deliver_asset as deliver_silver_asset"
+        },
+        {
+          "line": 37,
+          "source": "from orchestrator.defs.stock_period_update import deliver_asset"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_events_cli.py",
+      "classification": "retired_keep_rejecting",
+      "sha256": "86acb62d94dd51c4ec9bb33d876e020cee2efd86d406bd1e25a9b276677bcaba",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_monthly_history_cli.py",
+      "classification": "retired_keep_rejecting",
+      "sha256": "d723613f01690f6296630094a709246cf24f965cd26960bb1009b7f87079e130",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py",
+      "classification": "production_migration",
+      "sha256": "778a1978157fe238f883447000d2fe285b1030b0b2489cbf14b9ef36eeab86a3",
+      "references": [
+        {
+          "line": 10,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import (\n    load_scope,\n    replay_events,\n    roots,\n    run_period,\n)"
+        },
+        {
+          "line": 139,
+          "source": "from orchestrator.defs.stock_period_update import (\n                handoff_bootstrap,\n                report_file_events,\n            )"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 148,
+          "call": "replay_events",
+          "callback": "lambda item: report_file_events(instance, item, context=context)"
+        },
+        {
+          "line": 170,
+          "call": "handoff_bootstrap",
+          "callback": "lambda item: report_file_events(instance, item, context=context)"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_silver_cli.py",
+      "classification": "production_migration",
+      "sha256": "153fcc49c328d27739c6df338e4589f192e1db1ef7e76cc4193988802d731c45",
+      "references": [
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.io.stock_period_silver import (\n    read_json,\n    run_directory,\n    validate_roots,\n    writer_lock,\n)"
+        },
+        {
+          "line": 18,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import asset_name, check_names"
+        },
+        {
+          "line": 19,
+          "source": "from orchestrator.defs.stock_period_silver import (\n    build,\n    checkpoint_path,\n    load_execution,\n    materialization_metadata,\n    recovery_evidence,\n    validate_record,\n)"
+        },
+        {
+          "line": 189,
+          "source": "from orchestrator.defs.asset_guards.stock_period_silver_readiness import (\n        batch_event_evidence,\n        require_checks,\n        require_recoverable_checks,\n    )"
+        },
+        {
+          "line": 194,
+          "source": "from orchestrator.defs.stock_period_silver import check_cancel"
+        },
+        {
+          "line": 434,
+          "source": "from orchestrator.defs.stock_period_silver import check_cancel"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_weekly_events_cli.py",
+      "classification": "retired_keep_rejecting",
+      "sha256": "86acb62d94dd51c4ec9bb33d876e020cee2efd86d406bd1e25a9b276677bcaba",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_weekly_history_cli.py",
+      "classification": "retired_keep_rejecting",
+      "sha256": "d723613f01690f6296630094a709246cf24f965cd26960bb1009b7f87079e130",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py",
+      "classification": "planned_shared_review",
+      "sha256": "342094eec11368dabcf268aee06bb5ead8ed18b5a722bbff23f5ffcc322677fa",
+      "references": [
+        {
+          "line": 4133,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    check_names as silver_period_check_names,\n)"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/checks/stock_period_silver_checks.py",
+      "classification": "planned_shared_review",
+      "sha256": "acbdc4925cda83cdb068fd267ef5e24881916ada7a1f9222bc546738f79d68b4",
+      "references": [
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    VERSION,\n    check_names,\n    period_start,\n    target_path,\n)"
+        },
+        {
+          "line": 18,
+          "source": "from orchestrator.defs.stock_period_silver import current_validation"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/io/stock_period_silver.py",
+      "classification": "planned_shared_review",
+      "sha256": "9efc79247e52b838514e201fd1d8cb58c46d29fa8d9ba5be8baa9d8df1613021",
+      "references": [
+        {
+          "line": 19,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import canonical_run_id"
+        },
+        {
+          "line": 119,
+          "source": "from orchestrator.defs.stock_period_silver import check_cancel"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/jobs/stock_weekly_event_backfill.py",
+      "classification": "unchanged_entry_regression",
+      "sha256": "0c6e7760ad0dbf5a464a017dd320582987d0959fe68182fb49c4a6bd9729066d",
+      "references": [
+        {
+          "line": 6,
+          "source": "from orchestrator.defs.ops.stock_weekly_bootstrap_checks import (\n    report_stock_weekly_bootstrap_checks,\n)"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py",
+      "classification": "production_migration",
+      "sha256": "0b56b5d5a4df95286337c9e757516e8802f0935387ad3fc09c0bb9c16e6e1e27",
+      "references": [
+        {
+          "line": 13,
+          "source": "from orchestrator.defs.stock_period_update import report_file_events"
+        },
+        {
+          "line": 23,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import replay_events"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 35,
+          "call": "replay_events",
+          "callback": "events"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/sensors/raw_stock_monthly_update_job_sensor.py",
+      "classification": "unchanged_entry_regression",
+      "sha256": "cbbf249515fd9b74daa45140ab8a00c3383195ae69d3d74591036b7c078215e7",
+      "references": [
+        {
+          "line": 16,
+          "source": "from orchestrator.defs.stock_period_update import evaluate_daily_sensor"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/sensors/raw_stock_weekly_update_job_sensor.py",
+      "classification": "unchanged_entry_regression",
+      "sha256": "dffdbd24a7cab2228772cd93c9ea245956eff86aa93f12ebd20b16995fa8d917",
+      "references": [
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.stock_period_update import evaluate_daily_sensor"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_monthly_update.py",
+      "classification": "unchanged_policy",
+      "sha256": "6ea863a65b40f67d15a9565c4298ec9ff88e12b541d1c32411685a3bb10183a3",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py",
+      "classification": "production_migration",
+      "sha256": "60519cb12a69d8635f354271fc388551f7387e4f0af1f7117652495981c0e137",
+      "references": [
+        {
+          "line": 27,
+          "source": "from orchestrator.defs.io.stock_period_silver import (\n    publish,\n    read_json,\n    recover_committed,\n    run_directory,\n    validate_roots,\n    writer_lock,\n)"
+        },
+        {
+          "line": 39,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    COLUMNS,\n    FIELDS,\n    SPECS,\n    VERSION,\n    canonical_run_id,\n    period_key,\n    period_start,\n    raw_path,\n    recovery_run_id,\n    target_path,\n)"
+        },
+        {
+          "line": 381,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import check_devices"
+        },
+        {
+          "line": 424,
+          "source": "from orchestrator.defs.asset_guards.stock_period_silver_readiness import (\n        batch_event_evidence,\n        require_checks,\n    )"
+        },
+        {
+          "line": 488,
+          "source": "from orchestrator.defs.asset_guards.stock_period_silver_readiness import (\n        require_checks,\n        require_recoverable_checks,\n    )"
+        },
+        {
+          "line": 492,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import asset_name"
+        },
+        {
+          "line": 1058,
+          "source": "from orchestrator.defs.bootstrap.stock_period_silver_cli import report_update_events"
+        },
+        {
+          "line": 695,
+          "source": "from orchestrator.defs.asset_guards.stock_period_silver_readiness import (\n                batch_event_evidence,\n                require_checks,\n                require_recoverable_checks,\n            )"
+        },
+        {
+          "line": 700,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import asset_name"
+        },
+        {
+          "line": 1136,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import writer"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py",
+      "classification": "production_migration",
+      "sha256": "43515d8521e20b264a768d6ac5ec634bb191ad86ea8431e95dcc1f9497bea453",
+      "references": [
+        {
+          "line": 329,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import (\n        replay_events,\n        run_period,\n    )"
+        },
+        {
+          "line": 424,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import roots, writer"
+        },
+        {
+          "line": 563,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import load_scope, run_period"
+        },
+        {
+          "line": 813,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import (\n        load_scope,\n        replay_events,\n        roots,\n        run_period,\n        verify_rss_resume,\n        writer,\n    )"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 622,
+          "call": "execute_daily",
+          "callback": "events"
+        },
+        {
+          "line": 985,
+          "call": "replay_events",
+          "callback": "events"
+        },
+        {
+          "line": 381,
+          "call": "replay_events",
+          "callback": "events"
+        },
+        {
+          "line": 599,
+          "call": "run_period",
+          "callback": "events"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_weekly_update.py",
+      "classification": "unchanged_policy",
+      "sha256": "6927bcf0b360bd1d923febd747b9b8219ffb4664dc94b6070ef5cb04d38ff382",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py",
+      "classification": "protected_reader_boundary_pending_approval",
+      "sha256": "c54693eecd6b5f940ba175000f2ebbf9a7551d6956f6f7830d8dff5ff4ef0158",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_asset_check_incremental_governance.py",
+      "classification": "planned_governance_test",
+      "sha256": "366c89f789e31abcf38419f7da6b1223dd48a004b57538ff737def0c71b73827",
+      "references": [
+        {
+          "line": 981,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    check_names as silver_period_check_names,\n)"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_protected_test_runner_inventory.py",
+      "classification": "protected_reader_boundary_pending_approval",
+      "sha256": "83b85a230bc9db9d83d43be0b8f45151afdbb3ce6482eb50ed2a756ad2a0a030",
+      "references": [],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_raw_stock_monthly_update_job_sensor.py",
+      "classification": "unchanged_raw_sensor_regression",
+      "sha256": "63d1544d953bb1305d6027afe8a6e5767adc49e15ecdb38164b2bd1d029d69ea",
+      "references": [
+        {
+          "line": 5,
+          "source": "from orchestrator.defs.stock_period_update import evaluate_daily_sensor"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_raw_stock_weekly_update_job_sensor.py",
+      "classification": "unchanged_raw_sensor_regression",
+      "sha256": "3d7066179bab6aa721d78e2374d198149afaa188197d3218b27cacfe7d3b971b",
+      "references": [
+        {
+          "line": 14,
+          "source": "from orchestrator.defs.stock_period_update import evaluate_daily_sensor"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_monthly_definitions.py",
+      "classification": "entry_regression_tests",
+      "sha256": "bfe795fd97d34bd221db8b3806e5bca43ca18d4b967ae99b09b5812c077b336b",
+      "references": [
+        {
+          "line": 36,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_candidate_fragments.py",
+      "classification": "no_callback_change_no_default_full_rerun",
+      "sha256": "8047d100614bf8945cbfba6b02fc3bb8c5155b0b34b1381d36e2f16a842c1ed0",
+      "references": [
+        {
+          "line": 20,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import writer"
+        },
+        {
+          "line": 22,
+          "source": "from tests.test_stock_period_raw import POLICY"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_combined.py",
+      "classification": "callback_migration_tests",
+      "sha256": "db6a41377ce26a84f96566c788814665b5cc87028d642611701163efc625e2b9",
+      "references": [
+        {
+          "line": 10,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import run_period"
+        },
+        {
+          "line": 342,
+          "source": "import orchestrator.defs.bootstrap.stock_period_history as coordinator"
+        },
+        {
+          "line": 349,
+          "source": "from orchestrator.defs.stock_period_update import execute_daily"
+        },
+        {
+          "line": 435,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history_cli as cli"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 68,
+          "call": "run_period",
+          "callback": "lambda _: None"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_handoff.py",
+      "classification": "callback_migration_tests",
+      "sha256": "12d163db2925adcba76a089c0f3bab1de11b4ae4ecbb213c70044c086c8c5078",
+      "references": [
+        {
+          "line": 8,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as history"
+        },
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.stock_period_update import handoff_bootstrap"
+        },
+        {
+          "line": 12,
+          "source": "from tests.test_stock_period_combined import POLICY, A, B, row, wire"
+        },
+        {
+          "line": 13,
+          "source": "from tests.test_stock_period_recovery import daily_fixture, daily_source"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 46,
+          "call": "history.run_period",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 91,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 115,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: pytest.fail('events repeated')"
+        },
+        {
+          "line": 159,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 249,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 308,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 139,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 150,
+          "call": "handoff_bootstrap",
+          "callback": "failure"
+        },
+        {
+          "line": 174,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 184,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 195,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 207,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 296,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_handoff_memory.py",
+      "classification": "callback_migration_tests",
+      "sha256": "9d585045b8a7a6b7d7bbc5ccc2241e1b18487fb34ebcc675bd5b4f12e9208409",
+      "references": [
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as history"
+        },
+        {
+          "line": 12,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history_cli as cli"
+        },
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.stock_period_update import handoff_bootstrap"
+        },
+        {
+          "line": 16,
+          "source": "from tests.test_stock_period_combined import POLICY, A, B, row, wire"
+        },
+        {
+          "line": 17,
+          "source": "from tests.test_stock_period_handoff import captured, options"
+        },
+        {
+          "line": 131,
+          "source": "from orchestrator.defs import stock_period_update as update"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 85,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 266,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 46,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 254,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 308,
+          "call": "handoff_bootstrap",
+          "callback": "lambda _: True"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_history.py",
+      "classification": "callback_migration_tests",
+      "sha256": "89849c00a4ab2e17f41dfe983745db3d035de24e980fb9bd7430e191c464c871",
+      "references": [
+        {
+          "line": 6,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import (\n    remove_dataset,\n    run_period,\n)"
+        },
+        {
+          "line": 156,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting"
+        },
+        {
+          "line": 157,
+          "source": "from orchestrator.defs.stock_period_update import report_file_events"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 84,
+          "call": "run_period",
+          "callback": "lambda _: None"
+        },
+        {
+          "line": 109,
+          "call": "run_period",
+          "callback": "lambda i: attempts.append(i['freq']) or True"
+        },
+        {
+          "line": 103,
+          "call": "run_period",
+          "callback": "events"
+        },
+        {
+          "line": 165,
+          "call": "run_period",
+          "callback": "lambda item: report_file_events(instance, item, context=context)"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_history_cli.py",
+      "classification": "entry_regression_tests",
+      "sha256": "6d65aa833ea47aeb20f44a35cc2acfe1df26ca94f2b1a49103d98f02b2aed594",
+      "references": [
+        {
+          "line": 5,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history_cli import main"
+        },
+        {
+          "line": 47,
+          "source": "import orchestrator.defs.stock_period_update as update"
+        },
+        {
+          "line": 48,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as history"
+        },
+        {
+          "line": 50,
+          "source": "from tests.test_stock_period_history import args"
+        },
+        {
+          "line": 111,
+          "source": "import orchestrator.defs.stock_period_update as update"
+        },
+        {
+          "line": 113,
+          "source": "from tests.test_stock_period_combined import A, B, row, wire"
+        },
+        {
+          "line": 114,
+          "source": "from tests.test_stock_period_handoff import captured, options"
+        },
+        {
+          "line": 115,
+          "source": "from tests.test_stock_period_recovery import daily_source"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_integration.py",
+      "classification": "entry_regression_tests",
+      "sha256": "4557b46ad4fcba9819ee99cf34f204f57f61f48dbb45c91d296b8b89e0c9957f",
+      "references": [
+        {
+          "line": 22,
+          "source": "from orchestrator.defs import stock_period_update as update"
+        },
+        {
+          "line": 23,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as history"
+        },
+        {
+          "line": 24,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history_cli as cli"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_memory_resume.py",
+      "classification": "no_callback_change_no_default_full_rerun",
+      "sha256": "ae38c7dc389e996d6096fe5390033410e27ae2da7b8dd2a3502f756da95c56aa",
+      "references": [
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as history"
+        },
+        {
+          "line": 16,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history_cli as cli"
+        },
+        {
+          "line": 22,
+          "source": "from tests.test_stock_period_history import args, source"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_recovery.py",
+      "classification": "callback_migration_tests",
+      "sha256": "f12487d9a4ad1d6a759abfd36b1d3cc11586d13a64971361fc983d5568f13c73",
+      "references": [
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import replay_events, run_period"
+        },
+        {
+          "line": 17,
+          "source": "from orchestrator.defs.stock_period_update import execute_daily, report_file_events"
+        },
+        {
+          "line": 18,
+          "source": "from tests.test_stock_period_combined import (\n    POLICY,\n    A,\n    bootstrap,\n    combined_source,\n    row,\n    wire,\n)"
+        },
+        {
+          "line": 26,
+          "source": "from tests.test_stock_period_history import args"
+        },
+        {
+          "line": 78,
+          "source": "import orchestrator.defs.stock_period_update as update"
+        },
+        {
+          "line": 163,
+          "source": "import orchestrator.defs.stock_period_update as update"
+        },
+        {
+          "line": 318,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting"
+        },
+        {
+          "line": 456,
+          "source": "import orchestrator.defs.bootstrap.stock_period_history as history"
+        },
+        {
+          "line": 458,
+          "source": "from orchestrator.defs.stock_period_update import deliver_asset"
+        },
+        {
+          "line": 253,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 109,
+          "call": "execute_daily",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 196,
+          "call": "execute_daily",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 213,
+          "call": "run_period",
+          "callback": "lambda _: None"
+        },
+        {
+          "line": 93,
+          "call": "execute_daily",
+          "callback": "fail"
+        },
+        {
+          "line": 220,
+          "call": "replay_events",
+          "callback": "lambda _: True"
+        },
+        {
+          "line": 231,
+          "call": "replay_events",
+          "callback": "lambda _: True"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_silver_contracts.py",
+      "classification": "callback_migration_tests",
+      "sha256": "ac33fad584a283d695c73d72a14502de77fb5390597d2366f8adcfe38a260dea",
+      "references": [
+        {
+          "line": 23,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    canonical_run_id,\n    raw_path,\n)"
+        },
+        {
+          "line": 192,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import SPECS"
+        },
+        {
+          "line": 210,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 230,
+          "source": "from orchestrator.defs import stock_period_silver as silver"
+        },
+        {
+          "line": 231,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history as raw"
+        },
+        {
+          "line": 232,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history_cli as raw_cli"
+        },
+        {
+          "line": 233,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as silver_cli"
+        },
+        {
+          "line": 234,
+          "source": "from orchestrator.defs.io.stock_period_silver import read_json"
+        },
+        {
+          "line": 239,
+          "source": "from orchestrator.defs.stock_period_update import report_file_events"
+        },
+        {
+          "line": 240,
+          "source": "from tests.test_stock_period_history import POLICY"
+        },
+        {
+          "line": 331,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n        StockPeriodSilverConfig,\n        update_run_id,\n    )"
+        },
+        {
+          "line": 396,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 397,
+          "source": "from orchestrator.defs.io.stock_period_silver import read_json"
+        },
+        {
+          "line": 402,
+          "source": "from orchestrator.defs.stock_period_update import report_file_events"
+        }
+      ],
+      "event_callback_sites": [
+        {
+          "line": 282,
+          "call": "raw.run_period",
+          "callback": "lambda item: report_file_events(instance, item, context=context)"
+        }
+      ]
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_silver_events.py",
+      "classification": "existing_silver_regression",
+      "sha256": "c813fbe409a9556c580f660762282aa05ff46d37310033e3b5914bd075f2ec8f",
+      "references": [
+        {
+          "line": 12,
+          "source": "from orchestrator.defs import stock_period_silver as silver"
+        },
+        {
+          "line": 13,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 14,
+          "source": "from orchestrator.defs.checks import stock_period_silver_checks as checks"
+        },
+        {
+          "line": 16,
+          "source": "from orchestrator.defs.io.stock_period_silver import read_json, run_directory"
+        },
+        {
+          "line": 17,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import (\n    asset_name,\n    check_names,\n    target_path,\n)"
+        },
+        {
+          "line": 22,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 25,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 28,
+          "source": "from tests.test_stock_period_silver_execution import execute"
+        },
+        {
+          "line": 68,
+          "source": "from tests.test_stock_period_silver_execution import capture_history_change, update"
+        },
+        {
+          "line": 122,
+          "source": "from tests.test_stock_period_silver_execution import capture_history_change, update"
+        },
+        {
+          "line": 173,
+          "source": "from tests.test_stock_period_silver_execution import (\n        interrupted_update,\n        refresh_recovery_tail,\n    )"
+        },
+        {
+          "line": 235,
+          "source": "from tests.test_stock_period_silver_execution import capture_history_change, update"
+        },
+        {
+          "line": 281,
+          "source": "from tests.test_stock_period_silver_execution import capture_history_change, update"
+        },
+        {
+          "line": 361,
+          "source": "from tests.test_stock_period_silver_execution import update"
+        },
+        {
+          "line": 383,
+          "source": "from tests.test_stock_period_silver_execution import interrupted_update"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_silver_execution.py",
+      "classification": "existing_silver_regression",
+      "sha256": "b155895c9db08254b1a812c3012e87fc950b00249ca5deab88bb9523b0799c9a",
+      "references": [
+        {
+          "line": 14,
+          "source": "from orchestrator.defs import stock_period_silver as silver"
+        },
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.io import stock_period_silver as io"
+        },
+        {
+          "line": 17,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import target_path"
+        },
+        {
+          "line": 18,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    A,\n    B,\n    C,\n    literal_row,\n)"
+        },
+        {
+          "line": 24,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 27,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 91,
+          "source": "from tests.test_stock_period_silver_contracts import publish_completion_contract"
+        },
+        {
+          "line": 107,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import writer"
+        },
+        {
+          "line": 181,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 394,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 470,
+          "source": "from tests.test_stock_period_silver_contracts import publish_completion_contract"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_silver_jobs.py",
+      "classification": "existing_silver_regression",
+      "sha256": "b9ebfeacbe06a4baef1d144e5f51595ca8060efdf34a58273899239b681a633e",
+      "references": [
+        {
+          "line": 8,
+          "source": "from orchestrator.defs import paths, stock_period_silver"
+        },
+        {
+          "line": 11,
+          "source": "from orchestrator.defs.checks import stock_period_silver_checks as checks"
+        },
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import check_names"
+        },
+        {
+          "line": 16,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 19,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        },
+        {
+          "line": 126,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 128,
+          "source": "from orchestrator.defs.io.stock_period_silver import read_json, run_directory"
+        },
+        {
+          "line": 129,
+          "source": "from tests.test_stock_period_silver_execution import capture_history_change"
+        },
+        {
+          "line": 237,
+          "source": "from orchestrator.defs.bootstrap import stock_period_silver_cli as cli"
+        },
+        {
+          "line": 238,
+          "source": "from orchestrator.defs.io.stock_period_silver import read_json, run_directory"
+        },
+        {
+          "line": 239,
+          "source": "from tests.test_stock_period_silver_execution import (\n        interrupted_update,\n        refresh_recovery_tail,\n    )"
+        },
+        {
+          "line": 304,
+          "source": "from orchestrator.defs.asset_guards.stock_period_silver_readiness import (\n        batch_event_evidence,\n        require_checks,\n    )"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_silver_projection.py",
+      "classification": "existing_silver_regression",
+      "sha256": "5f2b166d3b54fcccc483f689e9ba22ce191d393dcd8c787ab9ab1fd0c4314ea5",
+      "references": [
+        {
+          "line": 7,
+          "source": "from orchestrator.defs import stock_period_silver as silver"
+        },
+        {
+          "line": 12,
+          "source": "from orchestrator.defs.run_contracts.stock_period_silver import raw_path"
+        },
+        {
+          "line": 13,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    NAMES,\n    TYPES,\n    A,\n    B,\n    C,\n    literal_row,\n    write_raw,\n)"
+        },
+        {
+          "line": 22,
+          "source": "from tests.test_stock_period_silver_contracts import (\n    period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.\n)"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_source.py",
+      "classification": "no_callback_change_no_default_full_rerun",
+      "sha256": "e063b149357120a2f8c6dd06367ba92ef847da6e338845c6bdfc782733ca5234",
+      "references": [
+        {
+          "line": 186,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import writer"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_storage.py",
+      "classification": "no_callback_change_no_default_full_rerun",
+      "sha256": "5179dbd187ccdbb2b1c7a4f5f27a827258ab88c394596e0d8ae47c0403ef257e",
+      "references": [
+        {
+          "line": 10,
+          "source": "from orchestrator.defs.bootstrap.stock_period_history import (\n    check_devices,\n    devices,\n    roots,\n    run_period,\n)"
+        },
+        {
+          "line": 17,
+          "source": "from tests.test_stock_period_history import args"
+        },
+        {
+          "line": 18,
+          "source": "from tests.test_stock_period_raw import POLICY, row, sample"
+        },
+        {
+          "line": 154,
+          "source": "import orchestrator.defs.bootstrap.stock_period_history as history"
+        },
+        {
+          "line": 250,
+          "source": "import orchestrator.defs.bootstrap.stock_period_history as history"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_update.py",
+      "classification": "entry_regression_tests",
+      "sha256": "5dc03e45a9e0c4c00f29bc9c221034bd620cf112844cd50d698b3ad9c2f26bfe",
+      "references": [
+        {
+          "line": 5,
+          "source": "from orchestrator.defs.stock_period_update import close_day, daily_periods"
+        },
+        {
+          "line": 15,
+          "source": "from orchestrator.defs.stock_period_update import calendar_days"
+        },
+        {
+          "line": 60,
+          "source": "from orchestrator.defs.stock_period_update import calendar_days"
+        },
+        {
+          "line": 96,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history"
+        },
+        {
+          "line": 102,
+          "source": "from orchestrator.defs.stock_period_update import execute_daily"
+        },
+        {
+          "line": 166,
+          "source": "from orchestrator.defs.bootstrap import stock_period_history"
+        },
+        {
+          "line": 169,
+          "source": "from orchestrator.defs.stock_period_update import execute_daily"
+        },
+        {
+          "line": 216,
+          "source": "from orchestrator.defs.stock_period_update import (\n        CalendarDays,\n        no_trading_period,\n        source_final,\n    )"
+        }
+      ],
+      "event_callback_sites": []
+    },
+    {
+      "path": "reports/dg_stock_period_silver_readiness_20261017_135833/audit_driver.py",
+      "classification": "historical_do_not_execute",
+      "sha256": "a34ed1e8f624f55ced98221dcb3dd5f1e67faa56db0dfb224844d10fbdb021c2",
+      "references": [],
+      "event_callback_sites": []
+    }
+  ],
+  "planned_new_reference_files": [
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/silver_stock_weekly_update_job_sensor.py",
+    "lake_console/orchestrator/src/orchestrator/defs/sensors/silver_stock_monthly_update_job_sensor.py",
+    "lake_console/orchestrator/tests/test_stock_period_silver_sensors.py",
+    "lake_console/orchestrator/tests/test_stock_period_silver_daily_integration.py"
+  ],
+  "not_matched_but_explicit_planned_roots": [
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period.py",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py",
+    "lake_console/orchestrator/tests/test_stock_period_contract.py",
+    "lake_console/orchestrator/tests/test_asset_governance_contracts.py",
+    "lake_console/orchestrator/tests/test_run_contract_static_gates.py"
+  ]
+}

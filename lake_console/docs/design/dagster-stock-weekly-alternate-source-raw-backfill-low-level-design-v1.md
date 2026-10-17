@@ -921,7 +921,7 @@ catalog使用DERIVED_CONTRACT、DERIVED_FROM_ASSETS及逐分区原子替换政�
 
 本节对应总方案§9：1补齐Silver日常更新、2接通Raw实际交付并验收、3白名单提交/结案。2026-10-17管理员确认先提交文档，无卡点则按本节开发/隔离验收；不授权正式写湖/staging/事件、重载或sensor操作。各项开发前按根AGENTS“按计划开发执行链”第8条检查本节完整性与实际接口；意外或无法推进的错误必须停止报告，讨论并回写原文档后再继续，不凭聊天摘要或带严重问题改代码。
 
-**恢复设计与实现状态。** 逐文件恢复方案已先提交dbec0343，随后按§11.2—11.4完成恢复缺陷修复和隔离验收，结果见§11.11；§11.10保留修复前失败。§11.6—11.8的第2项通知/sensor仍待开发，本轮未推进；修复代码未提交，不操作正式资源。
+**恢复设计与实现状态。** 逐文件恢复方案已先提交dbec0343，随后按§11.2—11.4完成恢复缺陷修复和隔离验收，结果见§11.11；实现已提交d865e640，§11.10保留修复前失败。分类及治理文档补项已提交b9ba7163。第2项通知/sensor仍待开发；此前静态审计后，管理员要求清退consumer逐文件源码登记，本轮已完成清退及定向验证，见§11.8，不再等待追加两条权限确认，不操作正式资源。
 
 ### 11.1 当前环境、代码依据与影响面
 
@@ -1116,7 +1116,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 | src/orchestrator/defs/bootstrap/stock_period_history_cli.py；ops/stock_weekly_bootstrap_checks.py | 2：迁移全部现行事件入口，保持events-only、handoff和周线补报边界 |
 | src/orchestrator/defs/catalog/lake_assets.py | 1/2：仅同步两Silver更新/写入/事件/性能合同和两Raw的完成通知event_policy；本次没有新增列，不需要再改schema/paths/name_mapping |
 | tests/test_stock_period_silver_contracts.py、test_stock_period_silver_projection.py、test_stock_period_silver_execution.py、test_stock_period_silver_events.py、test_stock_period_silver_jobs.py | 1：扩展现有文件；2：新增tests/test_stock_period_silver_sensors.py、test_stock_period_silver_daily_integration.py，覆盖上述正反与成本计数 |
-| tests/test_stock_period_contract.py、test_stock_period_history.py、test_stock_period_history_cli.py、test_stock_period_recovery.py、test_stock_period_handoff.py、test_stock_period_update.py、test_stock_period_combined.py | 1/2：纯引用合同、真实回调消费者及周线补报op通知边界断言；均为已核实存在的承载测试，不新增无关旧链测试或扩大回归 |
+| tests/test_stock_period_contract.py、test_stock_period_history.py、test_stock_period_history_cli.py、test_stock_period_recovery.py、test_stock_period_handoff.py、test_stock_period_handoff_memory.py、test_stock_period_update.py、test_stock_period_combined.py | 1/2：纯引用合同、真实回调消费者及周线补报op通知边界断言；handoff_memory已确认纳入，仅同步事件回调/测试替身，保留原RSS、6GiB覆盖、取消、原身份/成功源复用及重复handoff断言，不改预算或断言强度。均为已核实存在的承载测试，不新增无关旧链测试或扩大回归 |
 | tests/test_asset_check_incremental_governance.py、test_asset_governance_contracts.py、test_run_contract_static_gates.py | 1/2：只加本域范围/事件/调用次数防回流断言；第2项同步EXPECTED_SENSOR_DEFINITION_IDS及既有统一tag门禁，精确分类/默认状态在本域sensor测试断言；保留其他数据集门禁 |
 | 原总方案、共享LLD、月线LLD；本任务必要验收报告 | 3：实际状态、配置/性能、正反证据、提交白名单及未完成项 |
 | lake_console/docs/design/dagster-run-contract-governance.html（仓库相对路径） | 2/3：仅登记两个Silver sensor分类、统一helper及设计/实现/正式启用状态，引用本节；不修改通用治理合同或其他sensor |
@@ -1134,6 +1134,32 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 | 设计、实现、验收、正式启用分别记录 | 五份文档本域状态与本次授权一致 | 仅补文档不写成已开发；代码通过不写成已加载、已启用或真实日常已通过 |
 
 2026-10-17管理员已确认本次分类及两份治理文档补项；本轮只修订上述五份文档，完成文档一致性检查后停止，等待管理员再次确认再开发，不自动进入第2项代码或第3项正式操作。
+
+<a id="period-silver-consumer-preflight"></a>
+**后续消费者补齐与完整静态核对（2026-10-17）。** 上段为b9ba7163文档补齐时的授权边界。管理员随后确认补齐test_stock_period_handoff_memory.py并继续审计；本轮仅修正文档/白名单和审计证据，没有修改生产或测试代码。详细结果及文件定位见[开工审计报告](../../../reports/dg_stock_period_silver_auto_preflight_20261017/report.md)与[消费者清单](../../../reports/dg_stock_period_silver_auto_preflight_20261017/consumer_inventory.json)。
+
+本轮以CodeGraph callers/impact补充实际源码引用、AST导入/别名/事件回调及CLI/job定位，检出44份相关引用文件，全部分类，未分类差集为0；其中历史审计驱动只作为历史材料，不执行或迁移。Raw生产者本身、两份共同合同和既有静态门禁另按本节显式根文件核对，不能因其没有引用自身模块名而漏掉。首次分类表漏填已在原计划中的test_stock_period_update.py时，差集检查实际拒绝；补齐分类后通过。另故意删除handoff_memory分类也能检出，不能仅用“已读规则”的文字代替这项核对。
+
+| 核对类别 | 文件/真实入口 | 本次处理及边界 |
+| --- | --- | --- |
+| 生产事件链，必须同步迁移 | stock_period_history::run_period/replay_events；stock_period_update::execute_daily/deliver_asset/report_file_events/handoff_bootstrap；stock_period_history_cli::resume/events/handoff；ops/stock_weekly_bootstrap_checks | 均沿本表既有白名单；完整交付引用传到全部真实事件入口，周线补报仍只周线，离线文件执行不冒称通知成功 |
+| 已确认补齐的直接测试消费者 | tests/test_stock_period_handoff_memory.py | stopped_handoff及其恢复/取消/CLI handoff使用事件回调；仅迁移回调/替身，不改原内存与持久化断言 |
+| 真实入口的必要回归，不默认改代码 | tests/test_stock_period_integration.py；test_stock_monthly_definitions.py；test_raw_stock_weekly_update_job_sensor.py；test_raw_stock_monthly_update_job_sensor.py；现有周线补报job | 分别覆盖现有小型CLI→events→handoff→原生Raw job、两频原生job/check、Raw sensor水位/窗口和周线补报边界。复用原小样本，不加全市场bootstrap；确需改测试时仍先核对本次范围，不将“回归”当成任意改代码授权 |
+| 原Silver及共享夹具消费者 | 既有五份test_stock_period_silver_*.py，尤其test_stock_period_silver_contracts.py中的capture/publish_completion_contract | 统一复用真实Raw完成通知；第2项集成不再用第1项的临时metadata适配器冒充真实生产者。关键expected仍取独立字面金样本 |
+| 不因回调迁移而重做 | stock_weekly_update.py、stock_monthly_update.py；tests/test_stock_period_source.py、test_stock_period_storage.py、test_stock_period_candidate_fragments.py、test_stock_period_memory_resume.py | 分别是原策略或HTTP/IO/COPY/RSS边界，当前没有本次单文件事件回调；代码保持。只有实际修改触及其行为才做定向回归，不默认重跑全部旧链 |
+| 退役入口及无跨子系统消费 | 四个旧周/月history/events CLI、Raw旧写入口；foundation/ops/biz/app、业务API/前端 | 旧CLI仅抛retired错误，不恢复或迁移；本轮引用定位未发现跨子系统/API/前端消费者，不扩大生产影响面 |
+| 已确认清退的逐文件源码登记 | tests/stock_suspend_confirmed_test_runner.py；tests/test_protected_test_runner_inventory.py | 2026-10-17管理员要求去掉无必要的测试保护维护。删除consumer手写源码名单和全定义名单覆盖检查，按下文允许治理测试只读项目源码；不再为新增sensor逐文件登记 |
+
+**逐文件源码登记清退（2026-10-17，管理员已要求实施）。** 治理测试本来就要发现全部定义，另维护一份同范围手写源码名单没有独立业务校验价值；它把正常新增源码变成了无意义的权限同步事项。此前“仅追加两个路径、等待权限确认”的建议撤回，不再作为周/月开发阻塞。
+
+- 代码仅改上述两个测试文件：删除CONSUMER_SOURCE_FILES；consumer范围不再枚举、预检或逐文件hash整份源码，sandbox只读允许固定的src/orchestrator目录。其他scope仍沿原名单和拒绝规则；CLI参数、suite、批次、业务断言及测试support不变。报告注明consumer只读源码根，不把未做的逐文件hash写成已核验。
+- 仍拒绝项目源码写入、正式Lake/instance/凭据及网络访问；源码中的符号链接不能借此读取目录外文件。保留现有源码以外的精确读权限，不允许整个仓库或其他目录子树，不新增配置、依赖或长期入口。正式业务代码、sensor、事件和数据均不改。
+- 测试改为证明未登记的新源码可读、源码写入/目录外读取及外指链接被拒绝、网络保护保持；原四个非consumer scope的缺失/链接文件仍拒绝。只使用临时源码/哨兵，不拿正式资源做反例；再运行现有catalog治理12项，业务断言不减少。
+- 成本只涉及小型源码/临时文件及既有治理测试，无源请求、SQL或Parquet读写。去掉整份手写清单及consumer逐文件hash，不新增预算或审批点。失败即报告，临时证据保留后可重跑；不涉及业务提交、回滚、checkpoint或正式恢复。
+
+这项调整已同步回停牌专项原方案/LLD的当前补充说明，历史隔离验收保留。实际验证：8项定向边界测试通过，原catalog治理12项及513个subtests分两批通过；isolation、adapter、regression、root-guard四种策略及源码范围与修改前逐字一致。两批consumer报告的source_files/source_sha256均为空，准确记录固定源码只读根。Ruff、文档完整性及diff检查通过。证据位于/private/tmp/dg-source-registration-retirement-5vbx91nc/，含原源码、catalog.log、catalog-summary.json及policy-comparison.json；本轮未运行正式资源或周/月业务链，未提交。
+
+**准入判断：** 已批准的handoff_memory白名单缺项已修正；设计分类、事件合同、消费者定位和必要回归落点可继续复用。逐文件源码登记按管理员本轮要求清退，不再等待追加两项权限确认；清退及定向验证完成后报告，不自动开发两个sensor或执行正式操作。后续变更只复核本次消费者差集和对应直接测试，不重复行情审计。
 
 ### 11.9 第2项正式交接与第3项结案清单
 

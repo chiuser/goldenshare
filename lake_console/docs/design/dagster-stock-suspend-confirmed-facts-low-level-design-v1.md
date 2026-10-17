@@ -2,6 +2,8 @@
 
 更新时间：2026-09-08
 
+2026-10-17测试工具维护调整：管理员要求取消consumer治理测试逐文件源码登记，删除其手写名单及覆盖检查，改为只读固定的src/orchestrator目录；源码写入、正式资源和网络仍拒绝。其他scope的精确权限、测试support、CLI/suite及业务断言保持。具体实现和正反验收沿[周/月共享LLD §11.8](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-consumer-preflight)，不重开本专项正式执行。本文后续历史权限记录不再是新增consumer源码的登记要求，历史验收不冒充修改后验收。调整已完成，8项边界测试及原12项catalog治理通过，其余四种策略逐字不变，证据见上述共享LLD；没有重跑停牌全链。
+
 状态：**S0–S5全部完成（2026-09-08），TODO-SUSPEND-001关闭。旧CSV/模块已删除；测试运行器正常退出收尾已修正，156个逻辑用例全部通过。批准的D03–D09及31个测试根已精确清理；正式数据、发布合同/checkpoint、suspend_timing.py和共享环境保留。最终对账见 §18.35；本轮没有正式DG操作、套件安装/卸载、提交或推送。**
 
 首次设计代码基线：`dev-interface@b324ec48ce8fd67fdf216fedc6a69103fab4ae3a`。早期六项修订依据为 `dev-interface@f003a3c5` 加当时未提交的专项代码；§18.8 启动诊断基线为 `dev-interface@a0361fc4` 加当时保留的未提交内容。上述历史基线不是正式验收结果；当前完成状态以文首及§18.35为准。
