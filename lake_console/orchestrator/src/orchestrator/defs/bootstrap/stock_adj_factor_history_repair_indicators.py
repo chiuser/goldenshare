@@ -30,6 +30,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates impo
     transfer_record_hash,
 )
 from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_runtime import (
+    PROOF_VERSION,
     current_repair_runtime,
     remove_repair_file,
     repair_runtime_entry,
@@ -160,7 +161,7 @@ def read_indicator_fragment(plan, task, number):
         return runtime.indexes[cache_key]
     proof = json.loads(path.read_text())
     if (
-        proof.get("proof_version") != 1
+        proof.get("proof_version") != PROOF_VERSION
         or proof.get("runtime_binding") != runtime.binding
         or proof.get("plan_hash") != plan["plan_hash"]
         or proof.get("task_id") != task["task_id"]
@@ -252,7 +253,7 @@ def _persist_fragment(
         check_repair_storage(Path(plan["run_root"]), plan=plan)
     runtime = current_repair_runtime(plan)
     proof = {**ownership, "validated": True, "outputs": outputs,
-             "row_counts": row_counts, "proof_version": 1, "runtime_binding": runtime.binding}
+             "row_counts": row_counts, "proof_version": PROOF_VERSION, "runtime_binding": runtime.binding}
     proof["record_hash"] = repair_hash(proof)
     atomic_repair_json(receipt, proof)
     return proof
@@ -672,7 +673,7 @@ def replay_indicator_task(
     result = {
         "plan_hash": plan["plan_hash"],
         "task_id": task["task_id"],
-        "proof_version": 1, "runtime_binding": runtime.binding,
+        "proof_version": PROOF_VERSION, "runtime_binding": runtime.binding,
         "fragments": len(proofs),
         "completed_rows": sum(n for d, n in p["trade_date_rows"]),
         "receipts": [
@@ -705,7 +706,7 @@ def read_indicator_task(plan, task):
         return runtime.indexes[key]
     result = json.loads(marker.read_text())
     if (
-        result.get("proof_version") != 1
+        result.get("proof_version") != PROOF_VERSION
         or result.get("runtime_binding") != runtime.binding
         or result.get("plan_hash") != plan["plan_hash"]
         or result.get("task_id") != task["task_id"]
@@ -753,7 +754,7 @@ def _verify_fragment_binding(plan, proof):
             raise FactorRepairError("repair_overlay_drift")
 
 
-def _batch_rows(connection, name, files, days, *, annual=False, columns="*"):
+def _batch_rows(connection, name, files, days, *, annual=False, columns="*", scope_relation=None):
     # One materialized scan per input family. Logical file dates survive candidate paths.
     source = _read(files).replace(
         "hive_partitioning=false)", "hive_partitioning=false,filename=true)"
@@ -765,9 +766,19 @@ def _batch_rows(connection, name, files, days, *, annual=False, columns="*"):
         if annual
         else "try_cast(regexp_extract(filename,'trade_date=([0-9-]+)/',1) AS DATE)"
     )
+    scope = (f" AND (ts_code,{expected}) IN (SELECT ts_code,day FROM {scope_relation})"
+             if scope_relation else "")
     connection.execute(
-        f"CREATE OR REPLACE TEMP TABLE {name} AS SELECT {columns},filename,{expected} AS expected_day FROM {source} WHERE {expected} IN {_days(days)}"
+        f"CREATE OR REPLACE TEMP TABLE {name} AS SELECT {columns},filename,{expected} AS expected_day FROM {source} WHERE {expected} IN {_days(days)}{scope}"
     )
+
+
+def _repair_indicator_scope(connection, unit, days):
+    approved = sorted({(p["ts_code"], d) for p in unit["calculation_windows"]
+                       for d in p["target_dates"] if d in days})
+    connection.execute("""CREATE OR REPLACE TEMP TABLE indicator_approved AS
+        SELECT unnest(?::VARCHAR[]) AS ts_code, unnest(?::DATE[]) AS day""",
+        [[code for code, _ in approved], [d for _, d in approved]])
 
 
 def _batch_rule_rows(connection, days, counts_sql):
@@ -849,7 +860,7 @@ def audit_indicator_batch(connection, plan, unit, targets, *, pending=None, comp
 def _audit_indicator_month(
     connection, plan, unit, targets, days, *, inputs, schemas_checked, pending=None
 ):
-    """Full-market original rules over already materialized monthly inputs."""
+    """Original predicates over the same approved stock/day relation on both sides."""
     pending = pending or {}
 
     def resolve(path):
@@ -884,6 +895,7 @@ def _audit_indicator_month(
     freq = unit["calculation_windows"][0]["freq"]
     root = Path(plan["lake_root"])
     schema = indicator_schema(asset)
+    _repair_indicator_scope(connection, unit, days)
     annual = freq is not None and "macd_kdj" in asset and "_state_" not in asset
     names = [
         Path(p)
@@ -906,6 +918,7 @@ def _audit_indicator_month(
         days,
         annual=annual,
         columns="ts_code,freq,trade_date,trade_time" if annual else "*",
+        scope_relation="indicator_approved",
     )
     price_asset = (
         "gold_stock_daily_qfq" if freq is None else f"gold_stk_mins_qfq_{freq}m"
@@ -927,6 +940,7 @@ def _audit_indicator_month(
         days,
         annual=freq is not None,
         columns="ts_code,freq,trade_date,trade_time" if "macd_kdj" in asset else "*",
+        scope_relation="indicator_approved",
     )
     target = f"(SELECT {_columns(schema)} FROM indicator_market_output WHERE expected_day=days.day)"
     source = "(SELECT * EXCLUDE(filename,expected_day) FROM indicator_market_price WHERE expected_day=days.day)"
@@ -945,7 +959,7 @@ def _audit_indicator_month(
             "CREATE OR REPLACE TEMP TABLE indicator_market_lifecycle AS SELECT * FROM "
             + life
         )
-        life = "indicator_market_lifecycle"
+        life = "(SELECT * FROM indicator_market_lifecycle WHERE ts_code IN (SELECT ts_code FROM indicator_approved WHERE day=days.day))"
         if "_state" not in asset:
             counts = trend_channel_result_counts_sql(
                 result_sql=target, qfq_sql=source, date_expression="days.day"
@@ -969,12 +983,19 @@ def _audit_indicator_month(
                 paths.gold_stock_daily_trend_channel_state_path(root, d)
                 for d in sorted(set(previous.values()))
             ]
+            previous_values = ",".join(
+                "(DATE " + duckdb_string(d) + ",DATE " + duckdb_string(previous[d]) + ")"
+                for d in days)
+            connection.execute(f"""CREATE OR REPLACE TEMP TABLE indicator_previous_approved AS
+                SELECT a.ts_code,p.previous_day AS day FROM indicator_approved a
+                JOIN (VALUES {previous_values}) p(current_day,previous_day) ON a.day=p.current_day""")
             # Existing previous state may itself have a verified candidate. It remains read-only.
             _batch_rows(
                 connection,
                 "indicator_market_previous",
                 [resolve(p) for p in previous_paths],
                 sorted(set(previous.values())),
+                scope_relation="indicator_previous_approved",
             )
             previous_values = ",".join(
                 "(DATE "
@@ -984,7 +1005,7 @@ def _audit_indicator_month(
                 + ")"
                 for d in days
             )
-            previous_sql = f"(SELECT * EXCLUDE(filename,expected_day) FROM indicator_market_previous WHERE expected_day=(SELECT col1 FROM (VALUES {previous_values}) WHERE col0=days.day))"
+            previous_sql = f"(SELECT * EXCLUDE(filename,expected_day) FROM indicator_market_previous WHERE expected_day=(SELECT col1 FROM (VALUES {previous_values}) WHERE col0=days.day) AND ts_code IN (SELECT ts_code FROM indicator_approved WHERE day=days.day))"
             counts = trend_channel_coverage_counts_sql(
                 state_sql=target,
                 qfq_sql=source,
@@ -1082,6 +1103,7 @@ def _audit_indicator_month(
                 days,
                 annual=True,
                 columns="ts_code,freq,trade_date,trade_time",
+                scope_relation="indicator_approved",
             )
             query = macd_kdj_state_coverage_sql(
                 indicator="indicator_market_result",
@@ -1223,7 +1245,7 @@ def build_indicator_target_candidate(
                 raise FactorRepairError("repair_indicator_fragment_drift")
         complete = {
             **record,
-            "format_version": 1,
+            "format_version": 2,
             "input_paths": sorted(inputs.verified),
             "overlay_hashes": inputs.overlays,
             "replay_files": fragment_files,

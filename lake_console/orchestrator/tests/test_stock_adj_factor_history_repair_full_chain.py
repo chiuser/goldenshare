@@ -392,7 +392,7 @@ def _coordinator():
             snapshot = {}  # Explicit boundary assertions belong to the calling test.
         result = execution.execute_repair_candidates(**args)
         assert result["completed"] == result["total"] and not result["sample"]
-        assert not result["all_chain_ready"]
+        assert result["all_chain_ready"] == (phase == "indicator" and not audit)
         _assert_durable(snapshot)
         results.append(result)
         print(
@@ -433,7 +433,6 @@ def _clone(plan):
         ],
         target_paths=[i["path"] for i in plan["target_preimages"]],
         units=plan["units"],
-        writer_guard=lambda: None,
         partition_validation=plan["partition_validation"],
     )
 

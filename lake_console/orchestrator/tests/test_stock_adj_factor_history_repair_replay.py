@@ -338,7 +338,7 @@ def test_indicator_cancel_preserves_complete_segments_and_reuses_them(
 def test_nineturn_inspection_counts_stop_at_each_stock_endpoint(tmp_path):
     import duckdb
 
-    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli import (
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import (
         _history_input_counts,
     )
     from orchestrator.defs.duckdb_sql import copy_query_to_parquet
@@ -455,7 +455,6 @@ def test_result_and_state_tails_are_independent_without_new_state_coverage(
             for i in old["source_fingerprints"]
         ],
         partition_validation=old["partition_validation"],
-        writer_guard=lambda: None,
     )
     with connect_configured_duckdb(
         RepairBudget().connection_settings(tmp_path), temp_policy="existing_no_spill"

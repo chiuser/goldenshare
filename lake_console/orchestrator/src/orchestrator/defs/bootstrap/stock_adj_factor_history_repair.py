@@ -305,14 +305,46 @@ def write_candidate_record(run_root: Path, record: dict) -> Path:
     relative = record["target_relative_path"]
     target_id = hashlib.sha256(relative.encode()).hexdigest()
     path = run_root / "checkpoints/candidates" / f"{target_id}.json"
-    atomic_repair_json(path, {"format_version": 1, **record})
+    atomic_repair_json(path, {"format_version": 2, **record})
     return path
 
 
+def repair_scope_contract(scopes, units, identities):
+    """Declare the exact dependency closure, separately from mutable execution state."""
+    codes = sorted(s.ts_code for s in scopes)
+    targets = {p for unit in units for p in unit["target_paths"]}
+    validation = {p for unit in units for p in unit.get("validation_paths", ())}
+    files = sorted(i["path"] for i in identities)
+    dependency = {"stock_codes": codes, "unit_scope_hash": repair_hash(units),
+        "inputs": [{"path": p, "role": "target" if p in targets else
+                    "validation" if p in validation else "calculation_dependency"} for p in files]}
+    proof = {"mode": "repair_scoped_v2", "stock_codes": codes,
+        "unit_scope_hash": repair_hash(units),
+        "full_file_rules": ["schema", "keys", "nulls", "row_count", "retained_rows"],
+        "business_scope": "actual_approved_stock_date_keys"}
+    return dependency, proof
+
+
+def validate_repair_scope_contract(plan, scopes):
+    expected = repair_scope_contract(scopes, plan["units"], plan["source_fingerprints"])
+    if (plan.get("dependency_scope"), plan.get("validation_scope")) != expected:
+        raise FactorRepairError("repair_scoped_contract_invalid")
+    codes = {s.ts_code for s in scopes}
+    for identity in plan["source_fingerprints"]:
+        annual_codes = [p.removeprefix("ts_code=") for p in Path(identity["path"]).parts
+                        if p.startswith("ts_code=")]
+        if annual_codes and any(code not in codes for code in annual_codes):
+            raise FactorRepairError("repair_dependency_scope_invalid")
+    binding = plan.get("preparation_binding", {})
+    if (binding.get("version") != 2 or binding.get("run_id") != plan["run_id"]
+            or binding.get("source_hash") != plan["source_hash"]
+            or binding.get("dependency_hash") != repair_hash(plan["dependency_scope"])
+            or binding.get("implementation_hash") != repair_hash(plan["implementation_fingerprints"])):
+        raise FactorRepairError("repair_preparation_binding_invalid")
 def validate_repair_plan(plan: dict, expected_hash: str) -> None:
     body = {k: v for k, v in plan.items() if k != "plan_hash"}
     if (plan.get("kind") != "stock_adj_factor_history_repair"
-        or plan.get("version") != 1 or plan.get("plan_hash") != expected_hash
+        or plan.get("version") != 2 or plan.get("plan_hash") != expected_hash
         or repair_hash(body) != expected_hash
         or plan.get("budget") != asdict(RepairBudget())):
         raise FactorRepairError("repair_plan_invalid")
@@ -340,6 +372,7 @@ def validate_repair_plan(plan: dict, expected_hash: str) -> None:
         raise FactorRepairError("repair_unit_assets_incomplete")
     validate_price_repair_units(plan)
     validate_indicator_repair_units(plan)
+    validate_repair_scope_contract(plan, scopes)
     for unit in plan["units"]:
         validate_repair_target_paths(Path(plan["lake_root"]), unit["asset_key"], unit["target_paths"])
 
@@ -451,7 +484,7 @@ def plan_repair_calculation_windows(trade_date_rows, *, max_rows=None) -> tuple[
 
 
 def inspect_repair_asset_rows(connection, *, paths, scopes, asset_key: str,
-                              expected_dates, starts, freq=None) -> dict:
+                              expected_dates, starts, freq=None, collect_history=False) -> dict:
     """Bounded 64-file aggregate audit, including date gaps and duplicates.
 
     This intentionally does not perform or advertise an ordinary asset check.
@@ -465,6 +498,8 @@ def inspect_repair_asset_rows(connection, *, paths, scopes, asset_key: str,
     if tuple(sorted(set(expected_dates))) != tuple(expected_dates):
         raise FactorRepairError("repair_expected_dates_invalid")
     by_code = {code: {} for code in codes}
+    history = {code: {} for code in codes}
+    expected_set = set(expected_dates)
     inputs = []
     minute = asset_key.startswith("gold_stk_mins_qfq_") and "state" not in asset_key
     time_field = "trade_time" if minute else "trade_date"
@@ -476,16 +511,22 @@ def inspect_repair_asset_rows(connection, *, paths, scopes, asset_key: str,
             p = check_repair_path(Path(path))
             st = p.stat()
             before.append((str(p), st.st_size, st.st_mtime_ns))
+        date_predicate = " AND CAST(trade_date AS VARCHAR)<=?" if collect_history else " AND CAST(trade_date AS VARCHAR)=ANY(?)"
+        parameters = [[p[0] for p in before], codes,
+                      max(s.repair_end_trade_date for s in scopes) if collect_history else list(expected_dates)]
         rows = connection.execute(f"""
           SELECT ts_code,CAST(trade_date AS VARCHAR),CAST(min({time_field}) AS VARCHAR),
                  CAST(max({time_field}) AS VARCHAR),count(*),count(DISTINCT {key})
           FROM read_parquet(?,hive_partitioning=false)
-          WHERE ts_code=ANY(?) AND CAST(trade_date AS VARCHAR)=ANY(?)
+          WHERE ts_code=ANY(?) {date_predicate}
           GROUP BY ts_code,trade_date ORDER BY ts_code,trade_date
-        """, [[p[0] for p in before], codes, list(expected_dates)]).fetchall() if batch else []
+        """, parameters).fetchall() if batch else []
         for code, day, first, last, count, unique in rows:
-            if count != unique or day in by_code[code]:
+            if count != unique or day in history[code]:
                 raise FactorRepairError("repair_asset_duplicate_key")
+            history[code][day] = int(count)
+            if day not in expected_set:
+                continue
             by_code[code][day] = (first, last, int(count))
         for p, size, mtime in before:
             st = Path(p).stat()
@@ -516,7 +557,8 @@ def inspect_repair_asset_rows(connection, *, paths, scopes, asset_key: str,
                          "previous_actual_date": max((d for d in observed if d < dates[0]), default=None),
                          "trade_date_rows": counts,
                          "calculation_windows": plan_repair_calculation_windows(counts)})
-    return {"profiles": profiles, "inputs": inputs}
+    return {"profiles": profiles, "inputs": inputs,
+            "history_counts": history if collect_history else {}}
 
 
 def validate_repair_target_paths(lake_root: Path, asset_key: str, target_paths) -> None:
@@ -538,11 +580,12 @@ def validate_repair_target_paths(lake_root: Path, asset_key: str, target_paths) 
 
 def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
                                source_rows, anchors, endpoints, input_stats,
-                               target_paths, units, writer_guard, partition_validation, cancel=None, progress=None) -> dict:
-    """Freeze only a complete, idle, unchanged plan; never touch formal data.
+                               target_paths, units, partition_validation, cancel=None, progress=None,
+                               preparation=None) -> dict:
+    """Freeze a complete unchanged plan under the CLI-owned repair lock.
 
-    writer_guard is a required runtime read-only assertion supplied by the
-    execution adapter. Passing a human confirmation alone is insufficient.
+    This closed-market repair uses the operator-confirmed stable inputs.
+    Actual writer admission belongs to promotion, without a clock deadline.
     """
     import shutil
     import uuid
@@ -552,9 +595,7 @@ def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
         run_id = str(uuid.UUID(run_root.name.removeprefix("run_id=")))
     except ValueError as error:
         raise FactorRepairError("repair_run_id_invalid") from error
-    if not callable(writer_guard):
-        raise FactorRepairError("repair_writer_guard_required")
-    if run_root.exists():
+    if run_root.exists() and preparation is None:
         raise FactorRepairError("repair_freeze_target_conflict")
     if len(scopes) != 25 or {s.ts_code for s in scopes} != {r[0] for r in APPROVED_FACTOR_RANGES}:
         raise FactorRepairError("factor_scope_not_approved")
@@ -579,6 +620,8 @@ def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
     stats = {str(Path(p)): (size, mtime) for p, size, mtime in input_stats}
     if len(stats) != len(input_stats) or expected_targets - set(stats):
         raise FactorRepairError("repair_input_inventory_incomplete")
+    if any(not check_repair_path(Path(p)).is_relative_to(lake_root) for p in stats):
+        raise FactorRepairError("repair_input_not_approved")
     for unit in units:
         validate_repair_target_paths(lake_root, unit["asset_key"], unit["target_paths"])
         if (unit["asset_key"] not in approved_repair_asset_keys()
@@ -590,11 +633,14 @@ def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
         raise FactorRepairError("repair_unit_inventory_incomplete")
     if {u["asset_key"] for u in units} != set(approved_repair_asset_keys()):
         raise FactorRepairError("repair_unit_assets_incomplete")
-    writer_guard()
     identities = []
     for number, (path, observed) in enumerate(sorted(stats.items()), 1):
         check_repair_cancel(cancel)
-        identity = file_identity(Path(path), cancel=cancel)
+        saved = (preparation or {}).get("identities", {}).get(path)
+        identity = FileIdentity(**saved) if saved else file_identity(Path(path), cancel=cancel)
+        current = Path(path).stat()
+        if (current.st_size, current.st_mtime_ns) != (identity.size, identity.mtime_ns):
+            raise FactorRepairError("input_drift")
         if (identity.size, identity.mtime_ns) != observed:
             raise FactorRepairError("input_drift")
         identities.append(asdict(identity))
@@ -608,19 +654,48 @@ def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
     # Conservative existing full-file volume; actual candidates retain their own cap.
     if target_bytes > budget.max_candidate_bytes:
         raise FactorRepairError("repair_candidate_estimate_exceeded")
-    required = (target_bytes + sum(s for s, _ in stats.values()) + budget.max_spill) * 6 // 5
+    # Read-only input bytes are not copied into staging. Reserve actual outputs,
+    # scoped projections/fragments, metadata and computational spill instead.
+    projected = (preparation or {}).get("projection_estimate_bytes", target_bytes)
+    metadata = (preparation or {}).get("metadata_estimate_bytes", 0)
+    required = ((target_bytes + projected + metadata + budget.max_spill) * 6 + 4) // 5
     if shutil.disk_usage(staging).free < required:
         raise FactorRepairError("repair_space_insufficient")
     implementation_files = repair_implementation_files()
-    implementation = [asdict(file_identity(p, cancel=cancel)) for p in implementation_files]
-    plan = {"kind": "stock_adj_factor_history_repair", "version": 1,
+    saved_implementation = {i["path"]: i for i in (preparation or {}).get("implementation", [])}
+    implementation = []
+    for path in implementation_files:
+        check_repair_cancel(cancel)
+        saved = saved_implementation.get(str(path))
+        if saved is not None:
+            observed = check_repair_path(path).stat()
+            if (observed.st_size, observed.st_mtime_ns) != (saved["size"], saved["mtime_ns"]):
+                raise FactorRepairError("repair_implementation_drift")
+            implementation.append(saved)
+        else:
+            implementation.append(asdict(file_identity(path, cancel=cancel)))
+    dependency, validation = repair_scope_contract(scopes, units, identities)
+    binding = {"version": 2, "run_id": run_id, "source_hash": repair_hash(source),
+               "dependency_hash": repair_hash(dependency), "implementation_hash": repair_hash(implementation),
+               "artifacts": (preparation or {}).get("artifacts", [])}
+    if preparation is not None:
+        if (preparation.get("run_id") != run_id or preparation.get("version") != 2
+                or preparation.get("source_hash") != binding["source_hash"]
+                or preparation.get("implementation_hash") != binding["implementation_hash"]):
+            raise FactorRepairError("repair_preparation_binding_invalid")
+        binding["preparation_hash"] = repair_hash(preparation)
+    else:
+        binding["preparation_hash"] = repair_hash([binding, identities])
+    plan = {"kind": "stock_adj_factor_history_repair", "version": 2,
             "run_id": run_id, "lake_root": str(lake_root), "run_root": str(run_root),
             "scopes": [asdict(s) for s in scopes], "budget": asdict(budget),
             "source_rows": source, "source_hash": repair_hash(source), "anchors": anchors,
             "endpoints": [asdict(e) for e in endpoints], "source_fingerprints": identities,
             "target_preimages": [i for i in identities if i["path"] in expected_targets],
             "units": units, "implementation_fingerprints": implementation, "space_required_bytes": required,
-            "target_inventory_bytes": target_bytes, "partition_validation": partition_validation}
+            "target_inventory_bytes": target_bytes, "partition_validation": partition_validation,
+            "dependency_scope": dependency, "validation_scope": validation,
+            "preparation_binding": binding}
     # Size admission happens before creating any run files, using the same JSON encoding.
     estimate = {**plan,"plan_hash":"0"*64}
     size = 1
@@ -630,7 +705,6 @@ def freeze_stock_factor_repair(*, lake_root: Path, run_root: Path, scopes,
             raise FactorRepairError("repair_plan_size_exceeded")
     plan["plan_hash"] = repair_hash(plan)
     validate_repair_plan(plan, plan["plan_hash"])
-    writer_guard()
     for identity in identities:
         st = Path(identity["path"]).stat()
         if (st.st_size, st.st_mtime_ns) != (identity["size"], identity["mtime_ns"]):
@@ -780,7 +854,7 @@ def inspect_repair_writers(definitions, instance, *, input_paths, lake_root: Pat
             active.append({"run_id": run.run_id, "job_name": name, "status": run.status.value})
     return {"writer_jobs": sorted(jobs), "writer_sensors": sorted(sensors),
             "writer_schedules": sorted(schedules), "enabled_triggers": enabled,
-            "active_runs": active, "idle": not enabled and not active}
+            "active_runs": active, "idle": not active}
 
 
 def repair_units_from_inspection(inspection: dict, *, lake_root: Path) -> tuple[dict, ...]:
@@ -863,6 +937,8 @@ def repair_implementation_files() -> tuple[Path, ...]:
         "bootstrap/stock_adj_factor_history_repair_execution.py",
         "bootstrap/stock_adj_factor_history_repair_runtime.py",
         "bootstrap/stock_adj_factor_history_repair_indicators.py",
+        "bootstrap/stock_adj_factor_history_repair_planning.py",
+        "bootstrap/stock_adj_factor_history_repair_promotion.py",
         "stk_mins_qfq_macd_kdj_rules.py", "checks/stk_mins_qfq_macd_kdj_checks.py",
         "qfq_nineturn_integrity.py", "nineturn_formula.py", "run_contracts/qfq_nineturn.py",
         "bootstrap/stk_mins_qfq_derived_history.py", "stock_factor_price_checks.py",

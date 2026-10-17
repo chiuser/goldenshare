@@ -30,7 +30,7 @@ from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
 )
 
 _ACTIVE = ContextVar("stock_factor_repair_runtime", default=None)
-PROOF_VERSION = 1
+PROOF_VERSION = 2
 
 
 class RepairRuntime:
@@ -100,6 +100,15 @@ class RepairRuntime:
                 hashlib.sha256(Path(p).relative_to(self.lake_root).as_posix().encode()).hexdigest() + ".json"
                 for p in self.targets})
             return Path(clean).name in allowed and len(Path(clean).parts) == 3
+        if clean.startswith("checkpoints/promotions/"):
+            allowed = self.once("promotion_names", lambda: {
+                hashlib.sha256(Path(p).relative_to(self.lake_root).as_posix().encode()).hexdigest() + ".json"
+                for p in self.targets})
+            return len(Path(clean).parts) == 3 and Path(clean).name in allowed
+        if clean.startswith("checkpoints/preparation/"):
+            return clean in self.plan.get("preparation_binding", {}).get("artifacts", ())
+        if clean in {"reports/promotion_manifest.csv", "reports/failures.csv"}:
+            return True
         if clean.startswith("candidates/"):
             target = self.lake_root / clean.removeprefix("candidates/")
             if str(target) not in self.targets:
@@ -185,7 +194,7 @@ class RepairRuntime:
                             "tasks": record.get("replay_tasks", []),
                             "business": record.get("business_validation")})
 
-    def restore_binding(self, record, *, transfer=False):
+    def restore_binding(self, record, *, transfer=False, restore_inputs=True):
         """A sealed proof binds stable originals; verify outputs, not originals again."""
         proof = record.get("transfer_proof" if transfer else "business_proof")
         if (not isinstance(proof, dict) or type(proof.get("version")) is not int or proof.get("version") != PROOF_VERSION
@@ -213,6 +222,10 @@ class RepairRuntime:
             expected = self.sources.get(name)
             if expected is None:
                 raise FactorRepairError("repair_input_not_frozen")
+            if not restore_inputs:
+                # Promotion locates actual outputs, including already-renamed
+                # targets. A frozen preimage must not enter its identity cache.
+                continue
             if self.admitted:
                 self.identities.setdefault(name, FileIdentity(**expected))
             else:
@@ -299,10 +312,11 @@ def _atomic_runtime_json(path, payload):
 class RepairStorageLedger:
     """One run census, then local before/after accounting and durable reservations."""
 
-    def __init__(self, root, *, scan, plan=None):
+    def __init__(self, root, *, scan, plan=None, promotion_only=False):
         self.root = check_repair_path(Path(root))
         self.plan = plan or {}
         self.scan = scan
+        self.promotion_only = promotion_only
         self.counts = None
         self.pending = None
         checkpoint = self.root / "checkpoint.json"
@@ -363,8 +377,10 @@ class RepairStorageLedger:
                 or self.counts["spill_bytes"] > budget.max_spill
                 or candidate and self.counts["candidate_bytes"] + reserve_bytes > budget.max_candidate_bytes):
             raise FactorRepairError("repair_storage_budget_exceeded")
-        remaining = max(0, self.plan.get("space_required_bytes", 0) - self.snapshot()["staging_bytes"])
-        required = max(remaining, (reserve_bytes + max(0, budget.max_spill - self.counts["spill_bytes"])) * 6 // 5)
+        promotion = getattr(self, "promotion_only", False)
+        remaining = 0 if promotion else max(0, self.plan.get("space_required_bytes", 0) - self.snapshot()["staging_bytes"])
+        spill = 0 if promotion else max(0, budget.max_spill - self.counts["spill_bytes"])
+        required = max(remaining, ((reserve_bytes + spill) * 6 + 4) // 5)
         if shutil.disk_usage(self.root).free < required:
             raise FactorRepairError("repair_space_insufficient")
         return self.snapshot()
@@ -376,9 +392,8 @@ class RepairStorageLedger:
 
     def persist(self, summary=None):
         checkpoint = self.root / "checkpoint.json"
-        if summary is None:
-            summary = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
-        _atomic_runtime_json(checkpoint, {**summary, "storage_accounting": self.payload()})
+        previous = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
+        _atomic_runtime_json(checkpoint, {**previous, **(summary or {}), "storage_accounting": self.payload()})
 
     @contextmanager
     def writing(self, path, *, reserve_bytes=0, candidate=False, temporary=None):
@@ -488,7 +503,7 @@ def write_runtime_candidate_record(run_root, record):
 
     target_id = hashlib.sha256(record["target_relative_path"].encode()).hexdigest()
     path = Path(run_root) / "checkpoints/candidates" / f"{target_id}.json"
-    write_repair_json(path, {"format_version": 1, **record})
+    write_repair_json(path, {"format_version": 2, **record})
     runtime = current_repair_runtime()
     if runtime is not None:
         runtime.records.pop(str(runtime.lake_root / record["target_relative_path"]), None)

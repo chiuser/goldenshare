@@ -322,7 +322,7 @@ def read_repair_candidate_record(plan, target: Path) -> dict:
     preimage = runtime.preimages.get(str(target))
     unit = runtime.targets.get(str(target))
     owner = unit["asset_key"] if unit else None
-    if (record.get("asset_key") != owner or record.get("unit_id") != repair_hash([plan["plan_hash"],owner,str(target)])
+    if (record.get("format_version") != 2 or record.get("asset_key") != owner or record.get("unit_id") != repair_hash([plan["plan_hash"],owner,str(target)])
         or any(type(record.get(k)) is not int or record[k] < 0 for k in ("original_rows","replacement_rows","changed_stock_rows","candidate_rows","candidate_bytes"))
         or record.get("candidate_rows") != record.get("original_rows")
         or record.get("changed_stock_rows",0) > record.get("replacement_rows",0)
@@ -663,7 +663,9 @@ def validate_repair_business_file(connection, plan, target, output, selected, in
     """Same pure production rules plus the transfer integrity of this approved scope."""
     from orchestrator.defs import paths
     from orchestrator.defs.stock_factor_price_checks import (
-        audit_adj_factor_candidate_rules,
+        ADJ_FACTOR_INVALID_VALUE_PREDICATE,
+        adj_factor_duplicate_keys_sql,
+        adj_factor_partition_mismatch_predicate,
         daily_qfq_contract_rule_counts,
         minute_qfq_counts_sql,
         minute_qfq_identity_coverage_counts_sql,
@@ -671,10 +673,39 @@ def validate_repair_business_file(connection, plan, target, output, selected, in
     assert_repair_schema(connection, output, schema)
     asset = next(u["asset_key"] for u in plan["units"] if str(target) in u["target_paths"])
     if asset in PRICE_REPAIR_ASSETS[:2]:
-        counts = audit_adj_factor_candidate_rules(connection, output, selected["day"],
-            raw=asset == "raw_tushare_adj_factor", lifecycle_path=inputs.frozen(paths.silver_stock_lifecycle_path(Path(plan["lake_root"]))))
-        if counts["rows"] <= 0 or any(v for k, v in counts.items() if k != "rows"):
+        raw = asset == "raw_tushare_adj_factor"
+        day = selected["day"]
+        relation = read_parquet(output, hive_partitioning=False)
+        # File-local structural rules still cover the complete file. Only lifecycle
+        # and expected membership are repair scoped; retained rows were proved above.
+        counts = connection.execute(f"""SELECT count(*),
+            count(*) FILTER(WHERE {adj_factor_partition_mismatch_predicate(day, raw=raw)}),
+            count(*) FILTER(WHERE {ADJ_FACTOR_INVALID_VALUE_PREDICATE}),
+            (SELECT count(*) FROM ({adj_factor_duplicate_keys_sql(output)})) FROM {relation}""").fetchone()
+        if counts[0] <= 0 or any(counts[1:]):
             raise FactorRepairError("repair_factor_contract_failed")
+        if not raw:
+            from orchestrator.defs.duckdb_sql import (
+                adj_factor_current_listed_stock_select,
+                duckdb_string,
+            )
+            codes = sorted({r["ts_code"] for r in plan["source_rows"]
+                            if r["trade_date"] == day.replace("-", "")})
+            values = ",".join(f"({duckdb_string(code)})" for code in codes)
+            lifecycle = adj_factor_current_listed_stock_select(
+                inputs.frozen(paths.silver_stock_lifecycle_path(Path(plan["lake_root"]))))
+            counts = connection.execute(f"""WITH approved(ts_code) AS (VALUES {values}),
+                lifecycle AS (SELECT l.* FROM ({lifecycle}) l JOIN approved USING(ts_code)),
+                actual AS (SELECT b.* FROM {relation} b JOIN approved USING(ts_code)),
+                expected AS (SELECT ts_code FROM lifecycle WHERE list_date<=DATE '{day}'
+                  AND (delist_date IS NULL OR delist_date>DATE '{day}'))
+                SELECT (SELECT count(*) FROM actual a LEFT JOIN lifecycle l USING(ts_code)
+                    WHERE l.ts_code IS NULL OR a.trade_date<l.list_date
+                    OR (l.delist_date IS NOT NULL AND a.trade_date>=l.delist_date)),
+                (SELECT count(*) FROM (SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual)),
+                (SELECT count(*) FROM (SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM expected))""").fetchone()
+            if any(counts):
+                raise FactorRepairError("repair_factor_contract_failed")
     elif selected["freq"] is None:
         if any(daily_qfq_contract_rule_counts(connection, output, selected["day"]).values()):
             raise FactorRepairError("repair_daily_contract_failed")
@@ -728,7 +759,7 @@ def build_repair_target_candidate(connection, plan, unit, target, *, cancel=None
         preimage = runtime.preimages[str(target)]
         if record["preimage_sha256"] != preimage["sha256"]:
             raise FactorRepairError("target_drift")
-        complete = {"format_version": 1, **record,
+        complete = {"format_version": 2, **record,
                     "input_paths": sorted(inputs.verified), "overlay_hashes": dict(inputs.overlays),
                     "max_source_amount_abs_difference": selected.get("max_source_amount_abs_difference", 0)}
         for key in ("record_hash", "transfer_hash", "transfer_proof", "commit_pending", "business_proof"):

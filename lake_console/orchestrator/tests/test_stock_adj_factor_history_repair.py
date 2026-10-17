@@ -435,7 +435,7 @@ def freeze_case(tmp_path, monkeypatch, repair_endpoints):
     target = Path(targets[0])
     args = {"lake_root": lake, "run_root": staging / "stock_adj_factor_history_repair" / f"run_id={uuid4()}",
             "scopes": all_scopes, "source_rows": source, "anchors": anchors, "endpoints": endpoints,
-            "input_stats": stats, "target_paths": targets, "units": units, "writer_guard": lambda: None,
+            "input_stats": stats, "target_paths": targets, "units": units,
             "partition_validation":{"partition_set":"cn_a_stock_current_trade_days","checked_on":"2026-10-14",
                 "registered_keys":sorted({f"{r['trade_date'][:4]}-{r['trade_date'][4:6]}-{r['trade_date'][6:]}" for r in source})}}
     complete_indicator_contract(args)
@@ -522,9 +522,8 @@ def test_freeze_hash_and_inputs_are_complete_without_formal_write(freeze_case):
     )
     args, target = freeze_case
     before = file_identity(target)
-    guarded = []
-    plan = freeze_stock_factor_repair(**{**args, "writer_guard": lambda: guarded.append(True)})
-    assert len(guarded) == 2
+    plan = freeze_stock_factor_repair(**args)
+    assert "maintenance_window" not in plan
     assert len(plan["source_rows"]) == 2489
     assert len(plan["endpoints"]) == 725
     assert (args["run_root"] / "plan.json").is_file()
@@ -534,16 +533,14 @@ def test_freeze_hash_and_inputs_are_complete_without_formal_write(freeze_case):
         freeze_stock_factor_repair(**args)
 
 
-@pytest.mark.parametrize("failure", ["writer", "drift", "source", "anchors", "endpoints", "units", "cancel"])
+@pytest.mark.parametrize("failure", ["drift", "source", "anchors", "endpoints", "units", "cancel"])
 def test_freeze_rejects_incomplete_or_changed_facts_without_creating_run(freeze_case, failure):
     from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
         freeze_stock_factor_repair,
     )
 
     args, target = freeze_case
-    if failure == "writer":
-        args["writer_guard"] = lambda: (_ for _ in ()).throw(FactorRepairError("writers_not_idle"))
-    elif failure == "drift":
+    if failure == "drift":
         target.write_bytes(b"external legitimate change")
     elif failure == "source":
         args["source_rows"] = args["source_rows"][:-1]
@@ -607,6 +604,10 @@ def test_exact_seed_uses_context_and_never_earlier_state(tmp_path):
 
 def test_writer_guard_distinguishes_enabled_trigger_and_unrelated_job(tmp_path):
     import dagster as dg
+    from dagster._core.remote_origin import (
+        RegisteredCodeLocationOrigin,
+        RemoteRepositoryOrigin,
+    )
 
     from orchestrator.defs.bootstrap.stock_adj_factor_history_repair import (
         inspect_repair_writers,
@@ -624,11 +625,20 @@ def test_writer_guard_distinguishes_enabled_trigger_and_unrelated_job(tmp_path):
     instance = SimpleNamespace(all_instigator_state=list, get_runs=lambda **kwargs: [])
     args = {"input_paths": [str(silver_stock_daily_path(tmp_path, "2026-10-13"))], "lake_root": tmp_path}
     observed = inspect_repair_writers(definitions, instance, **args)
-    assert not observed["idle"]
+    # Approved closed-market policy: RUNNING is not an actual conflicting run.
+    assert observed["idle"]
     assert observed["enabled_triggers"] == [sensor.name]
     assert "other_writer" not in observed["writer_jobs"]
     instance.all_instigator_state = lambda: [SimpleNamespace(name=sensor.name, status=SimpleNamespace(value="STOPPED"))]
     assert inspect_repair_writers(definitions, instance, **args)["idle"]
+    origin = RemoteRepositoryOrigin(RegisteredCodeLocationOrigin("isolated-repair"), "test_repo").get_job_origin("stock_writer")
+    instance.get_runs = lambda **kwargs: ([dg.DagsterRun(run_id="actual-related-run",
+        job_name="stock_writer", status=dg.DagsterRunStatus.QUEUED, remote_job_origin=origin)]
+        if kwargs["filters"].job_name == "stock_writer" else [])
+    observed = inspect_repair_writers(definitions, instance, **args)
+    assert not observed["idle"]
+    assert observed["active_runs"] == [{"run_id": "actual-related-run",
+        "job_name": "stock_writer", "status": "QUEUED"}]
 
 
 def test_cli_rejects_freeze_without_maintenance_and_inspect_write_flags():
@@ -740,7 +750,7 @@ def test_complete_r1_plan_rejects_rehashed_omissions(freeze_case,fault):
 
 def test_independent_silver_predecessor_does_not_depend_on_gold(tmp_path):
     from orchestrator.defs import paths
-    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli import (
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_planning import (
         inspect_repair_daily_source_dates,
     )
     for d in ("2026-06-25","2026-06-26","2026-06-29"):

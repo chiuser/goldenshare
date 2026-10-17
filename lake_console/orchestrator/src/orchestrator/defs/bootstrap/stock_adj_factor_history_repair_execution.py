@@ -230,75 +230,6 @@ def bounded_repair_copy(connection, query, root, output, *, candidate=False, res
             signal.signal(signal.SIGXFSZ, handler)
 
 
-def audit_price_repair_partition_coverage(connection,plan,unit,targets):
-    """One complete market coverage audit per asset/month, using only frozen file inventory."""
-    from orchestrator.defs import paths
-    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates import (
-        RepairCandidateInputs,
-        repair_target_scope,
-    )
-    from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
-    from orchestrator.defs.stk_mins_qfq import (
-        build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
-        build_canonical_gold_stk_mins_qfq_diagnostics_sql,
-        gold_stk_mins_qfq_source_freq,
-    )
-    from orchestrator.defs.stock_factor_price_checks import (
-        minute_qfq_counts_sql,
-        minute_qfq_identity_coverage_counts_sql,
-    )
-    freq = int(unit["asset_key"].rsplit("_",1)[1][:-1])
-    dates = sorted({d for target in targets for profile in repair_target_scope(plan,unit,Path(target))["profiles"] for d in profile["dates"]})
-    inputs = RepairCandidateInputs(connection,plan)
-    inputs.require_factor_candidates = True
-    root = Path(plan["lake_root"])
-    months = {}
-    for day in dates:
-        months.setdefault(day[:7],[]).append(day)
-    for month,days in months.items():
-        silver = [inputs.frozen(paths.silver_stk_mins_path(root,gold_stk_mins_qfq_source_freq(freq),d)) for d in days]
-        factors = [inputs.resolve(paths.silver_adj_factor_path(root,d)) for d in days]
-        diagnostics = connection.execute(build_canonical_gold_stk_mins_qfq_diagnostics_sql(silver_paths=silver,target_freq=freq,partition_keys=days)).fetchone()
-        if diagnostics[3] <= 0 or diagnostics[4] != diagnostics[5] or diagnostics[6] or diagnostics[7]:
-            raise FactorRepairError("repair_minute_source_incomplete")
-        expected = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(silver_paths=silver,
-            trade_adj_factor_paths=factors,as_of_adj_factor_paths=factors,target_freq=freq,
-            partition_keys=days,match_as_of_by_trade_date=True)
-        connection.execute("CREATE OR REPLACE TEMP TABLE repair_validation_expected AS " + expected)
-        expected_rows = connection.execute("SELECT count(*) FROM repair_validation_expected").fetchone()[0]
-        if expected_rows != diagnostics[5]:
-            raise FactorRepairError("repair_minute_source_coverage_failed")
-        codes = {r[0] for r in connection.execute("SELECT DISTINCT ts_code FROM repair_validation_expected").fetchall()}
-        expected_paths = {str(paths.gold_stk_mins_qfq_path(root,freq,code,month[:4])) for code in codes}
-        if not expected_paths <= set(unit["validation_paths"]):
-            raise FactorRepairError("repair_validation_inventory_incomplete")
-        connection.execute("CREATE OR REPLACE TEMP TABLE repair_validation_actual(ts_code VARCHAR,trade_time TIMESTAMP,exchange VARCHAR,trade_date DATE)")
-        outputs = sorted(expected_paths)
-        for offset in range(0,len(outputs),64):
-            relations = []
-            for name in outputs[offset:offset+64]:
-                target = Path(name)
-                output = inputs.resolve(target)
-                from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_candidates import (
-                    assert_repair_schema,
-                    repair_asset_schema,
-                )
-                assert_repair_schema(connection,output,repair_asset_schema(unit["asset_key"]))
-                relations.append(f"SELECT *,{duckdb_string(target)} filename FROM {read_parquet(output,hive_partitioning=False)}")
-            source = "(" + " UNION ALL ".join(relations) + ")"
-            counts = connection.execute(minute_qfq_counts_sql(gold_source=source,partition_key=days,freq=freq)).fetchone()
-            if any(counts[1:]):
-                raise FactorRepairError("repair_minute_contract_failed")
-            date_filter = ",".join("DATE " + duckdb_string(d) for d in days)
-            connection.execute(f"INSERT INTO repair_validation_actual SELECT ts_code,trade_time,exchange,trade_date FROM {source} WHERE trade_date IN ({date_filter})")
-        if any(connection.execute(minute_qfq_identity_coverage_counts_sql(gold_source="repair_validation_actual",expected_identity_sql="SELECT * FROM repair_validation_expected",partition_key=days)).fetchone()):
-            raise FactorRepairError("repair_minute_source_coverage_failed")
-        for name in inputs.verified:
-            if asdict(file_identity(Path(name))) != inputs.identities[name]:
-                raise FactorRepairError("input_drift")
-        check_repair_storage(Path(plan["run_root"]),plan=plan)
-
-
 def run_repair_candidate_worker(request: dict, *, plan, connection) -> dict:
     """One logical unit inside the admitted phase worker and its shared connection."""
     runtime = current_repair_runtime(plan)
@@ -591,11 +522,19 @@ def execute_repair_candidates(plan_path: Path, expected_hash: str, *, phase: str
                 replay_work.append((-index-1, [task["profile"]["ts_code"] + ":" + task["asset_key"]]))
     root = check_repair_path(runtime.root)
     summary.update(total=len(work), replay_total=len(replay_work))
-    with repair_coordinator_termination_guard(), plan_path.open("rb") as lock, use_repair_runtime(runtime):
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_promotion import (
+        repair_writer_lock,
+        seal_repair_candidate_chain,
+    )
+    with (repair_coordinator_termination_guard(), repair_writer_lock(root) as capability_lock,
+          plan_path.open("rb") as lock, use_repair_runtime(runtime)):
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise FactorRepairError("repair_candidate_writer_busy") from error
+        checkpoint = check_repair_path(root / "checkpoint.json")
+        if checkpoint.exists() and json.loads(checkpoint.read_text()).get("promotion"):
+            raise FactorRepairError("repair_promotion_resume_required")
         try:
             if runtime.storage is None:
                 runtime.storage = RepairStorageLedger(root, scan=repair_storage_totals, plan=plan)
@@ -605,7 +544,8 @@ def execute_repair_candidates(plan_path: Path, expected_hash: str, *, phase: str
             atomic_repair_json(active, {"plan_hash": expected_hash, "batch_id": "init", "completed": 0, "current_target": None})
             command = worker_command or [sys.executable, "-B", "-m", __name__, "_worker"]
             with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, text=True, start_new_session=True, pass_fds=(lock.fileno(),)) as child:
+                    stderr=subprocess.PIPE, text=True, start_new_session=True,
+                    pass_fds=(lock.fileno(), capability_lock.fileno())) as child:
                 runtime.counters["workers"] += 1
                 buffers = {child.stdout.fileno(): bytearray(), child.stderr.fileno(): bytearray()}
                 messages = []
@@ -699,6 +639,10 @@ def execute_repair_candidates(plan_path: Path, expected_hash: str, *, phase: str
             emit()
             atomic_repair_json(root / (f"{phase}-sample-audit.json" if selected_targets is not None else f"{phase}-audit.json"), summary)
             atomic_repair_json(root / "checkpoint.json", summary)
+            if phase == "indicator" and selected_targets is None and not audit:
+                summary["candidate_chain"] = seal_repair_candidate_chain(plan, cancel=cancel)
+                summary["all_chain_ready"] = True
+                atomic_repair_json(root / "checkpoint.json", summary)
         except (Exception, KeyboardInterrupt) as error:
             runtime.storage = None
             summary.update(status="CANCELLED" if isinstance(error, KeyboardInterrupt) or str(error) == "canceled" else "FAILED", reason_code=str(error)[:300])

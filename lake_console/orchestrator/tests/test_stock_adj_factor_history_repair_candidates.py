@@ -136,7 +136,11 @@ def price_plan(freeze_case, request):
             for code in market_codes:
                 for year in years:
                     p=paths.gold_stk_mins_qfq_path(root,freq,code,year);p.parent.mkdir(parents=True,exist_ok=True)
-                    c.execute(copy_query_to_parquet(f"SELECT * FROM all_bars WHERE ts_code='{code}' AND strftime(trade_date,'%Y')='{year}'",p));inputs.add(p)
+                    c.execute(copy_query_to_parquet(f"SELECT * FROM all_bars WHERE ts_code='{code}' AND strftime(trade_date,'%Y')='{year}'",p))
+                    # The control file remains physically present as an unrelated
+                    # inventory sentinel. v2 never freezes/hashes that stock/year.
+                    if code in codes:
+                        inputs.add(p)
         for unit in args["units"]:
             asset=unit["asset_key"]
             daily=asset=='gold_stock_daily_qfq'
@@ -157,7 +161,7 @@ def price_plan(freeze_case, request):
                 args["endpoints"][index]=replace(args["endpoints"][index],calculation_start_date=first,end_time=end,expected_dates=tuple(observed),calculation_rows=sum(n for d,n in profile["trade_date_rows"]))
                 unit["target_paths"].extend(str(paths.gold_stock_daily_qfq_path(root,d) if daily else paths.gold_stk_mins_qfq_path(root,freq,scope.ts_code,d[:4])) for d in profile["target_dates"])
             unit["target_paths"]=sorted(set(unit["target_paths"]))
-            unit["validation_paths"]=[] if daily else sorted(str(paths.gold_stk_mins_qfq_path(root,freq,code,y)) for code in market_codes for y in sorted({d[:4] for d in minute_days}))
+            unit["validation_paths"]=[] if daily else sorted(str(paths.gold_stk_mins_qfq_path(root,freq,code,y)) for code in codes for y in sorted({d[:4] for d in minute_days}))
     args["target_paths"]=sorted({p for u in args["units"] for p in u["target_paths"]})
     inputs.update(Path(p) for p in args["target_paths"])
     args["input_stats"]=[(str(p),p.stat().st_size,p.stat().st_mtime_ns) for p in sorted(inputs)]
@@ -393,7 +397,7 @@ def refreeze_test_price_plan(plan):
         source_rows=plan['source_rows'],anchors=plan['anchors'],
         endpoints=[AssetRepairEndpoint(**{**e,'expected_dates':tuple(e['expected_dates']),'context_times':tuple(e['context_times'])}) for e in plan['endpoints']],
         input_stats=[(i['path'],Path(i['path']).stat().st_size,Path(i['path']).stat().st_mtime_ns) for i in plan['source_fingerprints']],
-        target_paths=[i['path'] for i in plan['target_preimages']],units=plan['units'],writer_guard=lambda:None,
+        target_paths=[i['path'] for i in plan['target_preimages']],units=plan['units'],
         partition_validation=plan['partition_validation'])
 
 
@@ -431,10 +435,12 @@ def test_scope_omission_is_rejected_before_build_or_replay(price_plan,candidate_
     assert file_identity(target)==before
 
 
-def test_full_coverage_rejects_untargeted_exchange_without_repair(price_plan,candidate_connection):
-    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_execution import (
-        audit_price_repair_partition_coverage,
-    )
+def test_unrelated_annual_data_is_not_read_or_repaired(price_plan,candidate_connection):
+    """Approved v2 scope excludes a pre-existing defect in a different stock.
+
+    Candidate retained-row damage remains covered by preservation/EXCEPT tests.
+    This deliberately invalid outside row must not expand repair dependencies.
+    """
     from orchestrator.defs.duckdb_sql import read_parquet
     c=candidate_connection;root=Path(price_plan['lake_root'])
     other=paths.gold_stk_mins_qfq_path(root,1,'000001.SZ','2026')
@@ -443,9 +449,9 @@ def test_full_coverage_rejects_untargeted_exchange_without_repair(price_plan,can
     plan=refreeze_test_price_plan(price_plan);before=file_identity(other)
     build_factor_day(c,plan)
     unit=unit_for(plan,'gold_stk_mins_qfq_1m');target=paths.gold_stk_mins_qfq_path(root,1,'688689.SH','2026')
-    build_repair_target_candidate(c,plan,unit,target)
-    with pytest.raises(FactorRepairError,match='source_coverage_failed'):
-        audit_price_repair_partition_coverage(c,plan,unit,[target])
+    assert str(other) not in {i['path'] for i in plan['source_fingerprints']}
+    record = build_repair_target_candidate(c,plan,unit,target)
+    assert record['validated'] and str(other) not in record['input_paths']
     assert file_identity(other)==before
     assert not repair_record_path(Path(plan['run_root']),other,root).exists()
 

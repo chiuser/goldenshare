@@ -411,7 +411,6 @@ def indicator_plan(price_plan):
             (str(p), p.stat().st_size, p.stat().st_mtime_ns)
             for p in sorted(input_paths)
         ],
-        "writer_guard": lambda: None,
         "partition_validation": old["partition_validation"],
     }
     return freeze_stock_factor_repair(**args)
@@ -726,3 +725,46 @@ def test_partial_batch_seal_reuses_durable_full_proof_without_business_sql(indic
         seal_indicator_batch(plan, {str(targets[1]): second}, restored)
         assert all(read_repair_candidate_record(plan, target)["validated"] for target in targets)
         assert [file_identity(Path(identity.path)) for identity in identities] == identities
+
+
+def test_scoped_indicator_relations_keep_missing_keys_visible(tmp_path):
+    """Four-column projection contract used by the real MACD coverage predicates.
+
+    Literal bars below test SQL/identity coverage only, not the indicator formula.
+    The separate price/replay goldens remain the formula evidence.
+    """
+    from datetime import date
+
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+        _batch_rows,
+        _repair_indicator_scope,
+    )
+    from orchestrator.defs.stk_mins_qfq_macd_kdj_rules import (
+        macd_kdj_source_coverage_sql,
+    )
+    unit={'calculation_windows':[
+        {'ts_code':'688689.SH','target_dates':['2026-06-29']},
+        {'ts_code':'001331.SZ','target_dates':['2026-06-30']}]}
+    with duckdb.connect() as c:
+        _repair_indicator_scope(c,unit,['2026-06-29'])
+        assert c.execute('SELECT ts_code,day FROM indicator_approved').fetchall()==[('688689.SH',date(2026,6,29))]
+        source=tmp_path/'source.parquet';output=tmp_path/'output.parquet'
+        rows="""SELECT code::VARCHAR ts_code,1::INTEGER freq,DATE '2026-06-29' trade_date,
+            stamp::TIMESTAMP trade_time FROM (VALUES
+            ('688689.SH','2026-06-29 09:30:00'),('688689.SH','2026-06-29 09:31:00'),
+            ('001331.SZ','2026-06-29 09:30:00'),('000001.SZ','2026-06-29 09:30:00')) x(code,stamp)"""
+        c.execute(copy_query_to_parquet(rows,source))
+        _batch_rows(c,'scoped_source',[source],['2026-06-29'],annual=True,
+                    columns='ts_code,freq,trade_date,trade_time',scope_relation='indicator_approved')
+        assert c.execute('SELECT DISTINCT ts_code FROM scoped_source').fetchall()==[('688689.SH',)]
+        c.execute(copy_query_to_parquet("SELECT * FROM ("+rows+") WHERE trade_time=TIMESTAMP '2026-06-29 09:30:00'",output))
+        _batch_rows(c,'scoped_output',[output],['2026-06-29'],annual=True,
+                    columns='ts_code,freq,trade_date,trade_time',scope_relation='indicator_approved')
+        query=macd_kdj_source_coverage_sql(source='scoped_source',indicator='scoped_output',freq=1,dates=['2026-06-29'])
+        # The shared producer explicitly CASTs its first result column to VARCHAR
+        # (stk_mins_qfq_macd_kdj_rules.py), unlike indicator_approved.day above.
+        assert c.execute(query).fetchall()==[('2026-06-29',2,1)]
+        c.execute(copy_query_to_parquet(rows,output))
+        _batch_rows(c,'scoped_output',[output],['2026-06-29'],annual=True,
+                    columns='ts_code,freq,trade_date,trade_time',scope_relation='indicator_approved')
+        assert c.execute(query).fetchall()==[('2026-06-29',2,2)]

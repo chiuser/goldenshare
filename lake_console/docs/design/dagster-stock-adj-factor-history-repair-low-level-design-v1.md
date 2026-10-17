@@ -1,6 +1,6 @@
 # 25股修复LLD v1：R3验收记录与R4正式修复设计
 
-更新：2026-10-18。本次只修订原文档，修复代码及正式执行均未推进。R3提交ddea22236及历史证据保留在§1—§13；R4原设计提交5c420c6d7。现有R4代码部分落地，准备/CLI/协调器尚未完整接线，且含本次撤回的期限门禁，待按§14—§22纠正。93项针对性测试是此前版本的部分证据，不能证明修订后的整体验收或正式修复完成，详见§22.3。正式执行未授权；旧现场/hash不改。专项工具完成后的清退设计见§23，本次不执行清退。
+更新：2026-10-18。修订设计提交cce530e3后，已按授权完成R4代码纠偏、准备/提升/协调器接线及必要隔离验收，去重120项通过，逐项对账见§22.4；源码及本次验收记录尚未提交。正式准备/freeze、真实候选、正式文件替换、事件及工具清退均未执行；旧现场/hash不改。R3提交ddea22236及历史证据保留在§1—§13，R4原设计提交5c420c6d7及旧93项部分开发证据见§22.3，均不替代本轮验收。完成后的工具清退设计见§23。
 
 ## 1. 整改前实现、根因与消费者
 
@@ -243,7 +243,9 @@ CodeGraph已用explore、callers/impact及CLI sync/status核验协调器→worke
 
 R3证明了候选计算和隔离恢复；它没有实现R4正式提升。R4完成文件修复后，DG materialization/check事件仍待R5，不发布serving、不伪造日更job成功、不启停或重置sensor/schedule，不重载定义。不新增配置中心项、业务API、数据集或长期状态服务，不安装依赖、不新建分支/worktree，不引入备份/快照。
 
-### 14.2 已核实代码事实
+### 14.2 本轮开工时核实的代码缺口
+
+下表保留开工断点及其修正位置，不表示这些缺口至今未处理；当前交付结果见§22.4。
 
 | 当前实现 | 核实的缺口 | R4修正落点 |
 | --- | --- | --- |
@@ -267,7 +269,7 @@ R3证明了候选计算和隔离恢复；它没有实现R4正式提升。R4完�
 | 同目录stock_adj_factor_history_repair_cli.py | inspect/freeze接唯一有界planner，promote参数路由；不保留旧全市场准备分支 |
 | 同目录stock_adj_factor_history_repair_planning.py（新增） | prepare_scoped_repair_inputs、_collect_profiles、RepairPreparation.unit/seal的源/文件去重、准备checkpoint及容量汇总；退出window返回和重复guard |
 | 同目录stock_adj_factor_history_repair_promotion.py（新增） | audit_repair_chain_for_promotion、seal_repair_candidate_chain、promote_repair_files及逐文件恢复；删除_check_window/valid_until/执行窗口区块，统一writer_guard；唯一正式写入模块 |
-| 同目录stock_adj_factor_history_repair_execution.py | 新合同准入、专项能力锁接入、准备进度取消复用、完整indicator结束时封存整链证明；提升开始后禁止再build/audit |
+| 同目录stock_adj_factor_history_repair_execution.py | 新合同准入、专项能力锁接入、准备进度取消复用、完整indicator结束时封存整链证明；提升开始后禁止再build/audit；删除无生产调用方的旧全市场覆盖helper，将其直接测试迁移到§15.2的修复范围/保留行语义 |
 | 同目录stock_adj_factor_history_repair_runtime.py | 新版proof/索引及身份复用；checkpoint区块合并；准备/提升产物归属与本run计量；不新增业务公式 |
 | 同目录stock_adj_factor_history_repair_candidates.py | 受影响键/保留行证明接新合同；候选reader保持严格，不把正式恢复强塞到候选半成品恢复 |
 | 同目录stock_adj_factor_history_repair_indicators.py | 准确裁剪跨文件校验关系和声明证明范围，复用原谓词和原kernel，退出全市场价格/指标库存依赖 |
@@ -305,7 +307,7 @@ source_inventory_paths的“完整”指完成本25股逻辑范围所需的源�
 
 若现有正式check包装函数只接收文件路径，专项适配器使用它下层的同版纯SQL规则与准确关系投影，不修改普通check接口。尤其不能把只含25股的lifecycle直接交给检查全文件所有股票的包装器，造成非目标行“身份缺失”，再靠删条件放行；目标关系、lifecycle/source/result/state必须同范围，完整文件的结构和未改行守恒另行保留。该边界须有真实schema小样本反测。
 
-### 15.3 拟新增CLI及保持的行为
+### 15.3 CLI及保持的行为
 
 原inspect/freeze/build/audit及其scope、as-of/end、phase、full/sample参数保留。inspect/freeze的读取范围修正为上述合同；inspect仍不创建run/候选/事件。原--maintenance-confirmed仅表示操作者确认本次动作，freeze仍须显式提供；它不表示期限或数值来源日期。正式流程不先inspect再freeze重复准备；freeze内部完成一次准备并保存成果。新promote仅接完整计划，不支持sample-target或只提升某个phase。不新增--maintenance-until或其他截止参数，不做时区/自动过期/续期实现。
 
@@ -348,7 +350,7 @@ source查询、文件批次、SQL和写准备记录前后检查取消。复用�
 
 freeze允许本run已经存在自己的合法准备记录，但拒绝已有不同plan、未知目录或无对应plan的候选/正式提交痕迹。冻结前合并成功单元一次，验证25股/31资产/输入闭包/目标唯一归属及原预算，原子生成唯一plan.json。不得先造能执行的残缺plan再补字段。
 
-若plan已原子冻结但命令在返回前中断，重进相同run/request/实现时只读校验并返回原plan/hash，不再规划、请求源或重写计划。若此run已开始正式提升，返回实际状态并引导promote恢复，不能清空、重新freeze或回到build。不同请求/实现仍拒绝。
+若plan已原子冻结但命令在返回前中断，重进相同run/request/实现时只读校验并返回原plan/hash，不再规划、请求源或重写计划。恢复入口读取已有JSON前同样先检查原192MiB计划额度，不能先解析再进入加载器检查；不新增额度或配置。若此run已开始正式提升，返回实际状态并引导promote恢复，不能清空、重新freeze或回到build。不同请求/实现仍拒绝。
 
 源/原件强身份按唯一文件首次建立一次；同版准备中已有完整强证据且stat版本仍一致时可复用，不能只信存在或mtime。plan绑定这些真实身份和准备摘要。运行内/后续阶段在已确认的稳定前提下，凭同一文件版本及plan绑定复用已核身份，不能freeze已hash一遍，worker又把同一输入全部hash一遍。真正首次使用且没有强证据的文件仍校验一次；复用的输出在重启时按对应范围验证，不hash未使用的潜在库存。
 
@@ -438,7 +440,9 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 6. 结算候选/staging实际减少的字节，保存COMMITTED及读回证据。若此时状态写失败，不回滚文件、不重新COPY；如实停止并从PREPARED恢复。
 7. 发出真实进度，包含阶段、asset/路径、已提交/跳过/剩余数量、实际字节、最后更新时间和已耗时。只有文件持久化并登记后才增加完成量；取消到达原子替换临界段时先完成本文件状态收尾，再退出，不领取下一个。
 
-移动发生在同一文件系统，正式文件内容来自原已验收候选。对已提交的下游依赖，_promotion的只读定位器使用其正式目标作为同一输出hash的所在地；不能再调用要求候选仍在staging的旧reader来判错，也不能把这个定位器用于候选计算、回退到未修原件或绕过proof。源码/plan不匹配仍停止，不能改实现hash续跑。
+移动发生在同一文件系统，正式文件内容来自原已验收候选。对已提交的下游依赖，_promotion的只读定位器使用其正式目标作为同一输出hash的所在地；不能再调用要求候选仍在staging的旧reader来判错，也不能把这个定位器用于候选计算、回退到未修原件或绕过proof。具体为_read_record调用runtime.restore_binding时只核证明与依赖归属、不向身份缓存恢复旧preimage；_output_location再读取实际位置的强身份，避免把已提交的新文件误判为旧文件。普通候选reader仍保留原有严格行为。源码/plan不匹配仍停止，不能改实现hash续跑。
+
+提升准入读取计划及输出身份时复用既有取消/进度回调，进度报告真实已核目标数和hash读取字节，遵守原≤30秒门禁，不将“还在hash”计为正式提交。预检、逐文件提交和收尾共用本次身份缓存，不新增扫描或心跳状态。
 
 ## 19. 取消、崩溃及恢复状态表
 
@@ -465,6 +469,8 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 
 完成后的重复promote只读本plan及逐文件提交证据并返回幂等完成；不重新执行业务SQL、kernel、COPY或os.replace，不重新取源。数据丢失/真实损坏如实失败，不能把幂等误写成无条件返回成功。
 
+“全部完成”包括收尾报告和总checkpoint完成。如果各文件已经COMMITTED但报告/总完成记录写入失败，续跑只补本run报告和完成记录，不再写正式文件、不查询实际写者；只有报告和总记录也完成后才走完全只读的幂等返回。已声明完成却缺失必要报告视为真实证据缺失并报告，不能静默成功。
+
 ## 20. 一次收尾、性能模型与拒绝策略
 
 ### 20.1 正式文件收尾
@@ -472,6 +478,8 @@ runtime.owns_artifact必须按plan目标派生这些路径，并登记合法的�
 逐文件身份读回已经在提交时完成。最终一次收尾将冻结目标集合与COMMITTED/SKIPPED集合做集合对账，确认覆盖、唯一归属、正式路径/输出身份及实际变更数量；检查失败/未完成为0，再汇总已有读回及候选业务/保留行证据。正常流程不再逐文件重新跑业务SQL、重放公式或第二次整文件hash；只在某条读回缺失/不一致时定位该文件。
 
 生成本run的reports/promotion_manifest.csv与必要的failures.csv：包含asset、目标、状态、旧/新hash、是否实际替换、候选record引用、实际变更行数、批准修改范围、提交/读回时间、reason_code。变更行数和批准范围使用候选阶段已保存的实际事实，不能为导出CSV再扫描行情、重算公式或新做逐行差异计算。无错误时failures可仅含表头；不隐去不一致记录。
+
+逐文件提交失败时，失败明细写本run当前目标、已存在提交状态及原异常，不回滚文件；只使用已有record/已完成条目，不重新查业务数据。若空间、权限或状态写入故障导致明细也无法落盘，保留原异常并附上报告失败原因，从已有PREPARED/COMMITTED事实恢复，不能因补报告覆盖原失败或宣称成功。
 
 本run初次建账、最终归属/计量对账各一次递归扫描；准备/phase切换/预览/轮询/COPY不新增walk。最后一次扫描只覆盖本run产物，已移出的候选由正式提交证据解释，正式Lake不递归扫描。结束报告明确“正式文件已完成、DG事件待R5”，不伪造绿灯，不触发消费者验证job。
 
@@ -547,9 +555,9 @@ D1—D4细化此前前三个主要步骤的代码整改、正式替换能力和�
 
 正式准备/候选与正式提升可分别授权；执行单须明确本次获准停在哪一步。未知实际文件数和耗时在准备完成后报告，不引用历史13,005/15,743或夹具1,778为本次事实。所有新意外先停下来定位，不用恢复/验收名义扩大数据读取或写入。
 
-### 22.3 当前开发状态及待修代码
+### 22.3 此前部分开发证据与本轮开工断点
 
-管理员已授权前三步，当前代码开发已经开始。此前完成的是方案细化，不能追认成代码修复；当前也没有完成D1—D4全部交付。
+以下保留2026-10-17的部分开发状态及开工前缺口。它们不代表当前交付状态；本轮依D1—D4补齐的结果见§22.4。
 
 | 已落地部分 | 当前证据及实际限度 |
 | --- | --- |
@@ -561,9 +569,32 @@ D1—D4细化此前前三个主要步骤的代码整改、正式替换能力和�
 
 2026-10-17工作版本的scoped-current.xml共92项通过；macd-scoped-recheck.xml单项通过，合计93个不同用例。证据目录为/private/tmp/dg_r4_development_20261017/，版本绑定见其中current-development-evidence.json。早先independent.xml保留18通过、1失败的记录：新增作用域SQL漏写AS导致解析失败；已修正，并先以四列真实SQL投影的小样本验证范围/缺键，再单独复跑原失败MACD用例通过，没有重跑92秒的日线/分钟公式组合用例或25股完整链。旧R3结果仍仅作旧版证据。
 
-此前提出的--maintenance-until、旧SUCCESS/continuity深审和窗口续期方案已撤回，不再列为待确认项或开工卡点。现有代码中的强制maintenance_window、valid_until、execution_window和回调返回对象要求也须按D1/D3删除，不能只删除文档表述。CLI缺少prepare/promote接线、执行器缺少能力锁/全链封存，仍是应完成的真实开发项。
+开工时撤回了--maintenance-until、旧SUCCESS/continuity深审和窗口续期方案，明确必须删除代码中的强制窗口/回调对象要求，并补齐CLI、能力锁及全链封存。上述内容已在本轮实施，不能将撤回的方案重新列为待确认项或前置卡点。
 
-本次文档修订未修这些代码、未重跑测试，也不提升93项证据的结论。下一轮依D1—D4完成代码与隔离验收后才可判断正式修复是否就绪。正式修复及必要DG登记完成后，再依§23清退专项工具；不在中途中断恢复能力，不重新扫描市场或复审已定范围。
+93项旧证据仍仅支持当时的部分实现，本轮不提升其结论。正式修复及必要DG登记完成后，再依§23清退专项工具；不在中途中断恢复能力，不重新扫描市场或复审已定范围。
+
+### 22.4 本轮开发、隔离验收与逐条对账（2026-10-18）
+
+| 已确认要求 | 实现位置 | 正向及反向证据 | 结果 |
+| --- | --- | --- | --- |
+| 仅25股/31资产，依赖有界，原范围/公式不变 | 合同v2、_planning及_candidates/_indicators的修复关系 | scope/旧版本/重hash扩围拒绝；无关年度哨兵不读；真实日线候选控制股保持；独立MACD首根字面结果、范围关系2条源/1条结果仍拒绝 | 通过，未正式生成31资产真实候选 |
+| 删除期限和重复调度审查 | .py、_planning、_cli、_promotion | 无maintenance_window/valid_until/execution_window/window_guard生产引用；CLI拒绝未批准截止参数；RUNNING允许，真实QUEUED任务拒绝；实际提升每次只核一轮，dry-run/全完成0轮 | 通过，无sensor/cursor写入 |
+| 准备/freeze接线、成功单元复用及原计划预算 | _cli._freeze、prepare_scoped_repair_inputs、RepairPreparation、freeze | 真实CLI接准备和冻结；替身仅代源及SQL元数据。50次基础源调用，注入中断后总51次、首股2次不重下，已冻结重入0新增请求/0分区重读；锁从准备持有至落plan；超192MiB先拒绝、不读JSON；已进入提升时返回实际PROMOTING并引导promote，不误报仍是新冻结 | 通过，网络真实请求0 |
+| 候选锁、全链封存与禁止错误阶段重入 | execute_repair_candidates、seal_repair_candidate_chain | 实际协调器/子进程配元数据协议替身，完整phase接通封存、缺price拒绝；同plan锁互斥；单phase/sample不冒充全链；已有promotion后不能回build/audit | 通过，元数据测试不宣称公式全链验收 |
+| 原子替换、取消/崩溃后只续剩余 | _promotion及runtime.restore_binding的正式定位分支 | 真实临时Parquet生产者→提交器、独立价格及保留行；rename后异常、登记失败、第三种hash拒绝；两文件取消后仅续剩余；proof不向正式恢复缓存注入旧身份；全完成0替换 | 通过，正式Lake写入0 |
+| 状态/报告故障不回滚成果 | _write_reports、正式提交记录及元数据收尾 | 全文件已提交、报告失败后只补报告/总记录，不查写者/不改文件；提交失败CSV区分ATTEMPT_FAILED与实际checkpoint状态，保留原异常 | 通过 |
+| 本任务进程退出及锁释放 | _execution父监护、继承的plan/能力锁 | 真实子进程取消、checkpoint失败后续跑；TERM/KILL父退出后worker及本任务孙进程退出、锁释放 | 通过，只处理隔离任务进程 |
+| 非必要不重复、没有正式操作 | 唯一planner、范围proof、缓存、增量计量、已完成分支 | 退出旧全市场覆盖helper及其旧消费者；准备/完成结果不重请求/SQL/COPY；预算/空间反例保留；本轮无全局数据扫描、正式网络请求、Lake/staging/instance写入或调度操作 | 通过 |
+
+证据目录：/private/tmp/dg_r4_completion_20261018/，汇总acceptance.json包含120个去重通过用例、各自JUnit来源及34文件实现指纹。final-core.xml为105通过；final-real-producer.xml为4通过；final-process.xml中4通过及2个夹具目录不符失败，后者按其既有/private/tmp合同仅重跑为final-termination.xml的2通过。此前完整执行器回归17通过、候选回归31通过不额外计入本表，旧R3和旧93项亦不混算。
+
+末次只补了同run恢复入口的两点：_planning在读JSON前检查既有计划额度；_cli对已进入提升的run返回实际状态并引导promote。仅重验该入口的两个真实CLI成功/续跑用例及一个稀疏超额反例，最后结果为final-freeze-complete.xml的3通过；最初反例夹具的父目录/临时根设置错误及修正结果均保留。另补最终协调器接封存的2个小用例（final-coordinator-seal.xml）及提升后build/audit均拒绝的2个反例（final-stage-boundary.xml）。按影响面分批重跑，没有再次跑全套或25股完整公式链；具体版本差异在acceptance.json明确记录。
+
+开发中先前失败证据不删除：沙箱禁止ps导致的进程测试失败，以获准本机隔离方式重验；正式恢复旧身份缓存导致的失败在promotion-new-before.xml，修正后取消/续跑及第三种内容拒绝通过。测试中的源/SQL/计划加载替身与真实文件/进程边界分别标明，不能把元数据测试解释为正式输入验收。
+
+本轮源码默认Ruff、致命错误基线和diff检查通过；9份专项测试可正常收集，文档检查另登记于交付。没有安装依赖、建立分支/worktree、重载定义或实施工具清退；其他任务改动保留。CodeGraph已执行impact/callers及修改后的sync/status，影响收敛到8个专项模块、9份直接测试和原两文档，没有跨子系统依赖调整。
+
+**结论：R4代码开发及本轮必要隔离验收完成，无新增待确认的实现障碍。下一步可review §22.2的正式执行单并取得对应授权；正式数据准备、冻结、31资产真实候选及正式替换仍未执行，正式库存/耗时尚未知。** R5必要DG登记和§23工具清退保持后续顺序，不夹带推进。
 
 ## 23. 专项工具清退与证据保留
 
@@ -632,4 +663,4 @@ repair_implementation_files的34文件是计算/校验指纹闭包，不是清�
 | 正式数据及证据 | 变更白名单只有专用源码/测试和原两文档，原执行证据引用保留 | 测试拦截正式路径、instance写入和网络；任何清目录/改旧JSON/hash/事件/sensor操作均不得发生 |
 | 中断与范围 | 白名单内部分改动可继续收尾，无关任务差异保留 | 未知调用方停止并报告；不能为清退重跑bootstrap/修复或清空staging |
 
-本节是任务完成后的退出设计；当前仍在R4开发阶段，本轮只补文档，未删除代码、数据或证据。
+本节是正式修复及必要DG登记完成后的退出设计；R4代码及隔离验收结果见§22.4，正式修复尚未执行，本轮未实施专项工具清退，也未删除数据/执行证据。
