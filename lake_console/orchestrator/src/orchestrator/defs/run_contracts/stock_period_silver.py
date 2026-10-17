@@ -25,6 +25,8 @@ SPECS = tuple(
 FIELDS = tuple(n for n, _ in SPECS)
 COLUMNS = ",".join(f'"{n}"' for n in FIELDS)
 CHECK_KINDS = ("file_contract", "key_partition", "source_projection")
+SENSOR_TICK_SECONDS = 60
+SENSOR_CURSOR_VERSION = 1
 
 
 class StockPeriodSilverConfig(dg.Config):

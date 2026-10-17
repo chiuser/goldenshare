@@ -10,7 +10,10 @@ from orchestrator.defs.run_contracts.configs import (
     StockWeeklyBootstrapEventChecksConfig,
 )
 from orchestrator.defs.run_contracts.stock_period import verify_execution
-from orchestrator.defs.stock_period_update import report_file_events
+from orchestrator.defs.stock_period_update import (
+    report_completion_events,
+    report_file_events,
+)
 
 
 @dg.op(description="按直接源执行receipt补周线物化与检查；不读取旧Prod搬运材料。")
@@ -24,11 +27,13 @@ def report_stock_weekly_bootstrap_checks(
 
     count = 0
 
-    def events(item):
+    def events(item, *, completion):
         nonlocal count
         if item["freq"] != "week":
             return False
-        report_file_events(context.instance, item, context=context)
+        report_file_events(
+            context.instance, item, completion=completion, context=context
+        )
         count += 1
         return True
 
@@ -37,5 +42,10 @@ def report_stock_weekly_bootstrap_checks(
         root=Path(manifest["identity"]["root"]),
         staging=Path(DEFAULT_LAKE_STAGING_ROOT),
         events=events,
+        completion_events=lambda notice: (
+            report_completion_events(context.instance, notice)
+            if notice["freq"] == "week"
+            else None
+        ),
     )
     return {"reported_files": count}

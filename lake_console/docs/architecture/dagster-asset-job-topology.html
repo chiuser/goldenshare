@@ -368,7 +368,7 @@
 
 
     <div class="note" id="period-silver-planned-automation">
-      <strong>周/月Silver自动更新：已确认设计，尚未开发或上线。</strong>
+      <strong>周/月Silver自动更新：代码及隔离验收已完成；尚未正式加载启用。</strong>
       周线计划链为 <code>raw_tushare_stk_period_bar_adj_week</code> 完成通知 →
       <code>silver_stock_weekly_update_job_sensor</code> → <code>silver_stock_weekly_update_job</code>；
       月线为 <code>raw_tushare_stk_period_bar_adj_month</code> 完成通知 →
@@ -377,7 +377,7 @@
       每个tick最多提交一个本频率批次，覆盖通知中全部实际变化周期；周线Raw任务引起的历史月线变化也交给月线链处理。
       原Raw sensor的状态、水位和19:30窗口保留，不新增分区sensor或调度入口。
       完整合同及正反验收见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6—11.8</a>。
-      本轮只补文档，两个新sensor不计入当前活动拓扑；等待管理员再次确认后才能开发，正式加载和启用仍按独立清单确认。
+      本图记录已实现的代码接线；两个新sensor尚未进入正式运行拓扑，正式加载和启用仍按独立清单确认。原生检查完成后只汇总已有状态回执，不发事件或重算行情。
     </div>
     <div class="note">
       <strong>2026-10-10 同花顺行业资金流调度：</strong>

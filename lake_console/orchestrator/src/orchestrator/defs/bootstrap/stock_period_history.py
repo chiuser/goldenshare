@@ -252,7 +252,9 @@ def completed_files(run, saved, *, cancel=lambda: False):
     return complete
 
 
-def replay_events(run, *, root, staging, events=None, cancel=lambda: False):
+def replay_events(
+    run, *, root, staging, events=None, completion_events=None, cancel=lambda: False
+):
     """Event-only reader: no source, SQL, candidate assembly or file replacement."""
     root, staging = roots(root, staging)
     with writer(staging):
@@ -268,6 +270,19 @@ def replay_events(run, *, root, staging, events=None, cancel=lambda: False):
             raise ValueError("period_event_files_incomplete")
         check_devices(root, staging, saved["devices"])
         complete = completed_files(run, saved, cancel=cancel)
+        from orchestrator.defs.run_contracts.stock_period import (
+            completion_notice,
+            completion_reference,
+        )
+
+        notices = {
+            freq: completion_notice(
+                completion_reference(run.name, saved["file_receipt_hash"], freq),
+                freq,
+                sum(i["freq"] == freq for i in complete["files"]),
+            )
+            for freq in sorted({i["freq"] for i in complete["files"]})
+        }
         pending = False
         from orchestrator.defs.io.stock_period_raw import _AUDIT_LOCK, _AUDITS
 
@@ -286,15 +301,44 @@ def replay_events(run, *, root, staging, events=None, cancel=lambda: False):
                 _AUDITS[(item["target"], tuple(item["version"]))] = {
                     k: item[k] for k in ("rows", "version", "sha256")
                 }
-            if events is None or events(item) is not True:
+            if (
+                events is None
+                or events(item, completion=notices[item["freq"]]) is not True
+            ):
                 pending = True
                 continue
             atomic_json(cp, expected)
+        for freq, notice in notices.items():
+            check_cancel(cancel)
+            cp = run / "events/completion" / (freq + ".json")
+            if cp.exists():
+                receipt = read_json(cp)
+                if (
+                    receipt.get("completion") != notice
+                    or type(receipt.get("observation_id")) is not int
+                    or receipt["observation_id"] <= 0
+                ):
+                    raise ValueError("period_completion_checkpoint_changed")
+                continue
+            observation_id = (
+                completion_events(notice) if completion_events is not None else None
+            )
+            if type(observation_id) is not int or observation_id <= 0:
+                pending = True
+            else:
+                atomic_json(
+                    cp, {"completion": notice, "observation_id": observation_id}
+                )
         phase = "files_complete" if pending else "events_complete"
         if saved["phase"] != phase:
             saved["phase"] = phase
             atomic_json(run / "manifest.json", saved)
-        return {**complete, "path": str(run), "events_complete": not pending}
+        return {
+            **complete,
+            "path": str(run),
+            "events_complete": not pending,
+            "completions": notices,
+        }
 
 
 def _finish_files(run, saved, baseline, intent, changed):
@@ -372,6 +416,7 @@ def run_period(
     cancel=lambda: False,
     progress=lambda _: None,
     events=None,
+    completion_events=None,
 ):
     """No formal operation is invoked by import. All tests supply explicit temporary roots."""
     if runtime_rss_bytes is not None and (
@@ -457,7 +502,12 @@ def run_period(
                     prior["ranges_recorded"] = True
                     atomic_json(manifest, prior)
                 return replay_events(
-                    run, root=root, staging=staging, events=events, cancel=cancel
+                    run,
+                    root=root,
+                    staging=staging,
+                    events=events,
+                    completion_events=completion_events,
+                    cancel=cancel,
                 )
         budget = StorageBudget(run, policy, cancel=cancel, progress=progress)
         budget_token = _BUDGET.set(budget)
@@ -665,7 +715,12 @@ def run_period(
                     )
             _finish_files(run, saved, baseline, intent, changed)
             return replay_events(
-                run, root=root, staging=staging, events=events, cancel=cancel
+                run,
+                root=root,
+                staging=staging,
+                events=events,
+                completion_events=completion_events,
+                cancel=cancel,
             )
         finally:
             _BUDGET.reset(budget_token)

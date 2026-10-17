@@ -55,6 +55,37 @@ def validate_completion_reference(value, freq):
     return expected
 
 
+def completion_notice(reference, freq, file_count):
+    reference = validate_completion_reference(reference, freq)
+    if type(file_count) is not int or file_count <= 0:
+        raise ValueError("period_completion_count_invalid")
+    return {
+        "version": COMPLETION_VERSION,
+        "freq": freq,
+        "file_count": file_count,
+        **reference,
+    }
+
+
+def validate_completion_notice(value, freq):
+    if not isinstance(value, dict) or set(value) != {
+        "version",
+        "freq",
+        "file_count",
+        "raw_execution_id",
+        "file_receipt_hash",
+        "upstream_batch_id",
+    }:
+        raise ValueError("period_completion_notice_invalid")
+    reference = {
+        k: value[k]
+        for k in ("raw_execution_id", "file_receipt_hash", "upstream_batch_id")
+    }
+    if value != completion_notice(reference, freq, value["file_count"]):
+        raise ValueError("period_completion_notice_invalid")
+    return reference
+
+
 @dataclass(frozen=True)
 class StockPeriodPolicy:
     page_limit: int = 6000

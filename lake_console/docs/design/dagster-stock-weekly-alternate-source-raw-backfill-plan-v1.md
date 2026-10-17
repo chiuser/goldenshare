@@ -188,7 +188,7 @@ DG旧8月、4月等版本问题随源重建处理，不再开发独立DG逐月�
 
 本节依据最新根AGENTS“按计划开发执行链”第8条补齐逐步设计。2026-10-17管理员确认先提交三份文档，无卡点则按本节开发和隔离验收；意外或无法推进的错误须停止报告，禁止带严重问题推进。正式删除、bootstrap、freeze、Lake/staging写入、重载、事件及sensor操作仍不在本次开发授权内；不推进Prod或R3。各项真实完成状态在验收后更新，不能把开发授权写成已完成。
 
-**当前状态：** 第1项恢复设计已先提交dbec0343，随后按§11.2—11.4修复并完成隔离验证：最终固定版本单次完整直接回归87项全部通过，详见共享LLD §11.11。文件完成与DG登记已分开，同版复用、部分补记、合法新Raw承接及取消/再续跑均有正反证据。§11.10保留修复前失败，不将其删除或冒充正式数据更新。修复代码、此前Silver生成实现及结果回写已提交d865e640，分类及治理文档补项已提交b9ba7163，均未推送。第2项通知/sensor尚未开发；本轮按确认补齐handoff内存测试消费者，并完成源码引用与清单的静态比对。管理员随后要求清退不必要的逐文件源码登记，改为治理测试只读项目源码目录，保留正式资源和网络隔离；该项不再等待追加两条权限确认，实施及定向验证按共享LLD §11.8执行；详见共享LLD §11.8及[开工审计报告](../../../reports/dg_stock_period_silver_auto_preflight_20261017/report.md)。此前静态审计未修改代码；本轮已按管理员要求清退consumer逐文件源码登记，8项边界测试及原12项catalog治理（513个subtests）通过，详见共享LLD §11.8。未操作正式资源，R3继续暂停。
+**当前状态：** 第1项恢复能力已提交d865e640；第2项Raw完成通知、两个默认STOPPED的Silver sensor及完成确认已实现并通过隔离验收；第3项按本轮授权完成文档、白名单及交付对账。直接回归200项通过，最后跨频率活动查询调整后仅定向复验23项通过，三组治理131项通过；详细逐条结果见[本轮验收报告](../../../reports/dg_stock_period_silver_auto_acceptance_20261017/report.md)及共享LLD §11.12。前序源码登记清退已提交e87225b2，未推送。正式首次生成仍按原报告，自动接线尚未正式加载/启用、首个真实日常样本未验收；本轮没有正式资源操作，Prod/R3不推进，其他任务改动保留。
 
 ### 9.1 环境事实与真正缺口
 
@@ -229,9 +229,9 @@ DG旧8月、4月等版本问题随源重建处理，不再开发独立DG逐月�
 
 **目标：** Raw每天真正写成并校验的所有变化文件，都能交给对应Silver；包括因子引起的两频历史刷新、欠账、上市集合变化，不能只交当前anchor。
 
-在现有Raw资产增加每批每个受影响频率一条小型AssetObservation，引用既有complete.json及其冻结hash；对应物化携带同一引用，供处理已被更新的旧通知。通知只表示文件阶段完成，不能冒充blocking通过。新增两个默认STOPPED的Silver sensor，分别调用原silver_stock_weekly_update_job、silver_stock_monthly_update_job；sensor只读取小型通知、清单及有界批量事件证据，不读行情、不COPY、不请求源。具体通知合同、cursor、批量readiness、去重与旧通知合并语义见共享LLD §11.5—11.7。
+在现有Raw资产增加每批每个受影响频率一条小型AssetObservation，引用既有complete.json及其冻结hash；对应物化携带同一引用，供处理已被更新的旧通知。通知只表示文件阶段完成，不能冒充blocking通过。新增两个默认STOPPED的Silver sensor，分别调用原silver_stock_weekly_update_job、silver_stock_monthly_update_job；sensor消费小型通知、清单及有界批量事件证据，不读行情、不COPY、不请求源；真实原生检查完成后仅补既有完成JSON回执，再推进cursor。具体通知合同、cursor、批量readiness、去重与旧通知合并语义见共享LLD §11.5—11.7。
 
-两个sensor的definition分类均为quote_data / silver / asset_update，使用既有build_sensor_tags及枚举，不新增标签或配置。开发时同步[运行合同治理](dagster-run-contract-governance.html)、[资产与任务拓扑](../architecture/dagster-asset-job-topology.html)及既有静态门禁；精确标签、定义名单和正反验收见[共享LLD §11.6](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification)。本次只补文档，不能据此宣称两个sensor已实现或启用。
+两个sensor的definition分类均为quote_data / silver / asset_update，使用既有build_sensor_tags及枚举，不新增标签或配置。开发时同步[运行合同治理](dagster-run-contract-governance.html)、[资产与任务拓扑](../architecture/dagster-asset-job-topology.html)及既有静态门禁；精确标签、定义名单和正反验收见[共享LLD §11.6](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification)。两个sensor现已完成程序及隔离验收，但未正式加载或启用；本轮结果见共享LLD §11.12。
 
 先在临时根和独立instance验证真实Raw producer→通知→sensor→Silver job/check，重点验收“周线Raw job改到历史月线时，月线Silver也更新”。固定版本后一次直接回归，不重跑完整bootstrap或已有完整性审计。
 

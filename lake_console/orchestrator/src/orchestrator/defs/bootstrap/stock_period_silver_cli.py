@@ -386,6 +386,7 @@ def report_update_events(
             "checks": len(records) * 3,
             "event_run_id": context.run_id,
             "elapsed_seconds": time.monotonic() - began,
+            "identity_hash": execution["identity_hash"],
             "status": "complete" if not pending and anchor is None else "partial",
             "pending_files": pending,
             "pending_events": [anchor] if anchor is not None else [],
@@ -468,6 +469,7 @@ def record_update_coverage(lake, staging, execution, result, *, cancel=lambda: F
             {
                 **result,
                 "run_id": parent_id,
+                "identity_hash": parent["identity_hash"],
                 "covered_by_execution_id": execution["identity"]["run_id"],
                 "covered_by_identity_hash": execution["identity_hash"],
             },

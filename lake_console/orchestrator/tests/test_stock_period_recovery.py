@@ -84,13 +84,15 @@ def test_file_success_consumes_factor_even_when_events_fail(tmp_path, monkeypatc
         calls.append(params)
         return daily_source(params)
 
-    def fail(item):
+    def fail(item, *, completion=None):
         if item["freq"] == "month":
             raise OSError("event_down")
         return True
 
     with pytest.raises(OSError, match="event_down"):
-        execute_daily(**kw, transport=source, events=fail)
+        execute_daily(
+            **kw, transport=source, events=fail, completion_events=lambda _: 1
+        )
     state = raw.read_json(kw["staging"] / "stock_period/daily.json")
     assert (
         state["factor_through"] == "2026-10-16"
@@ -109,7 +111,8 @@ def test_file_success_consumes_factor_even_when_events_fail(tmp_path, monkeypatc
     execute_daily(
         **kw,
         transport=lambda _: pytest.fail("completed source redownloaded"),
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert (
         len(calls) == 3
@@ -196,7 +199,8 @@ def test_state_failure_after_files_recovers_without_source_or_rewrite(
     execute_daily(
         **{**kw, "policy": replace(POLICY, duckdb_threads=1)},
         transport=lambda _: pytest.fail("source re-requested"),
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert versions == {p: raw.file_version(p) for p in versions}
     assert observed_policy == [POLICY]
@@ -210,15 +214,26 @@ def test_event_only_retry_does_no_sql_and_none_callback_cannot_mark_success(
     tmp_path, monkeypatch
 ):
     kw = args(tmp_path)
-    result = run_period(**kw, events=lambda _: None)
+    result = run_period(
+        **kw, events=lambda _, completion=None: None, completion_events=lambda _: 1
+    )
     run = Path(result["path"])
     assert raw.read_json(run / "manifest.json")["phase"] == "files_complete"
-    assert not list((run / "events").glob("*/*.json"))
+    assert not result["events_complete"]
+    assert not list((run / "events/week").glob("*.json"))
+    assert not list((run / "events/month").glob("*.json"))
+    # A files-complete notification is allowed before checks, and is never a
+    # substitute for these absent per-file registration receipts.
+    assert len(list((run / "events/completion").glob("*.json"))) == 2
     monkeypatch.setattr(
         raw, "execute", lambda *a, **k: pytest.fail("event reader recalculated Parquet")
     )
     assert replay_events(
-        run, root=kw["root"], staging=kw["staging"], events=lambda _: True
+        run,
+        root=kw["root"],
+        staging=kw["staging"],
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )["events_complete"]
     assert (
         raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"]
@@ -229,7 +244,11 @@ def test_event_only_retry_does_no_sql_and_none_callback_cannot_mark_success(
     (run / "complete.json").write_text(json.dumps(complete))
     with pytest.raises(ValueError, match="complete_receipt"):
         replay_events(
-            run, root=kw["root"], staging=kw["staging"], events=lambda _: True
+            run,
+            root=kw["root"],
+            staging=kw["staging"],
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
         )
 
 

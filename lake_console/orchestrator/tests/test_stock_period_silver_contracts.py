@@ -236,7 +236,10 @@ def update_fixture(period_fixture):
         VERSION,
         completion_reference,
     )
-    from orchestrator.defs.stock_period_update import report_file_events
+    from orchestrator.defs.stock_period_update import (
+        report_completion_events,
+        report_file_events,
+    )
     from tests.test_stock_period_history import POLICY
 
     f = period_fixture
@@ -262,13 +265,20 @@ def update_fixture(period_fixture):
     with dg.DagsterInstance.ephemeral() as instance:
 
         def capture(
-            *, mode="history", freq="week", codes=(A,), periods=None, asof="2026-10-16"
+            *,
+            mode="history",
+            freq="week",
+            codes=(A,),
+            periods=None,
+            asof="2026-10-16",
+            frequencies=None,
         ):
             count[0] += 1
             intent = {
                 "version": VERSION,
                 "mode": mode,
-                "frequencies": ["week", "month"] if mode == "bootstrap" else [freq],
+                "frequencies": frequencies
+                or (["week", "month"] if mode == "bootstrap" else [freq]),
                 "codes": [A, B, C] if mode == "bootstrap" else list(codes),
                 "request_id": f"silver-receipt-{count[0]}",
                 "asof": asof,
@@ -287,8 +297,11 @@ def update_fixture(period_fixture):
                     intent=intent,
                     transport=source,
                     policy=POLICY,
-                    events=lambda item: report_file_events(
-                        instance, item, context=context
+                    events=lambda item, completion=None: report_file_events(
+                        instance, item, completion=completion, context=context
+                    ),
+                    completion_events=lambda notice: report_completion_events(
+                        instance, notice
                     ),
                 )
 
@@ -384,22 +397,14 @@ def test_update_config_is_explicit_and_business_identity_has_no_event_ids():
 
 
 def publish_completion_contract(f, reference, freq):
-    """Explicit item-2 metadata adapter for item-1 consumer recovery tests.
-
-    This is NOT the yet-unimplemented Raw notification integration. Actual Raw
-    receipts/files/checks come from run_period; only its future §11.5 metadata
-    addition is represented here, using the actual immutable completed receipt.
-    Checks are rebound by the real producer, not manufactured as passing rows.
-    """
+    """Assert the actual Raw producer's shared contract; do not manufacture events."""
     import dagster as dg
 
-    from orchestrator.defs.bootstrap import stock_period_silver_cli as cli
-    from orchestrator.defs.io.stock_period_silver import read_json
+    from orchestrator.defs.io.stock_period_raw import read_json
     from orchestrator.defs.run_contracts.stock_period import (
         COMPLETION_METADATA_KEY,
-        COMPLETION_VERSION,
+        completion_notice,
     )
-    from orchestrator.defs.stock_period_update import report_file_events
 
     complete = read_json(
         f["staging"]
@@ -407,47 +412,19 @@ def publish_completion_contract(f, reference, freq):
         / reference["raw_execution_id"]
         / "complete.json"
     )
-
-    def publish(context):
-        for item in complete["files"]:
-            if item["freq"] != freq:
-                continue
-            asset = dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}")
-            old = (
-                f["instance"]
-                .fetch_materializations(
-                    dg.AssetRecordsFilter(
-                        asset_key=asset, asset_partitions=[item["period"]]
-                    ),
-                    limit=1,
-                )
-                .records[0]
+    items = [i for i in complete["files"] if i["freq"] == freq]
+    for item in items:
+        record = (
+            f["instance"]
+            .fetch_materializations(
+                dg.AssetRecordsFilter(
+                    asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"),
+                    asset_partitions=[item["period"]],
+                ),
+                limit=1,
             )
-            assert (
-                old.asset_materialization.metadata[
-                    "goldenshare/period_file_version"
-                ].value
-                == item["version"]
-            )
-            f["instance"].report_runless_asset_event(
-                dg.AssetMaterialization(
-                    asset_key=asset,
-                    partition=item["period"],
-                    metadata={
-                        **old.asset_materialization.metadata,
-                        COMPLETION_METADATA_KEY: dg.MetadataValue.json(
-                            {
-                                "version": COMPLETION_VERSION,
-                                "freq": freq,
-                                "file_count": sum(
-                                    i["freq"] == freq for i in complete["files"]
-                                ),
-                                **reference,
-                            }
-                        ),
-                    },
-                )
-            )
-            report_file_events(f["instance"], item, context=context)
-
-    cli.run_reporting(f["instance"], publish)
+            .records[0]
+        )
+        assert record.asset_materialization.metadata[
+            COMPLETION_METADATA_KEY
+        ].value == completion_notice(reference, freq, len(items))

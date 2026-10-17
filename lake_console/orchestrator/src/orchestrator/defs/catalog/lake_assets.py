@@ -3826,7 +3826,7 @@ LAKE_ASSET_CATALOG += tuple(
             batch_grain="stock/frequency; period",
             compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
-            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前周；单股历史无日期过滤、两频下载；21列原样保存，分区一次组装原子替换。",
+            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前周；单股历史无日期过滤、两频下载；21列原样保存，分区一次组装原子替换。每批每个受影响频率发一条files_complete observation，物化携带同一不可变receipt引用；通知不代替blocking检查。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3868,7 +3868,7 @@ LAKE_ASSET_CATALOG += tuple(
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="stock/frequency; period", compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
-            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前月；保留20200228和20200229源记录，不扫描整月日线；历史刷新完整替换目标股票。"),
+            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前月；保留20200228和20200229源记录，不扫描整月日线；历史刷新完整替换目标股票。每批每个受影响频率发一条files_complete observation，物化携带同一不可变receipt引用；通知不代替blocking检查。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 
@@ -3928,7 +3928,7 @@ for _freq, _label, _family, _dimension, _schema, _path, _model_id in (
             batch_grain=_dimension,
             write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
             event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-            notes="已审计范围内源整行投影；21列不变；单周期COPY及一次完整读回；三项检查共用证据；无源请求。",
+            notes="首次生成或明确Raw批次update；2014起源整行投影，21列不变；按实际变化周期去重，每期一次COPY/完整校验，三check共用证据；已提交同版本0行情SQL/0 COPY。通知sensor两条集合readiness查询、0行情读取；真实原生检查后补原完成回执；无源请求。",
         ),
     )
 

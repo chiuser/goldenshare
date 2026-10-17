@@ -40,7 +40,8 @@ def test_calendar_consumer_reads_real_producer_contract(tmp_path):
         ]
         assert con.execute(
             "SELECT trade_date,is_open,pretrade_date FROM read_parquet(?) "
-            "WHERE exchange='SSE' ORDER BY trade_date", [str(calendar)]
+            "WHERE exchange='SSE' ORDER BY trade_date",
+            [str(calendar)],
         ).fetchall() == [
             (date(2026, 10, 15), True, date(2026, 10, 14)),
             (date(2026, 10, 16), True, date(2026, 10, 15)),

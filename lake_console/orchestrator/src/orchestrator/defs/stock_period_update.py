@@ -324,6 +324,7 @@ def _execute_daily_locked(
     cancel=lambda: False,
     progress=lambda _: None,
     events=None,
+    completion_events=None,
 ):
     """Resume frozen file/event work before planning a new date or reading factors."""
     from orchestrator.defs.bootstrap.stock_period_history import (
@@ -383,6 +384,7 @@ def _execute_daily_locked(
                 root=root,
                 staging=staging,
                 events=events,
+                completion_events=completion_events,
                 cancel=cancel,
             )
             if result["events_complete"]:
@@ -428,7 +430,7 @@ def execute_daily(**kwargs):
         return _execute_daily_locked(**kwargs)
 
 
-def report_file_events(instance, item, *, write=True, context=None):
+def report_file_events(instance, item, *, completion=None, write=True, context=None):
     """Report only validated immutable file versions; retry missing events without recompute."""
     import dagster as dg
     from dagster._core.definitions.asset_checks.asset_check_evaluation import (
@@ -462,6 +464,17 @@ def report_file_events(instance, item, *, write=True, context=None):
         if freq == "week"
         else monthly_check_names(StockMonthlySource.PRIMARY_ADJUSTED)
     )
+    extra_metadata = {
+        "goldenshare/period_file_version": dg.MetadataValue.json(item["version"])
+    }
+    if completion is not None:
+        from orchestrator.defs.run_contracts.stock_period import (
+            COMPLETION_METADATA_KEY,
+            validate_completion_notice,
+        )
+
+        validate_completion_notice(completion, freq)
+        extra_metadata[COMPLETION_METADATA_KEY] = dg.MetadataValue.json(completion)
     partition = item["period"]
     partset = "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months"
     if write:
@@ -492,11 +505,7 @@ def report_file_events(instance, item, *, write=True, context=None):
                     uri=item["target"],
                     row_count=item["rows"],
                     observed_columns=FIELDS,
-                    extra_metadata={
-                        "goldenshare/period_file_version": dg.MetadataValue.json(
-                            item["version"]
-                        )
-                    },
+                    extra_metadata=extra_metadata,
                 ),
             )
         )
@@ -557,6 +566,29 @@ def report_file_events(instance, item, *, write=True, context=None):
     return True
 
 
+def report_completion_events(instance, completion):
+    """One files-complete observation per frequency, never a passing check."""
+    import dagster as dg
+
+    from orchestrator.defs.run_contracts.stock_period import (
+        COMPLETION_METADATA_KEY,
+        validate_completion_notice,
+    )
+
+    validate_completion_notice(completion, completion["freq"])
+    asset = dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{completion['freq']}")
+    instance.report_runless_asset_event(
+        dg.AssetObservation(
+            asset_key=asset,
+            metadata={COMPLETION_METADATA_KEY: dg.MetadataValue.json(completion)},
+        )
+    )
+    record = instance.fetch_observations(asset, limit=1).records[0]
+    if record.asset_observation.metadata[COMPLETION_METADATA_KEY].value != completion:
+        raise ValueError("period_completion_observation_mismatch")
+    return record.storage_id
+
+
 def deliver_asset(context, config, lake_root, freq):
     import dagster as dg
 
@@ -585,10 +617,11 @@ def deliver_asset(context, config, lake_root, freq):
             )
         return cancelled
 
-    def events(item):
+    def events(item, *, completion):
         return report_file_events(
             context.instance,
             item,
+            completion=completion,
             write=(item["freq"], item["period"]) != (freq, context.partition_key),
             context=context,
         )
@@ -611,6 +644,9 @@ def deliver_asset(context, config, lake_root, freq):
                 cancel=cancel,
                 progress=progress,
                 events=events,
+                completion_events=lambda notice: report_completion_events(
+                    context.instance, notice
+                ),
             )
         ]
     else:
@@ -629,6 +665,9 @@ def deliver_asset(context, config, lake_root, freq):
             cancel=cancel,
             progress=progress,
             events=events,
+            completion_events=lambda notice: report_completion_events(
+                context.instance, notice
+            ),
         )
     items = [
         i
@@ -648,16 +687,25 @@ def deliver_asset(context, config, lake_root, freq):
             }
         ]
     item = items[-1]
+    completion = next(
+        (
+            r.get("completions", {}).get(freq)
+            for r in reversed(results)
+            if item in r["files"]
+        ),
+        None,
+    )
+    extra = {"goldenshare/period_file_version": dg.MetadataValue.json(item["version"])}
+    if completion is not None:
+        from orchestrator.defs.run_contracts.stock_period import COMPLETION_METADATA_KEY
+
+        extra[COMPLETION_METADATA_KEY] = dg.MetadataValue.json(completion)
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=item["target"],
             row_count=item["rows"],
             observed_columns=FIELDS,
-            extra_metadata={
-                "goldenshare/period_file_version": dg.MetadataValue.json(
-                    item["version"]
-                )
-            },
+            extra_metadata=extra,
         )
     )
 
@@ -800,6 +848,7 @@ def handoff_bootstrap(
     staging,
     run,
     events,
+    completion_events=None,
     transport=None,
     listed=None,
     aliases=None,
@@ -987,6 +1036,7 @@ def handoff_bootstrap(
             root=root,
             staging=staging,
             events=events,
+            completion_events=completion_events,
             cancel=cancel,
         )
         if not result["events_complete"]:

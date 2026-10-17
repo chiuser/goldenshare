@@ -1,0 +1,38 @@
+{
+  "fixed-direct": {
+    "tests": "200",
+    "failures": "0",
+    "errors": "0",
+    "time": "57.482",
+    "properties": {
+      "test_full_history_metadata_capacity_is_two_queries_per_frequency": {
+        "metadata_810_periods_seconds": "0.37808312475681305"
+      },
+      "test_two_frequency_history_chain_and_native_anchor_completion": {
+        "two_frequency_chain_seconds": "0.2372807920910418",
+        "process_peak_rss_bytes": "550010880"
+      }
+    }
+  },
+  "final-sensors": {
+    "tests": "23",
+    "failures": "0",
+    "errors": "0",
+    "time": "9.220",
+    "properties": {
+      "test_two_frequency_history_chain_and_native_anchor_completion": {
+        "two_frequency_chain_seconds": "0.2725902907550335",
+        "process_peak_rss_bytes": "383303680"
+      }
+    }
+  },
+  "governance": {
+    "static": 113,
+    "catalog": 12,
+    "checks": 6,
+    "all_passed": true
+  },
+  "formal_operations": 0,
+  "source_http": "local literal fixture only; no Tushare/prod requests",
+  "evidence_directory": "/private/tmp/dg-period-silver-daily-lkm7czce"
+}

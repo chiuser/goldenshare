@@ -87,7 +87,7 @@ def interrupted_update(f, monkeypatch, freq="week"):
 
 
 def refresh_recovery_tail(f, freq="week", *, publish=True):
-    """A real scoped Raw capture; the future metadata boundary is explicit."""
+    """Real producer metadata; publish=False deliberately creates a bad publication."""
     from tests.test_stock_period_silver_contracts import publish_completion_contract
 
     for row in f["state"]["rows"]:
@@ -97,6 +97,51 @@ def refresh_recovery_tail(f, freq="week", *, publish=True):
     reference = f["capture"](mode="upsert", freq=freq, codes=(), periods=[period])
     if publish:
         publish_completion_contract(f, reference, freq)
+    else:
+        # Raw now publishes this field itself. Omitting the former fixture
+        # adapter no longer creates a negative case: explicitly remove the
+        # reference from an otherwise genuine file materialization instead.
+        import dagster as dg
+
+        from orchestrator.defs.bootstrap.stock_period_silver_cli import run_reporting
+        from orchestrator.defs.run_contracts.stock_period import COMPLETION_METADATA_KEY
+        from orchestrator.defs.stock_period_update import report_file_events
+
+        asset = dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}")
+        old = (
+            f["instance"]
+            .fetch_materializations(
+                dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[period]),
+                limit=1,
+            )
+            .records[0]
+        )
+        item = next(
+            i
+            for i in io.read_json(
+                f["staging"]
+                / "stock_period/runs"
+                / reference["raw_execution_id"]
+                / "complete.json"
+            )["files"]
+            if i["freq"] == freq and i["period"] == period
+        )
+
+        def invalid_publication(ctx):
+            f["instance"].report_runless_asset_event(
+                dg.AssetMaterialization(
+                    asset_key=asset,
+                    partition=period,
+                    metadata={
+                        k: v
+                        for k, v in old.asset_materialization.metadata.items()
+                        if k != COMPLETION_METADATA_KEY
+                    },
+                )
+            )
+            report_file_events(f["instance"], item, context=ctx)
+
+        run_reporting(f["instance"], invalid_publication)
     return period
 
 

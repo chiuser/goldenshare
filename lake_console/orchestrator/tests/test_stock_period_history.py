@@ -81,7 +81,9 @@ def test_delete_before_download_and_resume_does_not_clear(tmp_path):
         run_period(**kw, cancel=lambda: cancelled, progress=progress)
     new = target_path(kw["root"], "week", "2026-10-16")
     version = file_version(new)
-    run_period(**kw, events=lambda _: None)
+    run_period(
+        **kw, events=lambda _, completion=None: None, completion_events=lambda _: 1
+    )
     assert file_version(new) == version and len(calls) == 2
     assert (
         json.loads((kw["staging"] / "stock_period/baseline.json").read_text())["status"]
@@ -93,20 +95,24 @@ def test_event_failure_only_retries_event_and_preserves_file(tmp_path):
     kw = args(tmp_path)
     attempts = []
 
-    def events(item):
+    def events(item, *, completion=None):
         attempts.append(item["freq"])
         if item["freq"] == "month":
             raise OSError("event_failure")
         return True
 
     with pytest.raises(OSError):
-        run_period(**kw, events=events)
+        run_period(**kw, events=events, completion_events=lambda _: 1)
     versions = [
         file_version(target_path(kw["root"], f, p))
         for f, p in [("week", "2026-10-16"), ("month", "2026-10")]
     ]
     kw["transport"] = lambda _: pytest.fail("source called on event-only resume")
-    run_period(**kw, events=lambda i: attempts.append(i["freq"]) or True)
+    run_period(
+        **kw,
+        events=lambda i, completion=None: attempts.append(i["freq"]) or True,
+        completion_events=lambda _: 1,
+    )
     assert attempts == ["week", "month", "month"]
     assert versions == [
         file_version(target_path(kw["root"], f, p))
@@ -154,7 +160,10 @@ def test_isolated_instance_events_bind_every_partition_and_resume(tmp_path):
     import dagster as dg
 
     from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
-    from orchestrator.defs.stock_period_update import report_file_events
+    from orchestrator.defs.stock_period_update import (
+        report_completion_events,
+        report_file_events,
+    )
 
     (tmp_path / "instance").mkdir()
     (tmp_path / "instance/dagster.yaml").write_text("telemetry:\n  enabled: false\n")
@@ -164,7 +173,12 @@ def test_isolated_instance_events_bind_every_partition_and_resume(tmp_path):
             instance,
             lambda context: run_period(
                 **kw,
-                events=lambda item: report_file_events(instance, item, context=context),
+                events=lambda item, completion=None: report_file_events(
+                    instance, item, completion=completion, context=context
+                ),
+                completion_events=lambda notice: report_completion_events(
+                    instance, notice
+                ),
             ),
         )
         for item in result["files"]:

@@ -51,7 +51,8 @@ def captured(tmp_path, monkeypatch):
         intent=request,
         transport=source,
         policy=POLICY,
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert (
         raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"]
@@ -89,7 +90,10 @@ def test_handoff_requests_only_elapsed_periods_and_changed_stock(tmp_path, monke
         return daily_source(params)
 
     state = handoff_bootstrap(
-        **options(kw, run), transport=source, events=lambda _: True
+        **options(kw, run),
+        transport=source,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert len(initial) == 4 and len(calls) == 4
     assert len([p for p in calls if p.get("ts_code") == A]) == 2
@@ -115,7 +119,8 @@ def test_handoff_requests_only_elapsed_periods_and_changed_stock(tmp_path, monke
     again = handoff_bootstrap(
         **options(kw, run),
         transport=lambda _: pytest.fail("successful handoff repeated"),
-        events=lambda _: pytest.fail("events repeated"),
+        events=lambda _, completion=None: pytest.fail("events repeated"),
+        completion_events=lambda _: 1,
     )
     assert again["last_refresh"]["week"] == "2026-10-19"
 
@@ -136,18 +141,28 @@ def test_handoff_stale_input_or_event_failure_keeps_not_ready(tmp_path, monkeypa
         return wire(rows)
 
     with pytest.raises(ValueError, match="not_published"):
-        handoff_bootstrap(**options(kw, run), transport=source, events=lambda _: True)
+        handoff_bootstrap(
+            **options(kw, run),
+            transport=source,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
+        )
     assert (
         raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"]
         == "files_ready"
     )
     fresh = True
 
-    def failure(_):
+    def failure(_, *, completion=None):
         raise OSError("event_unavailable")
 
     with pytest.raises(OSError, match="event_unavailable"):
-        handoff_bootstrap(**options(kw, run), transport=source, events=failure)
+        handoff_bootstrap(
+            **options(kw, run),
+            transport=source,
+            events=failure,
+            completion_events=lambda _: 1,
+        )
     assert (
         raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"]
         == "files_ready"
@@ -159,7 +174,8 @@ def test_handoff_stale_input_or_event_failure_keeps_not_ready(tmp_path, monkeypa
     result = handoff_bootstrap(
         **options(kw, run),
         transport=lambda _: pytest.fail("source repeated"),
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert result["handoff_cutoff"] == "2026-10-16" and len(calls) == count
 
@@ -171,7 +187,12 @@ def test_handoff_freezes_scope_and_cutoff_after_first_plan(tmp_path, monkeypatch
         raise TimeoutError("source unavailable")
 
     with pytest.raises(TimeoutError):
-        handoff_bootstrap(**options(kw, run), transport=failed, events=lambda _: True)
+        handoff_bootstrap(
+            **options(kw, run),
+            transport=failed,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
+        )
     original = raw.read_json(run / "manifest.json")["handoff"]
     changed = options(kw, run)
     changed.update(
@@ -181,7 +202,12 @@ def test_handoff_freezes_scope_and_cutoff_after_first_plan(tmp_path, monkeypatch
         through=date(2026, 10, 19),
     )
     with pytest.raises(TimeoutError):
-        handoff_bootstrap(**changed, transport=failed, events=lambda _: True)
+        handoff_bootstrap(
+            **changed,
+            transport=failed,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
+        )
     assert raw.read_json(run / "manifest.json")["handoff"] == original
 
 
@@ -195,7 +221,8 @@ def test_unconfirmed_scope_difference_or_unreleased_cutoff_refuses(
         handoff_bootstrap(
             **selected,
             transport=lambda _: pytest.fail("unexpected request"),
-            events=lambda _: True,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
         )
     monkeypatch.setattr(
         "orchestrator.defs.stock_period_update.confirmed_retirements",
@@ -207,7 +234,8 @@ def test_unconfirmed_scope_difference_or_unreleased_cutoff_refuses(
         handoff_bootstrap(
             **selected,
             transport=lambda _: pytest.fail("unexpected request"),
-            events=lambda _: True,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
         )
     assert (
         raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"]
@@ -246,7 +274,12 @@ def test_handoff_one_scope_difference_adds_new_stock_and_prunes_confirmed_delist
 
     selected = options(kw, run)
     selected["listed"] = {A, newcomer}
-    state = handoff_bootstrap(**selected, transport=source, events=lambda _: True)
+    state = handoff_bootstrap(
+        **selected,
+        transport=source,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
+    )
     assert state["handoff_cutoff"] == "2026-10-16"
     assert len(calls) == 6 and not any(p.get("ts_code") == B for p in calls)
     with raw.connection(tmp_path / "readback", POLICY) as con:
@@ -296,7 +329,8 @@ def test_handoff_cancel_preserves_capture_and_resume_never_deletes(
         handoff_bootstrap(
             **options(kw, run),
             transport=source,
-            events=lambda _: True,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
             cancel=lambda: interrupted,
             progress=progress,
         )
@@ -306,7 +340,10 @@ def test_handoff_cancel_preserves_capture_and_resume_never_deletes(
         == "files_ready"
     )
     state = handoff_bootstrap(
-        **options(kw, run), transport=source, events=lambda _: True
+        **options(kw, run),
+        transport=source,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
     )
     assert state["handoff_cutoff"] == "2026-10-16"
     assert len(calls) == 4  # The completed first unit is reused after cancellation.

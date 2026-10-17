@@ -418,17 +418,20 @@ def read_completion(lake, staging, reference, freq):
 
 
 def resolve_update_sources(
-    lake, staging, freq, reference, instance, *, cancel=lambda: False
+    lake, staging, freq, reference, instance, *, cancel=lambda: False, origin=None
 ):
     """Resolve explicit Raw scope and current published versions in two set queries."""
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
         batch_event_evidence,
         require_checks,
     )
-    from orchestrator.defs.run_contracts.stock_period import COMPLETION_METADATA_KEY
+    from orchestrator.defs.run_contracts.stock_period import (
+        COMPLETION_METADATA_KEY,
+        validate_completion_notice,
+    )
     from orchestrator.defs.stock_period_checks import verify_period_materialization
 
-    origin = read_completion(lake, staging, reference, freq)
+    origin = origin or read_completion(lake, staging, reference, freq)
     minimum = "2014-01-03" if freq == "week" else "2014-01"
     periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
     evidence = batch_event_evidence(instance, freq, periods)
@@ -450,7 +453,7 @@ def resolve_update_sources(
             value = getattr(metadata.get(COMPLETION_METADATA_KEY), "value", None)
             if not isinstance(value, dict):
                 raise ValueError("silver_newer_raw_completion_missing")
-            latest_ref = {k: value.get(k) for k in reference}
+            latest_ref = validate_completion_notice(value, freq)
             batch_id = latest_ref["upstream_batch_id"]
             if batch_id not in deliveries:
                 deliveries[batch_id] = read_completion(lake, staging, latest_ref, freq)
@@ -1103,6 +1106,316 @@ def deliver_update_asset(context, config, lake, staging, freq):
 
 def emit_progress(value):
     print(value, flush=True)
+
+
+def confirm_update_delivery(lake, staging, execution, evidence):
+    """Persist completion from actual bound events; never emit events or compute data."""
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        require_checks,
+    )
+    from orchestrator.defs.bootstrap.stock_period_silver_cli import (
+        record_update_coverage,
+    )
+    from orchestrator.defs.run_contracts.stock_period_silver import (
+        asset_name,
+        check_names,
+    )
+    from orchestrator.defs.stock_period_checks import verify_period_materialization
+
+    identity, entries = execution["identity"], []
+    work = run_directory(staging, identity["run_id"])
+    for key, path in identity["references"].items():
+        if file_version(path) != identity["reference_versions"][key]:
+            raise ValueError("silver_event_reference_changed")
+    for unit in identity["units"]:
+        record = read_json(checkpoint_path(work, unit))
+        validate_record(
+            record, identity, unit, identity_hash=execution["identity_hash"]
+        )
+        if (
+            record["state"] != "committed"
+            or file_version(unit["source"]) != unit["source_version"]
+            or file_version(unit["target"]) != record["version"]
+        ):
+            raise ValueError("silver_event_file_changed")
+        freq, period = unit["freq"], unit["period"]
+        raw = require_checks(
+            evidence.get((f"raw_tushare_stk_period_bar_adj_{freq}", period)),
+            freq,
+            raw=True,
+        )
+        verify_period_materialization(raw, period, unit["source"])
+        current = evidence.get((asset_name(freq), period))
+        mat = require_checks(current, freq, raw=False)
+        verify_period_materialization(mat, period, unit["target"], rows=record["rows"])
+        metadata = mat.asset_materialization.metadata
+        if any(
+            getattr(metadata.get(k), "value", None) != v
+            for k, v in (
+                ("goldenshare/silver_rule", VERSION),
+                ("goldenshare/silver_source_version", unit["source_version"]),
+                (
+                    "goldenshare/silver_reference_versions",
+                    identity["reference_versions"],
+                ),
+                ("goldenshare/silver_asof", unit["asof"]),
+            )
+        ):
+            raise ValueError("silver_event_materialization_mismatch")
+        entries.append(
+            (
+                unit,
+                {
+                    "version": record["version"],
+                    "identity_hash": execution["identity_hash"],
+                    "materialization_id": mat.storage_id,
+                    "checks": list(check_names(freq)),
+                    "event_run_id": current["checks"][check_names(freq)[0]].run_id,
+                },
+            )
+        )
+    # All evidence must pass before any completion record can claim success.
+    for unit, receipt in entries:
+        atomic_json(
+            work / "events" / unit["freq"] / (unit["period"] + ".json"), receipt
+        )
+    for unit, receipt in entries:
+        if (
+            file_version(unit["source"]) != unit["source_version"]
+            or file_version(unit["target"]) != receipt["version"]
+        ):
+            raise ValueError("silver_event_file_changed")
+    if any(
+        file_version(path) != identity["reference_versions"][key]
+        for key, path in identity["references"].items()
+    ):
+        raise ValueError("silver_event_reference_changed")
+    result = {
+        "run_id": identity["run_id"],
+        "identity_hash": execution["identity_hash"],
+        "files": len(entries),
+        "checks": 3 * len(entries),
+        "status": "complete",
+    }
+    atomic_json(work / "events_complete.json", result)
+    record_update_coverage(lake, staging, execution, result)
+    return result
+
+
+def evaluate_update_sensor(context, *, freq, staging_root=None):
+    """One delivery and at most one request; only metadata/stat and two set queries."""
+    import dagster as dg
+    from dagster._core.storage.dagster_run import JobBucket
+
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        batch_event_evidence,
+    )
+    from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
+    from orchestrator.defs.run_contracts.requests import build_run_request
+    from orchestrator.defs.run_contracts.run_keys import (
+        build_upstream_triggered_run_key,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        COMPLETION_METADATA_KEY,
+        validate_completion_notice,
+    )
+    from orchestrator.defs.run_contracts.stock_period_silver import (
+        SENSOR_CURSOR_VERSION,
+        asset_name,
+        update_run_id,
+    )
+
+    state = {"schema_version": SENSOR_CURSOR_VERSION, "after": 0}
+
+    def skip(reason):
+        state.update(
+            decision=reason,
+            evaluated_at=datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+        )
+        context.update_cursor(json.dumps(state, separators=(",", ":")))
+        return dg.SensorResult(skip_reason=dg.SkipReason(reason))
+
+    try:
+        if context.cursor:
+            state = json.loads(context.cursor)
+            if not isinstance(state, dict):
+                return dg.SensorResult(
+                    skip_reason=dg.SkipReason("silver_sensor_cursor_invalid")
+                )
+            if (
+                state.get("schema_version") != SENSOR_CURSOR_VERSION
+                or type(state.get("after")) is not int
+                or state["after"] < 0
+            ):
+                raise ValueError("silver_sensor_cursor_invalid")
+        lake, staging = validate_roots(
+            context.resources.lake_root.root(),
+            Path(staging_root or DEFAULT_LAKE_STAGING_ROOT),
+        )
+        asset = asset_name(freq)
+        job = asset + "_update_job"
+        active = [
+            dg.DagsterRunStatus.NOT_STARTED,
+            dg.DagsterRunStatus.QUEUED,
+            dg.DagsterRunStatus.STARTING,
+            dg.DagsterRunStatus.STARTED,
+            dg.DagsterRunStatus.CANCELING,
+        ]
+        if context.instance.get_runs(
+            filters=dg.RunsFilter(statuses=active),
+            bucket_by=JobBucket(
+                job_names=[
+                    "silver_stock_weekly_update_job",
+                    "silver_stock_monthly_update_job",
+                ],
+                bucket_limit=1,
+            ),
+        ):
+            return skip("silver_run_active")
+        pending = state.get("pending")
+        if pending is None:
+            records = context.instance.fetch_observations(
+                dg.AssetRecordsFilter(
+                    asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"),
+                    after_storage_id=state["after"],
+                ),
+                limit=1,
+                ascending=True,
+            ).records
+            if not records:
+                return skip("silver_no_completion")
+            notice = records[0].asset_observation.metadata.get(COMPLETION_METADATA_KEY)
+            notice = getattr(notice, "value", None)
+            reference = validate_completion_notice(notice, freq)
+            pending = {
+                "observation_id": records[0].storage_id,
+                "completion": notice,
+                "execution_id": update_run_id(freq, reference),
+            }
+            state["pending"] = pending
+        reference = validate_completion_notice(pending["completion"], freq)
+        run_id = canonical_run_id(pending["execution_id"])
+        original_id = update_run_id(freq, reference)
+        original_work = run_directory(staging, original_id)
+
+        def ack(reason):
+            state["after"] = pending["observation_id"]
+            state.pop("pending", None)
+            return skip(reason)
+
+        # A previously closed batch is historical evidence, not a demand that
+        # its old output remain the current version after later valid updates.
+        if (original_work / "events_complete.json").exists():
+            original = load_execution(lake, staging, original_id)
+            closed = read_json(original_work / "events_complete.json")
+            if (
+                original["identity"].get("source_completion") != reference
+                or closed.get("run_id") != original_id
+                or closed.get("identity_hash") != original["identity_hash"]
+                or closed.get("status") != "complete"
+                or closed.get("files") != len(original["identity"]["units"])
+                or closed.get("checks") != 3 * len(original["identity"]["units"])
+            ):
+                raise ValueError("silver_completion_identity_changed")
+            if closed.get("covered_by_execution_id"):
+                child = load_execution(lake, staging, closed["covered_by_execution_id"])
+                child_complete = read_json(
+                    run_directory(staging, child["identity"]["run_id"])
+                    / "events_complete.json"
+                )
+                if (
+                    child["identity_hash"] != closed.get("covered_by_identity_hash")
+                    or child_complete.get("identity_hash") != child["identity_hash"]
+                    or child_complete.get("status") != "complete"
+                ):
+                    raise ValueError("silver_event_coverage_invalid")
+            return ack("silver_batch_already_complete")
+        run_key = build_upstream_triggered_run_key(
+            consumer=asset, upstream_batch_id=reference["upstream_batch_id"]
+        )
+        runs = context.instance.get_runs(
+            filters=dg.RunsFilter(job_name=job, tags={"dagster/run_key": run_key}),
+            limit=1,
+        )
+        work = run_directory(staging, run_id)
+        if runs and runs[0].status in (
+            dg.DagsterRunStatus.FAILURE,
+            dg.DagsterRunStatus.CANCELED,
+        ):
+            if (work / "execution.json").exists():
+                with writer_lock(staging), recovery_evidence():
+                    execution = load_execution(lake, staging, run_id)
+                    if execution["identity"].get("source_completion") != reference:
+                        raise ValueError("silver_completion_identity_changed")
+                    execution = recover_update_execution(
+                        lake, staging, execution, context.instance
+                    )
+                    pending["execution_id"] = execution["identity"]["run_id"]
+            return skip(
+                "silver_run_requires_review:"
+                + runs[0].run_id
+                + ";resume_execution_id="
+                + pending["execution_id"]
+            )
+        if (work / "execution.json").exists():
+            with writer_lock(staging), recovery_evidence():
+                execution = load_execution(lake, staging, run_id)
+                if execution["identity"].get("source_completion") != reference:
+                    raise ValueError("silver_completion_identity_changed")
+                if any(
+                    file_version(u["source"]) != u["source_version"]
+                    for u in execution["identity"]["units"]
+                ):
+                    execution = recover_update_execution(
+                        lake, staging, execution, context.instance
+                    )
+                    pending["execution_id"] = execution["identity"]["run_id"]
+                    return skip("silver_recovery_required:" + pending["execution_id"])
+                evidence = batch_event_evidence(
+                    context.instance,
+                    freq,
+                    [u["period"] for u in execution["identity"]["units"]],
+                )
+                confirm_update_delivery(lake, staging, execution, evidence)
+                return ack("silver_batch_complete")
+        if runs:
+            return skip("silver_run_requires_review:" + runs[0].run_id)
+        receipt = read_completion(lake, staging, reference, freq)
+        if (
+            sum(f == freq for f, _ in receipt["items"])
+            != pending["completion"]["file_count"]
+        ):
+            raise ValueError("silver_completion_count_mismatch")
+        units, evidence = resolve_update_sources(
+            lake, staging, freq, reference, context.instance, origin=receipt
+        )
+        if not units:
+            return ack("silver_scope_before_2014")
+        update_inputs(
+            lake, staging, freq, reference, context.instance, resolved=(units, evidence)
+        )
+        config = {
+            "intent": "update",
+            "execution_id": run_id,
+            "source_completion": reference,
+        }
+        state.update(
+            decision="silver_requested",
+            evaluated_at=datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+        )
+        context.update_cursor(json.dumps(state, separators=(",", ":")))
+        return dg.SensorResult(
+            run_requests=[
+                build_run_request(
+                    run_key=run_key,
+                    job_name=job,
+                    partition_key=units[-1]["period"],
+                    run_config={"ops": {asset: {"config": config}}},
+                )
+            ]
+        )
+    except (ValueError, TypeError, OSError) as error:
+        return skip(str(error))
 
 
 def build(

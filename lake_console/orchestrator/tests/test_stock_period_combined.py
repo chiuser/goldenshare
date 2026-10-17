@@ -75,7 +75,8 @@ def bootstrap(tmp_path):
             "request_id": "bootstrap",
         },
         transport=initial,
-        events=lambda _: None,
+        events=lambda _, completion=None: None,
+        completion_events=lambda _: 1,
     )
     baseline = kw["staging"] / "stock_period/baseline.json"
     facts = read_json(baseline)
@@ -515,8 +516,24 @@ def test_event_reader_checks_same_v2_identity_without_real_events(
 
     kw = bootstrap(tmp_path)
     run_id = execution_id("bootstrap")
+    # Force the new notification boundary instead of inheriting the bootstrap
+    # fixture's mocked completion receipts. This op must never notify month.
+    for freq in ("week", "month"):
+        (
+            kw["staging"]
+            / "stock_period/runs"
+            / run_id
+            / "events/completion"
+            / (freq + ".json")
+        ).unlink()
     monkeypatch.setattr(consumer, "DEFAULT_LAKE_STAGING_ROOT", str(kw["staging"]))
     reported = []
+    notifications = []
+    monkeypatch.setattr(
+        consumer,
+        "report_completion_events",
+        lambda instance, notice: notifications.append(notice) or 1,
+    )
     monkeypatch.setattr(
         consumer,
         "report_file_events",
@@ -526,6 +543,10 @@ def test_event_reader_checks_same_v2_identity_without_real_events(
     context = SimpleNamespace(instance=object())
     config = StockWeeklyBootstrapEventChecksConfig(run_id=run_id)
     assert entry(context, config) == {"reported_files": 3}
+    assert [n["freq"] for n in notifications] == ["week"]
+    assert not (
+        kw["staging"] / "stock_period/runs" / run_id / "events/completion/month.json"
+    ).exists()
     manifest = kw["staging"] / "stock_period/runs" / run_id / "manifest.json"
     damaged = read_json(manifest)
     damaged["identity"]["listed"] = [B]

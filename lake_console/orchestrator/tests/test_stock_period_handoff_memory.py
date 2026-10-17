@@ -44,7 +44,10 @@ def stopped_handoff(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="period_process_memory_exceeded"):
         handoff_bootstrap(
-            **options(kw, parent), transport=source, events=lambda _: True
+            **options(kw, parent),
+            transport=source,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
         )
     frozen = raw.read_json(parent / "manifest.json")
     child = parent.parent / execution_id(frozen["handoff"]["intent"]["request_id"])
@@ -85,7 +88,8 @@ def test_handoff_override_reuses_week_source_and_preserves_frozen_identity(
     state = handoff_bootstrap(
         **options(kw, parent),
         transport=source,
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
         runtime_rss_bytes=6 * GIB,
         progress=progress.append,
     )
@@ -254,7 +258,8 @@ def test_handoff_cancelled_override_keeps_sources_and_releases_lock(
         handoff_bootstrap(
             **options(kw, parent),
             transport=source,
-            events=lambda _: True,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
             runtime_rss_bytes=6 * GIB,
             cancel=lambda: cancelled,
             progress=progress,
@@ -266,7 +271,8 @@ def test_handoff_cancelled_override_keeps_sources_and_releases_lock(
     state = handoff_bootstrap(
         **options(kw, parent),
         transport=source,
-        events=lambda _: True,
+        events=lambda _, completion=None: True,
+        completion_events=lambda _: 1,
         runtime_rss_bytes=6 * GIB,
     )
     assert state["handoff_cutoff"] == "2026-10-16" and len(calls) == 4
@@ -308,7 +314,8 @@ def test_handoff_override_above_limit_preserves_uncommitted_files(
         handoff_bootstrap(
             **options(kw, parent),
             transport=source,
-            events=lambda _: True,
+            events=lambda _, completion=None: True,
+            completion_events=lambda _: 1,
             runtime_rss_bytes=6 * GIB,
         )
     assert len(calls) == 2 and not (child / "complete.json").exists()

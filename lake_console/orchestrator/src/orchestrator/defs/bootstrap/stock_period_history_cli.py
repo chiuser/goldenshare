@@ -138,6 +138,7 @@ def main(argv=None):
 
             from orchestrator.defs.stock_period_update import (
                 handoff_bootstrap,
+                report_completion_events,
                 report_file_events,
             )
 
@@ -149,13 +150,30 @@ def main(argv=None):
                     staging / "stock_period/runs" / args.run_id,
                     root=root,
                     staging=staging,
-                    events=lambda item: report_file_events(
-                        instance, item, context=context
+                    events=lambda item, *, completion: report_file_events(
+                        instance, item, completion=completion, context=context
+                    ),
+                    completion_events=lambda notice: report_completion_events(
+                        instance, notice
                     ),
                     cancel=lambda: interrupted,
                 )
 
-            if frozen["phase"] == "events_complete":
+            if frozen["phase"] == "events_complete" and all(
+                (
+                    staging
+                    / "stock_period/runs"
+                    / args.run_id
+                    / "events/completion"
+                    / (f + ".json")
+                ).exists()
+                for f in {
+                    i["freq"]
+                    for i in read_json(
+                        staging / "stock_period/runs" / args.run_id / "complete.json"
+                    )["files"]
+                }
+            ):
                 result = replay_events(
                     staging / "stock_period/runs" / args.run_id,
                     root=root,
@@ -174,8 +192,11 @@ def main(argv=None):
                     runtime_rss_bytes=args.rss_limit_gib * 1024**3
                     if args.rss_limit_gib is not None
                     else None,
-                    events=lambda item: report_file_events(
-                        instance, item, context=context
+                    events=lambda item, *, completion: report_file_events(
+                        instance, item, completion=completion, context=context
+                    ),
+                    completion_events=lambda notice: report_completion_events(
+                        instance, notice
                     ),
                     cancel=lambda: interrupted,
                     progress=lambda event: print(json.dumps(event), flush=True),

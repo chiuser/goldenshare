@@ -117,7 +117,7 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 
 ## 8. DG剩余1—3项的月线差异（开发与隔离验收已确认）
 
-本节对应[总方案§9](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#dg-period-daily-closeout)与[共享LLD §11](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-daily-maintenance)，复用其全部逐步目标、文件白名单、配置、读写边界、恢复、性能及正反验收，不另建月线框架或额外审计步骤。2026-10-17管理员已确认提交文档后按本节开发/隔离验收；当前正式月线首次生成已验收，自动日常未完成，正式资源操作仍另行确认。
+本节对应[总方案§9](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#dg-period-daily-closeout)与[共享LLD §11](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-daily-maintenance)，复用其全部逐步目标、文件白名单、配置、读写边界、恢复、性能及正反验收，不另建月线框架或额外审计步骤。2026-10-17管理员已确认提交文档后按本节开发/隔离验收；当前正式月线首次生成已验收；自动日常程序及隔离验收已完成，正式加载、启用与首个真实样本未执行，见共享LLD §11.12。
 
 | 步骤 | 月线具体落点及完成标准 |
 | --- | --- |
@@ -125,9 +125,9 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 | 2 自动传递 | 新silver_stock_monthly_update_job_sensor默认STOPPED，definition分类为quote_data / silver / asset_update并复用build_sensor_tags；消费raw_tushare_stk_period_bar_adj_month上的批次通知，不依赖“此次运行的是月线Raw job”。周线Raw任务引起的月线历史变更也必须通知；一次月线job批量处理全部相关月份，不按股或月份启动大量run |
 | 3 提交结案 | 随共享LLD §11.8白名单提交本任务代码/测试、三份设计文档、两份治理文档本域同步内容及必要结果，不另跑月线全量验收；区分月线首次完成、日常程序隔离通过、正式接线和首个真实交付，其他任务改动保留 |
 
-月线与周线共用[共享LLD §11.6分类表](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification)及§11.8开工对照，不另造月线标签、helper或治理流程。同步运行合同治理、资产与任务拓扑、既有静态定义名单及本域精确分类/STOPPED正反断言；不放宽其他sensor门禁。本轮仅完成五份文档补齐，两个sensor尚未开发、加载或启用；完成后停止，等待管理员再次确认。
+月线与周线共用[共享LLD §11.6分类表](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification)及§11.8开工对照，不另造月线标签、helper或治理流程。同步运行合同治理、资产与任务拓扑、既有静态定义名单及本域精确分类/STOPPED正反断言；不放宽其他sensor门禁。两个sensor已完成实现和隔离验收，均默认STOPPED；本轮没有正式加载或启用。
 
-后续已确认将共享handoff内存测试纳入事件回调迁移，内存/取消/续跑断言保持；月线不另建一套测试。当前源码消费者、必要回归及不触碰范围已一次分类，见[共享LLD §11.8消费者核对](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-consumer-preflight)。管理员随后要求清退consumer逐文件源码登记，改为治理测试只读项目源码目录，实施和定向验证统一见共享LLD §11.8；不再等待追加两条源码权限确认，两个自动sensor仍未开发。
+后续已确认将共享handoff内存测试纳入事件回调迁移，内存/取消/续跑断言保持；月线不另建一套测试。当前源码消费者、必要回归及不触碰范围已一次分类，见[共享LLD §11.8消费者核对](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-consumer-preflight)。管理员随后要求清退consumer逐文件源码登记，改为治理测试只读项目源码目录，实施和定向验证统一见共享LLD §11.8；不再等待追加两条源码权限确认，两个自动sensor已完成程序和隔离验收，未正式加载或启用。
 
 **月线必验：** 自然月末可为周末，月中刷新同一个月文件，不能提前关闭该月；月末失败次月补原月且不逐日重放。20200228/29继续都在Raw，Silver按最新end_date选整行，不因交易日历把29日改回28日。历史回包移除旧键、只有旧键的月份、因子变更多个历史月份与本月重合时，每月仅组装/校验/提交一次；未选月份及周线不写。上市首月整根保留，不重做已通过的停牌/日历完整性审计。
 
@@ -142,3 +142,5 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 **正式交接另行确认：** 沿共享LLD §11.9，保留Raw sensor状态/水位及19:30窗口，旧月线数据和事件不重写。没有新的真实Raw交付就保留首样本待办；本节不授权加载、启用新sensor、事件或Lake写入。Prod及R3不进入本轮步骤。
 
 **当前状态：** 逐文件恢复方案已先提交dbec0343，共用恢复代码修复及两频隔离验证完成，详见共享LLD §11.11的最终单次87项直接回归及证据边界。月线小场景实测复用两个已完成文件、只生成一个输入变化的文件，并以独立字面价格核对；未做月线全量审计或bootstrap。Raw变化均在临时测试中主动构造，正式写入/源请求为0；第2项通知/sensor仍未开发，月线自动日常维护尚未完成。修复代码和结果回写已提交d865e640，未推送；本轮只补分类及治理文档，等待管理员确认下一步，其他任务改动保留。
+
+本轮月线与周线共用一次隔离集成：Raw同一历史交付触及3周+3月，各1条频率通知、各1个Silver job、每期一次COPY；最大end_date整行及21列金样本保持。月线程序验收随[共享LLD §11.12](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)和[本轮报告](../../../reports/dg_stock_period_silver_auto_acceptance_20261017/report.md)交付，不重新做月线全量审计。正式接线及首个日更仍待后续授权。
