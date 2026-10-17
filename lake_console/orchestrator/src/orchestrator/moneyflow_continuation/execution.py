@@ -145,13 +145,26 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                 key = (unit["dataset"], unit["trade_date"])
                 if key in finished:
                     continue
-                phase = (
-                    "register"
-                    if not next(
-                        s for s in initial if (s["dataset"], s["trade_date"]) == key
-                    )["registered"]
-                    else "raw"
+                current = next(
+                    s for s in initial if (s["dataset"], s["trade_date"]) == key
                 )
+                phase = next_action(current)
+                if phase.startswith("observe_"):
+                    # The initial native audit has already identified this
+                    # journal's run. Reconnect using its persisted poll budget,
+                    # without charging the completed submission phase again.
+                    layer = phase.removeprefix("observe_")
+                    wait_run(
+                        backend,
+                        journal,
+                        unit,
+                        layer,
+                        current[layer]["runs"][0],
+                        stop,
+                        progress,
+                        clock,
+                    )
+                    phase = {"raw": "silver", "silver": "complete"}[layer]
                 for _ in range(POLICY.transitions_per_unit):
                     require(not stop.is_set(), "operator_stopped", 130)
                     prefix = unit["dataset"] + ":" + unit["trade_date"] + ":" + phase

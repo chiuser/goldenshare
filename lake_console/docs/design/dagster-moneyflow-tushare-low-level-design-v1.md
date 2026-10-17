@@ -3805,7 +3805,7 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 ### 70.1 本步目标、现状与明确边界
 
-本节落实上一轮方案审计发现的8项缺口，作为开发依据；方案总览见[实施方案§75](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-continuation-design)。本节开工设计及§70.13保留当时记录；用户随后批准提交、开发并修正复验，**本步开发验收已完成，当前结果见§70.16；§70.14保留修正前失败记录，尚未进入新的正式数据执行。** §69是已完成的大盘单日操作记录，不能把其中的临时脚本当作七表工具实现。
+本节落实上一轮方案审计发现的8项缺口，作为开发依据；方案总览见[实施方案§75](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-continuation-design)。本节开工设计及§70.13保留当时记录；用户随后批准提交、开发并修正复验，**本步开发验收及10-09正式单日验证已完成，当前结果见§70.19；§70.14、§70.16保留此前失败与准备记录。** §69是已完成的大盘单日操作记录，不能把其中的临时脚本当作七表工具实现。
 
 本步只增加一个运营命令行工具：对明确清单里的“数据集＋日期”，调用原有完整Raw/Silver任务，读取它们真实生成的文件、物化和检查，支持工具退出后的继续观察和跳过已验收日期。它不自己采集业务数据、生成Parquet、补发物化或检查，也不接入新的调度链。
 
@@ -4098,3 +4098,46 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 本轮正式mutation、分区登记、运行提交、Tushare请求、写湖、开关修改、容量设置、reload及服务重启均为0。源码/文档/报告改动尚未提交或推送；后续按用户提交指令白名单处理，不混入周/月线他人修改。
 
 §70.16末次核对补充：在上述全套复验通过、生成报告之后，周/月线继续修改了`run_contracts/stock_period.py`与`run_contracts/stock_period_silver.py`，另有4个period helper实现变化。两个合同位于保守导入闭包内，**末次核对已不再与本轮隔离加载摘要一致**；不能沿用上文“生成报告时一致”的事实证明当前正式加载。五份本次修正测试的摘要未变，全套测试通过记录保留，但正式执行就绪为False，已追加`post_report_recheck`及精确路径/时间。不自行修改、回退或锁住周/月线实现，不因此重复重跑已经通过的测试；待共享代码稳定后，刷新受影响验证与正式加载绑定，再进入10-09正式样本。本步已完成测试缺陷修正和对应复验，不能据此声称共享工作区从此稳定或正式样本可以直接运行。
+
+### 70.17 10月9日大盘单日执行说明与当前代码审计
+
+**目标及边界。** 按用户本轮继续推进指令，执行§70.12既定的 `moneyflow_mkt_dc / 2026-10-09` 单日真实验证。本次最多登记1个日期、启动2个原有完整job、生成Raw/Silver各1个文件及其原有检查；预期每层1行15列、Tushare两轮共2次请求、0 reject。21个sensor保持STOPPED，另外47项、所有Prod数据库、共享周/月线修改和配置setter均不在本步范围。不取消Dagster后台任务，不改调度时刻。
+
+**开工核对。** 2026-10-17 16:45正式只读核对：当天已成熟且SSE开市，尚未登记，没有Raw/Silver文件、物化或任务，下一步确为register。84份已验收资金流业务源码摘要均与已验收记录相同；对提交7bed457a148e26b08398bf8d29b361d98626d9fc的共享符号比较确认：paths中的lake_path/raw_moneyflow_path/silver_moneyflow_path，14项moneyflow字段定义，以及目录moneyflow相关35项节点（含14个分区枚举、14个分区模型调用和7个Raw资产构造；补充独立核对14个Raw/Silver构造全部相同）AST保持。共享period合同新增completion/update函数只由周/月线消费者使用；资金流路径、检查及writer不调用它们。CodeGraph explore已检查dependency_files/verification的调用方，再以当前导入与AST核对补足动态Definitions加载边界。当前113项依赖整文件摘要及737项库存已重新采集，隔离Definitions加载通过且前后稳定，不修改工具白名单或忽略共享文件。正式14资产/job/分区/check/依赖读回吻合，21开关STOPPED；绑定serverId 906ed8b6-8fd2-4f1f-b724-3ce491b35e69。新工具位于defs外，不需要reload。
+
+**具体操作。** 工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式DAGSTER_HOME为 `/Users/congming/.goldenshare/dagster_home`；SDK查询仍通过已有只读入口，唯一正式变更走固定本机GraphQL。只读准备已保存 `/private/tmp/moneyflow-sample-20261017-pp5aj2f8/verification.json`（SHA256 2356a8705568b81a09f838d44391e3c9159201caca133b52a55565780927ecc1）及scope.json。命令：
+
+```sh
+.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli plan --scope-file /private/tmp/moneyflow-sample-20261017-pp5aj2f8/scope.json --output /private/tmp/moneyflow-sample-20261017-pp5aj2f8/plan.json
+.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli inspect --plan /private/tmp/moneyflow-sample-20261017-pp5aj2f8/plan.json
+.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan /private/tmp/moneyflow-sample-20261017-pp5aj2f8/plan.json --expect-plan-sha256 369da01df15dfa733ac74e76a48952cf1a6bf2abdd2208d040d5eb0e3fbaba1a
+```
+
+先在日志及持久回执看见Raw run id，再仅向CLI进程发送SIGTERM；停止退出后运行同一apply命令接回原run，不给Dagster job发取消信号。写前再次核对完整依赖、服务、日历、配置、一次一个资金流任务及物理冲突；新动作前发现真实变化立即停止。请求/发送意图/回执按既定工具规则保存在正式staging的moneyflow/continuation下，不改写旧请求，不靠重发处理未知结果。正式文件仍经原候选检查和同文件系统原子提升。
+
+**预算和验收。** 一个日期、最多3项mutation、2个完整job；Raw正常两轮请求间隔至少60秒，上限64请求/300秒/20000行、768MiB RSS，SQL 512MB/1线程/不spill；正式新增文件预计约5KiB，保留原32GiB写入/64GiB余量门槛。每个job间隔10秒读回、最多120次/20分钟，预算持久化，排队不伪造完成；超时仅停止新提交，保留后台任务及接回依据。源码变化不终止已提交任务，先观察原run。仅两层run成功、检查准确绑定对应物化、物理schema/日期/键/行数/摘要、来源两轮证明、Raw/Silver逐字段转换全部一致，才计本次1/1完成；停止/接回必须证明只有一个Raw run、两次来源请求。随后同一apply应0新增登记/0新增job/0新增源请求。结果、命令和准确清单SHA另行追加，不能提前标完成。当前总体接续仍1/49，剩48，单日通过后才变2/49、剩47。
+
+### 70.18 实测恢复阶段错误的修正设计
+
+**已观测原因。** 16:47登记10-09并提交Raw run 23b6eeee-9189-44bb-a812-0951bc20a5c7；仅停止CLI后退出130，后台仍STARTED。恢复apply只看registered就将phase设raw；随后重复收取Raw阶段读额度，已有raw预算从首轮检查累计至40而触发read_budget。此前假原生边界guard不读数据库，未覆盖真实写前检查的读量，原单元通过不能证明此项真实恢复已经通过。
+
+**实现及影响面。** 只改defs外`moneyflow_continuation/execution.py`与对应execution测试，不改请求、Journal、额度常量、共享业务文件或CLI参数。阶段必须由已经完成的初始原生/物理snapshot的next_action决定：待注册→register，无Raw→raw，Raw已绿→silver；若原run仍在执行，直接用既有journal及run id进入wait_run观察，成功后再进入下一阶段，不重复计入上次提交阶段预算。初始snapshot仍严格验证原任务身份、检查及文件，未登记/失败/非本工具任务等原拒绝保留。poll预算和所有旧action预算保持，不清零、不加额度、不新增Raw。
+
+**验收及继续。** 先在隔离资源构造原生已提交、Raw阶段预算恰为40的反例，分别覆盖后台仍运行和已成功两种恢复时机；修正前必须失败，修正后只新增Silver一个job，Raw仍只有原run、raw预算仍40，未绕过新写前guard；已有超时/源码变化/过期/未知结果/49单元/真实七表job回归一并复验。只读观察已有Raw不等待修正，不取消任务。随后重新生成无正式凭据的当前Definitions证明及113项完整依赖证据，以原单日plan为parent生成同范围子清单保留root/request/run，更新源码证明；不能改原plan或budgets.json。新清单SHA写入执行记录后用原CLI接回并完成单日验收；其他47项和21个自动更新边界保持。性能、读写路径及失败处理沿用§70.17，修正不扩大任何预算。
+
+§70.18执行前复验：两项恢复反例修正前均退出4而失败，修正后与七表真实job/Parquet隔离链路及原新工具回归共109项通过（15.85秒），Ruff及文档检查通过。最初将测试临时根放入允许输出的/private/tmp，导致既有“禁止输出目录”反例前提不成立；已纠正测试命令使用默认隔离临时目录，未修改该测试或产品边界。后台原Raw已成功，只读子清单判定下一步silver。当前隔离Definitions再次通过，113依赖/737库存保持，正式serverId及21停止状态不变。保留原plan及所有40次Raw检查记录，子清单 `/private/tmp/moneyflow-sample-20261017-pp5aj2f8/repair1/plan.json` SHA256=19000c4b0ef4a4d4e1fda26939ba158d551c180802497b58b9c9c5329f1213e1，parent SHA=369da01df15dfa733ac74e76a48952cf1a6bf2abdd2208d040d5eb0e3fbaba1a，root_scope_digest保持2934652b347cc928bbbb7576638baf05955bb65d3c4c026ac9ba1deeb7ed5f5a。下一命令为同一工作目录下 `.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan /private/tmp/moneyflow-sample-20261017-pp5aj2f8/repair1/plan.json --expect-plan-sha256 19000c4b0ef4a4d4e1fda26939ba158d551c180802497b58b9c9c5329f1213e1`；读取原Raw事实并仅启动尚缺Silver，不重新登记或下载。
+
+### 70.19 单日验证已完成及后续准确待办
+
+2026-10-17 16:53独立只读验收通过，详见[10-09正式单日验收](../../reports/moneyflow_p4_continuation_market_20261009_acceptance_20261017.json)（SHA256 6ec3adbdc089626f0070b3a881a2e3486924c75f130f869e48d807b60bb3a2bf）。本步正式变更仅登记1个日期、启动2个完整job、生成2份文件及原有2条物化/2条blocking检查，来源请求2次；没有sensor变更、配置setter、reload、Prod访问或其他日期写入。
+
+| 层 | 原生run id | 物化 / check id | 结果 | 正式文件 |
+| --- | --- | --- | --- | --- |
+| Raw | 23b6eeee-9189-44bb-a812-0951bc20a5c7 | 7630545 / 1636315 | SUCCESS，1行15列 | 2612B，SHA256 5a1b514102d11e3bac35be81841833a8b10d0c6ff36f1056313569182eaec0df |
+| Silver | 09d2f9ee-903f-4fdb-adc6-d93d93b7361b | 7630573 / 1636316 | SUCCESS，1行15列 | 2588B，SHA256 f17e61165ae320ebd827dd939a60fea5c8eca8eb01b8de1dcae65eb672ce31ba |
+
+检查target的storage_id、run_id及timestamp均准确绑定对应物化；Raw来源凭证记录2请求、稳定间隔60.196303秒，源端/归一化/两层写入各1行、reject 0，Raw日期VARCHAR到Silver DATE及其余14字段逐项通过原检查。初次工具SIGTERM退出130，原Raw持续执行；旧版本恢复曾因read_budget退出4，按§70.18修正后，原Raw已成功，新工具直接转Silver，只新增1个整理任务。正式实测覆盖“停止后接回已完成的同一Raw”；“接回时Raw仍运行”的修正路径由新增隔离反例覆盖，不虚称又做了第二次真实下载实验。全部旧清单、请求和预算保留，Raw提交检查计数仍40。再运行相同子清单退出0、complete=true，独立读回每层恰好1个run/物化/准确绑定check，两次来源采集未增加。
+
+修正后工具、库存及七表真实job/文件/检查的隔离回归109项全部通过，新增两项反例修正前均失败，Ruff和文档检查通过。资金流84份业务代码保持，当前113依赖/737库存隔离Definitions验证通过，正式14资产合同、serverId和21停止状态保持。[当前隔离加载](../../reports/moneyflow_p4_continuation_sample_definitions_20261017.json)与[源码/服务核对证据](../../reports/moneyflow_p4_continuation_sample_verification_20261017.json)已持久保存。先前267项原业务回归和完整受保护门禁沿用本日先前记录，本次未重复冒充复跑；没有业务字段、API/CLI参数或依赖矩阵变化。
+
+**准确进度与下一步。** 只针对10-08、09、12～16七个成熟交易日重新只读核对七表，共49项，203次有界读取、未扫描全部历史。已完成2项（大盘10-08、10-09），剩47项/94个完整任务：大盘剩5天，其他六表各7天。7804项历史接入结果保留。已生成[剩余47项清单](../../reports/moneyflow_p4_continuation_remaining_plan_20261017.json)，SHA256 5d3da048513b7d99cd0051280f42c83bd2451182a625b1c15b9fb784d677b252，未apply；该清单及其代码证明保存于仓库reports，避免仅依赖临时目录。下一阶段按该范围接续，先各新表首日完整验收再继续同表，沿用§70的预算/原生恢复/不重发规则。当前单日步骤已收尾，没有未观察的活动资金流run；21自动更新保持STOPPED，启用及P5真实调度验证继续待办。

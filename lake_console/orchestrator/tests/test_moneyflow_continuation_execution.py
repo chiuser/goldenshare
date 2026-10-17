@@ -50,6 +50,33 @@ def test_reconnect_response_lost_raw_then_only_silver(tmp_path):
     assert len(native.posts) == 2 and len(native.native) == 2
 
 
+@pytest.mark.parametrize("raw_already_succeeded", [False, True])
+def test_resume_keeps_spent_raw_budget_and_observes_existing_run(
+    tmp_path, raw_already_succeeded
+):
+    # Real 10-09 stop/resume evidence: Raw was submitted once, then the
+    # submission-stage counter reached 40. That counter must remain spent;
+    # observing its existing run uses the independently persistent poll budget.
+    from orchestrator.moneyflow_continuation.submission import write_json
+
+    plan, native = plan_for(), FakeNative()
+    unit, journal = plan["units"][0], Journal(plan_for(), tmp_path)
+    native.registered.add((unit["dataset"], unit["trade_date"]))
+    original = submit_once(native, journal, unit, "raw", AT)
+    if raw_already_succeeded:
+        next(iter(native.native.values()))["status"] = "SUCCESS"
+    raw_budget = unit["dataset"] + ":" + unit["trade_date"] + ":raw"
+    write_json(journal.directory / "budgets.json", {raw_budget: 40})
+    code, report = apply(
+        native, plan, root=tmp_path, output=lambda _: None, clock=lambda: AT
+    )
+    assert code == 0 and report["complete"]
+    assert len(native.posts) == 2  # The existing Raw and exactly one new Silver.
+    assert len(native.native) == 2
+    assert native.native[(unit["dataset"], unit["trade_date"], "raw")]["run_id"] == original["run_id"]
+    assert json.loads((journal.directory / "budgets.json").read_text())[raw_budget] == 40
+
+
 @pytest.mark.parametrize("expired", [False, True])
 def test_existing_pending_is_observed_before_drift_blocks_next_write(tmp_path, expired):
     plan, native = plan_for(), FakeNative()
