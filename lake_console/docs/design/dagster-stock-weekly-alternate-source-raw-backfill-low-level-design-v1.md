@@ -1,6 +1,6 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-更新：2026-10-17。**Raw第8步已完成，两频2,250文件/4,486,908行，baseline=ready、handoff_complete=true，截止2026-10-16；正式对账见§5.15。周/月完整性审计随后通过，两频缺口与最新版本冲突均为0，见§9.6。** 本轮补齐§10生成设计；管理员已确认Silver与Raw字段完全一致，具体实现/入口/路径待review，Silver尚未开发、生成或登记。Raw原父子身份、sensor状态与cursor保持，自动化仍停用；Prod后置、R3继续暂停。
+更新：2026-10-17。**Raw第8步、一次完整性审计、Silver开发/隔离验收及正式生成/登记均已完成。** Raw两频2,250文件/4,486,908行、baseline=ready，截止2026-10-16，见§5.15；审计无缺口或版本冲突，见§9.6。Silver实际810文件/3,105,684行，21列及原值同Raw，810物化/2,430项blocking检查均通过；实现、测试证据边界与正式实测见§10.10。**DG剩余1—3项的待review实施设计见§11，尚未开发或执行。** Raw原父子身份、sensor状态/业务水位保持；Prod后置、R3继续暂停。
 
 本文的执行规则是已确认目标，原审计及前五步历史交付在§5.3—5.5；第6、7步的当前执行清单、验收及停止条件唯一在§5.6—5.7。已有源证据继续复用，不因修订设计重新请求源或扫描旧数据。
 
@@ -57,7 +57,7 @@
 ## 2. 对象、任务身份与复用
 
 <a id="silver-listing-boundary"></a>
-### 后续Silver的上市周期边界（2026-10-17最新确认，尚未实施）
+### Silver的上市周期边界（2026-10-17已确认并实施）
 
 Raw保留当前上市对象的全部源历史，包括北交所正式上市前的新三板行情。Silver以`stock_lifecycle.list_date`确定保留的首周、首月，排除完全位于上市之前的周期；上市所在周/月整根源K线保留，不切割周期，也不专项核验其中上市前的成交。不能用源首条行情或换码日期替代正式上市日期，不改变退市对象不请求、不保留的既定范围。
 
@@ -179,7 +179,7 @@ CLI的events只允许消费files_complete后的提交清单，不下载、COPY�
 
 历史文件完成后，交接仅处理实际开始至交接截止间涉及的周/月当前值与最终值、期间相邻因子变化，以及交接时一次上市/身份集合差异。复用成功完整历史，只补当前/未最终交付周期、实际变化股、新上市和确认退市；所有补取按§3.2合并，不能把整个市场历史重下一次。原范围不变，集合差异作为有界交接子意图记录，不篡改原manifest。
 
-选定已发布交易日作为交接截止，文件、必要事件和对象变动处理完成后才写ready及日常水位；源未发布或缺项则保持未就绪。执行期间跨入的新交易日只作为后续欠账接续，不追逐实时源无限循环。重复交接复用本次完成记录，不重置已推进的日常水位。Silver仍未开发，不能因Raw ready宣称Silver完成。
+选定已发布交易日作为交接截止，文件、必要事件和对象变动处理完成后才写ready及日常水位；源未发布或缺项则保持未就绪。执行期间跨入的新交易日只作为后续欠账接续，不追逐实时源无限循环。重复交接复用本次完成记录，不重置已推进的日常水位。Raw ready不代表Silver完成；Silver首次生成及后续日常状态分别见§10.10、§11。
 
 ## 5. 改动范围、当前实现与14项分类
 
@@ -204,7 +204,7 @@ CLI的events只允许消费files_complete后的提交清单，不下载、COPY�
 
 ### 5.2 当前阶段与执行顺序
 
-A阶段最小真实源样本已保留；步骤1—7已提交至d46486a5。第6步清退及第7步原155项回归见§5.8；日历相关通过结论已撤回，本轮修复、44项受影响回归及真实只读核验见§5.9，不与历史数量累加。修正已提交ec9a33a0并加载；第8步已按批准启动、当前未完成，停点及恢复边界见§5.10。Silver后续单独开发。
+A阶段最小真实源样本已保留；步骤1—7已提交至d46486a5。第6步清退及第7步原155项回归见§5.8；日历相关通过结论已撤回，本轮修复、44项受影响回归及真实只读核验见§5.9，不与历史数量累加。修正已提交ec9a33a0并加载；第8步的历史停点及恢复边界保留于§5.10，后续正式完成见§5.15；Silver本次亦已完成，见§10.10。
 
 ### 5.3 14项的实现状态与开发动作
 
@@ -628,9 +628,9 @@ N=5576是已留存对象快照，不重新审计全市场。单元行数r时请�
 以上旧锚点只保留历史引用定位，不提供当前执行步骤。
 
 <a id="period-completeness-audit"></a>
-## 9. 周/月完整性审计与Silver规则（2026-10-17审计已通过，Silver未生成）
+## 9. 周/月完整性审计与Silver规则（2026-10-17审计与生成均通过）
 
-本节是已确认审计的唯一细则，实际完成结果见§9.6。先完成一次完整性审计，通过后才生成Silver；不是重新下载或重做第8步。本轮仅补齐§10生成设计，不再审计、不开发或写正式Lake/移动盘staging，不重载定义、登记事件或操作sensor；Prod后置、R3继续暂停。
+本节是已确认审计的唯一细则，实际完成结果见§9.6。先完成一次完整性审计，通过后才生成Silver；不是重新下载或重做第8步。本次已按确认的§10完成开发、隔离验收、正式Silver生成及登记，实际结果见§10.10；未重新审计或操作sensor。Prod后置、R3继续暂停。
 
 ### 9.1 对象、历史起点与完整周期
 
@@ -654,7 +654,7 @@ trade_date是源周期标签，不是每天的运行日期；周五、自然月�
 
 已有000001.SZ月线源证据：20200228/end_date=20250910的close_qfq为12.01，20200229/end_date=20261015为11.14，两条close均14.50。Silver选择后者这一完整行；Raw两条均保留。这是复用已有样本，不要求为本节再次请求源。
 
-Silver保留未复权、前复权、后复权三套源OHLC及其余全部源业务字段。按管理员本轮明确口径，字段名、顺序、类型、值、单位及NULL均与Raw一致，日期仍为YYYYMMDD的VARCHAR，不改为DATE；SQL比较日期时的临时转换不写入输出。不得将change改为change_amount，不增加身份、审计或派生字段。不重算价格、涨跌额或涨跌幅，不用日线聚合证明公式。完整schema、job/check及落盘设计见§10，尚未实现。
+Silver保留未复权、前复权、后复权三套源OHLC及其余全部源业务字段。按管理员本轮明确口径，字段名、顺序、类型、值、单位及NULL均与Raw一致，日期仍为YYYYMMDD的VARCHAR，不改为DATE；SQL比较日期时的临时转换不写入输出。不得将change改为change_amount，不增加身份、审计或派生字段。不重算价格、涨跌额或涨跌幅，不用日线聚合证明公式。完整schema、job/check及落盘设计见§10，首次生成实施结果见§10.10；日常更新待review设计见§11。
 
 ### 9.3 参考事实与完整性判定
 
@@ -714,7 +714,7 @@ Silver保留未复权、前复权、后复权三套源OHLC及其余全部源业�
 | 字段/范围 | 三套价格、Decimal、单位及合法NULL保持；Raw不变 | 新增无依据重算、误改Raw、截断完整源历史、隐藏不符合现有合同的字段/日期/频度错误 |
 | 后续生成 | 审计通过才生成，实际变化的所有历史分区传递；取消后复用已完成成果 | 审计未通过即生成、只更新当前期、重复处理未变化分区或恢复时从头重审 |
 
-原文档落档不代表执行完成；本节审计此后已由管理员批准并完成，实际证据见§9.6。Silver仍未开发或生成，审计通过不代替生成阶段必要的落盘及读回验收。本轮文档补齐不授权代码开发、Lake/staging写入、定义重载、事件或sensor操作。
+原文档落档不代表执行完成；本节审计此后已由管理员批准并完成，实际证据见§9.6。Silver生成随后按单独确认完成，必要落盘及读回结果见§10.10；当时的审计通过本身并不等于生成通过。新增日常更新设计与授权边界见§11，不重做本节完整审计。
 
 ### 9.6 已完成审计与复用基线
 
@@ -729,12 +729,12 @@ Silver保留未复权、前复权、后复权三套源OHLC及其余全部源业�
 | 应有且已覆盖周期 | 2,510,069 | 595,608 |
 | 缺失/最新版本冲突/普通整期停牌矛盾 | 0 / 0 / 0 | 0 / 0 / 0 |
 
-周线额外7个属于跨年或上市首期边界，按完整周期保留；不得为了让行数等于“应有周期”再删7行。首周2014-01-03保留2,159股。缺口范围、逐期缺口及最新版本冲突CSV均已输出，数据行数0。后续生成复用此基线，不重跑本节审计；表中选择数量不是已落盘Silver数量。
+周线额外7个属于跨年或上市首期边界，按完整周期保留；不得为了让行数等于“应有周期”再删7行。首周2014-01-03保留2,159股。缺口范围、逐期缺口及最新版本冲突CSV均已输出，数据行数0。后续生成复用此基线，不重跑本节审计；表中为当时审计选择数；本次实际落盘数量与之相同，见§10.10。
 
 <a id="period-silver-generation"></a>
-## 10. 第5步：Silver生成实施设计（待review；同字段口径已确认）
+## 10. 第5步：Silver生成实施设计（2026-10-17已实施并验收）
 
-本节只细化原五步流程的第5步，不新增审计、源验证或全链阶段。目标是在已审计范围内将选中的Raw完整行落盘，建立两个Silver资产的生成、检查和恢复能力。当前仅补文档，以下新增定义、入口和文件布局均为实施设计，未经后续确认不编码或正式执行。
+本节只细化原五步流程的第5步，不新增审计、源验证或全链阶段。目标是在已审计范围内将选中的Raw完整行落盘，建立两个Silver资产的生成、检查和恢复能力。本节实施及正式操作已获管理员确认；代码、隔离、正式文件与DG登记均完成，结果见§10.10，不外推为后续自动调度授权。
 
 ### 10.1 字段合同：与Raw完全一致
 
@@ -794,7 +794,7 @@ catalog使用DERIVED_CONTRACT、DERIVED_FROM_ASSETS及逐分区原子替换政�
 
 正式执行开工只做一次必要写入边界检查：真实挂载、两固定目标根/符号链接、同文件系统、相关写者及可用空间；不读取其他数据、不逐文件hash。首次目标应不存在；存在未归属本次执行的文件即报告，不删除旧根、不覆盖未知成果、不做Kopia或备份。
 
-Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有Raw业务锁阻挡Raw其他工作。每个unit生成时记录其已打开Raw/候选/目标前像的文件版本；这是该次读写的提交证据，不是重新审计库存。休市窗口复用审计结论，不因假设漂移而反复核验输入；实际发现冲突只使相关unit停下，不自动全市场重跑。
+本次休市窗口的首次生成使用独立Silver单写锁，CLI/job遵守同一锁，未持有Raw业务锁。每个unit记录Raw/候选/目标的文件版本；这是该次读写提交证据，不是重新审计库存。已完成的首次执行不因后续设计变更重跑；未来日常update的并发边界另见§11.3。
 
 | 持久化状态 | 恢复动作 |
 | --- | --- |
@@ -834,7 +834,7 @@ Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有
 
 本次实施范围是首次生成和可复用单周期job，不新增或启用Silver sensor，也不修改Raw sensor状态/水位。后续自动日常接线另行明确：应消费Raw既有complete.json/files中的全部实际变更周期，含两频历史因子刷新，而非只追当前anchor；本轮不为该未来接线修改Raw metadata或新增自动化步骤，不把首次生成写成日常自动维护已完成。
 
-正式执行前按获准文件白名单加载新增定义，不夹带其他任务未获准改动；无法隔离先报告，不切分支/worktree或重启无关服务。正式build和events必须使用最终确认的精确命令及DAGSTER_HOME；本节命名不代表本轮已获代码开发、重载、写湖或事件执行授权。
+正式执行前按获准文件白名单加载新增定义，不夹带其他任务未获准改动；无法隔离先报告，不切分支/worktree或重启无关服务。正式build和events必须使用最终确认的精确命令及DAGSTER_HOME；本次开发、重载、两固定根写入及必要事件登记已获确认并按本节完成；不授权其他数据集或后续自动调度。
 
 ### 10.7 成本、资源与配置来源
 
@@ -846,7 +846,7 @@ Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有
 | 数据SQL | 每文件一次Raw投影/选择、一次单文件COPY及一次合并读回校验；三项check复用结果，不是三次重算 |
 | 业务持久化边界 | 每周期独立候选、验证、原子提升及checkpoint；失败最多重做尚未完成unit |
 | 登记 | 最多810次实际文件登记单元，事件预计3,240条；独立真实补报run批量处理，不启动810次历史asset run |
-| 费用与耗时 | 无外部配额消耗；已知4.571秒只是审计成本，Silver COPY/fsync/事件尚无实测，不编造ETA。必要隔离验收顺带记录这些成本，不另开性能实验或重新bootstrap |
+| 费用与耗时 | 无外部配额消耗；本表为首次生成前的设计规模，实际COPY/fsync/事件和资源测量见§10.10；不为后续日常设计重新bootstrap或重复审计 |
 
 不新增env、Settings、数据库或长期配置文件。以下均为现有配置来源或本次显式执行输入，不能散落成另一套阈值：
 
@@ -857,13 +857,13 @@ Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有
 | DuckDB memory/threads/spill | 复用DuckDBConnectionSettings既有默认16GB/4线程/512GB；只将temp_directory指向本次staging/spill | 这些是现行引擎上限而非实际分配或业务门禁；不套Raw HTTP policy，不新增Silver小额阈值，异常留证退出 |
 | 并发/批次/空间 | 单协调器、每周期一个持久化unit；不新增可配置并发或未经测量的固定MB上限 | 空间开工检查一次，按已知候选/提升/实际spill增量计量并在提交边界确认，不递归扫描累积目录 |
 
-空间峰值考虑现有Raw、已生成Silver、本unit候选/旧目标（更新时）和实际spill；无备份副本。压缩体积、fsync/事件耗时未实测，不能用行数伪造精确GiB或时间承诺。空间不足/真实目标冲突只停止当前执行并保留成功unit，不擅自放宽额度、安装依赖、换盘或改合同。隔离验收记录真实配置与资源，不因尚无全量写入测量先加一轮全市场审计。
+空间峰值考虑现有Raw、已生成Silver、本unit候选/旧目标（更新时）和实际spill；无备份副本。首次压缩体积、fsync/事件实测见§10.10，后续增量覆盖的成本另由必要小场景记录，不用行数伪造精确GiB或时间承诺。空间不足/真实目标冲突只停止当前执行并保留成功unit，不擅自放宽额度、安装依赖、换盘或改合同；不为测量再加全市场审计。
 
 全部Silver入口显式调用connect_configured_duckdb并传入temp_directory为本次staging/spill的DuckDBConnectionSettings，其他参数沿上述既有默认；不直接调用会使用全局临时目录的无参DuckDBResource.connect()，不修改共享resource默认或让spill落到正式Lake/全局移动盘临时目录。
 
 ### 10.8 具体开发文件与影响面白名单
 
-以下路径相对lake_console/orchestrator/；只为本Silver生成落地，当前仅为待review清单：
+以下路径相对lake_console/orchestrator/；只为本Silver生成落地，均已按确认范围实施：
 
 | 文件 | 落地职责 |
 | --- | --- |
@@ -875,9 +875,11 @@ Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有
 | src/orchestrator/defs/jobs/stock_weekly.py、stock_monthly.py | 各新增只选Silver及检查的job，保留原Raw job |
 | 新src/orchestrator/defs/checks/stock_period_silver_checks.py | 两频六项blocking checks，共用一次实际验证，不依赖一次性bootstrap证明长期供数 |
 | 新src/orchestrator/defs/bootstrap/stock_period_silver_cli.py | build/resume/events入口及真实补报run；无删除、下载或旧计划兼容 |
-| src/orchestrator/defs/catalog/lake_assets.py | 新增两个asset、分区模型、六项治理登记及来源/字段/读写/性能合同；保留其他任务格式和改动 |
+| src/orchestrator/defs/catalog/lake_assets.py | 新增两个asset、分区模型、六项blocking名称及来源/字段/读写/性能合同；保留其他任务格式和改动 |
+| src/orchestrator/defs/catalog/name_mapping.py | 已获准补齐stock_weekly/stock_monthly的“股票周线/股票月线”中文名称，供既有metadata及catalog构造器使用；不改变其他名称或构造器行为 |
 | 新tests/test_stock_period_silver_contracts.py、test_stock_period_silver_projection.py | 21列完全一致、独立字面金样本、范围/整期/择行/NULL/身份正反例 |
 | 新tests/test_stock_period_silver_execution.py、test_stock_period_silver_events.py、test_stock_period_silver_jobs.py | 原子性、取消恢复、同版本复用、事件失败、真实运行绑定与定义/直接消费者回归 |
+| tests/test_asset_check_incremental_governance.py、test_asset_governance_contracts.py | 仅追加两Silver的六项治理登记及活动资产清单；不放宽其他数据集的全局断言 |
 
 复用前已查当前Raw入口→deliver_asset→run_period→io.publish及事件链：report_file_events固定Raw asset/check/路径，不能直接给Silver用；_replace_parquet_from_query的旁路.tmp也不能当完整staging/checkpoint能力。safe_path/file_version/fsync等根无关底层能力可在确认真实语义后窄复用，不搬动或泛化现有Raw主链。通用schema、paths、catalog的直接消费者仅本次新增资产/检查/CLI和治理测试；不触及Prod DatasetDefinition、业务API、前端、日线/分钟算法或依赖矩阵，不新增对src/ops/app的依赖。
 
@@ -893,10 +895,178 @@ Silver单写锁独立于Raw，所有本Silver CLI/job遵守同一锁；不持有
 | checkpoint/事件 | rename后记录失败读回补记；文件和事件分开，真实补报run绑定当前资产/分区/物化 | 事件失败不得重写行情；PLANNED、错分区、错物化及空run_id不能冒充检查成功 |
 | 隔离集成/效率 | 临时Lake/staging、隔离instance走实际Silver asset/job/check/CLI，复用既有Raw样本 | 任何Tushare/Prod请求、Raw写入、正式资源操作、每股/每check扫全历史和恢复重跑完整审计均拒绝 |
 
-先在上述白名单实施并完成必要隔离验收，再review最终正式执行清单；不因本轮文档补齐自动开始开发或正式操作。这是第5步的开发/落盘安全要求，不新增上游审计或源验证步骤。修复时只跑受影响测试，固定版本后一次直接回归；不默认全仓/完整bootstrap。
+本次已按管理员确认在上述白名单实施、隔离验收并执行正式清单；必要步骤及结果见§10.10。这是第5步的开发/落盘安全要求，不新增上游审计或源验证步骤。修复时只跑受影响测试，固定版本后一次直接回归；不默认全仓/完整bootstrap。
 
 获准正式执行时先加载确定版本（其他任务加载冲突先汇报），在保持Raw sensor状态/水位及R3暂停的条件下，以§9.6作为审计门禁执行一次build；随后只补需要的events，并汇总810个unit的既有写入/检查记录。预期week=656文件/2,510,076行、month=154文件/595,608行、总3,105,684行；真实结果不符先报告，不擅自修订审计数字或扩大范围。不能把7个边界周期误删后仍声称对账通过。
 
 交付：实际文件数/行数/路径和按期范围，21字段守恒证据，三项检查及真实登记绑定，取消/续跑/事件失败覆盖，SQL/I/O/资源实测和未覆盖项，正式操作清单与其他任务保留情况。最终状态分别写“设计、代码、隔离验收、正式文件、DG登记”；自动日常接线、Prod、R3不冒记完成。后续新增问题按根AGENTS先讨论，不靠新增验证步骤或反复审计掩盖。
 
-设计证据：本轮使用CodeGraph explore查看report_file_events、Raw发布和DuckDB连接的真实实现及直接调用方，结合Raw asset/job/check、字段schema、catalog和审计产物核对；未扫描数据湖或请求Tushare。Dagster依据为[asset metadata](https://dagster.io/docs/guides/build/assets/metadata-and-tags)、[asset checks](https://dagster.io/docs/guides/test/asset-checks)及[partitioning assets](https://dagster.io/docs/guides/build/partitions-and-backfills/partitioning-assets)，仅用于定义/检查/分区设计，不授权升级当前安装版本。当前目录未发现既有周/月Silver实现，本节新增命名、路径和CLI设计仍需本次review，不能以历史Raw实现冒充已具备。
+设计证据：本轮使用CodeGraph explore查看report_file_events、Raw发布和DuckDB连接的真实实现及直接调用方，结合Raw asset/job/check、字段schema、catalog和审计产物核对；未扫描数据湖或请求Tushare。Dagster依据为[asset metadata](https://dagster.io/docs/guides/build/assets/metadata-and-tags)、[asset checks](https://dagster.io/docs/guides/test/asset-checks)及[partitioning assets](https://dagster.io/docs/guides/build/partitions-and-backfills/partitioning-assets)，仅用于定义/检查/分区设计，不授权升级当前安装版本。本节新增的周/月Silver命名、路径及CLI现已按确认实施；不能以历史Raw通过结果代替本节验收。
+
+
+### 10.10 正式生成与验收结果（2026-10-17）
+
+本次run_id=d895bec0-8b69-4cd3-aabe-7f06a4c7e467；复用§9.6审计，不重新做完整性审计、源请求、Raw扫描或复权计算。正式周线656文件/2,510,076行，范围2014-01-03—2026-10-16；月线154文件/595,608行，2014-01—2026-10。合计810文件/3,105,684行，21列及整行源值逐文件验证通过；7个边界周线保留。
+
+仅重载orchestrator后执行本CLI build，再执行events。正式补报run=891c70f1-146f-4e2c-aaa2-cdc2ca4181bb，SUCCESS；最后8个批量DG查询确认实际810物化+2,430项blocking检查，均通过且绑定正确资产/分区/物化ID。收尾只汇总已有checkpoint并列目标目录元数据，未再读Parquet。Raw sensor状态和业务水位相同，锁释放，R3源码保持执行前版本，R3继续暂停。
+
+43项新增Silver隔离测试通过，两个真实缓存Raw文件走最终生成器；每期Raw全读、COPY、完整候选读回、footer各1次，完成续跑0 SQL/0改写。完整definition临时验证、Ruff致命错误及本次文件默认规则通过。扩展回归73通过/2未通过：一项为既有15个其他数据集治理缺项（HEAD同样缺失）；一项为停牌专用启动器测试被直接pytest调用时缺support。未跳过、改弱或修理这些无关项，不声称全仓通过；本次两资产自身登记/检查与实际job通过。
+
+正式文件阶段31.889秒，RSS峰值896,434,176字节（约855MiB），输出170,035,374字节；选择14.776秒、COPY3.813秒、候选验证阶段10.997秒、提升/footer0.994秒。事件阶段110.642秒，文件/事件合计约142.5秒（不含开工、加载和收尾）。复用16GB/4线程/512GB默认引擎上限，实际占用见实测；最终spill残留0，不冒记峰值。所有正式日志、checkpoint保留，详见[Silver生成验收报告](../../../reports/dg_stock_period_silver_generation_20261017/report.md)。
+
+本次设计、代码、隔离、正式文件及DG登记已完成。自动日常/因子刷新接线仍未实施，不新增或启停Silver sensor，不改Raw请求/入口、Prod或R3。原生成设计已提交ace57334b，本次实现与收尾文档尚未提交、不推送；其他任务改动保留。
+
+<a id="period-silver-daily-maintenance"></a>
+## 11. DG剩余1—3项的实施设计（2026-10-17开发与隔离验收已确认）
+
+本节对应总方案§9：1补齐Silver日常更新、2接通Raw实际交付并验收、3白名单提交/结案。2026-10-17管理员确认先提交文档，无卡点则按本节开发/隔离验收；不授权正式写湖/staging/事件、重载或sensor操作。各项开发前按根AGENTS“按计划开发执行链”第8条检查本节完整性与实际接口；意外或无法推进的错误必须停止报告，讨论并回写原文档后再继续，不凭聊天摘要或带严重问题改代码。
+
+### 11.1 当前环境、代码依据与影响面
+
+2026-10-17在dev-interface只读核验：项目现有Python3.13.5；正式orchestrator location为LOADED，两个Silver job已加载，sensor daemon健康。四个周/月Raw/Silver目标job均未见在途运行，未据此推断所有手动进程/锁为空。Raw baseline.ready，handoff_cutoff、factor_through与两频last_refresh均为2026-10-16，completed_through为week=2026-10-16、month=2026-09，未结束10月未被冒记完成。两个Raw sensor均RUNNING，cursor仍保留原周/月业务水位。Silver原执行的文件及事件完成记录与§10.10一致。此处核验不是重新验收行情或证明未来运行必然成功。
+
+| 当前代码落点 | 已核实行为及设计结论 |
+| --- | --- |
+| run_contracts/stock_period_silver.py::StockPeriodSilverConfig；stock_period_silver.py::make_execution/deliver_asset | 配置依赖execution_id/audit_report；固定报告不能涵盖新周期。新执行拒绝已存在目标，同ID拒绝源变化，不能直接拿作日常更新 |
+| stock_period_silver.py::select_period/validate_projection/build/current_validation | 现有选行算法、每周期一次投影/候选验证、单连接及三check复用可保留。独立check已有不依赖bootstrap临时证明的单周期路径 |
+| io/stock_period_silver.py::publish | 支持首次提升和rename后checkpoint失败识别，不支持以已知前像替换既有Silver；需明确更新意图，不删除目标后重建 |
+| stock_period_history.py::_finish_files/replay_events | complete.json已有全部实际files、file_receipt_hash及unit_asofs；现有events回调只收到单文件item，不传交付引用。不能为接线重写原identity/hash/complete |
+| stock_period_update.py::execute_daily/deliver_asset/report_file_events/handoff | 一次Raw任务可实际修改两频历史，但anchor返回metadata仅含当前文件版本。CLI events/handoff及周线补报op也是事件消费者，必须同步接线 |
+| sensors/raw_stock_weekly_update_job_sensor.py、raw_stock_monthly_update_job_sensor.py | 只编排Raw；60秒轮询及19:30源窗口保留。无Silver日常sensor |
+| jobs/assets/checks/catalog中的两个Silver | 已有asset/job/check/分区身份保留；不新增数据集、不迁移Prod DatasetDefinition或业务API/前端 |
+
+使用CodeGraph explore追踪Raw deliver_asset→run_period→replay_events→report_file_events及Silver执行，impact核对report_file_events/run_period。动态回调覆盖不完整的部分已用当前源码引用补核：stock_period_update.py、stock_period_history_cli.py、ops/stock_weekly_bootstrap_checks.py；后者只补周线，不能因这次接线擅自让它补月线。测试消费者见§11.8。没有跨foundation/ops/biz/app依赖改动，R3没有消费者迁移任务。Dagster设计依据为[资产](https://dagster.io/docs/guides/build/assets)、[分区](https://dagster.io/docs/guides/build/partitions-and-backfills)、[sensor及cursor/run key](https://dagster.io/docs/guides/automate/sensors)、[检查](https://dagster.io/docs/guides/test/asset-checks)，并已核对当前安装的SQL event log表/状态过滤实现；不升级依赖。
+
+### 11.2 第1项输入、数据范围与配置审计
+
+保留两个asset/job、六项check、路径及分区名；沿§9.2、§10全部21列/整行规则。week下限2014-01-03，month下限2014-01；上市首周期完整保留，Raw不裁历史。日常不重算停牌/生命周期完备性，不请求Tushare；参考资产仅按现行合同读取一次用于选行。Raw历史移除旧键后，Silver对受影响周期重新选整行，不在旧Silver上仅追加，从而同步移除旧键。
+
+在现有StockPeriodSilverConfig中增加互斥意图，以下DG入口合同随本节开发设计一并获准；正式加载和使用另行确认：
+
+| 配置/输入 | 默认与来源、持久化、消费者 | 依赖、生效及失败处理 |
+| --- | --- | --- |
+| intent | 默认bootstrap；job显式配置写入Dagster run config，新执行记录保存；消费者为Silver asset/执行器 | 只允许bootstrap/update；无隐式“最新模式” |
+| execution_id | 继续canonical UUID，显式输入；自动update由频率及稳定上游batch_id确定性生成，写入run config/execution.json | 同ID只续同一冻结范围，不能复用ID改源版本或范围 |
+| audit_report | 原bootstrap必填；update不传，沿执行记录保存获准范围 | bootstrap仍按原报告/拒绝未知目标；update混传报告、bootstrap缺报告均拒绝，不给日常伪造审计报告 |
+| source_completion | update必填，结构为raw_execution_id、file_receipt_hash、upstream_batch_id；来自§11.5小通知，保存到run config/execution.json | 原始ID为64位hex，按固定staging规则定位，禁止任意文件路径；batch_id必须按既有构造器复算一致。bootstrap禁止此项 |
+| lower/asof/规则 | lower沿已确认2014边界；asof来自本次Raw已完成意图/逐单元截止记录，参考文件版本随新执行固定；消费者为选行、检查和事件 | 不是独立env/Settings输入，不能硬编码旧截止2026-10-16，不能把未来周五/月末标签当未来成交。当前不带asof的主动history，以该Raw完成时间的上海日期作校验上界，原样保留每行end_date |
+| DuckDB/临时根 | 沿§10.7的16GB/4线程/512GB默认，只换本执行spill目录 | 既有引擎上限不代表预分配；不新增RSS阈值或套Raw6GiB政策，不改共享默认 |
+| sensor间隔/批次 | 在本Silver合同集中定义60秒轮询，默认STOPPED；每tick最多一个本频率Raw交付、一个RunRequest | 60秒沿现有DG轮询节奏，是实现选择，不是数据新鲜度保证；只在后续批准加载/启用时生效，无新增env/数据库配置 |
+
+不新增source代码、日期、重算公式、force覆盖等运营输入。config的构造与校验集中在本Silver合同，不能在sensor/CLI/asset各自设默认。无新增全局配置或数据库状态表；运行意图保存在现有run config，逐文件事实保存在现有run-scoped checkpoint。所有失败均记录reason code、当前批次/周期及下一动作，不能静默fallback到bootstrap或Prod。
+
+### 11.3 第1项执行、已有目标与版本复用
+
+1. 从指定Raw manifest/complete读取本频率实际变更周期，校验原identity、file_receipt_hash、合法路径/freq/唯一周期；按2014边界过滤并记录排除数量。不glob全湖、补造周期或从旧审计报告推当前范围。一次去重并排序，一个周期一个unit。
+2. 用§11.6批量证据核对Raw和已有Silver的当前物化、检查及版本。真实新周期须目标与既有物化均不存在；已有周期必须有同规则/路径的真实Silver物化、三项合格检查与当前文件版本一致，才能取得目标前像。文件来路不明、已物化但文件丢失、失败check或错误绑定均阻断；不自动借更新修复未知破坏。
+3. 首次生成的§10.10物化已足以识别既有目标，不要求重新做810文件审计或补一遍旧事件。后续Silver metadata增加source_version、reference_versions和source_completion，连同现有rule/lower/asof/target_version用于判断同版本已交付；这些仅为运行metadata，不入21业务列。缺少旧source_version不反推“已对齐”，首次收到真正变化的Raw后正常更新该期。
+4. 冻结本次小型execution：update意图、本频率、已列明unit及输入版本、参考版本、目标前像/不存在标记、截止与稳定batch身份。逐unit保存其Raw交付asof；合并不同完成批次时，选行/检查/metadata使用该unit的asof，不用整批最大日期改写旧交付含义。首次bootstrap记录及原ID/hash不改，选行rule不因新增执行意图而改变。旧记录按自身既定意图续跑，不新增另一套写入实现。
+5. 日常update在现有Raw写锁→Silver写锁的固定顺序下执行文件阶段，防止读取/提升间Raw被另一个合规写者替换；拿不到锁则不写、不忙等。Raw只借用锁，不改其业务数据。事件阶段释放Raw锁。update的job及CLI恢复入口使用同一顺序，无相反嵌套；原bootstrap意图继续使用既有独立Silver锁及获准静态输入窗口。锁内每个unit复核输入及目标前像，越界写者导致版本不符则停止。
+6. 一批复用一条DuckDB连接/一份参考表；每unit选行一次、COPY一次、完整候选验证一次。整期按源重建，原子替换已有目标；不删除根、不先unlink目标、不保存备份。未列明分区和另一频率不写。合法空选择仍按§10.4处理；非预期空/源缺失或失败先报错，不能清空旧Silver冒充成功。
+7. 校验后记录candidate_version、source_version、target_preimage和验证结果；提交前匹配前像后os.replace/fsync/checkpoint。rename后只读必要footer/版本，不再跑整行校验。新文件未知、旧目标变化、候选被替换、symlink或设备改变均拒绝。空间开工一次核对，随后按当前候选/旧目标及实际spill计量，不递归扫累计目录。
+
+当前/欠账/历史更新共用这条执行链；不会先upsert当前期再对同一周期history重写。只处理源已完成交付，不能把更新全部历史作为每日默认动作。参考身份与Raw交付范围不一致时停在受影响批次，不能自动扩大到全历史“修一遍”。
+
+### 11.4 第1项恢复、检查与事件
+
+文件状态继续为候选已校验→已提交，事件独立完成。已提交且输入、参考、输出及规则相同的unit只查版本/checkpoint，0 SQL、0 COPY；其余成功成果保留。rename成功而checkpoint失败，用已保存候选身份识别新目标，补记而不重算；必须同时接受“原前像”与“该候选已成为目标”两个明确状态，不能把任意现有文件当恢复成功。
+
+取消检查覆盖规划单元、COPY/验证前后、提升前后及事件边界；长SQL沿现有interrupt机制，按实际emit时间预留30秒进度/取消余量。单进程，无新worker；TERM/KILL保留已完成文件/候选和记录，内核释放锁。取消后不领新unit。恢复仍用原execution_id；输入已被新Raw交付替换时旧记录失效，不能改旧hash认领新源，按§11.6创建新意图承接尚未对齐部分。
+
+沿六项检查及真实补报run实现：每个实际更新周期记录物化和三项blocking，精确绑定当前资产/分区/物化ID；PLANNED、旧成功压过新失败或错误物化均不算通过。一个本频率job批量处理所选周期，anchor为实际变化清单中最大周期；其余周期在同一真实运行登记，anchor由asset原生返回/检查，不能预报它已成功。事件metadata逐unit记录实际source版本及截止，不能把anchor日期套到所有历史期。三项检查复用同一次持久化验证，独立check只在版本证据不适用时核验该期一次，不做公式自证重算。
+
+CLI build继续只做原首次生成；resume/events可按已存执行意图恢复或补事件，参数名和无action行为不改，不新增update/download/apply动作。events绝不下载/COPY/覆盖数据。job重试同ID仅补未完成unit/事件；文件完成、anchor真实检查及其他周期事件都完成后，才记录该频率交付完成。状态或事件写失败不回滚行情，事件重试不重算文件。
+
+### 11.5 第2项Raw交付通知及全部消费者
+
+拟增加一个小型metadata合同goldenshare/period_completion：version=stock-period-completion@1、raw_execution_id、file_receipt_hash、upstream_batch_id、freq、file_count。引用固定staging/stock_period/runs/<raw_execution_id>/manifest.json及complete.json，不复制文件清单进metadata，不含token、逐股数据或任意路径。上游batch_id复用build_batch_id，payload含producer_run_id=Raw执行ID、既有file_receipt_hash及freq；复用build_upstream_triggered_run_key。Dagster storage_id仅作查事件的cursor，不进入batch_id、run_key或业务范围。
+
+该小合同的类型/纯校验归Raw生产者的run_contracts/stock_period.py；第1项先实现共同引用校验，第2项接生产通知，Silver消费同一定义，不让Raw导入Silver模块或两边各造一套hash。保留原VERSION/Raw identity及complete文件结构，新增的是独立的事件引用版本。
+
+Raw每个完整文件批次，对实际files中每个受影响频率发一条AssetObservation到对应既有Raw资产；无变化频率不发，纯anchor待办补记不制造新批次。观察表示files_complete，**不是Raw检查已通过或Silver完成**。各实际文件物化带同一小引用，便于后续定位已被更新的旧通知。事件只引用既有完整receipt，不修改Raw身份/hash、SQL、HTTP参数、21列、下载/文件提交行为。
+
+在run_period/replay_events增加内部交付回调，通知写入沿既有事件阶段；每频率的通知receipt保存在该Raw run既有events/completion/<freq>.json，含batch身份与实际通知ID。通知写失败留待补报，不能把新增事件待办记成全部events_complete，不影响已提交Raw；崩溃在通知成功/receipt前可重复通知，消费以稳定batch_id去重。events重放仍只有事件写入，不执行下载、源计算或文件替换；不为了添加新metadata回补所有历史物化。
+
+当前通用readiness通过fetch_materializations和实际检查绑定取证，不依靠资产“最近事件时间”。新增observation不得当作物化/check成功，也不得改变Raw日常完成水位；隔离测试必须覆盖“只有通知/更新了事件时间但无合格物化检查仍不ready”。catalog同步两Raw的新增通知event_policy及两Silver的更新/事件合同，不改变其列、路径或检查名。
+
+同步迁移当前真实入口：stock_period_update的日常、主动history、handoff及其事件闭包，stock_period_history_cli的resume/events/handoff，ops/stock_weekly_bootstrap_checks的周线补报。最后一个入口只允许发周线通知，不顺带补月线。无Dagster实例的底层离线调用只形成原文件证据、不伪造通知成功；明确的events阶段补齐。所有生产回调及直接测试同时更新，不保留正式链中只有旧单文件事件、不通知交付的隐蔽分支。
+
+### 11.6 第2项sensor、readiness及历史更新不遗漏
+
+新定义名称固定为silver_stock_weekly_update_job_sensor、silver_stock_monthly_update_job_sensor，分别选择原同名Silver update job、原cn_a_stock_week_ends/cn_a_stock_months；default_status=STOPPED。源完成才触发，不加第二个19:30门槛，不用交易日限制挡住周末的合法历史交付。期望周期完全来自本次Raw实际files；不是每日造一根周/月K，也不是日期continuity窗口扫描。
+
+单tick先看根可用性、当前相关运行/已有待办，再从该频率Raw资产读取cursor之后最早一条本合同observation（limit=1），校验小引用及完整清单；没有通知则0 DuckDB/0 Parquet。一次最多一个Raw交付、一个RunRequest，先处理最早未交付批次；批次内历史周期是既有Raw实际改动范围，不在sensor中发现或重算全历史。一次Raw周线任务若也改了月线，会发月线资产通知，月线sensor由此处理全部相关月份。
+
+新增本域batch readiness helper，按明确的asset/check/partition集合查询：一条集合SQL取Raw和Silver各期最新物化，一条集合SQL取各期/各check最新**已完成**结果（包含失败、排除PLANNED）。使用当前安装Dagster SQL event log schema及只读index_connection，参数化过滤；只对当前受支持SQL存储工作，未知后端拒绝而非退回逐期API。返回最多2N物化+6N检查，不先limit N条历史再在Python中碰运气。证明通过、blocking、分区和实际物化ID绑定，Raw metadata版本必须匹配真实文件/receipt，Silver前像必须匹配当前目标；缺失/失败/错绑阻断，不能把文件存在等同ready。不改Dagster表/schema或通用readiness语义。
+
+sensor查询用于准入；job启动时同一helper核对实际输入/前像，防止排队期间过期，随后仅在提交边界查精确文件版本。这里重复的是启动边界的小型状态核验，不重复行情扫描/完整性审计；不得再加逐unit、逐check的Dagster查询。不能证明批量SQL语义等于现行正式检查绑定时，停止该项实现并先讨论。
+
+旧通知被新Raw覆盖时：先按原通知列出的周期集合查询最新Raw物化；只有最新合格物化的本合同引用能定位一个完成receipt、且该receipt确实包含当前期/当前版本时，才可在**新执行冻结前**选用更新版本。相同新receipt只读一次，不调用要求旧complete所有文件仍为原版本的completed_files去消费旧通知。记录每期old→new的覆盖关系；不丢原通知里尚未被后续改动覆盖的其他周期。新通知额外涉及的周期仍由其自身消费，不能仅处理最新通知就跳过旧范围。未发布的新文件、未知引用或不合格检查必须等待/报错，不猜最新路径。
+
+执行冻结后源又变：保留已提交文件与旧执行，不改原计划；待新合法交付建立新执行，以同版本已完成事实跳过已对齐unit。旧批次只有其全部周期已交付、或逐期被明确的新完成结果覆盖后才能ack；不能仅因run被提交、cursor读到通知或最新周期成功就推进。
+
+cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/observation位置、当前execution_id、最后decision/evaluated_at；不放完整文件/分区/错误清单。只在文件及事件完成证据满足后ack；sensor崩溃重复看同通知，由稳定run_key及原执行记录防重复。已有活动run只跟踪。失败/取消/检查异常保持待办并给出同ID恢复动作，不每60秒自动重试失败任务；需要新真实运行时沿统一repair-attempt run-key构造器并明确批准范围，不私造基于时间戳的key绕过去重。
+
+批次全部周期被2014下限排除时，记录范围排除后ack，不创建空Silver任务。已确认完成的同batch重复通知直接复用其交付记录推进通知位置，不要求旧输出在后来合法更新后仍保持旧版本；当前数据是否对齐由后续真实新批次负责，不能因重复旧通知重新生成行情。未完成旧批次则必须按上述逐期覆盖规则处理，不能套用这个快捷路径。
+
+### 11.7 性能预算、必要检查与隔离验收
+
+| 路径/检查 | 防止的风险、边界与读取模型 | 可复用证据及成本/超预算处理 |
+| --- | --- | --- |
+| 通知/执行身份 | 漏历史范围、假完成、改旧指纹；按一个通知读一个完整receipt，旧通知仅追加其当前版本对应的唯一receipt | 不扫staging目录；JSON hash只校验小清单，不重新hash行情文件。路径/合同异常阻断 |
+| sensor热路径 | 错触发、重复run、错误ready；每tick最多1次通知查询、2次运行状态查询、2条集合readiness SQL，共5次存储读取；0 DuckDB/0 Parquet/0源请求 | 1个交付，N由实际变化清单固定；当前范围容量参考周656/月154，不作为永久业务上限。无待办时短路；N增长不截断，容量验收不足则先报告再扩大预算 |
+| job规划 | 排队后输入/前像过期；同集合最多2条readiness SQL，再固定输入/参考版本 | 只读所选周期的metadata与stat，不重做全湖库存/价格审计；源或前像漂移拒绝 |
+| 行情文件阶段 | 21列/择行/整期/内容及范围不符；一连接、参考读一次，每变化期1次Raw投影、1次COPY、1次候选完整验证、rename后1次footer | 三check复用同一证据；选行金样本已覆盖的规则不另跑完整审计。N文件、最多N候选与N目标提交，不按股票扇出 |
+| 同版本/恢复 | 成功成果重算、丢提交事实；版本、规则及参考一致才复用checkpoint/物化证据 | 已完成unit 0 SQL/0 COPY，事件失败只补缺项；缓存失效只重做受影响unit |
+| 资源/空间 | OOM、无空间、扫累计目录变慢；沿原引擎默认，空间按本unit和实际spill计量 | 无新增内存/并发/耗时业务门槛；锁内文件阶段不持有数据库长事务，事件阶段不占Raw锁 |
+| 事件/收尾 | 漏物化/check、假绿/错绑、状态失败重算数据；新增事件最多4N，Raw通知每批每频率1条 | 使用真实run，checkpoint汇总+所选集合的版本/事件对账一次，不再逐文件读回行情 |
+
+§10.10是旧生成路径实测：810文件31.889秒、事件110.642秒、RSS约855MiB，不能当新增覆盖/批次接线验收。两份原缓存小样本约0.02秒/文件与约0.0003秒完成续跑仅证明旧路径模型，不外推真实全市场日更。新路径只在以下隔离场景顺带计时：少数股票、当前周/月及必要历史/边界周期，用已有源片段；metadata容量测试使用656周+154月的字面/合成事件，**不重跑810文件COPY或完整bootstrap**。记录实际SQL/存储调用数、文件扫描/COPY数、启动/锁等待/事件耗时和RSS/spill。热路径目标为明显低于既有60秒gRPC超时，具体耗时待测；这是工程目标，不新设未经依据的更紧拒绝阈值。出现线性逐期API/重复全读、超时或容量模型不符即停下讨论，不偷偷降语义或追加大范围审计。
+
+| 验收要求 | 独立正向证据 | 反向/故障必须拒绝或正确恢复 |
+| --- | --- | --- |
+| 原合同不变 | 复用真实Raw schema、原21列/NULL/Decimal金样本及20200228/29整行expected、首周/上市首月字面样本 | 改字段/单位/日期类型/价格，删边界整期、同版异值冲突不能通过 |
+| update范围 | 已有周期整期替换、新周期创建；跨周/月欠账与因子历史同批去重；仅旧键所在期也同步移除 | 未选频率/分区不写，未知目标/丢失旧文件/源空或读取失败不覆盖；bootstrap仍拒绝既有目标 |
+| 真实生产者接线 | 临时根用实际Raw run_period与真实合同的源替身生成receipt/文件/通知，隔离instance通过实际sensor→两Silver job/check | 不能手造与生产者不符的manifest/schema骗过集成；source HTTP被替代的层次明确，不声称本轮源联网验收 |
+| 两频历史传递 | 周线Raw任务同时写到两频历史，两个通知各1，两个Silver job覆盖全部对应周期，1频率1批而非N次run | anchor-only、仅通知触发job所属频率、月中冒记整月完成、漏仅旧键分区均失败 |
+| 批量ready/去重 | 按安装表合同构造真实隔离事件；已完成同版、重复通知、cursor重读、事件重放不重复COPY | PLANNED遮盖、最新失败、错物化/分区、假receipt、storage_id进业务key、未知后端不能通过；SQL/API次数不随N逐期增长 |
+| 旧通知/竞态 | 原批有A/B，新批只覆盖A；最终A用新版本、B不遗漏；新批额外C另行处理；版本对齐可跳过 | 原A被未发布文件覆盖、receipt未包含A、冻结后改源/参考/前像必须阻断；不能改旧hash或用最新批吞掉B |
+| 取消/恢复 | 规划中、COPY/验证中、replace前后、记录和事件写失败、TERM/KILL；保留完成成果，同ID补未完成，锁释放 | 不得重新清根、重算已验收unit、遗留worker、用新ID重复覆盖已完成文件；事件失败0源请求/0COPY |
+| 资源/边界 | 缓存真实片段小场景+合成metadata容量；临时Lake/staging、隔离instance及本项目工具 | 正式路径/网络/Prod/R3调用静态或替身禁止；不写Raw行情、不启停sensor，不把旧43项当新功能通过 |
+
+第1项先完成update及恢复正反测试；第2项在同一小型场景接入真实Raw生产者、通知、sensor和两频job/check，修复只重跑受影响项，版本固定后一次直接回归。原扩展回归的15个其他数据集治理缺项及停牌专用启动器问题不归本任务修理，不弱化断言、不声称全仓通过。
+
+### 11.8 具体文件白名单与消费者迁移
+
+以下相对lake_console/orchestrator/；第1项不提前实现第2项通知/sensor。原§10.8已完成但未提交的Silver文件纳入第3项交付，不能当作本轮全新开发重做。
+
+| 文件 | 第几项/具体改动 |
+| --- | --- |
+| src/orchestrator/defs/run_contracts/stock_period.py | 1：Raw完成引用的小型类型/纯校验；2：供Raw通知与Silver共用，原Raw版本/请求合同不改 |
+| src/orchestrator/defs/run_contracts/stock_period_silver.py | 1：update配置、互斥校验、执行范围/引用合同、稳定身份；2：集中sensor策略及批次消费者合同 |
+| src/orchestrator/defs/stock_period_silver.py、io/stock_period_silver.py | 1：已有目标前像、批量update、版本复用、固定锁顺序、rename恢复、进度；不改选行规则 |
+| src/orchestrator/defs/assets/stock_weekly.py、stock_monthly.py；jobs/stock_weekly.py、stock_monthly.py | 1：既有Silver job按本频率处理交付清单，真实anchor/其他周期登记；2：Raw asset小型完成引用接线。asset/job/分区身份不改 |
+| src/orchestrator/defs/checks/stock_period_silver_checks.py；bootstrap/stock_period_silver_cli.py | 1：共用版本证据、日常批量事件与resume/events按原执行意图处理；无新增CLI动作 |
+| 新src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py | 1/2：本域集合SQL事件/文件绑定读取；隔离SQLite及当前正式SQL后端合同测试，不改通用helper/数据库schema |
+| 新src/orchestrator/defs/sensors/silver_stock_weekly_update_job_sensor.py、silver_stock_monthly_update_job_sensor.py | 2：默认STOPPED，消费小型通知、按批选择原job、cursor及blocked原因；共用逻辑放本Silver模块，不各写一套 |
+| src/orchestrator/defs/bootstrap/stock_period_history.py；stock_period_update.py | 2：完整receipt传给内部事件回调，文件阶段后通知/事件重放及metadata接线；不改下载、HTTP、SQL、范围或旧冻结身份 |
+| src/orchestrator/defs/bootstrap/stock_period_history_cli.py；ops/stock_weekly_bootstrap_checks.py | 2：迁移全部现行事件入口，保持events-only、handoff和周线补报边界 |
+| src/orchestrator/defs/catalog/lake_assets.py | 1/2：仅同步两Silver更新/写入/事件/性能合同和两Raw的完成通知event_policy；本次没有新增列，不需要再改schema/paths/name_mapping |
+| tests/test_stock_period_silver_contracts.py、test_stock_period_silver_projection.py、test_stock_period_silver_execution.py、test_stock_period_silver_events.py、test_stock_period_silver_jobs.py | 1：扩展现有文件；2：新增tests/test_stock_period_silver_sensors.py、test_stock_period_silver_daily_integration.py，覆盖上述正反与成本计数 |
+| tests/test_stock_period_contract.py、test_stock_period_history.py、test_stock_period_history_cli.py、test_stock_period_recovery.py、test_stock_period_handoff.py、test_stock_period_update.py、test_stock_period_combined.py | 1/2：纯引用合同、真实回调消费者及周线补报op通知边界断言；均为已核实存在的承载测试，不新增无关旧链测试或扩大回归 |
+| tests/test_asset_check_incremental_governance.py、test_asset_governance_contracts.py及现行run-contract静态门禁 | 1/2：只加本域范围/事件/调用次数防回流断言，保留其他数据集门禁 |
+| 原总方案、共享LLD、月线LLD；本任务必要验收报告 | 3：实际状态、配置/性能、正反证据、提交白名单及未完成项 |
+
+同一文件有他人改动只提交本任务块，尤其catalog。无需改变src.foundation/ops/biz/app、其他Tushare资产、依赖锁文件、运行服务配置或前端。实际发现新增消费者/需要新增配置或入口时，先补本表及影响面再讨论，不以“白名单类似路径”为由扩张。
+
+### 11.9 第2项正式交接与第3项结案清单
+
+本轮无正式操作授权。未来在程序隔离通过、固定版本后另给精确执行清单：工作目录为现有orchestrator，现有.venv/bin/python3 -B，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home；Lake/staging沿两正式根。只加载确认版本，其他任务改动若无法隔离先停，不切分支/worktree、不重启无关服务。
+
+1. **接线基线只核对一次。** 复用§10.10已验收文件/事件与截止2026-10-16事实，查询其后两Raw资产是否有新交付头记录；没有则直接作为基线，不重写810文件或历史事件。存在新交付时只按这些记录定位相应Raw完成receipt处理差额。旧记录缺本合同引用且无法准确定位receipt则暂停交接讨论，禁止把cursor直接设到最新而吞掉变化。
+2. **加载与启用分开。** 先加载新Raw通知和两个默认STOPPED的Silver sensor；只读确认定义、Raw原状态/水位、Silver基线及无冲突写者。经明确批准，初始化新sensor消费起点，再启用两个新sensor；不重置Raw cursor、不改19:30窗口、原source配置或其他sensor。具体event位置取实际基线，不写死本次审计的cursor数值。
+3. **一次真实日常交付。** 等待已有Raw日常链真实产生新结果，由新通知驱动所需Silver；不为验收重下源/全量bootstrap。只对本交付清单汇总实际更新、同版跳过、范围排除、文件/检查/物化绑定及耗时；未命中分区用执行路径/清单边界证明不写，不为此全湖hash。休市无新交付时明确“待首个样本”，不把隔离替身或手工重报旧版本冒充真实日更。
+4. **故障只处理当前待办。** 写入失败保留已完成unit，按同execution_id resume；事件失败只events。未知源/目标、真实失败check或未核实写者先阻断讨论，不重做审计或静默覆盖。若需暂停新自动化，必须获得对应sensor操作授权；本节不预授权自动停Raw或其他任务。
+5. **按事实结案与提交。** 清单逐行列“要求、实际文件/函数、正向、反向、真实证据、通过/未完成”。阶段分开写：首次生成完成；日常程序隔离通过；正式定义/通知/新sensor交接完成；首个真实交付通过。最后一项未发生就留待办，不因代码提交宣称全部DG工作结束。首次日志/810物化/2430检查已完成，不再列缺失项。
+
+提交必须由用户明确要求；白名单包含§10.8现有Silver实现/测试/必要报告、§11.8实际修改文件及三份原文档，不混入R3/资金流/AGENTS/研究/新闻/Wealth。暂存前审查差异，暂存后核对name-status、逐块diff与whitespace；共享文件分块暂存。无法拆清就报告，不整文件撤销或提交。无推送。三份文档链接/状态检查不能替代代码/集成验收；本轮只完成文档检查，开发、隔离与正式日常验收均待后续确认。
