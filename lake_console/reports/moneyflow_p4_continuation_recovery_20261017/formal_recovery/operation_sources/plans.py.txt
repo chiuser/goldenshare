@@ -1,0 +1,18 @@
+import json,subprocess,sys
+from pathlib import Path
+from orchestrator.moneyflow_continuation.contract import PROJECT,file_hash,read_json,now
+out=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery';pre=read_json(out/'preflight.json');ref={'path':str(out/'verification.json'),'sha256':file_hash(out/'verification.json')};parent=pre['parent']['path'];p=read_json(parent)
+base=['.venv/bin/python3','-B','-u','-m','orchestrator.moneyflow_continuation_cli']
+def newplan(name,units,parent_path,extra=None):
+ scope=out/(name+'-scope.json');target=out/(name+'-plan.json');assert not scope.exists() and not target.exists()
+ value={'units':units,'verification':ref,**(extra or {})};scope.write_text(json.dumps(value,indent=2)+'\n')
+ command=[*base,'plan','--scope-file',str(scope),'--output',str(target),'--parent-plan',str(parent_path)]
+ with (out/(name+'-plan.log')).open('w') as log:r=subprocess.run(command,cwd=PROJECT,stdout=log,stderr=subprocess.STDOUT,timeout=300)
+ assert r.returncode==0,(name,r.returncode,(out/(name+'-plan.log')).read_text()[-500:])
+ return {'name':name,'plan':str(target),'sha256':file_hash(target),'plan_command':command,'apply_command':[*base,'apply','--plan',str(target),'--expect-plan-sha256',file_hash(target)],'inspect_command':[*base,'inspect','--plan',str(target)],'working_directory':str(PROJECT),'instance_home':'/Users/congming/.goldenshare/dagster_home'}
+full=newplan('00-all-current',[{'dataset':u['dataset'],'trade_date':u['trade_date']} for u in p['units']],parent,{'collection_recovery':pre['collection_recovery']})
+steps=[]
+for i,day in enumerate(['2026-10-13','2026-10-14','2026-10-15','2026-10-16'],1):steps.append(newplan(f'{i:02d}-moneyflow-{day}',[{'dataset':'moneyflow','trade_date':day}],full['plan']))
+manifest={'as_of':now().isoformat(),'authorization':'User approved formal review, recovery and acceptance following the plan.','full':full,'steps':steps,'audit_command':[*base,'audit','--plan',full['plan'],'--expect-plan-sha256',full['sha256'],'--output',str(out/'49-final-acceptance.json')],'replay_command':full['apply_command'],'endpoint':'http://127.0.0.1:3000/graphql','instance_home':'/Users/congming/.goldenshare/dagster_home','lake':'/Volumes/datasource/data_lake','staging':'/Volumes/datasource/data_lake_staging','root_scope_digest':read_json(full['plan'])['root_scope_digest'],'valid_until':read_json(full['plan'])['valid_until'],'order':'13 Raw reexecution then ordinary Silver and independent readback; 14,15,16 each readback; final49 audit then original47 zero-change replay; sensors stay STOPPED.'}
+assert manifest['root_scope_digest']=='79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0'
+(out/'execution_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n');print(json.dumps({'manifest':str(out/'execution_manifest.json'),'full_sha256':full['sha256'],'steps':[{k:s[k] for k in ['name','sha256']} for s in steps],'valid_until':manifest['valid_until']}),flush=True)

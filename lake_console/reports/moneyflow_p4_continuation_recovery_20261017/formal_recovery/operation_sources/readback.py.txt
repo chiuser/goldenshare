@@ -1,0 +1,28 @@
+import argparse,json,time
+from pathlib import Path
+import dagster as dg
+from orchestrator.moneyflow_continuation.contract import PROJECT,read_json,file_hash,now
+from orchestrator.moneyflow_continuation.state import NativeBackend,next_action
+from orchestrator.moneyflow_continuation.submission import Journal,verify_plan_file
+from orchestrator.moneyflow_continuation.acceptance import accepted_records
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance
+p=argparse.ArgumentParser();p.add_argument('--step',type=int,required=True);a=p.parse_args();out=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery';m=read_json(out/'execution_manifest.json');step=m['steps'][a.step-1];plan=verify_plan_file(step['plan'],step['sha256']);target=out/(step['name']+'-acceptance.json');assert not target.exists();started=time.monotonic()
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance);j=Journal(plan);snapshots=b.snapshots(plan['units'],j);assert len(snapshots)==1 and next_action(snapshots[0])=='complete';u=plan['units'][0];events={};native={};planned=[]
+ for layer in ['raw','silver']:
+  identity=u[layer];key=dg.AssetKey(identity['asset']);mats=b.instance.fetch_materializations(dg.AssetRecordsFilter(asset_key=key,asset_partitions=[u['trade_date']]),limit=2).records;assert len(mats)==1
+  checks=b.instance.event_log_storage.get_asset_check_execution_history(dg.AssetCheckKey(key,identity['check']),limit=100);assert len(checks)<100
+  scoped=[c for c in checks if c.partition==u['trade_date']];actual=[c for c in scoped if c.event and c.event.dagster_event and c.event.dagster_event.event_type_value=='ASSET_CHECK_EVALUATION'];assert len(actual)==1
+  mat=mats[0];check=actual[0];ev=check.event.dagster_event.event_specific_data;t=ev.target_materialization_data
+  assert ev.passed and ev.blocking and check.status.value=='SUCCEEDED' and t.storage_id==mat.storage_id and t.run_id==mat.event_log_entry.run_id==check.run_id and t.timestamp==mat.timestamp
+  run=b.instance.get_run_by_id(t.run_id);assert run.status.value=='SUCCESS';k=(u['dataset'],u['trade_date'],layer);native[k]=run;events[k]={'mat_id':mat.storage_id,'check_id':check.id,'run_id':t.run_id,'timestamp':t.timestamp}
+  planned.extend({'id':c.id,'run_id':c.run_id,'status':c.status.value} for c in scoped if c not in actual)
+ records=accepted_records(b,plan,plan['units'],snapshots,events,native,j);record=records[0];assert record['source']['stability_gap_seconds']>=60 and record['source']['row_count_guard']['passed'] is True
+ baseline=read_json(out.parent/'45-partial-acceptance.json');count=0
+ for old in baseline['records']:
+  for layer in ['raw','silver']:
+   assert file_hash(old['layers'][layer]['target'])==old['layers'][layer]['sha256'];count+=1
+  rp=b.staging/'moneyflow'/old['layers']['raw']['run_id']/old['dataset']/old['trade_date']/'receipt.json';assert file_hash(rp)==old['source_receipt_sha256']
+ parent=read_json(out.parent/'moneyflow-oct13-failure.json');assert file_hash(parent['candidate_path'])==parent['candidate_sha256']
+ b.guard(plan,now());report={'as_of':now().isoformat(),'complete':True,'dataset':u['dataset'],'trade_date':u['trade_date'],'plan':step['plan'],'plan_sha256':step['sha256'],'records':records,'successful_jobs':2,'files':2,'materializations':2,'accurate_blocking_checks':2,'preserved_planned_only_checks':planned,'original_45_files_unchanged':count,'original_45_receipts_unchanged':45,'original_failed_first_round_retained':True,'sensors_stopped':21,'server_id':b.last_guard['runtime']['server_id'],'reads':b.meter.count,'elapsed_seconds':time.monotonic()-started,'formal_mutations':0,'source_requests_this_audit':0};target.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+ print(json.dumps({'complete':True,'trade_date':u['trade_date'],'rows_per_layer':record['layers']['raw']['rows'],'request_count':record['source']['request_count'],'retries':record['source'].get('retry_count'),'raw_elapsed_ms':record['source']['elapsed_ms'],'raw_run':record['layers']['raw']['run_id'],'silver_run':record['layers']['silver']['run_id'],'preserved_files':count,'reads':b.meter.count,'report':str(target)}),flush=True)

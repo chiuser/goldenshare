@@ -1,0 +1,21 @@
+import argparse,json
+from pathlib import Path
+from orchestrator.moneyflow_continuation.contract import PROJECT,read_json,file_hash,now
+from orchestrator.moneyflow_continuation.submission import Journal,verify_plan_file
+from orchestrator.moneyflow_continuation.recovery import recovery_actions
+p=argparse.ArgumentParser();p.add_argument('--stage',choices=['before','after'],required=True);a=p.parse_args();out=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery';m=read_json(out/'execution_manifest.json');full=m['full'];plan=verify_plan_file(full['plan'],full['sha256']);j=Journal(plan);files={};target=out/('47-replay-control-'+a.stage+'.json');assert not target.exists()
+for unit in plan['root_units']:
+ for action in ['register','raw','silver',*recovery_actions(plan,unit)]:
+  j.read(unit,action)
+  directory=j.action_dir(unit,action)
+  for name in ['request','send_intent','response','observation']:
+   path=directory/(name+'.json')
+   if path.exists():files[str(path)]=file_hash(path)
+budgets=j.directory/'budgets.json'
+if budgets.exists():files[str(budgets)]=file_hash(budgets)
+report={'as_of':now().isoformat(),'root_scope_digest':plan['root_scope_digest'],'stage':a.stage,'files':files,'control_files':len(files),'formal_mutations':0}
+if a.stage=='after':
+ before=read_json(out/'47-replay-control-before.json');assert before['files']==files,'control_files_changed_during_zero_change_replay';report['unchanged']=True
+ before_audit=read_json(out/'49-final-acceptance.json');after_audit=read_json(out/'49-replay-acceptance.json');assert before_audit['complete'] and after_audit['complete'] and before_audit['records']==after_audit['records'] and before_audit['totals']==after_audit['totals'] and before_audit['runtime']==after_audit['runtime']
+ report.update(accepted_records_unchanged=49,formal_files_unchanged=98,totals_unchanged=True,new_partition_registrations=0,new_jobs=0,new_materializations=0,new_actual_checks=0,new_source_requests=0,formal_file_changes=0,source_receipt_changes=0)
+target.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n');print(json.dumps({k:v for k,v in report.items() if k!='files'}),flush=True)

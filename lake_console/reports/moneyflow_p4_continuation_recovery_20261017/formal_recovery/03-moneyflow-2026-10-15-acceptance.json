@@ -1,0 +1,134 @@
+{
+  "as_of": "2026-10-17T22:58:00.374566+08:00",
+  "complete": true,
+  "dataset": "moneyflow",
+  "trade_date": "2026-10-15",
+  "plan": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-plan.json",
+  "plan_sha256": "337e0ac92275437a5d40b66a1162a098005c84cdc12549753b722fa8ad55fe60",
+  "records": [
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-15",
+      "layers": {
+        "raw": {
+          "mat_id": 7633357,
+          "check_id": 1636419,
+          "run_id": "26bdcd5c-a53d-466a-bb03-80689a0e8f43",
+          "timestamp": 1792249039.914182,
+          "target": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-15/part-000.parquet",
+          "bytes": 546048,
+          "sha256": "85d07a4e2bd790414349f511ef754ddfdfd8f0c8c9aeffb712a96880399dcc36",
+          "rows": 5576,
+          "columns": 20,
+          "submission_evidence": "http_response"
+        },
+        "silver": {
+          "mat_id": 7633385,
+          "check_id": 1636420,
+          "run_id": "2d24458e-a2ff-42c4-8d55-0ea319e1a9d9",
+          "timestamp": 1792249057.691705,
+          "target": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-15/part-000.parquet",
+          "bytes": 546024,
+          "sha256": "659ffcb5e866e01ff2ca3e3df9b5117a4861584e28748b5424a8a342beeef3de",
+          "rows": 5576,
+          "columns": 20,
+          "submission_evidence": "http_response"
+        }
+      },
+      "source": {
+        "dataset": "moneyflow",
+        "elapsed_ms": 72352.3531248793,
+        "peak_rss_bytes": 330514432,
+        "raw_sha256": "85d07a4e2bd790414349f511ef754ddfdfd8f0c8c9aeffb712a96880399dcc36",
+        "request_count": 6,
+        "retry_count": 0,
+        "row_count": 5576,
+        "row_count_guard": {
+          "baseline_scope_counts": {
+            "all": 5573
+          },
+          "candidate_scope_counts": {
+            "all": 5576
+          },
+          "declined_scopes": [],
+          "max_drop_percent": 20,
+          "mode": "previous_five",
+          "passed": true,
+          "reason_code": "passed",
+          "references": [
+            {
+              "date": "2026-10-08",
+              "file_sha256": "4e946e184a5984d261f8eebf997e60a2dbea58bf4eaaf2d8132b17c4bc02497a",
+              "materialization_storage_id": 7632907,
+              "row_count": 5572,
+              "scope_row_counts": {
+                "all": 5572
+              }
+            },
+            {
+              "date": "2026-10-09",
+              "file_sha256": "fda7164c42817ea256a7876e42715305993b0aa833f64ae1d2763dc1198a711b",
+              "materialization_storage_id": 7632963,
+              "row_count": 5573,
+              "scope_row_counts": {
+                "all": 5573
+              }
+            },
+            {
+              "date": "2026-10-12",
+              "file_sha256": "f089ac02bced6c112e21552c47a52a3f2c0ceef5e66d5673dd714ec881415766",
+              "materialization_storage_id": 7633019,
+              "row_count": 5573,
+              "scope_row_counts": {
+                "all": 5573
+              }
+            },
+            {
+              "date": "2026-10-13",
+              "file_sha256": "63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4",
+              "materialization_storage_id": 7633245,
+              "row_count": 5574,
+              "scope_row_counts": {
+                "all": 5574
+              }
+            },
+            {
+              "date": "2026-10-14",
+              "file_sha256": "0beaa8bf43e2e9e50f9e9c4683ca20f21e17f49145041b4c45d6dbb0a7b7f7b4",
+              "materialization_storage_id": 7633301,
+              "row_count": 5574,
+              "scope_row_counts": {
+                "all": 5574
+              }
+            }
+          ],
+          "revision": "moneyflow_row_count_v1"
+        },
+        "scope_row_counts": {
+          "all": 5576
+        },
+        "source": "tushare",
+        "stability_gap_seconds": 60.03956974996254,
+        "stage": "raw_candidate_ready",
+        "trade_date": "2026-10-15",
+        "verification_sha256": "85d07a4e2bd790414349f511ef754ddfdfd8f0c8c9aeffb712a96880399dcc36"
+      },
+      "source_receipt_sha256": "3ae9bee2b33f14b807bf5090541bc24d7390f6c334ea69e887de7b3bd8740a1e",
+      "normalization_or_write_rejects": 0
+    }
+  ],
+  "successful_jobs": 2,
+  "files": 2,
+  "materializations": 2,
+  "accurate_blocking_checks": 2,
+  "preserved_planned_only_checks": [],
+  "original_45_files_unchanged": 90,
+  "original_45_receipts_unchanged": 45,
+  "original_failed_first_round_retained": true,
+  "sensors_stopped": 21,
+  "server_id": "622f590d-45b0-47b3-99dd-fc54145f0c32",
+  "reads": 36,
+  "elapsed_seconds": 1.3984034159220755,
+  "formal_mutations": 0,
+  "source_requests_this_audit": 0
+}

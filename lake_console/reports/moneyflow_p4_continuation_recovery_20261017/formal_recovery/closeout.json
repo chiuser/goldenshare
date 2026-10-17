@@ -1,0 +1,504 @@
+{
+  "report_type": "moneyflow_p4_continuation_formal_recovery_closeout",
+  "as_of": "2026-10-17T23:03:06.264884+08:00",
+  "complete": true,
+  "scope": "P4 data continuation first step: seven datasets, seven specified SSE open dates 2026-10-08,09,12,13,14,15,16. Sensors and P5 excluded.",
+  "repair_commit": "db67e7d83",
+  "prior_design_commit": "61650e27",
+  "current_round_production_code_changes": 0,
+  "authorization": "User approved committing repairs then following plan and LLD for formal review, recovery and acceptance.",
+  "plan_section": "75.20..75.21",
+  "lld_section": "70.27",
+  "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+  "formal_operations_this_turn": {
+    "code_location_reload": 1,
+    "partition_registrations": 3,
+    "raw_reexecution": 1,
+    "ordinary_raw_jobs": 3,
+    "ordinary_silver_jobs": 4,
+    "successful_new_jobs": 8,
+    "new_materializations": 8,
+    "new_actual_passing_checks": 8,
+    "new_files": 8,
+    "source_requests": 24,
+    "source_retries": 0,
+    "rows_added_per_layer": 22301,
+    "sensor_changes": 0,
+    "service_restarts": 0,
+    "history_rescanned": false,
+    "history_previously_accepted_dataset_days": 7804
+  },
+  "per_day": [
+    {
+      "trade_date": "2026-10-13",
+      "raw_rows": 5574,
+      "silver_rows": 5574,
+      "source_rows": 5574,
+      "request_count": 6,
+      "retry_count": 0,
+      "raw_run": "863def44-10b5-412a-99a7-dbc407967806",
+      "silver_run": "daa1a755-e96d-4192-ab47-060cc318dac0",
+      "stability_gap_seconds": 60.04135979199782,
+      "row_count_guard": {
+        "baseline_scope_counts": {
+          "all": 5572
+        },
+        "candidate_scope_counts": {
+          "all": 5574
+        },
+        "declined_scopes": [],
+        "max_drop_percent": 20,
+        "mode": "previous_five",
+        "passed": true,
+        "reason_code": "passed",
+        "references": [
+          {
+            "date": "2026-09-29",
+            "file_sha256": "0d6c92c5769e86f8693a09176ad2278aa4ec6abdc418d0c1b0546b0c45b46233",
+            "materialization_storage_id": 7458801,
+            "row_count": 5571,
+            "scope_row_counts": {
+              "all": 5571
+            }
+          },
+          {
+            "date": "2026-09-30",
+            "file_sha256": "437475c51e9eab1dc6c06811fcbc5019b7ae99e7311852cfd61293863ff0c4df",
+            "materialization_storage_id": 7458803,
+            "row_count": 5572,
+            "scope_row_counts": {
+              "all": 5572
+            }
+          },
+          {
+            "date": "2026-10-08",
+            "file_sha256": "4e946e184a5984d261f8eebf997e60a2dbea58bf4eaaf2d8132b17c4bc02497a",
+            "materialization_storage_id": 7632907,
+            "row_count": 5572,
+            "scope_row_counts": {
+              "all": 5572
+            }
+          },
+          {
+            "date": "2026-10-09",
+            "file_sha256": "fda7164c42817ea256a7876e42715305993b0aa833f64ae1d2763dc1198a711b",
+            "materialization_storage_id": 7632963,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-12",
+            "file_sha256": "f089ac02bced6c112e21552c47a52a3f2c0ceef5e66d5673dd714ec881415766",
+            "materialization_storage_id": 7633019,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          }
+        ],
+        "revision": "moneyflow_row_count_v1"
+      },
+      "raw_elapsed_ms": 72478.4982916899,
+      "normalization_or_write_rejects": 0
+    },
+    {
+      "trade_date": "2026-10-14",
+      "raw_rows": 5574,
+      "silver_rows": 5574,
+      "source_rows": 5574,
+      "request_count": 6,
+      "retry_count": 0,
+      "raw_run": "1ff1d4e1-e4d5-4e15-b829-22fd823d4f31",
+      "silver_run": "081a560f-a15b-46e9-8706-810cc68d7645",
+      "stability_gap_seconds": 60.02826004102826,
+      "row_count_guard": {
+        "baseline_scope_counts": {
+          "all": 5573
+        },
+        "candidate_scope_counts": {
+          "all": 5574
+        },
+        "declined_scopes": [],
+        "max_drop_percent": 20,
+        "mode": "previous_five",
+        "passed": true,
+        "reason_code": "passed",
+        "references": [
+          {
+            "date": "2026-09-30",
+            "file_sha256": "437475c51e9eab1dc6c06811fcbc5019b7ae99e7311852cfd61293863ff0c4df",
+            "materialization_storage_id": 7458803,
+            "row_count": 5572,
+            "scope_row_counts": {
+              "all": 5572
+            }
+          },
+          {
+            "date": "2026-10-08",
+            "file_sha256": "4e946e184a5984d261f8eebf997e60a2dbea58bf4eaaf2d8132b17c4bc02497a",
+            "materialization_storage_id": 7632907,
+            "row_count": 5572,
+            "scope_row_counts": {
+              "all": 5572
+            }
+          },
+          {
+            "date": "2026-10-09",
+            "file_sha256": "fda7164c42817ea256a7876e42715305993b0aa833f64ae1d2763dc1198a711b",
+            "materialization_storage_id": 7632963,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-12",
+            "file_sha256": "f089ac02bced6c112e21552c47a52a3f2c0ceef5e66d5673dd714ec881415766",
+            "materialization_storage_id": 7633019,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-13",
+            "file_sha256": "63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4",
+            "materialization_storage_id": 7633245,
+            "row_count": 5574,
+            "scope_row_counts": {
+              "all": 5574
+            }
+          }
+        ],
+        "revision": "moneyflow_row_count_v1"
+      },
+      "raw_elapsed_ms": 70798.63162478432,
+      "normalization_or_write_rejects": 0
+    },
+    {
+      "trade_date": "2026-10-15",
+      "raw_rows": 5576,
+      "silver_rows": 5576,
+      "source_rows": 5576,
+      "request_count": 6,
+      "retry_count": 0,
+      "raw_run": "26bdcd5c-a53d-466a-bb03-80689a0e8f43",
+      "silver_run": "2d24458e-a2ff-42c4-8d55-0ea319e1a9d9",
+      "stability_gap_seconds": 60.03956974996254,
+      "row_count_guard": {
+        "baseline_scope_counts": {
+          "all": 5573
+        },
+        "candidate_scope_counts": {
+          "all": 5576
+        },
+        "declined_scopes": [],
+        "max_drop_percent": 20,
+        "mode": "previous_five",
+        "passed": true,
+        "reason_code": "passed",
+        "references": [
+          {
+            "date": "2026-10-08",
+            "file_sha256": "4e946e184a5984d261f8eebf997e60a2dbea58bf4eaaf2d8132b17c4bc02497a",
+            "materialization_storage_id": 7632907,
+            "row_count": 5572,
+            "scope_row_counts": {
+              "all": 5572
+            }
+          },
+          {
+            "date": "2026-10-09",
+            "file_sha256": "fda7164c42817ea256a7876e42715305993b0aa833f64ae1d2763dc1198a711b",
+            "materialization_storage_id": 7632963,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-12",
+            "file_sha256": "f089ac02bced6c112e21552c47a52a3f2c0ceef5e66d5673dd714ec881415766",
+            "materialization_storage_id": 7633019,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-13",
+            "file_sha256": "63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4",
+            "materialization_storage_id": 7633245,
+            "row_count": 5574,
+            "scope_row_counts": {
+              "all": 5574
+            }
+          },
+          {
+            "date": "2026-10-14",
+            "file_sha256": "0beaa8bf43e2e9e50f9e9c4683ca20f21e17f49145041b4c45d6dbb0a7b7f7b4",
+            "materialization_storage_id": 7633301,
+            "row_count": 5574,
+            "scope_row_counts": {
+              "all": 5574
+            }
+          }
+        ],
+        "revision": "moneyflow_row_count_v1"
+      },
+      "raw_elapsed_ms": 72352.3531248793,
+      "normalization_or_write_rejects": 0
+    },
+    {
+      "trade_date": "2026-10-16",
+      "raw_rows": 5577,
+      "silver_rows": 5577,
+      "source_rows": 5577,
+      "request_count": 6,
+      "retry_count": 0,
+      "raw_run": "bf937cb4-155d-4294-a45f-79b884a05d72",
+      "silver_run": "f8f5497d-6eb2-4878-a18e-4b0b2debfea2",
+      "stability_gap_seconds": 60.04555983282626,
+      "row_count_guard": {
+        "baseline_scope_counts": {
+          "all": 5574
+        },
+        "candidate_scope_counts": {
+          "all": 5577
+        },
+        "declined_scopes": [],
+        "max_drop_percent": 20,
+        "mode": "previous_five",
+        "passed": true,
+        "reason_code": "passed",
+        "references": [
+          {
+            "date": "2026-10-09",
+            "file_sha256": "fda7164c42817ea256a7876e42715305993b0aa833f64ae1d2763dc1198a711b",
+            "materialization_storage_id": 7632963,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-12",
+            "file_sha256": "f089ac02bced6c112e21552c47a52a3f2c0ceef5e66d5673dd714ec881415766",
+            "materialization_storage_id": 7633019,
+            "row_count": 5573,
+            "scope_row_counts": {
+              "all": 5573
+            }
+          },
+          {
+            "date": "2026-10-13",
+            "file_sha256": "63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4",
+            "materialization_storage_id": 7633245,
+            "row_count": 5574,
+            "scope_row_counts": {
+              "all": 5574
+            }
+          },
+          {
+            "date": "2026-10-14",
+            "file_sha256": "0beaa8bf43e2e9e50f9e9c4683ca20f21e17f49145041b4c45d6dbb0a7b7f7b4",
+            "materialization_storage_id": 7633301,
+            "row_count": 5574,
+            "scope_row_counts": {
+              "all": 5574
+            }
+          },
+          {
+            "date": "2026-10-15",
+            "file_sha256": "85d07a4e2bd790414349f511ef754ddfdfd8f0c8c9aeffb712a96880399dcc36",
+            "materialization_storage_id": 7633357,
+            "row_count": 5576,
+            "scope_row_counts": {
+              "all": 5576
+            }
+          }
+        ],
+        "revision": "moneyflow_row_count_v1"
+      },
+      "raw_elapsed_ms": 73280.90204112232,
+      "normalization_or_write_rejects": 0
+    }
+  ],
+  "final_totals": {
+    "blocking_checks": 98,
+    "dataset_days": 49,
+    "file_bytes": 19828828,
+    "files": 98,
+    "known_source_requests": 224,
+    "materializations": 98,
+    "native_runs": 100,
+    "planned_only_checks": 2,
+    "preserved_failures": 2,
+    "rows_per_layer": 128297,
+    "source_requests_interval": [
+      227,
+      288
+    ],
+    "source_retries_known": 0,
+    "successful_native_runs": 98
+  },
+  "original_47_totals": {
+    "dataset_days": 47,
+    "native_runs": 96,
+    "preserved_failures": 2,
+    "successful_native_runs": 94
+  },
+  "preserved_failures": [
+    {
+      "dataset": "moneyflow_ths",
+      "layer": "silver",
+      "run_id": "656aa7d0-94c5-477e-a72e-452a48618d2c",
+      "status": "FAILURE",
+      "trade_date": "2026-10-14"
+    },
+    {
+      "dataset": "moneyflow",
+      "layer": "raw",
+      "run_id": "ca3d12ad-717e-4291-a87f-6c2a3d37204a",
+      "status": "FAILURE",
+      "trade_date": "2026-10-13"
+    }
+  ],
+  "planned_only_checks": [
+    {
+      "actual_evaluation": false,
+      "dataset": "moneyflow_ths",
+      "id": 1636393,
+      "layer": "silver",
+      "run_id": "656aa7d0-94c5-477e-a72e-452a48618d2c",
+      "status": "PLANNED",
+      "trade_date": "2026-10-14"
+    },
+    {
+      "actual_evaluation": false,
+      "dataset": "moneyflow",
+      "id": 1636406,
+      "layer": "raw",
+      "run_id": "ca3d12ad-717e-4291-a87f-6c2a3d37204a",
+      "status": "PLANNED",
+      "trade_date": "2026-10-13"
+    }
+  ],
+  "preserved_baseline": {
+    "path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/45-partial-acceptance.json",
+    "preserved_dataset_days": 45,
+    "sha256": "0986dcd0d256aa2a65198a8c44e322d1507a5eb43bab401c01a4bca0df51ac79"
+  },
+  "zero_change_replay": {
+    "as_of": "2026-10-17T23:02:21.678581+08:00",
+    "root_scope_digest": "79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0",
+    "stage": "after",
+    "control_files": 573,
+    "formal_mutations": 0,
+    "unchanged": true,
+    "accepted_records_unchanged": 49,
+    "formal_files_unchanged": 98,
+    "totals_unchanged": true,
+    "new_partition_registrations": 0,
+    "new_jobs": 0,
+    "new_materializations": 0,
+    "new_actual_checks": 0,
+    "new_source_requests": 0,
+    "formal_file_changes": 0,
+    "source_receipt_changes": 0
+  },
+  "sensors": {
+    "actual_stopped": 21,
+    "all_default_and_actual_stopped": true,
+    "enabled_this_turn": 0
+  },
+  "audit_cost": {
+    "before_replay": {
+      "reads": 339,
+      "elapsed_seconds": 5.29296458279714,
+      "peak_rss_bytes": 342851584
+    },
+    "after_replay": {
+      "reads": 339,
+      "elapsed_seconds": 5.474105333443731,
+      "peak_rss_bytes": 329728000
+    },
+    "limits": {
+      "reads": 400,
+      "seconds": 300,
+      "rss_bytes": 805306368
+    }
+  },
+  "scope_limits": [
+    "No automatic sensor enablement or P5 execution.",
+    "No re-audit or rewrite of 7804 historical dataset-days and no historical gap backfill.",
+    "No change to dataset fields, source parameters, shared Tushare policy, pool configuration or subsystem dependencies.",
+    "Old failed Raw request total remains unknown in 3..64; total interval is reported rather than manufactured.",
+    "Two-round stability only proves observed source consistency, not that the source will never revise."
+  ],
+  "evidence_sha256": {
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-plan.json": "b036e672b870ad7e9a4368befb85c9e889456d1b4d1290e0d6f212e7de89bf42",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-plan.log": "7a37cf127fbcbf38c5abc30081cd36e2d5af7e97f7a23c33e116978f49b34389",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/00-all-current-scope.json": "d355047444914b4c8d2966b39a82010aa272bd075824eabd54f63634fa70bfe0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-acceptance.json": "96ad149ddd4cad77c76318c0bf7c21e796855a1561dcee6bf48fd8e86f8eb05a",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-apply.log": "4a08a4b3f0fc25c973ed6ed5e3dde5267f6a4da66664068d59907222a0260bba",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-inspect.json": "01e5ebfff7d7b54a09480fdf9c6af70715a35e69efc173210d3339974edd40ee",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-plan.json": "5f709a1311031f893ba1c033b2916aa62fdab6ebd3982755931b817f906ff646",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-plan.log": "72933b128e4869bf72f844dc11687a69d1b8205392d6ccb08548716f1df1af27",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/01-moneyflow-2026-10-13-scope.json": "29cb8c891eb3f1f6e3fe62163a7a14c77ca60a2a12b30c8f66a15aa97a54f920",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-acceptance.json": "27e4e1055ce8eaad65defc2dcffbd611441b7a674cb7fb77c6eb0f42b559a195",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-apply.log": "1abf55a47b95a85863ae9dbee1a438e2a5880e124c3b4d9e7171b38dcfdacac7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-inspect.json": "c07334c0d76207be6dcdc28b220d387783e09d8cc7a2aa060980d569702461e9",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-plan.json": "2117e4b42bbdfd239ba052db75ec10e868e29c5d1d706a8e7a384192d535477e",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-plan.log": "ea9a0bcd93e47cf386cc53ef00a4f7826c3e8b2e4ed59368d876349c097252e5",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/02-moneyflow-2026-10-14-scope.json": "be1a32ef523f86a96860901e347a026b4ccbce52967bb373f1b5b9b1ad579ca7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-acceptance.json": "5306d8b548b16b8a1bea0d870f71a13dadc2a0c81e20b3d9bb2fd44775fabec6",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-apply.log": "1e1a8d84243f5dfb9fdeed4cecb6ef5224a14201a23445db863d24ff337c00d2",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-inspect.json": "c9dcbcf4c13e0f67d29757280874489db1d1ba85c12a4d0807338634d5448f0a",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-plan.json": "337e0ac92275437a5d40b66a1162a098005c84cdc12549753b722fa8ad55fe60",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-plan.log": "e7d1e06aa384621caecccdfa189cad2086c1bfda62413edf68851bf26305f048",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/03-moneyflow-2026-10-15-scope.json": "90c47f01fb64564ac7a0425cd7e20d3de40ec1cf9ecbbd4a8d42010e9a5690b0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-acceptance.json": "e2f6a84bb0a804aad0df80dfc3adeda8f4f2297a3f11940b04293b97e2d6fba1",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-apply.log": "40f0e4ec38986a390e7c9ca8990ec8f05ce4f2d0348ac9af3872e758dbc0358c",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-inspect.json": "8003b156e66216045c69e15cf8e06868fa77eb6902c1f75d89563bfc11439477",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-plan.json": "2a8d41856a1cb0f36a866b9947c362ab1d516ce217d2a16144be68a342f76e97",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-plan.log": "3e13a27dccdb8c0be4f787d8d9a95d9734c0850f0bf2324b721b5d7762607138",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/04-moneyflow-2026-10-16-scope.json": "9a7fb8abd02c78117a40aba8432f4d76ca415a82ab6a6d8afa889c88025ed985",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-after.json": "7198c6325104cc8392fc4b0abcf7e30bf4beaaae8bc709935f8fad4d29bee67d",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-replay-control-before.json": "0626cb55c515b9b87d617953f230964b4046f73e87ef6917ff2b76ab93366a19",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/47-zero-change-replay.log": "a9e37c6e5cc773304a600a1e17b88bf9cb401814d939253f568d8cd76bd60218",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-acceptance.json": "fa4693fd30bf0a5c025f5b1f00e88632fd29e18e627bf71de9378c837be68915",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-audit.log": "fa4693fd30bf0a5c025f5b1f00e88632fd29e18e627bf71de9378c837be68915",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-acceptance.json": "b0a2dde95a33f396b76ea3f619e563a1ee8c1fbac77357d8a020a8d47e1bc640",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-replay-audit.log": "b0a2dde95a33f396b76ea3f619e563a1ee8c1fbac77357d8a020a8d47e1bc640",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/execution_manifest.json": "3c549adf8780d4ccb67dc1ea5a0b367ff7d02cf2ec8cb429d6aae892c4f53bc7",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/control_fingerprint.py.txt": "ff3259a3b866597ff1229e9ad091cbca4e02122ac3d52e4fdafe61ff74bcda54",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/plans.py.txt": "16880e67227c3278917035c5382ce2b108a68ac03254e2dbf77e32daaf5790dd",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/preflight.py.txt": "f1259f615adee9c25649e455cad9bb9295ff33edd4ac49361e7ad81c0e569869",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/readback.py.txt": "be4e5f3d0daa9925923b23094a21beb209e3859c26a0dedd4b2bb3a07843d620",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/operation_sources/reload.py.txt": "5364276239b7570afe58633d5c3cb35c633a7d859106594e25e48f9be2105c2f",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/preflight.json": "5334f4b03715ff917e8999c66bfd2196baabe646b1e985a37a6d109309a02309",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-intent.json": "1ae4e8555c38dd3aa4f5a58fefc1a466c58c257a2560c108600ce207fdf668d3",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-request.json": "51c3fe478c6b92139a3e426fb43eba4f3fae3b1eff275a09aef12d246c006e81",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/reload-response.json": "40a6f5b651e73c349c0edc48f8de64c6bf6cd106112fda6c0405596b369283b0",
+    "lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/verification.json": "4beeea0907a53d55f99d61403520bfeb6a97bd5db3bcf808b73addc94f662ce5"
+  },
+  "manifest": {
+    "path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/execution_manifest.json",
+    "sha256": "3c549adf8780d4ccb67dc1ea5a0b367ff7d02cf2ec8cb429d6aae892c4f53bc7"
+  },
+  "new_formal_execution_records_committed": false,
+  "pushed": false,
+  "closeout_validation": {
+    "docs_integrity": "passed",
+    "task_document_diff_check": "passed",
+    "evidence_sha256_verified": 45,
+    "dependencies_sha256_verified": 117,
+    "source_inventory_sha256_verified": 744,
+    "codegraph_status": "up_to_date",
+    "production_code_changed_after_repair_commit": false,
+    "full_isolated_regression_repeated": false
+  }
+}

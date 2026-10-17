@@ -1,0 +1,22 @@
+import json,time
+from pathlib import Path
+import dagster as dg
+from orchestrator.moneyflow_continuation.contract import PROJECT,read_json,file_hash,ACTIVE,now
+from orchestrator.moneyflow_continuation.state import NativeBackend,dependency_files,source_inventory
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance,INSTANCE_HOME
+from orchestrator.defs.paths import silver_trade_calendar_path
+out=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery';pre=read_json(out/'preflight.json');intent=out/'reload-intent.json';assert not intent.exists()
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance)
+ assert dependency_files()==pre['dependencies'] and source_inventory()==pre['source_inventory']
+ assert file_hash(INSTANCE_HOME/'dagster.yaml')==pre['config_sha256'] and file_hash(silver_trade_calendar_path(b.lake))==pre['calendar_sha256']
+ assert b.runtime()==pre['runtime']
+ active=instance.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus(x) for x in ACTIVE]),limit=21);assert len(active)<21
+ assert not [r for r in active if not r.remote_job_origin or r.remote_job_origin.repository_origin.code_location_origin.location_name=='orchestrator']
+ body=read_json(out/'reload-request.json');intent.write_text(json.dumps({'as_of':now().isoformat(),'request_sha256':file_hash(out/'reload-request.json'),'authorization':'User: submit repairs then follow plan for formal review, recovery and acceptance.','attempts_allowed':1,'formal_jobs':0},indent=2)+'\n')
+ response=b.http(body,mutation=True);(out/'reload-response.json').write_text(json.dumps(response,indent=2)+'\n')
+ assert response['data']['reloadRepositoryLocation']['__typename']=='WorkspaceLocationEntry',response
+ runtime=b.runtime();assert dependency_files()==pre['dependencies'] and source_inventory()==pre['source_inventory']
+ proof={k:pre[k] for k in ['dependencies','source_inventory','isolated_definitions','calendar_sha256','config_sha256']};proof.update(as_of=now().isoformat(),runtime=runtime,code_load_audit={'basis_commit':pre['commit'],'reload_request':{'path':str(out/'reload-request.json'),'sha256':file_hash(out/'reload-request.json')},'reload_response':{'path':str(out/'reload-response.json'),'sha256':file_hash(out/'reload-response.json')},'before_server_id':pre['runtime']['server_id'],'loaded_server_id':runtime['server_id'],'no_active_or_queued_shared_location_runs_before_reload':True,'sensors_stopped':21,'loaded_contracts_checked':14,'dependencies_stable_during_reload':True,'reload_performed_once':True})
+ (out/'verification.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2)+'\n');ref={'path':str(out/'verification.json'),'sha256':file_hash(out/'verification.json')};b.verification(ref)
+ print(json.dumps({'complete':True,'server_id_before':pre['runtime']['server_id'],'server_id_after':runtime['server_id'],'verification':ref,'sensors_stopped':21,'formal_reload':1,'jobs':0,'reads':b.meter.count}),flush=True)

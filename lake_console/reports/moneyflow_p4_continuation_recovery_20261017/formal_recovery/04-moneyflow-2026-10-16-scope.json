@@ -1,0 +1,12 @@
+{
+  "units": [
+    {
+      "dataset": "moneyflow",
+      "trade_date": "2026-10-16"
+    }
+  ],
+  "verification": {
+    "path": "/Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/verification.json",
+    "sha256": "4beeea0907a53d55f99d61403520bfeb6a97bd5db3bcf808b73addc94f662ce5"
+  }
+}

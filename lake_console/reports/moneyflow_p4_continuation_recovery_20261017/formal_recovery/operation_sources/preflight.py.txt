@@ -1,0 +1,46 @@
+import json,shutil,time,subprocess
+from pathlib import Path
+import dagster as dg
+from sqlalchemy import text
+from orchestrator.moneyflow_continuation.contract import now,file_hash,read_json,unit_identity,DATASETS,ACTIVE,POLICY,PROJECT
+from orchestrator.moneyflow_continuation.state import NativeBackend,dependency_files,source_inventory
+from orchestrator.moneyflow_continuation.plan import make_plan
+from orchestrator.moneyflow_continuation.execution import unit_decisions,decision_summary
+from orchestrator.moneyflow_continuation.submission import Journal
+from orchestrator.defs.bootstrap.daily_basic_event_instance import daily_basic_event_instance,INSTANCE_HOME
+from orchestrator.defs.paths import silver_trade_calendar_path
+root=PROJECT.parent/'reports/moneyflow_p4_continuation_recovery_20261017';out=root/'formal_recovery';out.mkdir(exist_ok=False)
+start=time.monotonic();deps=dependency_files();inventory=source_inventory();isolated_path=root/'repair_isolated/definitions.json';isolated=read_json(isolated_path)
+assert isolated['dependencies']==deps and isolated['source_inventory']==inventory and isolated['exit_code']==0
+parent_path=root/'final/00-all-current-plan.json';parent=read_json(parent_path)
+collection={'dataset':'moneyflow','trade_date':'2026-10-13','layer':'raw','failed_run_id':'ca3d12ad-717e-4291-a87f-6c2a3d37204a','first_round_sha256':'63739fcb41a8fc65f198b4933199c0352435730b78bd2b6be670cfa1a24a83b4','evidence':{'path':str(root/'moneyflow-oct13-failure.json'),'sha256':file_hash(root/'moneyflow-oct13-failure.json')}}
+with daily_basic_event_instance() as instance:
+ b=NativeBackend(instance);runtime=b.runtime();b.meter.tick()
+ active=instance.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus(x) for x in ACTIVE]),limit=21)
+ assert len(active)<21,'active_query_truncated'
+ active_summary=[]
+ for r in active:
+  origin=r.remote_job_origin
+  location=origin.repository_origin.code_location_origin.location_name if origin else None
+  active_summary.append({'run_id':r.run_id,'job_name':r.job_name,'status':r.status.value,'location':location})
+ assert not [r for r in active_summary if r['location'] in (None,'orchestrator')], 'shared_location_has_active_runs'
+ days=['2026-10-08','2026-10-09','2026-10-12','2026-10-13','2026-10-14','2026-10-15','2026-10-16'];opened=b.calendar(days);assert opened==set(days)
+ draft=make_plan([{'dataset':u['dataset'],'trade_date':u['trade_date']} for u in parent['units']],opened,now(),parent['verification'],inventory,[],parent,file_hash(parent_path),collection_recovery=collection)
+ units=[unit_identity(ds,day) for ds in DATASETS for day in days];snapshots=b.snapshots(units,Journal(draft));decisions=unit_decisions(snapshots);summary=decision_summary(decisions)
+ assert summary['completed']==45 and not summary['blocked'] and not summary['unknown'],summary
+ remaining=[{'dataset':d['dataset'],'trade_date':d['trade_date'],'next':d['next']} for d in decisions if d['next']!='complete']
+ assert remaining==[{'dataset':'moneyflow','trade_date':day,'next':'raw_reexecution' if day=='2026-10-13' else 'register'} for day in days[-4:]],remaining
+ baseline=read_json(root/'45-partial-acceptance.json');files=[]
+ for record in baseline['records']:
+  for layer in ['raw','silver']:
+   v=record['layers'][layer];assert file_hash(v['target'])==v['sha256'];files.append({'path':v['target'],'sha256':v['sha256']})
+ assert len(files)==90
+ from orchestrator.defs.run_contracts.moneyflow import MONEYFLOW_WRITER_POOL
+ with instance.event_log_storage.index_connection() as c:
+  assert c.execute(text('SHOW transaction_read_only')).scalar()=='on'
+  pool={'name':MONEYFLOW_WRITER_POOL,'limits':[list(x) for x in c.execute(text('SELECT "limit",using_default_limit FROM concurrency_limits WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()],'slots':[list(x) for x in c.execute(text('SELECT run_id FROM concurrency_slots WHERE concurrency_key=:key AND deleted=false LIMIT 3'),{'key':MONEYFLOW_WRITER_POOL}).fetchall()],'pending':c.execute(text('SELECT count(*) FROM pending_steps WHERE concurrency_key=:key'),{'key':MONEYFLOW_WRITER_POOL}).scalar()}
+ assert pool['limits']==[[1,False]] and pool['slots']==[[None]] and pool['pending']==0,pool
+ assert b.lake.parent.is_mount() and b.lake.stat().st_dev==b.staging.stat().st_dev and shutil.disk_usage(b.staging).free>=POLICY.free_bytes
+ report={'as_of':now().isoformat(),'commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'runtime':runtime,'active_runs':active_summary,'summary':summary,'remaining':remaining,'preserved_90_files':files,'pool':pool,'free_bytes':shutil.disk_usage(b.staging).free,'dependencies':deps,'source_inventory':inventory,'isolated_definitions':{'path':str(isolated_path),'sha256':file_hash(isolated_path)},'calendar_sha256':file_hash(silver_trade_calendar_path(b.lake)),'config_sha256':file_hash(INSTANCE_HOME/'dagster.yaml'),'parent':{'path':str(parent_path),'sha256':file_hash(parent_path)},'collection_recovery':collection,'reads':b.meter.count,'elapsed_seconds':time.monotonic()-start,'formal_mutations':0,'source_requests':0,'reload_required':True,'reason':'Collector, deadline propagation and owned source worker changed; reload the existing location once after no active/queued shared-location runs.'}
+ (out/'preflight.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+ print(json.dumps({k:report[k] for k in ['as_of','summary','remaining','pool','active_runs','reads','elapsed_seconds','reload_required']}),flush=True)
