@@ -1,6 +1,6 @@
 # 25股修复LLD v1：R3验收记录与R4正式修复设计
 
-更新：2026-10-18。355ee217c在正式准备时暴露程序间传数据的错误，已停止，事实见§22.5。管理员最新要求是同一个程序顺序完成准备、复用已下载内容，不再做这一步的内存控制。本轮已修订§16.2、§20—§22：撤销准备专用的程序拆分、内存检查和验收要求，明确改动、取消及来源复用。本轮已完成准备代码修正和必要测试：28项通过，实际2,489行验证及限制见§22.6；源码、测试及记录未提交。正式任务不恢复，旧run/hash不动，R5事件和工具清退不执行。
+更新：2026-10-18。R4正式文件修复及收尾已完成：31资产、11,425个COMMITTED、4,363个SKIPPED、失败0，最终状态FILES_COMPLETE_EVENTS_PENDING，completed=15,788。收尾漏载指标任务清单已补齐；本轮未重新下载、计算或改写正式文件，实测约79.99秒/5.17GiB，原plan/hash及报告保留。原方案、原实现下完成收尾后，再落地5行源码修正和直接回归，顺序与证据见§22.9。R5事件、Prod、serving、sensor及工具清退未执行；修正、对应测试及原两份文档按本轮明确白名单提交，不推送。
 
 §1—§13是已完成R3及历史证据；其中内存和worker设计不作为当前准备步骤的要求。当前准备步骤以§16.2及§22.6为准，候选计算与正式提交不在本次重写范围。
 
@@ -676,6 +676,81 @@ CodeGraph explore/impact及当前源码已核对prepare_scoped_repair_inputs→r
 
 **结论范围。** 这次出错的准备调用、来源复用、取消和续跑已修正并通过直接验证；没有运行真实31资产完整候选或正式文件替换，不把当前结果扩成整项R4完成。正式任务保留原断点，不自动恢复；后续执行使用新run、明确旧来源目录并记录当前新指纹，不能原样重放§22.5的旧命令。
 
+### 22.7 修正后继续正式任务的执行单（2026-10-18）
+
+管理员最新指令“提交，然后继续推进正式任务”授权按§22.2继续准备/freeze、factor→price→indicator真实候选、提升预览、正常后的正式替换及一次文件对账。范围仍为25股/31资产/2,489批准因子键，截止2026-10-16/分钟15:00，688689例外不变。直接采用已确认休市、无相关更新任务前提；不增加期限、重新审计市场或请求源。R5事件、serving、Prod、sensor状态/水位及工具清退均不操作。
+
+固定代码98b0817c（本次5文件），28项直接验证及实际下载内容测试沿§22.6证据，不再重跑。完整34份实现指纹、授权和环境记录在/private/tmp/dg_r4_formal_resume_20261018/execution.json。准备没有专项内存检查；计划192MiB、候选10GiB、spill及后续候选计算的既有参数不在本次改变范围。任何真实输入/实现/范围冲突、权限/空间错误或对应阶段超限停止报告，不改旧hash或强行放行。
+
+新run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8，run_root=/Volumes/datasource/data_lake_staging/stock_adj_factor_history_repair/run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8；source_root固定为/Volumes/datasource/data_lake_staging/stock_adj_factor_history_repair/run_id=cd61cbdb-f1c0-4e27-bbc7-e17f3dfd18a7。旧目录只读，按§16.2导入原50份下载结果， source=None确保不能请求Tushare。新来源记录、准备、计划和候选只写本run正式staging；正式替换仅由原promote按冻结目标执行。两正式根同卷、无symlink，本次初始剩余空间2923862462464字节。
+
+工作目录/Users/congming/github/goldenshare/lake_console/orchestrator；解释器现有.venv/bin/python3，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home。只读instance沿现有_readonly_instance（已注册分区及正式替换开始时的一轮实际相关写者）；不重载定义。一次性/private/tmp/dg_r4_formal_resume_20261018/prepare.py只构造已批准25股范围，并调用现有_freeze(args,scopes,None,source_root=固定旧run)；不复制源下载、规划SQL或写湖实现，不增加公开CLI参数/配置或长期命令。
+
+```bash
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B /private/tmp/dg_r4_formal_resume_20261018/prepare.py
+# 使用准备成功返回的原plan_path与plan_hash，依次执行：
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli build --plan PLAN_PATH --expected-plan-hash PLAN_HASH --phase factor --full
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli build --plan PLAN_PATH --expected-plan-hash PLAN_HASH --phase price --full
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli build --plan PLAN_PATH --expected-plan-hash PLAN_HASH --phase indicator --full
+.venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli promote --plan PLAN_PATH --expected-plan-hash PLAN_HASH --dry-run
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_adj_factor_history_repair_cli promote --plan PLAN_PATH --expected-plan-hash PLAN_HASH --maintenance-confirmed
+```
+
+各阶段stdout/stderr单独保存在该临时证据目录formal-prepare.log、formal-factor.log等，不覆盖旧日志；只有上一步成功才进入下一步。不再运行额外inspect或三次业务audit。异常时现有保护退出、释放锁并保留所有已完成片段/文件，报告准确位置；同版未完成工作按原run/hash续跑。最终只归并既有提交与读回记录，不重复计算或扫描正式数据。实际数量、文件变化和结果在此节补记。
+
+**当前状态。** 正式准备已成功，50份下载记录复用，区间因子2,489行，源请求0；新plan_path=/Volumes/datasource/data_lake_staging/stock_adj_factor_history_repair/run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8/plan.json，plan_hash=124b37e739fa490828428ed4038c96557eecaff89765fb7fac9d9312c172f1b8，原hash不改。实际输入26,586文件，目标15,788文件，plan 40,221,246字节，目标原体积合计2910004068字节；完整按资产数量见/private/tmp/dg_r4_formal_resume_20261018/plan-summary.json。因子候选702/702完成，用时32.212秒，Raw/Silver合计4,978处键值修改（同一2,489键分属两资产）；结果保存在formal-factor.log及factor-result.json。价格候选1,649/1,649完成，用时230.153秒，changed_rows=799,128，no-op文件11，峰值RSS 2,047,524,864字节；结果保存在formal-price.log及price-result.json。指标阶段已完成325/325组计算、13,437/13,437个逐文件候选（其中4,352个no-op，changed_rows=1,517,157），用时4,573.323秒；但所有批次完成后，等待worker关闭连接并返回finished时，父子进程RSS达到4,334,190,592字节（4.03653GiB），超出既有4GiB 39,223,296字节（37.406MiB），被repair_rss_budget_exceeded停止。checkpoint为FAILED且all_chain_ready=false，尚未封存全链，不能进入预览/提升或标记正式验收通过。全部15,788个目标均已保存逐文件完成证据，合计no-op 4,363个、待替换11,425个；未重新下载，正式替换/事件均为0。协调器及worker已退出，现有writer.lock和plan锁只读核对均已释放。停止证据见/private/tmp/dg_r4_formal_resume_20261018/interrupted_report.md及interrupted-state.json、indicator-interrupted.json。计划/hash、来源、候选及日志全部保留；不自动续跑、不改代码/预算或hash，先讨论退出阶段内存门禁和已有成果接续方式，后续仍需全链汇总、预览、正式替换及一次文件对账。
+
+### 22.8 本次6GiB续跑（2026-10-18，管理员已批准）
+
+**目标、授权和范围。** 管理员明确“使用6G的上限来继续推进任务”。§22.7的15,788个目标逐文件完成记录和325组指标计算结果全部保留，续跑只复用这些结果并完成尚未执行的全链汇总、预览、正式替换及一次文件对账。范围、日期、25股、31资产、2,489因子键、688689例外及R5/Prod/serving/sensor排除项不变。此次6GiB是本任务明确授权，不再沿用“不得套用周/月Raw额度”来阻止该调整。
+
+**当前代码及必要性。** execute_repair_candidates中两个RSS检查都读取本模块RepairBudget构造器的max_rss；该构造器已支持具名参数，原默认4GiB。worker仅上报RSS，实际超限判定在协调器。原34份源码身份、plan_hash及候选证明均未变化；修改默认源码会使原计划的实现身份失效，本次没有必要修改源码或迁移证明。采用一次性执行脚本，仅在调用原CLI的当前程序内把执行模块使用的构造器设为functools.partial(原构造器,max_rss=6*1024**3)，调用结束或异常后finally恢复；不替换SQL、计算、验证、hash、文件或状态函数，不改变worker源码。脚本只放本任务/private/tmp证据目录，任务结束不留下长期入口。
+
+| 配置 | 来源、值及生效位置 | 消费者、边界和失败处理 |
+| --- | --- | --- |
+| 本次max_rss | 管理员本轮授权；6,442,450,944字节；一次性脚本具名传给既有RepairBudget | execute_repair_candidates的等待及批次返回两处检查共用；超过6GiB仍受控停止、清理本任务worker并保留成果。开始日志记录原4GiB和本次6GiB，退出恢复原工厂，无env、数据库、配置文件或全局默认变化 |
+| 其他参数 | 原RepairBudget逐字段不变 | DuckDB2GiB、2线程、spill2GiB、candidate10GiB、plan192MiB、批次/消息/进度保持原值；正式提升沿原实现，不增加新的计算或内存门禁 |
+
+**改动及影响面。** 仅本节及原方案记录口径；一次性执行脚本与直接隔离测试放/private/tmp/dg_r4_formal_resume_20261018。正式Python源码、API/CLI、definitions、catalog、字段、公式、依赖矩阵均不改。CodeGraph explore/impact已核对RepairBudget、execute_repair_candidates、load_repair_plan、worker、候选封存及promote；动态CLI调用由当前源码补核。其他任务修改不处理。
+
+**执行和恢复。** 使用原run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8、plan_hash=124b37e739fa490828428ed4038c96557eecaff89765fb7fac9d9312c172f1b8；不freeze、不改plan或旧记录。现有项目.venv/bin/python3 -B运行一次性脚本，脚本透传原build --phase indicator --full参数。现有恢复函数先验证有效receipt/候选再跳过；325组计算及13,437个文件的kernel/COPY/业务验证新增量必须0，不能为了生成阶段摘要重算。原锁、父进程监护、取消、hash和损坏拒绝完整保留。失败沿同一run/hash保留现场；真实数据/范围/实现冲突或6GiB超限仍停止报告，不自行继续放宽。
+
+**性能与最小验证。** 基础源请求0、公式重算0、候选重写0；恢复仅读取当前计划及其已绑定记录/输出身份并按运行上下文复用，随后沿§22.2完成一次封存及原预览/提交；不全局扫库或重测真实连通。已有指纹和配置构造器审计直接复用。仅补隔离小样本：原默认仍4GiB、本次6GiB且其他字段相同；两处RSS检查在4GiB以上6GiB以内可完成、超过6GiB仍拒绝并退出；异常恢复原工厂；真实临时候选续跑不执行kernel/COPY/业务验证，错误hash/范围/损坏仍拒绝。用字面RSS替身验证边界，不分配6GiB试验，不重跑全套或25股计算链。实际正式恢复耗时未知，按日志如实记录，不用旧计算时间外推。
+
+**正常后续。** 原指标阶段完成并真实封存后，按§22.2运行同plan/hash的promote --dry-run，正常则promote --maintenance-confirmed。正式写入仍为逐文件同卷原子替换、读回、checkpoint；结束合并原提交记录和报告一次对账，不再重算。每步日志另存，不覆盖§22.7失败现场；最终实际结果补回本节。R5事件和工具清退不执行。
+
+**本次验证及执行记录。** 5项直接隔离用例通过：原默认及异常恢复；等待与批次返回两处各验证5GiB通过、7GiB拒绝并确认worker退出；成功候选续跑kernel/COPY/业务校验新增均0，错hash/越界/坏候选仍拒绝。首跑3通过，另外两项只因测试正则未跨多行stderr匹配而失败，生产拒绝语义正确；改为核对worker_failed前缀和确切candidate_drift异常后，仅重跑这两项并通过。记录见execution-6g-tests.xml、execution-6g-corrupt-assertion.xml及execution-6g.json；临时执行脚本Ruff和文档完整性检查通过。没有修改正式源码或默认预算，准备按同run/hash、6GiB续跑原指标阶段。
+
+**正式执行结果及新的停止位置。** 6GiB已经生效，原run/hash/34份源码身份不变。325组计算及13,437个指标候选全复用，新增kernel_windows/copy_calls/business_validations均0；等待/批次采样峰值4,524,720,128字节（约4.214GiB）。真实全链封存通过，chain_hash=a5e9cdb7eb42f5149a934094bea24a44158513f66f4be4602246a10a099adf8a；31资产/15,788目标的预览与原清单完全一致。正式提交已处理全部目标：11,425个COMMITTED、4,363个SKIPPED，逐文件完成记录齐全，failures.csv失败行0；candidate_bytes=0、spill_bytes=0、pending为空。跨资产changed_stock_rows合计2,321,263，不等于唯一源行数。
+
+在全部文件提交和_write_reports之后，runtime.storage.reconcile()抛repair_unowned_artifact，未写最终FILES_COMPLETE_EVENTS_PENDING，当前promotion仍PROMOTING。只读定位：promote_repair_files新建的RepairRuntime未装入indicator_tasks，终态owns_artifact仅从indexes取这份清单，空集合误拒了本任务已生成的合法指标receipt。首个命中inputs/indicator_replay/56a94b73805caca5fbde41d5adcbc536a20cdca80ddfb001420a287f0278ee85/segment-1.json（4,298字节，非symlink）；它对应当前计划唯一一项120分钟MACD/KDJ任务，且task.json已引用。此次定位仅看该run元数据和一份marker/receipt，没有复扫行情。
+
+协调器/worker退出、writer.lock及plan锁均已释放。新冲突按原约束停止；**数据文件已修复，任务收尾尚未验收通过**。不删除该合法片段，不篡改完成状态或旧hash，不回滚/重写已提交文件，不重新下载、计算或生成候选。建议仅修正清点时从当前冻结计划取得一次完整任务清单，再沿原提交记录完成剩余清点及结束状态；该修正尚未实施，待讨论其方案和原计划/提交证据承接方式。事件、Prod、serving、sensor及工具清退均为0。详细记录见/private/tmp/dg_r4_formal_resume_20261018/promotion-interrupted.md、promotion-interrupted.json、file-results.json及formal-promote.log；正式逐文件清单在原run的reports/promotion_manifest.csv，此前失败现场完整保留。
+
+### 22.9 收尾清点的最小修正与本次结束状态（2026-10-18，已授权）
+
+**目标和根因。** 管理员已批准修正文档后修复并完成收尾，明确复用已有结果、不重新下载/计算/重写已修复文件。§22.8已完成全部15,788目标。错误在最后reconcile：promote_repair_files新建RepairRuntime后未像候选协调器那样从冻结计划调用indicator_replay_tasks，owns_artifact终态读取空列表，遂误拒合法segment记录。现有提交单元测试的字面样本没有指标片段目录，未覆盖这个真实边界；本次必须补有实际marker→receipt→output引用的小样本，不能替换掉归属检查让它通过。
+
+**源码最小修改和影响。** 只改stock_adj_factor_history_repair_promotion.py：在取得原锁、按原规则处理实际写者后、创建RepairStorageLedger之前，通过现有indicator_replay_tasks(plan)填入当前上下文一次；沿现有函数缓存，不改_runtime叶子模块、不新增其对计算模块的依赖。不在dry-run或已结束幂等返回前做这项额外工作。只新增这几行初始化和tests/test_stock_adj_factor_history_repair_promotion.py的直接回归，另更新原两文档。CodeGraph explore/impact已核对入口、CLI、任务生成、上下文、归属清点及测试；没有日常asset/job/sensor、Prod、API/前端或依赖矩阵变化，不新增配置或长期CLI。
+
+**原计划及结果承接。** 原plan绑定34份源码，直接修改提交模块后用新源码重开旧promote会被现行实现身份检查正确拒绝。因此本次先保持原源码不变，使用/private/tmp/dg_r4_formal_resume_20261018内一次性收尾脚本，在原load_repair_plan完整校验、原能力锁及plan锁下建立RepairRuntime，调用原indicator_replay_tasks装入清单，再只执行原提交函数最后未完成的步骤。顺序为：原audit_repair_chain_for_promotion验证全部COMMITTED/SKIPPED及输出/读回绑定；确认原报告与完成记录对应、failures为空、计量pending为空；原RepairStorageLedger.reconcile清点本run；原persist写FILES_COMPLETE_EVENTS_PENDING及完成数。任何未提交/RECOVER/缺证明/真实漂移一律拒绝，不调用_commit_file、build、COPY、kernel或源请求，不重写报告/提交记录/正式文件，不手填一个成功标志代替核对。原plan/hash/候选证明及全部逐文件记录不变，不跳过或替换身份验证。
+
+该脚本只是补齐本次遗漏的调用上下文并执行原收尾步骤，不成为第二条修复主链或长期恢复框架。正式收尾使用98b0817c绑定的原源码；日志同时保存脚本身份和原34份源码身份。收尾完成后才在原位置应用上述初始化修正，再运行直接回归；这时不再启动修复命令、不把新源码冒充原计算版本。保留98b0817c及原plan/提交事实供后续登记独立读取，不改旧hash以迁就工作区代码。
+
+**执行、读写及失败边界。** 同原run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8和plan_hash=124b37e739fa490828428ed4038c96557eecaff89765fb7fac9d9312c172f1b8。工作目录、现有.venv/bin/python3 -B及正式根沿§22.7。只有当前run的checkpoint清点/结束状态允许写；Lake文件只按已有提交身份读回一次，报告只读；不访问网络或正式instance，不查写者（文件均已提交，沿原函数该分支的0次查询规则）。进程上限沿已确认6GiB，不新增其他限制。取消/异常释放原锁，保留已提交文件和所有报告，不清目录、不改旧记录；清点不一致或其他新错误按原规则停止，不能重写计量强行通过。
+
+**性能与证据。** 源请求、SQL、公式、COPY及正式文件替换新增均0。只对本run已封存15,788个目标的提交/读回证据做一次接续核对，复用预览和原CSV；只做尚未完成的一次run目录元数据清点，不扫描市场或Lake目录，不重跑完整性审计。此前预览/提交同类核对约分钟量级，仅作预计1—3分钟依据，不设新的硬耗时门禁。实际记录耗时、hash文件/字节、现有函数字节清点结果、状态写入和0重算/0重写，不为报告重复取源或复核。
+
+**正反隔离验证和顺序。** 先用临时根验证本次仅收尾脚本：真实旧提交入口在冷上下文、有合法指标marker/receipt/output时复现unowned错误，补齐上下文后能通过；所有文件已提交才允许收尾，部分未提交、未知文件、未被marker引用的片段、缺失marker或symlink仍拒绝，拒绝时不写完成状态；成功后目标身份及原plan/报告不变。隔离样本只证明提交与归属合同，不声称公式或31资产完整链重新验收。正式收尾通过后应用几行源码修正，在同一真实promote入口验证冷上下文成功及上述禁止项；只跑受影响的小用例，不重跑25股/全仓。默认Ruff、致命错误基线、文档完整性检查和显式文件diff对账按现有要求执行。若中断，继续当前一步；已经结束的正式run不重复执行正式命令来测试幂等。
+
+**交付条件。** checkpoint.promotion.status=FILES_COMPLETE_EVENTS_PENDING、completed=15,788；11,425 COMMITTED/4,363 SKIPPED、失败0及原文件证据保持；清点通过、无pending、锁释放；源码修正及隔离回归通过。结束状态表示R4文件修复完成，DG事件仍待R5，不写事件/serving，不操作Prod、sensor或工具清退，不包含其他任务改动。
+
+**实施和验收结果。** 本节方案先落文档；保持原34份源码身份后，6个收尾脚本隔离用例通过（另只重跑加强后的4项反例），正式仅收尾脚本退出0。原load_repair_plan检查不变，原audit核对全部已提交输出及CSV，补齐indicator_tasks后原reconcile通过，persist写入FILES_COMPLETE_EVENTS_PENDING/completed=15,788。11,425 COMMITTED、4,363 SKIPPED、文件失败0不变，原报告大小/mtime不变；candidate_bytes=0、spill_bytes=0、pending为空；锁释放。日志时间跨度约79.99秒，RSS峰值5,555,863,552字节（约5.17GiB），未超过6GiB。仅一次接续身份读取18,271文件/3,006,276,129字节；清点沿原函数字节统计，未为补文件数再扫目录。下载、业务SQL/公式、COPY及正式文件替换新增均0。
+
+完成后才修改_promotion：锁内、创建计量前增加原indicator_replay_tasks(plan)调用，共5行；没有改_runtime、API/CLI或默认预算。新回归在修改前已真实触发同一repair_unowned_artifact，修改后4项新增及2项既有直接回归共6通过，覆盖冷上下文合法记录、未知/未引用零字节文件/缺marker拒绝、报告失败接续及全完成返回不重写。临时脚本6项隔离验证同时覆盖部分未提交和symlink拒绝。默认Ruff、致命错误基线、文档完整性及diff检查通过；CodeGraph explore/impact与sync/status完成，边界/依赖矩阵不变。源码mtime晚于正式完成日志已验证，没有让新源码冒充原plan计算版本；当前不再重开该run或执行修复命令。
+
+完整逐项对账、实际版本及指标见/private/tmp/dg_r4_formal_resume_20261018/finish-report.md与finish-result.json；正式完成日志formal-finish.log，回归证据finish-tests.xml、finish-rejections.xml、census-before-fix.xml、census-after-fix.xml。旧失败现场保留。原4GiB和后续清点停点仅供追溯；R4正式文件和结束状态均完成，R5事件及工具清退仍未执行。本轮提交范围只有提交模块、对应测试及原两份文档，不推送，其他任务改动保留。
+
 ## 23. 专项工具清退与证据保留
 
 ### 23.1 目标、时机及责任边界
@@ -743,4 +818,4 @@ repair_implementation_files的34文件是计算/校验指纹闭包，不是清�
 | 正式数据及证据 | 变更白名单只有专用源码/测试和原两文档，原执行证据引用保留 | 测试拦截正式路径、instance写入和网络；任何清目录/改旧JSON/hash/事件/sensor操作均不得发生 |
 | 中断与范围 | 白名单内部分改动可继续收尾，无关任务差异保留 | 未知调用方停止并报告；不能为清退重跑bootstrap/修复或清空staging |
 
-本节是正式修复及必要DG登记完成后的退出设计；R4代码及隔离验收结果见§22.4，正式修复尚未执行，本轮未实施专项工具清退，也未删除数据/执行证据。
+本节是正式修复及必要DG登记完成后的退出设计；R4文件修复和收尾已完成，事实见§22.9。必要DG登记属于后续R5，尚未执行；本轮未实施专项工具清退，也未删除数据/执行证据。

@@ -475,3 +475,94 @@ def test_build_and_audit_reject_started_promotion_before_worker(tmp_path, monkey
         execution.execute_repair_candidates(root / "plan.json", plan["plan_hash"],
             phase="indicator", audit=audit)
     assert all(p.exists() for p in candidates)
+
+
+def sealed_metadata_with_indicator_receipt(tmp_path):
+    """Ownership-only fixture with a planned task and literal saved-file references.
+
+    The marker->receipts->outputs shape comes from the real R4 task.json and
+    segment-1.json, and the producer at _indicators.py:679. Bytes are deliberately
+    metadata-only; neither this fixture nor its admission double proves formulas.
+    """
+    from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+        indicator_replay_tasks,
+    )
+
+    plan, targets, candidates = sealed_metadata_plan(tmp_path)
+    plan["units"].append({
+        "asset_key": "gold_stock_daily_qfq_nineturn", "target_paths": [],
+        "calendar_dates": ["2026-10-16"],
+        "calculation_windows": [{"ts_code": "688689.SH"}],
+    })
+    task = indicator_replay_tasks(plan)[0]
+    root = Path(plan["run_root"])
+    directory = root / "inputs/indicator_replay" / task["task_id"]
+    directory.mkdir(parents=True)
+    output = directory / "segment-0-result.parquet"
+    output.write_bytes(b"owned-metadata-fixture-output")
+    receipt = directory / "segment-0.json"
+    atomic_repair_json(receipt, {"outputs": {"result": asdict(file_identity(output))}})
+    marker = directory / "task.json"
+    atomic_repair_json(marker, {"receipts": [asdict(file_identity(receipt))]})
+    atomic_repair_json(root / "plan.json", plan)
+    checkpoint = root / "checkpoint.json"
+    saved = json.loads(checkpoint.read_text())
+    saved.pop("storage_accounting", None)
+    atomic_repair_json(checkpoint, saved)
+    # Establish the starting byte census from actual fixture files, not guessed sizes.
+    RepairStorageLedger(root, scan=repair_storage_totals, plan=plan,
+        promotion_only=True).persist()
+    return plan, targets, candidates, marker, receipt, output
+
+
+def test_promote_initializes_indicator_census_and_completed_replay_is_read_only(tmp_path, monkeypatch):
+    from orchestrator.defs.bootstrap import (
+        stock_adj_factor_history_repair_indicators as indicators,
+    )
+
+    plan, targets, candidates, marker, receipt, output = sealed_metadata_with_indicator_receipt(tmp_path)
+    admit_metadata(monkeypatch, plan)
+    root = Path(plan["run_root"])
+    preserved = [root / "plan.json", marker, receipt, output]
+    before = [file_identity(p) for p in preserved]
+    calls = []
+    build = indicators.indicator_replay_tasks
+
+    def count(p):
+        calls.append(p["plan_hash"])
+        return build(p)
+
+    monkeypatch.setattr(indicators, "indicator_replay_tasks", count)
+    args = {"plan_path": root / "plan.json", "expected_hash": plan["plan_hash"],
+        "maintenance_confirmed": True}
+    result = promotion.promote_repair_files(**args, writer_guard=lambda _: None)
+    assert result["status"] == "FILES_COMPLETE_EVENTS_PENDING" and calls == [plan["plan_hash"]]
+    assert [p.read_bytes() for p in targets] == [b"new-content", b"new-second"]
+    assert all(not p.exists() for p in candidates)
+    assert [file_identity(p) for p in preserved] == before
+    completed = [*targets, root / "checkpoint.json", root / "reports/promotion_manifest.csv"]
+    identities = [file_identity(p) for p in completed]
+    monkeypatch.setattr(promotion, "_commit_file", lambda *a, **k: pytest.fail("committer called again"))
+    assert promotion.promote_repair_files(**args,
+        writer_guard=lambda _: pytest.fail("completed run queried writers"))["completed"]
+    assert [file_identity(p) for p in completed] == identities
+    assert calls == [plan["plan_hash"]]  # No new work on the already-finalized return.
+
+
+@pytest.mark.parametrize("fault", ["orphan", "unknown", "missing_marker"])
+def test_promote_indicator_census_still_rejects_invalid_artifacts(tmp_path, monkeypatch, fault):
+    plan, _, _, marker, receipt, _ = sealed_metadata_with_indicator_receipt(tmp_path)
+    admit_metadata(monkeypatch, plan)
+    root = Path(plan["run_root"])
+    if fault == "orphan":
+        receipt.with_name("unreferenced.json").write_bytes(b"")
+    elif fault == "unknown":
+        (root / "unknown.json").write_bytes(b"")
+    else:
+        marker.unlink()
+    error = FileNotFoundError if fault == "missing_marker" else FactorRepairError
+    reason = None if fault == "missing_marker" else "unowned_artifact"
+    with pytest.raises(error, match=reason):
+        promotion.promote_repair_files(root / "plan.json", plan["plan_hash"],
+            maintenance_confirmed=True, writer_guard=lambda _: None)
+    assert json.loads((root / "checkpoint.json").read_text())["promotion"]["status"] == "PROMOTING"

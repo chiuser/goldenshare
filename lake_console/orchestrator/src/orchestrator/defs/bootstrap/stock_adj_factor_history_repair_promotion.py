@@ -541,6 +541,11 @@ def promote_repair_files(
                 raise FactorRepairError("repair_candidate_writer_busy") from error
             if not audit["completed"]:
                 writer_guard(plan)
+            from orchestrator.defs.bootstrap.stock_adj_factor_history_repair_indicators import (
+                indicator_replay_tasks,
+            )
+
+            indicator_replay_tasks(plan)
             runtime.storage = RepairStorageLedger(
                 runtime.root, scan=repair_storage_totals, plan=plan, promotion_only=True
             )
