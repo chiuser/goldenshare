@@ -1041,6 +1041,18 @@ Raw每个完整文件批次，对实际files中每个受影响频率发一条Ass
 
 新定义名称固定为silver_stock_weekly_update_job_sensor、silver_stock_monthly_update_job_sensor，分别选择原同名Silver update job、原cn_a_stock_week_ends/cn_a_stock_months；default_status=STOPPED。源完成才触发，不加第二个19:30门槛，不用交易日限制挡住周末的合法历史交付。期望周期完全来自本次Raw实际files；不是每日造一根周/月K，也不是日期continuity窗口扫描。
 
+<a id="period-silver-sensor-classification"></a>
+**已确认的sensor分类与同步范围。** 按orchestrator/AGENTS.md的Sensor Definition Tags分类门禁，两个新定义均使用下列definition tags，不能用run tags替代：
+
+| sensor定义 | goldenshare/sensor_domain | goldenshare/sensor_target_layer | goldenshare/sensor_role | definition默认状态 |
+| --- | --- | --- | --- | --- |
+| silver_stock_weekly_update_job_sensor | quote_data | silver | asset_update | STOPPED |
+| silver_stock_monthly_update_job_sensor | quote_data | silver | asset_update | STOPPED |
+
+仅复用run_contracts/sensor_tags.py的build_sensor_tags(sensor_domain=SensorDomain.QUOTE_DATA, target_layer=SensorTargetLayer.SILVER, role=SensorRole.ASSET_UPDATE)；不新增helper、枚举、标签键或配置，不在sensor内手写标签字典，不混入日期、分区、代码、状态或cursor等动态值。标签仅用于Automation页面分类，不改变执行范围、触发窗口、原Raw sensor状态或水位。
+
+同步文件固定为[运行合同治理](dagster-run-contract-governance.html)、[资产与任务拓扑](../architecture/dagster-asset-job-topology.html)及tests/test_run_contract_static_gates.py；两份治理文档本次先记已确认设计、待开发，不把新sensor加入已实现清单。后续开发时更新现有EXPECTED_SENSOR_DEFINITION_IDS并沿test_sensor_definitions_use_registered_definition_tags验收，同时在本域sensor测试中断言两个定义的精确分类、目标job及默认STOPPED；不得删除名单核对或放宽其他sensor门禁。正向为两定义均复用统一helper且三项值正确；反向须抓住缺键、错层级/角色、手写字典、漏登记或意外默认RUNNING。本轮仅补文档，代码和上述新增断言均待管理员再次确认后开发。
+
 单tick先看根可用性、当前相关运行/已有待办，再从该频率Raw资产读取cursor之后最早一条本合同observation（limit=1），校验小引用及完整清单；没有通知则0 DuckDB/0 Parquet。一次最多一个Raw交付、一个RunRequest，先处理最早未交付批次；批次内历史周期是既有Raw实际改动范围，不在sensor中发现或重算全历史。一次Raw周线任务若也改了月线，会发月线资产通知，月线sensor由此处理全部相关月份。
 
 新增本域batch readiness helper，按明确的asset/check/partition集合查询：一条集合SQL取Raw和Silver各期最新物化，一条集合SQL取各期/各check最新**已完成**结果（包含失败、排除PLANNED）。使用当前安装Dagster SQL event log schema及只读index_connection，参数化过滤；只对当前受支持SQL存储工作，未知后端拒绝而非退回逐期API。返回最多2N物化+6N检查，不先limit N条历史再在Python中碰运气。Raw必须具备通过、blocking、分区及实际物化ID绑定，metadata版本匹配真实文件/receipt；Silver文件归属按§11.3—11.4的事件或明确checkpoint识别，DG缺登记标为待补而非ready。未知文件、真实失败/错误绑定阻断；普通readiness仍必须具备真实物化和完整检查，不把恢复归属证明扩成下游放行。不改Dagster表/schema或通用readiness语义。
@@ -1076,6 +1088,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 | 真实生产者接线 | 临时根用实际Raw run_period与真实合同的源替身生成receipt/文件/通知，隔离instance通过实际sensor→两Silver job/check | 不能手造与生产者不符的manifest/schema骗过集成；source HTTP被替代的层次明确，不声称本轮源联网验收 |
 | 两频历史传递 | 周线Raw任务同时写到两频历史，两个通知各1，两个Silver job覆盖全部对应周期，1频率1批而非N次run | anchor-only、仅通知触发job所属频率、月中冒记整月完成、漏仅旧键分区均失败 |
 | 批量ready/去重 | 按安装表合同构造真实隔离事件；已完成同版、重复通知、cursor重读、事件重放不重复COPY | PLANNED遮盖、最新失败、错物化/分区、假receipt、storage_id进业务key、未知后端不能通过；SQL/API次数不随N逐期增长 |
+| sensor分类及登记 | 两定义使用既有build_sensor_tags，精确为quote_data / silver / asset_update且默认STOPPED；两份治理文档、定义名单与本域断言一致 | 缺键、错层级/角色、手写字典、漏登记、意外默认RUNNING不能通过；不将尚未开发的断言写成已通过 |
 | 原ID正常恢复 | A/B已提交而C未完成、输入不变；CLI resume及job共用原ID，A/B文件版本不变且0行情SQL/0 COPY，C仅生成一次 | 缺登记不能判未知文件；存在坏checkpoint/未知目标不能借恢复放行；不新建任务重写A/B |
 | 部分文件补登记 | 无整批complete.json，events只补A/B，C无文件仍留待办；已有物化缺check、登记成功回执失败均按实际事件补缺 | 不生成整批完成，不写C的成功；禁止下载/COPY/改文件，不重复物化；正常旧前像事件与无依据错绑必须分别覆盖 |
 | 新Raw承接 | 原范围A/B/C仅C输入合法更新，复用A/B完整验证及文件，只重建C；新批额外D不加入。周/月共用参数化小场景 | 未发布版本/receipt无C、错原执行/跨根频率/自引用循环/篡改hash或记录/目标漂移/真实失败仍拒绝；不改旧指纹，不漏A/B |
@@ -1088,7 +1101,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 ### 11.8 具体文件白名单与消费者迁移
 
-以下相对lake_console/orchestrator/；第1项不提前实现第2项通知/sensor。原§10.8已完成的Silver文件与第1项修复纳入本次白名单提交，不能当作后续全新开发重做。
+以下相对lake_console/orchestrator/，另标仓库相对路径的两份治理文档除外；第1项不提前实现第2项通知/sensor。原§10.8已完成的Silver文件与第1项修复已提交d865e640，不能当作后续全新开发重做。
 
 | 文件 | 第几项/具体改动 |
 | --- | --- |
@@ -1104,10 +1117,23 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 | src/orchestrator/defs/catalog/lake_assets.py | 1/2：仅同步两Silver更新/写入/事件/性能合同和两Raw的完成通知event_policy；本次没有新增列，不需要再改schema/paths/name_mapping |
 | tests/test_stock_period_silver_contracts.py、test_stock_period_silver_projection.py、test_stock_period_silver_execution.py、test_stock_period_silver_events.py、test_stock_period_silver_jobs.py | 1：扩展现有文件；2：新增tests/test_stock_period_silver_sensors.py、test_stock_period_silver_daily_integration.py，覆盖上述正反与成本计数 |
 | tests/test_stock_period_contract.py、test_stock_period_history.py、test_stock_period_history_cli.py、test_stock_period_recovery.py、test_stock_period_handoff.py、test_stock_period_update.py、test_stock_period_combined.py | 1/2：纯引用合同、真实回调消费者及周线补报op通知边界断言；均为已核实存在的承载测试，不新增无关旧链测试或扩大回归 |
-| tests/test_asset_check_incremental_governance.py、test_asset_governance_contracts.py及现行run-contract静态门禁 | 1/2：只加本域范围/事件/调用次数防回流断言，保留其他数据集门禁 |
+| tests/test_asset_check_incremental_governance.py、test_asset_governance_contracts.py、test_run_contract_static_gates.py | 1/2：只加本域范围/事件/调用次数防回流断言；第2项同步EXPECTED_SENSOR_DEFINITION_IDS及既有统一tag门禁，精确分类/默认状态在本域sensor测试断言；保留其他数据集门禁 |
 | 原总方案、共享LLD、月线LLD；本任务必要验收报告 | 3：实际状态、配置/性能、正反证据、提交白名单及未完成项 |
+| lake_console/docs/design/dagster-run-contract-governance.html（仓库相对路径） | 2/3：仅登记两个Silver sensor分类、统一helper及设计/实现/正式启用状态，引用本节；不修改通用治理合同或其他sensor |
+| lake_console/docs/architecture/dagster-asset-job-topology.html（仓库相对路径） | 2/3：仅补两条Raw通知→Silver sensor→既有job的计划拓扑、分类及默认STOPPED；未开发前不列入当前活动定义 |
 
 同一文件有他人改动只提交本任务块，尤其catalog。无需改变src.foundation/ops/biz/app、其他Tushare资产、依赖锁文件、运行服务配置或前端。实际发现新增消费者/需要新增配置或入口时，先补本表及影响面再讨论，不以“白名单类似路径”为由扩张。
+
+**防止再次漏项的开工对照。** 根因是已有规则未完整落到设计及文件白名单，不另加重复的全局规则。以下检查并入原有开工审计，仅检查本次相关规则、文档和代码，不扫数据、不重新跑既有验收：
+
+| 已有要求 | 本次必须有的落点 | 对账依据及失败处理 |
+| --- | --- | --- |
+| AGENTS要求先明确sensor分类 | §11.6两定义、三项标签、统一helper和默认状态 | 对照当前sensor_tags.py枚举；漏定义、漏值或来源不清时不能进入编码 |
+| AGENTS要求同步治理文档 | 本表显式列出的两份HTML及原三份设计文档 | 确认两份HTML均引用同一§11.6；不能只在聊天中承诺同步或漏入白名单 |
+| 定义和测试不能一起漏登记 | 现有EXPECTED_SENSOR_DEFINITION_IDS、统一tag静态门禁及本域sensor正反测试 | 开发时同步迁移；静态名单不能删除或放宽，精确分类/STOPPED另有直接断言 |
+| 设计、实现、验收、正式启用分别记录 | 五份文档本域状态与本次授权一致 | 仅补文档不写成已开发；代码通过不写成已加载、已启用或真实日常已通过 |
+
+2026-10-17管理员已确认本次分类及两份治理文档补项；本轮只修订上述五份文档，完成文档一致性检查后停止，等待管理员再次确认再开发，不自动进入第2项代码或第3项正式操作。
 
 ### 11.9 第2项正式交接与第3项结案清单
 
@@ -1119,7 +1145,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 4. **故障只处理当前待办。** 输入未变沿原execution_id resume；已有合法新Raw时按§11.4显式承接原范围，输出实际后继ID，已完成同版不重算。事件失败只events，允许整批未完时补已完成文件；部分补记不能关闭批次。未知源/目标、真实失败check或未核实写者先阻断讨论，不重做审计或静默覆盖。若需暂停新自动化，必须获得对应sensor操作授权；本节不预授权自动停Raw或其他任务。
 5. **按事实结案与提交。** 清单逐行列“要求、实际文件/函数、正向、反向、真实证据、通过/未完成”。阶段分开写：首次生成完成；日常程序隔离通过；正式定义/通知/新sensor交接完成；首个真实交付通过。最后一项未发生就留待办，不因代码提交宣称全部DG工作结束。首次日志/810物化/2430检查已完成，不再列缺失项。
 
-提交必须由用户明确要求；白名单包含§10.8现有Silver实现/测试/必要报告、§11.8实际修改文件及三份原文档，不混入R3/资金流/AGENTS/研究/新闻/Wealth。暂存前审查差异，暂存后核对name-status、逐块diff与whitespace；共享文件分块暂存。无法拆清就报告，不整文件撤销或提交。无推送。三份文档链接/状态检查不能替代代码/集成验收；第1项修复前阻塞见§11.10，修复及隔离验收见§11.11，正式日常验收仍未执行。
+提交必须由用户明确要求；白名单包含§10.8现有Silver实现/测试/必要报告、§11.8实际修改文件、三份原设计文档及本域两份治理文档同步内容，不混入R3/资金流/AGENTS/研究/新闻/Wealth。暂存前审查差异，暂存后核对name-status、逐块diff与whitespace；共享文件分块暂存。无法拆清就报告，不整文件撤销或提交。无推送。文档链接/状态检查不能替代代码/集成验收；第1项修复前阻塞见§11.10，修复及隔离验收见§11.11，正式日常验收仍未执行。
 
 ### 11.10 修复前缺陷证据与整改落点（2026-10-17历史记录）
 
@@ -1168,4 +1194,4 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 测试边界：真实临时Parquet、实际Raw run_period/receipt及隔离Dagster事件/检查/job；HTTP使用独立合同字面样本。第2项尚未实现的通知metadata由显式测试合同适配器提供version/freq/file_count及实际完成引用，再由真实Raw检查路径核验/绑定；这仅验证恢复消费者，不声称生产者通知→sensor已接通。正式SQL后端、部署和首个真实日常交付未验收。
 
-本轮正式删除/bootstrap/freeze、Lake/staging写入、重载、事件、sensor操作、Tushare/Prod请求均为0；R3继续暂停。管理员随后要求提交，修复代码和本次结果回写随§10.8既有实现纳入白名单提交，不推送，其他任务改动保留。当前结论限本轮恢复修复和隔离验证，第2项及正式操作均不因本节自动获准。
+本轮正式删除/bootstrap/freeze、Lake/staging写入、重载、事件、sensor操作、Tushare/Prod请求均为0；R3继续暂停。管理员随后要求提交，修复代码和本次结果回写随§10.8既有实现已提交d865e640，未推送，其他任务改动保留。当前结论限本轮恢复修复和隔离验证，第2项及正式操作均不因本节自动获准；后续文档补齐和等待确认边界见§11.8。
