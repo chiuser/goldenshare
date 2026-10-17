@@ -1,0 +1,30 @@
+{
+  "run_id": "d895bec0-8b69-4cd3-aabe-7f06a4c7e467",
+  "lake": "/Volumes/datasource/data_lake",
+  "staging": "/Volumes/datasource/data_lake_staging",
+  "targets": [
+    "/Volumes/datasource/data_lake/silver/quote/stock_weekly",
+    "/Volumes/datasource/data_lake/silver/quote/stock_monthly"
+  ],
+  "target_roots_absent": true,
+  "same_device": true,
+  "free_bytes": 2924189724672,
+  "active_related_runs": [],
+  "all_active_run_count": 0,
+  "code_sha256": {
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py": "fa49a031f9a957d50b137a2ff80246fae48454180eceb7e06859e78e934ef991",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "a0b53bc09556c5ad51e5c8a4432f7a4394c52949dbb1a3c4182da3caaab5c57f",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_execution.py": "c0b12ed3e07422f23cce50c245fb76dcdb3d420e95db422b3a7b07ea9fa9181f",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/checks/stock_period_silver_checks.py": "acbdc4925cda83cdb068fd267ef5e24881916ada7a1f9222bc546738f79d68b4",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stock_period_silver.py": "a3dbc3ac1741ba8324d623df41a3ab95ae3d0b42ce1c31383f9b87041fa91afc",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py": "f71f7b975b9c110a416bc993b66ec8aa1e8c055e8131d96f54c191be5ee4649a",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py": "342094eec11368dabcf268aee06bb5ead8ed18b5a722bbff23f5ffcc322677fa",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py": "67d4e20fb549820677c778b22a1cec2af605f5956f2ffb164cf70da78743345a",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/paths.py": "7431d064325c130eb60a21ebba1c2e9c79c03ceed99a5e2eeac580f07663ae62",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py": "44cfe6f7fdd75043fdfbeec235b651ad1f579358d3561db00be63cb31ff44fa8",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py": "be6915adac2e827e4cd119ac03e16a864c25fa1d10a70420906e71ba55b13b0a",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py": "4d30a523db6fbeff3166bfd0ccd5104234d6b5c29606472958e48d81daa187f8",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/stock_weekly.py": "ac6cc4041493afd6afdc5fac3c78da56057ff02e20c162ae7811d70aadfcdfaf",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/jobs/stock_monthly.py": "8ba21d24becab28e57ec63a64f164cf726d4f8a0c9335584e49c3e2993147720"
+  }
+}

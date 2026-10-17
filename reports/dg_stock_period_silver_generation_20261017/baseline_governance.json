@@ -1,0 +1,20 @@
+{
+  "existing_missing": [
+    "raw_tushare_anns_d",
+    "raw_tushare_moneyflow",
+    "raw_tushare_moneyflow_cnt_ths",
+    "raw_tushare_moneyflow_dc",
+    "raw_tushare_moneyflow_ind_dc",
+    "raw_tushare_moneyflow_ind_ths",
+    "raw_tushare_moneyflow_mkt_dc",
+    "raw_tushare_moneyflow_ths",
+    "silver_moneyflow",
+    "silver_moneyflow_cnt_ths",
+    "silver_moneyflow_dc",
+    "silver_moneyflow_ind_dc",
+    "silver_moneyflow_ind_ths",
+    "silver_moneyflow_mkt_dc",
+    "silver_moneyflow_ths"
+  ],
+  "new_period_silver_governance_complete": true
+}

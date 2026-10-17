@@ -1431,6 +1431,14 @@ def gold_major_index_mins_nineturn_path(
     )
 
 
+def silver_stock_weekly_path(root: Path, partition_key: str) -> Path:
+    return lake_path(root, SILVER, "quote", "stock_weekly", f"week_end={partition_key}", "part-000.parquet")
+
+
+def silver_stock_monthly_path(root: Path, partition_key: str) -> Path:
+    return lake_path(root, SILVER, "quote", "stock_monthly", f"month={partition_key}", "part-000.parquet")
+
+
 def gold_major_index_mins_nineturn_staging_path(
     staging_root: Path,
     run_id: str,

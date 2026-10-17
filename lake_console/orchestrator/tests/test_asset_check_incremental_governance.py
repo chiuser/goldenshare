@@ -978,6 +978,26 @@ ASSET_CHECK_GOVERNANCE.update({
     for source in StockMonthlySource
 })
 
+from orchestrator.defs.run_contracts.stock_period_silver import (
+    check_names as silver_period_check_names,
+)
+
+ASSET_CHECK_GOVERNANCE.update(
+    {
+        asset: _rules(
+            silver_period_check_names(freq),
+            category=KEEP_BLOCKING_DAGSTER,
+            phase="stock-period-silver",
+            readiness=False,
+            retention_allowed=False,
+        )
+        for freq, asset in (
+            ("week", "silver_stock_weekly"),
+            ("month", "silver_stock_monthly"),
+        )
+    }
+)
+
 # These existing checks are mandatory delivery evidence. Their actual consumer
 # uses MoneyflowAutomationContract, rather than the AssetReadinessSpec adapter.
 MONEYFLOW_GOVERNANCE_CONTRACTS = (

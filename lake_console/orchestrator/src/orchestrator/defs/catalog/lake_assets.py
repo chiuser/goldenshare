@@ -305,6 +305,8 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    WEEK_END_PARTITION_SILVER_STOCK_WEEKLY = "week_end_partition_silver_stock_weekly"
+    MONTH_PARTITION_SILVER_STOCK_MONTHLY = "month_partition_silver_stock_monthly"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW = "trade_date_partition_raw_moneyflow"
     TRADE_DATE_PARTITION_SILVER_MONEYFLOW = "trade_date_partition_silver_moneyflow"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW_THS = "trade_date_partition_raw_moneyflow_ths"
@@ -3869,6 +3871,66 @@ LAKE_ASSET_CATALOG += tuple(
             notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前月；保留20200228和20200229源记录，不扫描整月日线；历史刷新完整替换目标股票。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
+
+from orchestrator.defs.paths import silver_stock_monthly_path, silver_stock_weekly_path
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_STOCK_MONTHLY_SCHEMA,
+    SILVER_STOCK_WEEKLY_SCHEMA,
+)
+from orchestrator.defs.run_contracts.stock_period_silver import (
+    check_names as silver_period_check_names,
+)
+
+for _freq, _label, _family, _dimension, _schema, _path, _model_id in (
+    (
+        "week",
+        "weekly",
+        PartitionModelFamily.NATURAL_WEEK_PARTITION,
+        "week_end",
+        SILVER_STOCK_WEEKLY_SCHEMA,
+        silver_stock_weekly_path,
+        PartitionModel.WEEK_END_PARTITION_SILVER_STOCK_WEEKLY,
+    ),
+    (
+        "month",
+        "monthly",
+        PartitionModelFamily.NATURAL_MONTH_PARTITION,
+        "month",
+        SILVER_STOCK_MONTHLY_SCHEMA,
+        silver_stock_monthly_path,
+        PartitionModel.MONTH_PARTITION_SILVER_STOCK_MONTHLY,
+    ),
+):
+    PARTITION_MODEL_DEFINITIONS += (
+        _model(
+            _model_id,
+            _family,
+            AssetLayer.SILVER,
+            f"stock_{_label}",
+            _dimension,
+            PartitionPhysicalLayout.PARTITION_FILE,
+        ),
+    )
+    LAKE_ASSET_CATALOG += (
+        _derived_entry(
+            asset_key=f"silver_stock_{_label}",
+            dataset_id=f"stock_{_label}",
+            layer=AssetLayer.SILVER,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="quote",
+            data_contract=f"stock_{_label}@1",
+            column_schema=_schema,
+            path_template=lake_path_template(
+                _path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+            ),
+            partition_model=_model_id,
+            blocking_check_names=silver_period_check_names(_freq),
+            batch_grain=_dimension,
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            notes="已审计范围内源整行投影；21列不变；单周期COPY及一次完整读回；三项检查共用证据；无源请求。",
+        ),
+    )
 
 def _index_by_asset_key() -> dict[str, LakeAssetCatalogEntry]:
     index: dict[str, LakeAssetCatalogEntry] = {}

@@ -1,0 +1,312 @@
+{
+  "scope": "shared LLD section 9; listed stocks; complete periods; no Silver generation",
+  "observed_at": "2026-10-17T13:58:33.248255+08:00",
+  "asof": "2026-10-16",
+  "lower": "2014-01-01",
+  "document_commit": "585b0a041",
+  "report_dir": "/Users/congming/github/goldenshare/reports/dg_stock_period_silver_readiness_20261017_135833",
+  "work_dir": "/private/tmp/dg_period_approved_audit_1792216713117657000",
+  "references": {
+    "lifecycle": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+    "identity": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+    "calendar": "/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet"
+  },
+  "input_file_counts": {
+    "week": 656,
+    "month": 154,
+    "suspension": 3107
+  },
+  "frequencies": {
+    "week": {
+      "input": {
+        "raw_rows": 2533758,
+        "raw_stocks": 5577,
+        "first_label": "2014-01-03",
+        "last_label": "2026-10-16",
+        "oldest_end_date": "2026-08-31",
+        "newest_end_date": "2026-10-16"
+      },
+      "scope_counts": [
+        {
+          "classification": "before_listing_period",
+          "raw_rows": 23682,
+          "stocks": 234
+        },
+        {
+          "classification": "eligible",
+          "raw_rows": 2510076,
+          "stocks": 5577
+        }
+      ],
+      "versions": {
+        "eligible_stock_periods": 2510076,
+        "eligible_raw_rows": 2510076,
+        "old_version_rows": 0,
+        "tied_additional_rows": 0,
+        "multirow_periods": 0
+      },
+      "version_conflict_periods": 0,
+      "completeness": {
+        "lifecycle_periods": 2560385,
+        "required_periods": 2510069,
+        "observed_valid_periods": 2510076,
+        "observed_required_periods": 2510069,
+        "full_suspension_absence": 50309,
+        "full_suspension_with_bar": 7
+      },
+      "missing": [],
+      "missing_range_count": 0,
+      "selected": {
+        "stock_periods": 2510076,
+        "stocks": 5577,
+        "first_source_label": "2014-01-03",
+        "last_source_label": "2026-10-16"
+      },
+      "boundaries": {
+        "first_2014_periods": 2159,
+        "listing_periods": 3329,
+        "current_periods": 5569
+      },
+      "suspension_contradictions": 0,
+      "selected_outside_expected": 0,
+      "blocking_scope_rows": 0,
+      "status": "passed"
+    },
+    "month": {
+      "input": {
+        "raw_rows": 606752,
+        "raw_stocks": 5577,
+        "first_label": "2014-01-31",
+        "last_label": "2026-10-31",
+        "oldest_end_date": "2025-08-26",
+        "newest_end_date": "2026-10-16"
+      },
+      "scope_counts": [
+        {
+          "classification": "before_listing_period",
+          "raw_rows": 7570,
+          "stocks": 234
+        },
+        {
+          "classification": "eligible",
+          "raw_rows": 599182,
+          "stocks": 5577
+        }
+      ],
+      "versions": {
+        "eligible_stock_periods": 595608,
+        "eligible_raw_rows": 599182,
+        "old_version_rows": 3574,
+        "tied_additional_rows": 0,
+        "multirow_periods": 3574
+      },
+      "version_conflict_periods": 0,
+      "completeness": {
+        "lifecycle_periods": 603810,
+        "required_periods": 595608,
+        "observed_valid_periods": 595608,
+        "observed_required_periods": 595608,
+        "full_suspension_absence": 8202,
+        "full_suspension_with_bar": 0
+      },
+      "missing": [],
+      "missing_range_count": 0,
+      "selected": {
+        "stock_periods": 595608,
+        "stocks": 5577,
+        "first_source_label": "2014-01-31",
+        "last_source_label": "2026-10-31"
+      },
+      "boundaries": {
+        "first_2014_periods": 2233,
+        "listing_periods": 3329,
+        "current_periods": 5569
+      },
+      "suspension_contradictions": 0,
+      "selected_outside_expected": 0,
+      "blocking_scope_rows": 0,
+      "status": "passed"
+    }
+  },
+  "timings": [
+    {
+      "stage": "lifecycle_once",
+      "seconds": 0.236148
+    },
+    {
+      "stage": "listed_scope",
+      "seconds": 0.001908
+    },
+    {
+      "stage": "identity_once",
+      "seconds": 0.00173
+    },
+    {
+      "stage": "calendar_once",
+      "seconds": 0.001186
+    },
+    {
+      "stage": "lifecycle_bounds",
+      "seconds": 0.002864
+    },
+    {
+      "stage": "periods",
+      "seconds": 0.001204
+    },
+    {
+      "stage": "suspension_once",
+      "seconds": 0.42468
+    },
+    {
+      "stage": "full_day_suspensions",
+      "seconds": 0.0168
+    },
+    {
+      "stage": "suspension_periods",
+      "seconds": 1.109178
+    },
+    {
+      "stage": "expected_stock_periods",
+      "seconds": 0.293284
+    },
+    {
+      "stage": "week_raw_once",
+      "seconds": 0.65242
+    },
+    {
+      "stage": "week_scope",
+      "seconds": 0.000501
+    },
+    {
+      "stage": "week_scope_issues",
+      "seconds": 0.071009
+    },
+    {
+      "stage": "week_latest_keys",
+      "seconds": 0.191549
+    },
+    {
+      "stage": "week_latest_counts",
+      "seconds": 0.308643
+    },
+    {
+      "stage": "week_only_tied_latest_values",
+      "seconds": 0.003067
+    },
+    {
+      "stage": "week_actual_valid_periods",
+      "seconds": 0.042556
+    },
+    {
+      "stage": "week_latest_conflicts",
+      "seconds": 0.002957
+    },
+    {
+      "stage": "week_missing",
+      "seconds": 0.121707
+    },
+    {
+      "stage": "week_missing_ranges",
+      "seconds": 0.001178
+    },
+    {
+      "stage": "week_missing_range_csv",
+      "seconds": 0.000681
+    },
+    {
+      "stage": "week_missing_period_csv",
+      "seconds": 0.000678
+    },
+    {
+      "stage": "week_suspension_contradictions",
+      "seconds": 0.032121
+    },
+    {
+      "stage": "month_raw_once",
+      "seconds": 0.174084
+    },
+    {
+      "stage": "month_scope",
+      "seconds": 0.000501
+    },
+    {
+      "stage": "month_scope_issues",
+      "seconds": 0.019681
+    },
+    {
+      "stage": "month_latest_keys",
+      "seconds": 0.042283
+    },
+    {
+      "stage": "month_latest_counts",
+      "seconds": 0.06908
+    },
+    {
+      "stage": "month_only_tied_latest_values",
+      "seconds": 0.002361
+    },
+    {
+      "stage": "month_actual_valid_periods",
+      "seconds": 0.01001
+    },
+    {
+      "stage": "month_latest_conflicts",
+      "seconds": 0.003471
+    },
+    {
+      "stage": "month_missing",
+      "seconds": 0.04088
+    },
+    {
+      "stage": "month_missing_ranges",
+      "seconds": 0.001198
+    },
+    {
+      "stage": "month_missing_range_csv",
+      "seconds": 0.000638
+    },
+    {
+      "stage": "month_missing_period_csv",
+      "seconds": 0.000815
+    },
+    {
+      "stage": "month_suspension_contradictions",
+      "seconds": 0.018734
+    }
+  ],
+  "listed_stocks": 5577,
+  "calendar": {
+    "first_day": "2014-01-02",
+    "last_day": "2026-10-16",
+    "trading_days": 3107
+  },
+  "reference_issues": {
+    "duplicate_lifecycle_codes": 0,
+    "duplicate_identity_sources": 0,
+    "listed_missing_date": 0,
+    "missing_suspension_dates": 0
+  },
+  "suspension_rows": 390588,
+  "duckdb_version": "v1.5.2",
+  "status": "passed",
+  "elapsed_seconds": 4.571,
+  "sql_seconds": 3.902,
+  "peak_rss_bytes": 2573533184,
+  "source_requests": 0,
+  "formal_writes": 0,
+  "settings": {
+    "memory_limit": "3GiB",
+    "threads": 2,
+    "max_temp_directory_size": "8GiB",
+    "temp_directory": "/private/tmp/dg_period_approved_audit_1792216713117657000/spill",
+    "basis": "reuse prior audit settings; no new production configuration"
+  },
+  "preparation_note": "准备阶段一次days别名语法错误，仅读取生命周期、身份和日历三个小参考文件，未读取Raw或停牌历史；改别名后主审计一次完成。未发生Raw或停牌历史重复扫描。",
+  "evidence_reused": [
+    "585b0a041原三份方案/LLD",
+    "reports/dg_stock_period_raw_completeness_20261017_122911/report.md及SQL/真实schema",
+    "共享LLD §5.15 Raw正式重建与字段合同验收",
+    "既有部分停牌、全期停牌、上市首期与退市日排他的独立边界证据"
+  ],
+  "boundary_explanation": "周线7个全停牌且有K线的周期均位于跨年或上市首期边界（所有非边界同类矛盾为0）；依已确认整期保留规则保留，不截断首期内部日期。"
+}

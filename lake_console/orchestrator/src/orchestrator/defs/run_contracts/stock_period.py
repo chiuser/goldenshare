@@ -15,6 +15,44 @@ from orchestrator.defs.run_contracts.stock_weekly import ADJUSTED_WEEKLY_FIELDS
 FIELDS = ADJUSTED_WEEKLY_FIELDS
 VERSION = "stock-period-source-v2"
 FREQUENCIES = ("week", "month")
+COMPLETION_VERSION = "stock-period-completion@1"
+COMPLETION_METADATA_KEY = "goldenshare/period_completion"
+
+
+def completion_reference(run_id, receipt_hash, freq):
+    """An existing immutable Raw receipt, never an arbitrary path or event id."""
+    from orchestrator.defs.run_contracts.run_keys import build_batch_id
+
+    frequency(freq)
+    if any(
+        not isinstance(v, str) or re.fullmatch(r"[0-9a-f]{64}", v) is None
+        for v in (run_id, receipt_hash)
+    ):
+        raise ValueError("period_completion_identity_invalid")
+    return {
+        "raw_execution_id": run_id,
+        "file_receipt_hash": receipt_hash,
+        "upstream_batch_id": build_batch_id(
+            producer="stock_period_raw",
+            scope=freq,
+            payload={"producer_run_id": run_id, "file_receipt_hash": receipt_hash},
+        ),
+    }
+
+
+def validate_completion_reference(value, freq):
+    if not isinstance(value, dict) or set(value) != {
+        "raw_execution_id",
+        "file_receipt_hash",
+        "upstream_batch_id",
+    }:
+        raise ValueError("period_completion_reference_invalid")
+    expected = completion_reference(
+        value["raw_execution_id"], value["file_receipt_hash"], freq
+    )
+    if value != expected:
+        raise ValueError("period_completion_reference_invalid")
+    return expected
 
 
 @dataclass(frozen=True)

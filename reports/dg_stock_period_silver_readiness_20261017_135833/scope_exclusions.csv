@@ -1,0 +1,5 @@
+﻿frequency,classification,raw_rows,stocks,meaning
+week,before_listing_period,23682,234,完全位于正式上市前的周期，排除于Silver；Raw不改
+week,older_source_version,0,,同一周期已有更新end_date整行，旧版不进入Silver；Raw不改
+month,before_listing_period,7570,234,完全位于正式上市前的周期，排除于Silver；Raw不改
+month,older_source_version,3574,,同一周期已有更新end_date整行，旧版不进入Silver；Raw不改

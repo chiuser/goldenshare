@@ -1,0 +1,9 @@
+{
+  "new_silver_tests": 43,
+  "new_silver_failures": 0,
+  "all_passed": 73,
+  "outside_scope_failed": [
+    "test_all_catalog_blocking_checks_have_incremental_governance_rule",
+    "test_confirmed_external_spec_has_no_writer_or_partition"
+  ]
+}

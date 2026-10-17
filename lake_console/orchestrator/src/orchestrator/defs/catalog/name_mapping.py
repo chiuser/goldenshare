@@ -4,6 +4,8 @@ from types import MappingProxyType
 
 DATASET_CHINESE_NAMES = MappingProxyType(
     {
+        "stock_weekly": "股票周线",
+        "stock_monthly": "股票月线",
         "stk_period_bar_adj_month": "股票月线原始行情（含未复权/前复权/后复权）",
         "stk_period_bar_adj_week": "股票周线原始行情（含未复权/前复权/后复权）",
         "stock_basic": "股票基础信息",

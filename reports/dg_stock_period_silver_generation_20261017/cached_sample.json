@@ -1,0 +1,106 @@
+{
+  "source_requests": 0,
+  "formal_reads": 0,
+  "formal_writes": 0,
+  "source_basis": "prior real 3-stock Raw sample, unchanged HTTP source evidence; no new request",
+  "results": [
+    {
+      "freq": "week",
+      "period": "2014-01-03",
+      "build": {
+        "run_id": "84f396ca-0076-4b14-9f6b-c01b03487b37",
+        "totals": {
+          "week": {
+            "files": 1,
+            "rows": 1
+          },
+          "month": {
+            "files": 0,
+            "rows": 0
+          }
+        },
+        "elapsed_seconds": 0.021843125112354755,
+        "settings": {
+          "temp_directory": "/private/tmp/dg_period_silver_acceptance_20261017/cached_sample/staging/stock_period_silver/run_id=84f396ca-0076-4b14-9f6b-c01b03487b37/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 200572928,
+        "output_bytes": 3222,
+        "stage_seconds": {
+          "select_seconds": 0.006066749803721905,
+          "copy_seconds": 0.0008366662077605724,
+          "validation_seconds": 0.003788874950259924,
+          "publish_seconds": 0.0009277909994125366
+        }
+      },
+      "resume_seconds": 0.0003160419873893261,
+      "resume_sql": 0,
+      "source": "/private/tmp/dg_period_raw_storage_sample_20261016_1792120985854052000/lake/raw/tushare/stk_period_bar_adj_week/week_end=2014-01-03/part-000.parquet",
+      "target": "/private/tmp/dg_period_silver_acceptance_20261017/cached_sample/lake/silver/quote/stock_weekly/week_end=2014-01-03/part-000.parquet",
+      "sample": [
+        "000001.SZ",
+        "20140103",
+        "20261015",
+        "4.9000"
+      ],
+      "sql_count": 18,
+      "raw_full_reads": 1,
+      "candidate_full_reads": 1,
+      "copy_count": 1,
+      "footer_reads": 1
+    },
+    {
+      "freq": "month",
+      "period": "2020-02",
+      "build": {
+        "run_id": "d47eb0a4-d0be-4f14-b322-8479b6b932be",
+        "totals": {
+          "week": {
+            "files": 0,
+            "rows": 0
+          },
+          "month": {
+            "files": 1,
+            "rows": 1
+          }
+        },
+        "elapsed_seconds": 0.019777792040258646,
+        "settings": {
+          "temp_directory": "/private/tmp/dg_period_silver_acceptance_20261017/cached_sample/staging/stock_period_silver/run_id=d47eb0a4-d0be-4f14-b322-8479b6b932be/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 207421440,
+        "output_bytes": 3227,
+        "stage_seconds": {
+          "select_seconds": 0.005623624660074711,
+          "copy_seconds": 0.0007807500660419464,
+          "validation_seconds": 0.0030386666767299175,
+          "publish_seconds": 0.0009269579313695431
+        }
+      },
+      "resume_seconds": 0.0002960418350994587,
+      "resume_sql": 0,
+      "source": "/private/tmp/dg_period_raw_storage_sample_20261016_1792120985854052000/lake/raw/tushare/stk_period_bar_adj_month/month=2020-02/data.parquet",
+      "target": "/private/tmp/dg_period_silver_acceptance_20261017/cached_sample/lake/silver/quote/stock_monthly/month=2020-02/part-000.parquet",
+      "sample": [
+        "000001.SZ",
+        "20200229",
+        "20261015",
+        "11.1400"
+      ],
+      "sql_count": 18,
+      "raw_full_reads": 1,
+      "candidate_full_reads": 1,
+      "copy_count": 1,
+      "footer_reads": 1
+    }
+  ]
+}

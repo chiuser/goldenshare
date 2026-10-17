@@ -921,13 +921,15 @@ catalog使用DERIVED_CONTRACT、DERIVED_FROM_ASSETS及逐分区原子替换政�
 
 本节对应总方案§9：1补齐Silver日常更新、2接通Raw实际交付并验收、3白名单提交/结案。2026-10-17管理员确认先提交文档，无卡点则按本节开发/隔离验收；不授权正式写湖/staging/事件、重载或sensor操作。各项开发前按根AGENTS“按计划开发执行链”第8条检查本节完整性与实际接口；意外或无法推进的错误必须停止报告，讨论并回写原文档后再继续，不凭聊天摘要或带严重问题改代码。
 
-**恢复设计更新。** 管理员已确认以逐文件实际完成状态恢复，文件完成与DG登记分开；本轮只将该修正落入原方案/LLD。以下§11.2—11.4、§11.6—11.8为待实现的完整恢复合同，§11.10保留原失败及当前代码差距，不表示修正代码或隔离验收已经完成。本轮不开发第2项、不操作正式资源。
+**恢复设计与实现状态。** 逐文件恢复方案已先提交dbec0343，随后按§11.2—11.4完成恢复缺陷修复和隔离验收，结果见§11.11；§11.10保留修复前失败。§11.6—11.8的第2项通知/sensor仍待开发，本轮未推进；修复代码未提交，不操作正式资源。
 
 ### 11.1 当前环境、代码依据与影响面
 
 2026-10-17在dev-interface只读核验：项目现有Python3.13.5；正式orchestrator location为LOADED，两个Silver job已加载，sensor daemon健康。四个周/月Raw/Silver目标job均未见在途运行，未据此推断所有手动进程/锁为空。Raw baseline.ready，handoff_cutoff、factor_through与两频last_refresh均为2026-10-16，completed_through为week=2026-10-16、month=2026-09，未结束10月未被冒记完成。两个Raw sensor均RUNNING，cursor仍保留原周/月业务水位。Silver原执行的文件及事件完成记录与§10.10一致。此处核验不是重新验收行情或证明未来运行必然成功。
 
-| 当前代码落点 | 已核实行为及设计结论 |
+以下表格保留开工前代码基线及设计原因；本轮恢复修复后的实际结果见§11.11，不把这些历史缺口继续当作当前阻塞。
+
+| 开工前代码落点 | 当时已核实行为及设计结论 |
 | --- | --- |
 | run_contracts/stock_period_silver.py::StockPeriodSilverConfig；stock_period_silver.py::make_execution/deliver_asset | 首次生成配置依赖execution_id/audit_report；第1项已部分增加update/source_completion，但尚无完整承接合同。首次生成不改，日常与恢复须按下文补齐 |
 | stock_period_silver.py::select_period/validate_projection/build/current_validation | 现有选行算法、每周期一次投影/候选验证、单连接及三check复用可保留。独立check已有不依赖bootstrap临时证明的单周期路径 |
@@ -979,6 +981,8 @@ catalog使用DERIVED_CONTRACT、DERIVED_FROM_ASSETS及逐分区原子替换政�
 
 **逐文件持久化证据。** 沿现有checkpoint保存freq/period、固定source/target/candidate路径、rule/lower/asof、所属execution identity_hash、Raw完成引用/source_version、参考版本、target_preimage、candidate_version、行数及三项完整校验结果。参考/下限等已在execution.json的值可由其不可变身份引用，不另造独立事实表。候选必须先完整校验/fsync并原子保存validated记录，之后才能os.replace/fsync并保存committed及实际目标version；不能先覆盖再首次保存验证证据。事件回执独立保存在events/<freq>/<period>.json，含文件版本、实际物化ID、三个check及真实event_run_id。
 
+update记录另存validation_hash核对上述完整校验证据，拒绝行数、检查结果或来源记录损坏；它覆盖记录的稳定内容，排除state、提交后version、publish_seconds及hash自身，以允许同一次rename从validated补记committed。复用记录仍核对冻结前像/实际目标版本，不能因该hash排除提交字段而放行未知文件。只计算小型JSON指纹，不hash行情、不更改已完成bootstrap记录合同。
+
 | 恢复时看到的事实 | 动作及限制 |
 | --- | --- |
 | committed文件精确匹配记录，输入/参考/规则仍相同，真实事件已完整绑定 | 直接复用。0行情SQL、0 COPY，不重复写事件 |
@@ -1002,6 +1006,8 @@ rename恢复只接受“原前像+原候选仍在”或“该候选确已成为�
 6. 新执行再次中断，沿它的实际execution_id恢复；相同意图重复到达时先加载已冻结后继及其checkpoint，不重新走“未知目标”准入。再次出现合法输入变化时显式承接当前未完成执行；不扫描staging找最新任务，不形成自引用/循环，不丢前序尚未交付周期。
 
 继承是受校验的来源关系，不是force开关或旧实现兼容层。普通新update没有恢复引用时仍不能认领未知文件；同版成果的来源链仅按显式ID读取，并在本执行记录直接保存已经验证的原始证据引用，不反复遍历/计算所有历史运行。
+
+同一文件阶段/事件阶段内，已校验的不可变execution及继承来源记录只解码/hash一次，后续复用本次调用内存并核对小型文件版本；版本漂移仍拒绝。缓存不跨执行阶段、不缓存行情或当前ready，不新增长期状态/配置。集合检查的第二条SQL可关联该check实际绑定的物化记录，以区分合法旧前像结果与错绑，仍为两条集合查询，不回到逐期API。
 
 **事件可以补部分文件。** update的report_update_events/replay_events按明确执行的unit/checkpoint收集合格的committed文件，允许整批文件尚未完成；无checkpoint的C留待文件阶段，不阻挡A/B登记。篡改/失败记录必须报错，不能当作“未完成”静默跳过。每次按集合读取实际物化和最新已完成检查，排除PLANNED、保留失败；匹配文件版本的成功事件直接复用，已写物化但缺检查只补检查，登记成功而本地回执写失败则读实际事件补回执，不能重复创建物化。
 
@@ -1082,7 +1088,7 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 ### 11.8 具体文件白名单与消费者迁移
 
-以下相对lake_console/orchestrator/；第1项不提前实现第2项通知/sensor。原§10.8已完成但未提交的Silver文件纳入第3项交付，不能当作本轮全新开发重做。
+以下相对lake_console/orchestrator/；第1项不提前实现第2项通知/sensor。原§10.8已完成的Silver文件与第1项修复纳入本次白名单提交，不能当作后续全新开发重做。
 
 | 文件 | 第几项/具体改动 |
 | --- | --- |
@@ -1113,11 +1119,11 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 4. **故障只处理当前待办。** 输入未变沿原execution_id resume；已有合法新Raw时按§11.4显式承接原范围，输出实际后继ID，已完成同版不重算。事件失败只events，允许整批未完时补已完成文件；部分补记不能关闭批次。未知源/目标、真实失败check或未核实写者先阻断讨论，不重做审计或静默覆盖。若需暂停新自动化，必须获得对应sensor操作授权；本节不预授权自动停Raw或其他任务。
 5. **按事实结案与提交。** 清单逐行列“要求、实际文件/函数、正向、反向、真实证据、通过/未完成”。阶段分开写：首次生成完成；日常程序隔离通过；正式定义/通知/新sensor交接完成；首个真实交付通过。最后一项未发生就留待办，不因代码提交宣称全部DG工作结束。首次日志/810物化/2430检查已完成，不再列缺失项。
 
-提交必须由用户明确要求；白名单包含§10.8现有Silver实现/测试/必要报告、§11.8实际修改文件及三份原文档，不混入R3/资金流/AGENTS/研究/新闻/Wealth。暂存前审查差异，暂存后核对name-status、逐块diff与whitespace；共享文件分块暂存。无法拆清就报告，不整文件撤销或提交。无推送。三份文档链接/状态检查不能替代代码/集成验收；设计提交后第1项实际开发及暂停状态见§11.10，正式日常验收仍未执行。
+提交必须由用户明确要求；白名单包含§10.8现有Silver实现/测试/必要报告、§11.8实际修改文件及三份原文档，不混入R3/资金流/AGENTS/研究/新闻/Wealth。暂存前审查差异，暂存后核对name-status、逐块diff与whitespace；共享文件分块暂存。无法拆清就报告，不整文件撤销或提交。无推送。三份文档链接/状态检查不能替代代码/集成验收；第1项修复前阻塞见§11.10，修复及隔离验收见§11.11，正式日常验收仍未执行。
 
-### 11.10 恢复缺陷证据与已确认修正落点（2026-10-17，代码未修复）
+### 11.10 修复前缺陷证据与整改落点（2026-10-17历史记录）
 
-**状态与事实边界。** 设计ba9507fca后，第1项的Raw完成引用、集合事件读取、更新前像、单频批量job及事件补报已部分实现，发现以下缺陷后停止；没有进入第2项通知/sensor开发，没有代码提交、重载、正式Lake/staging/事件或sensor操作。管理员现已确认逐文件恢复的完整修正，本轮只更新三份文档，代码仍待按§11.2—11.4修复及隔离验收。原先“只增加旧执行ID允许接手”的建议由这些完整规则替代，不能再作为独立放行办法。
+**当时状态与事实边界。** 设计ba9507fca后，第1项的Raw完成引用、集合事件读取、更新前像、单频批量job及事件补报已部分实现，发现以下缺陷后停止；没有进入第2项通知/sensor开发，没有代码提交、重载、正式Lake/staging/事件或sensor操作。其后先提交恢复设计dbec0343，再完成§11.11修复/隔离验证。原先“只增加旧执行ID允许接手”的建议已由§11.2—11.4完整规则替代，不能再作为独立放行办法。
 
 **隔离证据，不是今天的正式数据变更。** 临时根/private/tmp/dg_period_silver_resume_conflict_92v3tuj9；结果见[复现JSON](/private/tmp/dg_period_silver_resume_conflict_result.json)，完整日志/private/tmp/dg_period_silver_resume_conflict.log。使用实际Raw run_period、Silver生成器和隔离Dagster事件库；HTTP由合同字面样本替代。测试主动更新临时C文件以模拟中断期间输入变化；formal_writes=0、network_requests=0。不得据此声称今天正式Raw更新、存在正式写者或当前任务必然因新Raw阻塞。
 
@@ -1139,4 +1145,27 @@ cursor保持O(1)：schema_version、已消费observation位置、当前batch_id/
 
 **第1项内的实施顺序。** 先补合同/记录校验和恢复规划；再修文件归属、继承/rename与实际ID消费者；随后补部分文件事件及汇总；最后按§11.7小样本完成正反/取消/再续跑和成本计数，版本固定后一次直接回归、逐条对账。它们是原第1项的缺陷修正，不新增正式操作、全量审计或其他数据集开发步骤。第2项须等第1项真实通过后，再按其原文档门禁推进。
 
-**证据不得升级。** 原阶段首批8项通过，后批5通过/1失败，均不是固定版本最终验收；旧43项首次生成也不能证明新增日常恢复正确。复现、原计划/hash、候选/checkpoint及日志保留不改，修正后记录新版本结果。尚未运行修正代码、未完成隔离验收，不能将文档通过写成日常自动维护通过。
+**证据不得升级。** 原阶段首批8项通过，后批5通过/1失败，均不是固定版本最终验收；旧43项首次生成也不能证明新增日常恢复正确。复现、原计划/hash、候选/checkpoint及日志保留不改，修正后结果单独见§11.11；不把文档通过或隔离验证写成正式日常自动维护通过。
+
+### 11.11 本轮恢复修复与隔离验收（2026-10-17）
+
+管理员授权先提交文档、随后只修复/验证。设计已提交dbec0343，未推送；修改限§11.8内Silver合同、执行器、IO、批量证据、CLI及四份直接测试。没有修改Raw请求/SQL、清洗算法、21列、asset/job/check身份或其他任务文件，没有开发第2项通知/sensor。
+
+| 已确认硬口径 | 实际实现与本轮证据 | 结果 |
+| --- | --- | --- |
+| 文件完成、输入适用、DG登记分开 | owned_update_records/reused_update_record、report_update_events；周/月整批未完成仍仅补两个已提交文件，不预报第三个成功 | 通过 |
+| 同版原ID续跑，只有变更期重建 | recover_update_execution/build；两频各3期复用2、重建1，A/B文件版本与原execution字节不变；C价格独立字面20.2500 | 通过 |
+| 原集合/旧指纹不变、继承有据 | load_execution/validate_record及validation_hash；明确原执行/hash/逐期来源，错误parent、跨根、自引用/循环、来源记录损坏或未发布Raw拒绝 | 通过 |
+| rename先认提交；再次中断可恢复 | recover_committed/publish；rename后记录失败只补记，已校验候选不重新选行；后继再次取消、冻结后尚无本地checkpoint均可恢复 | 通过 |
+| 实际ID贯穿CLI/job/检查 | StockPeriodSilverConfig、CLI resume、deliver_update_asset；原ID正常恢复及新ID承接、真实原生job anchor和事件均核对实际执行ID | 通过 |
+| 事件失败只补缺项，原批不早关闭 | report_update_events/record_update_coverage/validate_event_coverage；真实事件写失败、回执失败、父批覆盖部分失败均幂等恢复，无重复物化 | 通过 |
+| 真实失败/错绑不能刷绿 | batch_event_evidence/require_recoverable_checks；实际隔离Raw/Silver失败及错绑在新物化前拒绝；正常旧前像结果可补记 | 通过 |
+| 不重复计算/审计，取消释放锁 | 同调用证据缓存、两条集合SQL；连续加载20次仅读JSON一次但版本漂移仍拒绝；bootstrap/update实际TERM/KILL后进程退出、两锁释放 | 通过 |
+
+最终固定版本单次完整直接回归87通过、0失败、0skip，耗时28.35秒。此前新增金样本的期望列表误写A/B/C，而VARCHAR代码ORDER BY应为000001、301569、920000，即A/C/B；仅修正这两项字面顺序，精确价格断言不变，定向复验2项通过。随后补充“不能仅修改committed版本认领未知替换文件”的反例及原候选身份核对，该共用校验变化后固定版本完整回归87项均通过；各阶段JUnit和失败日志保留，不以旧结果代替本版验收。Ruff本次9个Python文件默认规则、src/tests致命错误基线及CodeGraph sync/status均通过。逐项用例、代码指纹和性能事实见[验收报告](/private/tmp/dg_period_silver_recovery_final_O131gn/acceptance.md)及[JSON](/private/tmp/dg_period_silver_recovery_final_O131gn/acceptance.json)。
+
+性能仅引用最终回归中两个小场景的原生成记录和完成后resume，不外推全市场ETA；complete.json最后的elapsed_seconds是无COPY续跑耗时，stage_seconds来自原C生成，不能混算。精确耗时及样本路径保存在上述JSON；源请求为0，RSS是测试进程累计峰值，不是组件独占内存。不为填报告重扫Lake或重复源请求。
+
+测试边界：真实临时Parquet、实际Raw run_period/receipt及隔离Dagster事件/检查/job；HTTP使用独立合同字面样本。第2项尚未实现的通知metadata由显式测试合同适配器提供version/freq/file_count及实际完成引用，再由真实Raw检查路径核验/绑定；这仅验证恢复消费者，不声称生产者通知→sensor已接通。正式SQL后端、部署和首个真实日常交付未验收。
+
+本轮正式删除/bootstrap/freeze、Lake/staging写入、重载、事件、sensor操作、Tushare/Prod请求均为0；R3继续暂停。管理员随后要求提交，修复代码和本次结果回写随§10.8既有实现纳入白名单提交，不推送，其他任务改动保留。当前结论限本轮恢复修复和隔离验证，第2项及正式操作均不因本节自动获准。

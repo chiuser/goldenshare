@@ -1163,6 +1163,9 @@ RAW_TUSHARE_MONEYFLOW_IND_DC_SCHEMA = (
     ColumnContract("rank", "INTEGER", "源排序，允许NULL，不舍入，不用作唯一键"),
 )
 
+SILVER_STOCK_WEEKLY_SCHEMA = RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA
+SILVER_STOCK_MONTHLY_SCHEMA = RAW_STK_PERIOD_BAR_ADJ_MONTH_SCHEMA
+
 SILVER_MONEYFLOW_IND_DC_SCHEMA = tuple(
     ColumnContract(column.name, "DATE", "标准化交易日，不得为空")
     if column.name == "trade_date" else column

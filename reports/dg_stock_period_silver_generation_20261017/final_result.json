@@ -1,0 +1,86 @@
+{
+  "status": "passed",
+  "observed_at": "2026-10-17T14:40:53.425214+08:00",
+  "run_id": "d895bec0-8b69-4cd3-aabe-7f06a4c7e467",
+  "file_result": {
+    "elapsed_seconds": 31.88859716616571,
+    "output_bytes": 170035374,
+    "process_peak_rss_bytes": 896434176,
+    "run_id": "d895bec0-8b69-4cd3-aabe-7f06a4c7e467",
+    "settings": {
+      "max_temp_directory_size": "512GB",
+      "memory_limit": "16GB",
+      "preserve_insertion_order": "false",
+      "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=d895bec0-8b69-4cd3-aabe-7f06a4c7e467/spill",
+      "threads": "4"
+    },
+    "source_requests": 0,
+    "stage_seconds": {
+      "copy_seconds": 3.8132216571830213,
+      "publish_seconds": 0.993522911798209,
+      "select_seconds": 14.775545524433255,
+      "validation_seconds": 10.996664626989514
+    },
+    "totals": {
+      "month": {
+        "files": 154,
+        "rows": 595608
+      },
+      "week": {
+        "files": 656,
+        "rows": 2510076
+      }
+    }
+  },
+  "event_result": {
+    "checks": 2430,
+    "elapsed_seconds": 110.64158004103228,
+    "event_run_id": "891c70f1-146f-4e2c-aaa2-cdc2ca4181bb",
+    "files": 810,
+    "materializations": 810,
+    "run_id": "d895bec0-8b69-4cd3-aabe-7f06a4c7e467"
+  },
+  "actual_materializations": 810,
+  "actual_blocking_checks": 2430,
+  "physical_paths": {
+    "week": {
+      "files": 656,
+      "first_period": "2014-01-03",
+      "last_period": "2026-10-16"
+    },
+    "month": {
+      "files": 154,
+      "first_period": "2014-01",
+      "last_period": "2026-10"
+    }
+  },
+  "sensor_state_and_watermarks": {
+    "week": {
+      "status": "RUNNING",
+      "watermark": {
+        "adjusted_delivery_revision": 1785,
+        "examined_through": "2026-10-09",
+        "policy_version": "completed-week-v1",
+        "verified_through": "2026-10-09"
+      },
+      "unchanged": true
+    },
+    "month": {
+      "status": "RUNNING",
+      "watermark": {
+        "examined_through": "2026-09",
+        "policy_version": "completed-month-v1",
+        "verified_through": "2026-09"
+      },
+      "unchanged": true
+    }
+  },
+  "code_unchanged_since_preflight": true,
+  "writer_lock_released": true,
+  "source_requests": 0,
+  "formal_raw_writes": 0,
+  "final_spill_files": 0,
+  "audit_reused": "/Users/congming/github/goldenshare/reports/dg_stock_period_silver_readiness_20261017_135833",
+  "full_integrity_reaudit": false,
+  "verification": "per-file commit validation + existing checkpoint/event facts; zero final Parquet scans"
+}

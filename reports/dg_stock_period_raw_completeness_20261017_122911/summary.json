@@ -1,0 +1,933 @@
+{
+  "observed_at": "2026-10-17T12:29:11.182217+08:00",
+  "report_dir": "/Users/congming/github/goldenshare/reports/dg_stock_period_raw_completeness_20261017_122911",
+  "input_files": {
+    "raw_week": 1819,
+    "raw_month": 431,
+    "suspend_final": 3107,
+    "reference": 4
+  },
+  "input_bytes": 375284428,
+  "scope": "raw week/month only; lifecycle L and D separate; no source requests or lake writes",
+  "literal_boundaries_passed": 5,
+  "asof_trade_date": "2026-10-16",
+  "calendar": {
+    "first_day": "1990-12-19",
+    "last_day": "2026-10-16",
+    "trading_days": 8743
+  },
+  "lifecycle": [
+    {
+      "list_status": "D",
+      "stocks": 339,
+      "earliest_listing": "1990-12-01",
+      "latest_listing": "2022-05-25"
+    },
+    {
+      "list_status": "L",
+      "stocks": 5577,
+      "earliest_listing": "1990-12-19",
+      "latest_listing": "2026-10-16"
+    }
+  ],
+  "history_ranges": [
+    {
+      "freq": "month",
+      "raw_rows": 868690,
+      "stocks": 5577,
+      "first_bar_date": "1990-12-31",
+      "last_bar_date": "2026-10-31",
+      "min_source_end_date": "2025-08-26",
+      "max_source_end_date": "2026-10-16"
+    },
+    {
+      "freq": "week",
+      "raw_rows": 3618218,
+      "stocks": 5577,
+      "first_bar_date": "1990-12-21",
+      "last_bar_date": "2026-10-16",
+      "min_source_end_date": "2026-08-31",
+      "max_source_end_date": "2026-10-16"
+    }
+  ],
+  "multiple_source_labels": [
+    {
+      "freq": "month",
+      "stock_periods_with_multiple_source_rows": 3589,
+      "additional_rows": 3589
+    }
+  ],
+  "suspension_reference": {
+    "row_count": 390588,
+    "stocks": 4516,
+    "first_day": "2014-01-02",
+    "last_day": "2026-10-16"
+  },
+  "confirmed_reference": {
+    "row_count": 4022,
+    "stocks": 29,
+    "first_day": "2014-01-02",
+    "last_day": "2026-01-16"
+  },
+  "confirmed_absent_from_final": 0,
+  "reference_dates_missing_since_start": 0,
+  "missing": [
+    {
+      "freq": "month",
+      "list_status": "D",
+      "classification": "delisted_history_excluded_by_policy",
+      "missing_periods": 65683,
+      "stocks": 339,
+      "eligible_days": 1323400,
+      "suspended_days": 17943,
+      "partly_suspended_missing_periods": 2653
+    },
+    {
+      "freq": "month",
+      "list_status": "L",
+      "classification": "suspension_reference_incomplete",
+      "missing_periods": 4328,
+      "stocks": 739,
+      "eligible_days": 87292,
+      "suspended_days": 0,
+      "partly_suspended_missing_periods": 0
+    },
+    {
+      "freq": "week",
+      "list_status": "D",
+      "classification": "delisted_history_excluded_by_policy",
+      "missing_periods": 273362,
+      "stocks": 339,
+      "eligible_days": 1310974,
+      "suspended_days": 5517,
+      "partly_suspended_missing_periods": 2640
+    },
+    {
+      "freq": "week",
+      "list_status": "L",
+      "classification": "suspension_reference_incomplete",
+      "missing_periods": 28866,
+      "stocks": 1499,
+      "eligible_days": 137614,
+      "suspended_days": 178,
+      "partly_suspended_missing_periods": 89
+    }
+  ],
+  "expected": [
+    {
+      "freq": "month",
+      "list_status": "D",
+      "lifecycle_periods": 67460,
+      "required_periods": 65683,
+      "entirely_suspended_periods": 1777,
+      "suspension_explains_absence": 1777,
+      "observed_required_periods": 0
+    },
+    {
+      "freq": "month",
+      "list_status": "L",
+      "lifecycle_periods": 869962,
+      "required_periods": 861760,
+      "entirely_suspended_periods": 8202,
+      "suspension_explains_absence": 8202,
+      "observed_required_periods": 857432
+    },
+    {
+      "freq": "week",
+      "list_status": "D",
+      "lifecycle_periods": 283450,
+      "required_periods": 273362,
+      "entirely_suspended_periods": 10088,
+      "suspension_explains_absence": 10088,
+      "observed_required_periods": 0
+    },
+    {
+      "freq": "week",
+      "list_status": "L",
+      "lifecycle_periods": 3673274,
+      "required_periods": 3623054,
+      "entirely_suspended_periods": 50220,
+      "suspension_explains_absence": 50220,
+      "observed_required_periods": 3594188
+    }
+  ],
+  "range_counts": [
+    {
+      "frequency": "month",
+      "list_status": "D",
+      "classification": "delisted_history_excluded_by_policy",
+      "ranges": 856,
+      "stocks": 339
+    },
+    {
+      "frequency": "month",
+      "list_status": "L",
+      "classification": "suspension_reference_incomplete",
+      "ranges": 1102,
+      "stocks": 739
+    },
+    {
+      "frequency": "week",
+      "list_status": "D",
+      "classification": "delisted_history_excluded_by_policy",
+      "ranges": 1378,
+      "stocks": 339
+    },
+    {
+      "frequency": "week",
+      "list_status": "L",
+      "classification": "suspension_reference_incomplete",
+      "ranges": 4790,
+      "stocks": 1499
+    }
+  ],
+  "partial_suspension_missing_samples": [
+    {
+      "freq": "week",
+      "ts_code": "300062.SZ",
+      "name": "中能电气",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "000710.SZ",
+      "name": "贝瑞基因",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "002021.SZ",
+      "name": "中捷资源",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "000607.SZ",
+      "name": "华媒控股",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "000670.SZ",
+      "name": "盈方微",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "001696.SZ",
+      "name": "宗申动力",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "600686.SH",
+      "name": "金龙汽车",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "002573.SZ",
+      "name": "清新环境",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "002022.SZ",
+      "name": "科华生物",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    },
+    {
+      "freq": "week",
+      "ts_code": "002527.SZ",
+      "name": "新时达",
+      "period_label": "2014-01-03",
+      "eligible_days": 4,
+      "suspended_days": 2,
+      "classification": "suspension_reference_incomplete"
+    }
+  ],
+  "observed_boundaries": [
+    {
+      "freq": "month",
+      "list_status": "L",
+      "classification": "before_listing_period",
+      "stocks": 235,
+      "stock_periods": 7669,
+      "raw_rows": 7674
+    },
+    {
+      "freq": "month",
+      "list_status": "L",
+      "classification": "lifecycle_period",
+      "stocks": 5577,
+      "stock_periods": 857432,
+      "raw_rows": 861016
+    },
+    {
+      "freq": "week",
+      "list_status": "L",
+      "classification": "before_listing_period",
+      "stocks": 235,
+      "stock_periods": 24030,
+      "raw_rows": 24030
+    },
+    {
+      "freq": "week",
+      "list_status": "L",
+      "classification": "lifecycle_period",
+      "stocks": 5577,
+      "stock_periods": 3594188,
+      "raw_rows": 3594188
+    }
+  ],
+  "delisted": [
+    {
+      "list_status": "D",
+      "stocks": 339,
+      "stocks_with_week_rows": 0,
+      "stocks_with_month_rows": 0
+    },
+    {
+      "list_status": "L",
+      "stocks": 5577,
+      "stocks_with_week_rows": 5577,
+      "stocks_with_month_rows": 5577
+    }
+  ],
+  "missing_listed_samples": [
+    {
+      "frequency": "week",
+      "ts_code": "000156.SZ",
+      "stock_name": "华数传媒",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "2000-09-06",
+      "delist_date": null,
+      "missing_from": "2006-04-07",
+      "missing_to": "2012-10-12",
+      "missing_period_count": 331,
+      "eligible_trading_days": 1590,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1590,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "2000-09-08",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 962,
+      "first_period_start": "2006-04-03",
+      "last_period_start": "2012-10-08"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000672.SZ",
+      "stock_name": "上峰材料",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1996-12-18",
+      "delist_date": null,
+      "missing_from": "2007-05-04",
+      "missing_to": "2013-04-19",
+      "missing_period_count": 304,
+      "eligible_trading_days": 1453,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1453,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1996-12-20",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1173,
+      "first_period_start": "2007-04-30",
+      "last_period_start": "2013-04-15"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000688.SZ",
+      "stock_name": "国城矿业",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-01-20",
+      "delist_date": null,
+      "missing_from": "2007-05-04",
+      "missing_to": "2013-04-19",
+      "missing_period_count": 304,
+      "eligible_trading_days": 1453,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1453,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-01-24",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1147,
+      "first_period_start": "2007-04-30",
+      "last_period_start": "2013-04-15"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000403.SZ",
+      "stock_name": "派林生物",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1996-06-28",
+      "delist_date": null,
+      "missing_from": "2007-04-20",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 296,
+      "eligible_trading_days": 1415,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1415,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1996-06-28",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1175,
+      "first_period_start": "2007-04-16",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000670.SZ",
+      "stock_name": "盈方微",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1996-12-17",
+      "delist_date": null,
+      "missing_from": "2007-05-04",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 294,
+      "eligible_trading_days": 1405,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1405,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1996-12-20",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1028,
+      "first_period_start": "2007-04-30",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000757.SZ",
+      "stock_name": "浩物股份",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-06-27",
+      "delist_date": null,
+      "missing_from": "2007-05-04",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 294,
+      "eligible_trading_days": 1405,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1405,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-06-27",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1130,
+      "first_period_start": "2007-04-30",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000620.SZ",
+      "stock_name": "盈新发展",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1996-10-29",
+      "delist_date": null,
+      "missing_from": "2006-03-24",
+      "missing_to": "2011-07-01",
+      "missing_period_count": 269,
+      "eligible_trading_days": 1289,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1289,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1996-11-01",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1240,
+      "first_period_start": "2006-03-20",
+      "last_period_start": "2011-06-27"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000863.SZ",
+      "stock_name": "三湘印象",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-09-25",
+      "delist_date": null,
+      "missing_from": "2007-04-27",
+      "missing_to": "2012-07-27",
+      "missing_period_count": 269,
+      "eligible_trading_days": 1283,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1283,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-09-26",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1174,
+      "first_period_start": "2007-04-23",
+      "last_period_start": "2012-07-23"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000498.SZ",
+      "stock_name": "山东路桥",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-06-09",
+      "delist_date": null,
+      "missing_from": "2008-05-02",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 243,
+      "eligible_trading_days": 1163,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 1163,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-06-13",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1217,
+      "first_period_start": "2008-04-28",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000681.SZ",
+      "stock_name": "视觉中国",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-01-21",
+      "delist_date": null,
+      "missing_from": "2009-03-13",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 200,
+      "eligible_trading_days": 954,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 954,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-01-24",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1242,
+      "first_period_start": "2009-03-09",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000719.SZ",
+      "stock_name": "中原传媒",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1997-03-31",
+      "delist_date": null,
+      "missing_from": "2008-02-01",
+      "missing_to": "2011-11-25",
+      "missing_period_count": 196,
+      "eligible_trading_days": 933,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 933,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-04-04",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1250,
+      "first_period_start": "2008-01-28",
+      "last_period_start": "2011-11-21"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "600556.SH",
+      "stock_name": "天下秀",
+      "exchange": "SSE",
+      "list_status": "L",
+      "list_date": "2001-08-07",
+      "delist_date": null,
+      "missing_from": "2009-05-08",
+      "missing_to": "2013-02-01",
+      "missing_period_count": 192,
+      "eligible_trading_days": 916,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 916,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "2001-08-10",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 948,
+      "first_period_start": "2009-05-04",
+      "last_period_start": "2013-01-28"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000517.SZ",
+      "stock_name": "荣安地产",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1993-08-06",
+      "delist_date": null,
+      "missing_from": "2006-03-10",
+      "missing_to": "2009-09-04",
+      "missing_period_count": 177,
+      "eligible_trading_days": 859,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 859,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1993-08-06",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1488,
+      "first_period_start": "2006-03-06",
+      "last_period_start": "2009-08-31"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "600094.SH",
+      "stock_name": "大名城",
+      "exchange": "SSE",
+      "list_status": "L",
+      "list_date": "1997-07-03",
+      "delist_date": null,
+      "missing_from": "2008-05-09",
+      "missing_to": "2011-09-30",
+      "missing_period_count": 175,
+      "eligible_trading_days": 836,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 836,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1997-07-04",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1292,
+      "first_period_start": "2008-05-05",
+      "last_period_start": "2011-09-26"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "600681.SH",
+      "stock_name": "百川能源",
+      "exchange": "SSE",
+      "list_status": "L",
+      "list_date": "1993-10-18",
+      "delist_date": null,
+      "missing_from": "2008-05-02",
+      "missing_to": "2011-09-02",
+      "missing_period_count": 172,
+      "eligible_trading_days": 820,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 820,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1993-10-22",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1443,
+      "first_period_start": "2008-04-28",
+      "last_period_start": "2011-08-29"
+    },
+    {
+      "frequency": "week",
+      "ts_code": "000529.SZ",
+      "stock_name": "广弘控股",
+      "exchange": "SZSE",
+      "list_status": "L",
+      "list_date": "1993-11-18",
+      "delist_date": null,
+      "missing_from": "2006-05-12",
+      "missing_to": "2009-09-04",
+      "missing_period_count": 169,
+      "eligible_trading_days": 819,
+      "full_day_suspension_days": 0,
+      "suspension_reference_unknown_days": 819,
+      "classification": "suspension_reference_incomplete",
+      "first_existing_label": "1993-11-19",
+      "last_existing_label": "2026-10-16",
+      "existing_periods": 1475,
+      "first_period_start": "2006-05-08",
+      "last_period_start": "2009-08-31"
+    }
+  ],
+  "query_timings": [
+    {
+      "stage": "literal_boundaries",
+      "seconds": 0.001448
+    },
+    {
+      "stage": "lifecycle",
+      "seconds": 0.181127
+    },
+    {
+      "stage": "identity",
+      "seconds": 0.001165
+    },
+    {
+      "stage": "calendar",
+      "seconds": 0.001263
+    },
+    {
+      "stage": "suspension_file_coverage",
+      "seconds": 0.001492
+    },
+    {
+      "stage": "open_calendar",
+      "seconds": 0.002811
+    },
+    {
+      "stage": "lifecycle_trading_bounds",
+      "seconds": 0.004451
+    },
+    {
+      "stage": "raw_projection_once",
+      "seconds": 0.342874
+    },
+    {
+      "stage": "raw_stock_period_keys",
+      "seconds": 0.781615
+    },
+    {
+      "stage": "market_periods",
+      "seconds": 0.001905
+    },
+    {
+      "stage": "period_coverage_bounds",
+      "seconds": 0.022461
+    },
+    {
+      "stage": "suspension_projection_once",
+      "seconds": 0.299928
+    },
+    {
+      "stage": "confirmed_reference",
+      "seconds": 0.001458
+    },
+    {
+      "stage": "full_day_suspensions",
+      "seconds": 0.015501
+    },
+    {
+      "stage": "suspended_stock_period_counts",
+      "seconds": 1.964524
+    },
+    {
+      "stage": "stock_period_expectations",
+      "seconds": 0.544481
+    },
+    {
+      "stage": "missing_periods",
+      "seconds": 0.263908
+    },
+    {
+      "stage": "missing_range_islands",
+      "seconds": 0.125001
+    },
+    {
+      "stage": "observed_lifecycle_boundaries",
+      "seconds": 0.414658
+    },
+    {
+      "stage": "export_missing_ranges.csv",
+      "seconds": 0.007238
+    },
+    {
+      "stage": "export_listed_missing_ranges.csv",
+      "seconds": 0.005303
+    },
+    {
+      "stage": "export_extra_lifecycle_rows.csv",
+      "seconds": 0.034941
+    },
+    {
+      "stage": "export_listed_missing_periods.csv",
+      "seconds": 0.015883
+    }
+  ],
+  "sql_wall_seconds": 5.035,
+  "duckdb_version": "v1.5.2",
+  "duckdb_settings": {
+    "memory_limit": "3GiB",
+    "threads": 2,
+    "temp_directory": "/private/tmp/dg_period_completeness_mjfo40k9/spill"
+  },
+  "period_counts": [
+    {
+      "freq": "month",
+      "trading_periods": 431,
+      "first_day": "1990-12-19",
+      "last_day": "2026-10-16"
+    },
+    {
+      "freq": "week",
+      "trading_periods": 1819,
+      "first_day": "1990-12-19",
+      "last_day": "2026-10-16"
+    }
+  ],
+  "input_versions_unchanged": true,
+  "changed_inputs": [],
+  "elapsed_seconds": 5.817,
+  "process_peak_rss_bytes": 2714599424,
+  "output_files": {
+    "listed_missing_ranges.csv": 1329314,
+    "listed_missing_periods.csv": 4843153,
+    "extra_lifecycle_rows.csv": 74021,
+    "missing_ranges.csv": 1872861
+  },
+  "candidate_known_non_suspended_days_positive": 0,
+  "missing_boundaries": [
+    {
+      "frequency": "month",
+      "earliest_missing_label": "1990-12-31",
+      "latest_missing_label": "2013-12-31",
+      "periods": 4328,
+      "stocks": 739
+    },
+    {
+      "frequency": "week",
+      "earliest_missing_label": "1990-12-21",
+      "latest_missing_label": "2014-01-03",
+      "periods": 28866,
+      "stocks": 1499
+    }
+  ],
+  "missing_year_bands": [
+    {
+      "frequency": "week",
+      "label_year": 2014,
+      "periods": 89,
+      "stocks": 89
+    }
+  ],
+  "pre_listing_by_exchange": [
+    {
+      "frequency": "month",
+      "exchange": "BSE",
+      "stocks": 234,
+      "stock_periods": 7594,
+      "raw_rows": 7599
+    },
+    {
+      "frequency": "month",
+      "exchange": "SSE",
+      "stocks": 1,
+      "stock_periods": 75,
+      "raw_rows": 75
+    },
+    {
+      "frequency": "week",
+      "exchange": "BSE",
+      "stocks": 234,
+      "stock_periods": 23727,
+      "raw_rows": 23727
+    },
+    {
+      "frequency": "week",
+      "exchange": "SSE",
+      "stocks": 1,
+      "stock_periods": 303,
+      "raw_rows": 303
+    }
+  ],
+  "pre_listing_samples": [
+    {
+      "frequency": "week",
+      "ts_code": "920139.BJ",
+      "stock_name": "华岭股份",
+      "exchange": "BSE",
+      "list_date": "2022-10-28",
+      "first_label": "2012-10-19",
+      "last_label": "2022-06-17",
+      "raw_rows": 433
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920249.BJ",
+      "stock_name": "利尔达",
+      "exchange": "BSE",
+      "list_date": "2023-02-17",
+      "first_label": "2015-03-27",
+      "last_label": "2022-07-01",
+      "raw_rows": 373
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920023.BJ",
+      "stock_name": "*ST田野",
+      "exchange": "BSE",
+      "list_date": "2023-02-02",
+      "first_label": "2015-02-20",
+      "last_label": "2022-06-10",
+      "raw_rows": 369
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920175.BJ",
+      "stock_name": "东方碳素",
+      "exchange": "BSE",
+      "list_date": "2023-06-30",
+      "first_label": "2015-10-30",
+      "last_label": "2022-12-23",
+      "raw_rows": 366
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920300.BJ",
+      "stock_name": "辰光医疗",
+      "exchange": "BSE",
+      "list_date": "2022-12-07",
+      "first_label": "2015-03-27",
+      "last_label": "2022-07-01",
+      "raw_rows": 359
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920786.BJ",
+      "stock_name": "骑士乳业",
+      "exchange": "BSE",
+      "list_date": "2023-10-13",
+      "first_label": "2015-07-31",
+      "last_label": "2022-07-01",
+      "raw_rows": 350
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920556.BJ",
+      "stock_name": "雅达股份",
+      "exchange": "BSE",
+      "list_date": "2023-03-17",
+      "first_label": "2014-02-14",
+      "last_label": "2022-06-10",
+      "raw_rows": 349
+    },
+    {
+      "frequency": "week",
+      "ts_code": "920476.BJ",
+      "stock_name": "海能技术",
+      "exchange": "BSE",
+      "list_date": "2022-10-14",
+      "first_label": "2014-02-28",
+      "last_label": "2022-05-27",
+      "raw_rows": 320
+    }
+  ],
+  "ordinal_method_boundary_witness_passed": 5,
+  "output_row_counts": {
+    "listed_missing_ranges.csv": 5892,
+    "listed_missing_periods.csv": 33194,
+    "extra_lifecycle_rows.csv": 470,
+    "missing_ranges.csv": 8126
+  },
+  "listed_missing_union_stocks": 1499,
+  "pre_listing_union_stocks": 235
+}
