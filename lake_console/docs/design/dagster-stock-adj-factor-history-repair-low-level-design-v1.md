@@ -1,8 +1,8 @@
-# 25股修复LLD v1：R3/R4完成记录与R5登记设计
+# 25股修复LLD v1：R3/R4/R5完成记录
 
-更新：2026-10-18。R4正式文件修复及收尾已完成：31资产、11,425个COMMITTED、4,363个SKIPPED、失败0，最终状态FILES_COMPLETE_EVENTS_PENDING，completed=15,788。收尾漏载指标任务清单已补齐；本轮未重新下载、计算或改写正式文件，实测约79.99秒/5.17GiB，原plan/hash及报告保留。原方案、原实现下完成收尾后，再落地5行源码修正和直接回归，顺序与证据见§22.9。R5事件、Prod、serving、sensor及工具清退未执行；修正、对应测试及原两份文档按本轮明确白名单提交，不推送。
+更新：2026-10-18。R4正式文件修复及收尾已完成：31资产、11,425个COMMITTED、4,363个SKIPPED、失败0；原R4状态FILES_COMPLETE_EVENTS_PENDING、completed=15,788不改。收尾修正及原实现结果见§22.9。R5步骤1—6现已完成：31条实际观察记录、31写/63读约1.4931秒，29项隔离测试和一条原生DG页面抽看通过，详见§24.9—§24.10。未重新读取行情、下载、计算或改写正式文件；原plan/hash及报告保留。Prod、serving、sensor及第7步工具清退未执行；本轮只提交两份新增代码/测试及原两份文档，不推送。
 
-§1—§13是已完成R3及历史证据；§14—§22保存R4设计和执行结果，R4收尾修正已提交b476f1bcc。管理员已授权按§24推进R5步骤1—6，当前先提交完整方案再进入实施；工具清退不在本轮范围。原准备/计算/提升记录不再作为R5待执行步骤。
+§1—§13是已完成R3及历史证据；§14—§22保存R4设计和执行结果，R4收尾修正已提交b476f1bcc。R5文档先提交a536bf63，再完成§24步骤1—6；工具清退不在本轮范围。原准备/计算/提升记录不再作为R5待执行步骤。
 
 ## 1. 整改前实现、根因与消费者
 
@@ -821,7 +821,7 @@ repair_implementation_files的34文件是计算/校验指纹闭包，不是清�
 
 本节是正式修复及必要DG登记完成后的退出设计；R4文件修复和收尾已完成，事实见§22.9。必要DG登记属于后续R5，尚未执行；本轮未实施专项工具清退，也未删除数据/执行证据。
 
-## 24. R5完成登记：当前审计、实现细节和验收（已确认，待实施）
+## 24. R5完成登记：审计、实现细节和验收（已完成）
 
 ### 24.1 本轮审计依据与结论
 
@@ -974,3 +974,78 @@ description使用“25股修复完成：本资产替换X个文件，无需修改
 最终报告逐项列出31资产及实际storage_id、新增/复用数量、15,788/11,425/4,363/0的来源引用、失败或取消的准确位置、真实耗时、0行情操作，以及DG页面入口和1条抽看结果。原plan/hash、R4 checkpoint/报告及其他任务改动均保留。必要材料不一致或DG新错误立即停下来说明，不新增门禁、扩大审计或带错误继续。
 
 R5完成后，按§23已落档的独立步骤清退专用代码，保留本次新登记模块/测试的退出清单及登记报告/事件；本轮不提前删除工具、执行产物或数据。
+
+### 24.9 本轮准确入口、预览和隔离证据
+
+文档已先提交a536bf63。开发只新增§24.5两份文件，原共享函数、34份计算实现、catalog和公开CLI均未修改。登记模块的SHA256为4f4c5edea842d6060f76040a456d9ec4aa0a1e8e9efef652bacc515b39d72b90；本次临时入口/private/tmp/dg_r5_implementation_20261018/register.py的SHA256为b354c6223a2766dce9b277ec403b83f91b9c451126394220ca3a170cf27a5e7e。该入口仅用于本轮登记，不是新增长期CLI；文件身份与当前Git基线a536bf63共同说明本轮执行版本。
+
+首次预览已经通过新读取函数，约0.3964秒读取和归并原四份完成材料，得到31资产、15,788目标、11,425替换、4,363跳过、失败0；DG事件写入0，正式R5报告尚不存在。确定内容保存到/private/tmp/dg_r5_implementation_20261018/summary.json、preview.json及preview.csv；正式登记沿同一summary，不第二次读取原plan/CSV。预览仅消费元数据，不访问DG数据库，故不需要发起只读事务；正式阶段才打开已存在的Postgres instance。
+
+执行目录固定/Users/congming/github/goldenshare/lake_console/orchestrator；准确命令如下：
+
+```bash
+.venv/bin/python3 -B /private/tmp/dg_r5_implementation_20261018/register.py preview
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B /private/tmp/dg_r5_implementation_20261018/register.py register > /private/tmp/dg_r5_implementation_20261018/register.log 2>&1
+```
+
+已核对现有dagster.yaml使用storage.postgres；不输出凭据、不初始化instance。入口只允许AssetObservation，实际读取/写入调用计数另存本任务result.json；正式R5报告只写原run下reports/r5-registration.json及同目录原子临时文件，锁沿能力父目录原writer.lock。正式登记若失败，保留日志与已有事件，按§24.4恢复，不能重新计算文件。
+
+隔离正常31条登记实测约0.3378秒、31写/63读；完成重放新增0、仅按31个ID读取1次，不改R5报告。该耗时来自临时Dagster存储，不能当作正式Postgres耗时。取消在1/16/30条后，真实子进程TERM/KILL，写后报告失败、API结果丢失、101条其他用途观察记录穿插和cursor分页、重复/内容冲突及来源拒绝均已覆盖；本机get_event_records有弃用提示，但当前1.13.26实际支持按storage_ids读取，本次不为消除提示扩大到接口替换。
+
+上述预览之后才实施正式登记，结果见下节；预览本身不作为正式登记证据。
+
+### 24.10 步骤1—6实际执行结果和对账
+
+2026-10-18 09:14:51（Asia/Shanghai）登记完成：31项新增、0复用，实际事件ID为7634150—7634180；逐项读回后，最后按31个ID统一读取一次，asset/partition=None/完整内容/token和唯一性全部一致。正式耗时约1.4931秒，实际31写/63读，与本节模型一致；原材料初次归并约0.3964秒，正式阶段未再读取原plan/CSV。入口进程正常退出，没有worker；锁在既有上下文退出时关闭。
+
+本run的reports/r5-registration.json为complete/completed=31。原R4 checkpoint、plan/hash、CSV、文件和旧日志均不改；原R4的FILES_COMPLETE_EVENTS_PENDING仍如实保留。R5完成并不把普通check改绿或触发本批以外的任务。
+
+| 已确认要求 | 实现位置及本轮新证据 | 结果 |
+| --- | --- | --- |
+| 先提交方案，再开发 | a536bf63先提交；只新增登记模块和直接测试 | 通过 |
+| 直接采用可信完成记录，不重复验行情 | read_completed_repair_summary只读四份元数据一次；预览与正式沿同一summary；15,788=11,425+4,363、失败0 | 通过；行情/下载/hash文件/SQL/公式/COPY/改写均0 |
+| 准确31条供人查看的记录 | repair_completion_observations及register_repair_completion；31原生AssetObservation、partition=None、范围说明和ordinary_checks_reported=false | 通过；无物化/check/run/job/分区写入 |
+| 幂等、恢复和真实错误拒绝 | 真实临时Dagster测试完成重放；1/16/30条后取消，TERM/KILL，写后报告失败和API结果丢失，101条外来记录及分页，错ID/内容/来源/路径/重复拒绝 | 通过；已写事件不重发，不删或回滚旧结果 |
+| 不误挡正常变化 | 32个小型目标、共享日/年度路径、全SKIPPED资产、额外CSV列及其他用途观察记录 | 通过；不把15,788或每页100当通用上限 |
+| 固定版本有界回归 | final-tests.xml：29 passed，4.86秒；新增两文件默认Ruff、DG src/tests致命错误基线、文档完整性及diff检查 | 通过；未跑全仓/25股计算链 |
+| 预览后登记、一次收尾 | preview.json/preview.csv先展示，随后准确命令执行；result.json保留31次实际写入与63次读取计数 | 通过；无第二次来源归并或全局扫描 |
+| 页面确实可见 | gold_stock_daily_qfq→Events→Observed，storage_id=7634175；描述显示替换1372、无需修改11；已打开Show JSON核对1383/1372/11/0、原run/hash、范围及引用 | 通过；只看1条，未新建前端，查看后恢复原页面 |
+| 保留其他任务及边界 | 现有CLI、catalog和共享计算实现未改，不重载、不启停sensor或改水位，不推进Prod/serving；第7步未执行 | 通过；最终按四文件白名单提交，不推送 |
+
+完整隔离结果：/private/tmp/dg_r5_implementation_20261018/final-tests.xml；正式命令日志：register.log；最终逐项结果：result.json、result.csv及acceptance.md（均在同一临时目录）。登记的持久结果同时保存在原run的reports/r5-registration.json和DG事件存储，不依赖临时报告存续。
+
+| 既有asset key | 实际DG storage_id |
+| --- | ---: |
+| gold_stk_mins_qfq_120m | 7634150 |
+| gold_stk_mins_qfq_15m | 7634151 |
+| gold_stk_mins_qfq_1m | 7634152 |
+| gold_stk_mins_qfq_30m | 7634153 |
+| gold_stk_mins_qfq_5m | 7634154 |
+| gold_stk_mins_qfq_60m | 7634155 |
+| gold_stk_mins_qfq_90m | 7634156 |
+| gold_stk_mins_qfq_macd_kdj_120m | 7634157 |
+| gold_stk_mins_qfq_macd_kdj_15m | 7634158 |
+| gold_stk_mins_qfq_macd_kdj_1m | 7634159 |
+| gold_stk_mins_qfq_macd_kdj_30m | 7634160 |
+| gold_stk_mins_qfq_macd_kdj_5m | 7634161 |
+| gold_stk_mins_qfq_macd_kdj_60m | 7634162 |
+| gold_stk_mins_qfq_macd_kdj_90m | 7634163 |
+| gold_stk_mins_qfq_macd_kdj_state_120m | 7634164 |
+| gold_stk_mins_qfq_macd_kdj_state_15m | 7634165 |
+| gold_stk_mins_qfq_macd_kdj_state_1m | 7634166 |
+| gold_stk_mins_qfq_macd_kdj_state_30m | 7634167 |
+| gold_stk_mins_qfq_macd_kdj_state_5m | 7634168 |
+| gold_stk_mins_qfq_macd_kdj_state_60m | 7634169 |
+| gold_stk_mins_qfq_macd_kdj_state_90m | 7634170 |
+| gold_stk_mins_qfq_nineturn_120m | 7634171 |
+| gold_stk_mins_qfq_nineturn_30m | 7634172 |
+| gold_stk_mins_qfq_nineturn_60m | 7634173 |
+| gold_stk_mins_qfq_nineturn_90m | 7634174 |
+| gold_stock_daily_qfq | 7634175 |
+| gold_stock_daily_qfq_nineturn | 7634176 |
+| gold_stock_daily_trend_channel | 7634177 |
+| gold_stock_daily_trend_channel_state | 7634178 |
+| raw_tushare_adj_factor | 7634179 |
+| silver_adj_factor | 7634180 |
+
+R5完成；本专项仅剩§23独立工具清退，等待后续授权，不在本轮执行。
