@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 
 import duckdb
 
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
@@ -18,7 +19,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
-
 
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
@@ -94,6 +94,69 @@ def _read_rows(path: Path, schema) -> list[dict[str, object]]:
 
 
 class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
+    def test_seven_frequencies_keep_literal_values_and_state_across_years(self) -> None:
+        # Retains the old 25-stock tests' six literal values without their planner.
+        # MACD 12/26/9: seed=5, next close=7.5 gives DIF=70/351, DEA=14/351.
+        # KDJ 9/3/3: high=8.25, prior low=4.5 => RSV=80; initial K/D=50.
+        # A second 7.5 close gives EMA=965/169,3905/729, independently calculated.
+        dates = ("2023-12-29", "2024-01-02", "2025-01-02", "2026-01-05")
+        fields = ("macd_dif_qfq", "macd_dea_qfq", "macd_qfq", "kdj_k_qfq", "kdj_d_qfq", "kdj_qfq")
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            settings = DuckDBConnectionSettings(temp_directory=root / "duckdb")
+            for freq, first_time in (
+                (1, "09:30:00"), (5, "09:35:00"), (15, "09:45:00"),
+                (30, "10:00:00"), (60, "10:30:00"), (90, "11:00:00"), (120, "11:30:00"),
+            ):
+                with self.subTest(freq=freq):
+                    sources = []
+                    for day, close, high, low in (
+                        (dates[0], 5.0, 5.5, 4.5),
+                        (dates[1], 7.5, 8.25, 6.75),
+                        (dates[3], 7.5, 8.25, 6.75),
+                    ):
+                        path = gold_stk_mins_qfq_path(root, freq, STOCK_A, day[:4])
+                        row = _qfq_row(ts_code=STOCK_A, trade_date=day, close=close)
+                        row.update(freq=freq, trade_time=f"{day} {first_time}",
+                                   open=close, high=high, low=low)
+                        _write_rows(path, schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                                    rows=[row], order_by="trade_time")
+                        sources.append(path)
+                    previous = ()
+                    for target_dates in ([dates[0]], [dates[1], dates[2]], [dates[3]]):
+                        write_gold_stk_mins_qfq_macd_kdj_rows(
+                            lake_root=root, freq=freq, source_qfq_paths=sources,
+                            target_trade_dates=target_dates, previous_state_paths=previous,
+                            duckdb_settings=settings)
+                        previous = (gold_stk_mins_qfq_macd_kdj_state_path(root, freq, target_dates[-1]),)
+                    second = _read_rows(gold_stk_mins_qfq_macd_kdj_path(root, freq, STOCK_A, 2024),
+                                        GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA)
+                    self.assertEqual(len(second), 1)
+                    for field, expected in zip(fields, (
+                        0.19943019943019943, 0.039886039886039886, 0.3190883190883191,
+                        60.0, 53.33333333333333, 73.33333333333333,
+                    ), strict=True):
+                        self.assertAlmostEqual(second[0][field], expected, places=12)
+                    state_2024, state_2025 = [
+                        _read_rows(gold_stk_mins_qfq_macd_kdj_state_path(root, freq, day),
+                                   GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA)[0]
+                        for day in dates[1:3]
+                    ]
+                    self.assertEqual(state_2025, {**state_2024, "trade_date": state_2025["trade_date"]})
+                    self.assertEqual(state_2025["trade_date"].isoformat(), "2025-01-02")
+                    self.assertEqual(state_2025["last_trade_time"].isoformat(sep=" "), f"2024-01-02 {first_time}")
+                    self.assertAlmostEqual(state_2025["macd_ema_fast"], 5.384615384615385, places=12)
+                    self.assertAlmostEqual(state_2025["macd_ema_slow"], 5.185185185185185, places=12)
+                    self.assertFalse(gold_stk_mins_qfq_macd_kdj_path(root, freq, STOCK_A, 2025).exists())
+                    third = _read_rows(gold_stk_mins_qfq_macd_kdj_path(root, freq, STOCK_A, 2026),
+                                       GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA)
+                    self.assertEqual(len(third), 1)
+                    for field, expected in zip(fields, (
+                        0.3534062223520913, 0.10259007637925018, 0.5016322919456823,
+                        66.66666666666667, 57.77777777777778, 84.44444444444444,
+                    ), strict=True):
+                        self.assertAlmostEqual(third[0][field], expected, places=12)
+
     def test_initial_and_incremental_state_have_literal_indicator_values(self) -> None:
         # These expected values are manually derived from MACD 12/26/9 and KDJ 9/3/3:
         # day 1 initializes EMA with close=10 and K/D with 50; day 2 uses close=13,
@@ -116,6 +179,7 @@ class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
                 freq=1,
                 source_qfq_paths=[source_path],
                 target_trade_dates=[DAY_1],
+                duckdb_settings=DuckDBConnectionSettings(temp_directory=lake_root / "duckdb"),
             )
             previous_state_path = gold_stk_mins_qfq_macd_kdj_state_path(
                 lake_root, 1, DAY_1
@@ -126,6 +190,7 @@ class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
                 source_qfq_paths=[source_path],
                 target_trade_dates=[DAY_2],
                 previous_state_paths=[previous_state_path],
+                duckdb_settings=DuckDBConnectionSettings(temp_directory=lake_root / "duckdb"),
             )
             indicator_rows = _read_rows(
                 gold_stk_mins_qfq_macd_kdj_path(lake_root, 1, STOCK_A, 2026),
@@ -187,6 +252,7 @@ class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
                 freq=1,
                 source_qfq_paths=[source_a, source_b],
                 target_trade_dates=[DAY_1],
+                duckdb_settings=DuckDBConnectionSettings(temp_directory=lake_root / "duckdb"),
             )
             previous_state_path = gold_stk_mins_qfq_macd_kdj_state_path(
                 lake_root, 1, DAY_1
@@ -197,6 +263,7 @@ class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
                 source_qfq_paths=[source_a, source_b],
                 target_trade_dates=[DAY_2],
                 previous_state_paths=[previous_state_path],
+                duckdb_settings=DuckDBConnectionSettings(temp_directory=lake_root / "duckdb"),
             )
             state_path = gold_stk_mins_qfq_macd_kdj_state_path(lake_root, 1, DAY_2)
             before = _read_rows(state_path, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA)
@@ -217,6 +284,7 @@ class StkMinsQfqMacdKdjFormulaGoldenContractsTests(unittest.TestCase):
                 target_trade_dates=[DAY_2],
                 previous_state_paths=[previous_state_path],
                 stock_codes=[STOCK_A],
+                duckdb_settings=DuckDBConnectionSettings(temp_directory=lake_root / "duckdb"),
             )
             after = _read_rows(state_path, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA)
 

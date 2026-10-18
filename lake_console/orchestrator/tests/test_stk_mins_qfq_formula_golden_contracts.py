@@ -1,5 +1,6 @@
 import math
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,12 +14,12 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_NATIVE_FREQS
 from orchestrator.defs.stk_mins_qfq import (
+    build_canonical_gold_stk_mins_qfq_select_sql,
     build_daily_qfq_coverage_sql,
     build_daily_qfq_select_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
     build_gold_stk_mins_qfq_derived_select_sql,
 )
-
 
 STOCK_CODE = "600000.SH"
 TRADE_DATE = "2026-06-16"
@@ -107,6 +108,59 @@ def _query_rows(sql: str) -> list[dict[str, object]]:
 
 
 class StkMinsQfqFormulaGoldenContractsTests(unittest.TestCase):
+    def test_seven_frequency_literal_prices_counts_times_and_quantities(self) -> None:
+        # Retained from the completed 25-stock test's independent literal table.
+        # Inputs follow the canonical Silver contract: 1m includes 09:30;
+        # 5/30/60m include an auction row, then each session's completed bars.
+        # All prices are manually 10/11/9/10 * 1.5 / 2; volume/amount never adjust.
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sources = {}
+            for source_freq in (1, 5, 30, 60):
+                times = [] if source_freq == 1 else ["09:30:00"]
+                sessions = (("09:30", "11:30"), ("13:01", "15:00")) if source_freq == 1 else (
+                    ("09:30", "11:30"), ("13:00", "15:00")
+                )
+                for start, end in sessions:
+                    current = datetime.fromisoformat(f"{TRADE_DATE} {start}")
+                    if source_freq != 1:
+                        current += timedelta(minutes=source_freq)
+                    while current <= datetime.fromisoformat(f"{TRADE_DATE} {end}"):
+                        times.append(current.strftime("%H:%M:%S"))
+                        current += timedelta(minutes=source_freq)
+                sources[source_freq] = root / f"silver-{source_freq}.parquet"
+                _write_rows(sources[source_freq], schema=SILVER_STK_MINS_SCHEMA,
+                            rows=[_silver_row(trade_date=TRADE_DATE, trade_time=t,
+                                              freq=source_freq, open_=10.0, high=11.0,
+                                              low=9.0, close=10.0) for t in times],
+                            order_by="trade_time")
+            trade_factor = root / "trade-factor.parquet"
+            anchor_factor = root / "anchor-factor.parquet"
+            _write_rows(trade_factor, schema=SILVER_ADJ_FACTOR_SCHEMA,
+                        rows=[_adj_factor_row(TRADE_DATE, 1.5)], order_by="ts_code")
+            _write_rows(anchor_factor, schema=SILVER_ADJ_FACTOR_SCHEMA,
+                        rows=[_adj_factor_row(TRADE_DATE, 2.0)], order_by="ts_code")
+            for freq, source_freq, count, first, volume in (
+                (1, 1, 241, "09:30:00", 24100.0),
+                (5, 1, 48, "09:35:00", 24100.0),
+                (15, 5, 16, "09:45:00", 4900.0),
+                (30, 5, 8, "10:00:00", 4900.0),
+                (60, 30, 4, "10:30:00", 900.0),
+                (90, 30, 3, "11:00:00", 900.0),
+                (120, 60, 2, "11:30:00", 500.0),
+            ):
+                with self.subTest(freq=freq):
+                    rows = _query_rows(build_canonical_gold_stk_mins_qfq_select_sql(
+                        silver_paths=[sources[source_freq]], trade_adj_factor_paths=[trade_factor],
+                        as_of_adj_factor_paths=[anchor_factor], target_freq=freq,
+                        partition_keys=[TRADE_DATE]))
+                    self.assertEqual(len(rows), count)
+                    self.assertEqual(rows[0]["trade_time"].strftime("%H:%M:%S"), first)
+                    self.assertEqual({(r["open"], r["high"], r["low"], r["close"]) for r in rows},
+                                     {(7.5, 8.25, 6.75, 7.5)})
+                    self.assertEqual(sum(r["vol"] for r in rows), volume)
+                    self.assertEqual(sum(r["amount"] for r in rows), volume * 10.0)
+
     def test_daily_qfq_uses_same_day_factor_for_all_native_freqs(self) -> None:
         # Expected prices are manually verified: 10/11/9/10.5 * 6 / 3.
         for freq in STK_MINS_QFQ_NATIVE_FREQS:
