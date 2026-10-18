@@ -1,0 +1,91 @@
+{
+  "scope": "TOP_CURRENT_DIF_EXISTING_CASE_RECHECK",
+  "periods": [
+    "day",
+    "m60",
+    "m90",
+    "m120"
+  ],
+  "variants": [
+    "ZC",
+    "ZR"
+  ],
+  "expectedRows": {
+    "day": 1643,
+    "m60": 17260,
+    "m90": 12945,
+    "m120": 8630
+  },
+  "maxSourceRows": 40500,
+  "maxUnitBytes": 20000000,
+  "sourceDirectories": [
+    "reports/xxm_source_audit_20261013_213852",
+    "reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01"
+  ],
+  "oldRun": "reports/xxm_top_daily_ambiguity_20261017_01/run_01",
+  "labels": {
+    "total": 52,
+    "direct": 20,
+    "mapped": 32,
+    "independentBlindTest": false
+  },
+  "dateProtections": 10,
+  "dec15ObservedWords": [
+    "DULL",
+    "STRUCTURE",
+    "STRUCTURE_DISAPPEARED",
+    "DULL"
+  ],
+  "fixedSimulations": 4,
+  "freshTopStateChecks": [
+    "day:2026-01-06",
+    "m90:2025-06-24T15:00:00+08:00"
+  ],
+  "crossIndexControls": "reuse sealed prior results and direct observations; no new market data",
+  "newDeepIndexEventDate": "2026-04-16",
+  "phaseSeconds": {
+    "eightUnits": 60,
+    "guardsAndSimulations": 60,
+    "resume": 60,
+    "finalVerification": 60
+  },
+  "reuse": [
+    "top_daily_ambiguity.read_inputs",
+    "top_daily_ambiguity.audit",
+    "cross_index_daily.seal",
+    "cross_index_daily.read_unit",
+    "projection.recover_projection"
+  ],
+  "codegraph": [
+    "codegraph_explore ReferenceGateCalculator",
+    "codegraph_impact ReferenceGateCalculator depth2: research runner/cross-index/tests, no product consumer"
+  ],
+  "codeHashes": {
+    "src/biz/queries/wealth/market/index_detail_xxm/__init__.py": "e1ba5e9d772465c20530897e9bb17f5389f42d46ab62d81350db63eea60e64a2",
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": "a070b07e28f44bf576c554e1f0688f7af789e33f5a700bb0ff30c13e1b12e686",
+    "src/biz/queries/wealth/market/index_detail_xxm/query_service.py": "94b412215e8b6987de3a5920545eadec822b89b721a6436495c4ce0d6478049a",
+    "src/biz/queries/wealth/market/index_detail_xxm/shared_loads.py": "2c9f658b99209aae4fa9f036b8264028d76a7f769be6b9190e2e895adf091276",
+    "src/biz/queries/wealth/market/index_detail_xxm/source.py": "52fe53e1bcd09ccbfb424e2b1510e5912d2b1e724743fa8ca551d4bdd1de379c",
+    "src/biz/services/wealth/market/index_detail_xxm/__init__.py": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "2f953c177e17c9a5f1a174720cf43b0f3ea42049462791c47be299ccd01866f3",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "9b82adfd39cc64a43743e45b3e2284d22e1ae569dd02661e26bebaa33996a1c1",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "4610fa6c1348e05d1d39df11d9cfcf3805521f2f878d20418c599fc74ab52b35",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py": "f97fb04f3aa427a14dbd9345a91f6472597de1ba4e5a27d270f685cc94654f61",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_paths.py": "e60a7c8a4de3191c6af40fa9caa2c4328c33a48b0b23ac75d060eff9c9a4405b",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "987cf1074d2bea37ba66c430e85816a8b91828bd48d8aa54ba8d18d97c76b2e8",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/services/wealth/market/index_detail_xxm/runtime.py": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac",
+    "scripts/research/index_market/xxm/top_daily_ambiguity.py": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d",
+    "scripts/research/index_market/xxm/cross_index_daily.py": "efe07bc23d7a02f0b71b21a316339a536700063e34ecac4b080acad83043ea13",
+    "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py": "be83fb63636eac32fa3c93345792890f40e04f447586cfe0ad94bf1b49520d10"
+  },
+  "productCodeChanged": false,
+  "formalResourceAccess": false,
+  "oldEvidenceModified": false,
+  "newMaintainedCode": false
+}

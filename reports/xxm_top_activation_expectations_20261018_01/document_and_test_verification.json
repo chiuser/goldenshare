@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "preparationTests": 7,
+  "oldProtectedAndSourcesUnchanged": true,
+  "planEngineTableLast": true,
+  "relativeLinksValid": true,
+  "newPythonFiles": 5,
+  "formalDataOrApiRead": false,
+  "changedDocuments": {
+    "docs/product/xxm-direction-algorithm-plan-v0.1.md": "ccb5a39479ddf841b52eb1322f554faaea0c5fa8c918168a34564d297689aee6",
+    "docs/product/xxm-macd-structure-research-v1.md": "0cf0e2ecaf242416809b8e9a7941470d572eaaca1d86af13119a5a70b8f28579",
+    "wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md": "739ce00e0337832db1caa84d587232b588aa0234eb3cfa26e488d74eaf205f71",
+    "wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md": "f4e3055b106f6f315d61ff551949164d023d9697ac4921d0226cf9fb061c832f",
+    "reports/xxm_top_activation_expectations_20261018_01/README.md": "b118a9c930981112b77f0745dc4a9ed858aaca1c04db2f1f23f690be58200239"
+  },
+  "newCode": {
+    "scripts/research/index_market/xxm/top_activation_expectations.py": "30f6e422a453335bc7aafdc827d175aca05b92f7551c5d15eb99eaa720b4dc01",
+    "scripts/research/index_market/xxm/top_activation_math.py": "e571b963fc14fe3c2fcb71a32918ee0bb154c341b1a225f06886620138cec531",
+    "scripts/research/index_market/xxm/top_activation_real_math.py": "3543c9022381f8421830aed30582b09fd89f5ed84fbbcb2f8d395dc64b3349c1",
+    "scripts/research/index_market/tests/test_xxm_top_activation_expectations.py": "05fbb62759bdd47afba9bf586f469e975d1529e47f21e9bcaf806de1ce249e96",
+    "scripts/research/index_market/tests/test_xxm_top_activation_real_math.py": "c156f5f2d2c3a0a5d4870e5613853ff149bde62b609d91a2ae8534f08ba16fde"
+  }
+}

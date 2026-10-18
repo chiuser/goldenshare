@@ -1,0 +1,98 @@
+{
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "switches": 0,
+        "forecasts": 26,
+        "maxMs": 86.58545836806297,
+        "calibrationProtected": 18
+      },
+      "1.0": {
+        "rows": 912,
+        "switches": 0,
+        "forecasts": 26,
+        "maxMs": 84.15650017559528,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "switches": 0,
+        "forecasts": 26,
+        "maxMs": 85.04887484014034,
+        "calibrationProtected": 18
+      }
+    },
+    "m60": {
+      "0.75": {
+        "rows": 17260,
+        "switches": 5,
+        "forecasts": 182,
+        "maxMs": 36.01779183372855,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 17260,
+        "switches": 5,
+        "forecasts": 182,
+        "maxMs": 25.837041903287172,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 17260,
+        "switches": 5,
+        "forecasts": 182,
+        "maxMs": 26.058374904096127,
+        "calibrationProtected": 0
+      }
+    },
+    "m90": {
+      "0.75": {
+        "rows": 12945,
+        "switches": 3,
+        "forecasts": 113,
+        "maxMs": 23.49991723895073,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 12945,
+        "switches": 3,
+        "forecasts": 113,
+        "maxMs": 42.942041996866465,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 12945,
+        "switches": 3,
+        "forecasts": 113,
+        "maxMs": 26.192749850451946,
+        "calibrationProtected": 0
+      }
+    },
+    "m120": {
+      "0.75": {
+        "rows": 8630,
+        "switches": 1,
+        "forecasts": 84,
+        "maxMs": 20.467833150178194,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 8630,
+        "switches": 1,
+        "forecasts": 84,
+        "maxMs": 37.83391695469618,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 8630,
+        "switches": 1,
+        "forecasts": 84,
+        "maxMs": 19.773125182837248,
+        "calibrationProtected": 0
+      }
+    }
+  },
+  "softwareUniqueFormulaProven": false,
+  "liveSource": false
+}

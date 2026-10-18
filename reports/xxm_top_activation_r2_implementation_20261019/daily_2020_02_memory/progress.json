@@ -1,0 +1,25 @@
+{
+  "scope": "ISOLATED_DAILY_2020_WINDOW",
+  "fixtureOnly": true,
+  "formalApiAccepted": false,
+  "formalWrites": false,
+  "sourceManifestSha256": "56ea6365a3ca9f5dde50594194425a038be1d763e7bcf80026b478d8c5d303df",
+  "rows": 1643,
+  "frozenOverlap": 912,
+  "recognition": {
+    "rows": 1643,
+    "events": 90,
+    "prefixRestoreCuts": 94,
+    "softwareLiteralCases": 4
+  },
+  "forecasts": 1643,
+  "statuses": {
+    "('PRECISION_PENDING', 'CALIBRATION_FAILED')": 442,
+    "('CONFIRMED', None)": 24,
+    "('NO_CANDIDATE', 'NO_ENTRY_RANGE')": 460,
+    "('CONDITIONAL_ENTRY', None)": 619,
+    "('READY', None)": 98
+  },
+  "oldCases": [],
+  "budget": []
+}

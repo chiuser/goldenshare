@@ -1,0 +1,9 @@
+{
+  "calendarExchange": "SSE",
+  "files": {
+    "source_399001.SZ.json": "e9f46383807475268fada3225baf419dfc5a4f26c6631a5da6195b6cc512b710",
+    "source_399006.SZ.json": "3d1f209ff2c8e8506946f04e5ff6237b5c7505cc417e31676b7eec280f015210"
+  },
+  "calendarSha256": "b0d7683c0440e484cb28f04cc2d5897cfa3834e43f543706a72494a1aa208a22",
+  "readonly": true
+}

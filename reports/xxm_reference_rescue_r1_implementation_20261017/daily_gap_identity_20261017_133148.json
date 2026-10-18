@@ -1,0 +1,87 @@
+{
+  "asOf": "2026-10-17T13:31:48.769793+08:00",
+  "readonly": true,
+  "consistentSnapshot": "REPEATABLE READ",
+  "configuredDatabase": {
+    "host": "152.136.106.251",
+    "port": 5432,
+    "database": "goldenshare"
+  },
+  "tsCode": "000001.SH",
+  "period": "day",
+  "queryStart": "2020-01-01",
+  "queryEnd": "2026-10-16",
+  "identity": [
+    {
+      "ts_code": "000001.SH",
+      "name": "上证指数",
+      "fullname": "上证综合指数",
+      "market": "SSE",
+      "publisher": "中证指数有限公司、上海证券交易所",
+      "index_type": null,
+      "category": "综合指数",
+      "base_date": "1990-12-19",
+      "list_date": "1991-07-15",
+      "exp_date": null
+    }
+  ],
+  "projections": {
+    "core_serving.index_factor_pro": [
+      "trade_date",
+      "close",
+      "macd_dif_bfq",
+      "macd_dea_bfq",
+      "macd_bfq"
+    ],
+    "core_serving.index_daily_serving": [
+      "trade_date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "vol"
+    ],
+    "core_serving.index_basic": [
+      "ts_code",
+      "name",
+      "fullname",
+      "market",
+      "publisher",
+      "index_type",
+      "category",
+      "base_date",
+      "list_date",
+      "exp_date"
+    ],
+    "core_serving.trade_calendar": [
+      "trade_date",
+      "is_open"
+    ]
+  },
+  "bounds": {
+    "codeFilter": "000001.SH",
+    "exchangeFilter": "SSE",
+    "maxFactors": 2000,
+    "maxPrices": 2000,
+    "maxCalendar": 3000,
+    "maxIdentity": 1
+  },
+  "factorRows": 1643,
+  "factorFirst": "2020-01-02",
+  "factorLast": "2026-10-16",
+  "calendarRows": 2481,
+  "expectedOpenDays": 1643,
+  "priceRows": 1643,
+  "missingCount": 0,
+  "missingFirst": null,
+  "missingLast": null,
+  "missingByYear": {},
+  "missingDates": [],
+  "missingDatesWithPrice": 0,
+  "missingPriceDates": [],
+  "invalidCloseOnMissingDates": [],
+  "factorNullValueDates": [],
+  "unexpectedFactorDates": [],
+  "priceEvidenceSamples": [],
+  "allMissingDatePrices": []
+}

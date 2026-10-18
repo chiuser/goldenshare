@@ -1,0 +1,54 @@
+{
+  "checkedOn": "2026-10-17",
+  "researchOnly": true,
+  "policyHash": "d34d666e75925959e7213ad84ec9e76d264c963652cb87d2288b33191e930d6e",
+  "totals": {
+    "rows": 39747,
+    "rescues": 9,
+    "changedEndpoints": 18,
+    "prefixRestoreCuts": 45
+  },
+  "periods": {
+    "day": {
+      "allBottomHistoryRecordsEqual": true,
+      "nonCancelFirstDullAndAEventsEqual": true,
+      "rearmRecordsEqual": true,
+      "maxRescuesPerNegativeSegment": 0
+    },
+    "m60": {
+      "allBottomHistoryRecordsEqual": true,
+      "nonCancelFirstDullAndAEventsEqual": true,
+      "rearmRecordsEqual": true,
+      "maxRescuesPerNegativeSegment": 1
+    },
+    "m90": {
+      "allBottomHistoryRecordsEqual": true,
+      "nonCancelFirstDullAndAEventsEqual": true,
+      "rearmRecordsEqual": true,
+      "maxRescuesPerNegativeSegment": 1
+    },
+    "m120": {
+      "allBottomHistoryRecordsEqual": true,
+      "nonCancelFirstDullAndAEventsEqual": true,
+      "rearmRecordsEqual": true,
+      "maxRescuesPerNegativeSegment": 1
+    }
+  },
+  "protectedFilesUnchanged": 38,
+  "literalAndRegressionTests": {
+    "passed": 120,
+    "seconds": 3.77,
+    "newCandidateTests": 22,
+    "softwareAccuracyClaimed": false
+  },
+  "softwareSupportEpisodesForNewRule": 1,
+  "uniqueSoftwareFormulaProven": false,
+  "otherEightRescuesSoftwareVerified": false,
+  "fullForecastSolverTested": false,
+  "otherTwoFullSourceGatesRerun": false,
+  "formalBudgetTested": false,
+  "productModified": false,
+  "reportLinksChecked": 10,
+  "coreEngineTableStillLast": true,
+  "sourceHistoryOverwritten": false
+}

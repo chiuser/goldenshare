@@ -1,0 +1,24 @@
+{
+  "status": "STATIC_REVIEW_ONLY_NOT_FORECAST_ACCEPTANCE",
+  "codeSha256": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "4610fa6c1348e05d1d39df11d9cfcf3805521f2f878d20418c599fc74ab52b35",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "9b82adfd39cc64a43743e45b3e2284d22e1ae569dd02661e26bebaa33996a1c1",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "2f953c177e17c9a5f1a174720cf43b0f3ea42049462791c47be299ccd01866f3",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_paths.py": "e60a7c8a4de3191c6af40fa9caa2c4328c33a48b0b23ac75d060eff9c9a4405b"
+  },
+  "entryPartition": "entry_partition has price/segmentDIF/referenceDIF/histogram cuts, but no independent root for the proposed incoming-DIF-positive condition; its literal 0. is a price endpoint.",
+  "bandProof": "stable_reference_on_band checks color/extrema/reference eligibility without the new current-DIF condition; must review alongside changed entry rule.",
+  "researchSubclassLimitation": "forecast_detector.clone constructs XxmCalculator, so feeding ReferenceGateCalculator to the current solver does not retain research subclass behavior. No research-forecast pass is claimed.",
+  "existingDull": "new condition is intended only for first TOP activation; do not apply it to BOTTOM or already active DULL/STRUCTURE.",
+  "nextReviewScope": [
+    "forecast_entry.entry_partition",
+    "forecast_entry.stable_reference_on_band",
+    "forecast_entry.reason_for",
+    "forecast_detector.clone / activation_signature",
+    "forecast.forecast conditional entry and path confirmation",
+    "algorithm version and cached results"
+  ],
+  "newCode": false,
+  "newForecastRuns": 0,
+  "newApiContract": false
+}

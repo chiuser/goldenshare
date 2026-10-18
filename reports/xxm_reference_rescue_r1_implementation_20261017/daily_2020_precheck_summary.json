@@ -1,0 +1,132 @@
+{
+  "scope": "ISOLATED_DAILY_2020_WINDOW",
+  "fixtureOnly": true,
+  "formalApiAccepted": false,
+  "formalWrites": false,
+  "rows": 1643,
+  "frozenOverlap": 912,
+  "recognition": {
+    "rows": 1643,
+    "events": 93,
+    "prefixRestoreCuts": 97,
+    "softwareLiteralCases": 4
+  },
+  "forecasts": 1643,
+  "statuses": {
+    "('PRECISION_PENDING', 'CALIBRATION_FAILED')": 442,
+    "('CONFIRMED', None)": 24,
+    "('NO_CANDIDATE', 'NO_ENTRY_RANGE')": 431,
+    "('CONDITIONAL_ENTRY', None)": 647,
+    "('READY', None)": 99
+  },
+  "oldCases": [
+    {
+      "through": "2024-07-23",
+      "oldStatus": "PRECISION_PENDING",
+      "newStatus": "CONDITIONAL_ENTRY",
+      "oldReason": "CALIBRATION_FAILED",
+      "newReason": null,
+      "changedFields": [
+        "status",
+        "reasonCode",
+        "targetEndpoint",
+        "barsAhead",
+        "activation",
+        "assumption",
+        "targetEntryRanges",
+        "relations",
+        "commonConditions",
+        "examples",
+        "display"
+      ]
+    },
+    {
+      "through": "2024-08-05",
+      "oldStatus": "PRECISION_PENDING",
+      "newStatus": "CONDITIONAL_ENTRY",
+      "oldReason": "CALIBRATION_FAILED",
+      "newReason": null,
+      "changedFields": [
+        "status",
+        "reasonCode",
+        "targetEndpoint",
+        "barsAhead",
+        "activation",
+        "assumption",
+        "targetEntryRanges",
+        "relations",
+        "commonConditions",
+        "examples",
+        "display"
+      ]
+    },
+    {
+      "through": "2024-08-22",
+      "oldStatus": "PRECISION_PENDING",
+      "newStatus": "NO_CANDIDATE",
+      "oldReason": "CALIBRATION_FAILED",
+      "newReason": "NO_ENTRY_RANGE",
+      "changedFields": [
+        "status",
+        "reasonCode",
+        "activation",
+        "display"
+      ]
+    },
+    {
+      "through": "2026-10-13",
+      "oldStatus": "CONDITIONAL_ENTRY",
+      "newStatus": "CONDITIONAL_ENTRY",
+      "oldReason": null,
+      "newReason": null,
+      "changedFields": []
+    },
+    {
+      "through": "2024-08-15",
+      "oldStatus": "CONFIRMED",
+      "newStatus": "CONFIRMED",
+      "oldReason": null,
+      "newReason": null,
+      "changedFields": []
+    }
+  ],
+  "realStateUnchanged": true,
+  "passed": true,
+  "maxSweepHttpSeconds": 0.1842185421846807,
+  "maxSweepForecastBytes": 13222,
+  "maxModelEnvelopeMs": 159.51879089698195,
+  "concurrentPairPassed": true,
+  "assumptions": [
+    "frozen 2020+ input",
+    "temporary SQLite storage",
+    "frozen capture clock",
+    "auth not under test"
+  ],
+  "window": [
+    "2020-01-02",
+    "2026-10-16"
+  ],
+  "sourceCodeManifest": "daily_2020_source_code_manifest.json",
+  "budget": {
+    "cold": {
+      "count": 20,
+      "maxForecastSeconds": 0.04404954193159938,
+      "maxRecognitionSeconds": 0.03434745827689767,
+      "calculatorSteps": [
+        1691
+      ],
+      "maxCacheBytes": 1577017,
+      "maxCacheEntries": 2
+    },
+    "warm": {
+      "count": 20,
+      "maxForecastSeconds": 0.014165500178933144,
+      "maxRecognitionSeconds": 0.045326500199735165,
+      "calculatorSteps": [
+        0
+      ],
+      "maxCacheBytes": 1577017,
+      "maxCacheEntries": 2
+    }
+  }
+}

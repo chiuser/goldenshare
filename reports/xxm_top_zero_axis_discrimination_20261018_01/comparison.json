@@ -1,0 +1,1784 @@
+{
+  "scope": "EXISTING_FROZEN_OUTPUT_COMPARISON_NO_NEW_REPLAY",
+  "periods": [
+    {
+      "period": "day",
+      "frozenRows": 1643,
+      "ZCevents": 90,
+      "ZRevents": 90,
+      "eventDifferenceEndpoints": 0,
+      "pointDifferenceEndpoints": 0,
+      "eventDifferences": [],
+      "pointDifferences": []
+    },
+    {
+      "period": "m60",
+      "frozenRows": 17260,
+      "ZCevents": 1151,
+      "ZRevents": 1153,
+      "eventDifferenceEndpoints": 6,
+      "pointDifferenceEndpoints": 3,
+      "eventDifferences": [
+        {
+          "time": "2017-03-14T10:30:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "7ee4d359f673ea782dfa7126",
+              "time": "2017-03-14T10:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-03-07T11:30:00+08:00",
+                "endTime": "2017-03-08T15:00:00+08:00",
+                "price": 3243.745,
+                "dif": 0.9936708490977253
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2017-03-14T11:30:00+08:00",
+          "ZC": [
+            {
+              "id": "73da9ba7a83d0833e5b62f13",
+              "time": "2017-03-14T11:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-03-07T11:30:00+08:00",
+                "endTime": "2017-03-08T15:00:00+08:00",
+                "price": 3243.745,
+                "dif": 0.9936708490977253
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ],
+          "ZR": []
+        },
+        {
+          "time": "2025-06-24T10:30:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "2df3521d93ee72bd512904c5",
+              "time": "2025-06-24T10:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2025-05-29T10:30:00+08:00",
+                "endTime": "2025-06-10T14:00:00+08:00",
+                "price": 3403.5195,
+                "dif": 10.422507933838006
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2025-06-24T11:30:00+08:00",
+          "ZC": [
+            {
+              "id": "c3d00bcf027e3072cc8c79c7",
+              "time": "2025-06-24T11:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2025-05-29T10:30:00+08:00",
+                "endTime": "2025-06-10T14:00:00+08:00",
+                "price": 3403.5195,
+                "dif": 10.422507933838006
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ],
+          "ZR": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "27202f7cb7b3477302a022c8",
+              "time": "2026-04-08T11:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-25T11:30:00+08:00",
+                "endTime": "2026-04-03T10:30:00+08:00",
+                "price": 3948.552,
+                "dif": 0.5906110867122152
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "66fb69aa153c9fb33f59f1ad",
+              "time": "2026-04-08T14:00:00+08:00",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-25T11:30:00+08:00",
+                "endTime": "2026-04-03T10:30:00+08:00",
+                "price": 3948.552,
+                "dif": 0.5906110867122152
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        }
+      ],
+      "pointDifferences": [
+        {
+          "time": "2017-03-14T10:30:00+08:00",
+          "ZC": {
+            "time": "2017-03-14T10:30:00+08:00",
+            "close": 3244.948,
+            "dif": -0.31467863619900527,
+            "dea": -3.0832788744526676,
+            "hist": 5.537200476507325,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "45eee493229a73af9bbe852f",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-03-14T10:30:00+08:00",
+            "close": 3244.948,
+            "dif": -0.31467863619900527,
+            "dea": -3.0832788744526676,
+            "hist": 5.537200476507325,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2017-03-07T11:30:00+08:00",
+              "endTime": "2017-03-08T15:00:00+08:00",
+              "price": 3243.745,
+              "dif": 0.9936708490977253
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2025-06-24T10:30:00+08:00",
+          "ZC": {
+            "time": "2025-06-24T10:30:00+08:00",
+            "close": 3411.8958,
+            "dif": -0.07507340149459196,
+            "dea": -3.941818859608506,
+            "hist": 7.7334909162278285,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2025-06-24T10:30:00+08:00",
+            "close": 3411.8958,
+            "dif": -0.07507340149459196,
+            "dea": -3.941818859608506,
+            "hist": 7.7334909162278285,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2025-05-29T10:30:00+08:00",
+              "endTime": "2025-06-10T14:00:00+08:00",
+              "price": 3403.5195,
+              "dif": 10.422507933838006
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "ZC": {
+            "time": "2026-04-08T11:30:00+08:00",
+            "close": 3964.719,
+            "dif": -0.5749292265518307,
+            "dea": -6.541722408534173,
+            "hist": 11.933586363964684,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2026-04-08T11:30:00+08:00",
+            "close": 3964.719,
+            "dif": -0.5749292265518307,
+            "dea": -6.541722408534173,
+            "hist": 11.933586363964684,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-25T11:30:00+08:00",
+              "endTime": "2026-04-03T10:30:00+08:00",
+              "price": 3948.552,
+              "dif": 0.5906110867122152
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        }
+      ]
+    },
+    {
+      "period": "m90",
+      "frozenRows": 12945,
+      "ZCevents": 848,
+      "ZRevents": 851,
+      "eventDifferenceEndpoints": 5,
+      "pointDifferenceEndpoints": 21,
+      "eventDifferences": [
+        {
+          "time": "2017-03-14T11:00:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "7ea0cf452809b18ec8d6bbfa",
+              "time": "2017-03-14T11:00:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-03-08T11:00:00+08:00",
+                "endTime": "2017-03-08T15:00:00+08:00",
+                "price": 3240.665,
+                "dif": 1.3239531071112651
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2017-03-14T14:00:00+08:00",
+          "ZC": [
+            {
+              "id": "44283a47c1d64544c5a6dfb9",
+              "time": "2017-03-14T14:00:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-03-08T11:00:00+08:00",
+                "endTime": "2017-03-08T15:00:00+08:00",
+                "price": 3240.665,
+                "dif": 1.3239531071112651
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ],
+          "ZR": []
+        },
+        {
+          "time": "2017-09-21T14:00:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "b4f258d312cca8614bbfbaf4",
+              "time": "2017-09-21T14:00:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-08-25T11:00:00+08:00",
+                "endTime": "2017-08-31T11:00:00+08:00",
+                "price": 3368.972,
+                "dif": 27.041628899300576
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2017-09-21T15:00:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "b576a084c3c08e83a01fe324",
+              "time": "2017-09-21T15:00:00+08:00",
+              "direction": "TOP",
+              "type": "STRUCTURE",
+              "route": "color_flip",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2017-08-25T11:00:00+08:00",
+                "endTime": "2017-08-31T11:00:00+08:00",
+                "price": 3368.972,
+                "dif": 27.041628899300576
+              },
+              "relatedTopHistoryId": "89d101ff4ba0f6133970ae95",
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2017-10-09T11:00:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "fd9dfc3a6cf2d25fd0aa7da5",
+              "time": "2017-10-09T11:00:00+08:00",
+              "direction": "TOP",
+              "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+              "route": "historical_price_break",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2017-08-25T11:00:00+08:00",
+                "endTime": "2017-08-31T11:00:00+08:00",
+                "price": 3368.972,
+                "dif": 27.041628899300576
+              },
+              "relatedTopHistoryId": "89d101ff4ba0f6133970ae95",
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        }
+      ],
+      "pointDifferences": [
+        {
+          "time": "2017-03-14T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-03-14T11:00:00+08:00",
+            "close": 3241.783,
+            "dif": -0.6335837074052506,
+            "dea": -2.32497523156568,
+            "hist": 3.382783048320859,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "d143e991cb7366c4f33a4597",
+            "pendingBottomHistoryId": "271aa5ed320493f285301de4",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-03-14T11:00:00+08:00",
+            "close": 3241.783,
+            "dif": -0.6335837074052506,
+            "dea": -2.32497523156568,
+            "hist": 3.382783048320859,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2017-03-08T11:00:00+08:00",
+              "endTime": "2017-03-08T15:00:00+08:00",
+              "price": 3240.665,
+              "dif": 1.3239531071112651
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "271aa5ed320493f285301de4",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-21T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-21T14:00:00+08:00",
+            "close": 3365.356,
+            "dif": -0.8029344293054237,
+            "dea": -1.0582368069248025,
+            "hist": 0.5106047552387576,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-21T14:00:00+08:00",
+            "close": 3365.356,
+            "dif": -0.8029344293054237,
+            "dea": -1.0582368069248025,
+            "hist": 0.5106047552387576,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2017-08-25T11:00:00+08:00",
+              "endTime": "2017-08-31T11:00:00+08:00",
+              "price": 3368.972,
+              "dif": 27.041628899300576
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-21T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-21T15:00:00+08:00",
+            "close": 3357.812,
+            "dif": -1.2870737048028786,
+            "dea": -1.104004186500418,
+            "hist": -0.3661390366049213,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-21T15:00:00+08:00",
+            "close": 3357.812,
+            "dif": -1.2870737048028786,
+            "dea": -1.104004186500418,
+            "hist": -0.3661390366049213,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-22T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-22T11:00:00+08:00",
+            "close": 3343.219,
+            "dif": -2.815831556491503,
+            "dea": -1.4463696604986351,
+            "hist": -2.7389237919857354,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-22T11:00:00+08:00",
+            "close": 3343.219,
+            "dif": -2.815831556491503,
+            "dea": -1.4463696604986351,
+            "hist": -2.7389237919857354,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-22T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-22T14:00:00+08:00",
+            "close": 3346.757,
+            "dif": -3.69925344534704,
+            "dea": -1.8969464174683164,
+            "hist": -3.604614055757447,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-22T14:00:00+08:00",
+            "close": 3346.757,
+            "dif": -3.69925344534704,
+            "dea": -1.8969464174683164,
+            "hist": -3.604614055757447,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-22T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-22T15:00:00+08:00",
+            "close": 3352.529,
+            "dif": -3.888791922992823,
+            "dea": -2.295315518573218,
+            "hist": -3.1869528088392096,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-22T15:00:00+08:00",
+            "close": 3352.529,
+            "dif": -3.888791922992823,
+            "dea": -2.295315518573218,
+            "hist": -3.1869528088392096,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-25T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-25T11:00:00+08:00",
+            "close": 3342.915,
+            "dif": -4.759902788123327,
+            "dea": -2.78823297248324,
+            "hist": -3.943339631280174,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-25T11:00:00+08:00",
+            "close": 3342.915,
+            "dif": -4.759902788123327,
+            "dea": -2.78823297248324,
+            "hist": -3.943339631280174,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-25T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-25T14:00:00+08:00",
+            "close": 3340.742,
+            "dif": -5.56149787860295,
+            "dea": -3.342885953707183,
+            "hist": -4.4372238497915335,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-25T14:00:00+08:00",
+            "close": 3340.742,
+            "dif": -5.56149787860295,
+            "dea": -3.342885953707183,
+            "hist": -4.4372238497915335,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-25T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-25T15:00:00+08:00",
+            "close": 3341.549,
+            "dif": -6.061773258568337,
+            "dea": -3.886663414679414,
+            "hist": -4.350219687777846,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-25T15:00:00+08:00",
+            "close": 3341.549,
+            "dif": -6.061773258568337,
+            "dea": -3.886663414679414,
+            "hist": -4.350219687777846,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-26T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-26T11:00:00+08:00",
+            "close": 3340.35,
+            "dif": -6.480293590351721,
+            "dea": -4.4053894498138755,
+            "hist": -4.149808281075691,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-26T11:00:00+08:00",
+            "close": 3340.35,
+            "dif": -6.480293590351721,
+            "dea": -4.4053894498138755,
+            "hist": -4.149808281075691,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-26T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-26T14:00:00+08:00",
+            "close": 3338.402,
+            "dif": -6.88974064698732,
+            "dea": -4.902259689248566,
+            "hist": -3.9749619154775093,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-26T14:00:00+08:00",
+            "close": 3338.402,
+            "dif": -6.88974064698732,
+            "dea": -4.902259689248566,
+            "hist": -3.9749619154775093,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-26T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-26T15:00:00+08:00",
+            "close": 3343.583,
+            "dif": -6.7187177922487535,
+            "dea": -5.265551309848604,
+            "hist": -2.906332964800299,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-26T15:00:00+08:00",
+            "close": 3343.583,
+            "dif": -6.7187177922487535,
+            "dea": -5.265551309848604,
+            "hist": -2.906332964800299,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-27T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-27T11:00:00+08:00",
+            "close": 3344.539,
+            "dif": -6.431896834350937,
+            "dea": -5.498820414749071,
+            "hist": -1.8661528392037319,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-27T11:00:00+08:00",
+            "close": 3344.539,
+            "dif": -6.431896834350937,
+            "dea": -5.498820414749071,
+            "hist": -1.8661528392037319,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-27T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-27T14:00:00+08:00",
+            "close": 3348.462,
+            "dif": -5.820935721077149,
+            "dea": -5.563243476014687,
+            "hist": -0.5153844901249229,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-27T14:00:00+08:00",
+            "close": 3348.462,
+            "dif": -5.820935721077149,
+            "dea": -5.563243476014687,
+            "hist": -0.5153844901249229,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-27T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-27T15:00:00+08:00",
+            "close": 3345.272,
+            "dif": -5.530399968841721,
+            "dea": -5.556674774580094,
+            "hist": 0.052549611476747415,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-27T15:00:00+08:00",
+            "close": 3345.272,
+            "dif": -5.530399968841721,
+            "dea": -5.556674774580094,
+            "hist": 0.052549611476747415,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-28T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-28T11:00:00+08:00",
+            "close": 3337.931,
+            "dif": -5.8253545792686054,
+            "dea": -5.610410735517797,
+            "hist": -0.4298876875016173,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-28T11:00:00+08:00",
+            "close": 3337.931,
+            "dif": -5.8253545792686054,
+            "dea": -5.610410735517797,
+            "hist": -0.4298876875016173,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "691d72db888c52bccb56d7da",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-28T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-28T14:00:00+08:00",
+            "close": 3341.051,
+            "dif": -5.741169677703056,
+            "dea": -5.63656252395485,
+            "hist": -0.20921430749641168,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2017-09-21T15:00:00+08:00",
+              "endTime": "2017-09-27T14:00:00+08:00",
+              "price": 3338.402,
+              "dif": -6.88974064698732
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-28T14:00:00+08:00",
+            "close": 3341.051,
+            "dif": -5.741169677703056,
+            "dea": -5.63656252395485,
+            "hist": -0.20921430749641168,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2017-09-21T15:00:00+08:00",
+              "endTime": "2017-09-27T14:00:00+08:00",
+              "price": 3338.402,
+              "dif": -6.88974064698732
+            },
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-28T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-28T15:00:00+08:00",
+            "close": 3339.642,
+            "dif": -5.722185271317812,
+            "dea": -5.653687073427443,
+            "hist": -0.13699639578073786,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2017-09-21T15:00:00+08:00",
+              "endTime": "2017-09-27T14:00:00+08:00",
+              "price": 3338.402,
+              "dif": -6.88974064698732
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-28T15:00:00+08:00",
+            "close": 3339.642,
+            "dif": -5.722185271317812,
+            "dea": -5.653687073427443,
+            "hist": -0.13699639578073786,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "BOTTOM",
+            "activeReference": {
+              "startTime": "2017-09-21T15:00:00+08:00",
+              "endTime": "2017-09-27T14:00:00+08:00",
+              "price": 3338.402,
+              "dif": -6.88974064698732
+            },
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-29T11:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-29T11:00:00+08:00",
+            "close": 3350.524,
+            "dif": -4.774021588008964,
+            "dea": -5.477753976343748,
+            "hist": 1.4074647766695687,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-29T11:00:00+08:00",
+            "close": 3350.524,
+            "dif": -4.774021588008964,
+            "dea": -5.477753976343748,
+            "hist": 1.4074647766695687,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-29T14:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-29T14:00:00+08:00",
+            "close": 3347.332,
+            "dif": -4.231385977576338,
+            "dea": -5.228480376590267,
+            "hist": 1.9941887980278583,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-29T14:00:00+08:00",
+            "close": 3347.332,
+            "dif": -4.231385977576338,
+            "dea": -5.228480376590267,
+            "hist": 1.9941887980278583,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2017-09-29T15:00:00+08:00",
+          "ZC": {
+            "time": "2017-09-29T15:00:00+08:00",
+            "close": 3348.943,
+            "dif": -3.6295103742168067,
+            "dea": -4.908686376115575,
+            "hist": 2.558352003797536,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2017-09-29T15:00:00+08:00",
+            "close": 3348.943,
+            "dif": -3.6295103742168067,
+            "dea": -4.908686376115575,
+            "hist": 2.558352003797536,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "89d101ff4ba0f6133970ae95",
+            "pendingBottomHistoryId": "a774c628c09153748b1c1faf",
+            "pendingRearmId": null
+          }
+        }
+      ]
+    },
+    {
+      "period": "m120",
+      "frozenRows": 8630,
+      "ZCevents": 584,
+      "ZRevents": 586,
+      "eventDifferenceEndpoints": 2,
+      "pointDifferenceEndpoints": 20,
+      "eventDifferences": [
+        {
+          "time": "2013-08-02T11:30:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "a2a4f20f42a3770940d3f4c9",
+              "time": "2013-08-02T11:30:00+08:00",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2013-07-25T11:30:00+08:00",
+                "endTime": "2013-07-25T11:30:00+08:00",
+                "price": 2031.324,
+                "dif": 0.004548799440044604
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "time": "2013-08-05T11:30:00+08:00",
+          "ZC": [],
+          "ZR": [
+            {
+              "id": "d87a2fa3089a7a52c720b59b",
+              "time": "2013-08-05T11:30:00+08:00",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2013-07-25T11:30:00+08:00",
+                "endTime": "2013-07-25T11:30:00+08:00",
+                "price": 2031.324,
+                "dif": 0.004548799440044604
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        }
+      ],
+      "pointDifferences": [
+        {
+          "time": "2013-08-02T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-02T11:30:00+08:00",
+            "close": 2040.194,
+            "dif": -2.500806225186807,
+            "dea": -5.988795489691776,
+            "hist": 6.975978529009938,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-02T11:30:00+08:00",
+            "close": 2040.194,
+            "dif": -2.500806225186807,
+            "dea": -5.988795489691776,
+            "hist": 6.975978529009938,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2013-07-25T11:30:00+08:00",
+              "endTime": "2013-07-25T11:30:00+08:00",
+              "price": 2031.324,
+              "dif": 0.004548799440044604
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-02T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-02T15:00:00+08:00",
+            "close": 2029.822,
+            "dif": -0.9457171152489536,
+            "dea": -4.980179814803212,
+            "hist": 8.068925399108517,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-02T15:00:00+08:00",
+            "close": 2029.822,
+            "dif": -0.9457171152489536,
+            "dea": -4.980179814803212,
+            "hist": 8.068925399108517,
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2013-07-25T11:30:00+08:00",
+              "endTime": "2013-07-25T11:30:00+08:00",
+              "price": 2031.324,
+              "dif": 0.004548799440044604
+            },
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-05T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-05T11:30:00+08:00",
+            "close": 2032.438,
+            "dif": 0.4921187072404791,
+            "dea": -3.885720110394474,
+            "hist": 8.755677635269906,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-05T11:30:00+08:00",
+            "close": 2032.438,
+            "dif": 0.4921187072404791,
+            "dea": -3.885720110394474,
+            "hist": 8.755677635269906,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-05T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-05T15:00:00+08:00",
+            "close": 2049.829,
+            "dif": 3.0003363036953488,
+            "dea": -2.50850882757651,
+            "hist": 11.017690262543717,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-05T15:00:00+08:00",
+            "close": 2049.829,
+            "dif": 3.0003363036953488,
+            "dea": -2.50850882757651,
+            "hist": 11.017690262543717,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-06T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-06T11:30:00+08:00",
+            "close": 2047.231,
+            "dif": 4.724024320248645,
+            "dea": -1.0620021980114789,
+            "hist": 11.572053036520249,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-06T11:30:00+08:00",
+            "close": 2047.231,
+            "dif": 4.724024320248645,
+            "dea": -1.0620021980114789,
+            "hist": 11.572053036520249,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-06T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-06T15:00:00+08:00",
+            "close": 2061.059,
+            "dif": 7.123745423585433,
+            "dea": 0.5751473263079036,
+            "hist": 13.097196194555059,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-06T15:00:00+08:00",
+            "close": 2061.059,
+            "dif": 7.123745423585433,
+            "dea": 0.5751473263079036,
+            "hist": 13.097196194555059,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-07T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-07T11:30:00+08:00",
+            "close": 2067.558,
+            "dif": 9.441125257555086,
+            "dea": 2.34834291255734,
+            "hist": 14.185564689995491,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-07T11:30:00+08:00",
+            "close": 2067.558,
+            "dif": 9.441125257555086,
+            "dea": 2.34834291255734,
+            "hist": 14.185564689995491,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-07T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-07T15:00:00+08:00",
+            "close": 2047.322,
+            "dif": 9.53487726129083,
+            "dea": 3.785649782304039,
+            "hist": 11.498454957973582,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-07T15:00:00+08:00",
+            "close": 2047.322,
+            "dif": 9.53487726129083,
+            "dea": 3.785649782304039,
+            "hist": 11.498454957973582,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-08T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-08T11:30:00+08:00",
+            "close": 2056.635,
+            "dif": 10.242587494858526,
+            "dea": 5.077037324814937,
+            "hist": 10.331100340087177,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-08T11:30:00+08:00",
+            "close": 2056.635,
+            "dif": 10.242587494858526,
+            "dea": 5.077037324814937,
+            "hist": 10.331100340087177,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-08T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-08T15:00:00+08:00",
+            "close": 2043.847,
+            "dif": 9.660211324635156,
+            "dea": 5.993672124778982,
+            "hist": 7.333078399712349,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-08T15:00:00+08:00",
+            "close": 2043.847,
+            "dif": 9.660211324635156,
+            "dea": 5.993672124778982,
+            "hist": 7.333078399712349,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-09T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-09T11:30:00+08:00",
+            "close": 2032.24,
+            "dif": 8.167931290133993,
+            "dea": 6.428523957849984,
+            "hist": 3.4788146645680165,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-09T11:30:00+08:00",
+            "close": 2032.24,
+            "dif": 8.167931290133993,
+            "dea": 6.428523957849984,
+            "hist": 3.4788146645680165,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-09T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-09T15:00:00+08:00",
+            "close": 2051.611,
+            "dif": 8.450949140138846,
+            "dea": 6.833008994307757,
+            "hist": 3.235880291662177,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-09T15:00:00+08:00",
+            "close": 2051.611,
+            "dif": 8.450949140138846,
+            "dea": 6.833008994307757,
+            "hist": 3.235880291662177,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-12T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-12T11:30:00+08:00",
+            "close": 2079.265,
+            "dif": 10.782396753217881,
+            "dea": 7.6228865460897826,
+            "hist": 6.319020414256197,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-12T11:30:00+08:00",
+            "close": 2079.265,
+            "dif": 10.782396753217881,
+            "dea": 7.6228865460897826,
+            "hist": 6.319020414256197,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-12T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-12T15:00:00+08:00",
+            "close": 2101.841,
+            "dif": 14.287087655165806,
+            "dea": 8.955726767904988,
+            "hist": 10.662721774521636,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-12T15:00:00+08:00",
+            "close": 2101.841,
+            "dif": 14.287087655165806,
+            "dea": 8.955726767904988,
+            "hist": 10.662721774521636,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-13T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-13T11:30:00+08:00",
+            "close": 2100.778,
+            "dif": 16.7853145708782,
+            "dea": 10.521644328499631,
+            "hist": 12.527340484757136,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-13T11:30:00+08:00",
+            "close": 2100.778,
+            "dif": 16.7853145708782,
+            "dea": 10.521644328499631,
+            "hist": 12.527340484757136,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-13T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-13T15:00:00+08:00",
+            "close": 2105.584,
+            "dif": 18.934713840215863,
+            "dea": 12.204258230842878,
+            "hist": 13.46091121874597,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-13T15:00:00+08:00",
+            "close": 2105.584,
+            "dif": 18.934713840215863,
+            "dea": 12.204258230842878,
+            "hist": 13.46091121874597,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-14T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-14T11:30:00+08:00",
+            "close": 2107.688,
+            "dif": 20.57077635789892,
+            "dea": 13.877561856254088,
+            "hist": 13.386429003289667,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-14T11:30:00+08:00",
+            "close": 2107.688,
+            "dif": 20.57077635789892,
+            "dea": 13.877561856254088,
+            "hist": 13.386429003289667,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-14T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-14T15:00:00+08:00",
+            "close": 2100.639,
+            "dif": 21.055853528644093,
+            "dea": 15.31322019073209,
+            "hist": 11.485266675824004,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-14T15:00:00+08:00",
+            "close": 2100.639,
+            "dif": 21.055853528644093,
+            "dea": 15.31322019073209,
+            "hist": 11.485266675824004,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-15T11:30:00+08:00",
+          "ZC": {
+            "time": "2013-08-15T11:30:00+08:00",
+            "close": 2101.229,
+            "dif": 21.243012525339964,
+            "dea": 16.499178657653665,
+            "hist": 9.487667735372597,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-15T11:30:00+08:00",
+            "close": 2101.229,
+            "dif": 21.243012525339964,
+            "dea": 16.499178657653665,
+            "hist": 9.487667735372597,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        },
+        {
+          "time": "2013-08-15T15:00:00+08:00",
+          "ZC": {
+            "time": "2013-08-15T15:00:00+08:00",
+            "close": 2081.706,
+            "dif": 19.590171140695475,
+            "dea": 17.11737715426203,
+            "hist": 4.945587972866889,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": "98df227f58da27858cb4db52",
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          },
+          "ZR": {
+            "time": "2013-08-15T15:00:00+08:00",
+            "close": 2081.706,
+            "dif": 19.590171140695475,
+            "dea": 17.11737715426203,
+            "hist": 4.945587972866889,
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null,
+            "pendingTopHistoryId": null,
+            "pendingBottomHistoryId": null,
+            "pendingRearmId": null
+          }
+        }
+      ]
+    }
+  ],
+  "recentEventDifferences": [
+    {
+      "period": "m60",
+      "time": "2025-06-24T10:30:00+08:00",
+      "ZC": [],
+      "ZR": [
+        {
+          "id": "2df3521d93ee72bd512904c5",
+          "time": "2025-06-24T10:30:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-29T10:30:00+08:00",
+            "endTime": "2025-06-10T14:00:00+08:00",
+            "price": 3403.5195,
+            "dif": 10.422507933838006
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    },
+    {
+      "period": "m60",
+      "time": "2025-06-24T11:30:00+08:00",
+      "ZC": [
+        {
+          "id": "c3d00bcf027e3072cc8c79c7",
+          "time": "2025-06-24T11:30:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-29T10:30:00+08:00",
+            "endTime": "2025-06-10T14:00:00+08:00",
+            "price": 3403.5195,
+            "dif": 10.422507933838006
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ZR": []
+    },
+    {
+      "period": "m60",
+      "time": "2026-04-08T11:30:00+08:00",
+      "ZC": [],
+      "ZR": [
+        {
+          "id": "27202f7cb7b3477302a022c8",
+          "time": "2026-04-08T11:30:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-25T11:30:00+08:00",
+            "endTime": "2026-04-03T10:30:00+08:00",
+            "price": 3948.552,
+            "dif": 0.5906110867122152
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    },
+    {
+      "period": "m60",
+      "time": "2026-04-08T14:00:00+08:00",
+      "ZC": [],
+      "ZR": [
+        {
+          "id": "66fb69aa153c9fb33f59f1ad",
+          "time": "2026-04-08T14:00:00+08:00",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-03-25T11:30:00+08:00",
+            "endTime": "2026-04-03T10:30:00+08:00",
+            "price": 3948.552,
+            "dif": 0.5906110867122152
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    }
+  ],
+  "totalEventDifferenceEndpoints": 13,
+  "totalPointDifferenceEndpoints": 44,
+  "notSoftwareErrorCounts": true,
+  "sourceScope": "000001.SH only; original frozen day2020+ and original minute sources",
+  "productChanged": false
+}

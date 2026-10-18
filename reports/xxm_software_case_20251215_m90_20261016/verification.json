@@ -1,0 +1,17 @@
+{
+  "checkedOn": "2026-10-17",
+  "originalImageSha256": "209b296eb09fe7568617e4e64f1419df642ec8d3226119ecd6e4c9e0b865218b",
+  "originalBytesPreserved": true,
+  "protectedFilesUnchanged": 32,
+  "sourcePrefixRows": 12354,
+  "sourcePrefixEventsMatchA1": true,
+  "softwareDateAndOrderObserved": true,
+  "exactIntradayTimesConfirmed": false,
+  "h2bWithdrawnForThisCase": true,
+  "newCandidateStateMachineExecuted": false,
+  "reportLinksChecked": 25,
+  "coreChangeTableStillLast": true,
+  "productModified": false,
+  "formalBudgetRetested": false,
+  "previous98TestsRerun": false
+}

@@ -1,0 +1,1231 @@
+{
+  "businessDate": "2025-12-16",
+  "period": "m90",
+  "tsCode": "000001.SH",
+  "specHash": "f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712",
+  "sourcePrefixRows": 12357,
+  "sourceStart": "2009-01-05T11:00:00+08:00",
+  "through": "2025-12-16T15:00:00+08:00",
+  "image": {
+    "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-9d68ffb1-ccc5-44aa-b4b9-b19ba1b3ee92.png",
+    "savedPath": "reports/xxm_software_case_20251216_m90_20261016/20251216_m90_original.png",
+    "sha256": "40b6b4d52957b3668425e73acde5037eaca89cdfd8803989814be343e6d40cec",
+    "originalBytesPreserved": true
+  },
+  "softwareObservation": {
+    "labels": [
+      "钝化",
+      "结构形成",
+      "消失",
+      "钝化"
+    ],
+    "count": 4,
+    "authority": "user-confirmed literal visible order; no precise candle cursor",
+    "exactEndpointsConfirmed": false,
+    "disappearanceTypeConfirmed": false,
+    "positionQuestionPending": true
+  },
+  "endpointReadout": {
+    "close": {
+      "software": 3824.81,
+      "source": 3824.812,
+      "softwareMinusSource": -0.0019999999999527063
+    },
+    "dif": {
+      "software": -15.372,
+      "source": -15.381508588829547,
+      "softwareMinusSource": 0.009508588829547193
+    },
+    "dea": {
+      "software": -8.003,
+      "source": -8.018359410725582,
+      "softwareMinusSource": 0.015359410725581668
+    },
+    "hist": {
+      "software": -14.737,
+      "source": -14.72629835620793,
+      "softwareMinusSource": -0.010701643792069504
+    }
+  },
+  "modelEvents": [
+    {
+      "id": "626fd109a4f9811c45a769b2",
+      "time": "2025-12-11T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-12-05T11:00:00+08:00",
+        "endTime": "2025-12-05T11:00:00+08:00",
+        "price": 3873.8203,
+        "dif": -7.239400383468819
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "a9510e13f95d7016180bf483",
+      "time": "2025-12-12T14:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-12-05T11:00:00+08:00",
+        "endTime": "2025-12-05T11:00:00+08:00",
+        "price": 3873.8203,
+        "dif": -7.239400383468819
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c921e0375c87864b8ed5a48b",
+      "relatedRearmId": null
+    },
+    {
+      "id": "a58588999592d2b3e1b8a6dc",
+      "time": "2025-12-15T14:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE_DISAPPEARED",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2025-12-05T11:00:00+08:00",
+        "endTime": "2025-12-05T11:00:00+08:00",
+        "price": 3873.8203,
+        "dif": -7.239400383468819
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c921e0375c87864b8ed5a48b",
+      "relatedRearmId": "0f44c4a4a112ea33c26d6cbb"
+    },
+    {
+      "id": "fdf7f4d61928459fa88405b7",
+      "time": "2025-12-15T15:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-12-05T11:00:00+08:00",
+        "endTime": "2025-12-05T11:00:00+08:00",
+        "price": 3873.8203,
+        "dif": -7.239400383468819
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "0f44c4a4a112ea33c26d6cbb"
+    },
+    {
+      "id": "3591d1e4af4e47e23568aab3",
+      "time": "2025-12-16T11:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-12-05T11:00:00+08:00",
+        "endTime": "2025-12-05T11:00:00+08:00",
+        "price": 3873.8203,
+        "dif": -7.239400383468819
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "41af6878508d722174b961df",
+      "time": "2025-12-16T14:00:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-11-14T15:00:00+08:00",
+        "endTime": "2025-11-25T15:00:00+08:00",
+        "price": 3823.296,
+        "dif": -39.36387132679238
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    }
+  ],
+  "rows": [
+    {
+      "bar": {
+        "time": "2025-12-10T11:00:00+08:00",
+        "close": 3883.4033,
+        "dif": 2.783920111523912,
+        "dea": 1.8430582205811714,
+        "hist": 1.8817237818854813,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-10T11:00:00+08:00",
+        "close": 3883.4033,
+        "dif": 2.783920111523912,
+        "dea": 1.8430582205811714,
+        "hist": 1.8817237818854813,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": 1,
+        "start": "2025-12-05T14:00:00+08:00",
+        "end": "2025-12-10T11:00:00+08:00",
+        "count": 9,
+        "price": 3929.8535,
+        "dif": 5.347640647957633,
+        "price_at": "2025-12-08T14:00:00+08:00",
+        "dif_at": "2025-12-09T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-10T14:00:00+08:00",
+        "close": 3889.5117,
+        "dif": 1.5212661820819449,
+        "dea": 1.7786998128813265,
+        "hist": -0.5148672615987633,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-10T14:00:00+08:00",
+        "close": 3889.5117,
+        "dif": 1.5212661820819449,
+        "dea": 1.7786998128813265,
+        "hist": -0.5148672615987633,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-10T14:00:00+08:00",
+        "count": 1,
+        "price": 3889.5117,
+        "dif": 1.5212661820819449,
+        "price_at": "2025-12-10T14:00:00+08:00",
+        "dif_at": "2025-12-10T14:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-10T15:00:00+08:00",
+        "close": 3900.496,
+        "dif": 1.3909114945445253,
+        "dea": 1.7011421492139662,
+        "hist": -0.6204613093388818,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-10T15:00:00+08:00",
+        "close": 3900.496,
+        "dif": 1.3909114945445253,
+        "dea": 1.7011421492139662,
+        "hist": -0.6204613093388818,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-10T15:00:00+08:00",
+        "count": 2,
+        "price": 3889.5117,
+        "dif": 1.3909114945445253,
+        "price_at": "2025-12-10T14:00:00+08:00",
+        "dif_at": "2025-12-10T15:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-11T11:00:00+08:00",
+        "close": 3887.9258,
+        "dif": 0.2701799132037195,
+        "dea": 1.414949702011917,
+        "hist": -2.289539577616395,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-11T11:00:00+08:00",
+        "close": 3887.9258,
+        "dif": 0.2701799132037195,
+        "dea": 1.414949702011917,
+        "hist": -2.289539577616395,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-11T11:00:00+08:00",
+        "count": 3,
+        "price": 3887.9258,
+        "dif": 0.2701799132037195,
+        "price_at": "2025-12-11T11:00:00+08:00",
+        "dif_at": "2025-12-11T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-11T14:00:00+08:00",
+        "close": 3873.8726,
+        "dif": -1.732018105376028,
+        "dea": 0.7855561405343281,
+        "hist": -5.035148491820712,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-11T14:00:00+08:00",
+        "close": 3873.8726,
+        "dif": -1.732018105376028,
+        "dea": 0.7855561405343281,
+        "hist": -5.035148491820712,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-11T14:00:00+08:00",
+        "count": 4,
+        "price": 3873.8726,
+        "dif": -1.732018105376028,
+        "price_at": "2025-12-11T14:00:00+08:00",
+        "dif_at": "2025-12-11T14:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-11T15:00:00+08:00",
+        "close": 3873.3176,
+        "dif": -3.3252271728633787,
+        "dea": -0.036600522145213296,
+        "hist": -6.577253301436331,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-11T15:00:00+08:00",
+        "close": 3873.3176,
+        "dif": -3.3252271728633787,
+        "dea": -0.036600522145213296,
+        "hist": -6.577253301436331,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [
+        {
+          "id": "626fd109a4f9811c45a769b2",
+          "time": "2025-12-11T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-11T15:00:00+08:00",
+        "count": 5,
+        "price": 3873.3176,
+        "dif": -3.3252271728633787,
+        "price_at": "2025-12-11T15:00:00+08:00",
+        "dif_at": "2025-12-11T15:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-12T11:00:00+08:00",
+        "close": 3870.6157,
+        "dif": -4.751109750833621,
+        "dea": -0.9795023678828948,
+        "hist": -7.5432147659014515,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-12T11:00:00+08:00",
+        "close": 3870.6157,
+        "dif": -4.751109750833621,
+        "dea": -0.9795023678828948,
+        "hist": -7.5432147659014515,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-12T11:00:00+08:00",
+        "count": 6,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-12T14:00:00+08:00",
+        "close": 3888.4895,
+        "dif": -4.388280320458762,
+        "dea": -1.6612579583980684,
+        "hist": -5.4540447241213865,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-12T14:00:00+08:00",
+        "close": 3888.4895,
+        "dif": -4.388280320458762,
+        "dea": -1.6612579583980684,
+        "hist": -5.4540447241213865,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": "c921e0375c87864b8ed5a48b",
+        "pendingRearmId": null
+      },
+      "events": [
+        {
+          "id": "a9510e13f95d7016180bf483",
+          "time": "2025-12-12T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "c921e0375c87864b8ed5a48b",
+          "relatedRearmId": null
+        }
+      ],
+      "bottomHistories": [
+        {
+          "id": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "confirmedAt": "2025-12-12T14:00:00+08:00",
+          "confirmationRoute": "dif_turn",
+          "originSegmentStart": "2025-12-10T14:00:00+08:00",
+          "leftOriginAt": null,
+          "priceLow": 3870.6157,
+          "priceLowAt": "2025-12-12T11:00:00+08:00",
+          "originalReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2025-12-12T14:00:00+08:00",
+          "ageBars": 0
+        }
+      ],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-12T14:00:00+08:00",
+        "count": 7,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-12T15:00:00+08:00",
+        "close": 3889.3457,
+        "dif": -3.9857025009873723,
+        "dea": -2.1261468669159296,
+        "hist": -3.7191112681428855,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-12T15:00:00+08:00",
+        "close": 3889.3457,
+        "dif": -3.9857025009873723,
+        "dea": -2.1261468669159296,
+        "hist": -3.7191112681428855,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": "c921e0375c87864b8ed5a48b",
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [
+        {
+          "id": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "confirmedAt": "2025-12-12T14:00:00+08:00",
+          "confirmationRoute": "dif_turn",
+          "originSegmentStart": "2025-12-10T14:00:00+08:00",
+          "leftOriginAt": null,
+          "priceLow": 3870.6157,
+          "priceLowAt": "2025-12-12T11:00:00+08:00",
+          "originalReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2025-12-12T15:00:00+08:00",
+          "ageBars": 1
+        }
+      ],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-12T15:00:00+08:00",
+        "count": 8,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-15T11:00:00+08:00",
+        "close": 3891.5232,
+        "dif": -3.4511677136401886,
+        "dea": -2.3911510362607813,
+        "hist": -2.1200333547588146,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-15T11:00:00+08:00",
+        "close": 3891.5232,
+        "dif": -3.4511677136401886,
+        "dea": -2.3911510362607813,
+        "hist": -2.1200333547588146,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": "c921e0375c87864b8ed5a48b",
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [
+        {
+          "id": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "confirmedAt": "2025-12-12T14:00:00+08:00",
+          "confirmationRoute": "dif_turn",
+          "originSegmentStart": "2025-12-10T14:00:00+08:00",
+          "leftOriginAt": null,
+          "priceLow": 3870.6157,
+          "priceLowAt": "2025-12-12T11:00:00+08:00",
+          "originalReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "status": "PENDING",
+          "endedAt": null,
+          "endReason": null,
+          "observedThrough": "2025-12-15T11:00:00+08:00",
+          "ageBars": 2
+        }
+      ],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-15T11:00:00+08:00",
+        "count": 9,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-15T14:00:00+08:00",
+        "close": 3881.0535,
+        "dif": -3.82823284932374,
+        "dea": -2.6785673988733736,
+        "hist": -2.299330900900733,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-15T14:00:00+08:00",
+        "close": 3881.0535,
+        "dif": -3.82823284932374,
+        "dea": -2.6785673988733736,
+        "hist": -2.299330900900733,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": "0f44c4a4a112ea33c26d6cbb"
+      },
+      "events": [
+        {
+          "id": "a58588999592d2b3e1b8a6dc",
+          "time": "2025-12-15T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE_DISAPPEARED",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "c921e0375c87864b8ed5a48b",
+          "relatedRearmId": "0f44c4a4a112ea33c26d6cbb"
+        }
+      ],
+      "bottomHistories": [
+        {
+          "id": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "confirmedAt": "2025-12-12T14:00:00+08:00",
+          "confirmationRoute": "dif_turn",
+          "originSegmentStart": "2025-12-10T14:00:00+08:00",
+          "leftOriginAt": null,
+          "priceLow": 3870.6157,
+          "priceLowAt": "2025-12-12T11:00:00+08:00",
+          "originalReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "status": "ENDED",
+          "endedAt": "2025-12-15T14:00:00+08:00",
+          "endReason": "structure_disappeared",
+          "observedThrough": "2025-12-15T14:00:00+08:00",
+          "ageBars": 3
+        }
+      ],
+      "rearmRecords": [
+        {
+          "id": "0f44c4a4a112ea33c26d6cbb",
+          "direction": "BOTTOM",
+          "bottomHistoryId": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "structureConfirmedAt": "2025-12-12T14:00:00+08:00",
+          "structureRoute": "dif_turn",
+          "segmentStart": "2025-12-10T14:00:00+08:00",
+          "nearestPriceGate": 3873.8203,
+          "referenceWave": {
+            "sign": -1,
+            "start": "2025-12-05T11:00:00+08:00",
+            "end": "2025-12-05T11:00:00+08:00",
+            "count": 1,
+            "price": 3873.8203,
+            "dif": -7.239400383468819,
+            "price_at": "2025-12-05T11:00:00+08:00",
+            "dif_at": "2025-12-05T11:00:00+08:00"
+          },
+          "disappearedAt": "2025-12-15T14:00:00+08:00",
+          "observedThrough": "2025-12-15T14:00:00+08:00",
+          "status": "WAITING",
+          "endedAt": null,
+          "endReason": null
+        }
+      ],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-15T14:00:00+08:00",
+        "count": 10,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-15T15:00:00+08:00",
+        "close": 3867.921,
+        "dif": -5.1276345043547735,
+        "dea": -3.168380819969654,
+        "hist": -3.918507368770239,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-15T15:00:00+08:00",
+        "close": 3867.921,
+        "dif": -5.1276345043547735,
+        "dea": -3.168380819969654,
+        "hist": -3.918507368770239,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [
+        {
+          "id": "fdf7f4d61928459fa88405b7",
+          "time": "2025-12-15T15:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "reactivation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": "0f44c4a4a112ea33c26d6cbb"
+        }
+      ],
+      "bottomHistories": [],
+      "rearmRecords": [
+        {
+          "id": "0f44c4a4a112ea33c26d6cbb",
+          "direction": "BOTTOM",
+          "bottomHistoryId": "c921e0375c87864b8ed5a48b",
+          "structureEventId": "a9510e13f95d7016180bf483",
+          "structureConfirmedAt": "2025-12-12T14:00:00+08:00",
+          "structureRoute": "dif_turn",
+          "segmentStart": "2025-12-10T14:00:00+08:00",
+          "nearestPriceGate": 3873.8203,
+          "referenceWave": {
+            "sign": -1,
+            "start": "2025-12-05T11:00:00+08:00",
+            "end": "2025-12-05T11:00:00+08:00",
+            "count": 1,
+            "price": 3873.8203,
+            "dif": -7.239400383468819,
+            "price_at": "2025-12-05T11:00:00+08:00",
+            "dif_at": "2025-12-05T11:00:00+08:00"
+          },
+          "disappearedAt": "2025-12-15T14:00:00+08:00",
+          "observedThrough": "2025-12-15T15:00:00+08:00",
+          "status": "REACTIVATED",
+          "endedAt": "2025-12-15T15:00:00+08:00",
+          "endReason": "price_requalified"
+        }
+      ],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-15T15:00:00+08:00",
+        "count": 11,
+        "price": 3867.921,
+        "dif": -5.1276345043547735,
+        "price_at": "2025-12-15T15:00:00+08:00",
+        "dif_at": "2025-12-15T15:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-16T11:00:00+08:00",
+        "close": 3821.73,
+        "dif": -9.772001789585374,
+        "dea": -4.489105013892798,
+        "hist": -10.565793551385152,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-16T11:00:00+08:00",
+        "close": 3821.73,
+        "dif": -9.772001789585374,
+        "dea": -4.489105013892798,
+        "hist": -10.565793551385152,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [
+        {
+          "id": "3591d1e4af4e47e23568aab3",
+          "time": "2025-12-16T11:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-12-05T11:00:00+08:00",
+            "endTime": "2025-12-05T11:00:00+08:00",
+            "price": 3873.8203,
+            "dif": -7.239400383468819
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-16T11:00:00+08:00",
+        "count": 12,
+        "price": 3821.73,
+        "dif": -9.772001789585374,
+        "price_at": "2025-12-16T11:00:00+08:00",
+        "dif_at": "2025-12-16T11:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-16T14:00:00+08:00",
+        "close": 3826.3425,
+        "dif": -12.931440525426751,
+        "dea": -6.17757211619959,
+        "hist": -13.507736818454323,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-16T14:00:00+08:00",
+        "close": 3826.3425,
+        "dif": -12.931440525426751,
+        "dea": -6.17757211619959,
+        "hist": -13.507736818454323,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [
+        {
+          "id": "41af6878508d722174b961df",
+          "time": "2025-12-16T14:00:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-11-14T15:00:00+08:00",
+            "endTime": "2025-11-25T15:00:00+08:00",
+            "price": 3823.296,
+            "dif": -39.36387132679238
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-16T14:00:00+08:00",
+        "count": 13,
+        "price": 3821.73,
+        "dif": -12.931440525426751,
+        "price_at": "2025-12-16T11:00:00+08:00",
+        "dif_at": "2025-12-16T14:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    },
+    {
+      "bar": {
+        "time": "2025-12-16T15:00:00+08:00",
+        "close": 3824.812,
+        "dif": -15.381508588829547,
+        "dea": -8.018359410725582,
+        "hist": -14.72629835620793,
+        "completed": true
+      },
+      "point": {
+        "time": "2025-12-16T15:00:00+08:00",
+        "close": 3824.812,
+        "dif": -15.381508588829547,
+        "dea": -8.018359410725582,
+        "hist": -14.72629835620793,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        "pendingTopHistoryId": "e7b3d553184bb1bca3614990",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "events": [],
+      "bottomHistories": [],
+      "rearmRecords": [],
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-16T15:00:00+08:00",
+        "count": 14,
+        "price": 3821.73,
+        "dif": -15.381508588829547,
+        "price_at": "2025-12-16T11:00:00+08:00",
+        "dif_at": "2025-12-16T15:00:00+08:00"
+      },
+      "pool": [
+        {
+          "startTime": "2025-11-14T15:00:00+08:00",
+          "endTime": "2025-11-25T15:00:00+08:00",
+          "price": 3823.296,
+          "dif": -39.36387132679238
+        },
+        {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        }
+      ]
+    }
+  ],
+  "protectedSha256": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "00cb3967372ae50e47c83cd44f790203e076f161ef59dddc15ae37b519ba9333",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "4cb151521088cfb2f092824d692960ef176c8c7f7441f05e7d3c7dfac14a615a",
+    "src/biz/services/wealth/market/index_detail_xxm/__init__.py": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "7e498dbe454cff3104d0842fc16172194bde1a28124eccd1fe497087e3784885",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac",
+    "src/biz/services/wealth/market/index_detail_xxm/runtime.py": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "213ad7ef4e294ac32abfb617263a320e88ee7c6221caac2077ee4690f8534943",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "acd5256106b96d26754ef3110d3c620d588d0991f5a0a0104fee3341403764d9",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "ddf316386a313fcf980c3cba2bf17be715bab606b0804a0df664753d91b2c02f",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py": "f97fb04f3aa427a14dbd9345a91f6472597de1ba4e5a27d270f685cc94654f61",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "4610fa6c1348e05d1d39df11d9cfcf3805521f2f878d20418c599fc74ab52b35",
+    "scripts/research/index_market/xxm/cancellation_restart_audit.py": "699066d7bcaf9a958473bddc51342a47a44c6d0bbeeef5f8ea93966e3adc3207",
+    "reports/xxm_source_audit_20261013_213852/manifest.json": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+    "reports/xxm_source_audit_20261013_213852/daily_source.csv": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+    "reports/xxm_source_audit_20261013_213852/minute_60_source.csv": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+    "reports/xxm_source_audit_20261013_213852/minute_90_source.csv": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+    "reports/xxm_source_audit_20261013_213852/minute_120_source.csv": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_day.json": "10378878d419c8f52f61b943b32d981664cc11271b00ecb2c878048e0d62c251",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m60.json": "b0d0c1813972623d1ce92ffe690d58fc669a400a9026f81aee54f14cac92e2ee",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m90.json": "61a234cce982e337dfb1a1a36d9d2f3e16c153b5c3931e9f39da79afd91aed66",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m120.json": "8b9f00bfccc730c4bd91e2b549e9fe85a0dd5f77b6b3ab92a81d1f5cfd679826",
+    "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_day.png": "873465280f34b0756a2bd54f22cb89849540b218c3d0d5cb7c6a591f9b750bbc",
+    "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_user_transcript.txt": "c0a6c1d34ebd6166ddcacbf96f20eb8a7190eee6c958eb53de4cb6dd98b9f5b8",
+    "reports/xxm_software_indicator_crosscheck_20261015/case_20260803_events_20261015.json": "74c6d56529e7c02fe0ae4f3f58a17eb006f991317787c9e90c46e13b86005ad0",
+    "scripts/research/index_market/xxm/cancellation_restart_detail.py": "6d4d8e0631ff41386343debd434f13f4dc3abb14fab5b9a82d0bddf53693e410",
+    "reports/xxm_cancellation_restart_20261016_01/run_03/summary.json": "04e13b492d013b8b454c2fe5e1657fe3100a82ad85c49243da2970ab9577c463",
+    "reports/xxm_cancellation_restart_20261016_01/run_03/episodes_day.json": "2160d81171eba05316901d92bc8f34a1f2650e181c44138df4eb699eb6766edf",
+    "reports/xxm_cancellation_restart_20261016_01/run_03/episodes_m60.json": "74be95ea084162bd8e4d3180c9f690bf94ea2f10e61bd20894b0f1f86b91698b",
+    "reports/xxm_cancellation_restart_20261016_01/run_03/episodes_m90.json": "950c0e02ccf0734cc6d8324f833bff730fa479f28177b3602c8cbed8e165f569",
+    "reports/xxm_cancellation_restart_20261016_01/run_03/episodes_m120.json": "63194eb451e16dcbf7511e7f15654bfb3b09dfe24df7870ad85d507965597b0d"
+  },
+  "productModified": false,
+  "softwareRulesProven": false,
+  "formalBudgetRetested": false
+}

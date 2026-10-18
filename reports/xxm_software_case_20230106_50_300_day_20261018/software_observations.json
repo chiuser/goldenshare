@@ -1,0 +1,50 @@
+[
+  {
+    "sourceCode": "000016.SH",
+    "screenCode": "000016",
+    "date": "2023-01-06",
+    "period": "day",
+    "parameters": [
+      12,
+      26,
+      9
+    ],
+    "image": "20230106_50_day_original.png",
+    "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-80ef3b0d-34d3-4971-a0bb-46e95e2349ee.png",
+    "sha256": "dc33b7e444ad4dd6e9fa96a428e5248392b2de09c72d1844bf95ce5f37ffc868",
+    "targetDullTextVisible": true,
+    "internalOrdinaryState": null,
+    "softwareReference": null,
+    "softwareActivationDate": null,
+    "readouts": {
+      "close": "2713.63",
+      "dif": "20.382",
+      "dea": "17.001",
+      "hist": "6.762"
+    }
+  },
+  {
+    "sourceCode": "399300.SZ",
+    "screenCode": "399300",
+    "date": "2023-01-06",
+    "period": "day",
+    "parameters": [
+      12,
+      26,
+      9
+    ],
+    "image": "20230106_300_day_original.png",
+    "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-681b0470-3c8b-40c1-94e4-f9d4dbccb9d7.png",
+    "sha256": "ade32a1e10ea0c1091502573ad776288b0a61d4b31469df2ef396d749d4a0bd2",
+    "targetDullTextVisible": false,
+    "internalOrdinaryState": null,
+    "softwareReference": null,
+    "softwareActivationDate": null,
+    "readouts": {
+      "close": "3980.89",
+      "dif": "19.058",
+      "dea": "12.546",
+      "hist": "13.024"
+    }
+  }
+]

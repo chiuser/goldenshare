@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "localLinks": 455,
+  "rawSourceHashMatches": 2,
+  "productHashMatches": 4,
+  "researchCodeHashMatches": 2,
+  "oldEvidenceHashMatches": 4,
+  "planCoreTableLast": true,
+  "displayAssertions": 4,
+  "candidateAssertions": 5,
+  "formalApiOrPageAcceptance": false
+}

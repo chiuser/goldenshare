@@ -1,0 +1,8 @@
+{
+  "stage": "independent arithmetic before freeze",
+  "failedAssumption": "At P=100, C=100 was initially written as DULL.",
+  "independentCorrection": "D1=22/13, D2=242/169. D1-D2=44/169 exceeds all three 0.75/1.0/1.2 percent thresholds; H2>0. C=100 is STRUCTURE/dif_turn. C=110 is a separate DULL example.",
+  "productUsedToGenerateExpected": false,
+  "existingEvidenceOrTestsChanged": false,
+  "failure": "AssertionError in top_activation_math.expectations before any sealed expected unit was created"
+}

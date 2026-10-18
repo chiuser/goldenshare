@@ -1,0 +1,48 @@
+{
+  "approvedScope": "Supplied two daily screenshots, 2023-01-06",
+  "sourceCodes": [
+    "000016.SH",
+    "399300.SZ"
+  ],
+  "start": "2020-01-01",
+  "end": "2023-01-06",
+  "maxRowsPerCode": 800,
+  "batchRows": 500,
+  "projection": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "readonlySession": "existing helper",
+  "calendar": "existing sealed SSE calendar prefix",
+  "reused": [
+    "daily_window_precheck.validate_window",
+    "cross_index_daily.calculate",
+    "cross_index_daily.seal/read_unit"
+  ],
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "codegraph": [
+    "query ReferenceGateCalculator",
+    "impact ReferenceGateCalculator"
+  ],
+  "sourcePrecheck": "source_precheck.json",
+  "expectedSourceRowsPerCode": 732,
+  "identityRule": "Use 399300.SZ exactly as screenshot, not substitute 000300.SH",
+  "phaseBudgetsSeconds": [
+    60,
+    60,
+    60,
+    60
+  ],
+  "querySeconds": 15,
+  "connectionSeconds": 5,
+  "isolatedTests": {
+    "passed": 41,
+    "deselected": 2,
+    "excludedScope": "web route/future prediction tests unrelated to this local image comparison"
+  }
+}

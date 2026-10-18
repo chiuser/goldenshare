@@ -1,0 +1,686 @@
+[
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 0.75,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.0,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "day",
+    "gate": 1.2,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 0.75,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.0,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m60",
+    "gate": 1.2,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 0.75,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.0,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m90",
+    "gate": 1.2,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 0.75,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "kind": "empty_entry",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 60,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "entry",
+    "price": 210,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 40,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 100,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "second",
+    "P": 100,
+    "C": 110,
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "already_active_negative_dif",
+    "passed": true
+  },
+  {
+    "period": "m120",
+    "gate": 1.2,
+    "kind": "empty_entry",
+    "passed": true
+  }
+]

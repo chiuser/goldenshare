@@ -1,0 +1,38 @@
+{
+  "sourceAttachment": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-5f2f8a4f-dd88-4096-83e9-11e7c0e07ff0.png",
+  "originalSha256": "f4e87a3e3c39b0822ab2caffd9160b60acd81494c448d93f83600d7cdd1522ee",
+  "originalBytes": 1964149,
+  "cropCoordinatesOriginalPixels": {
+    "labels_enlarged.png": [
+      1750,
+      790,
+      2095,
+      1055
+    ],
+    "labels_nearest.png": [
+      1860,
+      875,
+      2035,
+      1000
+    ],
+    "last_price_bars_enlarged.png": [
+      1740,
+      140,
+      2095,
+      330
+    ],
+    "numbers_enlarged.png": [
+      0,
+      758,
+      850,
+      810
+    ]
+  },
+  "softwareDatesConfirmed": false,
+  "newSoftwareLabelPresenceObservations": 2,
+  "newConfirmedSoftwareEventDates": 0,
+  "newKernelCode": false,
+  "newQueries": false,
+  "newReplays": false,
+  "note": "图证字面、模型预测与位置推测分别保存，未覆盖旧冻结结果。"
+}

@@ -1,0 +1,88 @@
+{
+  "status": "PASS_TWO_DISCRIMINATING_DAILY_CASES_AWAIT_SOFTWARE",
+  "sourceCodes": [
+    "399006.SZ",
+    "399001.SZ"
+  ],
+  "candidateWindow": [
+    "2024-09-01",
+    "2026-09-30"
+  ],
+  "sourceRowsPerIndex": 1636,
+  "tailRowsPerIndex": 505,
+  "targetRowsPerIndex": 504,
+  "overlapExact": true,
+  "allOpenDatesPresent": true,
+  "priorWindowIdentical": true,
+  "independentCurrentVsReferenceCandidates": 2,
+  "independentBaseVsBothCandidates": 0,
+  "observationDates": [
+    [
+      "399006.SZ",
+      "2026-03-12"
+    ],
+    [
+      "399006.SZ",
+      "2026-03-13"
+    ],
+    [
+      "399001.SZ",
+      "2026-04-13"
+    ],
+    [
+      "399001.SZ",
+      "2026-04-14"
+    ],
+    [
+      "399001.SZ",
+      "2026-04-15"
+    ],
+    [
+      "399001.SZ",
+      "2026-04-16"
+    ]
+  ],
+  "noUnavailable50DateRepeated": true,
+  "allDailyNoMinuteRequest": true,
+  "fallbackMinuteSearchActivated": false,
+  "fallbackFilesInventoryOnly": true,
+  "softwareVerifiedNewLabels": 0,
+  "importantLimits": [
+    "Deep index 2026-04-13 DIF -0.002 requires actual software sign",
+    "ChiNext 2026-03-12 uses segment peak from prior bar; current close below model ref",
+    "Actual software reference eligibility remains unconfirmed"
+  ],
+  "literalPriceDifAndFollowups": "PASS",
+  "prefixRestores": 12,
+  "crossSourceRestoreRejected": true,
+  "sourceAndResultHashes": "PASS",
+  "protectedFileCount": 101,
+  "protectedUnchanged": true,
+  "isolatedTests": {
+    "passed": 41,
+    "deselected": 2,
+    "excluded": "unrelated Web/future prediction; not software proof"
+  },
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "formalWrites": false,
+  "execution": {
+    "status": "COMPLETE",
+    "readonly": true,
+    "formalWrites": false,
+    "productCodeChanged": false,
+    "captureSeconds": 3.445194374769926,
+    "comparisonSeconds": 0.31533116614446044,
+    "sourceRowsPerCode": 1636,
+    "tailRowsPerCode": 505,
+    "targetRowsPerCode": 504,
+    "candidates": 2,
+    "priorWindowIdentical": true,
+    "seconds": 3.7605295409448445,
+    "protectedUnchanged": true
+  },
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingRelativeLinks": [],
+  "engineChangeTableRemainsLast": true
+}

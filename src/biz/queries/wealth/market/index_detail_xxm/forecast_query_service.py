@@ -133,6 +133,8 @@ class IndexDetailXxmForecastQueryService:
                 try:
                     projection = recover_projection(bars, period, check)
                     result = forecast(calculator, projection, endpoints, check)
+                    if result['nextBarOutcomes'] is not None and result['nextBarOutcomes']['endpoint'] != endpoints[0]:
+                        raise XxmQueryError('XXM_SOURCE_CONTRACT_INVALID', '下一根预测端点与交易日历不一致。')
                 except ProjectionPrecisionError as exc:
                     result = inactive_result("PRECISION_PENDING", exc.reason)
                 check()
@@ -148,7 +150,7 @@ class IndexDetailXxmForecastQueryService:
             result["invalidationText"] = (
                 "原结构已消失，需先重新形成钝化，再判断结构；参照DIF突破、柱色改变或零柱时，等待条件结束。"
                 if rearm_context else
-                "原钝化消失、零柱或前序走势变化时重新计算；未达结构条件不等于钝化已消失。"
+                "钝化真正消失、零柱、参照或前序走势变化时重新计算；未达结构条件不等于钝化已消失。"
                 if result["status"] in ("READY", "CONDITIONAL_ENTRY", "ENTRY_ONLY") else "新完成行情到达后重新判断。"
             )
             payload = dict(tsCode="000001.SH", period=period, forecastVersion=FORECAST_SPEC.forecast_version,

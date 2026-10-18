@@ -1,0 +1,234 @@
+{
+  "independentCandidates": 1,
+  "currentVsReferenceCandidates": 0,
+  "baseVsBothCandidates": 1,
+  "requestedObservationDates": [
+    {
+      "date": "2024-09-25",
+      "ts_code": "000016.SH",
+      "period": "day",
+      "priority": "最优先",
+      "independentFirstActivation": true,
+      "caseDate": "2024-09-25",
+      "modelPrediction": "当前算法首次顶钝化；两个DIF限制均不激活",
+      "lookFor": "末端是否有黄色钝化；核DIF是否约-9.096。",
+      "limitation": "这是一处独立首次候选。若软件无字，可增加另一指数多报证据；仍不能在两DIF条件中二选一。",
+      "bar": {
+        "time": "2024-09-25",
+        "close": 2386.3227,
+        "dif": -9.096,
+        "dea": -25.001,
+        "hist": 31.811,
+        "completed": true
+      },
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2024-08-16",
+              "endTime": "2024-08-30",
+              "price": 2357.0309,
+              "dif": -7.869
+            }
+          },
+          "events": [
+            {
+              "time": "2024-09-25",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-08-16",
+                "endTime": "2024-08-30",
+                "price": 2357.0309,
+                "dif": -7.869
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2024-09-26",
+      "ts_code": "000016.SH",
+      "period": "day",
+      "priority": "第二",
+      "independentFirstActivation": false,
+      "caseDate": "2024-09-25",
+      "modelPrediction": "当前算法取消9/25钝化；两个限制均无新事件",
+      "lookFor": "末端是否有绿色消失；同时看前一日黄色钝化是否存在。",
+      "limitation": "与9/25同一链的后续，不能当另一个独立首次案例，也不能只凭一个绿色推断它必关联9/25。",
+      "bar": {
+        "time": "2024-09-26",
+        "close": 2498.1797,
+        "dif": 8.962,
+        "dea": -18.209,
+        "hist": 54.342,
+        "completed": true
+      },
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2024-09-26",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2024-08-16",
+                "endTime": "2024-08-30",
+                "price": 2357.0309,
+                "dif": -7.869
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2024-09-27",
+      "ts_code": "000016.SH",
+      "period": "day",
+      "priority": "辅助",
+      "independentFirstActivation": false,
+      "caseDate": "2024-09-25",
+      "modelPrediction": "当前算法无事件；两个限制的旧结构历史跟踪有消失输出",
+      "lookFor": "末端是否另有绿色消失，及其前方结构标记；DIF约28.824。",
+      "limitation": "是5/23旧顶部结构的模型历史跟踪对照；与9/26钝化取消分开。该历史显示机制仍须图核。",
+      "bar": {
+        "time": "2024-09-27",
+        "close": 2571.0848,
+        "dif": 28.824,
+        "dea": -8.802,
+        "hist": 75.252,
+        "completed": true
+      },
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2024-09-27",
+              "direction": "TOP",
+              "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+              "route": "historical_price_break",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-01-19",
+                "endTime": "2024-03-12",
+                "price": 2450.4693,
+                "dif": 39.248
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2024-09-27",
+              "direction": "TOP",
+              "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+              "route": "historical_price_break",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2024-01-19",
+                "endTime": "2024-03-12",
+                "price": 2450.4693,
+                "dif": 39.248
+              }
+            }
+          ]
+        }
+      },
+      "softwareVerified": false
+    }
+  ],
+  "referenceForFirstCandidate": {
+    "sign": 1,
+    "start": "2024-08-16",
+    "end": "2024-08-30",
+    "count": 11,
+    "price": 2357.0309,
+    "dif": -7.869,
+    "price_at": "2024-08-19",
+    "dif_at": "2024-08-27"
+  },
+  "olderPositiveDifButPriceIneligible": {
+    "sign": 1,
+    "start": "2024-07-11",
+    "end": "2024-07-24",
+    "count": 10,
+    "price": 2456.79,
+    "dif": 2.18,
+    "price_at": "2024-07-19",
+    "dif_at": "2024-07-22"
+  },
+  "oldHistoryModelContext": {
+    "structureDate": "2024-05-23",
+    "peakClose": 2532.824,
+    "originalReferenceDif": 39.248,
+    "withdrawalDateUnderBothGates": "2024-09-27",
+    "originalSoftwareHistoryIdentityConfirmed": false
+  },
+  "noOtherIndependentCandidates": true
+}

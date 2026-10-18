@@ -1,0 +1,14 @@
+{
+  "tool": "3543c9022381f8421830aed30582b09fd89f5ed84fbbcb2f8d395dc64b3349c1",
+  "contract": "LLD29.4 independent Fraction inequalities",
+  "preparationManifestSha256": "83e86164dc95b44b492311d8ba38ef255bcc20d70ca40338a58a79f6d7a6688f",
+  "inventorySha256": "0d53b3d0ea0f3ad3408c417ccaab63b0da5c0e1ba459defc2fc0436967aafe97",
+  "calendars": {
+    "reports/xxm_source_audit_20261013_213852/sse_minute_calendar.json": "123b36651b41d0c7defee4ebd6fe3939d277f4c447197d77f829f80bf863aa3c",
+    "reports/xxm_forecast_precheck_20261014/future_sse_calendar.json": "dc5b592ef4aa0868cd408a8d842463da98511ad23a0efa17ee6c2be660b95532"
+  },
+  "projectionProducerSha256": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+  "inputRows": 522,
+  "productChanged": false,
+  "forecastSolverUsed": false
+}

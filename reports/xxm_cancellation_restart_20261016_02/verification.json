@@ -1,0 +1,26 @@
+{
+  "status": "research_completed_exact_software_rules_unresolved",
+  "tests": {
+    "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_cancellation_restart_detail.py scripts/research/index_market/tests/test_xxm_cancellation_restart_audit.py scripts/research/index_market/tests/test_xxm_calculator.py",
+    "passed": 87,
+    "newDetailTests": 9,
+    "elapsedSeconds": 3.76
+  },
+  "checks": {
+    "docsIntegrity": "passed",
+    "scopedDiffWhitespace": "passed",
+    "newFilesWhitespace": "passed",
+    "reportLinks": "passed",
+    "protectedSha256Files": 32,
+    "fourPeriodBaselineEvents": "exactly_equal",
+    "entryHelp": "passed"
+  },
+  "newSoftwareEventObservations": 0,
+  "primaryAuthorArticlesRead": 3,
+  "pausedScreenshotRequestResumed": false,
+  "productCodeChanged": false,
+  "contractsChanged": false,
+  "formalBudgetRetested": false,
+  "committed": false,
+  "deployed": false
+}

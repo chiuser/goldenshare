@@ -1,0 +1,17 @@
+{
+  "status": "COMPLETE",
+  "readonly": true,
+  "formalWrites": false,
+  "productCodeChanged": false,
+  "captureSeconds": 0.7944605420343578,
+  "comparisonSeconds": 0.3417233326472342,
+  "reusedPrefixRowsPerCode": 1132,
+  "readTailRowsPerCode": 505,
+  "combinedRowsPerCode": 1636,
+  "calendarOpenDays": 1636,
+  "targetRowsPerCode": 504,
+  "candidates": 1,
+  "priorWindowIdentical": true,
+  "seconds": 1.1361868749372661,
+  "protectedUnchanged": true
+}

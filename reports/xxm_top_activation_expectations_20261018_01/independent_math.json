@@ -1,0 +1,600 @@
+{
+  "status": "FROZEN_INDEPENDENT_MATH",
+  "softwareFormulaProven": false,
+  "source": "LLD 26.5 and 27.8 literal prefix; EMA(12,26,9), source .001 and guard 1e-10",
+  "prefix": [
+    [
+      100,
+      10,
+      2
+    ],
+    [
+      99,
+      0,
+      -2
+    ],
+    [
+      105,
+      2,
+      8
+    ]
+  ],
+  "projection": {
+    "e12": 102,
+    "e26": 100,
+    "dea": -2
+  },
+  "firstDif": {
+    "p": [
+      28,
+      351
+    ],
+    "b": [
+      -2206,
+      351
+    ]
+  },
+  "firstHist": "8/5*(D+2)",
+  "minuteEntry": {
+    "lower": [
+      1103,
+      14
+    ],
+    "upper": [
+      1429,
+      7
+    ],
+    "lowerStrict": true,
+    "upperStrict": true
+  },
+  "dailyEntry": {
+    "idealLower": [
+      4412351,
+      56000
+    ],
+    "idealUpper": [
+      11431649,
+      56000
+    ],
+    "guardInPrice": [
+      351,
+      280000000000
+    ],
+    "tie": "mixed 0/.001 at lower; 9.999/10 at upper; float-root enclosure is separate"
+  },
+  "literalPrices": [
+    {
+      "price": 60,
+      "dif": [
+        -526,
+        351
+      ],
+      "hist": [
+        1408,
+        1755
+      ],
+      "activation": false
+    },
+    {
+      "price": 100,
+      "dif": [
+        22,
+        13
+      ],
+      "hist": [
+        384,
+        65
+      ],
+      "activation": true
+    },
+    {
+      "price": 210,
+      "dif": [
+        3674,
+        351
+      ],
+      "hist": [
+        35008,
+        1755
+      ],
+      "activation": false
+    }
+  ],
+  "dailyPrecision": [
+    {
+      "raw": [
+        -2500001,
+        5000000000
+      ],
+      "sourceDif": [
+        [
+          -1,
+          1000
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        -1,
+        2000
+      ],
+      "sourceDif": [
+        [
+          -1,
+          1000
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        -2499999,
+        5000000000
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        0,
+        1
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        1,
+        2500
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        2499999,
+        5000000000
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ]
+      ],
+      "expected": "NONPOSITIVE"
+    },
+    {
+      "raw": [
+        9999999,
+        20000000000
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1000
+        ]
+      ],
+      "expected": "MIXED"
+    },
+    {
+      "raw": [
+        1,
+        2000
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1000
+        ]
+      ],
+      "expected": "MIXED"
+    },
+    {
+      "raw": [
+        10000001,
+        20000000000
+      ],
+      "sourceDif": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1000
+        ]
+      ],
+      "expected": "MIXED"
+    },
+    {
+      "raw": [
+        2500001,
+        5000000000
+      ],
+      "sourceDif": [
+        [
+          1,
+          1000
+        ]
+      ],
+      "expected": "POSITIVE"
+    },
+    {
+      "raw": [
+        3,
+        5000
+      ],
+      "sourceDif": [
+        [
+          1,
+          1000
+        ]
+      ],
+      "expected": "POSITIVE"
+    }
+  ],
+  "secondDif": {
+    "p": [
+      7588,
+      123201
+    ],
+    "c": [
+      28,
+      351
+    ],
+    "b": [
+      -1565182,
+      123201
+    ]
+  },
+  "minuteRelations": [
+    {
+      "gate": [
+        3,
+        4
+      ],
+      "activationP": {
+        "lower": [
+          1103,
+          14
+        ],
+        "upper": [
+          1429,
+          7
+        ],
+        "strict": true
+      },
+      "targetBarsAhead": 2,
+      "earlierEndpoint": "ACTIVATION_ONLY",
+      "colorFlip": {
+        "lowerC": [
+          0,
+          1
+        ],
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "upperStrict": true
+      },
+      "difTurn": {
+        "lowerC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            30947,
+            140400
+          ],
+          "b": [
+            159336659,
+            1965600
+          ]
+        },
+        "upperStrict": false
+      },
+      "examples": [
+        {
+          "P": 100,
+          "C": 40,
+          "result": "STRUCTURE",
+          "route": "color_flip"
+        },
+        {
+          "P": 100,
+          "C": 100,
+          "result": "STRUCTURE",
+          "route": "dif_turn"
+        },
+        {
+          "P": 100,
+          "C": 110,
+          "result": "DULL"
+        }
+      ]
+    },
+    {
+      "gate": [
+        1,
+        1
+      ],
+      "activationP": {
+        "lower": [
+          1103,
+          14
+        ],
+        "upper": [
+          1429,
+          7
+        ],
+        "strict": true
+      },
+      "targetBarsAhead": 2,
+      "earlierEndpoint": "ACTIVATION_ONLY",
+      "colorFlip": {
+        "lowerC": [
+          0,
+          1
+        ],
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "upperStrict": true
+      },
+      "difTurn": {
+        "lowerC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            7649,
+            35100
+          ],
+          "b": [
+            39930953,
+            491400
+          ]
+        },
+        "upperStrict": false
+      },
+      "examples": [
+        {
+          "P": 100,
+          "C": 40,
+          "result": "STRUCTURE",
+          "route": "color_flip"
+        },
+        {
+          "P": 100,
+          "C": 100,
+          "result": "STRUCTURE",
+          "route": "dif_turn"
+        },
+        {
+          "P": 100,
+          "C": 110,
+          "result": "DULL"
+        }
+      ]
+    },
+    {
+      "gate": [
+        6,
+        5
+      ],
+      "activationP": {
+        "lower": [
+          1103,
+          14
+        ],
+        "upper": [
+          1429,
+          7
+        ],
+        "strict": true
+      },
+      "targetBarsAhead": 2,
+      "earlierEndpoint": "ACTIVATION_ONLY",
+      "colorFlip": {
+        "lowerC": [
+          0,
+          1
+        ],
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "upperStrict": true
+      },
+      "difTurn": {
+        "lowerC": {
+          "p": [
+            -1004,
+            1755
+          ],
+          "b": [
+            1516499,
+            12285
+          ]
+        },
+        "lowerStrict": true,
+        "upperC": {
+          "p": [
+            18947,
+            87750
+          ],
+          "b": [
+            100020959,
+            1228500
+          ]
+        },
+        "upperStrict": false
+      },
+      "examples": [
+        {
+          "P": 100,
+          "C": 40,
+          "result": "STRUCTURE",
+          "route": "color_flip"
+        },
+        {
+          "P": 100,
+          "C": 100,
+          "result": "STRUCTURE",
+          "route": "dif_turn"
+        },
+        {
+          "P": 100,
+          "C": 110,
+          "result": "DULL"
+        }
+      ]
+    }
+  ],
+  "noEntry": {
+    "prefix": [
+      [
+        100,
+        -1,
+        2
+      ],
+      [
+        99,
+        -5,
+        -2
+      ],
+      [
+        105,
+        -2,
+        8
+      ]
+    ],
+    "projection": {
+      "e12": 98,
+      "e26": 100,
+      "dea": -6
+    },
+    "reason": "CURRENT_DIF_NOT_POSITIVE or no divergence: D>0 and max(-2,D)<-1 have empty intersection",
+    "activationRanges": [],
+    "targetEndpoint": null,
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "horizon": 20
+  },
+  "existingDull": {
+    "prefix": [
+      [
+        100,
+        10,
+        2
+      ],
+      [
+        99,
+        0,
+        -2
+      ],
+      [
+        105,
+        2,
+        8
+      ],
+      [
+        106,
+        1,
+        6
+      ],
+      [
+        106.5,
+        -2.1,
+        3.8
+      ],
+      [
+        106.5,
+        -2,
+        4
+      ]
+    ],
+    "projection": {
+      "e12": 98,
+      "e26": 100,
+      "dea": -4
+    },
+    "close": 40,
+    "dif": [
+      -758,
+      117
+    ],
+    "expected": "TOP STRUCTURE color_flip"
+  },
+  "limits": [
+    "Exact rational minute domains, not product float-root attribution",
+    "Daily entry and rounding only; daily complete P-C nearest results still require independent preparation",
+    "No forecast solver or detector used to generate these expectations"
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 80.54033294320107,
+        "calibrationProtected": 18
+      },
+      "1.0": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 80.53683303296566,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 83.11900030821562,
+        "calibrationProtected": 18
+      }
+    },
+    "m60": {
+      "0.75": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 24.971249978989363,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 34.77500006556511,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 24.56049993634224,
+        "calibrationProtected": 0
+      }
+    },
+    "m90": {
+      "0.75": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 27.451833244413137,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 23.21629226207733,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 37.21666615456343,
+        "calibrationProtected": 0
+      }
+    },
+    "m120": {
+      "0.75": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 16.534207854419947,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 17.426750157028437,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 31.2225422821939,
+        "calibrationProtected": 0
+      }
+    }
+  },
+  "softwareUniqueFormulaProven": false,
+  "liveSource": false,
+  "totals": {
+    "retainedForecasts": 711,
+    "forecasts": 1215,
+    "prefixRestoreCuts": 45,
+    "independentForecasts": 504
+  },
+  "simulations": [
+    {
+      "period": "m120",
+      "through": "2026-07-10T15:00:00+08:00",
+      "hypothetical": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3959.16,
+        "dif": -22.388241716159882,
+        "dea": -18.00787431622082,
+        "hist": -8.760734799878122,
+        "completed": true
+      },
+      "state": "DULL",
+      "events": [
+        {
+          "id": "f2aec38a972975076f7cb03c",
+          "time": "2026-07-13T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "reactivation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": "1012ebc7e6a7cea7c17ad0e3"
+        }
+      ],
+      "softwareObservation": true
+    },
+    {
+      "period": "m120",
+      "through": "2026-07-10T15:00:00+08:00",
+      "hypothetical": {
+        "time": "2026-07-13T11:30:00+08:00",
+        "close": 3960.0,
+        "dif": -22.321233169151583,
+        "dea": -17.99447260681916,
+        "hist": -8.653521124664849,
+        "completed": true
+      },
+      "state": "NONE",
+      "events": [],
+      "softwareObservation": false
+    },
+    {
+      "period": "m120",
+      "through": "2026-07-13T15:00:00+08:00",
+      "hypothetical": {
+        "time": "2026-07-14T11:30:00+08:00",
+        "close": 3892.79,
+        "dif": -35.982826421911795,
+        "dea": -23.790075010033235,
+        "hist": -24.385502823757122,
+        "completed": true
+      },
+      "state": "NONE",
+      "events": [
+        {
+          "id": "369f3939ace908ab7f8f765d",
+          "time": "2026-07-14T11:30:00+08:00",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-14T15:00:00+08:00",
+            "endTime": "2026-06-11T15:00:00+08:00",
+            "price": 3959.338,
+            "dif": -35.908539098328674
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "softwareObservation": true
+    },
+    {
+      "period": "m90",
+      "through": "2026-07-13T15:00:00+08:00",
+      "hypothetical": {
+        "time": "2026-07-14T11:00:00+08:00",
+        "close": 3944.79,
+        "dif": -28.840474509516298,
+        "dea": -22.618445690444947,
+        "hist": -12.444057638142702,
+        "completed": true
+      },
+      "state": "DULL",
+      "events": [],
+      "softwareObservation": true
+    }
+  ]
+}

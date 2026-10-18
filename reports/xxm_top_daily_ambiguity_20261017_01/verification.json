@@ -1,0 +1,17 @@
+{
+  "unitTestsPassed": 12,
+  "plainProductStepsChecked": 40478,
+  "prefixRestores": 30,
+  "protectedFilesUnchanged": 195,
+  "researchCodeShaUnchanged": true,
+  "outputOverwriteRejected": true,
+  "productImportFound": false,
+  "localLinksChecked": 511,
+  "coreTableRemainsLast": true,
+  "whitespacePassed": true,
+  "docsIntegrityPassed": true,
+  "scopedDiffCheckPassed": true,
+  "newExternalSources": 0,
+  "formalWrites": false,
+  "productCodeChanged": false
+}

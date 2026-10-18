@@ -1,0 +1,10 @@
+{
+  "firstFailure": "Expected whole old a1 event dict equal to r1; business fields and projections equal, versioned IDs differ.",
+  "oldVersion": "xxm-direction-v0.1-a1",
+  "oldSpecHash": "f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712",
+  "currentVersion": "xxm-direction-v0.1-r1",
+  "currentSpecHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "expectedBusinessFieldsNotChanged": true,
+  "idVerification": "independent hashlib formula for each version plus current parent/child association",
+  "completedUnitsReused": 8
+}

@@ -1,0 +1,177 @@
+{
+  "softwareFirstActivationNotObserved": true,
+  "modelOnly": true,
+  "dailyRows": [
+    {
+      "trade_date": "2025-06-23",
+      "close": "3381.5816",
+      "macd_dif_bfq": "7.931",
+      "macd_dea_bfq": "11.531",
+      "macd_bfq": "-7.199"
+    },
+    {
+      "trade_date": "2025-06-24",
+      "close": "3420.566",
+      "macd_dif_bfq": "10.741",
+      "macd_dea_bfq": "11.373",
+      "macd_bfq": "-1.264"
+    },
+    {
+      "trade_date": "2025-06-25",
+      "close": "3455.9736",
+      "macd_dif_bfq": "15.644",
+      "macd_dea_bfq": "12.227",
+      "macd_bfq": "6.834"
+    },
+    {
+      "trade_date": "2025-06-26",
+      "close": "3448.4534",
+      "macd_dif_bfq": "18.708",
+      "macd_dea_bfq": "13.523",
+      "macd_bfq": "10.369"
+    }
+  ],
+  "m60Rows": [
+    {
+      "trade_time": "2025-06-23 10:30:00",
+      "close": "3359.1958",
+      "macd_dif": "-6.685074792687374",
+      "macd_dea": "-5.001830110887317",
+      "macd": "-3.366489363600113"
+    },
+    {
+      "trade_time": "2025-06-23 11:30:00",
+      "close": "3365.0679",
+      "macd_dif": "-6.3738853675527025",
+      "macd_dea": "-5.276241162220395",
+      "macd": "-2.195288410664615"
+    },
+    {
+      "trade_time": "2025-06-23 14:00:00",
+      "close": "3377.9104",
+      "macd_dif": "-5.032966184128782",
+      "macd_dea": "-5.227586166602073",
+      "macd": "0.389239964946583"
+    },
+    {
+      "trade_time": "2025-06-23 15:00:00",
+      "close": "3381.5815",
+      "macd_dif": "-3.6321814542766333",
+      "macd_dea": "-4.908505224136984",
+      "macd": "2.5526475397207022"
+    },
+    {
+      "trade_time": "2025-06-24 10:30:00",
+      "close": "3411.8958",
+      "macd_dif": "-0.07507340149459196",
+      "macd_dea": "-3.941818859608506",
+      "macd": "7.7334909162278285"
+    },
+    {
+      "trade_time": "2025-06-24 11:30:00",
+      "close": "3415.4475",
+      "macd_dif": "2.996016650133697",
+      "macd_dea": "-2.5542517576600656",
+      "macd": "11.100536815587525"
+    },
+    {
+      "trade_time": "2025-06-24 14:00:00",
+      "close": "3416.7886",
+      "macd_dif": "5.474981030750314",
+      "macd_dea": "-0.9484051999779899",
+      "macd": "12.846772461456608"
+    },
+    {
+      "trade_time": "2025-06-24 15:00:00",
+      "close": "3420.566",
+      "macd_dif": "7.6561276989750695",
+      "macd_dea": "0.7725013798126225",
+      "macd": "13.767252638324894"
+    },
+    {
+      "trade_time": "2025-06-25 10:30:00",
+      "close": "3418.1172",
+      "macd_dif": "9.08240810628513",
+      "macd_dea": "2.4344827251071237",
+      "macd": "13.295850762356011"
+    },
+    {
+      "trade_time": "2025-06-25 11:30:00",
+      "close": "3430.1633",
+      "macd_dif": "11.057303489719288",
+      "macd_dea": "4.1590468780295575",
+      "macd": "13.796513223379462"
+    },
+    {
+      "trade_time": "2025-06-25 14:00:00",
+      "close": "3441.114",
+      "macd_dif": "13.352137154919092",
+      "macd_dea": "5.997664933407465",
+      "macd": "14.708944443023253"
+    },
+    {
+      "trade_time": "2025-06-25 15:00:00",
+      "close": "3455.9736",
+      "macd_dif": "16.183303848110427",
+      "macd_dea": "8.034792716348058",
+      "macd": "16.297022263524738"
+    }
+  ],
+  "separatingPoint": {
+    "time": "2025-06-24T10:30:00+08:00",
+    "ZC": {
+      "time": "2025-06-24T10:30:00+08:00",
+      "close": 3411.8958,
+      "dif": -0.07507340149459196,
+      "dea": -3.941818859608506,
+      "hist": 7.7334909162278285,
+      "ordinaryState": "NONE",
+      "ordinaryDirection": null,
+      "activeReference": null,
+      "pendingTopHistoryId": null,
+      "pendingBottomHistoryId": null,
+      "pendingRearmId": null
+    },
+    "ZR": {
+      "time": "2025-06-24T10:30:00+08:00",
+      "close": 3411.8958,
+      "dif": -0.07507340149459196,
+      "dea": -3.941818859608506,
+      "hist": 7.7334909162278285,
+      "ordinaryState": "DULL",
+      "ordinaryDirection": "TOP",
+      "activeReference": {
+        "startTime": "2025-05-29T10:30:00+08:00",
+        "endTime": "2025-06-10T14:00:00+08:00",
+        "price": 3403.5195,
+        "dif": 10.422507933838006
+      },
+      "pendingTopHistoryId": null,
+      "pendingBottomHistoryId": null,
+      "pendingRearmId": null
+    }
+  },
+  "reference": {
+    "startTime": "2025-05-29T10:30:00+08:00",
+    "endTime": "2025-06-10T14:00:00+08:00",
+    "price": 3403.5195,
+    "dif": 10.422507933838006
+  },
+  "firstActivation": {
+    "ZR": "2025-06-24T10:30:00+08:00",
+    "ZC": "2025-06-24T11:30:00+08:00"
+  },
+  "laterCancellation": {
+    "ZR": "2025-06-25T11:30:00+08:00",
+    "ZC": "2025-06-25T11:30:00+08:00"
+  },
+  "sourceSignNearZeroRisk": true,
+  "sourceDifAtSeparatingPoint": -0.07507340149459196,
+  "constantBiasCorrectionProhibited": true,
+  "oldImagesAre120mNot60m": [
+    "reports/xxm_macd_structure_20261011/sources/20250625_120.png",
+    "reports/xxm_macd_structure_20261011/sources/20250626_120.png"
+  ],
+  "neededObservation": "Software TOP dullness at June24 10:30 with that bar software DIF nonpositive; or confirmed first activation11:30 together with10:30 software numbers/reference qualifications. A closing DULL state alone is nondiscriminating.",
+  "noReplays": true
+}

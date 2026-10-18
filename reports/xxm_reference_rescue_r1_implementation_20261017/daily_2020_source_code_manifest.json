@@ -1,0 +1,140 @@
+{
+  "scope": "ISOLATED_DAILY_2020_WINDOW",
+  "algorithmVersion": "xxm-direction-v0.1-r1",
+  "specHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "unchangedProductConsumerFiles": 25,
+  "changedExistingAuditFiles": [
+    "scripts/research/index_market/xxm/bottom_history_acceptance.py",
+    "scripts/research/index_market/tests/test_xxm_acceptance_scope.py"
+  ],
+  "files": [
+    {
+      "path": "scripts/research/index_market/xxm/bottom_history_acceptance.py",
+      "sha256": "65e16f2c3de78f1331b954b125f173286050bfbcc842d4dd7e4d30bf7d73d00c"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/reference_rescue_acceptance.py",
+      "sha256": "46e7c77e1b722072740c75edc4a42f43f4db3b3e35559617436553183d45d4db"
+    },
+    {
+      "path": "scripts/research/index_market/xxm_page_request_audit.py",
+      "sha256": "02c6975f7c02ecd588504ba3c68aae71718f239bbe4230c94bbcee8ed3e04f29"
+    },
+    {
+      "path": "scripts/research/index_market/xxm_page_request_audit.mjs",
+      "sha256": "c2a9632cb31549df64ff9cd250240899cc690405aa75f9ae4dbbf33945d344ab"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_acceptance_scope.py",
+      "sha256": "6de1d64a76c7a8ba05cb0878d8b21571970e3012e12c84dd94cb191787e52f0a"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/__init__.py",
+      "sha256": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+      "sha256": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast.py",
+      "sha256": "2f953c177e17c9a5f1a174720cf43b0f3ea42049462791c47be299ccd01866f3"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py",
+      "sha256": "9b82adfd39cc64a43743e45b3e2284d22e1ae569dd02661e26bebaa33996a1c1"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py",
+      "sha256": "4610fa6c1348e05d1d39df11d9cfcf3805521f2f878d20418c599fc74ab52b35"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py",
+      "sha256": "f97fb04f3aa427a14dbd9345a91f6472597de1ba4e5a27d270f685cc94654f61"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py",
+      "sha256": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_paths.py",
+      "sha256": "e60a7c8a4de3191c6af40fa9caa2c4328c33a48b0b23ac75d060eff9c9a4405b"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+      "sha256": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py",
+      "sha256": "987cf1074d2bea37ba66c430e85816a8b91828bd48d8aa54ba8d18d97c76b2e8"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/projection.py",
+      "sha256": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/runtime.py",
+      "sha256": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+      "sha256": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b"
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/types.py",
+      "sha256": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/__init__.py",
+      "sha256": "e1ba5e9d772465c20530897e9bb17f5389f42d46ab62d81350db63eea60e64a2"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py",
+      "sha256": "a070b07e28f44bf576c554e1f0688f7af789e33f5a700bb0ff30c13e1b12e686"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/query_service.py",
+      "sha256": "94b412215e8b6987de3a5920545eadec822b89b721a6436495c4ce0d6478049a"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/shared_loads.py",
+      "sha256": "2c9f658b99209aae4fa9f036b8264028d76a7f769be6b9190e2e895adf091276"
+    },
+    {
+      "path": "src/biz/queries/wealth/market/index_detail_xxm/source.py",
+      "sha256": "52fe53e1bcd09ccbfb424e2b1510e5912d2b1e724743fa8ca551d4bdd1de379c"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/adapter.ts",
+      "sha256": "7bb159695d2f5711a73cb56a5c91d140b7eb647d5c114663564009d2ff274adb"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts",
+      "sha256": "1f096522e53bcf725b527917113a85bfe274b3bfbcb178ae1e4b083f3a001af2"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/apiClient.ts",
+      "sha256": "6a4db850ff088a952a5a87481390e931a7454a9b34e5e5c9102c335b453b85b7"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/types.ts",
+      "sha256": "13dbbfbdc98b6c69afe590a6cd1bbf6b07d3897afbde0397a08ca1fa4fab945d"
+    },
+    {
+      "path": "wealth/src/features/index-detail/xxm-forecast/useXxmForecast.ts",
+      "sha256": "a8fa3545930577cb6f4060c201213419225a2dd5ef1eeea65004774188d0f94b"
+    },
+    {
+      "path": "src/foundation/clients/local_lake/major_index_mins_reader.py",
+      "sha256": "149e01b832d00ec70d5b990164560300466e2123fe610bdb831177192877fbf9"
+    },
+    {
+      "path": "scripts/research/index_market/xxm/daily_window_precheck.py",
+      "sha256": "3bacd89a358efdb07abf9f09a111e7ea893a1dfb583af50e84a4e702f21e51e8"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_daily_window_precheck.py",
+      "sha256": "c97f12b260c9e79ceb4501dfa3c0490fbcf7daff826cdb33d5ed52f68b880503"
+    }
+  ]
+}

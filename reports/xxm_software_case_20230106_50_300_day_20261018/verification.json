@@ -1,0 +1,48 @@
+{
+  "status": "PASS_TWO_SCREENSHOT_COMPARISON_NOT_UNIQUE_FORMULA_PROOF",
+  "date": "2023-01-06",
+  "actualSourceCodes": [
+    "000016.SH",
+    "399300.SZ"
+  ],
+  "sourceRows": {
+    "000016.SH": 732,
+    "399300.SZ": 732
+  },
+  "expectedOpenDates": 732,
+  "missingDates": 0,
+  "originalImageCopiesIdentical": true,
+  "softwareObservations": {
+    "000016.SH": "visible DULL text",
+    "399300.SZ": "no terminal DULL text visible, internal state unknown"
+  },
+  "model": {
+    "000016.SH": "DULL activation 2023-01-06",
+    "399300.SZ": "no event, state NONE"
+  },
+  "protectedUnchanged": true,
+  "protectedFiles": 10,
+  "inputAndResultHashesValid": true,
+  "prefixRestores": 12,
+  "crossSourceRestoreRejected": true,
+  "allThreeConditionsAgree": true,
+  "targetStableFrom2020And2021": true,
+  "zeroAxisHypothesesDistinguished": false,
+  "displayDifferences": {
+    "000016.SH.histSourceMinusSoftware": "-0.001",
+    "399300.SZ.difSourceMinusSoftware": "+0.001"
+  },
+  "isolatedTests": {
+    "passed": 41,
+    "deselected": 2,
+    "scope": "existing input/selector/persistence and calendar guards; unrelated web/future tests excluded"
+  },
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "formalWrites": false,
+  "sourceBounds": "2020-01-01..2023-01-06, two codes, six columns, batches 500, max800/code",
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingLinks": [],
+  "engineChangeTableRemainsLast": true
+}

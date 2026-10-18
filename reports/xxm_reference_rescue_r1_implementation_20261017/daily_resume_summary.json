@@ -1,0 +1,43 @@
+{
+  "asOf": "2026-10-17T13:39:28.079092+08:00",
+  "readonly": true,
+  "range2020Check": {
+    "report": "daily_gap_identity_20261017_133148.json",
+    "first": "2020-01-02",
+    "last": "2026-10-16",
+    "rows": 1643,
+    "missing": 0,
+    "nullRequiredFields": 0
+  },
+  "formalSource": {
+    "first": "2017-01-03",
+    "last": "2026-10-16",
+    "rows": 1748,
+    "expected": 2374,
+    "missing": 626,
+    "missingFirst": "2017-06-13",
+    "missingLast": "2019-12-31",
+    "missingByYear": {
+      "2017": 139,
+      "2018": 243,
+      "2019": 244
+    },
+    "report": "daily_complete_diagnosis_133928.json"
+  },
+  "formalBudget": {
+    "attempt": "daily_budget_01/run.json",
+    "passed": false,
+    "failedBeforePrediction": true,
+    "code": "XXM_SOURCE_CONTRACT_INVALID"
+  },
+  "sourceScopeCode": "src/biz/queries/wealth/market/index_detail_xxm/source.py:read_daily - upper date only, no lower date filter",
+  "fourPeriodPageRun": false,
+  "productOrBudgetChanged": false,
+  "formalWrites": false,
+  "sourceCodeIdentityCheckedFiles": 30,
+  "sourceCodeIdentityChanged": [],
+  "pendingUserChoice": [
+    "wait for earlier history completeness",
+    "isolated calculation precheck from 2020, without formal interface acceptance"
+  ]
+}

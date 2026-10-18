@@ -1,0 +1,24 @@
+{
+  "researchOnly": true,
+  "productModified": false,
+  "softwareFormulaProven": false,
+  "formalBudgetRetested": false,
+  "protectedFilesUnchanged": 32,
+  "sourceRows": 39747,
+  "baselineEventsEqualAllPeriods": true,
+  "currentDifHypothesis": {
+    "reactivationsExamined": 7,
+    "reactivationsPassingNecessaryCondition": 2,
+    "directReturnsExamined": 65,
+    "directReturnsPassingNecessaryCondition": 39,
+    "alternateStateMachineExecuted": false
+  },
+  "literalAndRegressionTests": {
+    "passed": 98,
+    "elapsedSeconds": 3.69,
+    "softwareValidation": false
+  },
+  "reportLinksChecked": 13,
+  "initialDiagnosticSourcePreserved": true,
+  "coreEngineTableStillLast": true
+}

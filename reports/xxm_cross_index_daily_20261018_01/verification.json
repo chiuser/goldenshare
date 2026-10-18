@@ -1,0 +1,62 @@
+{
+  "status": "PASS_BOUNDED_RESEARCH_NOT_SOFTWARE_FORMULA_VALIDATION",
+  "calendarExchange": "SSE",
+  "calendarBasis": "User explicitly confirmed shared A-share calendar; root AGENTS updated",
+  "naturalDays": 1704,
+  "openDays": 1132,
+  "rows": {
+    "399006.SZ": {
+      "input": 1132,
+      "targetWindow": 478,
+      "missingOpenDates": 0
+    },
+    "399001.SZ": {
+      "input": 1132,
+      "targetWindow": 478,
+      "missingOpenDates": 0
+    }
+  },
+  "firstTOPActivations": {
+    "399006.SZ": [
+      "2023-01-06"
+    ],
+    "399001.SZ": [
+      "2023-01-10",
+      "2024-05-06"
+    ]
+  },
+  "allVariantDifferences": {
+    "399006.SZ": [],
+    "399001.SZ": []
+  },
+  "discriminatingCandidates": 0,
+  "softwareVerifiedNewLabels": 0,
+  "sourceAndResultHashesValid": true,
+  "noProductIdsOrShCodeInResults": true,
+  "sealedCompletedUnitReuse": "PASS",
+  "firstRunSeconds": 0.9265355421230197,
+  "reuseRunSeconds": 0.024499665945768356,
+  "tests": {
+    "new": 21,
+    "existing": 12,
+    "passed": 33
+  },
+  "help": "PASS",
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingLinks": [],
+  "finalEngineTableRemainsLast": true,
+  "productAndPriorEvidenceUnchanged": true,
+  "protectedFiles": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": true,
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": true,
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": true,
+    "scripts/research/index_market/xxm/top_daily_ambiguity.py": true,
+    "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py": true,
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZC.json": true,
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZR.json": true,
+    "reports/xxm_software_case_20240924_25_day_20261018/case.json": true
+  },
+  "formalWrites": false,
+  "productCodeChanged": false
+}

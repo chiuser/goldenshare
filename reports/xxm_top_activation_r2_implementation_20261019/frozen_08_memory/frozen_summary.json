@@ -1,0 +1,86 @@
+{
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 81.4049169421196,
+        "calibrationProtected": 18
+      },
+      "1.0": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 82.82154239714146,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 89.33812519535422,
+        "calibrationProtected": 18
+      }
+    },
+    "m60": {
+      "0.75": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 23.54016713798046,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 32.59966662153602,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 17260,
+        "forecasts": 182,
+        "maxMs": 24.845417123287916,
+        "calibrationProtected": 0
+      }
+    },
+    "m90": {
+      "0.75": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 25.125584099441767,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 23.32704234868288,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 12945,
+        "forecasts": 113,
+        "maxMs": 33.36725011467934,
+        "calibrationProtected": 0
+      }
+    },
+    "m120": {
+      "0.75": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 16.441375017166138,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 17.819332890212536,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 8630,
+        "forecasts": 84,
+        "maxMs": 30.476541724056005,
+        "calibrationProtected": 0
+      }
+    }
+  },
+  "softwareUniqueFormulaProven": false,
+  "liveSource": false
+}

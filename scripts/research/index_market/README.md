@@ -1,10 +1,32 @@
 # 指数大势研究：统一代码入口
 
+2026-10-19当前徐小明验收：**唯一产品已升级r2，当前结果见[交付报告](../../../reports/xxm_top_activation_r2_implementation_20261019/README.md)。沿用`xxm.reference_rescue_acceptance`／共用`bottom_history_acceptance`入口；frozen读取开发前117文件及获准18项更正，不能再用旧a1／r1预期验收新版。下方a1、R1运行成绩与命令按其日期保留为历史。原研究候选和旧`xxm.acceptance`／`same_segment_acceptance`不作为r2成功验收入口，不应重跑覆盖旧报告。**
+
+```sh
+.venv/bin/python -B -m scripts.research.index_market.xxm.reference_rescue_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_r2_frozen_NEW
+.venv/bin/python -B -m scripts.research.index_market.xxm.reference_rescue_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_r2_api_NEW
+.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --source reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01 --output reports/xxm_r2_day_2020_NEW
+```
+
+这些模式仅读现有封存源／日历和隔离SQLite，拒绝覆盖输出；日线源的旧采集身份只在原SHA／文件／范围全部校验后复用，当前计算身份仍r2。完成单元分别保存及核SHA，内部读回拒绝不同代码／来源／预期；CLI仍不接受已存在的目录，不新增resume参数。正式`--mode budget|replay-budget --formal-source`、显式分钟periods和page audit参数未变，但仍须按原方案完成本次正式只读验收授权／范围核对；本轮未执行。page audit核双Spec并运行实际TS adapter，不能用本地夹具成绩充当正式页面成绩。
+
 目录整理日期：2026-09-09。规则见[研究目录 AGENTS](/Users/congming/github/goldenshare/scripts/research/AGENTS.md)。这里是离线研究，不接入产品或生产运行时。
 
 2026-10-16徐小明同段循环：用户确认LLD §21后，已按[实施报告](../../../reports/xxm_same_segment_a1_implementation_20261016/README.md)迁入唯一a1内核。原[条件分流研究](../../../reports/xxm_same_segment_precheck_20261016_04/README.md)和[失败报告](../../../reports/xxm_same_segment_precheck_20261016_02/README.md)保留；临时候选、动态源码注入及旧runner已清退，原文与依赖SHA封存在实施报告ZIP中。当前入口只运行产品类并读取冻结输出对账，不导入历史候选；四周期、范围、全部校验及预算保持。
 
 ## 目录
+
+2026-10-16钝化取消后重启研究：[报告](../../../reports/xxm_cancellation_restart_20261016_01/README.md)。仅复放MAIN_SPEC及已冻结M0源，不访问DB／Lake、不改产品。运行：`.venv/bin/python -B -m scripts.research.index_market.xxm.cancellation_restart_audit --output reports/xxm_cancellation_restart_20261016_01/run_<新批次>`；父目录须已存在，输出目录拒绝覆盖。隔离测试：`scripts/research/index_market/tests/test_xxm_cancellation_restart_audit.py`。
+
+同项[时序与用价续查](../../../reports/xxm_cancellation_restart_20261016_02/README.md)：`.venv/bin/python -B -m scripts.research.index_market.xxm.cancellation_restart_detail --output reports/xxm_cancellation_restart_20261016_02/run_<新批次>`。沿用第一轮run_03病例／保护SHA，只回溯资格时点、不跑第二套事件引擎；旧12/16的90分钟补图请求保持暂停。新增隔离测试`tests/test_xxm_cancellation_restart_detail.py`。
+
+后续用户已给[12/16的90分钟原图](../../../reports/xxm_software_case_20251216_m90_20261016/README.md)，确认四条文字；与当前六步模型链尚未逐柱对齐，更新原方案§12.16，不计作重选规则验证通过。本次只新增观察报告，未加候选或修改研究runner。
+
+同项[重入资格诊断](../../../reports/xxm_rearm_discrimination_20261016_01/README.md)：`.venv/bin/python -B -m scripts.research.index_market.xxm.rearm_discrimination --output reports/xxm_rearm_discrimination_20261016_01/run_<新批次>`。只读冻结源并核对a1事件；区分当根DIF与累计段底，记录价格／DIF余量，不实现候选状态机或调参。run_01及run_02的定义差异保留，测试`tests/test_xxm_rearm_discrimination.py`；H2b仍待软件证据，不可迁入产品。
+
+2026-10-17[12/15收盘新图](../../../reports/xxm_software_case_20251215_m90_20261016/README.md)已确认当天有消失后重新钝化，H2b作为本例必要条件撤下，停止补同图／稿。当前原图入账与12354根前缀核查只更新观察；后续单独研究16日参照切换与取消顺序，未新增候选运行器或改产品。上一段的run记录保留历史定义。
+
+同日完成[R1参照切换隔离研究（历史）](../../../reports/xxm_reference_rescue_20261017_01/README.md)及[预测预检](../../../reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/summary.json)，随后获准迁入唯一产品类。旧研究原件已封存在[基线档案](../../../reports/xxm_reference_rescue_r1_implementation_20261017/baseline_source.zip)，不再以`reference_rescue.py`／`reference_rescue_forecast.py`运行当前产品验收；工作树原型清退待正式收尾。当前入口为`.venv/bin/python -B -m scripts.research.index_market.xxm.reference_rescue_acceptance --mode frozen|api|budget --source reports/xxm_source_audit_20261013_213852 --output reports/<新的批次>`，budget另需`--formal-source`。三门槛1215组及45恢复通过；正式四周期因日线历史缺口暂停，未声明预算／整页／页面通过，见[当前开发态报告](../../../reports/xxm_reference_rescue_r1_implementation_20261017/README.md)。
 
 ```text
 index_market/
@@ -22,6 +44,8 @@ index_market/
 2026-10-13 徐小明方向识别：[研究主文档](../../../docs/product/xxm-macd-structure-research-v1.md)当前进展为 §8.49。用户已批准 [V0.1 算法方案](../../../docs/product/xxm-direction-algorithm-plan-v0.1.md)、Figma、完整历史扫描调整及仅指数详情页的响应式修正；上证日线和 60／90／120 分钟开发态已实现并完成技术验收，等用户验收，未部署。内核在 biz；本目录只放冻结来源加载与验收入口，生产模块不依赖旧报告脚本。旧 3161 根分钟在三组门槛下回归通过，新完整源共 39747 根，2615 次事件／生命周期前缀重放及已有 26＋1 个读数对账见[实施报告](../../../reports/xxm_implementation_20261013/README.md)。未确认的软件公式、数值偏差与长历史寿命保留；原报告和失败版本不改写。
 
 2026-10-15 近期关键条件展示：规则与参数统一见[预测方案§18](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15)，当前证据见[实施报告](../../../reports/xxm_forecast_display_implementation_20261015/README.md)。四周期只读HTTP预算入口：`.venv/bin/python -m scripts.research.index_market.xxm_forecast_display_audit --output reports/xxm_display_audit_NEW`；product模式使用正常产品代码，每次拒绝覆盖输出目录。`--candidate <本机文件>`仅用于已授权的候选预检，不被产品导入；读取正常只读DB／正式Gold并使用临时端口，无应用后台任务、页面自动化或正式数据写入。语义测试位于`tests/test_xxm_forecast_display.py`；用户自行页面验收，评分后置。
+
+2026-09-14 P0市值来源追加核验：[方案34.12](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#3412-p0追加历史市值来源已找到停牌口径待确认2026-09-14)。Tushare基准日市值覆盖4276/4279股，另外3股均有全天停牌证据，未排除或填充。未入旧案例名单的4037股中4034股当日有市值；12层容量示意最小107股，但尚未冻结层边界或抽样。新reports仅一份查询证据JSON；复算：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_market_cap_source_audit reports/stock_market_cap_source_20260914/evidence.json`，纯离线，不访问API/Lake。市值补充来源、停牌取值规则及扩大样本复核定位待确认，仍不进入P1；下文34.10的DG缺口为当轮历史事实，本轮未补写DG或计算新收益。本轮变更未提交。
 
 2026-09-14提交与清理：用户已批准本研究代码/文档和有用reports一并提交。第28—34节七组正式证据保留，共29文件约12.0MiB；下文“仅本地/暂不提交”为各轮当时状态，已由本次要求替代。源码缺失预检`stock_signal_chain_audit_20260913`的3文件已执行移入废纸篓，受系统读取限制未验证恢复；其30次机会/6笔案例由最终serial报告覆盖，旧阻塞经过仍见方案28.9。删除清单、保留理由和恢复位置见[方案34.11](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#3411-本研究提交与报告清理2026-09-14)。旧Store/历史归档与七组正式报告字节未改；P0门禁不变，未进入新回测。
 
@@ -293,7 +317,7 @@ DG现有90分钟已直接回放：[结果报告](/Users/congming/github/goldensh
 类型与确认滞后实验：[结果](../../../reports/stock_chan_research_20260912/timing.md)。全部/B1/B2/B3/滞后<=4/<=8六组未找到可靠候选；类型表现有阶段反转，简单过滤长滞后没有稳定改善。入口：`.venv/bin/python -m scripts.research.index_market.chan.stock_signal_timing --output reports/stock_timing_reproduction_NEW`，仅读封存材料，原方案第21节。
 
 
-XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新报告目录）：
+XXM 初版历史验收入口（非r2验收入口；原命令记录保留）：
 
 ```bash
 .venv/bin/python -B -m scripts.research.index_market.xxm.acceptance --source reports/xxm_source_audit_20261013_213852 --research reports/xxm_macd_structure_20261011 --output reports/xxm_implementation_20261013
@@ -303,8 +327,21 @@ XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新�
 
 2026-10-15 请求调度、共享加载与读取投影：唯一设计见[预测方案§20](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施)，执行／历史失败见[报告](../../../reports/xxm_request_reuse_20261015/README.md)。四周期原预算沿用上述`xxm_forecast_display_audit`入口；整页混合与单／双标签页使用`.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output <新报告目录>`，运行实际TS客户端／调度器与原只读HTTP链，不自动操作页面。完整历史、投影及配对读取对照使用`.venv/bin/python -m scripts.research.index_market.xxm_history_projection_audit --through 2026-10-14 --output <新报告目录>`；只读正式Gold、拒绝覆盖旧结果，不是产品预计算或正式数据发布。
 
+2026-10-17 日线下载期间的R1分钟分验：当前`xxm.reference_rescue_acceptance`（或其共用入口`xxm.bottom_history_acceptance`）的`--mode budget --formal-source`以及上述page audit均支持显式`--periods m60 m90 m120`，默认仍四周期、不裁剪产品历史。`--mode replay-budget --formal-source`重验已保存的路由历史场景，沿用同样周期选择；只读原鉴权／正式来源，不冒充软件真值。严格20真冷／20真暖、13历史场景和12组混合通过，命令及全部新旧记录见[分钟验收](../../../reports/xxm_reference_rescue_r1_implementation_20261017/minutes_acceptance.md)。日线及完整四周期整页待用户通知，页面仍由用户验收。
 
-## 当前a1内核验收（保留B组五处保护）
+2026-10-17 用户选择先做2020起日线隔离预检：新增`xxm.daily_window_precheck`，只在研究输入中固定2020下界，不改产品全历史读取。显式采集阶段使用只读一致快照和真实ORM字段投影；检查阶段完全本地，临时SQLite／固定采集时钟／鉴权替身，仍走原路由／唯一内核／DTO及数据保护。必须使用新目录：
+
+```sh
+.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --capture-source --output reports/xxm_daily_2020_source_NEW
+.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --source reports/xxm_daily_2020_source_NEW --output reports/xxm_daily_2020_check_NEW
+```
+
+1643端点、97前缀／恢复、四截图事件及20冷暖隔离通过，保留442份校准保护；[结果与边界](../../../reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_precheck.md)。原通用预算工具另纠正日线暖核验：日线允许完整SQL投影核源，但不得内核重算；分钟暖仍不得完整读源。更早历史及全历史正式接口／四周期整页见[延期记录](../../../reports/xxm_reference_rescue_r1_implementation_20261017/before_2020_pending.md)，等用户通知后再做，隔离计时不能代替正式PG／网络／页面成绩。
+
+2026-10-17 顶部9/24—25疑点：离线入口`.venv/bin/python -B -m scripts.research.index_market.xxm.top_daily_ambiguity --output <全新目录>`，只读本地冻结四源／旧52观察，不访问数据库、Lake或网络。五模式仅在研究子类改变参照资格，不注册产品；保留原两段池及短段占位、当前两根、排序和状态机。事前方案／LLD、四候选结果及现有材料的辨别边界见[本轮研究](../../../reports/xxm_top_daily_ambiguity_20261017_01/README.md)，没有将静态图未见文字设成软件NONE金样本，不因旧52全过就迁移产品。12字面测试为`tests/test_xxm_top_daily_ambiguity.py`。
+
+
+## a1内核历史验收（保留B组五处保护，非r2验收入口）
 
 已确认规则见算法方案§12.12及识别LLD§21；当前交付见[实施报告](../../../reports/xxm_same_segment_a1_implementation_20261016/README.md)。脚本仅验证正式唯一内核，不导入历史研究候选。每次OUT必须新建，预算／对象／周期不可改成更宽门槛。
 
@@ -316,3 +353,12 @@ XXM 新验收入口（读取 M0 已审计快照及本轮 API 响应，只写新�
 ```
 
 frozen校验来源SHA与封存源码，对照完整39747根×三门槛、研究逐事件／参照账本、14次同段消失／7次重入、93条底部历史绿、45个前缀恢复和369组预测，保留五处B组软件观察。api使用隔离SQLite／冻结字段fixture，调用真实三路由／query／DTO并覆盖拒绝鉴权，不冒充正式服务。budget仅显式formal-source时通过应用正常依赖及READ ONLY事务读取白名单日历／上证因子与正式Lake；160轮预测和配对识别，另4次LATEST及四周期识别／预测两并发。mixed仍用实际TS客户端／调度器的306请求、统一业务日期及真实图表原值adapter，不操作浏览器。完整来源／原4秒／200ms及缓存预算保持；页面由用户验收，脚本不安装依赖或修改鉴权。
+
+2026-10-18 两个深市指数的日线研究：`xxm.cross_index_daily`只读生产视图指定两代码、2020/1/1—2024/8/30六列及沪深共用SSE日历，视频候选限2022/9/13—2024/8/30。复用原三组条件，不改产品内核；读取前须按原方案§12.33／LLD§25.14完成有界只读审计。使用新目录，只有同设置、代码、文件校验一致的已完成文件才可继续：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.xxm.cross_index_daily --output reports/xxm_cross_index_daily_NEW
+.venv/bin/python -B -m scripts.research.index_market.xxm.cross_index_daily --output reports/xxm_cross_index_daily_NEW --resume
+```
+
+输入与分类隔离测试为`tests/test_xxm_cross_index_daily.py`。本次真实采集、比较及无区分日期的结果见[研究报告](../../../reports/xxm_cross_index_daily_20261018_01/README.md)。未验证原软件的新指数标签，不以程序一致性证明公式正确。

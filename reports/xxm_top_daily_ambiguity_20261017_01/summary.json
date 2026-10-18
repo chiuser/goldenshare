@@ -1,0 +1,276 @@
+{
+  "scope": "RESEARCH_ONLY",
+  "status": "PARTIAL_EXPLANATION_NOT_READY_FOR_PRODUCT",
+  "hypotheses": {
+    "BASE": {
+      "targetEvents": {
+        "2024-09-24": "DULL",
+        "2024-09-25": "CANCEL"
+      },
+      "observedDailyGuardsPreserved": true,
+      "dec15BottomChain": [
+        {
+          "time": "2025-12-11T15:00:00+08:00",
+          "type": "DULL"
+        },
+        {
+          "time": "2025-12-12T14:00:00+08:00",
+          "type": "STRUCTURE"
+        },
+        {
+          "time": "2025-12-15T14:00:00+08:00",
+          "type": "STRUCTURE_DISAPPEARED"
+        },
+        {
+          "time": "2025-12-15T15:00:00+08:00",
+          "type": "DULL"
+        }
+      ],
+      "apr8TopChain": [
+        {
+          "time": "2026-04-08T10:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "events": [
+            "DULL"
+          ]
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "events": [
+            "CANCEL"
+          ]
+        }
+      ],
+      "changedEndpoints": 0,
+      "changedEventEndpoints": 0,
+      "legacyLabelsMatched": 52
+    },
+    "T2": {
+      "targetEvents": {
+        "2024-09-24": "NONE",
+        "2024-09-25": "NONE"
+      },
+      "observedDailyGuardsPreserved": true,
+      "dec15BottomChain": [
+        {
+          "time": "2025-12-11T15:00:00+08:00",
+          "type": "DULL"
+        },
+        {
+          "time": "2025-12-12T14:00:00+08:00",
+          "type": "STRUCTURE"
+        },
+        {
+          "time": "2025-12-15T14:00:00+08:00",
+          "type": "STRUCTURE_DISAPPEARED"
+        },
+        {
+          "time": "2025-12-15T15:00:00+08:00",
+          "type": "DULL"
+        }
+      ],
+      "apr8TopChain": [
+        {
+          "time": "2026-04-08T10:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "events": [
+            "DULL"
+          ]
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "events": [
+            "CANCEL"
+          ]
+        }
+      ],
+      "changedEndpoints": 197,
+      "changedEventEndpoints": 57,
+      "legacyLabelsMatched": 52
+    },
+    "S2": {
+      "targetEvents": {
+        "2024-09-24": "NONE",
+        "2024-09-25": "NONE"
+      },
+      "observedDailyGuardsPreserved": true,
+      "dec15BottomChain": [],
+      "apr8TopChain": [
+        {
+          "time": "2026-04-08T10:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "events": [
+            "DULL"
+          ]
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "events": [
+            "CANCEL"
+          ]
+        }
+      ],
+      "changedEndpoints": 789,
+      "changedEventEndpoints": 100,
+      "legacyLabelsMatched": 52
+    },
+    "ZC": {
+      "targetEvents": {
+        "2024-09-24": "NONE",
+        "2024-09-25": "NONE"
+      },
+      "observedDailyGuardsPreserved": true,
+      "dec15BottomChain": [
+        {
+          "time": "2025-12-11T15:00:00+08:00",
+          "type": "DULL"
+        },
+        {
+          "time": "2025-12-12T14:00:00+08:00",
+          "type": "STRUCTURE"
+        },
+        {
+          "time": "2025-12-15T14:00:00+08:00",
+          "type": "STRUCTURE_DISAPPEARED"
+        },
+        {
+          "time": "2025-12-15T15:00:00+08:00",
+          "type": "DULL"
+        }
+      ],
+      "apr8TopChain": [
+        {
+          "time": "2026-04-08T10:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "events": []
+        }
+      ],
+      "changedEndpoints": 400,
+      "changedEventEndpoints": 30,
+      "legacyLabelsMatched": 52
+    },
+    "ZR": {
+      "targetEvents": {
+        "2024-09-24": "NONE",
+        "2024-09-25": "NONE"
+      },
+      "observedDailyGuardsPreserved": true,
+      "dec15BottomChain": [
+        {
+          "time": "2025-12-11T15:00:00+08:00",
+          "type": "DULL"
+        },
+        {
+          "time": "2025-12-12T14:00:00+08:00",
+          "type": "STRUCTURE"
+        },
+        {
+          "time": "2025-12-15T14:00:00+08:00",
+          "type": "STRUCTURE_DISAPPEARED"
+        },
+        {
+          "time": "2025-12-15T15:00:00+08:00",
+          "type": "DULL"
+        }
+      ],
+      "apr8TopChain": [
+        {
+          "time": "2026-04-08T10:30:00+08:00",
+          "events": []
+        },
+        {
+          "time": "2026-04-08T11:30:00+08:00",
+          "events": [
+            "DULL"
+          ]
+        },
+        {
+          "time": "2026-04-08T14:00:00+08:00",
+          "events": [
+            "CANCEL"
+          ]
+        }
+      ],
+      "changedEndpoints": 350,
+      "changedEventEndpoints": 17,
+      "legacyLabelsMatched": 52
+    }
+  },
+  "rows": 40478,
+  "units": 20,
+  "legacyLabels": {
+    "total": 52,
+    "direct": 20,
+    "mapped": 32,
+    "independentBlindTest": false
+  },
+  "prefixRestores": 30,
+  "unitTests": 12,
+  "protectedFiles": 195,
+  "protectedUnchanged": true,
+  "researchSeconds": 6.1686097090132535,
+  "productChanged": false,
+  "softwareFormulaConfirmed": false,
+  "newExternalMaterials": 0,
+  "observedApr23Absence": {
+    "imageDate": "2026-04-23",
+    "period": "m60",
+    "historicalRegion": "2026-04-08",
+    "grade": "STATIC_ABSENCE_NOT_DIRECT_SOFTWARE_NONE",
+    "readableTargetPairFound": false,
+    "discriminator": "28-bar reference with positive DIF; current DIF negative at activation",
+    "numericalSourceCaveat": "No software cursor at Apr8; never extrapolate Apr23 endpoint differences backward"
+  },
+  "sources": [
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240930_day.png",
+      "sha256": "880e0b552eb08d37ec9234a05c534ca30f0c9f01204b0f8da1dde46fc089a5f5"
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20250407_day.png",
+      "sha256": "1fe0727f80acfd4fe229fa4cccda00d0d93b45c7e673d4e9a31cda0481daac94"
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240902_user_transcript.txt",
+      "sha256": "b82a9c2385a6177dee3035ce7bb7bc1f1ecb2496f3249230f12470dfe6eb1416"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260423_60.png",
+      "sha256": "4e93d2129a92fb1d13ee4cb4d51bb0a1f7ffd3769172321369555966abe8696e"
+    },
+    {
+      "path": "reports/xxm_software_case_20251215_m90_20261016/20251215_m90_original.png",
+      "sha256": "209b296eb09fe7568617e4e64f1419df642ec8d3226119ecd6e4c9e0b865218b"
+    },
+    {
+      "path": "reports/xxm_software_case_20251215_m90_20261016/user_observation.txt",
+      "sha256": "5783b77f51f129eee8de4935c9a7553e82a88fabaf17b9fb5496ac17fe803355"
+    }
+  ],
+  "researchCode": [
+    {
+      "path": "scripts/research/index_market/xxm/top_daily_ambiguity.py",
+      "sha256": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py",
+      "sha256": "be83fb63636eac32fa3c93345792890f40e04f447586cfe0ad94bf1b49520d10"
+    }
+  ]
+}

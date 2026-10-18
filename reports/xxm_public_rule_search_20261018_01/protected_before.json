@@ -1,0 +1,20 @@
+{
+  "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+  "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+  "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/summary.json": "496156c91df9b7f728459bdf63bf969378fb7d1042802ea43256f48c56e1e839",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/protected_before.json": "bd870e840c5b22f44e46879144cc090eccf6fdfb02fc99b279d0e2d3f9b13ba5",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/june24_case.json": "c11f36cde6391bb5a607ec0883ff10137c2d6e0f130748443e93dd297d3c833d",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/comparison.json": "093d9eaa0850bdc0644c75482587bcb8d721f71abe8d6d478c9f1139c1af5539",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/README.md": "3414371b554656b084046d4065c8b32337ea0498a21760dee05e3109cd20d1ac",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/transcript_audit.json": "39ca1158c50313912eacc3fa96006215b402d38cab8b439d43781007791f70fc",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/logic.json": "8891a6cee0f41af544fdb74e56776b4995ca25015dc814d7edc4ed52c0aaedb3",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/verification.json": "39ec3c63773d274713d1eb089a942bb5c77a45a8b117f13111238631242a129e",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/protocol.md": "7352f9f912cf578d35e9e04d36abb37b5f121367b51d2e58bbf785e947f55a3e",
+  "reports/xxm_software_case_20250624_m90_20261018/20250624_m90_original.png": "2a36263796bbaa488287d5a0752fe674a1743a2dd66672006cc388c60b1d8357",
+  "reports/xxm_software_case_20250624_m90_20261018/README.md": "21d126777dc08490d40e6e6db1cb6d39a4b80f0b839d6598dc606226d121e902",
+  "reports/xxm_software_case_20250624_m90_20261018/verification.json": "ca18fd00a227b78f5e6d2126f7ad4a602ddc06c58028ec699cc0a566fc318851",
+  "reports/xxm_software_case_20250624_m90_20261018/case.json": "740c1bae61b8cc79e06ba893e6f55810da8a13f933303bb6e401aafa3b1382ac",
+  "reports/xxm_software_case_20250624_m90_20261018/protocol.md": "d424eca10bb7a0b75adea546ab582bd8976e027ac235ea99d81c8cab5be69d8d"
+}

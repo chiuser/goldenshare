@@ -1,0 +1,335 @@
+{
+  "recordedOn": "2026-10-18",
+  "cases": [
+    {
+      "ts_code": "000016.SH",
+      "software": {
+        "sourceCode": "000016.SH",
+        "screenCode": "000016",
+        "date": "2023-01-06",
+        "period": "day",
+        "parameters": [
+          12,
+          26,
+          9
+        ],
+        "image": "20230106_50_day_original.png",
+        "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-80ef3b0d-34d3-4971-a0bb-46e95e2349ee.png",
+        "sha256": "dc33b7e444ad4dd6e9fa96a428e5248392b2de09c72d1844bf95ce5f37ffc868",
+        "targetDullTextVisible": true,
+        "internalOrdinaryState": null,
+        "softwareReference": null,
+        "softwareActivationDate": null,
+        "readouts": {
+          "close": "2713.63",
+          "dif": "20.382",
+          "dea": "17.001",
+          "hist": "6.762"
+        }
+      },
+      "model": {
+        "bar": {
+          "time": "2023-01-06",
+          "close": 2713.6307,
+          "dif": 20.382,
+          "dea": 17.001,
+          "hist": 6.761,
+          "completed": true
+        },
+        "wave": {
+          "sign": 1,
+          "start": "2023-01-05",
+          "end": "2023-01-06",
+          "count": 2,
+          "price": 2713.6307,
+          "dif": 20.382,
+          "price_at": "2023-01-06",
+          "dif_at": "2023-01-06"
+        },
+        "history": [
+          {
+            "sign": 1,
+            "start": "2022-08-12",
+            "end": "2022-09-16",
+            "count": 25,
+            "price": 2796.8887,
+            "dif": -12.804,
+            "price_at": "2022-08-12",
+            "dif_at": "2022-09-15"
+          },
+          {
+            "sign": 1,
+            "start": "2022-11-04",
+            "end": "2022-12-16",
+            "count": 31,
+            "price": 2706.7388,
+            "dif": 46.905,
+            "price_at": "2022-12-09",
+            "dif_at": "2022-12-09"
+          }
+        ],
+        "variants": {
+          "BASE": {
+            "point": {
+              "ordinaryState": "DULL",
+              "ordinaryDirection": "TOP",
+              "activeReference": {
+                "startTime": "2022-11-04",
+                "endTime": "2022-12-16",
+                "price": 2706.7388,
+                "dif": 46.905
+              }
+            },
+            "events": [
+              {
+                "time": "2023-01-06",
+                "direction": "TOP",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2022-11-04",
+                  "endTime": "2022-12-16",
+                  "price": 2706.7388,
+                  "dif": 46.905
+                }
+              }
+            ]
+          },
+          "ZC": {
+            "point": {
+              "ordinaryState": "DULL",
+              "ordinaryDirection": "TOP",
+              "activeReference": {
+                "startTime": "2022-11-04",
+                "endTime": "2022-12-16",
+                "price": 2706.7388,
+                "dif": 46.905
+              }
+            },
+            "events": [
+              {
+                "time": "2023-01-06",
+                "direction": "TOP",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2022-11-04",
+                  "endTime": "2022-12-16",
+                  "price": 2706.7388,
+                  "dif": 46.905
+                }
+              }
+            ]
+          },
+          "ZR": {
+            "point": {
+              "ordinaryState": "DULL",
+              "ordinaryDirection": "TOP",
+              "activeReference": {
+                "startTime": "2022-11-04",
+                "endTime": "2022-12-16",
+                "price": 2706.7388,
+                "dif": 46.905
+              }
+            },
+            "events": [
+              {
+                "time": "2023-01-06",
+                "direction": "TOP",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2022-11-04",
+                  "endTime": "2022-12-16",
+                  "price": 2706.7388,
+                  "dif": 46.905
+                }
+              }
+            ]
+          }
+        }
+      },
+      "comparisons": [
+        {
+          "field": "close",
+          "software": "2713.63",
+          "source": "2713.6307",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "0.0007"
+        },
+        {
+          "field": "dif",
+          "software": "20.382",
+          "source": "20.382",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "0.000"
+        },
+        {
+          "field": "dea",
+          "software": "17.001",
+          "source": "17.001",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "0.000"
+        },
+        {
+          "field": "hist",
+          "software": "6.762",
+          "source": "6.761",
+          "sameAtDisplayedPrecision": false,
+          "sourceMinusSoftware": "-0.001"
+        }
+      ],
+      "currentCloseAboveNearestPrice": true,
+      "currentWaveDifBelowNearestDif": true,
+      "allModelVariantsAgree": true,
+      "sourceRows": 732,
+      "sourceSha256": "46fffacabc97ea363d4d74c80e9452b71b297516b2fc6e51ff014e72f3ffea3e",
+      "modelActivationDates": [
+        "2023-01-06"
+      ]
+    },
+    {
+      "ts_code": "399300.SZ",
+      "software": {
+        "sourceCode": "399300.SZ",
+        "screenCode": "399300",
+        "date": "2023-01-06",
+        "period": "day",
+        "parameters": [
+          12,
+          26,
+          9
+        ],
+        "image": "20230106_300_day_original.png",
+        "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-681b0470-3c8b-40c1-94e4-f9d4dbccb9d7.png",
+        "sha256": "ade32a1e10ea0c1091502573ad776288b0a61d4b31469df2ef396d749d4a0bd2",
+        "targetDullTextVisible": false,
+        "internalOrdinaryState": null,
+        "softwareReference": null,
+        "softwareActivationDate": null,
+        "readouts": {
+          "close": "3980.89",
+          "dif": "19.058",
+          "dea": "12.546",
+          "hist": "13.024"
+        }
+      },
+      "model": {
+        "bar": {
+          "time": "2023-01-06",
+          "close": 3980.8888,
+          "dif": 19.059,
+          "dea": 12.546,
+          "hist": 13.024,
+          "completed": true
+        },
+        "wave": {
+          "sign": 1,
+          "start": "2023-01-05",
+          "end": "2023-01-06",
+          "count": 2,
+          "price": 3980.8888,
+          "dif": 19.059,
+          "price_at": "2023-01-06",
+          "dif_at": "2023-01-06"
+        },
+        "history": [
+          {
+            "sign": 1,
+            "start": "2022-10-14",
+            "end": "2022-10-21",
+            "count": 6,
+            "price": 3846.4119,
+            "dif": -65.009,
+            "price_at": "2022-10-17",
+            "dif_at": "2022-10-19"
+          },
+          {
+            "sign": 1,
+            "start": "2022-11-03",
+            "end": "2022-12-16",
+            "count": 32,
+            "price": 3998.2442,
+            "dif": 54.029,
+            "price_at": "2022-12-09",
+            "dif_at": "2022-12-12"
+          }
+        ],
+        "variants": {
+          "BASE": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          },
+          "ZC": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          },
+          "ZR": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          }
+        }
+      },
+      "comparisons": [
+        {
+          "field": "close",
+          "software": "3980.89",
+          "source": "3980.8888",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "-0.0012"
+        },
+        {
+          "field": "dif",
+          "software": "19.058",
+          "source": "19.059",
+          "sameAtDisplayedPrecision": false,
+          "sourceMinusSoftware": "0.001"
+        },
+        {
+          "field": "dea",
+          "software": "12.546",
+          "source": "12.546",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "0.000"
+        },
+        {
+          "field": "hist",
+          "software": "13.024",
+          "source": "13.024",
+          "sameAtDisplayedPrecision": true,
+          "sourceMinusSoftware": "0.000"
+        }
+      ],
+      "currentCloseAboveNearestPrice": false,
+      "currentWaveDifBelowNearestDif": true,
+      "allModelVariantsAgree": true,
+      "sourceRows": 732,
+      "sourceSha256": "e6a017fb6f5054fe0c128db607bf97bf105ff7cb70ae0bae911c56582f428489",
+      "modelActivationDates": []
+    }
+  ],
+  "additionalPriceEvidence": {
+    "top50BelowEarlierPrice": true,
+    "top50SourceCurrentDif": 20.382,
+    "top50SelectedReferenceDif": 46.905,
+    "interpretation": "上证50阳性支持不用超过两个历史段全部高点；深成指此前阴性支持保留最近段价格先检查。均为其余条件不变时的支持，不是软件参照唯一证明。"
+  },
+  "zeroAxisConditionsDistinguished": false,
+  "softwareInternalStateInferredFromMissingText": false,
+  "productCodeChanged": false
+}

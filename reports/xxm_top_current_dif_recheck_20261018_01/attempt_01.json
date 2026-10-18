@@ -1,0 +1,12 @@
+{
+  "status": "FAILED_RESEARCH_PARTIAL_RESULTS_PRESERVED",
+  "productCodeChanged": false,
+  "formalResourceAccess": false,
+  "error": {
+    "type": "AssertionError",
+    "message": ""
+  },
+  "protectedFileCount": 278,
+  "protectedUnchanged": true,
+  "protectedChanged": []
+}

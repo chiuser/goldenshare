@@ -1,0 +1,29 @@
+{
+  "asOf": "2026-10-17T14:27:02.686208+08:00",
+  "scope": "ISOLATED_DAILY_2020_WINDOW",
+  "unitTests": {
+    "passed": 24,
+    "seconds": 0.85,
+    "warnings": 1,
+    "paths": [
+      "scripts/research/index_market/tests/test_xxm_daily_window_precheck.py",
+      "scripts/research/index_market/tests/test_xxm_acceptance_scope.py"
+    ]
+  },
+  "docsIntegrityPassed": true,
+  "localLinksChecked": 585,
+  "missingLinks": 0,
+  "scopedDiffCheckPassed": true,
+  "newFileWhitespacePassed": true,
+  "sourceCodeHashesChecked": 32,
+  "productConsumerFilesUnchanged": 25,
+  "coreTableRemainsLast": true,
+  "codegraphSync": "up_to_date",
+  "codegraphStatus": "up_to_date",
+  "formalDailyAccepted": false,
+  "fourPeriodWholePageAccepted": false,
+  "pageAutomation": false,
+  "formalWrites": false,
+  "installedPackages": false,
+  "committed": false
+}

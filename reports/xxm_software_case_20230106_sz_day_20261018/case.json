@@ -1,0 +1,76 @@
+{
+  "recordedOn": "2026-10-18",
+  "imageSha256": "2006287a44912ebe4d9ff5f952bd67d106cfcaf5e793dce5552c4e6ea9cc48d6",
+  "archiveSha256": "2006287a44912ebe4d9ff5f952bd67d106cfcaf5e793dce5552c4e6ea9cc48d6",
+  "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-59a74063-9397-4a42-8f2e-e1dd60e52eaf.png",
+  "observation": {
+    "date": "2023-01-06",
+    "ts_code": "399001.SZ",
+    "period": "day",
+    "parameters": [
+      12,
+      26,
+      9
+    ],
+    "targetTopDullTextVisibleAtRightEdge": false,
+    "softwareInternalOrdinaryState": null,
+    "softwareSelectedReference": null,
+    "readouts": {
+      "close": "11367.73",
+      "dif": "12.496",
+      "dea": "-16.800",
+      "hist": "58.592"
+    },
+    "pricePeakPrintedOnChart": "11511.32",
+    "notes": [
+      "末端指标曲线旁未见黄色钝化或紫色结构形成。左下历史标记不视为当日标记。",
+      "侧栏高9日线9不是MACD顶部钝化。",
+      "图中11511.32为价格高点标注，不等于本模型的历史最高收盘11501.5781。"
+    ]
+  },
+  "readoutComparisons": [
+    {
+      "field": "close",
+      "software": "11367.73",
+      "source": "11367.7321",
+      "sameAtDisplayedPrecision": true,
+      "sourceMinusSoftware": "0.0021"
+    },
+    {
+      "field": "dif",
+      "software": "12.496",
+      "source": "12.496",
+      "sameAtDisplayedPrecision": true,
+      "sourceMinusSoftware": "0.000"
+    },
+    {
+      "field": "dea",
+      "software": "-16.800",
+      "source": "-16.8",
+      "sameAtDisplayedPrecision": true,
+      "sourceMinusSoftware": "0.000"
+    },
+    {
+      "field": "hist",
+      "software": "58.592",
+      "source": "58.593",
+      "sameAtDisplayedPrecision": false,
+      "sourceMinusSoftware": "0.001"
+    }
+  ],
+  "priceAndDifChecks": {
+    "currentSegmentCount": 2,
+    "nearestPriceGatePassed": false,
+    "earlierPriceConditionPassed": true,
+    "earlierDifConditionPassed": true,
+    "currentDifAboveZero": true,
+    "bothHistoricalDifAboveZero": true,
+    "currentPriceMinusNearest": "-133.8460",
+    "currentPriceMinusEarlier": "16.4003",
+    "interpretation": "保留其余条件时，跳过最近段价格先检查，会使更早段满足价和DIF资格。这与本图末端未见顶钝化不相容；只支持保留该检查，不能独立证明软件唯一公式。"
+  },
+  "displayAgreement": "本日模型无事件与截图末端未见顶钝化相容；不赋予软件内部NONE标签。",
+  "zeroAxisHypothesesDistinguished": false,
+  "softwareReferenceConfirmed": false,
+  "productCodeChanged": false
+}

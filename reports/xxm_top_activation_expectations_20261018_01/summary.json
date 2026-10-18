@@ -1,0 +1,607 @@
+{
+  "status": "PREPARED_WITH_EXPLICIT_PENDING_FORECASTS",
+  "units": 24,
+  "rows": 133653,
+  "uniqueInputRows": 44551,
+  "resumedUnits": 0,
+  "recognitionExpectationsComplete": true,
+  "forecastCategories": {
+    "RETAIN_OLD_EXPECTATION": 693,
+    "FIRST_TOP_DOMAIN": 522
+  },
+  "independentMathComplete": true,
+  "allRealForecastExpectationsComplete": false,
+  "oldFilesAndProductUnchanged": true,
+  "unitSummaries": [
+    {
+      "group": "legacy",
+      "period": "m60",
+      "gate": 0.75,
+      "rows": 1316,
+      "changedEndpoints": 4,
+      "eventCounts": {
+        "TOP:DULL": 27,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 19,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 6,
+        "BOTTOM:DULL": 11,
+        "BOTTOM:STRUCTURE": 5,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 2,
+        "BOTTOM:CANCEL": 7
+      },
+      "bottomProtected": {
+        "events": 25,
+        "historyUpdates": 353,
+        "rearmUpdates": 5
+      },
+      "sha256": "d671dab6133891df683d6fac3a9fedfe1bedc2385d3f5da15822e35df4c8a3e6",
+      "rawBytes": 1098108
+    },
+    {
+      "group": "legacy",
+      "period": "m60",
+      "gate": 1.0,
+      "rows": 1316,
+      "changedEndpoints": 4,
+      "eventCounts": {
+        "TOP:DULL": 25,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 17,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 6,
+        "BOTTOM:DULL": 11,
+        "BOTTOM:STRUCTURE": 5,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 2,
+        "BOTTOM:CANCEL": 7
+      },
+      "bottomProtected": {
+        "events": 25,
+        "historyUpdates": 353,
+        "rearmUpdates": 5
+      },
+      "sha256": "c8ae3b8d66a216aa620db9ab51c92bb3975a3f5b0b984ef2bda5ea2f1466e384",
+      "rawBytes": 1095614
+    },
+    {
+      "group": "legacy",
+      "period": "m60",
+      "gate": 1.2,
+      "rows": 1316,
+      "changedEndpoints": 4,
+      "eventCounts": {
+        "TOP:DULL": 24,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 16,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 7,
+        "BOTTOM:DULL": 11,
+        "BOTTOM:STRUCTURE": 5,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 2,
+        "BOTTOM:CANCEL": 7
+      },
+      "bottomProtected": {
+        "events": 25,
+        "historyUpdates": 353,
+        "rearmUpdates": 5
+      },
+      "sha256": "edbedd1bff0b7a9f813df7eddba8cbdc458562d835a1f942051714721d286a4b",
+      "rawBytes": 1094319
+    },
+    {
+      "group": "legacy",
+      "period": "m90",
+      "gate": 0.75,
+      "rows": 1107,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 13,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "BOTTOM:DULL": 8,
+        "BOTTOM:STRUCTURE": 3,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 5,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 1
+      },
+      "bottomProtected": {
+        "events": 18,
+        "historyUpdates": 175,
+        "rearmUpdates": 2
+      },
+      "sha256": "6991f9d615b5e88f342be03987624bd0d6ccee8bc6f4817afc4644d08ce95d73",
+      "rawBytes": 826345
+    },
+    {
+      "group": "legacy",
+      "period": "m90",
+      "gate": 1.0,
+      "rows": 1107,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 13,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "BOTTOM:DULL": 8,
+        "BOTTOM:STRUCTURE": 3,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 5,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 1
+      },
+      "bottomProtected": {
+        "events": 18,
+        "historyUpdates": 175,
+        "rearmUpdates": 2
+      },
+      "sha256": "dc4ae6309adf6524c1c8921c4da5ca5fa823adb52160f82fbda3dba9020cf77d",
+      "rawBytes": 826345
+    },
+    {
+      "group": "legacy",
+      "period": "m90",
+      "gate": 1.2,
+      "rows": 1107,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 8,
+        "TOP:STRUCTURE": 13,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "BOTTOM:DULL": 8,
+        "BOTTOM:STRUCTURE": 3,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 5,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 1
+      },
+      "bottomProtected": {
+        "events": 18,
+        "historyUpdates": 175,
+        "rearmUpdates": 2
+      },
+      "sha256": "52d89fee3527c86ba257e6f96cf897b2888c824b6425453b20b82356147149bb",
+      "rawBytes": 826841
+    },
+    {
+      "group": "legacy",
+      "period": "m120",
+      "gate": 0.75,
+      "rows": 738,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 16,
+        "TOP:CANCEL": 6,
+        "TOP:STRUCTURE": 10,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 5,
+        "BOTTOM:STRUCTURE": 2,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 3
+      },
+      "bottomProtected": {
+        "events": 11,
+        "historyUpdates": 123,
+        "rearmUpdates": 2
+      },
+      "sha256": "2d49e0163abc9e600e83fdd88b928cb5f74dfd083b5721668375990e34d565c0",
+      "rawBytes": 532809
+    },
+    {
+      "group": "legacy",
+      "period": "m120",
+      "gate": 1.0,
+      "rows": 738,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 16,
+        "TOP:CANCEL": 6,
+        "TOP:STRUCTURE": 10,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 5,
+        "BOTTOM:STRUCTURE": 2,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 3
+      },
+      "bottomProtected": {
+        "events": 11,
+        "historyUpdates": 123,
+        "rearmUpdates": 2
+      },
+      "sha256": "d07f7893cb8dd6feec1e7bdc38d8cfb3c5512e0038ab8fd89d7530fa5eade3a1",
+      "rawBytes": 532809
+    },
+    {
+      "group": "legacy",
+      "period": "m120",
+      "gate": 1.2,
+      "rows": 738,
+      "changedEndpoints": 0,
+      "eventCounts": {
+        "TOP:DULL": 16,
+        "TOP:CANCEL": 6,
+        "TOP:STRUCTURE": 10,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 5,
+        "BOTTOM:STRUCTURE": 2,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+        "BOTTOM:CANCEL": 3
+      },
+      "bottomProtected": {
+        "events": 11,
+        "historyUpdates": 123,
+        "rearmUpdates": 2
+      },
+      "sha256": "61da7bb86f20768c24c67b8d9bb4551de9438f809f04d97d63e999b35f2a4c78",
+      "rawBytes": 532809
+    },
+    {
+      "group": "source",
+      "period": "day",
+      "gate": 0.75,
+      "rows": 912,
+      "changedEndpoints": 5,
+      "eventCounts": {
+        "TOP:DULL": 13,
+        "TOP:STRUCTURE": 9,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 15,
+        "BOTTOM:STRUCTURE": 7,
+        "BOTTOM:CANCEL": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "TOP:CANCEL": 4
+      },
+      "bottomProtected": {
+        "events": 34,
+        "historyUpdates": 67,
+        "rearmUpdates": 0
+      },
+      "sha256": "f37c97eae72a2e62f9e0d551c08f7f67a7e02979351405e02a7bf7e06748ab31",
+      "rawBytes": 646071
+    },
+    {
+      "group": "source",
+      "period": "day",
+      "gate": 1.0,
+      "rows": 912,
+      "changedEndpoints": 5,
+      "eventCounts": {
+        "TOP:DULL": 13,
+        "TOP:STRUCTURE": 9,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 15,
+        "BOTTOM:STRUCTURE": 7,
+        "BOTTOM:CANCEL": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "TOP:CANCEL": 4
+      },
+      "bottomProtected": {
+        "events": 34,
+        "historyUpdates": 67,
+        "rearmUpdates": 0
+      },
+      "sha256": "ee73af84381cbd7d1530ef469c2214f269bdcf64752a30009497b022e08b642d",
+      "rawBytes": 646071
+    },
+    {
+      "group": "source",
+      "period": "day",
+      "gate": 1.2,
+      "rows": 912,
+      "changedEndpoints": 5,
+      "eventCounts": {
+        "TOP:DULL": 13,
+        "TOP:STRUCTURE": 9,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+        "BOTTOM:DULL": 15,
+        "BOTTOM:STRUCTURE": 7,
+        "BOTTOM:CANCEL": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+        "TOP:CANCEL": 4
+      },
+      "bottomProtected": {
+        "events": 34,
+        "historyUpdates": 67,
+        "rearmUpdates": 0
+      },
+      "sha256": "622001bc3a8dd7240a2b718ebb25a6a0efe975d9bd2a67efa1d380dc367c8b35",
+      "rawBytes": 646071
+    },
+    {
+      "group": "source",
+      "period": "m60",
+      "gate": 0.75,
+      "rows": 17260,
+      "changedEndpoints": 19,
+      "eventCounts": {
+        "TOP:DULL": 294,
+        "TOP:CANCEL": 104,
+        "BOTTOM:DULL": 232,
+        "BOTTOM:CANCEL": 89,
+        "TOP:STRUCTURE": 190,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 63,
+        "BOTTOM:STRUCTURE": 144,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 5,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 46
+      },
+      "bottomProtected": {
+        "events": 516,
+        "historyUpdates": 6333,
+        "rearmUpdates": 20
+      },
+      "sha256": "9a73de36488479db5e95caa2d66a2ada722ed4e7c12ca23dd234024d32ae27ce",
+      "rawBytes": 15821923
+    },
+    {
+      "group": "source",
+      "period": "m60",
+      "gate": 1.0,
+      "rows": 17260,
+      "changedEndpoints": 19,
+      "eventCounts": {
+        "TOP:DULL": 288,
+        "TOP:CANCEL": 104,
+        "BOTTOM:DULL": 230,
+        "BOTTOM:CANCEL": 90,
+        "TOP:STRUCTURE": 184,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 63,
+        "BOTTOM:STRUCTURE": 142,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 46,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 4
+      },
+      "bottomProtected": {
+        "events": 512,
+        "historyUpdates": 6326,
+        "rearmUpdates": 18
+      },
+      "sha256": "5b23c35c5b8460e65bb3ee0072ebfb2505737e1159ccf4b94267445fbfd11079",
+      "rawBytes": 15801285
+    },
+    {
+      "group": "source",
+      "period": "m60",
+      "gate": 1.2,
+      "rows": 17260,
+      "changedEndpoints": 19,
+      "eventCounts": {
+        "TOP:DULL": 285,
+        "TOP:CANCEL": 104,
+        "BOTTOM:DULL": 228,
+        "BOTTOM:CANCEL": 90,
+        "TOP:STRUCTURE": 181,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 63,
+        "BOTTOM:STRUCTURE": 139,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 46,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 4
+      },
+      "bottomProtected": {
+        "events": 507,
+        "historyUpdates": 6312,
+        "rearmUpdates": 18
+      },
+      "sha256": "784eaf1ce49cc893b337a889e5062f1570c29801af92aa61238883b698f4fc6d",
+      "rawBytes": 15783930
+    },
+    {
+      "group": "source",
+      "period": "m90",
+      "gate": 0.75,
+      "rows": 12945,
+      "changedEndpoints": 342,
+      "eventCounts": {
+        "TOP:DULL": 225,
+        "TOP:CANCEL": 75,
+        "TOP:STRUCTURE": 150,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 49,
+        "BOTTOM:DULL": 165,
+        "BOTTOM:STRUCTURE": 101,
+        "BOTTOM:CANCEL": 65,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 24,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 4
+      },
+      "bottomProtected": {
+        "events": 359,
+        "historyUpdates": 5581,
+        "rearmUpdates": 20
+      },
+      "sha256": "be9574858dc0ac78fb185ad23605e1d2cc25f75fbf23489e3d206b82bb1d5ae9",
+      "rawBytes": 12658225
+    },
+    {
+      "group": "source",
+      "period": "m90",
+      "gate": 1.0,
+      "rows": 12945,
+      "changedEndpoints": 342,
+      "eventCounts": {
+        "TOP:DULL": 222,
+        "TOP:CANCEL": 75,
+        "TOP:STRUCTURE": 147,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 49,
+        "BOTTOM:DULL": 163,
+        "BOTTOM:STRUCTURE": 99,
+        "BOTTOM:CANCEL": 65,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 24,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 4
+      },
+      "bottomProtected": {
+        "events": 355,
+        "historyUpdates": 5576,
+        "rearmUpdates": 20
+      },
+      "sha256": "b5c08247ceea7d249b1de4cc397aab58bc28f441be11efd0d42743649f55947d",
+      "rawBytes": 12646101
+    },
+    {
+      "group": "source",
+      "period": "m90",
+      "gate": 1.2,
+      "rows": 12945,
+      "changedEndpoints": 342,
+      "eventCounts": {
+        "TOP:DULL": 220,
+        "TOP:CANCEL": 75,
+        "TOP:STRUCTURE": 145,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 50,
+        "BOTTOM:DULL": 161,
+        "BOTTOM:STRUCTURE": 97,
+        "BOTTOM:CANCEL": 65,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 24,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 4
+      },
+      "bottomProtected": {
+        "events": 351,
+        "historyUpdates": 5577,
+        "rearmUpdates": 17
+      },
+      "sha256": "b2ca57ec7b1e128e332499c146d2944a7132092006ad21ca7628fd91d0b2ed1a",
+      "rawBytes": 12629134
+    },
+    {
+      "group": "source",
+      "period": "m120",
+      "gate": 0.75,
+      "rows": 8630,
+      "changedEndpoints": 21,
+      "eventCounts": {
+        "TOP:DULL": 147,
+        "TOP:CANCEL": 64,
+        "TOP:STRUCTURE": 83,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 28,
+        "BOTTOM:DULL": 124,
+        "BOTTOM:STRUCTURE": 74,
+        "BOTTOM:CANCEL": 50,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 19,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 7
+      },
+      "bottomProtected": {
+        "events": 274,
+        "historyUpdates": 2737,
+        "rearmUpdates": 27
+      },
+      "sha256": "31018ba6cfc1fbd63b7356cdfba7060644b2fee1da532721839f5ae1775ca2e9",
+      "rawBytes": 7477525
+    },
+    {
+      "group": "source",
+      "period": "m120",
+      "gate": 1.0,
+      "rows": 8630,
+      "changedEndpoints": 21,
+      "eventCounts": {
+        "TOP:DULL": 144,
+        "TOP:CANCEL": 64,
+        "TOP:STRUCTURE": 80,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 27,
+        "BOTTOM:DULL": 122,
+        "BOTTOM:STRUCTURE": 72,
+        "BOTTOM:CANCEL": 50,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 19,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 6
+      },
+      "bottomProtected": {
+        "events": 269,
+        "historyUpdates": 2733,
+        "rearmUpdates": 24
+      },
+      "sha256": "132aebc7b391e7a2bd21a349d5f2d56e93b76e048e478c988af1270dcb759143",
+      "rawBytes": 7456091
+    },
+    {
+      "group": "source",
+      "period": "m120",
+      "gate": 1.2,
+      "rows": 8630,
+      "changedEndpoints": 21,
+      "eventCounts": {
+        "TOP:DULL": 142,
+        "TOP:CANCEL": 64,
+        "TOP:STRUCTURE": 78,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 27,
+        "BOTTOM:DULL": 122,
+        "BOTTOM:STRUCTURE": 72,
+        "BOTTOM:CANCEL": 50,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 19,
+        "BOTTOM:STRUCTURE_DISAPPEARED": 6
+      },
+      "bottomProtected": {
+        "events": 269,
+        "historyUpdates": 2733,
+        "rearmUpdates": 24
+      },
+      "sha256": "0d48b2fef6efb0a9fb6e796711e7e50da91149150f12f3b49326122a4d0ac48d",
+      "rawBytes": 7452149
+    },
+    {
+      "group": "daily2020",
+      "period": "day",
+      "gate": 0.75,
+      "rows": 1643,
+      "changedEndpoints": 18,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 9,
+        "TOP:STRUCTURE": 12,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+        "BOTTOM:DULL": 20,
+        "BOTTOM:CANCEL": 11,
+        "BOTTOM:STRUCTURE": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4
+      },
+      "bottomProtected": {
+        "events": 43,
+        "historyUpdates": 226,
+        "rearmUpdates": 0
+      },
+      "sha256": "9c2d158286ca1d26c554fc314f1f1f1202dd247f215891a781c672bea7e25d52",
+      "rawBytes": 1129631
+    },
+    {
+      "group": "daily2020",
+      "period": "day",
+      "gate": 1.0,
+      "rows": 1643,
+      "changedEndpoints": 18,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 9,
+        "TOP:STRUCTURE": 12,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+        "BOTTOM:DULL": 20,
+        "BOTTOM:CANCEL": 11,
+        "BOTTOM:STRUCTURE": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4
+      },
+      "bottomProtected": {
+        "events": 43,
+        "historyUpdates": 226,
+        "rearmUpdates": 0
+      },
+      "sha256": "b28f8b3eef2b9b92f54c7e14d60156cc7f61d65046385ba0639ebcde6f68cdf9",
+      "rawBytes": 1129631
+    },
+    {
+      "group": "daily2020",
+      "period": "day",
+      "gate": 1.2,
+      "rows": 1643,
+      "changedEndpoints": 18,
+      "eventCounts": {
+        "TOP:DULL": 21,
+        "TOP:CANCEL": 9,
+        "TOP:STRUCTURE": 12,
+        "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+        "BOTTOM:DULL": 20,
+        "BOTTOM:CANCEL": 11,
+        "BOTTOM:STRUCTURE": 8,
+        "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4
+      },
+      "bottomProtected": {
+        "events": 43,
+        "historyUpdates": 226,
+        "rearmUpdates": 0
+      },
+      "sha256": "0ee9c11b17bc663135f6eb307802eb8aee88f77cc820f9c53246b67a0b9691ea",
+      "rawBytes": 1129631
+    }
+  ],
+  "compressedBytes": 13762847,
+  "seconds": 11.163407834246755
+}

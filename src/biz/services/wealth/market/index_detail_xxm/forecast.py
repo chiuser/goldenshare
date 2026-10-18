@@ -1,21 +1,22 @@
-"""Range-model orchestration; only the original detector confirms events."""
+"""Single nearest-target solver over complete, causal reference paths."""
 from .forecast_spec import FORECAST_SPEC
-from .forecast_math import (Interval, Affine, as_interval, project_affine_prefix, display_range, number_inside, const)
-from .forecast_detector import clone, possible_bars, confirmed_options
+from .forecast_math import Interval, Affine, as_interval, project_affine_prefix, display_range, number_inside, const
 from .forecast_entry import solve_entry_ranges
-from .forecast_joint import (build_relation, close_bounds, domains_for_target, common_interval, displayable_witness, target_lines, feasible_for_lines)
+from .forecast_joint import close_bounds, common_interval, target_lines, feasible_for_lines
+from .forecast_paths import partition_prefix_paths, build_path_relation, validate_path_options, solve_next_bar_outcomes, ReferencePath, path_displayable_witness
 
 
 def inactive_result(status, reason=None):
     return dict(status=status, reasonCode=reason, targetEndpoint=None, barsAhead=None,
                 activation=None, assumption=None, targetEntryRanges=[], targetEntryExclusions=[],
-                relations=[], commonConditions=[], examples=[])
+                relations=[], commonConditions=[], examples=[], nextBarOutcomes=None)
 
 
 def forecast(c,projection,endpoints,check=lambda:None):
     base=inactive_result('NO_CANDIDATE')
     if c.state=='STRUCTURE':return dict(base,status='CONFIRMED')
     if not c.wave or not c.wave.sign:return dict(base,reasonCode='ZERO_WAVE')
+    base['nextBarOutcomes']=solve_next_bar_outcomes(c,projection,endpoints[0],check)
     conditional=c.state=='NONE'
     if conditional:
         if not c.history[c.wave.sign]:return dict(base,reasonCode='NO_REFERENCE')
@@ -34,48 +35,22 @@ def forecast(c,projection,endpoints,check=lambda:None):
         n=j-1
         relations=[];targets=[];commons=[];examples=[];target_exclusions=[];unresolved=False;narrow=False
         for domain,ref,key in seeds:
-            if conditional:
-                domains,exclusions,coeffs=domains_for_target(c,projection,domain,ref,n,check)
-            else:
-                coeffs=project_affine_prefix(projection,n)
-                ds,hs,d,h=coeffs
-                survives=True;ambiguous_survival=False
-                if n:
-                    states=[(clone(c),projection)]
-                    for time in endpoints[:n]:
-                        fresh=[];outcomes=set()
-                        for child,proj in states:
-                            check()
-                            nxt,bars=possible_bars(proj,domain.lo,time,c.period=='day')
-                            for bar in bars:
-                                check()
-                                copy=clone(child);step=copy.step(bar)
-                                outcomes.add((copy.state,tuple((e['type'],e['route']) for e in step.events)))
-                                if copy.state!='DULL' or copy.reference.reference()!=ref or any(e['type'] in ('CANCEL','STRUCTURE') for e in step.events):
-                                    survives=False
-                                fresh.append((copy,nxt))
-                        ambiguous_survival |= len(outcomes)>1
-                        states=fresh
-                        check()
-                        if not survives:break
-                domains=[domain] if survives and any(close_bounds(c,ref,ds,d,h,domain.lo,r) for r in ('color_flip','dif_turn')) else []
-                exclusions=[]
-                if ambiguous_survival:unresolved=True
-                elif survives and not domains:
-                    unresolved |= any(feasible_for_lines(domain,target_lines(c,ref,ds,d,h,domain.lo,r,possible=True)) for r in ('color_flip','dif_turn'))
+            parts,exclusions,coeffs=partition_prefix_paths(c,projection,domain,ref,endpoints[:n],check)
             unresolved |= any(e['reason']=='PRECISION_UNRESOLVED' for e in exclusions)
             target_exclusions.extend(dict(entryRangeIds=[key] if key else [],priceRange=e['interval'].json(),reason=e['reason']) for e in exclusions)
-            if not domains:continue
-            if not conditional:
-                ds,hs,d,h=coeffs
-                if not any(display_range(iv,FORECAST_SPEC.price_boundary_places) for route in ('dif_turn','color_flip') if (iv:=close_bounds(c,ref,ds,d,h,domain.lo,route)) is not None):
-                    narrow=True;continue
+            if not parts:continue
             ds,hs,d,h=coeffs
-            targets.extend(dict(entryRangeIds=[key] if key else [],priceRange=v.json()) for v in domains)
-            for route in ('dif_turn','color_flip'):
-                for v in domains:
-                    rel,*_=build_relation(c,projection,v if conditional else None,ref,n,route)
+            targets.extend(dict(entryRangeIds=[key] if key else [],priceRange=part.domain.json()) for part in parts)
+            for part in parts:
+                v,path=part.domain,part.path
+                final=path.final
+                route_ids={}
+                for route in ('dif_turn','color_flip'):
+                    if feasible_for_lines(v,target_lines(c,final,ds,d,h,v.lo if v.lo==v.hi else (v.lo+(v.hi or v.lo+1))/2,route)) is None:
+                        if v.lo!=v.hi or close_bounds(c,final,ds,d,h,v.lo,route) is None:continue
+                    rel=build_path_relation(c,projection,v if conditional else None,path,n,route,endpoints[:n])
                     rel.update(relationId=f'relation-{len(relations)+1}',entryRangeIds=[key] if key else [])
+                    route_ids[route]=rel['relationId']
                     if not conditional:
                         def substitute(expr):
                             if isinstance(expr,dict):
@@ -86,37 +61,39 @@ def forecast(c,projection,endpoints,check=lambda:None):
                             return expr
                         rel=substitute(rel)
                     relations.append(rel)
-                    common=common_interval(c,ref,ds,d,h,v,route,check)
+                    common=common_interval(c,final,ds,d,h,v,route,check)
                     display=display_range(common) if common else None
                     if display:
                         for p in [v.lo+(v.hi-v.lo)*t for t in (.001,.5,.999)] if v.hi!=v.lo else [v.lo]:
-                            assert confirmed_options(c,projection,endpoints[:j],p,display['displayLower'],route,ref,check)
+                            assert validate_path_options(c,projection,endpoints[:j],p,display['displayLower'],route,path,check)
                             if display['displayUpper'] is not None:
-                                assert confirmed_options(c,projection,endpoints[:j],p,display['displayUpper'],route,ref,check)
-                        commons.append(dict(entryRangeIds=[key] if key else [],entryDomain=v.json() if conditional else None,reference=ref,route=route,closeRanges=[dict(display,route=route)]))
-            if conditional:
-                v=domains[0]
-                prices=[number_inside(v.lo,True,FORECAST_SPEC.price_display_places),(v.lo+v.hi)/2,number_inside(v.hi,False,FORECAST_SPEC.price_display_places)] if v.hi is not None else [v.lo+1,v.lo+10,v.lo+100]
-                for p in prices:
-                    if not v.contains(p):continue
-                    p=round(p,FORECAST_SPEC.price_display_places)
-                    if not v.contains(p):continue
-                    ranges=[]
-                    for route in ('dif_turn','color_flip'):
-                        iv=close_bounds(c,ref,ds,d,h,p,route)
-                        shown=display_range(iv) if iv else None
-                        if shown:
-                            assert confirmed_options(c,projection,endpoints[:j],p,shown['displayLower'],route,ref,check)
-                            if shown['displayUpper'] is not None:assert confirmed_options(c,projection,endpoints[:j],p,shown['displayUpper'],route,ref,check)
-                            ranges.append(dict(shown,route=route))
-                    if ranges:examples.append(dict(preClose=p,entryRangeId=key,closeRanges=ranges))
+                                assert validate_path_options(c,projection,endpoints[:j],p,display['displayUpper'],route,path,check)
+                        commons.append(dict(relationId=rel['relationId'],entryRangeIds=[key] if key else [],entryDomain=v.json() if conditional else None,reference=final,route=route,closeRanges=[dict(display,route=route)]))
+                if conditional:
+                    prices=[number_inside(v.lo,True,2),(v.lo+v.hi)/2,number_inside(v.hi,False,2)] if v.hi is not None else [v.lo+1,v.lo+10,v.lo+100]
+                    for p in prices:
+                        p=round(p,2)
+                        if not v.contains(p):continue
+                        ranges=[]
+                        for route,rid in route_ids.items():
+                            iv=close_bounds(c,final,ds,d,h,p,route);shown=display_range(iv) if iv else None
+                            if shown:
+                                assert validate_path_options(c,projection,endpoints[:j],p,shown['displayLower'],route,path,check)
+                                if shown['displayUpper'] is not None:assert validate_path_options(c,projection,endpoints[:j],p,shown['displayUpper'],route,path,check)
+                                ranges.append(dict(shown,route=route,relationId=rid))
+                        if ranges:examples.append(dict(preClose=p,entryRangeId=key,closeRanges=ranges))
         if relations and not commons and not examples:
             for target in targets:
                 key=target['entryRangeIds'][0] if target['entryRangeIds'] else None
                 seed=next((v for v in seeds if v[2]==key),None)
-                if seed:
-                    witness=displayable_witness(c,projection,as_interval(target['priceRange']),seed[1],j-1,endpoints[:j],check)
-                    if witness:examples.append(dict(witness,entryRangeId=key));break
+                if seed and conditional:
+                    relation=next(r for r in relations if r['entryRangeIds']==[key] and r['entryDomain']==target['priceRange'])
+                    path=ReferencePath(relation['initialReference'],tuple(relation['referenceTransitions']))
+                    witness=path_displayable_witness(c,projection,as_interval(target['priceRange']),path,j-1,endpoints[:j],check)
+                    if witness:
+                        for v in witness['closeRanges']:
+                            v['relationId']=next(r['relationId'] for r in relations if r['entryRangeIds']==[key] and r['route']==v['route'] and as_interval(r['entryDomain']).contains(witness['preClose']))
+                        examples.append(dict(witness,entryRangeId=key));break
             if not examples:
                 return dict(base,status='PRECISION_PENDING',reasonCode='NARROW_INTERVAL',targetEndpoint=stamp,barsAhead=j)
         if relations:

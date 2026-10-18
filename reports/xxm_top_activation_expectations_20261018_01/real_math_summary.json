@@ -1,0 +1,35 @@
+{
+  "status": "INDEPENDENT_REAL_MATH_FROZEN",
+  "cases": 522,
+  "reusedUnits": 0,
+  "classifications": {
+    "NO_ENTRY": 219,
+    "NONEMPTY_SECOND_ENDPOINT": 303
+  },
+  "independentPrefixesRecovered": 104,
+  "allCasesProven": true,
+  "perPeriod": {
+    "day": {
+      "NO_ENTRY": 3
+    },
+    "m60": {
+      "NONEMPTY_SECOND_ENDPOINT": 144,
+      "NO_ENTRY": 111
+    },
+    "m90": {
+      "NO_ENTRY": 57,
+      "NONEMPTY_SECOND_ENDPOINT": 90
+    },
+    "m120": {
+      "NONEMPTY_SECOND_ENDPOINT": 69,
+      "NO_ENTRY": 48
+    }
+  },
+  "originalFreezeUnchanged": true,
+  "seconds": 0.7509170421399176,
+  "limitations": [
+    "Analytical domains on recovered projection constants; actual float-root guard and DTO/display still need product validation",
+    "693 retained forecasts remain original full response expectations; 522 changed forecasts use independent complete inequalities, not fabricated new response JSON",
+    "New product, formal API, performance, daily nonempty P-C validation have not run"
+  ]
+}

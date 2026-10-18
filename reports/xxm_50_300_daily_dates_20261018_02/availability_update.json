@@ -1,0 +1,15 @@
+{
+  "recordedOn": "2026-10-18",
+  "source": "Direct user statement: no 上证50 material in requested interval",
+  "index": "000016.SH",
+  "requestedDates": [
+    "2024-09-25",
+    "2024-09-26",
+    "2024-09-27"
+  ],
+  "status": "USER_COULD_NOT_FIND_VIDEO_MATERIAL",
+  "requestTheseDatesAgain": false,
+  "softwareLabelObserved": null,
+  "algorithmResultChanged": false,
+  "frozenResultsUnchanged": true
+}

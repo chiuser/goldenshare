@@ -43,9 +43,12 @@ def activation_signature(c, projection, p, stamp):
     return None
 
 
-def confirmed_options(c,projection,stamps,p,target,route,reference,check=lambda: None):
+def confirmed_options(c,projection,stamps,p,target,route,reference,check=lambda: None,*,reference_transitions=()):
     states=[(clone(c),projection)]
     for stamp in stamps[:-1]:
+        expected=reference
+        for transition in reference_transitions:
+            if transition['endpoint']<=stamp:expected=transition['toReference']
         newer=[]
         for state,proj in states:
             check()
@@ -53,7 +56,7 @@ def confirmed_options(c,projection,stamps,p,target,route,reference,check=lambda:
             for bar in bars:
                 check()
                 child=clone(state);step=child.step(bar)
-                if child.state!='DULL' or child.reference.reference()!=reference:return False
+                if child.state!='DULL' or child.reference.reference()!=expected:return False
                 if any(e['type'] in ('CANCEL','STRUCTURE') for e in step.events):return False
                 newer.append((child,next_proj))
         # Source-rounding variants can converge to identical original state.
@@ -66,8 +69,9 @@ def confirmed_options(c,projection,stamps,p,target,route,reference,check=lambda:
                 unique.setdefault(key,(state,proj))
             states=list(unique.values())
         else:states=newer
+    final_reference=reference_transitions[-1]['toReference'] if reference_transitions else reference
     for state,proj in states:
         check()
         options=event_options(state,proj,target,stamps[-1],'STRUCTURE',check)
-        if not all(o[2] and o[2]['route']==route and o[2]['eventReference']==reference for o in options):return False
+        if not all(o[2] and o[2]['route']==route and o[2]['eventReference']==final_reference for o in options):return False
     return True

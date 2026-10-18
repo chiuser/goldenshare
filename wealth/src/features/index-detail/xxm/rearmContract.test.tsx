@@ -13,7 +13,7 @@ import type { ForecastResponse, ForecastRows } from "../xxm-forecast/types";
 import type { XxmResponse } from "./types";
 
 const raw = (name: string) => JSON.parse(readFileSync(resolve(process.cwd(),
-  "../reports/xxm_same_segment_a1_implementation_20261016/api", name), "utf8"));
+  "../reports/xxm_top_activation_r2_implementation_20261019/api", name), "utf8"));
 const chart = (v: XxmResponse) => v.points.map(p => ({ ...xxmFixture().points[0]!, time: (Date.parse(p.time) / 1000) as UTCTimestamp,
   fullDate: p.time, open: p.close, high: p.close, low: p.close, close: p.close, volume: 0, dif: p.dif, dea: p.dea, macd: p.hist }));
 

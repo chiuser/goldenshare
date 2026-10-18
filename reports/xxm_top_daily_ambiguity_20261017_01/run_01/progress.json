@@ -1,0 +1,226 @@
+{
+  "completed": 20,
+  "total": 20,
+  "rows": [
+    {
+      "period": "day",
+      "variant": "BASE",
+      "rows": 1643,
+      "eventsCount": 93,
+      "changedEndpoints": 0,
+      "restores": 3,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "day",
+      "variant": "T2",
+      "rows": 1643,
+      "eventsCount": 89,
+      "changedEndpoints": 8,
+      "restores": 3,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "day",
+      "variant": "S2",
+      "rows": 1643,
+      "eventsCount": 89,
+      "changedEndpoints": 8,
+      "restores": 3,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "day",
+      "variant": "ZC",
+      "rows": 1643,
+      "eventsCount": 90,
+      "changedEndpoints": 18,
+      "restores": 3,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "day",
+      "variant": "ZR",
+      "rows": 1643,
+      "eventsCount": 90,
+      "changedEndpoints": 18,
+      "restores": 3,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m60",
+      "variant": "BASE",
+      "rows": 17260,
+      "eventsCount": 1159,
+      "changedEndpoints": 0,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m60",
+      "variant": "T2",
+      "rows": 17260,
+      "eventsCount": 1149,
+      "changedEndpoints": 39,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m60",
+      "variant": "S2",
+      "rows": 17260,
+      "eventsCount": 1140,
+      "changedEndpoints": 337,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m60",
+      "variant": "ZC",
+      "rows": 17260,
+      "eventsCount": 1151,
+      "changedEndpoints": 19,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m60",
+      "variant": "ZR",
+      "rows": 17260,
+      "eventsCount": 1153,
+      "changedEndpoints": 13,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m90",
+      "variant": "BASE",
+      "rows": 12945,
+      "eventsCount": 857,
+      "changedEndpoints": 0,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m90",
+      "variant": "T2",
+      "rows": 12945,
+      "eventsCount": 847,
+      "changedEndpoints": 91,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m90",
+      "variant": "S2",
+      "rows": 12945,
+      "eventsCount": 839,
+      "changedEndpoints": 236,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m90",
+      "variant": "ZC",
+      "rows": 12945,
+      "eventsCount": 848,
+      "changedEndpoints": 342,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m90",
+      "variant": "ZR",
+      "rows": 12945,
+      "eventsCount": 851,
+      "changedEndpoints": 319,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m120",
+      "variant": "BASE",
+      "rows": 8630,
+      "eventsCount": 586,
+      "changedEndpoints": 0,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m120",
+      "variant": "T2",
+      "rows": 8630,
+      "eventsCount": 581,
+      "changedEndpoints": 59,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m120",
+      "variant": "S2",
+      "rows": 8630,
+      "eventsCount": 571,
+      "changedEndpoints": 208,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m120",
+      "variant": "ZC",
+      "rows": 8630,
+      "eventsCount": 584,
+      "changedEndpoints": 21,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    },
+    {
+      "period": "m120",
+      "variant": "ZR",
+      "rows": 8630,
+      "eventsCount": 586,
+      "changedEndpoints": 0,
+      "restores": 1,
+      "newlyLostLabels": [],
+      "newlyMatchedLabels": [],
+      "baselineUnmatchedLabels": []
+    }
+  ]
+}

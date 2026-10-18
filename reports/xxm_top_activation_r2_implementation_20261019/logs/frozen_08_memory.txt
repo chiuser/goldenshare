@@ -1,0 +1,87 @@
+{"period": "day", "gate": 0.75, "completed": 15, "total": 26}
+day 0.75 {"rows": 912, "forecasts": 26, "maxMs": 81.4049169421196, "calibrationProtected": 18}
+{"period": "day", "gate": 1.0, "completed": 15, "total": 26}
+day 1.0 {"rows": 912, "forecasts": 26, "maxMs": 82.82154239714146, "calibrationProtected": 18}
+{"period": "day", "gate": 1.2, "completed": 15, "total": 26}
+day 1.2 {"rows": 912, "forecasts": 26, "maxMs": 89.33812519535422, "calibrationProtected": 18}
+{"period": "m60", "gate": 0.75, "completed": 15, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 30, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 45, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 60, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 75, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 90, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 105, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 120, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 135, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 150, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 165, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 180, "total": 182}
+m60 0.75 {"rows": 17260, "forecasts": 182, "maxMs": 23.54016713798046, "calibrationProtected": 0}
+{"period": "m60", "gate": 1.0, "completed": 15, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 30, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 45, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 60, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 75, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 90, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 105, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 120, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 135, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 150, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 165, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 180, "total": 182}
+m60 1.0 {"rows": 17260, "forecasts": 182, "maxMs": 32.59966662153602, "calibrationProtected": 0}
+{"period": "m60", "gate": 1.2, "completed": 15, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 30, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 45, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 60, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 75, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 90, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 105, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 120, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 135, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 150, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 165, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 180, "total": 182}
+m60 1.2 {"rows": 17260, "forecasts": 182, "maxMs": 24.845417123287916, "calibrationProtected": 0}
+{"period": "m90", "gate": 0.75, "completed": 15, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 30, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 45, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 60, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 75, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 90, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 105, "total": 113}
+m90 0.75 {"rows": 12945, "forecasts": 113, "maxMs": 25.125584099441767, "calibrationProtected": 0}
+{"period": "m90", "gate": 1.0, "completed": 15, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 30, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 45, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 60, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 75, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 90, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 105, "total": 113}
+m90 1.0 {"rows": 12945, "forecasts": 113, "maxMs": 23.32704234868288, "calibrationProtected": 0}
+{"period": "m90", "gate": 1.2, "completed": 15, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 30, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 45, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 60, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 75, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 90, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 105, "total": 113}
+m90 1.2 {"rows": 12945, "forecasts": 113, "maxMs": 33.36725011467934, "calibrationProtected": 0}
+{"period": "m120", "gate": 0.75, "completed": 15, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 30, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 45, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 60, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 75, "total": 84}
+m120 0.75 {"rows": 8630, "forecasts": 84, "maxMs": 16.441375017166138, "calibrationProtected": 0}
+{"period": "m120", "gate": 1.0, "completed": 15, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 30, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 45, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 60, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 75, "total": 84}
+m120 1.0 {"rows": 8630, "forecasts": 84, "maxMs": 17.819332890212536, "calibrationProtected": 0}
+{"period": "m120", "gate": 1.2, "completed": 15, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 30, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 45, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 60, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 75, "total": 84}
+m120 1.2 {"rows": 8630, "forecasts": 84, "maxMs": 30.476541724056005, "calibrationProtected": 0}

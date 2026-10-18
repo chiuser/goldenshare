@@ -1,0 +1,31 @@
+{
+  "date": "2026-04-16",
+  "ts_code": "399001.SZ",
+  "period": "day",
+  "source": "USER_PROVIDED_FULL_TRANSCRIPT_EXCERPT_SAVED",
+  "originalVideoAudioVerified": false,
+  "sourceAttachmentSha256": "f4e87a3e3c39b0822ab2caffd9160b60acd81494c448d93f83600d7cdd1522ee",
+  "softwareDisappearanceDate": "2026-04-16",
+  "softwareDisappearanceType": "钝化消失",
+  "eventDateBasis": "全文明确日期4月16日，随后明确说深成指今天钝化消失。",
+  "softwareFirstDullDate": null,
+  "softwareDifOnApril13": null,
+  "softwareSelectedReference": null,
+  "visualGreenDateImpression": "2026-04-15",
+  "visualGreenDateStatus": "WITHDRAWN_AS_EVENT_DATE_EVIDENCE",
+  "visualFirstDullDateImpression": "2026-04-14",
+  "visualFirstDullDateStatus": "UNCONFIRMED",
+  "dateQuestionStatus": "RESOLVED_BY_EXPLICIT_TRANSCRIPT_DAY",
+  "saidReasonVerbatim": [
+    "钝化消失原因是这有一根红脚线",
+    "前面那高点取不进去了"
+  ],
+  "reasonInterpretation": "单根红柱限制更早高点作为参照，与现模型单根也占最近两段位置相容；作者未指明具体日期。",
+  "modelComparisons": {
+    "BASE": "消失日期早一天，与本次当日事件描述不一致。",
+    "ZR": "消失日期早一天，与本次当日事件描述不一致。",
+    "ZC": "4月16日消失，与本次当日事件描述吻合；首次日期及唯一公式仍未证明。"
+  },
+  "notAnEngineChangeApproval": true,
+  "softwareEventDatesNewlyRecorded": 1
+}

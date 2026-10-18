@@ -1,0 +1,74 @@
+{
+  "independentMethod": "Decimal precision=50; EMA12=(11*prev+2*close)/13; EMA26=(25*prev+2*close)/27; DEA=(4*prev+DIF)/5; MACD=2*(DIF-DEA); seed first close, DEA0; all three fields in last250 compared with 0.0005",
+  "usedProductProjectionHelper": false,
+  "toleranceChanged": false,
+  "sourceSha256": {
+    "old": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+    "new": "8b0f62ff5a44a2935ce86cada196fd4c566b7c2493d60b9b28ed515d10da2f14"
+  },
+  "cases": [
+    {
+      "through": "2024-07-23",
+      "old2023Prefix": {
+        "sourceFirst": "2023-01-03",
+        "rows": 376,
+        "tailRows": 250,
+        "worstDate": "2023-07-18",
+        "maxAbsoluteError": "0.0010063351805737426065951467417111942594102892328",
+        "tailOverTolerance": 15,
+        "passesTailTolerance": false
+      },
+      "new2020Prefix": {
+        "sourceFirst": "2020-01-02",
+        "rows": 1104,
+        "tailRows": 250,
+        "worstDate": "2024-07-10",
+        "maxAbsoluteError": "0.000496728481075032527994600693892585503622279216",
+        "tailOverTolerance": 0,
+        "passesTailTolerance": true
+      }
+    },
+    {
+      "through": "2024-08-05",
+      "old2023Prefix": {
+        "sourceFirst": "2023-01-03",
+        "rows": 385,
+        "tailRows": 250,
+        "worstDate": "2023-07-27",
+        "maxAbsoluteError": "0.0006937693913121234367697158970390006779672187472",
+        "tailOverTolerance": 8,
+        "passesTailTolerance": false
+      },
+      "new2020Prefix": {
+        "sourceFirst": "2020-01-02",
+        "rows": 1113,
+        "tailRows": 250,
+        "worstDate": "2024-07-10",
+        "maxAbsoluteError": "0.000496728481075032527994600693892585503622279216",
+        "tailOverTolerance": 0,
+        "passesTailTolerance": true
+      }
+    },
+    {
+      "through": "2024-08-22",
+      "old2023Prefix": {
+        "sourceFirst": "2023-01-03",
+        "rows": 398,
+        "tailRows": 250,
+        "worstDate": "2023-08-23",
+        "maxAbsoluteError": "0.000557296329297898766969232545189588620603044925",
+        "tailOverTolerance": 2,
+        "passesTailTolerance": false
+      },
+      "new2020Prefix": {
+        "sourceFirst": "2020-01-02",
+        "rows": 1126,
+        "tailRows": 250,
+        "worstDate": "2024-07-10",
+        "maxAbsoluteError": "0.000496728481075032527994600693892585503622279216",
+        "tailOverTolerance": 0,
+        "passesTailTolerance": true
+      }
+    }
+  ]
+}

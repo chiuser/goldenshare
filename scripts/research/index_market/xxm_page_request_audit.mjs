@@ -9,7 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 const require = createRequire(new URL("../../../wealth/package.json", import.meta.url));
 const { build } = require("esbuild");
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const [base, output] = process.argv.slice(2);
+const [base, output, ...selectedPeriods] = process.argv.slice(2);
 assert(base && output);
 const prefix = `${root}wealth/src/features/index-detail/`;
 const entry = [
@@ -44,8 +44,9 @@ globalThis.fetch = async (input, options) => {
     return new Response(bytes, { status: response.status, headers: response.headers });
   } catch (error) { record.error = String(error); record.seconds = (performance.now() - record.started) / 1000; throw error; }
 };
-const persist = () => writeFile(resolve(output, "page-mix.json"), JSON.stringify({ rounds, requests }, null, 2) + "\n");
-const periods = ["day", "m60", "m90", "m120"];
+const periods = selectedPeriods.length ? selectedPeriods : ["day", "m60", "m90", "m120"];
+assert(periods.every(period=>["day","m60","m90","m120"].includes(period)) && new Set(periods).size===periods.length);
+const persist = () => writeFile(resolve(output, "page-mix.json"), JSON.stringify({ periods, rounds, requests }, null, 2) + "\n");
 async function runTab(tab, selected, label, tabIndex, auditContext) {
   return context.run({ label, tab: tabIndex }, async () => {
     const endDate = auditContext.businessDate;
@@ -63,7 +64,8 @@ async function runTab(tab, selected, label, tabIndex, auditContext) {
     for (let i = 0; i < periods.length; i++) {
       const value = values[i], period = periods[i];
       assert.equal(value.detectorSpecHash, auditContext.specHash);
-      assert.equal(value.forecastVersion, "xxm-key-point-forecast-v0.2-a1");
+      assert.equal(value.forecastVersion, auditContext.forecastVersion);
+      assert.equal(value.forecastSpecHash, auditContext.forecastSpecHash);
       assert(Object.hasOwn(value,"rearmContext"));
       assert.equal(value.period, periods[i]); assert.equal(value.dataStatus, "READY");
       assert.equal(value.computedThrough, periods[i] === "day" ? endDate : `${endDate}T15:00:00+08:00`);
@@ -111,7 +113,7 @@ for (const selected of periods) {
       assert(metrics.cacheBytes <= 64 * 1024 * 1024 && metrics.cacheEntries <= 16);
       // Cold paired tabs share the loaded series, even if their arrival is staggered.
       if (mode === "cold") {
-        assert.equal(Object.keys(metrics.completeReads).length, 3);
+        assert.equal(Object.keys(metrics.completeReads).length, periods.filter(period=>period!=="day").length);
         assert(Object.values(metrics.completeReads).every(n => n === 2), JSON.stringify(metrics));
       } else assert.equal(Object.keys(metrics.completeReads).length, 0);
     }

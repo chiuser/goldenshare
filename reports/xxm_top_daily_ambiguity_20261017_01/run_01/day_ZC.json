@@ -1,0 +1,4824 @@
+{
+  "period": "day",
+  "variant": "ZC",
+  "rows": 1643,
+  "events": [
+    {
+      "id": "43a3e77d0632dec380474db3",
+      "time": "2020-06-02",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-04-02",
+        "endTime": "2020-05-21",
+        "price": 2898.576,
+        "dif": 18.145
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9767ef14dce2869398d61150",
+      "time": "2020-06-05",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-04-02",
+        "endTime": "2020-05-21",
+        "price": 2898.576,
+        "dif": 18.145
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "5a9d23145b2a8839b5d39a9b",
+      "time": "2020-06-19",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-06-01",
+        "endTime": "2020-06-12",
+        "price": 2956.1116,
+        "dif": 24.656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "b70ff461e983491346e5e3af",
+      "time": "2020-06-24",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-06-01",
+        "endTime": "2020-06-12",
+        "price": 2956.1116,
+        "dif": 24.656
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "a411646ece8e24b7c67371d4",
+      "time": "2020-08-19",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-06-17",
+        "endTime": "2020-07-16",
+        "price": 3450.5935,
+        "dif": 137.898
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "2d7ee786ab90d552504e6c79",
+      "time": "2020-08-20",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-06-17",
+        "endTime": "2020-07-16",
+        "price": 3450.5935,
+        "dif": 137.898
+      },
+      "relatedTopHistoryId": "b2369405d47497e7c07a87b0",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "b8fbcd008823deaa467da655",
+      "time": "2020-11-09",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-10-12",
+        "endTime": "2020-10-23",
+        "price": 3359.7499,
+        "dif": 6.173
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "dbe864fa5f2bebed1c1098f0",
+      "time": "2020-11-10",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-10-12",
+        "endTime": "2020-10-23",
+        "price": 3359.7499,
+        "dif": 6.173
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "e12aa8d523593574ff823bb9",
+      "time": "2020-12-01",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-08-18",
+        "endTime": "2020-08-19",
+        "price": 3451.0894,
+        "dif": 50.813
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "6c28ce09db5e78a853a9eafb",
+      "time": "2020-12-07",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-08-18",
+        "endTime": "2020-08-19",
+        "price": 3451.0894,
+        "dif": 50.813
+      },
+      "relatedTopHistoryId": "79237fb627fee4fca1fb4fef",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "1cba7a8c664e543c87f55b75",
+      "time": "2020-12-31",
+      "direction": "TOP",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-08-18",
+        "endTime": "2020-08-19",
+        "price": 3451.0894,
+        "dif": 50.813
+      },
+      "relatedTopHistoryId": "79237fb627fee4fca1fb4fef",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "23fe60e8879f23f542d65416",
+      "time": "2021-01-04",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-11-05",
+        "endTime": "2020-12-08",
+        "price": 3451.9384,
+        "dif": 34.725
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "810abedca2e81753b8748455",
+      "time": "2021-01-07",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-11-05",
+        "endTime": "2020-12-08",
+        "price": 3451.9384,
+        "dif": 34.725
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "b3b81faf2609b58bb3caa5cf",
+      "time": "2021-02-18",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-12-31",
+        "endTime": "2021-01-25",
+        "price": 3624.2381,
+        "dif": 55.3
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "d18fa331188b7c7ef30a357c",
+      "time": "2021-02-24",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2020-12-31",
+        "endTime": "2021-01-25",
+        "price": 3624.2381,
+        "dif": 55.3
+      },
+      "relatedTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "58c0dd199f8e6cb0c525bc62",
+      "time": "2021-09-10",
+      "direction": "TOP",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2020-12-31",
+        "endTime": "2021-01-25",
+        "price": 3624.2381,
+        "dif": 55.3
+      },
+      "relatedTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "1df73512a69c51c567294661",
+      "time": "2022-03-08",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2021-12-20",
+        "endTime": "2022-02-10",
+        "price": 3361.4397,
+        "dif": -49.704
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9090fcd9bbf70ada019d8e08",
+      "time": "2022-03-11",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2021-12-20",
+        "endTime": "2022-02-10",
+        "price": 3361.4397,
+        "dif": -49.704
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "bc0befa71478beaf5da5da8e",
+      "time": "2022-04-25",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2022-03-07",
+        "endTime": "2022-03-22",
+        "price": 3063.9652,
+        "dif": -81.977
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "97ac50acd581b9a11406e8b5",
+      "time": "2022-04-27",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2022-03-07",
+        "endTime": "2022-03-22",
+        "price": 3063.9652,
+        "dif": -81.977
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "c3d8dd704e1d6b63797002bc",
+      "time": "2022-09-19",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2022-07-06",
+        "endTime": "2022-08-10",
+        "price": 3163.6741,
+        "dif": -24.999
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "c8b262a71e9637ae921e1a09",
+      "time": "2022-09-20",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2022-07-06",
+        "endTime": "2022-08-10",
+        "price": 3163.6741,
+        "dif": -24.999
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "11051f990114b32db3c464b7",
+      "time": "2022-10-31",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2022-09-16",
+        "endTime": "2022-10-14",
+        "price": 2974.1454,
+        "dif": -61.518
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "c885c022e524b6826fb301b6",
+      "time": "2022-11-01",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2022-09-16",
+        "endTime": "2022-10-14",
+        "price": 2974.1454,
+        "dif": -61.518
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "893c5247a48e553f73e97ed9",
+      "relatedRearmId": null
+    },
+    {
+      "id": "894c2ffce105c845bb945048",
+      "time": "2023-01-16",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2022-11-02",
+        "endTime": "2022-12-14",
+        "price": 3212.5334,
+        "dif": 37.654
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "194fa1d89d9ef97e392eef3c",
+      "time": "2023-02-01",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2022-11-02",
+        "endTime": "2022-12-14",
+        "price": 3212.5334,
+        "dif": 37.654
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "225dce18a88ed0cb19d5f027",
+      "time": "2023-03-06",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-01-05",
+        "endTime": "2023-02-07",
+        "price": 3285.6705,
+        "dif": 41.186
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "795978e7d742c18b155d3032",
+      "time": "2023-03-07",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-01-05",
+        "endTime": "2023-02-07",
+        "price": 3285.6705,
+        "dif": 41.186
+      },
+      "relatedTopHistoryId": "d58fd6a3f86313017f44c801",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "f013b4ff1a0d83dc343f072c",
+      "time": "2023-04-14",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-01-05",
+        "endTime": "2023-02-07",
+        "price": 3285.6705,
+        "dif": 41.186
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "c02aa889c5433358c057e65b",
+      "time": "2023-04-21",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-01-05",
+        "endTime": "2023-02-07",
+        "price": 3285.6705,
+        "dif": 41.186
+      },
+      "relatedTopHistoryId": "d15d62b15d06b478c5957d0c",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "00e806dbe3bdd4863016d29b",
+      "time": "2023-05-08",
+      "direction": "TOP",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-01-05",
+        "endTime": "2023-02-07",
+        "price": 3285.6705,
+        "dif": 41.186
+      },
+      "relatedTopHistoryId": "d15d62b15d06b478c5957d0c",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9d5da0182a50ec4613bd7354",
+      "time": "2023-05-09",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-04-03",
+        "endTime": "2023-04-21",
+        "price": 3393.3312,
+        "dif": 28.215
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "dfc1a16dcab0b8984614ec32",
+      "time": "2023-05-10",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-04-03",
+        "endTime": "2023-04-21",
+        "price": 3393.3312,
+        "dif": 28.215
+      },
+      "relatedTopHistoryId": "c17c26f2d74caefb2eeb85f3",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "763ff3a8beba738708dcbd66",
+      "time": "2023-06-27",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-05-11",
+        "endTime": "2023-06-08",
+        "price": 3195.3404,
+        "dif": -27.577
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "f19e9813314b1b7247d067ce",
+      "time": "2023-06-30",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-05-11",
+        "endTime": "2023-06-08",
+        "price": 3195.3404,
+        "dif": -27.577
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "1ae7f8149683dfec86e28e07",
+      "relatedRearmId": null
+    },
+    {
+      "id": "07c4df1ea4db4fe7b4758a2d",
+      "time": "2023-08-16",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-06-26",
+        "endTime": "2023-06-30",
+        "price": 3150.6189,
+        "dif": -18.469
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "3d39043dba9dbe98dcd2409d",
+      "time": "2023-08-21",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-06-26",
+        "endTime": "2023-06-30",
+        "price": 3150.6189,
+        "dif": -18.469
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "a2a5cab917a59cee5eaf7afe",
+      "time": "2023-10-18",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-08-11",
+        "endTime": "2023-08-31",
+        "price": 3064.0747,
+        "dif": -40.045
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "6b36544717c6da8e638b814b",
+      "time": "2023-10-24",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-08-11",
+        "endTime": "2023-08-31",
+        "price": 3064.0747,
+        "dif": -40.045
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "6b8e6a9bfad9c544ca0b64cd",
+      "time": "2023-12-18",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "28b5ebd4b566c3abb67dd695",
+      "time": "2023-12-27",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "3514b919949b9ed0c2e297ec",
+      "relatedRearmId": null
+    },
+    {
+      "id": "163ac741cbac5a517e0bbb57",
+      "time": "2024-01-08",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "3514b919949b9ed0c2e297ec",
+      "relatedRearmId": null
+    },
+    {
+      "id": "16a36f9f1aa84c93914cb284",
+      "time": "2024-01-10",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "d0380f0f4a0ae379aeb98de1",
+      "time": "2024-01-16",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "aec77cf0d824b9d483846f28",
+      "relatedRearmId": null
+    },
+    {
+      "id": "3753ff234fc273434cc41126",
+      "time": "2024-01-17",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "0a5db583fa9d8ea8f9ba63e8",
+      "time": "2024-01-23",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2023-10-10",
+        "endTime": "2023-10-30",
+        "price": 2939.2913,
+        "dif": -41.712
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ae1b2964ed4888fe53253cc2",
+      "time": "2024-02-02",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-01-09",
+        "endTime": "2024-01-24",
+        "price": 2756.3399,
+        "dif": -44.079
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "22ed5df3ae3b58b378d3cac1",
+      "time": "2024-02-05",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-01-09",
+        "endTime": "2024-01-24",
+        "price": 2756.3399,
+        "dif": -44.079
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "30d8dc58e2936951718e610c",
+      "time": "2024-04-29",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-02-08",
+        "endTime": "2024-03-18",
+        "price": 3084.9262,
+        "dif": 48.288
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "f92586f064f45801dd78ebae",
+      "time": "2024-05-15",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-02-08",
+        "endTime": "2024-03-18",
+        "price": 3084.9262,
+        "dif": 48.288
+      },
+      "relatedTopHistoryId": "ee8ba26e84bcd541e2c69f8a",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ebc318f87b2859d79c4fa4ce",
+      "time": "2024-05-17",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-02-08",
+        "endTime": "2024-03-18",
+        "price": 3084.9262,
+        "dif": 48.288
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "0a11b88dcf2c17215ebe12e1",
+      "time": "2024-05-22",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-02-08",
+        "endTime": "2024-03-18",
+        "price": 3084.9262,
+        "dif": 48.288
+      },
+      "relatedTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "76691160b577a2ba6838e506",
+      "time": "2024-07-08",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "b0850c0a75964431fe603427",
+      "time": "2024-07-09",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c8237010e5b94623fbbe31cb",
+      "relatedRearmId": null
+    },
+    {
+      "id": "9e8fc64ebe6c5e189375cbb4",
+      "time": "2024-07-23",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "c8237010e5b94623fbbe31cb",
+      "relatedRearmId": null
+    },
+    {
+      "id": "1fbf374f30c62317a65ac9e2",
+      "time": "2024-07-25",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "165ce2828fcb6415e9b3555b",
+      "time": "2024-07-31",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "cc2f84ebda6ccc76dc26c447",
+      "relatedRearmId": null
+    },
+    {
+      "id": "1aa446cf05f89899746b8b16",
+      "time": "2024-08-05",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-05-23",
+        "endTime": "2024-07-01",
+        "price": 2945.8524,
+        "dif": -35.168
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "cc2f84ebda6ccc76dc26c447",
+      "relatedRearmId": null
+    },
+    {
+      "id": "9f7018ec29b8e0f72c94b1f9",
+      "time": "2024-08-06",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "165e9d709c24f8ad34fb4127",
+      "time": "2024-08-13",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "adbe2ef8e1d89392de11f85f",
+      "relatedRearmId": null
+    },
+    {
+      "id": "218770a4819d46a37254bd07",
+      "time": "2024-08-14",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "dif_return",
+      "fromState": "STRUCTURE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "1be6f4505c77d271f5b94a93",
+      "time": "2024-08-15",
+      "direction": "BOTTOM",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "cf024fba491c9fa860196505",
+      "relatedRearmId": null
+    },
+    {
+      "id": "b1854eefaaf5c7dfd70ea9f1",
+      "time": "2024-08-22",
+      "direction": "BOTTOM",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": "cf024fba491c9fa860196505",
+      "relatedRearmId": null
+    },
+    {
+      "id": "cb2b68b0b3a8a9f7c0ce3c32",
+      "time": "2024-09-03",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2024-08-05",
+        "endTime": "2024-08-14",
+        "price": 2850.6539,
+        "dif": -30.213
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "e7ca0764928692b1c3cfd81e",
+      "time": "2024-09-06",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2024-08-05",
+        "endTime": "2024-08-14",
+        "price": 2850.6539,
+        "dif": -30.213
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "7a1942abffcf165bf4cad96f",
+      "time": "2025-03-17",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-01-21",
+        "endTime": "2025-02-28",
+        "price": 3388.0622,
+        "dif": 26.057
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ffa3b865792346157a5bfbac",
+      "time": "2025-03-19",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-01-21",
+        "endTime": "2025-02-28",
+        "price": 3388.0622,
+        "dif": 26.057
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "4e363370a7abf2cd6a4d86ed",
+      "time": "2025-06-26",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-04-17",
+        "endTime": "2025-05-23",
+        "price": 3403.9481,
+        "dif": 22.41
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "083c82d3c20d3e98251f3cbc",
+      "time": "2025-07-01",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-04-17",
+        "endTime": "2025-05-23",
+        "price": 3403.9481,
+        "dif": 22.41
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "baaa762371dd250ffdf02f7f",
+      "time": "2025-08-08",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-06-25",
+        "endTime": "2025-07-31",
+        "price": 3615.7167,
+        "dif": 47.974
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "bfd4cc8a26cb7e01e11f9414",
+      "time": "2025-08-18",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-06-25",
+        "endTime": "2025-07-31",
+        "price": 3615.7167,
+        "dif": 47.974
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "738c6d1ff9f0857db11f95f1",
+      "time": "2025-10-10",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-08-07",
+        "endTime": "2025-09-02",
+        "price": 3883.5617,
+        "dif": 78.258
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9c175253da34b4326f890787",
+      "time": "2025-10-13",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "color_flip",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-08-07",
+        "endTime": "2025-09-02",
+        "price": 3883.5617,
+        "dif": 78.258
+      },
+      "relatedTopHistoryId": "62e48814a32b44ebcf34a08c",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "c6d8904a192c5bd4c2c2e977",
+      "time": "2025-10-24",
+      "direction": "TOP",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-08-07",
+        "endTime": "2025-09-02",
+        "price": 3883.5617,
+        "dif": 78.258
+      },
+      "relatedTopHistoryId": "62e48814a32b44ebcf34a08c",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9a78bf61accce94a8c2797cb",
+      "time": "2025-11-10",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-10-24",
+        "endTime": "2025-11-04",
+        "price": 4016.331,
+        "dif": 42.86
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "61380a30b34b5121b86a563b",
+      "time": "2025-11-11",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-10-24",
+        "endTime": "2025-11-04",
+        "price": 4016.331,
+        "dif": 42.86
+      },
+      "relatedTopHistoryId": "f75ac66bd1158fa099c5e545",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "af5d71cd5d5f3005958c9ec0",
+      "time": "2025-11-13",
+      "direction": "TOP",
+      "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+      "route": "historical_price_break",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-10-24",
+        "endTime": "2025-11-04",
+        "price": 4016.331,
+        "dif": 42.86
+      },
+      "relatedTopHistoryId": "f75ac66bd1158fa099c5e545",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "513303566066409b931ad867",
+      "time": "2026-01-06",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-11-13",
+        "endTime": "2025-11-13",
+        "price": 4029.5012,
+        "dif": 37.146
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "edaaf3bd118bf6f4695a561f",
+      "time": "2026-01-08",
+      "direction": "TOP",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-11-13",
+        "endTime": "2025-11-13",
+        "price": 4029.5012,
+        "dif": 37.146
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9ee56e88e692f6732ae79c8b",
+      "time": "2026-03-02",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ca1a579eed44e80bababc139",
+      "time": "2026-03-03",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": "1643bd13ee03e80563dd64b5",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ede5afefaef2a96f85458687",
+      "time": "2026-05-11",
+      "direction": "TOP",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "b0f4fc0660b0c94d810c8f31",
+      "time": "2026-05-14",
+      "direction": "TOP",
+      "type": "STRUCTURE",
+      "route": "dif_turn",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "relatedTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "d307b2dba7dbe899ab547023",
+      "time": "2026-07-13",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "1185f6cce44a4f723a6366fa",
+      "time": "2026-07-15",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-05-18",
+        "endTime": "2026-06-15",
+        "price": 3959.3378,
+        "dif": -30.025
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "9d7125302139ba4c6b37261c",
+      "time": "2026-07-17",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-03-04",
+        "endTime": "2026-04-07",
+        "price": 3813.2829,
+        "dif": -56.353
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "25b8f61383c9c47e145909e4",
+      "time": "2026-07-20",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-03-04",
+        "endTime": "2026-04-07",
+        "price": 3813.2829,
+        "dif": -56.353
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "a4952fd7eddc0c275e0aabd5",
+      "time": "2026-09-28",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-09-11",
+        "endTime": "2026-09-21",
+        "price": 3864.2794,
+        "dif": -10.316
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "49dc2fd2db439b3456c20992",
+      "time": "2026-09-29",
+      "direction": "BOTTOM",
+      "type": "CANCEL",
+      "route": "dif_break",
+      "fromState": "DULL",
+      "eventReference": {
+        "startTime": "2026-09-11",
+        "endTime": "2026-09-21",
+        "price": 3864.2794,
+        "dif": -10.316
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    },
+    {
+      "id": "ab36b4b1f1b0dcf1ade6c703",
+      "time": "2026-10-15",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "activation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-07-02",
+        "endTime": "2026-08-03",
+        "price": 3764.1547,
+        "dif": -62.142
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": null
+    }
+  ],
+  "differences": [
+    {
+      "time": "2021-08-25",
+      "baseEvents": [
+        {
+          "id": "d9fad45103da2427f72734c6",
+          "time": "2021-08-25",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2021-08-09",
+            "endTime": "2021-08-19",
+            "price": 3532.6213,
+            "dif": -2.003
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "events": [],
+      "basePoint": {
+        "time": "2021-08-25",
+        "close": 3540.3837,
+        "dif": -2.088,
+        "dea": -8.142,
+        "hist": 12.107,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2021-08-09",
+          "endTime": "2021-08-19",
+          "price": 3532.6213,
+          "dif": -2.003
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-08-25",
+        "close": 3540.3837,
+        "dif": -2.088,
+        "dea": -8.142,
+        "hist": 12.107,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-08-26",
+      "baseEvents": [
+        {
+          "id": "34965c8f9dc5fc12e9729faa",
+          "time": "2021-08-26",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2021-08-09",
+            "endTime": "2021-08-19",
+            "price": 3532.6213,
+            "dif": -2.003
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "events": [],
+      "basePoint": {
+        "time": "2021-08-26",
+        "close": 3501.6643,
+        "dif": -1.16,
+        "dea": -6.745,
+        "hist": 11.172,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-08-26",
+        "close": 3501.6643,
+        "dif": -1.16,
+        "dea": -6.745,
+        "hist": 11.172,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-08-27",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-08-27",
+        "close": 3522.1567,
+        "dif": 1.216,
+        "dea": -5.153,
+        "hist": 12.738,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-08-27",
+        "close": 3522.1567,
+        "dif": 1.216,
+        "dea": -5.153,
+        "hist": 12.738,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-08-30",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-08-30",
+        "close": 3528.1512,
+        "dif": 3.542,
+        "dea": -3.414,
+        "hist": 13.912,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-08-30",
+        "close": 3528.1512,
+        "dif": 3.542,
+        "dea": -3.414,
+        "hist": 13.912,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-08-31",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-08-31",
+        "close": 3543.9402,
+        "dif": 6.583,
+        "dea": -1.415,
+        "hist": 15.995,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-08-31",
+        "close": 3543.9402,
+        "dif": 6.583,
+        "dea": -1.415,
+        "hist": 15.995,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-01",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-01",
+        "close": 3567.1008,
+        "dif": 10.738,
+        "dea": 1.016,
+        "hist": 19.445,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-01",
+        "close": 3567.1008,
+        "dif": 10.738,
+        "dea": 1.016,
+        "hist": 19.445,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-02",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-02",
+        "close": 3597.0426,
+        "dif": 16.26,
+        "dea": 4.065,
+        "hist": 24.39,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-02",
+        "close": 3597.0426,
+        "dif": 16.26,
+        "dea": 4.065,
+        "hist": 24.39,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-03",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-03",
+        "close": 3581.7344,
+        "dif": 19.18,
+        "dea": 7.088,
+        "hist": 24.184,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-03",
+        "close": 3581.7344,
+        "dif": 19.18,
+        "dea": 7.088,
+        "hist": 24.184,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-06",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-06",
+        "close": 3621.8593,
+        "dif": 24.449,
+        "dea": 10.56,
+        "hist": 27.779,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-06",
+        "close": 3621.8593,
+        "dif": 24.449,
+        "dea": 10.56,
+        "hist": 27.779,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-07",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-07",
+        "close": 3676.5866,
+        "dif": 32.665,
+        "dea": 14.981,
+        "hist": 35.368,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-07",
+        "close": 3676.5866,
+        "dif": 32.665,
+        "dea": 14.981,
+        "hist": 35.368,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-08",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-08",
+        "close": 3675.1865,
+        "dif": 38.618,
+        "dea": 19.708,
+        "hist": 37.819,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-08",
+        "close": 3675.1865,
+        "dif": 38.618,
+        "dea": 19.708,
+        "hist": 37.819,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-09",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2021-09-09",
+        "close": 3693.1296,
+        "dif": 44.273,
+        "dea": 24.621,
+        "hist": 39.304,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-09",
+        "close": 3693.1296,
+        "dif": 44.273,
+        "dea": 24.621,
+        "hist": 39.304,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2021-09-10",
+      "baseEvents": [],
+      "events": [
+        {
+          "id": "58c0dd199f8e6cb0c525bc62",
+          "time": "2021-09-10",
+          "direction": "TOP",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2020-12-31",
+            "endTime": "2021-01-25",
+            "price": 3624.2381,
+            "dif": 55.3
+          },
+          "relatedTopHistoryId": "fcbcfbf46fc7b70dde588dd3",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "basePoint": {
+        "time": "2021-09-10",
+        "close": 3703.1103,
+        "dif": 48.996,
+        "dea": 29.496,
+        "hist": 38.999,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2021-09-10",
+        "close": 3703.1103,
+        "dif": 48.996,
+        "dea": 29.496,
+        "hist": 38.999,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2024-09-24",
+      "baseEvents": [
+        {
+          "id": "038e17b35dc6a5c6ebdc63f3",
+          "time": "2024-09-24",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "events": [],
+      "basePoint": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2024-08-30",
+          "endTime": "2024-08-30",
+          "price": 2842.2142,
+          "dif": -22.237
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2024-09-25",
+      "baseEvents": [
+        {
+          "id": "ad943014e28435adf321bab7",
+          "time": "2024-09-25",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "events": [],
+      "basePoint": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2024-09-26",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2024-09-26",
+        "close": 3000.9526,
+        "dif": 3.62,
+        "dea": -25.354,
+        "hist": 57.947,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2024-09-26",
+        "close": 3000.9526,
+        "dif": 3.62,
+        "dea": -25.354,
+        "hist": 57.947,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2024-09-27",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2024-09-27",
+        "close": 3087.5286,
+        "dif": 24.693,
+        "dea": -15.344,
+        "hist": 80.075,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2024-09-27",
+        "close": 3087.5286,
+        "dif": 24.693,
+        "dea": -15.344,
+        "hist": 80.075,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    },
+    {
+      "time": "2024-09-30",
+      "baseEvents": [],
+      "events": [],
+      "basePoint": {
+        "time": "2024-09-30",
+        "close": 3336.4974,
+        "dif": 60.783,
+        "dea": -0.119,
+        "hist": 121.803,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "point": {
+        "time": "2024-09-30",
+        "close": 3336.4974,
+        "dif": 60.783,
+        "dea": -0.119,
+        "hist": 121.803,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      }
+    }
+  ],
+  "landmarks": {
+    "2024-07-23": {
+      "bar": {
+        "time": "2024-07-23",
+        "close": 2915.3685,
+        "dif": -17.753,
+        "dea": -19.661,
+        "hist": 3.815,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "9e8fc64ebe6c5e189375cbb4",
+          "time": "2024-07-23",
+          "direction": "BOTTOM",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "c8237010e5b94623fbbe31cb",
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-07-23",
+        "close": 2915.3685,
+        "dif": -17.753,
+        "dea": -19.661,
+        "hist": 3.815,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-07-11",
+        "end": "2024-07-23",
+        "count": 9,
+        "price": 2982.3086,
+        "dif": -14.436,
+        "price_at": "2024-07-19",
+        "dif_at": "2024-07-22"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-04-26",
+            "end": "2024-05-22",
+            "count": 16,
+            "price": 3171.1451,
+            "dif": 31.111,
+            "price_at": "2024-05-20",
+            "dif_at": "2024-05-13"
+          },
+          {
+            "sign": 1,
+            "start": "2024-07-02",
+            "end": "2024-07-04",
+            "count": 3,
+            "price": 2997.0111,
+            "dif": -27.842,
+            "price_at": "2024-07-02",
+            "dif_at": "2024-07-03"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-05-23",
+            "end": "2024-07-01",
+            "count": 27,
+            "price": 2945.8524,
+            "dif": -35.168,
+            "price_at": "2024-06-27",
+            "dif_at": "2024-06-27"
+          },
+          {
+            "sign": -1,
+            "start": "2024-07-05",
+            "end": "2024-07-10",
+            "count": 4,
+            "price": 2922.4498,
+            "dif": -31.67,
+            "price_at": "2024-07-08",
+            "dif_at": "2024-07-08"
+          }
+        ]
+      },
+      "selectedReferenceBars": 27
+    },
+    "2024-08-05": {
+      "bar": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "1aa446cf05f89899746b8b16",
+          "time": "2024-08-05",
+          "direction": "BOTTOM",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "cc2f84ebda6ccc76dc26c447",
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-08-05",
+        "close": 2860.6978,
+        "dif": -26.833,
+        "dea": -25.136,
+        "hist": -3.395,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2024-08-05",
+        "end": "2024-08-05",
+        "count": 1,
+        "price": 2860.6978,
+        "dif": -26.833,
+        "price_at": "2024-08-05",
+        "dif_at": "2024-08-05"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-07-11",
+            "end": "2024-07-23",
+            "count": 9,
+            "price": 2982.3086,
+            "dif": -14.436,
+            "price_at": "2024-07-19",
+            "dif_at": "2024-07-22"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-01",
+            "end": "2024-08-02",
+            "count": 2,
+            "price": 2932.3871,
+            "dif": -23.721,
+            "price_at": "2024-08-01",
+            "dif_at": "2024-08-02"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-07-05",
+            "end": "2024-07-10",
+            "count": 4,
+            "price": 2922.4498,
+            "dif": -31.67,
+            "price_at": "2024-07-08",
+            "dif_at": "2024-07-08"
+          },
+          {
+            "sign": -1,
+            "start": "2024-07-24",
+            "end": "2024-07-31",
+            "count": 6,
+            "price": 2879.2996,
+            "dif": -30.348,
+            "price_at": "2024-07-30",
+            "dif_at": "2024-07-30"
+          }
+        ]
+      },
+      "selectedReferenceBars": 27
+    },
+    "2024-08-15": {
+      "bar": {
+        "time": "2024-08-15",
+        "close": 2877.3579,
+        "dif": -27.56,
+        "dea": -28.435,
+        "hist": 1.75,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "1be6f4505c77d271f5b94a93",
+          "time": "2024-08-15",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "cf024fba491c9fa860196505",
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "STRUCTURE",
+      "point": {
+        "time": "2024-08-15",
+        "close": 2877.3579,
+        "dif": -27.56,
+        "dea": -28.435,
+        "hist": 1.75,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": "cf024fba491c9fa860196505",
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-08-15",
+        "end": "2024-08-15",
+        "count": 1,
+        "price": 2877.3579,
+        "dif": -27.56,
+        "price_at": "2024-08-15",
+        "dif_at": "2024-08-15"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-07-11",
+            "end": "2024-07-23",
+            "count": 9,
+            "price": 2982.3086,
+            "dif": -14.436,
+            "price_at": "2024-07-19",
+            "dif_at": "2024-07-22"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-01",
+            "end": "2024-08-02",
+            "count": 2,
+            "price": 2932.3871,
+            "dif": -23.721,
+            "price_at": "2024-08-01",
+            "dif_at": "2024-08-02"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-07-24",
+            "end": "2024-07-31",
+            "count": 6,
+            "price": 2879.2996,
+            "dif": -30.348,
+            "price_at": "2024-07-30",
+            "dif_at": "2024-07-30"
+          },
+          {
+            "sign": -1,
+            "start": "2024-08-05",
+            "end": "2024-08-14",
+            "count": 8,
+            "price": 2850.6539,
+            "dif": -30.213,
+            "price_at": "2024-08-14",
+            "dif_at": "2024-08-12"
+          }
+        ]
+      },
+      "selectedReferenceBars": 4
+    },
+    "2024-08-22": {
+      "bar": {
+        "time": "2024-08-22",
+        "close": 2848.7718,
+        "dif": -22.277,
+        "dea": -24.394,
+        "hist": 4.234,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "b1854eefaaf5c7dfd70ea9f1",
+          "time": "2024-08-22",
+          "direction": "BOTTOM",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "cf024fba491c9fa860196505",
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-08-22",
+        "close": 2848.7718,
+        "dif": -22.277,
+        "dea": -24.394,
+        "hist": 4.234,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-08-15",
+        "end": "2024-08-22",
+        "count": 6,
+        "price": 2893.6738,
+        "dif": -21.685,
+        "price_at": "2024-08-19",
+        "dif_at": "2024-08-20"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-07-11",
+            "end": "2024-07-23",
+            "count": 9,
+            "price": 2982.3086,
+            "dif": -14.436,
+            "price_at": "2024-07-19",
+            "dif_at": "2024-07-22"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-01",
+            "end": "2024-08-02",
+            "count": 2,
+            "price": 2932.3871,
+            "dif": -23.721,
+            "price_at": "2024-08-01",
+            "dif_at": "2024-08-02"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-07-24",
+            "end": "2024-07-31",
+            "count": 6,
+            "price": 2879.2996,
+            "dif": -30.348,
+            "price_at": "2024-07-30",
+            "dif_at": "2024-07-30"
+          },
+          {
+            "sign": -1,
+            "start": "2024-08-05",
+            "end": "2024-08-14",
+            "count": 8,
+            "price": 2850.6539,
+            "dif": -30.213,
+            "price_at": "2024-08-14",
+            "dif_at": "2024-08-12"
+          }
+        ]
+      },
+      "selectedReferenceBars": 4
+    },
+    "2024-08-30": {
+      "bar": {
+        "time": "2024-08-30",
+        "close": 2842.2142,
+        "dif": -22.237,
+        "dea": -22.653,
+        "hist": 0.833,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-08-30",
+        "close": 2842.2142,
+        "dif": -22.237,
+        "dea": -22.653,
+        "hist": 0.833,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-08-30",
+        "end": "2024-08-30",
+        "count": 1,
+        "price": 2842.2142,
+        "dif": -22.237,
+        "price_at": "2024-08-30",
+        "dif_at": "2024-08-30"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-08-01",
+            "end": "2024-08-02",
+            "count": 2,
+            "price": 2932.3871,
+            "dif": -23.721,
+            "price_at": "2024-08-01",
+            "dif_at": "2024-08-02"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-15",
+            "end": "2024-08-28",
+            "count": 10,
+            "price": 2893.6738,
+            "dif": -21.169,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-08-05",
+            "end": "2024-08-14",
+            "count": 8,
+            "price": 2850.6539,
+            "dif": -30.213,
+            "price_at": "2024-08-14",
+            "dif_at": "2024-08-12"
+          },
+          {
+            "sign": -1,
+            "start": "2024-08-29",
+            "end": "2024-08-29",
+            "count": 1,
+            "price": 2823.106,
+            "dif": -23.0,
+            "price_at": "2024-08-29",
+            "dif_at": "2024-08-29"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2024-09-23": {
+      "bar": {
+        "time": "2024-09-23",
+        "close": 2748.9177,
+        "dif": -38.701,
+        "dea": -39.698,
+        "hist": 1.994,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-09-23",
+        "close": 2748.9177,
+        "dif": -38.701,
+        "dea": -39.698,
+        "hist": 1.994,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-23",
+        "count": 1,
+        "price": 2748.9177,
+        "dif": -38.701,
+        "price_at": "2024-09-23",
+        "dif_at": "2024-09-23"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-08-15",
+            "end": "2024-08-28",
+            "count": 10,
+            "price": 2893.6738,
+            "dif": -21.169,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-30",
+            "end": "2024-08-30",
+            "count": 1,
+            "price": 2842.2142,
+            "dif": -22.237,
+            "price_at": "2024-08-30",
+            "dif_at": "2024-08-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-08-29",
+            "end": "2024-08-29",
+            "count": 1,
+            "price": 2823.106,
+            "dif": -23.0,
+            "price_at": "2024-08-29",
+            "dif_at": "2024-08-29"
+          },
+          {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-20",
+            "count": 13,
+            "price": 2704.0896,
+            "dif": -45.535,
+            "price_at": "2024-09-13",
+            "dif_at": "2024-09-18"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2024-09-24": {
+      "bar": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-24",
+        "count": 2,
+        "price": 2863.1255,
+        "dif": -26.795,
+        "price_at": "2024-09-24",
+        "dif_at": "2024-09-24"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-08-15",
+            "end": "2024-08-28",
+            "count": 10,
+            "price": 2893.6738,
+            "dif": -21.169,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-30",
+            "end": "2024-08-30",
+            "count": 1,
+            "price": 2842.2142,
+            "dif": -22.237,
+            "price_at": "2024-08-30",
+            "dif_at": "2024-08-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-08-29",
+            "end": "2024-08-29",
+            "count": 1,
+            "price": 2823.106,
+            "dif": -23.0,
+            "price_at": "2024-08-29",
+            "dif_at": "2024-08-29"
+          },
+          {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-20",
+            "count": 13,
+            "price": 2704.0896,
+            "dif": -45.535,
+            "price_at": "2024-09-13",
+            "dif_at": "2024-09-18"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2024-09-25": {
+      "bar": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-25",
+        "count": 3,
+        "price": 2896.3057,
+        "dif": -14.515,
+        "price_at": "2024-09-25",
+        "dif_at": "2024-09-25"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-08-15",
+            "end": "2024-08-28",
+            "count": 10,
+            "price": 2893.6738,
+            "dif": -21.169,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-30",
+            "end": "2024-08-30",
+            "count": 1,
+            "price": 2842.2142,
+            "dif": -22.237,
+            "price_at": "2024-08-30",
+            "dif_at": "2024-08-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-08-29",
+            "end": "2024-08-29",
+            "count": 1,
+            "price": 2823.106,
+            "dif": -23.0,
+            "price_at": "2024-08-29",
+            "dif_at": "2024-08-29"
+          },
+          {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-20",
+            "count": 13,
+            "price": 2704.0896,
+            "dif": -45.535,
+            "price_at": "2024-09-13",
+            "dif_at": "2024-09-18"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2024-09-26": {
+      "bar": {
+        "time": "2024-09-26",
+        "close": 3000.9526,
+        "dif": 3.62,
+        "dea": -25.354,
+        "hist": 57.947,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2024-09-26",
+        "close": 3000.9526,
+        "dif": 3.62,
+        "dea": -25.354,
+        "hist": 57.947,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "984ac97fa9b2c9d3801b36b2",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-26",
+        "count": 4,
+        "price": 3000.9526,
+        "dif": 3.62,
+        "price_at": "2024-09-26",
+        "dif_at": "2024-09-26"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2024-08-15",
+            "end": "2024-08-28",
+            "count": 10,
+            "price": 2893.6738,
+            "dif": -21.169,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-30",
+            "end": "2024-08-30",
+            "count": 1,
+            "price": 2842.2142,
+            "dif": -22.237,
+            "price_at": "2024-08-30",
+            "dif_at": "2024-08-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2024-08-29",
+            "end": "2024-08-29",
+            "count": 1,
+            "price": 2823.106,
+            "dif": -23.0,
+            "price_at": "2024-08-29",
+            "dif_at": "2024-08-29"
+          },
+          {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-20",
+            "count": 13,
+            "price": 2704.0896,
+            "dif": -45.535,
+            "price_at": "2024-09-13",
+            "dif_at": "2024-09-18"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2025-03-17": {
+      "bar": {
+        "time": "2025-03-17",
+        "close": 3426.1285,
+        "dif": 23.214,
+        "dea": 18.911,
+        "hist": 8.606,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "7a1942abffcf165bf4cad96f",
+          "time": "2025-03-17",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-01-21",
+            "endTime": "2025-02-28",
+            "price": 3388.0622,
+            "dif": 26.057
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2025-03-17",
+        "close": 3426.1285,
+        "dif": 23.214,
+        "dea": 18.911,
+        "hist": 8.606,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-01-21",
+          "endTime": "2025-02-28",
+          "price": 3388.0622,
+          "dif": 26.057
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-03-14",
+        "end": "2025-03-17",
+        "count": 2,
+        "price": 3426.1285,
+        "dif": 23.214,
+        "price_at": "2025-03-17",
+        "dif_at": "2025-03-17"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-01-21",
+            "end": "2025-02-28",
+            "count": 23,
+            "price": 3388.0622,
+            "dif": 26.057,
+            "price_at": "2025-02-27",
+            "dif_at": "2025-02-27"
+          },
+          {
+            "sign": 1,
+            "start": "2025-03-11",
+            "end": "2025-03-12",
+            "count": 2,
+            "price": 3379.8284,
+            "dif": 18.008,
+            "price_at": "2025-03-11",
+            "dif_at": "2025-03-11"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-03-03",
+            "end": "2025-03-10",
+            "count": 6,
+            "price": 3316.9253,
+            "dif": 13.984,
+            "price_at": "2025-03-03",
+            "dif_at": "2025-03-05"
+          },
+          {
+            "sign": -1,
+            "start": "2025-03-13",
+            "end": "2025-03-13",
+            "count": 1,
+            "price": 3358.7285,
+            "dif": 16.506,
+            "price_at": "2025-03-13",
+            "dif_at": "2025-03-13"
+          }
+        ]
+      },
+      "selectedReferenceBars": 23
+    },
+    "2025-03-19": {
+      "bar": {
+        "time": "2025-03-19",
+        "close": 3426.4291,
+        "dif": 27.049,
+        "dea": 21.621,
+        "hist": 10.856,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "ffa3b865792346157a5bfbac",
+          "time": "2025-03-19",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-01-21",
+            "endTime": "2025-02-28",
+            "price": 3388.0622,
+            "dif": 26.057
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "CANCEL",
+      "point": {
+        "time": "2025-03-19",
+        "close": 3426.4291,
+        "dif": 27.049,
+        "dea": 21.621,
+        "hist": 10.856,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-03-14",
+        "end": "2025-03-19",
+        "count": 4,
+        "price": 3429.7593,
+        "dif": 27.049,
+        "price_at": "2025-03-18",
+        "dif_at": "2025-03-19"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-01-21",
+            "end": "2025-02-28",
+            "count": 23,
+            "price": 3388.0622,
+            "dif": 26.057,
+            "price_at": "2025-02-27",
+            "dif_at": "2025-02-27"
+          },
+          {
+            "sign": 1,
+            "start": "2025-03-11",
+            "end": "2025-03-12",
+            "count": 2,
+            "price": 3379.8284,
+            "dif": 18.008,
+            "price_at": "2025-03-11",
+            "dif_at": "2025-03-11"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-03-03",
+            "end": "2025-03-10",
+            "count": 6,
+            "price": 3316.9253,
+            "dif": 13.984,
+            "price_at": "2025-03-03",
+            "dif_at": "2025-03-05"
+          },
+          {
+            "sign": -1,
+            "start": "2025-03-13",
+            "end": "2025-03-13",
+            "count": 1,
+            "price": 3358.7285,
+            "dif": 16.506,
+            "price_at": "2025-03-13",
+            "dif_at": "2025-03-13"
+          }
+        ]
+      },
+      "selectedReferenceBars": 23
+    },
+    "2025-08-07": {
+      "bar": {
+        "time": "2025-08-07",
+        "close": 3639.6666,
+        "dif": 41.592,
+        "dea": 41.274,
+        "hist": 0.636,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2025-08-07",
+        "close": 3639.6666,
+        "dif": 41.592,
+        "dea": 41.274,
+        "hist": 0.636,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-08-07",
+        "end": "2025-08-07",
+        "count": 1,
+        "price": 3639.6666,
+        "dif": 41.592,
+        "price_at": "2025-08-07",
+        "dif_at": "2025-08-07"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-06-06",
+            "end": "2025-06-16",
+            "count": 7,
+            "price": 3402.658,
+            "dif": 16.671,
+            "price_at": "2025-06-12",
+            "dif_at": "2025-06-12"
+          },
+          {
+            "sign": 1,
+            "start": "2025-06-25",
+            "end": "2025-07-31",
+            "count": 27,
+            "price": 3615.7167,
+            "dif": 47.974,
+            "price_at": "2025-07-30",
+            "dif_at": "2025-07-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-06-17",
+            "end": "2025-06-24",
+            "count": 6,
+            "price": 3359.8954,
+            "dif": 7.931,
+            "price_at": "2025-06-20",
+            "dif_at": "2025-06-23"
+          },
+          {
+            "sign": -1,
+            "start": "2025-08-01",
+            "end": "2025-08-06",
+            "count": 4,
+            "price": 3559.9518,
+            "dif": 38.23,
+            "price_at": "2025-08-01",
+            "dif_at": "2025-08-04"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2025-08-08": {
+      "bar": {
+        "time": "2025-08-08",
+        "close": 3635.1281,
+        "dif": 41.647,
+        "dea": 41.349,
+        "hist": 0.596,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "baaa762371dd250ffdf02f7f",
+          "time": "2025-08-08",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-06-25",
+            "endTime": "2025-07-31",
+            "price": 3615.7167,
+            "dif": 47.974
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2025-08-08",
+        "close": 3635.1281,
+        "dif": 41.647,
+        "dea": 41.349,
+        "hist": 0.596,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-06-25",
+          "endTime": "2025-07-31",
+          "price": 3615.7167,
+          "dif": 47.974
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-08-07",
+        "end": "2025-08-08",
+        "count": 2,
+        "price": 3639.6666,
+        "dif": 41.647,
+        "price_at": "2025-08-07",
+        "dif_at": "2025-08-08"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-06-06",
+            "end": "2025-06-16",
+            "count": 7,
+            "price": 3402.658,
+            "dif": 16.671,
+            "price_at": "2025-06-12",
+            "dif_at": "2025-06-12"
+          },
+          {
+            "sign": 1,
+            "start": "2025-06-25",
+            "end": "2025-07-31",
+            "count": 27,
+            "price": 3615.7167,
+            "dif": 47.974,
+            "price_at": "2025-07-30",
+            "dif_at": "2025-07-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-06-17",
+            "end": "2025-06-24",
+            "count": 6,
+            "price": 3359.8954,
+            "dif": 7.931,
+            "price_at": "2025-06-20",
+            "dif_at": "2025-06-23"
+          },
+          {
+            "sign": -1,
+            "start": "2025-08-01",
+            "end": "2025-08-06",
+            "count": 4,
+            "price": 3559.9518,
+            "dif": 38.23,
+            "price_at": "2025-08-01",
+            "dif_at": "2025-08-04"
+          }
+        ]
+      },
+      "selectedReferenceBars": 27
+    },
+    "2025-08-14": {
+      "bar": {
+        "time": "2025-08-14",
+        "close": 3666.4426,
+        "dif": 45.347,
+        "dea": 43.215,
+        "hist": 4.263,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2025-08-14",
+        "close": 3666.4426,
+        "dif": 45.347,
+        "dea": 43.215,
+        "hist": 4.263,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-06-25",
+          "endTime": "2025-07-31",
+          "price": 3615.7167,
+          "dif": 47.974
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-08-07",
+        "end": "2025-08-14",
+        "count": 6,
+        "price": 3683.4648,
+        "dif": 45.645,
+        "price_at": "2025-08-13",
+        "dif_at": "2025-08-13"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-06-06",
+            "end": "2025-06-16",
+            "count": 7,
+            "price": 3402.658,
+            "dif": 16.671,
+            "price_at": "2025-06-12",
+            "dif_at": "2025-06-12"
+          },
+          {
+            "sign": 1,
+            "start": "2025-06-25",
+            "end": "2025-07-31",
+            "count": 27,
+            "price": 3615.7167,
+            "dif": 47.974,
+            "price_at": "2025-07-30",
+            "dif_at": "2025-07-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-06-17",
+            "end": "2025-06-24",
+            "count": 6,
+            "price": 3359.8954,
+            "dif": 7.931,
+            "price_at": "2025-06-20",
+            "dif_at": "2025-06-23"
+          },
+          {
+            "sign": -1,
+            "start": "2025-08-01",
+            "end": "2025-08-06",
+            "count": 4,
+            "price": 3559.9518,
+            "dif": 38.23,
+            "price_at": "2025-08-01",
+            "dif_at": "2025-08-04"
+          }
+        ]
+      },
+      "selectedReferenceBars": 27
+    },
+    "2025-10-10": {
+      "bar": {
+        "time": "2025-10-10",
+        "close": 3897.0281,
+        "dif": 32.376,
+        "dea": 31.951,
+        "hist": 0.851,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "738c6d1ff9f0857db11f95f1",
+          "time": "2025-10-10",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-08-07",
+            "endTime": "2025-09-02",
+            "price": 3883.5617,
+            "dif": 78.258
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2025-10-10",
+        "close": 3897.0281,
+        "dif": 32.376,
+        "dea": 31.951,
+        "hist": 0.851,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-08-07",
+          "endTime": "2025-09-02",
+          "price": 3883.5617,
+          "dif": 78.258
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-10-09",
+        "end": "2025-10-10",
+        "count": 2,
+        "price": 3933.9724,
+        "dif": 32.376,
+        "price_at": "2025-10-09",
+        "dif_at": "2025-10-10"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-06-25",
+            "end": "2025-07-31",
+            "count": 27,
+            "price": 3615.7167,
+            "dif": 47.974,
+            "price_at": "2025-07-30",
+            "dif_at": "2025-07-30"
+          },
+          {
+            "sign": 1,
+            "start": "2025-08-07",
+            "end": "2025-09-02",
+            "count": 19,
+            "price": 3883.5617,
+            "dif": 78.258,
+            "price_at": "2025-08-25",
+            "dif_at": "2025-08-26"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-08-01",
+            "end": "2025-08-06",
+            "count": 4,
+            "price": 3559.9518,
+            "dif": 38.23,
+            "price_at": "2025-08-01",
+            "dif_at": "2025-08-04"
+          },
+          {
+            "sign": -1,
+            "start": "2025-09-03",
+            "end": "2025-09-30",
+            "count": 20,
+            "price": 3765.8759,
+            "dif": 25.612,
+            "price_at": "2025-09-04",
+            "dif_at": "2025-09-26"
+          }
+        ]
+      },
+      "selectedReferenceBars": 19
+    },
+    "2025-10-13": {
+      "bar": {
+        "time": "2025-10-13",
+        "close": 3889.5022,
+        "dif": 31.789,
+        "dea": 31.918,
+        "hist": -0.258,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "9c175253da34b4326f890787",
+          "time": "2025-10-13",
+          "direction": "TOP",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-08-07",
+            "endTime": "2025-09-02",
+            "price": 3883.5617,
+            "dif": 78.258
+          },
+          "relatedTopHistoryId": "62e48814a32b44ebcf34a08c",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "STRUCTURE",
+      "point": {
+        "time": "2025-10-13",
+        "close": 3889.5022,
+        "dif": 31.789,
+        "dea": 31.918,
+        "hist": -0.258,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "62e48814a32b44ebcf34a08c",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2025-10-13",
+        "end": "2025-10-13",
+        "count": 1,
+        "price": 3889.5022,
+        "dif": 31.789,
+        "price_at": "2025-10-13",
+        "dif_at": "2025-10-13"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-08-07",
+            "end": "2025-09-02",
+            "count": 19,
+            "price": 3883.5617,
+            "dif": 78.258,
+            "price_at": "2025-08-25",
+            "dif_at": "2025-08-26"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-09",
+            "end": "2025-10-10",
+            "count": 2,
+            "price": 3933.9724,
+            "dif": 32.376,
+            "price_at": "2025-10-09",
+            "dif_at": "2025-10-10"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-08-01",
+            "end": "2025-08-06",
+            "count": 4,
+            "price": 3559.9518,
+            "dif": 38.23,
+            "price_at": "2025-08-01",
+            "dif_at": "2025-08-04"
+          },
+          {
+            "sign": -1,
+            "start": "2025-09-03",
+            "end": "2025-09-30",
+            "count": 20,
+            "price": 3765.8759,
+            "dif": 25.612,
+            "price_at": "2025-09-04",
+            "dif_at": "2025-09-26"
+          }
+        ]
+      },
+      "selectedReferenceBars": 19
+    },
+    "2025-10-16": {
+      "bar": {
+        "time": "2025-10-16",
+        "close": 3916.228,
+        "dif": 31.246,
+        "dea": 31.153,
+        "hist": 0.185,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2025-10-16",
+        "close": 3916.228,
+        "dif": 31.246,
+        "dea": 31.153,
+        "hist": 0.185,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "62e48814a32b44ebcf34a08c",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-10-16",
+        "end": "2025-10-16",
+        "count": 1,
+        "price": 3916.228,
+        "dif": 31.246,
+        "price_at": "2025-10-16",
+        "dif_at": "2025-10-16"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-08-07",
+            "end": "2025-09-02",
+            "count": 19,
+            "price": 3883.5617,
+            "dif": 78.258,
+            "price_at": "2025-08-25",
+            "dif_at": "2025-08-26"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-09",
+            "end": "2025-10-10",
+            "count": 2,
+            "price": 3933.9724,
+            "dif": 32.376,
+            "price_at": "2025-10-09",
+            "dif_at": "2025-10-10"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-09-03",
+            "end": "2025-09-30",
+            "count": 20,
+            "price": 3765.8759,
+            "dif": 25.612,
+            "price_at": "2025-09-04",
+            "dif_at": "2025-09-26"
+          },
+          {
+            "sign": -1,
+            "start": "2025-10-13",
+            "end": "2025-10-15",
+            "count": 3,
+            "price": 3865.2289,
+            "dif": 29.031,
+            "price_at": "2025-10-14",
+            "dif_at": "2025-10-14"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2025-11-06": {
+      "bar": {
+        "time": "2025-11-06",
+        "close": 4007.7599,
+        "dif": 37.102,
+        "dea": 36.691,
+        "hist": 0.823,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2025-11-06",
+        "close": 4007.7599,
+        "dif": 37.102,
+        "dea": 36.691,
+        "hist": 0.823,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-11-06",
+        "end": "2025-11-06",
+        "count": 1,
+        "price": 4007.7599,
+        "dif": 37.102,
+        "price_at": "2025-11-06",
+        "dif_at": "2025-11-06"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-10-16",
+            "end": "2025-10-16",
+            "count": 1,
+            "price": 3916.228,
+            "dif": 31.246,
+            "price_at": "2025-10-16",
+            "dif_at": "2025-10-16"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-24",
+            "end": "2025-11-04",
+            "count": 8,
+            "price": 4016.331,
+            "dif": 42.86,
+            "price_at": "2025-10-29",
+            "dif_at": "2025-10-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-10-17",
+            "end": "2025-10-23",
+            "count": 5,
+            "price": 3839.7553,
+            "dif": 22.705,
+            "price_at": "2025-10-17",
+            "dif_at": "2025-10-20"
+          },
+          {
+            "sign": -1,
+            "start": "2025-11-05",
+            "end": "2025-11-05",
+            "count": 1,
+            "price": 3969.2483,
+            "dif": 35.64,
+            "price_at": "2025-11-05",
+            "dif_at": "2025-11-05"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2025-11-07": {
+      "bar": {
+        "time": "2025-11-07",
+        "close": 3997.5557,
+        "dif": 37.011,
+        "dea": 36.755,
+        "hist": 0.512,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2025-11-07",
+        "close": 3997.5557,
+        "dif": 37.011,
+        "dea": 36.755,
+        "hist": 0.512,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-11-06",
+        "end": "2025-11-07",
+        "count": 2,
+        "price": 4007.7599,
+        "dif": 37.102,
+        "price_at": "2025-11-06",
+        "dif_at": "2025-11-06"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-10-16",
+            "end": "2025-10-16",
+            "count": 1,
+            "price": 3916.228,
+            "dif": 31.246,
+            "price_at": "2025-10-16",
+            "dif_at": "2025-10-16"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-24",
+            "end": "2025-11-04",
+            "count": 8,
+            "price": 4016.331,
+            "dif": 42.86,
+            "price_at": "2025-10-29",
+            "dif_at": "2025-10-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-10-17",
+            "end": "2025-10-23",
+            "count": 5,
+            "price": 3839.7553,
+            "dif": 22.705,
+            "price_at": "2025-10-17",
+            "dif_at": "2025-10-20"
+          },
+          {
+            "sign": -1,
+            "start": "2025-11-05",
+            "end": "2025-11-05",
+            "count": 1,
+            "price": 3969.2483,
+            "dif": 35.64,
+            "price_at": "2025-11-05",
+            "dif_at": "2025-11-05"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2025-11-10": {
+      "bar": {
+        "time": "2025-11-10",
+        "close": 4018.5972,
+        "dif": 38.196,
+        "dea": 37.043,
+        "hist": 2.306,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "9a78bf61accce94a8c2797cb",
+          "time": "2025-11-10",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-10-24",
+            "endTime": "2025-11-04",
+            "price": 4016.331,
+            "dif": 42.86
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2025-11-10",
+        "close": 4018.5972,
+        "dif": 38.196,
+        "dea": 37.043,
+        "hist": 2.306,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-10-24",
+          "endTime": "2025-11-04",
+          "price": 4016.331,
+          "dif": 42.86
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-11-06",
+        "end": "2025-11-10",
+        "count": 3,
+        "price": 4018.5972,
+        "dif": 38.196,
+        "price_at": "2025-11-10",
+        "dif_at": "2025-11-10"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-10-16",
+            "end": "2025-10-16",
+            "count": 1,
+            "price": 3916.228,
+            "dif": 31.246,
+            "price_at": "2025-10-16",
+            "dif_at": "2025-10-16"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-24",
+            "end": "2025-11-04",
+            "count": 8,
+            "price": 4016.331,
+            "dif": 42.86,
+            "price_at": "2025-10-29",
+            "dif_at": "2025-10-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-10-17",
+            "end": "2025-10-23",
+            "count": 5,
+            "price": 3839.7553,
+            "dif": 22.705,
+            "price_at": "2025-10-17",
+            "dif_at": "2025-10-20"
+          },
+          {
+            "sign": -1,
+            "start": "2025-11-05",
+            "end": "2025-11-05",
+            "count": 1,
+            "price": 3969.2483,
+            "dif": 35.64,
+            "price_at": "2025-11-05",
+            "dif_at": "2025-11-05"
+          }
+        ]
+      },
+      "selectedReferenceBars": 8
+    },
+    "2025-11-11": {
+      "bar": {
+        "time": "2025-11-11",
+        "close": 4002.7576,
+        "dif": 37.426,
+        "dea": 37.12,
+        "hist": 0.612,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "61380a30b34b5121b86a563b",
+          "time": "2025-11-11",
+          "direction": "TOP",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-10-24",
+            "endTime": "2025-11-04",
+            "price": 4016.331,
+            "dif": 42.86
+          },
+          "relatedTopHistoryId": "f75ac66bd1158fa099c5e545",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "STRUCTURE",
+      "point": {
+        "time": "2025-11-11",
+        "close": 4002.7576,
+        "dif": 37.426,
+        "dea": 37.12,
+        "hist": 0.612,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-10-24",
+          "endTime": "2025-11-04",
+          "price": 4016.331,
+          "dif": 42.86
+        },
+        "pendingTopHistoryId": "f75ac66bd1158fa099c5e545",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2025-11-06",
+        "end": "2025-11-11",
+        "count": 4,
+        "price": 4018.5972,
+        "dif": 38.196,
+        "price_at": "2025-11-10",
+        "dif_at": "2025-11-10"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-10-16",
+            "end": "2025-10-16",
+            "count": 1,
+            "price": 3916.228,
+            "dif": 31.246,
+            "price_at": "2025-10-16",
+            "dif_at": "2025-10-16"
+          },
+          {
+            "sign": 1,
+            "start": "2025-10-24",
+            "end": "2025-11-04",
+            "count": 8,
+            "price": 4016.331,
+            "dif": 42.86,
+            "price_at": "2025-10-29",
+            "dif_at": "2025-10-30"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2025-10-17",
+            "end": "2025-10-23",
+            "count": 5,
+            "price": 3839.7553,
+            "dif": 22.705,
+            "price_at": "2025-10-17",
+            "dif_at": "2025-10-20"
+          },
+          {
+            "sign": -1,
+            "start": "2025-11-05",
+            "end": "2025-11-05",
+            "count": 1,
+            "price": 3969.2483,
+            "dif": 35.64,
+            "price_at": "2025-11-05",
+            "dif_at": "2025-11-05"
+          }
+        ]
+      },
+      "selectedReferenceBars": 8
+    },
+    "2026-05-11": {
+      "bar": {
+        "time": "2026-05-11",
+        "close": 4225.0207,
+        "dif": 47.343,
+        "dea": 31.697,
+        "hist": 31.293,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "ede5afefaef2a96f85458687",
+          "time": "2026-05-11",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2026-05-11",
+        "close": 4225.0207,
+        "dif": 47.343,
+        "dea": 31.697,
+        "hist": 31.293,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": null,
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-05-11",
+        "count": 21,
+        "price": 4225.0207,
+        "dif": 47.343,
+        "price_at": "2026-05-11",
+        "dif_at": "2026-05-11"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-12-22",
+            "end": "2026-01-21",
+            "count": 21,
+            "price": 4165.287,
+            "dif": 60.557,
+            "price_at": "2026-01-12",
+            "dif_at": "2026-01-14"
+          },
+          {
+            "sign": 1,
+            "start": "2026-02-27",
+            "end": "2026-03-03",
+            "count": 3,
+            "price": 4182.5909,
+            "dif": 24.219,
+            "price_at": "2026-03-02",
+            "dif_at": "2026-03-02"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2026-01-22",
+            "end": "2026-02-26",
+            "count": 20,
+            "price": 4015.7464,
+            "dif": 15.852,
+            "price_at": "2026-02-02",
+            "dif_at": "2026-02-06"
+          },
+          {
+            "sign": -1,
+            "start": "2026-03-04",
+            "end": "2026-04-07",
+            "count": 24,
+            "price": 3813.2829,
+            "dif": -56.353,
+            "price_at": "2026-03-23",
+            "dif_at": "2026-03-31"
+          }
+        ]
+      },
+      "selectedReferenceBars": 21
+    },
+    "2026-05-14": {
+      "bar": {
+        "time": "2026-05-14",
+        "close": 4177.9175,
+        "dif": 52.201,
+        "dea": 41.893,
+        "hist": 20.617,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "b0f4fc0660b0c94d810c8f31",
+          "time": "2026-05-14",
+          "direction": "TOP",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-12-22",
+            "endTime": "2026-01-21",
+            "price": 4165.287,
+            "dif": 60.557
+          },
+          "relatedTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "STRUCTURE",
+      "point": {
+        "time": "2026-05-14",
+        "close": 4177.9175,
+        "dif": 52.201,
+        "dea": 41.893,
+        "hist": 20.617,
+        "ordinaryState": "STRUCTURE",
+        "ordinaryDirection": "TOP",
+        "activeReference": {
+          "startTime": "2025-12-22",
+          "endTime": "2026-01-21",
+          "price": 4165.287,
+          "dif": 60.557
+        },
+        "pendingTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-05-14",
+        "count": 24,
+        "price": 4242.572,
+        "dif": 54.714,
+        "price_at": "2026-05-13",
+        "dif_at": "2026-05-13"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2025-12-22",
+            "end": "2026-01-21",
+            "count": 21,
+            "price": 4165.287,
+            "dif": 60.557,
+            "price_at": "2026-01-12",
+            "dif_at": "2026-01-14"
+          },
+          {
+            "sign": 1,
+            "start": "2026-02-27",
+            "end": "2026-03-03",
+            "count": 3,
+            "price": 4182.5909,
+            "dif": 24.219,
+            "price_at": "2026-03-02",
+            "dif_at": "2026-03-02"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2026-01-22",
+            "end": "2026-02-26",
+            "count": 20,
+            "price": 4015.7464,
+            "dif": 15.852,
+            "price_at": "2026-02-02",
+            "dif_at": "2026-02-06"
+          },
+          {
+            "sign": -1,
+            "start": "2026-03-04",
+            "end": "2026-04-07",
+            "count": 24,
+            "price": 3813.2829,
+            "dif": -56.353,
+            "price_at": "2026-03-23",
+            "dif_at": "2026-03-31"
+          }
+        ]
+      },
+      "selectedReferenceBars": 21
+    },
+    "2026-09-24": {
+      "bar": {
+        "time": "2026-09-24",
+        "close": 3888.3738,
+        "dif": -2.74,
+        "dea": -2.725,
+        "hist": -0.029,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "point": {
+        "time": "2026-09-24",
+        "close": 3888.3738,
+        "dif": -2.74,
+        "dea": -2.725,
+        "hist": -0.029,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2026-09-24",
+        "end": "2026-09-24",
+        "count": 1,
+        "price": 3888.3738,
+        "dif": -2.74,
+        "price_at": "2026-09-24",
+        "dif_at": "2026-09-24"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2026-08-04",
+            "end": "2026-09-10",
+            "count": 28,
+            "price": 3990.3037,
+            "dif": 11.035,
+            "price_at": "2026-08-18",
+            "dif_at": "2026-09-01"
+          },
+          {
+            "sign": 1,
+            "start": "2026-09-22",
+            "end": "2026-09-23",
+            "count": 2,
+            "price": 3952.128,
+            "dif": -0.055,
+            "price_at": "2026-09-22",
+            "dif_at": "2026-09-23"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-08-03",
+            "count": 23,
+            "price": 3764.1547,
+            "dif": -62.142,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-24"
+          },
+          {
+            "sign": -1,
+            "start": "2026-09-11",
+            "end": "2026-09-21",
+            "count": 7,
+            "price": 3864.2794,
+            "dif": -10.316,
+            "price_at": "2026-09-15",
+            "dif_at": "2026-09-17"
+          }
+        ]
+      },
+      "selectedReferenceBars": null
+    },
+    "2026-09-28": {
+      "bar": {
+        "time": "2026-09-28",
+        "close": 3823.6206,
+        "dif": -9.978,
+        "dea": -4.176,
+        "hist": -11.604,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "a4952fd7eddc0c275e0aabd5",
+          "time": "2026-09-28",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "point": {
+        "time": "2026-09-28",
+        "close": 3823.6206,
+        "dif": -9.978,
+        "dea": -4.176,
+        "hist": -11.604,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2026-09-11",
+          "endTime": "2026-09-21",
+          "price": 3864.2794,
+          "dif": -10.316
+        },
+        "pendingTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2026-09-24",
+        "end": "2026-09-28",
+        "count": 2,
+        "price": 3823.6206,
+        "dif": -9.978,
+        "price_at": "2026-09-28",
+        "dif_at": "2026-09-28"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2026-08-04",
+            "end": "2026-09-10",
+            "count": 28,
+            "price": 3990.3037,
+            "dif": 11.035,
+            "price_at": "2026-08-18",
+            "dif_at": "2026-09-01"
+          },
+          {
+            "sign": 1,
+            "start": "2026-09-22",
+            "end": "2026-09-23",
+            "count": 2,
+            "price": 3952.128,
+            "dif": -0.055,
+            "price_at": "2026-09-22",
+            "dif_at": "2026-09-23"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-08-03",
+            "count": 23,
+            "price": 3764.1547,
+            "dif": -62.142,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-24"
+          },
+          {
+            "sign": -1,
+            "start": "2026-09-11",
+            "end": "2026-09-21",
+            "count": 7,
+            "price": 3864.2794,
+            "dif": -10.316,
+            "price_at": "2026-09-15",
+            "dif_at": "2026-09-17"
+          }
+        ]
+      },
+      "selectedReferenceBars": 7
+    },
+    "2026-09-29": {
+      "bar": {
+        "time": "2026-09-29",
+        "close": 3830.4513,
+        "dif": -14.99,
+        "dea": -6.339,
+        "hist": -17.302,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "49dc2fd2db439b3456c20992",
+          "time": "2026-09-29",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "CANCEL",
+      "point": {
+        "time": "2026-09-29",
+        "close": 3830.4513,
+        "dif": -14.99,
+        "dea": -6.339,
+        "hist": -17.302,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "350d4b0c7297ba2b9d3355a8",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2026-09-24",
+        "end": "2026-09-29",
+        "count": 3,
+        "price": 3823.6206,
+        "dif": -14.99,
+        "price_at": "2026-09-28",
+        "dif_at": "2026-09-29"
+      },
+      "history": {
+        "1": [
+          {
+            "sign": 1,
+            "start": "2026-08-04",
+            "end": "2026-09-10",
+            "count": 28,
+            "price": 3990.3037,
+            "dif": 11.035,
+            "price_at": "2026-08-18",
+            "dif_at": "2026-09-01"
+          },
+          {
+            "sign": 1,
+            "start": "2026-09-22",
+            "end": "2026-09-23",
+            "count": 2,
+            "price": 3952.128,
+            "dif": -0.055,
+            "price_at": "2026-09-22",
+            "dif_at": "2026-09-23"
+          }
+        ],
+        "-1": [
+          {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-08-03",
+            "count": 23,
+            "price": 3764.1547,
+            "dif": -62.142,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-24"
+          },
+          {
+            "sign": -1,
+            "start": "2026-09-11",
+            "end": "2026-09-21",
+            "count": 7,
+            "price": 3864.2794,
+            "dif": -10.316,
+            "price_at": "2026-09-15",
+            "dif_at": "2026-09-17"
+          }
+        ]
+      },
+      "selectedReferenceBars": 7
+    }
+  },
+  "labels": [
+    {
+      "case": "daily_2025",
+      "time": "2025-08-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-08-07",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-08",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-08-08",
+      "baseActual": "DULL",
+      "actual": "DULL",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-08-14",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-08-14",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "20251016",
+      "period": "day",
+      "endpoint": "2025-10-10",
+      "baseActual": "DULL",
+      "actual": "DULL",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-13",
+      "expected": "STRUCTURE",
+      "confidence": "mapped",
+      "source": "20251016",
+      "period": "day",
+      "endpoint": "2025-10-13",
+      "baseActual": "STRUCTURE",
+      "actual": "STRUCTURE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-10-16",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "20251016",
+      "period": "day",
+      "endpoint": "2025-10-16",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-06",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-11-06",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-07",
+      "expected": "NONE",
+      "confidence": "mapped",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-11-07",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-10",
+      "expected": "DULL",
+      "confidence": "mapped",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-11-10",
+      "baseActual": "DULL",
+      "actual": "DULL",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "daily_2025",
+      "time": "2025-11-11",
+      "expected": "STRUCTURE",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2025-11-11",
+      "baseActual": "STRUCTURE",
+      "actual": "STRUCTURE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-24",
+      "expected": "NONE",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2026-09-24",
+      "baseActual": "NONE",
+      "actual": "NONE",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-28",
+      "expected": "DULL",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2026-09-28",
+      "baseActual": "DULL",
+      "actual": "DULL",
+      "baseMatches": true,
+      "matches": true
+    },
+    {
+      "case": "bottom_daily",
+      "time": "2026-09-29",
+      "expected": "CANCEL",
+      "confidence": "direct",
+      "source": "original_25",
+      "period": "day",
+      "endpoint": "2026-09-29",
+      "baseActual": "CANCEL",
+      "actual": "CANCEL",
+      "baseMatches": true,
+      "matches": true
+    }
+  ],
+  "restores": 3,
+  "segmentationAndPoolUnchanged": true,
+  "eventsCount": 90,
+  "changedEndpoints": 18,
+  "newlyLostLabels": [],
+  "newlyMatchedLabels": [],
+  "baselineUnmatchedLabels": []
+}

@@ -1,0 +1,132 @@
+........................................................................ [ 16%]
+..................F..................................................... [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+.......................................................F................ [ 84%]
+.................................................F................       [100%]
+=================================== FAILURES ===================================
+_ test_reference_lock_delays_switch_even_when_stronger_price_gate_is_already_met _
+
+    def test_reference_lock_delays_switch_even_when_stronger_price_gate_is_already_met():
+        # Strong old80/-30 is unavailable at weak activation price88.
+        # price79 becomes eligible while weak reference remains locked; it is not
+        # selected on that bar or cancellation bar. Next green bar selects it.
+        values = [(80, -30, -2), (100, 0, 2), (90, -10, -2), (100, 0, 2),
+            (89, -5, -2), (88, -6, -2), (79, -7, -2), (78, -11, -2), (77, -12, -2)]
+        bars = [XxmBar((date(2020, 1, 1) + timedelta(days=i)).isoformat(), c, d, d - h / 2, h)
+            for i, (c, d, h) in enumerate(values)]
+        audit, events, _ = replay("day", bars)
+>       assert [(e["time"], e["type"], e["eventReference"]["dif"]) for e in events] == [
+            ("2020-01-06", "DULL", -10), ("2020-01-08", "CANCEL", -10), ("2020-01-09", "DULL", -30)]
+E       AssertionError: assert [('2020-01-06', 'DULL', -10)] == [('2020-01-06... 'DULL', -30)]
+E         
+E         Right contains 2 more items, first extra item: ('2020-01-08', 'CANCEL', -10)
+E         Use -v to get more diff
+
+scripts/research/index_market/tests/test_xxm_cancellation_restart_audit.py:127: AssertionError
+__ test_forecast_shares_slots_with_existing_layer_and_enforces_payload_budget __
+
+source_db = Engine(sqlite://)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12a4f0c90>
+
+    def test_forecast_shares_slots_with_existing_layer_and_enforces_payload_budget(source_db, monkeypatch):
+        from dataclasses import replace
+        from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as fq
+        slots = query_service._REQUEST_SLOTS
+        assert slots.acquire(blocking=False) and slots.acquire(blocking=False)
+        try:
+            r = api(source_db).get(PATH, params={"tsCode":"000001.SH","period":"day","asOf":"2026-10-13"})
+            assert r.status_code == 503 and r.json()["code"] == "XXMF_BUDGET_EXCEEDED"
+        finally:
+            slots.release(); slots.release()
+        monkeypatch.setattr(fq, "FORECAST_SPEC", replace(fq.FORECAST_SPEC, max_response_bytes=1))
+        r = api(source_db).get(PATH, params={"tsCode":"000001.SH","period":"day","asOf":"2026-10-13"})
+>       assert r.status_code == 503 and r.json()["code"] == "XXMF_BUDGET_EXCEEDED"
+E       assert (500 == 503)
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:168: AssertionError
+___________ test_overlapping_forecasts_share_one_validated_load[day] ___________
+
+business_source = {'engine': Engine(sqlite://), 'records': [], 'revisions': {'2026-10-14': 1, '2026-10-15': 1, '2026-10-16': 1}, 'root':.../var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1870/test_overlapping_forecasts_sha0'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12a4f3620>
+period = 'day'
+
+    @pytest.mark.parametrize("period", BUSINESS_PERIODS)
+    def test_overlapping_forecasts_share_one_validated_load(business_source, monkeypatch, period):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event, current_thread
+        source = business_source; cache = XxmCache()
+        entered, release, waiting = Event(), Event(), Event()
+        actual = query_service.read_daily if period == "day" else query_service.read_minutes
+        reads = []
+        def paused(*args, **kwargs):
+            reads.append(1); entered.set()
+            assert release.wait(3)
+            return actual(*args, **kwargs)
+        monkeypatch.setattr(query_service, "read_daily" if period == "day" else "read_minutes", paused)
+        original_load = cache.loads.load
+        def observed(key, loader, remaining):
+            def budget():
+                if current_thread().name.endswith("_1"): waiting.set()
+                return remaining()
+            return original_load(key, loader, budget)
+        monkeypatch.setattr(cache.loads, "load", observed)
+        def build():
+            with Session(source["engine"]) as session:
+                return IndexDetailXxmForecastQueryService(lake_root=source["root"],cache=cache).build(
+                    session,period=period,now=datetime(2026,10,14,11,15,tzinfo=CN_ZONE))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(build)
+            assert entered.wait(3)
+            second = pool.submit(build)
+            assert waiting.wait(3)
+            # One actual load owns a slot; the waiting caller owns none.
+            assert query_service._REQUEST_SLOTS.acquire(blocking=False)
+            query_service._REQUEST_SLOTS.release()
+            release.set()
+>           a,b = first.result(),second.result()
+                                 ^^^^^^^^^^^^^^^
+
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:504: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/lib/python3.13/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+../../miniconda3/lib/python3.13/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+../../miniconda3/lib/python3.13/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/web/test_wealth_index_detail_xxm_forecast_api.py:493: in build
+    return IndexDetailXxmForecastQueryService(lake_root=source["root"],cache=cache).build(
+src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py:135: in build
+    result = forecast(calculator, projection, endpoints, check)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/biz/services/wealth/market/index_detail_xxm/forecast.py:81: in forecast
+    assert validate_path_options(c,projection,endpoints[:j],p,shown['displayLower'],route,path,check)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/biz/services/wealth/market/index_detail_xxm/forecast_paths.py:187: in validate_path_options
+    return confirmed_options(c,projection,stamps,p,target,route,path.initial,check,
+src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py:74: in confirmed_options
+    check()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def check():
+        remaining()
+        if (time.perf_counter() - compute_start) * 1000 > FORECAST_SPEC.forecast_compute_budget_ms:
+>           raise XxmQueryError("XXM_BUDGET_EXCEEDED", "预测计算超过预算。", 503)
+E           src.biz.queries.wealth.market.index_detail_xxm.query_service.XxmQueryError: 预测计算超过预算。
+
+src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py:131: XxmQueryError
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/congming/github/goldenshare/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED scripts/research/index_market/tests/test_xxm_cancellation_restart_audit.py::test_reference_lock_delays_switch_even_when_stronger_price_gate_is_already_met
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_forecast_shares_slots_with_existing_layer_and_enforces_payload_budget
+FAILED tests/web/test_wealth_index_detail_xxm_forecast_api.py::test_overlapping_forecasts_share_one_validated_load[day]
+3 failed, 423 passed, 1 warning in 58.61s

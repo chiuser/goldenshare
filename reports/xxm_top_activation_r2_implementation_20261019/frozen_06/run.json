@@ -1,0 +1,17 @@
+{
+  "mode": "frozen",
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "algorithmVersion": "xxm-direction-v0.1-r2",
+  "specHash": "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d",
+  "startedAt": "2026-10-19T00:31:13.679721+08:00",
+  "formalWrites": false,
+  "periods": [
+    "day",
+    "m60",
+    "m90",
+    "m120"
+  ],
+  "passed": true,
+  "finishedAt": "2026-10-19T00:31:32.686086+08:00"
+}

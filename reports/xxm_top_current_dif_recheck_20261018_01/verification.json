@@ -1,0 +1,43 @@
+{
+  "status": "PASS_EXISTING_CASE_RECHECK_RESEARCH_ONLY",
+  "sourceRows": 40478,
+  "completedAuditUnits": 8,
+  "unitOutputsEqualPrior": true,
+  "conditionalLabels": {
+    "total": 52,
+    "direct": 20,
+    "mapped": 32,
+    "matchedPerCandidate": 52,
+    "newlyLost": 0,
+    "blindTest": false
+  },
+  "bottomEventsEqualAllFields": 1179,
+  "knownDateChecksPerCandidate": 10,
+  "dec15FourWordSequence": true,
+  "fixedSimulationInputs": {
+    "all": 4,
+    "software": 3,
+    "modelOnly": 1
+  },
+  "simulationExecutionsIncludingBase": 12,
+  "parentRestoreAndVersionedIds": "PASS",
+  "prefixRestoreCuts": 12,
+  "protectedFiles": 278,
+  "protectedUnchanged": true,
+  "completedFilesHashReadback": 19,
+  "attempt1FailurePreserved": true,
+  "resumeDidNotRepeatMainUnits": true,
+  "selectorLiteralTests": {
+    "passed": 12,
+    "claim": "candidate definition only"
+  },
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "engineTableRemainsLast": true,
+  "forecast": "STATIC_AUDIT_ONLY_NOT_EXECUTED",
+  "productCodeChanged": false,
+  "apiOrDependencyBoundaryChanged": false,
+  "formalResourceAccess": false,
+  "pre2020Todo": "UNCHANGED",
+  "relativeLinks": "PASS"
+}

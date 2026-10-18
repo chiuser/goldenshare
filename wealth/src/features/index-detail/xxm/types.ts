@@ -1,5 +1,8 @@
 import type { Time } from "lightweight-charts";
 
+export const XXM_ALGORITHM_VERSION = "xxm-direction-v0.1-r2" as const;
+export const XXM_SPEC_HASH = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d";
+
 export type XxmPeriod = "day" | "m60" | "m90" | "m120";
 export type XxmDirection = "TOP" | "BOTTOM";
 export interface XxmReference { startTime: string; endTime: string; price: number; dif: number }

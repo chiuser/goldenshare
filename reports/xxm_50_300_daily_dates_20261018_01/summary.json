@@ -1,0 +1,19 @@
+{
+  "candidateWindow": [
+    "2022-09-13",
+    "2024-08-30"
+  ],
+  "sourceRows": {
+    "000016.SH": 1132,
+    "399300.SZ": 1132
+  },
+  "targetRows": {
+    "000016.SH": 478,
+    "399300.SZ": 478
+  },
+  "discriminatingCandidates": [],
+  "baseVsBothCandidates": [],
+  "recommended": [],
+  "softwareVerifiedNewLabels": 0,
+  "codeUnchanged": true
+}

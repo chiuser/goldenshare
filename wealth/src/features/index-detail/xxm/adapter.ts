@@ -1,3 +1,4 @@
+import { XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
 import { validRearmRecord } from "./rearmContract";
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type { Time } from "lightweight-charts";
@@ -26,7 +27,7 @@ function validateReference(reference: XxmReference | null, period: XxmPeriod) {
 export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoint[], period: XxmPeriod, tsCode: string,
   indicatorVersion: number | null = null): XxmViewModel {
   assert(response.tsCode === tsCode && tsCode === "000001.SH" && response.period === period);
-  assert(response.algorithmVersion === "xxm-direction-v0.1-a1" && /^[a-f0-9]{64}$/.test(response.specHash));
+  assert(response.algorithmVersion === XXM_ALGORITHM_VERSION && response.specHash === XXM_SPEC_HASH);
   assert(Array.isArray(response.bottomHistories) && Array.isArray(response.rearmRecords));
   assert(/^[a-f0-9]{64}$/.test(response.source.inputId));
   assert(response.source.kind === (period === "day" ? "daily_factor" : "minute_gold"));

@@ -1,0 +1,474 @@
+[
+  {
+    "case": "jul_120",
+    "time": "2025-06-27 15:00:00",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-06-27T15:00:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-06-30 15:00:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-06-30T15:00:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-02 15:00:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-02T15:00:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-03 15:00:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-03T15:00:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-07 11:30:00",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-07T11:30:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-08 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-08T11:30:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-09 15:00:00",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-09T15:00:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-10 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-10T11:30:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-11 11:30:00",
+    "expected": "CANCEL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-11T11:30:00+08:00"
+  },
+  {
+    "case": "jul_120",
+    "time": "2025-07-11 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-07-11T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-08-07 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-08-07T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-08-08 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2025-08-08T15:00:00+08:00"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-08-07",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-08-07"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-08-08",
+    "expected": "DULL",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-08-08"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-08-14",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-08-14"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-11-06",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-11-06"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-11-07",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-11-07"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-11-10",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-11-10"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-11-11",
+    "expected": "STRUCTURE",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2025-11-11"
+  },
+  {
+    "case": "may_120",
+    "time": "2026-05-06 11:30:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2026-05-06T11:30:00+08:00"
+  },
+  {
+    "case": "may_120",
+    "time": "2026-05-06 15:00:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2026-05-06T15:00:00+08:00"
+  },
+  {
+    "case": "may_120",
+    "time": "2026-05-07 15:00:00",
+    "expected": "CANCEL",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "m120",
+    "endpoint": "2026-05-07T15:00:00+08:00"
+  },
+  {
+    "case": "bottom_daily",
+    "time": "2026-09-24",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2026-09-24"
+  },
+  {
+    "case": "bottom_daily",
+    "time": "2026-09-28",
+    "expected": "DULL",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2026-09-28"
+  },
+  {
+    "case": "bottom_daily",
+    "time": "2026-09-29",
+    "expected": "CANCEL",
+    "confidence": "direct",
+    "source": "original_25",
+    "period": "day",
+    "endpoint": "2026-09-29"
+  },
+  {
+    "case": "mins60",
+    "time": "2026-04-07 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "IMG_0366",
+    "period": "m60",
+    "endpoint": "2026-04-07T15:00:00+08:00"
+  },
+  {
+    "case": "mins60",
+    "time": "2026-01-13 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "IMG_0369_0370",
+    "period": "m60",
+    "endpoint": "2026-01-13T15:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "time": "2026-01-13 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "IMG_0369_0370",
+    "period": "m90",
+    "endpoint": "2026-01-13T15:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "time": "2025-08-05 15:00:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "IMG_0374",
+    "period": "m90",
+    "endpoint": "2025-08-05T15:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "time": "2025-08-06 11:00:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "IMG_0374",
+    "period": "m90",
+    "endpoint": "2025-08-06T11:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "time": "2025-08-06 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "IMG_0374",
+    "period": "m90",
+    "endpoint": "2025-08-06T15:00:00+08:00"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-10-16",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "20251016",
+    "period": "day",
+    "endpoint": "2025-10-16"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-16 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "20251016",
+    "period": "m120",
+    "endpoint": "2025-10-16T15:00:00+08:00"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-10-10",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "day",
+    "endpoint": "2025-10-10"
+  },
+  {
+    "case": "daily_2025",
+    "time": "2025-10-13",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "day",
+    "endpoint": "2025-10-13"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-09 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "m120",
+    "endpoint": "2025-10-09T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-10 15:00:00",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "m120",
+    "endpoint": "2025-10-10T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-14 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "m120",
+    "endpoint": "2025-10-14T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-14 15:00:00",
+    "expected": "STRUCTURE",
+    "confidence": "mapped",
+    "source": "20251016",
+    "period": "m120",
+    "endpoint": "2025-10-14T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-08-18 11:30:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "holdout_20250818.json",
+    "period": "m120",
+    "endpoint": "2025-08-18T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-08-18 15:00:00",
+    "expected": "CANCEL",
+    "confidence": "direct",
+    "source": "holdout_20250818.json",
+    "period": "m120",
+    "endpoint": "2025-08-18T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-06-26 11:30:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "holdout_20250626.json",
+    "period": "m120",
+    "endpoint": "2025-06-26T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-06-26 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "holdout_20250626.json",
+    "period": "m120",
+    "endpoint": "2025-06-26T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-24 11:30:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "holdout_20251027.json",
+    "period": "m120",
+    "endpoint": "2025-10-24T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-24 15:00:00",
+    "expected": "CANCEL",
+    "confidence": "mapped",
+    "source": "holdout_20251027.json",
+    "period": "m120",
+    "endpoint": "2025-10-24T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-27 11:30:00",
+    "expected": "NONE",
+    "confidence": "mapped",
+    "source": "holdout_20251027.json",
+    "period": "m120",
+    "endpoint": "2025-10-27T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-10-27 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "holdout_20251027.json",
+    "period": "m120",
+    "endpoint": "2025-10-27T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-07-21 15:00:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "source": "holdout_20250723_120.json",
+    "period": "m120",
+    "endpoint": "2025-07-21T15:00:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-07-23 11:30:00",
+    "expected": "CANCEL",
+    "confidence": "mapped",
+    "source": "holdout_20250723_120.json",
+    "period": "m120",
+    "endpoint": "2025-07-23T11:30:00+08:00"
+  },
+  {
+    "case": "aug_120",
+    "time": "2025-07-23 15:00:00",
+    "expected": "NONE",
+    "confidence": "direct",
+    "source": "holdout_20250723_120.json",
+    "period": "m120",
+    "endpoint": "2025-07-23T15:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "source": "holdout_20260105_pair.json",
+    "freq": 90,
+    "time": "2026-01-05 14:00:00",
+    "expected": "DULL",
+    "confidence": "mapped",
+    "position_error": "possibly one bar",
+    "period": "m90",
+    "endpoint": "2026-01-05T14:00:00+08:00"
+  },
+  {
+    "case": "mins90",
+    "source": "holdout_20260105_pair.json",
+    "freq": 90,
+    "time": "2026-01-05 15:00:00",
+    "expected": "CANCEL",
+    "confidence": "direct",
+    "position_error": "terminal marker visible",
+    "period": "m90",
+    "endpoint": "2026-01-05T15:00:00+08:00"
+  }
+]

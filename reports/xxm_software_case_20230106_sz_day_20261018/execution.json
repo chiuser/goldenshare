@@ -1,0 +1,14 @@
+{
+  "status": "COMPLETE_LOCAL_IMAGE_AND_ONE_DAY_COMPARISON",
+  "seconds": 0.013396957889199257,
+  "sourceDatesExtracted": 1,
+  "variants": 3,
+  "historicalSegments": 2,
+  "newReplay": false,
+  "databaseOrLakeRead": false,
+  "originalImageCopyIdentical": true,
+  "protectedFiles": 16,
+  "protectedUnchanged": true,
+  "newSoftwareInternalStateLabels": 0,
+  "newVisualObservations": 1
+}

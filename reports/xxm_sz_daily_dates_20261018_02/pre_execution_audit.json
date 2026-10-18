@@ -1,0 +1,67 @@
+{
+  "codes": [
+    "399006.SZ",
+    "399001.SZ"
+  ],
+  "inputStart": "2020-01-01",
+  "candidateStart": "2024-09-01",
+  "end": "2026-09-30",
+  "tailStart": "2024-08-30",
+  "prefixDirectory": "reports/xxm_cross_index_daily_20261018_01/run_01",
+  "calendarDirectory": "reports/xxm_50_300_daily_dates_20261018_02",
+  "projection": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "batch": 500,
+  "maxTailRows": 600,
+  "maxCombinedRows": 1800,
+  "maxCalendarRows": 2600,
+  "maxBytesPerUnit": 20000000,
+  "querySeconds": 15,
+  "connectionSeconds": 5,
+  "phaseSeconds": 60,
+  "totalSeconds": 240,
+  "expectedPrefixRows": 1132,
+  "expectedTailRows": 505,
+  "expectedCombinedRows": 1636,
+  "expectedTargetRows": 504,
+  "readonly": true,
+  "noNewExecutableCode": true,
+  "productCodeChanged": false,
+  "sourceContracts": "Previously audited six-field IndexFactorPro projection; source identity per row",
+  "reuse": [
+    "readonly_session",
+    "validate_window",
+    "calculate/classify/seal/read_unit"
+  ],
+  "codegraph": [
+    "query ReferenceGateCalculator",
+    "impact ReferenceGateCalculator"
+  ],
+  "unavailable": {
+    "000016.SH": [
+      "2024-09-25",
+      "2024-09-26",
+      "2024-09-27"
+    ]
+  },
+  "fallback": {
+    "existingMinuteResults": "reports/xxm_top_daily_ambiguity_20261017_01/run_01",
+    "periods": [
+      "m90",
+      "m120"
+    ],
+    "candidateStart": "2022-09-13",
+    "candidateEnd": "2026-09-30",
+    "exclude": [
+      "m90:2023-09-25",
+      "2024-09 same rally"
+    ],
+    "noNewMinuteReadOrReplay": true
+  }
+}

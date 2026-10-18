@@ -1,0 +1,5239 @@
+{
+  "file": "source_day_1.2.ndjson.gz",
+  "sha256": "622001bc3a8dd7240a2b718ebb25a6a0efe975d9bd2a67efa1d380dc367c8b35",
+  "contentSha256": "1a9cd7f9e7d43f2f48f1cc25c695180332a703eaefb2cadf8eec79ea880c485f",
+  "rawBytes": 646071,
+  "rows": 912,
+  "through": "2026-10-13",
+  "start": "2023-01-03",
+  "inputSha256": "7735ee1341f349ad2083139932f7dde97b85541188a9e88a63029c4d3cc3c94d",
+  "group": "source",
+  "period": "day",
+  "gate": 1.2,
+  "oldSpecHash": "0813d20a0f095a03749cc7a5cfdd58e22447b8185e398ec74688d6bb99863a23",
+  "expectedSpecHash": "81992335d6bd197e56cc2ff6d02b35fe46ddc61cfbeb282fb3e5e375bd3d2021",
+  "sourceIdentity": "top-activation-freeze:source:day",
+  "eventCounts": {
+    "TOP:DULL": 13,
+    "TOP:STRUCTURE": 9,
+    "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+    "BOTTOM:DULL": 15,
+    "BOTTOM:STRUCTURE": 7,
+    "BOTTOM:CANCEL": 8,
+    "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+    "TOP:CANCEL": 4
+  },
+  "bottomProtected": {
+    "events": 34,
+    "historyUpdates": 67,
+    "rearmUpdates": 0
+  },
+  "changedEndpoints": 5,
+  "changes": [
+    {
+      "time": "2024-09-24",
+      "oldState": "DULL",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "c1703cd94f38d9c72ae260df",
+          "time": "2024-09-24",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "0d37a1e6b8f203c377141c8da9443cf12b5e10327f7aa56b3cc604336551768f",
+      "newStepSha256": "c57b832f4f00d72830a687079ad6a3c3a6b654c8be91381c64e4332b633ddf4e"
+    },
+    {
+      "time": "2024-09-25",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "a6c620a8057a9bd5d06c1d26",
+          "time": "2024-09-25",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "02cb2a135eda1faaede3aa1e432378de6d814b2702a989a6ae73872413ca0608",
+      "newStepSha256": "de691985c36c6d5ac7a71201f6f615b537aedc0f9ae1bfd6953fc15386015558"
+    },
+    {
+      "time": "2024-09-26",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "2e25dc4a7efa2040266c1ea726dfc60e680e074edeab7ec40e227d42d55217bd",
+      "newStepSha256": "db54414744744955bd24e58816b2e2dd062ce410a82bea8e0e7372cc3a2f03e8"
+    },
+    {
+      "time": "2024-09-27",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "4ce398e0fa66530943cb19856a00ac2bd5ace9f371db772a3788b753da8991aa",
+      "newStepSha256": "bc2ad91ef670b32584e08e9810a0c83cfbd94bc2783d470dd2483311f9e7a339"
+    },
+    {
+      "time": "2024-09-30",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "2cc8bb199f2cbf3831ed28dd2cb2ebab1d92752b98dd7fe8094b5596b91b22d2",
+      "newStepSha256": "5db8c994d4376d539ef16b389df097b7b8131c36aa579044633442369c4563e9"
+    }
+  ],
+  "identityMap": {
+    "67b921f72ba46c45e145b331": {
+      "kind": "event",
+      "parts": [
+        "2023-03-06",
+        "DULL",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "76ffb6ed1c39a3e7dd039770"
+    },
+    "8bf3f8a95390a5e1f79183ce": {
+      "kind": "event",
+      "parts": [
+        "2023-03-07",
+        "STRUCTURE",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "a76531323983c042bc313002"
+    },
+    "a6d48c24d8a464258a02ac20": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-03-07",
+        "color_flip",
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "f5d2252b088daceb16e8e6ac"
+    },
+    "1faa86200ce357e6a4fe75e1": {
+      "kind": "event",
+      "parts": [
+        "2023-04-14",
+        "DULL",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "ed4ae09a66f9e25ff38f6f25"
+    },
+    "cdffff7c2fef03aa25dbe965": {
+      "kind": "event",
+      "parts": [
+        "2023-04-21",
+        "STRUCTURE",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "806cd7a74aeefa8c69e30661"
+    },
+    "112973179a451a6bf1e6ed5e": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-04-21",
+        "dif_turn",
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "1c33ffdc1d37a535f190fa73"
+    },
+    "08c57d203902b06740ef69ca": {
+      "kind": "withdrawal",
+      "parts": [
+        "2023-05-08",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "112973179a451a6bf1e6ed5e"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "ffc30372127a137fac3bcb40"
+    },
+    "eb93cfe77a8a039545cd06f6": {
+      "kind": "event",
+      "parts": [
+        "2023-05-09",
+        "DULL",
+        1,
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "9fe9a933addfcdf2e69ab5e7"
+    },
+    "23a3149d9477352586a155f4": {
+      "kind": "event",
+      "parts": [
+        "2023-05-10",
+        "STRUCTURE",
+        1,
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "d3c41a2a7296beb592576648"
+    },
+    "c3a6fc1b6454f4430b1a8080": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-05-10",
+        "dif_turn",
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "83c69bdb8bb13e78cf9de453"
+    },
+    "9e615df6ef862a591ae87a8d": {
+      "kind": "event",
+      "parts": [
+        "2023-06-27",
+        "DULL",
+        -1,
+        "2023-05-11"
+      ],
+      "dependencies": [],
+      "new": "c7e4aa39e8fa7bd7052131dc"
+    },
+    "c3f7c75e11cfab8adeb52472": {
+      "kind": "event",
+      "parts": [
+        "2023-06-30",
+        "STRUCTURE",
+        -1,
+        "2023-05-11"
+      ],
+      "dependencies": [],
+      "new": "776ec05dad7ad1dea2f08f87"
+    },
+    "9031a0326df92cfa347b614a": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "c3f7c75e11cfab8adeb52472"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "60378f446f29e2c3d74378f6"
+    },
+    "46daeca538b48d90b4e687ea": {
+      "kind": "event",
+      "parts": [
+        "2023-08-16",
+        "DULL",
+        -1,
+        "2023-06-26"
+      ],
+      "dependencies": [],
+      "new": "8b270cdfcd1ae7b459285e12"
+    },
+    "356daa8ea3763d53f56088b8": {
+      "kind": "event",
+      "parts": [
+        "2023-08-21",
+        "CANCEL",
+        -1,
+        "2023-06-26"
+      ],
+      "dependencies": [],
+      "new": "8a77b0cb5ec8fdee13445d51"
+    },
+    "075163f4f5acb167a71e2d63": {
+      "kind": "event",
+      "parts": [
+        "2023-10-18",
+        "DULL",
+        -1,
+        "2023-08-11"
+      ],
+      "dependencies": [],
+      "new": "35177a39725b54e643fb486c"
+    },
+    "4dcb8846aef68219ae903ea1": {
+      "kind": "event",
+      "parts": [
+        "2023-10-24",
+        "CANCEL",
+        -1,
+        "2023-08-11"
+      ],
+      "dependencies": [],
+      "new": "fc523021fd9f7de9e6bba466"
+    },
+    "89037f4639af110a289520aa": {
+      "kind": "event",
+      "parts": [
+        "2023-12-18",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "1b6a79228eccd7015ca2ed99"
+    },
+    "bf0fc5397bdbe81910e26bea": {
+      "kind": "event",
+      "parts": [
+        "2023-12-27",
+        "STRUCTURE",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "033837bb2b991037ccdcc0c3"
+    },
+    "f75e214d8ec430fc9002a41b": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "bf0fc5397bdbe81910e26bea"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "74aa7f02959ac5935307e6b4"
+    },
+    "17bd537a28b8e5b95d4f9637": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-01-08",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "f75e214d8ec430fc9002a41b"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "80abae199035302160519978"
+    },
+    "023c9fc925c01b4fb04c8347": {
+      "kind": "event",
+      "parts": [
+        "2024-01-10",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "8e7140d39020673ecc8dc055"
+    },
+    "c89db08f53830750300f9d85": {
+      "kind": "event",
+      "parts": [
+        "2024-01-16",
+        "STRUCTURE",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "9d348603999941e2510f3f7b"
+    },
+    "16015ac42529dc04d76db60e": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "c89db08f53830750300f9d85"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "a7238661fc32a80d4a7897c3"
+    },
+    "e0024eb8273d6c25e9329b85": {
+      "kind": "event",
+      "parts": [
+        "2024-01-17",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "f6ff0fb3ff431ddf808b271a"
+    },
+    "af169cbb518b9ecbf8be7d3f": {
+      "kind": "event",
+      "parts": [
+        "2024-01-23",
+        "CANCEL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "fe454a5f6d6f917559deebfa"
+    },
+    "38b9bb63c5b454ecb97727cb": {
+      "kind": "event",
+      "parts": [
+        "2024-02-02",
+        "DULL",
+        -1,
+        "2024-01-09"
+      ],
+      "dependencies": [],
+      "new": "af4b4ee18f780396dda9cb61"
+    },
+    "fc30a50221b184db3bae9e83": {
+      "kind": "event",
+      "parts": [
+        "2024-02-05",
+        "CANCEL",
+        -1,
+        "2024-01-09"
+      ],
+      "dependencies": [],
+      "new": "1187b4ddb37d53cd45c63a25"
+    },
+    "0c0c2ae320ab815f06e769ea": {
+      "kind": "event",
+      "parts": [
+        "2024-04-29",
+        "DULL",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "e16fdddd065b9dd2842ced10"
+    },
+    "bab750ed76aaa37a21d665d6": {
+      "kind": "event",
+      "parts": [
+        "2024-05-15",
+        "STRUCTURE",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "bf1b99bd074dcde8abab0db1"
+    },
+    "f09e6ff9a39121d6bcc08852": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2024-05-15",
+        "dif_turn",
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "c2b1c38a1694703679cbb731"
+    },
+    "7c51e1f21b8576fbb61e2e93": {
+      "kind": "event",
+      "parts": [
+        "2024-05-17",
+        "DULL",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "4f632290eea757fd864e1865"
+    },
+    "649d8344dcf87f6377e2e182": {
+      "kind": "event",
+      "parts": [
+        "2024-05-22",
+        "STRUCTURE",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "26cd0d6e267e2fcfa1f31733"
+    },
+    "2d21d2de421720a84fb8b4fb": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2024-05-22",
+        "dif_turn",
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "0ca0300fa0b674de59cac8c0"
+    },
+    "82e7b6f57024e5aaf897d780": {
+      "kind": "event",
+      "parts": [
+        "2024-07-08",
+        "DULL",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "2de50d686990964f8cc0d6e7"
+    },
+    "50e891a213a28f38f3ea5086": {
+      "kind": "event",
+      "parts": [
+        "2024-07-09",
+        "STRUCTURE",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "47541aea360c3ac94c610376"
+    },
+    "64c9d77aa8efba6da0b61cdd": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "50e891a213a28f38f3ea5086"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "a13cdc1373bd00bc56c7bac0"
+    },
+    "505d4914b156662dfcefe2f0": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-07-23",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "64c9d77aa8efba6da0b61cdd"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "b7406efbcc9445d4b2467357"
+    },
+    "3d41b8f65614a17779338020": {
+      "kind": "event",
+      "parts": [
+        "2024-07-25",
+        "DULL",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "92087929f924d2974fe1e81b"
+    },
+    "3b8e9e6fd30e9c9606c60b70": {
+      "kind": "event",
+      "parts": [
+        "2024-07-31",
+        "STRUCTURE",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "7b976cba6382af9fc0fca102"
+    },
+    "20101473cba8ca5593ed05f5": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "3b8e9e6fd30e9c9606c60b70"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "7973552e663aa991ad375ef5"
+    },
+    "159840980ea63f2c555217e2": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-08-05",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "20101473cba8ca5593ed05f5"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "2e9c6aefe2b35709c5be1df2"
+    },
+    "f7379de2b28ec415295a942b": {
+      "kind": "event",
+      "parts": [
+        "2024-08-06",
+        "DULL",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "25c7fc95c53eaafd42021297"
+    },
+    "bd021c74be1e32e2cb65996f": {
+      "kind": "event",
+      "parts": [
+        "2024-08-13",
+        "STRUCTURE",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "cf8a6c22b9fc83aed6c872e8"
+    },
+    "c4adfb072e9b1525cff8cdf1": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "bd021c74be1e32e2cb65996f"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "e4011fabf5d007bd108efc2a"
+    },
+    "217c1dc1e28de39a0886e105": {
+      "kind": "event",
+      "parts": [
+        "2024-08-14",
+        "DULL",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "a234efb4e7e9083282c7227c"
+    },
+    "ff2977e6814bd8992a008cf4": {
+      "kind": "event",
+      "parts": [
+        "2024-08-15",
+        "STRUCTURE",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "b4717750f0e99ecba912c909"
+    },
+    "e3e10fc29bcfac8e1c844873": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "ff2977e6814bd8992a008cf4"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "aaa31f5a6b19d31983608f89"
+    },
+    "dd9b0bdb24a2bc60f8ad65f5": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-08-22",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "e3e10fc29bcfac8e1c844873"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "9bb078a75faed463c8c4c7aa"
+    },
+    "e8d819b9e0a892d6fdf9b1ea": {
+      "kind": "event",
+      "parts": [
+        "2024-09-03",
+        "DULL",
+        -1,
+        "2024-08-05"
+      ],
+      "dependencies": [],
+      "new": "26daa6ee8db5496c5ff0e819"
+    },
+    "0411c240bb663eab9cf4d8a3": {
+      "kind": "event",
+      "parts": [
+        "2024-09-06",
+        "CANCEL",
+        -1,
+        "2024-08-05"
+      ],
+      "dependencies": [],
+      "new": "ddee9f052699d70ad7b68cfd"
+    },
+    "9df2d1a6b6092dbd381ad018": {
+      "kind": "event",
+      "parts": [
+        "2025-03-17",
+        "DULL",
+        1,
+        "2025-01-21"
+      ],
+      "dependencies": [],
+      "new": "27071a46f23c56853fbff000"
+    },
+    "7f243a50aa03ad566fc56f03": {
+      "kind": "event",
+      "parts": [
+        "2025-03-19",
+        "CANCEL",
+        1,
+        "2025-01-21"
+      ],
+      "dependencies": [],
+      "new": "4b72766b4728c9274671227a"
+    },
+    "39bb695d095c991a45e0b980": {
+      "kind": "event",
+      "parts": [
+        "2025-06-26",
+        "DULL",
+        1,
+        "2025-04-17"
+      ],
+      "dependencies": [],
+      "new": "fb45a119e0c8fb01ebdb84f3"
+    },
+    "716617db13ba088440b4d501": {
+      "kind": "event",
+      "parts": [
+        "2025-07-01",
+        "CANCEL",
+        1,
+        "2025-04-17"
+      ],
+      "dependencies": [],
+      "new": "061efaef3e77e625b146adda"
+    },
+    "244d0cfd26c846f88456b465": {
+      "kind": "event",
+      "parts": [
+        "2025-08-08",
+        "DULL",
+        1,
+        "2025-06-25"
+      ],
+      "dependencies": [],
+      "new": "331d89ab1eb72aaffbd685f7"
+    },
+    "0c4f324a06f423e657c2d049": {
+      "kind": "event",
+      "parts": [
+        "2025-08-18",
+        "CANCEL",
+        1,
+        "2025-06-25"
+      ],
+      "dependencies": [],
+      "new": "e9baa08232e6e070d96f2cb6"
+    },
+    "f4c95631803e1394c2ec8341": {
+      "kind": "event",
+      "parts": [
+        "2025-10-10",
+        "DULL",
+        1,
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "331ddb4b53bd79bb12de64e5"
+    },
+    "e0cc4ff9d21d385a0487b03d": {
+      "kind": "event",
+      "parts": [
+        "2025-10-13",
+        "STRUCTURE",
+        1,
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "a01cdb49f5e880497a633a20"
+    },
+    "e30422dc28e74ca67216c6f2": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-10-13",
+        "color_flip",
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "000e8c8af5cb935cb3202e89"
+    },
+    "2cb632eedb3e419fef7c3b89": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-10-24",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "e30422dc28e74ca67216c6f2"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "e57cda2133b368cb7f22da9f"
+    },
+    "edb4df0bef7cdf9b03ff3a20": {
+      "kind": "event",
+      "parts": [
+        "2025-11-10",
+        "DULL",
+        1,
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "4caf7b8afe3519540fd3e703"
+    },
+    "9190c17e8727f55774c5bdeb": {
+      "kind": "event",
+      "parts": [
+        "2025-11-11",
+        "STRUCTURE",
+        1,
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "19c4d244770d00d54d4d54c9"
+    },
+    "216dd4a5ba8365a8cd6a1169": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-11-11",
+        "dif_turn",
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "519c9a71b355edcd02e7d615"
+    },
+    "d19c4b4e86dd206e601c8598": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-11-13",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "216dd4a5ba8365a8cd6a1169"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "87badaed4863560118bf5937"
+    },
+    "9e0d5f41b6035093229cc2e3": {
+      "kind": "event",
+      "parts": [
+        "2026-01-06",
+        "DULL",
+        1,
+        "2025-11-13"
+      ],
+      "dependencies": [],
+      "new": "f805af51bc12a11d07bbab67"
+    },
+    "a2fab7cd7b8ea5b0c0fddfee": {
+      "kind": "event",
+      "parts": [
+        "2026-01-08",
+        "CANCEL",
+        1,
+        "2025-11-13"
+      ],
+      "dependencies": [],
+      "new": "9e38e1d2c57f826c5774c5b1"
+    },
+    "d9126ed64ac4a2dc4cf354e3": {
+      "kind": "event",
+      "parts": [
+        "2026-03-02",
+        "DULL",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "fcf0c987457210765ea2b1ba"
+    },
+    "4737487905855514db382fa3": {
+      "kind": "event",
+      "parts": [
+        "2026-03-03",
+        "STRUCTURE",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "5882ad5dfb4e6928107e29c9"
+    },
+    "8d8e81d487fbf6898fa4607c": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2026-03-03",
+        "dif_turn",
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "2c6636900b961a53377c9916"
+    },
+    "703db5cfaf292e9688105519": {
+      "kind": "event",
+      "parts": [
+        "2026-05-11",
+        "DULL",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "f12faa5743ffd8400228bd4c"
+    },
+    "5d1ab54618f6c1619118503a": {
+      "kind": "event",
+      "parts": [
+        "2026-05-14",
+        "STRUCTURE",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "6a0eb327b3dd1f216f179797"
+    },
+    "08a174763117ff6d8e8c577a": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2026-05-14",
+        "dif_turn",
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "17335648784d10a28f20b906"
+    },
+    "63afa0059a4be4c45f0c0361": {
+      "kind": "event",
+      "parts": [
+        "2026-07-13",
+        "DULL",
+        -1,
+        "2026-05-18"
+      ],
+      "dependencies": [],
+      "new": "0347e5e692cdebccc97cda04"
+    },
+    "03e22b5925b743c9a7e2380e": {
+      "kind": "event",
+      "parts": [
+        "2026-07-15",
+        "CANCEL",
+        -1,
+        "2026-05-18"
+      ],
+      "dependencies": [],
+      "new": "49838710c59c0d6e018e8472"
+    },
+    "2045a116d9176d90fef3542c": {
+      "kind": "event",
+      "parts": [
+        "2026-07-17",
+        "DULL",
+        -1,
+        "2026-03-04"
+      ],
+      "dependencies": [],
+      "new": "086bce9d1a9d376e15a70d0b"
+    },
+    "007d168f40668218ea69d24a": {
+      "kind": "event",
+      "parts": [
+        "2026-07-20",
+        "CANCEL",
+        -1,
+        "2026-03-04"
+      ],
+      "dependencies": [],
+      "new": "c81dab55a2f22916a32370c3"
+    },
+    "3930e8b63143cd8e34f0eea2": {
+      "kind": "event",
+      "parts": [
+        "2026-09-28",
+        "DULL",
+        -1,
+        "2026-09-11"
+      ],
+      "dependencies": [],
+      "new": "fd93a28cb700c6439b1a37a3"
+    },
+    "63b065760ba8c9baa03737bc": {
+      "kind": "event",
+      "parts": [
+        "2026-09-29",
+        "CANCEL",
+        -1,
+        "2026-09-11"
+      ],
+      "dependencies": [],
+      "new": "c26a577f940088e07c252b13"
+    }
+  },
+  "finalSnapshot": {
+    "specHash": "81992335d6bd197e56cc2ff6d02b35fe46ddc61cfbeb282fb3e5e375bd3d2021",
+    "tsCode": "000001.SH",
+    "period": "day",
+    "sourceIdentity": "top-activation-freeze:source:day",
+    "processed": 912,
+    "wave": {
+      "sign": -1,
+      "start": "2026-09-24",
+      "end": "2026-10-13",
+      "count": 8,
+      "price": 3797.2424,
+      "dif": -30.792,
+      "price_at": "2026-10-12",
+      "dif_at": "2026-10-13"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2026-08-04",
+          "end": "2026-09-10",
+          "count": 28,
+          "price": 3990.3037,
+          "dif": 11.035,
+          "price_at": "2026-08-18",
+          "dif_at": "2026-09-01"
+        },
+        {
+          "sign": 1,
+          "start": "2026-09-22",
+          "end": "2026-09-23",
+          "count": 2,
+          "price": 3952.128,
+          "dif": -0.055,
+          "price_at": "2026-09-22",
+          "dif_at": "2026-09-23"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-08-03",
+          "count": 23,
+          "price": 3764.1547,
+          "dif": -62.142,
+          "price_at": "2026-07-17",
+          "dif_at": "2026-07-24"
+        },
+        {
+          "sign": -1,
+          "start": "2026-09-11",
+          "end": "2026-09-21",
+          "count": 7,
+          "price": 3864.2794,
+          "dif": -10.316,
+          "price_at": "2026-09-15",
+          "dif_at": "2026-09-17"
+        }
+      ]
+    },
+    "state": "NONE",
+    "reference": null,
+    "previous": {
+      "time": "2026-10-13",
+      "close": 3800.8644,
+      "dif": -30.792,
+      "dea": -19.804,
+      "hist": -21.978,
+      "completed": true
+    },
+    "pending": {
+      "id": "17335648784d10a28f20b906",
+      "confirmedAt": "2026-05-14",
+      "confirmationRoute": "dif_turn",
+      "pricePeak": 4242.572,
+      "pricePeakAt": "2026-05-13",
+      "originalReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "status": "PENDING",
+      "endedAt": null,
+      "endReason": null,
+      "observedThrough": "2026-10-13",
+      "ageBars": 101,
+      "negativeBars": 59,
+      "zeroBars": 0,
+      "colorChanges": 7
+    },
+    "pendingBottomHistory": null,
+    "pendingRearm": null
+  },
+  "forecasts": [
+    {
+      "rows": 246,
+      "through": "2024-01-05",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2023-12-28",
+          "end": "2024-01-05",
+          "count": 6,
+          "price": 2974.9348,
+          "dif": -14.654,
+          "price_at": "2023-12-29",
+          "dif_at": "2024-01-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-09-22",
+              "end": "2023-10-09",
+              "count": 6,
+              "price": 3132.4316,
+              "dif": -13.002,
+              "price_at": "2023-09-22",
+              "dif_at": "2023-09-28"
+            },
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-05",
+          "close": 2929.1833,
+          "dif": -15.177,
+          "dea": -20.805,
+          "hist": 11.255,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2023-12-28",
+          "end": "2024-01-05",
+          "count": 6,
+          "price": 2974.9348,
+          "dif": -14.654,
+          "price_at": "2023-12-29",
+          "dif_at": "2024-01-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-09-22",
+              "end": "2023-10-09",
+              "count": 6,
+              "price": 3132.4316,
+              "dif": -13.002,
+              "price_at": "2023-09-22",
+              "dif_at": "2023-09-28"
+            },
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-05",
+          "close": 2929.1833,
+          "dif": -15.177,
+          "dea": -20.805,
+          "hist": 11.255,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "8ca056d781996815bc8496d28ae4fafe90da0b990990ad421aa7e779b59d0617",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 247,
+      "through": "2024-01-08",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2023-12-28",
+          "end": "2024-01-08",
+          "count": 7,
+          "price": 2974.9348,
+          "dif": -14.654,
+          "price_at": "2023-12-29",
+          "dif_at": "2024-01-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-09-22",
+              "end": "2023-10-09",
+              "count": 6,
+              "price": 3132.4316,
+              "dif": -13.002,
+              "price_at": "2023-09-22",
+              "dif_at": "2023-09-28"
+            },
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-08",
+          "close": 2887.5379,
+          "dif": -18.737,
+          "dea": -20.391,
+          "hist": 3.308,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2023-12-28",
+          "end": "2024-01-08",
+          "count": 7,
+          "price": 2974.9348,
+          "dif": -14.654,
+          "price_at": "2023-12-29",
+          "dif_at": "2024-01-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-09-22",
+              "end": "2023-10-09",
+              "count": 6,
+              "price": 3132.4316,
+              "dif": -13.002,
+              "price_at": "2023-09-22",
+              "dif_at": "2023-09-28"
+            },
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-08",
+          "close": 2887.5379,
+          "dif": -18.737,
+          "dea": -20.391,
+          "hist": 3.308,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "fcd9d2fc6a5871f195c9f65446c5a6cb31596f20e6fac0b3b0882b4b362c6ade",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 248,
+      "through": "2024-01-09",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-01-09",
+          "end": "2024-01-09",
+          "count": 1,
+          "price": 2893.2513,
+          "dif": -20.857,
+          "price_at": "2024-01-09",
+          "dif_at": "2024-01-09"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            },
+            {
+              "sign": 1,
+              "start": "2023-12-28",
+              "end": "2024-01-08",
+              "count": 7,
+              "price": 2974.9348,
+              "dif": -14.654,
+              "price_at": "2023-12-29",
+              "dif_at": "2024-01-04"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-09",
+          "close": 2893.2513,
+          "dif": -20.857,
+          "dea": -20.484,
+          "hist": -0.745,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-01-09",
+          "end": "2024-01-09",
+          "count": 1,
+          "price": 2893.2513,
+          "dif": -20.857,
+          "price_at": "2024-01-09",
+          "dif_at": "2024-01-09"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2023-10-31",
+              "end": "2023-11-27",
+              "count": 20,
+              "price": 3072.8348,
+              "dif": 1.439,
+              "price_at": "2023-11-15",
+              "dif_at": "2023-11-21"
+            },
+            {
+              "sign": 1,
+              "start": "2023-12-28",
+              "end": "2024-01-08",
+              "count": 7,
+              "price": 2974.9348,
+              "dif": -14.654,
+              "price_at": "2023-12-29",
+              "dif_at": "2024-01-04"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2023-10-10",
+              "end": "2023-10-30",
+              "count": 15,
+              "price": 2939.2913,
+              "dif": -41.712,
+              "price_at": "2023-10-23",
+              "dif_at": "2023-10-25"
+            },
+            {
+              "sign": -1,
+              "start": "2023-11-28",
+              "end": "2023-12-27",
+              "count": 22,
+              "price": 2898.8787,
+              "dif": -32.99,
+              "price_at": "2023-12-26",
+              "dif_at": "2023-12-26"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-01-09",
+          "close": 2893.2513,
+          "dif": -20.857,
+          "dea": -20.484,
+          "hist": -0.745,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "7ca166c4d3b7302331cdc3d3b6bd04882d6f30ead5cb78516e425370f53637a5",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 366,
+      "through": "2024-07-09",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONFIRMED",
+      "oldReason": null,
+      "oldContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-09",
+          "count": 3,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-03-19",
+              "end": "2024-04-25",
+              "count": 26,
+              "price": 2993.1388,
+              "dif": 7.001,
+              "price_at": "2024-03-27",
+              "dif_at": "2024-04-24"
+            },
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-05-23",
+          "end": "2024-07-01",
+          "count": 27,
+          "price": 2945.8524,
+          "dif": -35.168,
+          "price_at": "2024-06-27",
+          "dif_at": "2024-06-27"
+        },
+        "previous": {
+          "time": "2024-07-09",
+          "close": 2959.3724,
+          "dif": -30.288,
+          "dea": -29.628,
+          "hist": -1.32,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "50e891a213a28f38f3ea5086",
+          "time": "2024-07-09",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "64c9d77aa8efba6da0b61cdd",
+          "relatedRearmId": null
+        }
+      },
+      "candidateContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-09",
+          "count": 3,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-03-19",
+              "end": "2024-04-25",
+              "count": 26,
+              "price": 2993.1388,
+              "dif": 7.001,
+              "price_at": "2024-03-27",
+              "dif_at": "2024-04-24"
+            },
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-05-23",
+          "end": "2024-07-01",
+          "count": 27,
+          "price": 2945.8524,
+          "dif": -35.168,
+          "price_at": "2024-06-27",
+          "dif_at": "2024-06-27"
+        },
+        "previous": {
+          "time": "2024-07-09",
+          "close": 2959.3724,
+          "dif": -30.288,
+          "dea": -29.628,
+          "hist": -1.32,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "50e891a213a28f38f3ea5086",
+          "time": "2024-07-09",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "64c9d77aa8efba6da0b61cdd",
+          "relatedRearmId": null
+        }
+      },
+      "oldResultSha256": "63d83978d3a2b309f6980fe4552454733d3bbfe1c2701a25817f32eb8886eea5",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 368,
+      "through": "2024-07-11",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-11",
+          "count": 1,
+          "price": 2970.3874,
+          "dif": -27.767,
+          "price_at": "2024-07-11",
+          "dif_at": "2024-07-11"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-11",
+          "close": 2970.3874,
+          "dif": -27.767,
+          "dea": -29.388,
+          "hist": 3.243,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-11",
+          "count": 1,
+          "price": 2970.3874,
+          "dif": -27.767,
+          "price_at": "2024-07-11",
+          "dif_at": "2024-07-11"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-11",
+          "close": 2970.3874,
+          "dif": -27.767,
+          "dea": -29.388,
+          "hist": 3.243,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "5eb1eb0c1611778abc617860b7561c54e81a6b24019c6584cc99fc97bc49d5ee",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 375,
+      "through": "2024-07-22",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-22",
+          "count": 8,
+          "price": 2982.3086,
+          "dif": -14.436,
+          "price_at": "2024-07-19",
+          "dif_at": "2024-07-22"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-22",
+          "close": 2964.2155,
+          "dif": -14.436,
+          "dea": -20.137,
+          "hist": 11.404,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-22",
+          "count": 8,
+          "price": 2982.3086,
+          "dif": -14.436,
+          "price_at": "2024-07-19",
+          "dif_at": "2024-07-22"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-22",
+          "close": 2964.2155,
+          "dif": -14.436,
+          "dea": -20.137,
+          "hist": 11.404,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "cfebbbd133300f20871550983132ee039bad0d4b3a0e8b0bc20630ca473eca8a",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 376,
+      "through": "2024-07-23",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-23",
+          "count": 9,
+          "price": 2982.3086,
+          "dif": -14.436,
+          "price_at": "2024-07-19",
+          "dif_at": "2024-07-22"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-23",
+          "close": 2915.3685,
+          "dif": -17.753,
+          "dea": -19.661,
+          "hist": 3.815,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-07-11",
+          "end": "2024-07-23",
+          "count": 9,
+          "price": 2982.3086,
+          "dif": -14.436,
+          "price_at": "2024-07-19",
+          "dif_at": "2024-07-22"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-04-26",
+              "end": "2024-05-22",
+              "count": 16,
+              "price": 3171.1451,
+              "dif": 31.111,
+              "price_at": "2024-05-20",
+              "dif_at": "2024-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-23",
+          "close": 2915.3685,
+          "dif": -17.753,
+          "dea": -19.661,
+          "hist": 3.815,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "e0b4becc3f7548f8067e1485fc22dcd75e385995226cc7b2108404d57d4cfc1e",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 377,
+      "through": "2024-07-24",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-24",
+          "count": 1,
+          "price": 2901.9518,
+          "dif": -21.22,
+          "price_at": "2024-07-24",
+          "dif_at": "2024-07-24"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-24",
+          "close": 2901.9518,
+          "dif": -21.22,
+          "dea": -19.973,
+          "hist": -2.496,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-24",
+          "count": 1,
+          "price": 2901.9518,
+          "dif": -21.22,
+          "price_at": "2024-07-24",
+          "dif_at": "2024-07-24"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-07-24",
+          "close": 2901.9518,
+          "dif": -21.22,
+          "dea": -19.973,
+          "hist": -2.496,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "816c71aecc131cdda4e0e9a19ff8e039c467111e3aa6b60760ac4cf136a45e93",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 382,
+      "through": "2024-07-31",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONFIRMED",
+      "oldReason": null,
+      "oldContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-31",
+          "count": 6,
+          "price": 2879.2996,
+          "dif": -30.348,
+          "price_at": "2024-07-30",
+          "dif_at": "2024-07-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-05-23",
+          "end": "2024-07-01",
+          "count": 27,
+          "price": 2945.8524,
+          "dif": -35.168,
+          "price_at": "2024-06-27",
+          "dif_at": "2024-06-27"
+        },
+        "previous": {
+          "time": "2024-07-31",
+          "close": 2938.7493,
+          "dif": -26.646,
+          "dea": -25.211,
+          "hist": -2.868,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "3b8e9e6fd30e9c9606c60b70",
+          "time": "2024-07-31",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "20101473cba8ca5593ed05f5",
+          "relatedRearmId": null
+        }
+      },
+      "candidateContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-07-24",
+          "end": "2024-07-31",
+          "count": 6,
+          "price": 2879.2996,
+          "dif": -30.348,
+          "price_at": "2024-07-30",
+          "dif_at": "2024-07-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-05-23",
+              "end": "2024-07-01",
+              "count": 27,
+              "price": 2945.8524,
+              "dif": -35.168,
+              "price_at": "2024-06-27",
+              "dif_at": "2024-06-27"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-05-23",
+          "end": "2024-07-01",
+          "count": 27,
+          "price": 2945.8524,
+          "dif": -35.168,
+          "price_at": "2024-06-27",
+          "dif_at": "2024-06-27"
+        },
+        "previous": {
+          "time": "2024-07-31",
+          "close": 2938.7493,
+          "dif": -26.646,
+          "dea": -25.211,
+          "hist": -2.868,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "3b8e9e6fd30e9c9606c60b70",
+          "time": "2024-07-31",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "20101473cba8ca5593ed05f5",
+          "relatedRearmId": null
+        }
+      },
+      "oldResultSha256": "fcfe6721dd93e4e50c991db7963a296e1dce5ea49239e05ecb2b63b7bc7f138a",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 384,
+      "through": "2024-08-02",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-01",
+          "end": "2024-08-02",
+          "count": 2,
+          "price": 2932.3871,
+          "dif": -23.721,
+          "price_at": "2024-08-01",
+          "dif_at": "2024-08-02"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-02",
+          "close": 2905.3375,
+          "dif": -23.721,
+          "dea": -24.711,
+          "hist": 1.981,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-01",
+          "end": "2024-08-02",
+          "count": 2,
+          "price": 2932.3871,
+          "dif": -23.721,
+          "price_at": "2024-08-01",
+          "dif_at": "2024-08-02"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-02",
+              "end": "2024-07-04",
+              "count": 3,
+              "price": 2997.0111,
+              "dif": -27.842,
+              "price_at": "2024-07-02",
+              "dif_at": "2024-07-03"
+            },
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-02",
+          "close": 2905.3375,
+          "dif": -23.721,
+          "dea": -24.711,
+          "hist": 1.981,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "49360a56e0862f3f0101abc77184bce3b139474bc3ada7ba5900c7e1b9213af1",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 385,
+      "through": "2024-08-05",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-05",
+          "count": 1,
+          "price": 2860.6978,
+          "dif": -26.833,
+          "price_at": "2024-08-05",
+          "dif_at": "2024-08-05"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-05",
+          "close": 2860.6978,
+          "dif": -26.833,
+          "dea": -25.136,
+          "hist": -3.395,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-05",
+          "count": 1,
+          "price": 2860.6978,
+          "dif": -26.833,
+          "price_at": "2024-08-05",
+          "dif_at": "2024-08-05"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-05",
+          "close": 2860.6978,
+          "dif": -26.833,
+          "dea": -25.136,
+          "hist": -3.395,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "c91f57510ffe6e68959d752d2bfecffd02a3e729fa76caec0a59377e24deda8d",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 386,
+      "through": "2024-08-06",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-06",
+          "count": 2,
+          "price": 2860.6978,
+          "dif": -28.44,
+          "price_at": "2024-08-05",
+          "dif_at": "2024-08-06"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-06",
+          "close": 2867.2837,
+          "dif": -28.44,
+          "dea": -25.797,
+          "hist": -5.287,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-06",
+          "count": 2,
+          "price": 2860.6978,
+          "dif": -28.44,
+          "price_at": "2024-08-05",
+          "dif_at": "2024-08-06"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-06",
+          "close": 2867.2837,
+          "dif": -28.44,
+          "dea": -25.797,
+          "hist": -5.287,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "c73020efce2820ce4b7b2c6a0533e36f02c082b24fbdfaa73791123e1d8eb91b",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 391,
+      "through": "2024-08-13",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONFIRMED",
+      "oldReason": null,
+      "oldContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-13",
+          "count": 7,
+          "price": 2858.2046,
+          "dif": -30.213,
+          "price_at": "2024-08-12",
+          "dif_at": "2024-08-12"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-13",
+          "close": 2867.946,
+          "dif": -29.359,
+          "dea": -28.383,
+          "hist": -1.951,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "bd021c74be1e32e2cb65996f",
+          "time": "2024-08-13",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "c4adfb072e9b1525cff8cdf1",
+          "relatedRearmId": null
+        }
+      },
+      "candidateContext": {
+        "state": "STRUCTURE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-13",
+          "count": 7,
+          "price": 2858.2046,
+          "dif": -30.213,
+          "price_at": "2024-08-12",
+          "dif_at": "2024-08-12"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-13",
+          "close": 2867.946,
+          "dif": -29.359,
+          "dea": -28.383,
+          "hist": -1.951,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "bd021c74be1e32e2cb65996f",
+          "time": "2024-08-13",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "dif_turn",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "c4adfb072e9b1525cff8cdf1",
+          "relatedRearmId": null
+        }
+      },
+      "oldResultSha256": "c01b39290a046637c9143163752c891ebb62516684eca0ed383e4d010adadf76",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 392,
+      "through": "2024-08-14",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-14",
+          "close": 2850.6539,
+          "dif": -29.734,
+          "dea": -28.653,
+          "hist": -2.162,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-05",
+              "end": "2024-07-10",
+              "count": 4,
+              "price": 2922.4498,
+              "dif": -31.67,
+              "price_at": "2024-07-08",
+              "dif_at": "2024-07-08"
+            },
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-07-05",
+          "end": "2024-07-10",
+          "count": 4,
+          "price": 2922.4498,
+          "dif": -31.67,
+          "price_at": "2024-07-08",
+          "dif_at": "2024-07-08"
+        },
+        "previous": {
+          "time": "2024-08-14",
+          "close": 2850.6539,
+          "dif": -29.734,
+          "dea": -28.653,
+          "hist": -2.162,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "ea0bcdc337e6bcc3173fc3bf1efbb8e6fe2181e7d976b13e278cebbc82966b2c",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 393,
+      "through": "2024-08-15",
+      "category": "FIRST_TOP_DOMAIN",
+      "oldStatus": "CONFIRMED",
+      "oldReason": null,
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-15",
+          "count": 1,
+          "price": 2877.3579,
+          "dif": -27.56,
+          "price_at": "2024-08-15",
+          "dif_at": "2024-08-15"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-15",
+          "close": 2877.3579,
+          "dif": -27.56,
+          "dea": -28.435,
+          "hist": 1.75,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "ff2977e6814bd8992a008cf4",
+          "time": "2024-08-15",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "e3e10fc29bcfac8e1c844873",
+          "relatedRearmId": null
+        }
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-15",
+          "count": 1,
+          "price": 2877.3579,
+          "dif": -27.56,
+          "price_at": "2024-08-15",
+          "dif_at": "2024-08-15"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-15",
+          "close": 2877.3579,
+          "dif": -27.56,
+          "dea": -28.435,
+          "hist": 1.75,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": {
+          "id": "ff2977e6814bd8992a008cf4",
+          "time": "2024-08-15",
+          "direction": "BOTTOM",
+          "type": "STRUCTURE",
+          "route": "color_flip",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-07-05",
+            "endTime": "2024-07-10",
+            "price": 2922.4498,
+            "dif": -31.67
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": "e3e10fc29bcfac8e1c844873",
+          "relatedRearmId": null
+        }
+      },
+      "oldResultSha256": "54761c5c13c3c1af83413a9da363def923a08f200b9eb521d6ed68cd56fb80b9",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 397,
+      "through": "2024-08-21",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-21",
+          "count": 5,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-21",
+          "close": 2856.5839,
+          "dif": -21.807,
+          "dea": -24.923,
+          "hist": 6.233,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-21",
+          "count": 5,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-21",
+          "close": 2856.5839,
+          "dif": -21.807,
+          "dea": -24.923,
+          "hist": 6.233,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "aa8bd3fdc10a1959f4f5c97076fbbf6274df0f85bba456e14eef226840916942",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 398,
+      "through": "2024-08-22",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-22",
+          "count": 6,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-22",
+          "close": 2848.7718,
+          "dif": -22.277,
+          "dea": -24.394,
+          "hist": 4.234,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-22",
+          "count": 6,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-22",
+          "close": 2848.7718,
+          "dif": -22.277,
+          "dea": -24.394,
+          "hist": 4.234,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "784a80a987104c603f88afa2daf7c1196d469ddcf581162462c285b51fa41d0b",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 399,
+      "through": "2024-08-23",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-23",
+          "count": 7,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-23",
+          "close": 2854.3675,
+          "dif": -21.945,
+          "dea": -23.904,
+          "hist": 3.919,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-15",
+          "end": "2024-08-23",
+          "count": 7,
+          "price": 2893.6738,
+          "dif": -21.685,
+          "price_at": "2024-08-19",
+          "dif_at": "2024-08-20"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-23",
+              "count": 9,
+              "price": 2982.3086,
+              "dif": -14.436,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-07-24",
+              "end": "2024-07-31",
+              "count": 6,
+              "price": 2879.2996,
+              "dif": -30.348,
+              "price_at": "2024-07-30",
+              "dif_at": "2024-07-30"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-23",
+          "close": 2854.3675,
+          "dif": -21.945,
+          "dea": -23.904,
+          "hist": 3.919,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "883e743aceeb2053c4ff7ce1e7b865dbf908025425a0e7353949922e81eafc54",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 404,
+      "through": "2024-08-30",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-30",
+          "end": "2024-08-30",
+          "count": 1,
+          "price": 2842.2142,
+          "dif": -22.237,
+          "price_at": "2024-08-30",
+          "dif_at": "2024-08-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-30",
+          "close": 2842.2142,
+          "dif": -22.237,
+          "dea": -22.653,
+          "hist": 0.833,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": 1,
+          "start": "2024-08-30",
+          "end": "2024-08-30",
+          "count": 1,
+          "price": 2842.2142,
+          "dif": -22.237,
+          "price_at": "2024-08-30",
+          "dif_at": "2024-08-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-01",
+              "end": "2024-08-02",
+              "count": 2,
+              "price": 2932.3871,
+              "dif": -23.721,
+              "price_at": "2024-08-01",
+              "dif_at": "2024-08-02"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-08-30",
+          "close": 2842.2142,
+          "dif": -22.237,
+          "dea": -22.653,
+          "hist": 0.833,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "9c40c42387dbf299ae749ea400115a11128136ada37d078b8489e0f1b1adf9a7",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 405,
+      "through": "2024-09-02",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-02",
+          "count": 1,
+          "price": 2811.035,
+          "dif": -23.873,
+          "price_at": "2024-09-02",
+          "dif_at": "2024-09-02"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-09-02",
+          "close": 2811.035,
+          "dif": -23.873,
+          "dea": -22.897,
+          "hist": -1.952,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-02",
+          "count": 1,
+          "price": 2811.035,
+          "dif": -23.873,
+          "price_at": "2024-09-02",
+          "dif_at": "2024-09-02"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2024-09-02",
+          "close": 2811.035,
+          "dif": -23.873,
+          "dea": -22.897,
+          "hist": -1.952,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "8015c9f441405980ef41d9933132c3ef2f8b78ab839b482cfee3d6de79813e0c",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 406,
+      "through": "2024-09-03",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-03",
+          "count": 2,
+          "price": 2802.9787,
+          "dif": -25.525,
+          "price_at": "2024-09-03",
+          "dif_at": "2024-09-03"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "previous": {
+          "time": "2024-09-03",
+          "close": 2802.9787,
+          "dif": -25.525,
+          "dea": -23.423,
+          "hist": -4.205,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-03",
+          "count": 2,
+          "price": 2802.9787,
+          "dif": -25.525,
+          "price_at": "2024-09-03",
+          "dif_at": "2024-09-03"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "previous": {
+          "time": "2024-09-03",
+          "close": 2802.9787,
+          "dif": -25.525,
+          "dea": -23.423,
+          "hist": -4.205,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "6c388388c2bf42526a38deb16a5f58271f476d11e8be973bfc8b08687e896648",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 407,
+      "through": "2024-09-04",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "PRECISION_PENDING",
+      "oldReason": "CALIBRATION_FAILED",
+      "oldContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-04",
+          "count": 3,
+          "price": 2784.2783,
+          "dif": -28.021,
+          "price_at": "2024-09-04",
+          "dif_at": "2024-09-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "previous": {
+          "time": "2024-09-04",
+          "close": 2784.2783,
+          "dif": -28.021,
+          "dea": -24.342,
+          "hist": -7.357,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2024-09-02",
+          "end": "2024-09-04",
+          "count": 3,
+          "price": 2784.2783,
+          "dif": -28.021,
+          "price_at": "2024-09-04",
+          "dif_at": "2024-09-04"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2024-08-15",
+              "end": "2024-08-28",
+              "count": 10,
+              "price": 2893.6738,
+              "dif": -21.169,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-30",
+              "end": "2024-08-30",
+              "count": 1,
+              "price": 2842.2142,
+              "dif": -22.237,
+              "price_at": "2024-08-30",
+              "dif_at": "2024-08-30"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2024-08-05",
+              "end": "2024-08-14",
+              "count": 8,
+              "price": 2850.6539,
+              "dif": -30.213,
+              "price_at": "2024-08-14",
+              "dif_at": "2024-08-12"
+            },
+            {
+              "sign": -1,
+              "start": "2024-08-29",
+              "end": "2024-08-29",
+              "count": 1,
+              "price": 2823.106,
+              "dif": -23.0,
+              "price_at": "2024-08-29",
+              "dif_at": "2024-08-29"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2024-08-05",
+          "end": "2024-08-14",
+          "count": 8,
+          "price": 2850.6539,
+          "dif": -30.213,
+          "price_at": "2024-08-14",
+          "dif_at": "2024-08-12"
+        },
+        "previous": {
+          "time": "2024-09-04",
+          "close": 2784.2783,
+          "dif": -28.021,
+          "dea": -24.342,
+          "hist": -7.357,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "19a3c5a34b8353996ee69aab8ee2d0cf9a0f013e3172b5c1e39c039afcae360f",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 851,
+      "through": "2026-07-10",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONDITIONAL_ENTRY",
+      "oldReason": null,
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-07-10",
+          "count": 7,
+          "price": 3970.8797,
+          "dif": -19.9,
+          "price_at": "2026-07-08",
+          "dif_at": "2026-07-10"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-04-08",
+              "end": "2026-05-15",
+              "count": 25,
+              "price": 4242.572,
+              "dif": 54.714,
+              "price_at": "2026-05-13",
+              "dif_at": "2026-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2026-06-16",
+              "end": "2026-07-01",
+              "count": 11,
+              "price": 4163.0965,
+              "dif": 6.784,
+              "price_at": "2026-06-22",
+              "dif_at": "2026-06-25"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-03-04",
+              "end": "2026-04-07",
+              "count": 24,
+              "price": 3813.2829,
+              "dif": -56.353,
+              "price_at": "2026-03-23",
+              "dif_at": "2026-03-31"
+            },
+            {
+              "sign": -1,
+              "start": "2026-05-18",
+              "end": "2026-06-15",
+              "count": 21,
+              "price": 3959.3378,
+              "dif": -30.025,
+              "price_at": "2026-06-08",
+              "dif_at": "2026-06-11"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-07-10",
+          "close": 3996.1616,
+          "dif": -19.9,
+          "dea": -11.407,
+          "hist": -16.987,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-07-10",
+          "count": 7,
+          "price": 3970.8797,
+          "dif": -19.9,
+          "price_at": "2026-07-08",
+          "dif_at": "2026-07-10"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-04-08",
+              "end": "2026-05-15",
+              "count": 25,
+              "price": 4242.572,
+              "dif": 54.714,
+              "price_at": "2026-05-13",
+              "dif_at": "2026-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2026-06-16",
+              "end": "2026-07-01",
+              "count": 11,
+              "price": 4163.0965,
+              "dif": 6.784,
+              "price_at": "2026-06-22",
+              "dif_at": "2026-06-25"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-03-04",
+              "end": "2026-04-07",
+              "count": 24,
+              "price": 3813.2829,
+              "dif": -56.353,
+              "price_at": "2026-03-23",
+              "dif_at": "2026-03-31"
+            },
+            {
+              "sign": -1,
+              "start": "2026-05-18",
+              "end": "2026-06-15",
+              "count": 21,
+              "price": 3959.3378,
+              "dif": -30.025,
+              "price_at": "2026-06-08",
+              "dif_at": "2026-06-11"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-07-10",
+          "close": 3996.1616,
+          "dif": -19.9,
+          "dea": -11.407,
+          "hist": -16.987,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "92b5c3b4e9838cf93750d98315bd000d9cb34e24d6d6348553b32a5e8af29a22",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 852,
+      "through": "2026-07-13",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "READY",
+      "oldReason": null,
+      "oldContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-07-13",
+          "count": 8,
+          "price": 3913.794,
+          "dif": -28.116,
+          "price_at": "2026-07-13",
+          "dif_at": "2026-07-13"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-04-08",
+              "end": "2026-05-15",
+              "count": 25,
+              "price": 4242.572,
+              "dif": 54.714,
+              "price_at": "2026-05-13",
+              "dif_at": "2026-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2026-06-16",
+              "end": "2026-07-01",
+              "count": 11,
+              "price": 4163.0965,
+              "dif": 6.784,
+              "price_at": "2026-06-22",
+              "dif_at": "2026-06-25"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-03-04",
+              "end": "2026-04-07",
+              "count": 24,
+              "price": 3813.2829,
+              "dif": -56.353,
+              "price_at": "2026-03-23",
+              "dif_at": "2026-03-31"
+            },
+            {
+              "sign": -1,
+              "start": "2026-05-18",
+              "end": "2026-06-15",
+              "count": 21,
+              "price": 3959.3378,
+              "dif": -30.025,
+              "price_at": "2026-06-08",
+              "dif_at": "2026-06-11"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2026-05-18",
+          "end": "2026-06-15",
+          "count": 21,
+          "price": 3959.3378,
+          "dif": -30.025,
+          "price_at": "2026-06-08",
+          "dif_at": "2026-06-11"
+        },
+        "previous": {
+          "time": "2026-07-13",
+          "close": 3913.794,
+          "dif": -28.116,
+          "dea": -14.749,
+          "hist": -26.736,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "DULL",
+        "wave": {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-07-13",
+          "count": 8,
+          "price": 3913.794,
+          "dif": -28.116,
+          "price_at": "2026-07-13",
+          "dif_at": "2026-07-13"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-04-08",
+              "end": "2026-05-15",
+              "count": 25,
+              "price": 4242.572,
+              "dif": 54.714,
+              "price_at": "2026-05-13",
+              "dif_at": "2026-05-13"
+            },
+            {
+              "sign": 1,
+              "start": "2026-06-16",
+              "end": "2026-07-01",
+              "count": 11,
+              "price": 4163.0965,
+              "dif": 6.784,
+              "price_at": "2026-06-22",
+              "dif_at": "2026-06-25"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-03-04",
+              "end": "2026-04-07",
+              "count": 24,
+              "price": 3813.2829,
+              "dif": -56.353,
+              "price_at": "2026-03-23",
+              "dif_at": "2026-03-31"
+            },
+            {
+              "sign": -1,
+              "start": "2026-05-18",
+              "end": "2026-06-15",
+              "count": 21,
+              "price": 3959.3378,
+              "dif": -30.025,
+              "price_at": "2026-06-08",
+              "dif_at": "2026-06-11"
+            }
+          ]
+        },
+        "reference": {
+          "sign": -1,
+          "start": "2026-05-18",
+          "end": "2026-06-15",
+          "count": 21,
+          "price": 3959.3378,
+          "dif": -30.025,
+          "price_at": "2026-06-08",
+          "dif_at": "2026-06-11"
+        },
+        "previous": {
+          "time": "2026-07-13",
+          "close": 3913.794,
+          "dif": -28.116,
+          "dea": -14.749,
+          "hist": -26.736,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "1c5ae8522ff8ad7b2fe1f5b0f1bb14c1a35da238905305025614f08fd7162406",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 908,
+      "through": "2026-09-30",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONDITIONAL_ENTRY",
+      "oldReason": null,
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-09-24",
+          "end": "2026-09-30",
+          "count": 4,
+          "price": 3823.6206,
+          "dif": -17.809,
+          "price_at": "2026-09-28",
+          "dif_at": "2026-09-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-08-04",
+              "end": "2026-09-10",
+              "count": 28,
+              "price": 3990.3037,
+              "dif": 11.035,
+              "price_at": "2026-08-18",
+              "dif_at": "2026-09-01"
+            },
+            {
+              "sign": 1,
+              "start": "2026-09-22",
+              "end": "2026-09-23",
+              "count": 2,
+              "price": 3952.128,
+              "dif": -0.055,
+              "price_at": "2026-09-22",
+              "dif_at": "2026-09-23"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-07-02",
+              "end": "2026-08-03",
+              "count": 23,
+              "price": 3764.1547,
+              "dif": -62.142,
+              "price_at": "2026-07-17",
+              "dif_at": "2026-07-24"
+            },
+            {
+              "sign": -1,
+              "start": "2026-09-11",
+              "end": "2026-09-21",
+              "count": 7,
+              "price": 3864.2794,
+              "dif": -10.316,
+              "price_at": "2026-09-15",
+              "dif_at": "2026-09-17"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-09-30",
+          "close": 3842.1946,
+          "dif": -17.809,
+          "dea": -8.633,
+          "hist": -18.352,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-09-24",
+          "end": "2026-09-30",
+          "count": 4,
+          "price": 3823.6206,
+          "dif": -17.809,
+          "price_at": "2026-09-28",
+          "dif_at": "2026-09-30"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-08-04",
+              "end": "2026-09-10",
+              "count": 28,
+              "price": 3990.3037,
+              "dif": 11.035,
+              "price_at": "2026-08-18",
+              "dif_at": "2026-09-01"
+            },
+            {
+              "sign": 1,
+              "start": "2026-09-22",
+              "end": "2026-09-23",
+              "count": 2,
+              "price": 3952.128,
+              "dif": -0.055,
+              "price_at": "2026-09-22",
+              "dif_at": "2026-09-23"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-07-02",
+              "end": "2026-08-03",
+              "count": 23,
+              "price": 3764.1547,
+              "dif": -62.142,
+              "price_at": "2026-07-17",
+              "dif_at": "2026-07-24"
+            },
+            {
+              "sign": -1,
+              "start": "2026-09-11",
+              "end": "2026-09-21",
+              "count": 7,
+              "price": 3864.2794,
+              "dif": -10.316,
+              "price_at": "2026-09-15",
+              "dif_at": "2026-09-17"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-09-30",
+          "close": 3842.1946,
+          "dif": -17.809,
+          "dea": -8.633,
+          "hist": -18.352,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "ea484810a2937c5409916e627321518efc1c2f92ba07618e36ab91e10160f5a6",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    },
+    {
+      "rows": 912,
+      "through": "2026-10-13",
+      "category": "RETAIN_OLD_EXPECTATION",
+      "oldStatus": "CONDITIONAL_ENTRY",
+      "oldReason": null,
+      "oldContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-09-24",
+          "end": "2026-10-13",
+          "count": 8,
+          "price": 3797.2424,
+          "dif": -30.792,
+          "price_at": "2026-10-12",
+          "dif_at": "2026-10-13"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-08-04",
+              "end": "2026-09-10",
+              "count": 28,
+              "price": 3990.3037,
+              "dif": 11.035,
+              "price_at": "2026-08-18",
+              "dif_at": "2026-09-01"
+            },
+            {
+              "sign": 1,
+              "start": "2026-09-22",
+              "end": "2026-09-23",
+              "count": 2,
+              "price": 3952.128,
+              "dif": -0.055,
+              "price_at": "2026-09-22",
+              "dif_at": "2026-09-23"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-07-02",
+              "end": "2026-08-03",
+              "count": 23,
+              "price": 3764.1547,
+              "dif": -62.142,
+              "price_at": "2026-07-17",
+              "dif_at": "2026-07-24"
+            },
+            {
+              "sign": -1,
+              "start": "2026-09-11",
+              "end": "2026-09-21",
+              "count": 7,
+              "price": 3864.2794,
+              "dif": -10.316,
+              "price_at": "2026-09-15",
+              "dif_at": "2026-09-17"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-10-13",
+          "close": 3800.8644,
+          "dif": -30.792,
+          "dea": -19.804,
+          "hist": -21.978,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "candidateContext": {
+        "state": "NONE",
+        "wave": {
+          "sign": -1,
+          "start": "2026-09-24",
+          "end": "2026-10-13",
+          "count": 8,
+          "price": 3797.2424,
+          "dif": -30.792,
+          "price_at": "2026-10-12",
+          "dif_at": "2026-10-13"
+        },
+        "history": {
+          "1": [
+            {
+              "sign": 1,
+              "start": "2026-08-04",
+              "end": "2026-09-10",
+              "count": 28,
+              "price": 3990.3037,
+              "dif": 11.035,
+              "price_at": "2026-08-18",
+              "dif_at": "2026-09-01"
+            },
+            {
+              "sign": 1,
+              "start": "2026-09-22",
+              "end": "2026-09-23",
+              "count": 2,
+              "price": 3952.128,
+              "dif": -0.055,
+              "price_at": "2026-09-22",
+              "dif_at": "2026-09-23"
+            }
+          ],
+          "-1": [
+            {
+              "sign": -1,
+              "start": "2026-07-02",
+              "end": "2026-08-03",
+              "count": 23,
+              "price": 3764.1547,
+              "dif": -62.142,
+              "price_at": "2026-07-17",
+              "dif_at": "2026-07-24"
+            },
+            {
+              "sign": -1,
+              "start": "2026-09-11",
+              "end": "2026-09-21",
+              "count": 7,
+              "price": 3864.2794,
+              "dif": -10.316,
+              "price_at": "2026-09-15",
+              "dif_at": "2026-09-17"
+            }
+          ]
+        },
+        "reference": null,
+        "previous": {
+          "time": "2026-10-13",
+          "close": 3800.8644,
+          "dif": -30.792,
+          "dea": -19.804,
+          "hist": -21.978,
+          "completed": true
+        },
+        "pendingRearm": null,
+        "confirmedNow": null
+      },
+      "oldResultSha256": "47083425ae5732e14628b83e2329e1e58a4b959a29b5aa303bc899c387e6ccce",
+      "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.2.json"
+    }
+  ],
+  "restoreRows": 100,
+  "finalR1SnapshotSha256": "37e5787dcfff0e23aabf1dc2145a1e079264c9a983398114e4afb1ed4a977c21"
+}

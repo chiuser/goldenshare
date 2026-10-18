@@ -1,0 +1,152 @@
+"""Frozen-only margins for rearm hypotheses; no alternate signal engine."""
+from __future__ import annotations
+
+import argparse
+from copy import deepcopy
+from dataclasses import asdict
+import json
+from pathlib import Path
+
+from .acceptance import load_source, sha
+from .cancellation_restart_audit import BASELINE, PERIODS, ROOT, SOURCE
+from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection
+from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+
+
+def margins(*, close, segment_dif, reference_price, nearest_price,
+            reference_dif, origin_price, origin_dif, bars_after):
+    """Arithmetic only. A positive gap satisfies a strict '<' price/'>' DIF test.
+
+    Rounding bounds concern two displayed operands, not unknown source errors.
+    These diagnostics do not generate DULL/CANCEL or modify a calculator.
+    """
+    if bars_after < 1:
+        raise ValueError("Rearm diagnostic must follow disappearance")
+    price_gap = min(reference_price, nearest_price) - close
+    dif_gap = segment_dif - reference_dif
+    return dict(priceGap=price_gap, difGap=dif_gap,
+        belowOriginClose=close < origin_price,
+        aboveOriginDif=segment_dif > origin_dif,
+        atLeastTwoFollowingBars=bars_after >= 2,
+        originCloseGap=origin_price-close, originDifGap=segment_dif-origin_dif,
+        displayRoundingOnly=dict(priceUnit=.01, difUnit=.001,
+            priceComparisonStable=abs(price_gap) > .01,
+            difComparisonStable=abs(dif_gap) > .001))
+
+
+def replay(period, bars):
+    calc = XxmCalculator(period=period, source_identity="rearm-discrimination:"+period)
+    events, origins, starts, rows, records = [], {}, {}, [], []
+    for i, bar in enumerate(bars):
+        before = deepcopy(calc.pending_rearm)
+        step = calc.step(bar)
+        events.extend(step.events)
+        for history in step.bottom_histories:
+            if history['confirmedAt'] == bar.time:
+                origins[history['id']] = dict(time=bar.time, wave=asdict(calc.wave), bar=asdict(bar))
+        for event in step.events:
+            if event['type'] == 'STRUCTURE_DISAPPEARED':
+                starts[event['relatedRearmId']] = i
+            if event['route'] != 'reactivation':
+                continue
+            if before is None:
+                raise ValueError("Reactivation without a prior wait")
+            origin = origins[before['bottomHistoryId']]
+            ref = before['referenceWave']
+            records.append(dict(period=period, time=bar.time, bar=asdict(bar),
+                wait=before, origin=origin, segment=asdict(calc.wave),
+                barsAfterDisappearance=i-starts[before['id']],
+                margins=margins(close=bar.close, segment_dif=calc.wave.dif,
+                    reference_price=ref['price'], nearest_price=before['nearestPriceGate'],
+                    reference_dif=ref['dif'], origin_price=origin['wave']['price'],
+                    origin_dif=origin['wave']['dif'], bars_after=i-starts[before['id']])))
+        if period == 'm90' and '2025-12-10' <= bar.time[:10] <= '2025-12-16':
+            rows.append(dict(bar=asdict(bar), events=list(step.events), wave=asdict(calc.wave),
+                pool=[w.reference() for w in calc.history[-1]], state=calc.state))
+    return events, records, rows
+
+
+def simulation(bars):
+    # Independent software observation: the original screenshot shows ONE added
+    # candle C=3959.16, L=3946.16. We project indicators; we do not fit that close.
+    prefix = [b for b in bars if b.time <= '2026-07-10T15:00:00+08:00']
+    calc = XxmCalculator(period='m120', source_identity='rearm-discrimination:m120')
+    origin = None
+    for bar in prefix:
+        step = calc.step(bar)
+        if any(e['type']=='STRUCTURE' and e['direction']=='BOTTOM' for e in step.events):
+            origin = dict(time=bar.time, wave=asdict(calc.wave))
+    if calc.pending_rearm is None or origin is None:
+        raise ValueError("Expected the documented 7/10 wait")
+    wait = deepcopy(calc.pending_rearm)
+    parent = calc.snapshot()
+    hypothetical, _ = recover_projection(tuple(prefix), 'm120', lambda: None).project(
+        3959.16, '2026-07-13T11:30:00+08:00', 'm120')
+    child = XxmCalculator(period='m120', source_identity=calc.source_identity)
+    child.restore(parent)
+    step = child.step(hypothetical)
+    if calc.snapshot() != parent:
+        raise ValueError("Simulation mutated its real parent")
+    ref = wait['referenceWave']
+    return dict(period='m120', through=prefix[-1].time, sourcePrefixRows=len(prefix),
+        softwareObservation=dict(close=3959.16, low=3946.16, addedCandles=1, newDull=True,
+            evidence='reports/xxm_software_indicator_crosscheck_20261015/case_20260710_simulation_pair_20261016.json',
+            exactSoftwareIndicatorsKnown=False),
+        hypothetical=asdict(hypothetical), events=list(step.events), origin=origin,
+        margins=margins(close=hypothetical.close, segment_dif=child.wave.dif,
+            reference_price=ref['price'], nearest_price=wait['nearestPriceGate'],
+            reference_dif=ref['dif'], origin_price=origin['wave']['price'],
+            origin_dif=origin['wave']['dif'], bars_after=1))
+
+
+def run(output: Path):
+    output = output.resolve()
+    if not output.is_relative_to((ROOT/'reports').resolve()) or not output.name.startswith('run_'):
+        raise ValueError("Output must be a new reports/.../run_* directory")
+    output.mkdir(parents=False, exist_ok=False)
+    evidence = ROOT/'reports/xxm_software_indicator_crosscheck_20261015'
+    case = ROOT/'reports/xxm_software_case_20251216_m90_20261016'
+    protected = list((ROOT/'src/biz/services/wealth/market/index_detail_xxm').glob('*.py'))
+    protected += [Path(__file__), SOURCE/'manifest.json', case/'case.json', case/'20251216_m90_original.png',
+        case/'user_observation.txt', case/'user_position_reply.txt',
+        evidence/'case_20260710_simulation_pair_20261016.json',
+        evidence/'case_20260713_multi_period_simulations_20261016.json',
+        evidence/'sources/20260710_m120_simulation_after.png', evidence/'sources/20260713_m120_actual.png',
+        evidence/'sources/20240822_day.png']
+    protected += [SOURCE/('daily_source.csv' if p=='day' else f'minute_{p[1:]}_source.csv') for p in PERIODS]
+    protected += [BASELINE/f'events_{p}.json' for p in PERIODS]
+    before = {str(p.relative_to(ROOT)):sha(p) for p in protected}
+    summary = dict(spec=asdict(MAIN_SPEC), specHash=MAIN_SPEC.spec_hash, periods={},
+        productModified=False, alternateEngine=False, softwareFormulaProven=False,
+        formalBudgetTested=False, protectedSha256=before)
+    all_records, december, sources = [], [], {}
+    for period in PERIODS:
+        sources[period] = bars = load_source(SOURCE, period)
+        events, records, rows = replay(period, bars)
+        baseline = json.loads((BASELINE/f'events_{period}.json').read_text())['events']
+        if events != baseline:
+            raise ValueError(f"Product differs from A1 baseline: {period}")
+        all_records.extend(records)
+        december.extend(rows)
+        summary['periods'][period] = dict(rows=len(bars), reactivations=len(records), baselineEventsEqual=True)
+    sim = simulation(sources['m120'])
+    summary['totalRows'] = sum(p['rows'] for p in summary['periods'].values())
+    summary['reactivations'] = len(all_records)
+    for name, value in [('reactivations',all_records), ('december_m90',december), ('july_simulation',sim)]:
+        (output/f'{name}.json').write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+    if before != {str(p.relative_to(ROOT)):sha(p) for p in protected}:
+        raise ValueError("Protected product/source/evidence changed")
+    (output/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+    return summary
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,required=True)
+    result = run(parser.parse_args().output)
+    print(json.dumps({k:v for k,v in result.items() if k!='protectedSha256'},ensure_ascii=False,indent=2))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,266 @@
+{
+  "indices": [
+    {
+      "ts_code": "000016.SH",
+      "inputRows": 1132,
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-06",
+          "dif": 20.382,
+          "reference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        },
+        {
+          "date": "2024-04-26",
+          "dif": 8.806,
+          "reference": {
+            "startTime": "2024-01-19",
+            "endTime": "2024-03-12",
+            "price": 2450.4693,
+            "dif": 39.248
+          }
+        }
+      ],
+      "candidates": 0,
+      "allVariantDifferenceDates": [],
+      "ordinaryStartDifferences": [],
+      "priorJan6RecordIdentical": true,
+      "eventCounts": {
+        "BASE": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        },
+        "ZC": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        },
+        "ZR": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        }
+      }
+    },
+    {
+      "ts_code": "399300.SZ",
+      "inputRows": 1132,
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-09",
+          "dif": 26.253,
+          "reference": {
+            "startTime": "2022-11-03",
+            "endTime": "2022-12-16",
+            "price": 3998.2442,
+            "dif": 54.029
+          }
+        },
+        {
+          "date": "2024-04-30",
+          "dif": 15.784,
+          "reference": {
+            "startTime": "2024-02-06",
+            "endTime": "2024-03-18",
+            "price": 3603.528,
+            "dif": 65.431
+          }
+        }
+      ],
+      "candidates": 0,
+      "allVariantDifferenceDates": [],
+      "ordinaryStartDifferences": [],
+      "priorJan6RecordIdentical": true,
+      "eventCounts": {
+        "BASE": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        },
+        "ZC": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        },
+        "ZR": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        }
+      }
+    }
+  ],
+  "fourIndexReview": [
+    {
+      "ts_code": "399006.SZ",
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-06",
+          "dif": 2.173,
+          "reference": {
+            "startTime": "2022-12-02",
+            "endTime": "2022-12-16",
+            "price": 2420.6291,
+            "dif": 7.114
+          }
+        }
+      ],
+      "allVariantDifferenceDates": []
+    },
+    {
+      "ts_code": "399001.SZ",
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-10",
+          "dif": 58.07,
+          "reference": {
+            "startTime": "2022-12-01",
+            "endTime": "2022-12-16",
+            "price": 11501.5781,
+            "dif": 102.45
+          }
+        },
+        {
+          "date": "2024-05-06",
+          "dif": 53.805,
+          "reference": {
+            "startTime": "2024-02-07",
+            "endTime": "2024-03-21",
+            "price": 9752.8338,
+            "dif": 208.764
+          }
+        }
+      ],
+      "allVariantDifferenceDates": []
+    },
+    {
+      "ts_code": "000016.SH",
+      "inputRows": 1132,
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-06",
+          "dif": 20.382,
+          "reference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        },
+        {
+          "date": "2024-04-26",
+          "dif": 8.806,
+          "reference": {
+            "startTime": "2024-01-19",
+            "endTime": "2024-03-12",
+            "price": 2450.4693,
+            "dif": 39.248
+          }
+        }
+      ],
+      "candidates": 0,
+      "allVariantDifferenceDates": [],
+      "ordinaryStartDifferences": [],
+      "priorJan6RecordIdentical": true,
+      "eventCounts": {
+        "BASE": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        },
+        "ZC": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        },
+        "ZR": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 4,
+          "DULL": 15,
+          "STRUCTURE": 9,
+          "CANCEL": 6
+        }
+      }
+    },
+    {
+      "ts_code": "399300.SZ",
+      "inputRows": 1132,
+      "targetRows": 478,
+      "firstTopActivations": [
+        {
+          "date": "2023-01-09",
+          "dif": 26.253,
+          "reference": {
+            "startTime": "2022-11-03",
+            "endTime": "2022-12-16",
+            "price": 3998.2442,
+            "dif": 54.029
+          }
+        },
+        {
+          "date": "2024-04-30",
+          "dif": 15.784,
+          "reference": {
+            "startTime": "2024-02-06",
+            "endTime": "2024-03-18",
+            "price": 3603.528,
+            "dif": 65.431
+          }
+        }
+      ],
+      "candidates": 0,
+      "allVariantDifferenceDates": [],
+      "ordinaryStartDifferences": [],
+      "priorJan6RecordIdentical": true,
+      "eventCounts": {
+        "BASE": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        },
+        "ZC": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        },
+        "ZR": {
+          "RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+          "DULL": 18,
+          "CANCEL": 5,
+          "STRUCTURE": 13,
+          "STRUCTURE_DISAPPEARED": 1
+        }
+      }
+    }
+  ],
+  "fourIndexTargetRows": 1912,
+  "fourIndexFirstTopActivations": 7,
+  "discriminatingCandidates": 0,
+  "baseVsBothCandidates": 0,
+  "newSoftwareLabels": 0,
+  "notAStatementOfSoftwareAccuracy": true
+}

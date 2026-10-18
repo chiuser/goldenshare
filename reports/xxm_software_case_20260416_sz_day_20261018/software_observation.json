@@ -1,0 +1,48 @@
+{
+  "date": "2026-04-16",
+  "ts_code": "399001.SZ",
+  "period": "day",
+  "parameters": [
+    12,
+    26,
+    9
+  ],
+  "readouts": {
+    "open": "14546.35",
+    "high": "14807.16",
+    "low": "14522.86",
+    "close": "14796.33",
+    "dif": "140.086",
+    "dea": "2.066",
+    "hist": "276.041"
+  },
+  "rightEdgeLabels": [
+    {
+      "text": "钝化",
+      "color": "yellow",
+      "visible": true,
+      "confirmedEventDate": null,
+      "tentativeVisualDate": "2026-04-14"
+    },
+    {
+      "text": "消失",
+      "color": "green",
+      "visible": true,
+      "confirmedEventDate": null,
+      "tentativeVisualDate": "2026-04-15"
+    }
+  ],
+  "softwareInternalOrdinaryState": null,
+  "softwareSelectedReference": null,
+  "softwareFirstDullDate": null,
+  "softwareDisappearanceDate": null,
+  "softwareDifOnApril13": null,
+  "dateQuestionStatus": "PENDING_USER_CONFIRMATION",
+  "limits": [
+    "文字向右展开，不能用整个词的中心绑定K线。",
+    "4/14及4/15只作图形初步判断，尚未获管理员确认。",
+    "4/16已经看见消失，两候选均可解释；仅凭这一点不能二选一。",
+    "若独立确认为14日钝化、15日消失，两个原候选均不能完整解释，需要检查参照选择等其他条件。",
+    "末端DIF及DEA各差-0.001，不改源或据此推回4/13软件符号。"
+  ]
+}

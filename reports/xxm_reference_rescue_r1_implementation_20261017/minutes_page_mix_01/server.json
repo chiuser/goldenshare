@@ -1,0 +1,12 @@
+{
+  "serverStopped": true,
+  "formalWrites": false,
+  "auth": "original require_quote_access",
+  "pageAutomation": false,
+  "installedDependencies": false,
+  "periods": [
+    "m60",
+    "m90",
+    "m120"
+  ]
+}

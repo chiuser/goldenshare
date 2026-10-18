@@ -62,7 +62,7 @@ def test_real_daily_route_query_dto_and_all_display_fields(source_db):
     assert v["mode"] == "REPLAY" and v["requestedAsOf"] == v["computedThrough"] == "2026-10-13"
     from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
     assert v["detectorSpecHash"] == MAIN_SPEC.spec_hash
-    assert v["forecastVersion"] == "xxm-key-point-forecast-v0.2-a1"
+    assert v["forecastVersion"] == "xxm-key-point-forecast-v0.3-r2"
     assert "scenarios" not in v
     assert v["activation"]["endpoint"] == "2026-10-14"
     assert v["activation"]["ranges"][0]["priceRange"]["lower"] < 3500
@@ -163,7 +163,12 @@ def test_forecast_shares_slots_with_existing_layer_and_enforces_payload_budget(s
         assert r.status_code == 503 and r.json()["code"] == "XXMF_BUDGET_EXCEEDED"
     finally:
         slots.release(); slots.release()
-    monkeypatch.setattr(fq, "FORECAST_SPEC", replace(fq.FORECAST_SPEC, max_response_bytes=1))
+    # Exercise the real 32KiB response guard without changing the Spec identity.
+    # Changing just fq.FORECAST_SPEC would now correctly fail DTO identity first.
+    original_display=fq.make_display
+    def oversized_display(*args,**kwargs):
+        return dict(original_display(*args,**kwargs),conditionsText='x'*32769)
+    monkeypatch.setattr(fq,"make_display",oversized_display)
     r = api(source_db).get(PATH, params={"tsCode":"000001.SH","period":"day","asOf":"2026-10-13"})
     assert r.status_code == 503 and r.json()["code"] == "XXMF_BUDGET_EXCEEDED"
     assert "scenarios" not in r.json()
@@ -231,7 +236,7 @@ def test_waiting_forecast_dto_and_real_producer_context_are_strict():
     from copy import deepcopy
     from pydantic import ValidationError
     from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
-    path=ROOT/'reports/xxm_same_segment_a1_implementation_20261016/api/api_forecast_9_m120.json'
+    path=ROOT/'reports/xxm_top_activation_r2_implementation_20261019/api/api_forecast_9_m120.json'
     value=json.loads(path.read_text());assert ForecastResponseDto.model_validate(value).rearmContext.status=='WAITING'
     mutations=[lambda v:v.pop('rearmContext'),lambda v:v.update(ordinaryState='DULL'),
         lambda v:v.update(status='READY'),lambda v:v.update(status='CONFIRMED'),
@@ -254,6 +259,47 @@ def test_waiting_forecast_dto_and_real_producer_context_are_strict():
     broken=SimpleNamespace(points=[dict(time='2026-07-10',ordinaryState='STRUCTURE',ordinaryDirection='BOTTOM',pendingBottomHistoryId='missing')],
                            events=[],bottom_histories={})
     with pytest.raises(query_service.XxmQueryError,match='关联不完整'):_active_confirmation(broken,1,lambda:None)
+
+
+def test_r1_next_bar_complete_domain_and_reference_path_contract():
+    from copy import deepcopy
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+    folder=ROOT/'reports/xxm_top_activation_r2_implementation_20261019/api'
+    value=json.loads((folder/'api_forecast_13_m90.json').read_text())
+    assert ForecastResponseDto.model_validate(value).nextBarOutcomes
+    assert any(v['outcome']=='REFERENCE_SWITCHED' for v in value['nextBarOutcomes']['branches'])
+    mutations=[lambda v:v.pop('nextBarOutcomes'),
+        lambda v:v.update(forecastVersion='xxm-key-point-forecast-v0.2-a1'),
+        lambda v:v['nextBarOutcomes']['branches'].pop(),
+        lambda v:v['nextBarOutcomes']['branches'][0]['priceRange'].update(lower=1),
+        lambda v:v['nextBarOutcomes']['branches'][0].update(outcome='ZERO_RESET',reference=v['nextBarOutcomes']['initialReference']),
+        lambda v:v['nextBarOutcomes'].update(endpoint=v['computedThrough'])]
+    for mutate in mutations:
+        bad=deepcopy(value);mutate(bad)
+        with pytest.raises(ValidationError):ForecastResponseDto.model_validate(bad)
+    # Structural DTO fixture only: extend a real waiting payload with a literal
+    # legal later switch. It is not a numerical or original-software forecast.
+    path=json.loads((folder/'api_forecast_9_m120.json').read_text())
+    path.update(targetEndpoint='2026-07-14T11:30:00+08:00',barsAhead=3)
+    path['assumption']['intermediateEndpoints']=['2026-07-13T11:30:00+08:00','2026-07-13T15:00:00+08:00']
+    for r in path['relations']:
+        new=deepcopy(r['initialReference']);new['dif']-=100
+        r['referenceTransitions']=[dict(endpoint='2026-07-13T15:00:00+08:00',fromReference=deepcopy(r['initialReference']),toReference=deepcopy(new))]
+        r['reference']=new
+    for common in path['commonConditions']:
+        common['reference']=deepcopy(next(r['reference'] for r in path['relations'] if r['relationId']==common['relationId']))
+    ForecastResponseDto.model_validate(path)
+    for mutate in [lambda v:v['relations'][0]['referenceTransitions'][0].update(endpoint=v['activation']['endpoint']),
+                   lambda v:v['relations'][0]['referenceTransitions'][0].update(endpoint=v['targetEndpoint']),
+                   lambda v:v['relations'][0]['referenceTransitions'][0]['fromReference'].update(price=1),
+                   lambda v:v['relations'][0]['referenceTransitions'][0]['toReference'].update(dif=1),
+                   lambda v:v['commonConditions'][0].update(relationId='missing'),
+                   lambda v:v['examples'][0]['closeRanges'][0].update(relationId='missing')]:
+        bad=deepcopy(path);mutate(bad)
+        with pytest.raises(ValidationError):ForecastResponseDto.model_validate(bad)
+    archived=json.loads((ROOT/'reports/xxm_same_segment_a1_implementation_20261016/api/api_forecast_9_m120.json').read_text())
+    with pytest.raises(ValidationError):ForecastResponseDto.model_validate(archived)
 
 
 @pytest.mark.parametrize('period',['m60','m90','m120'])
@@ -532,3 +578,71 @@ def test_response_cache_includes_future_calendar_and_obeys_shared_lru_limit(sour
     tiny=XxmCache(max_bytes=1)
     tiny.put_forecast(("day",),first)
     assert tiny.get_forecast(("day",)) is None and not tiny.entries
+
+
+def test_r2_hashes_and_current_dif_reason_are_strictly_scoped():
+    from copy import deepcopy
+    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+    folder=ROOT/'reports/xxm_top_activation_r2_implementation_20261019/api'
+    actual=json.loads((folder/'api_forecast_5_day.json').read_text())
+    assert ForecastResponseDto.model_validate(actual)
+    for field in ('detectorSpecHash','forecastSpecHash'):
+        for wrong in ('a'*64,'533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730'):
+            bad=deepcopy(actual);bad[field]=wrong
+            with pytest.raises(ValidationError,match='identities'):ForecastResponseDto.model_validate(bad)
+    old=json.loads((ROOT/'reports/xxm_reference_rescue_r1_implementation_20261017/api_02/api_forecast_5_day.json').read_text())
+    with pytest.raises(ValidationError):ForecastResponseDto.model_validate(old)
+    # Structural DTO fixture only. No numerical forecast is asserted here.
+    value=deepcopy(actual)
+    value.update(ordinaryState='NONE',direction='TOP',status='NO_CANDIDATE',reasonCode='NO_ENTRY_RANGE',
+        rearmContext=None,nextBarOutcomes=None,targetEndpoint=None,barsAhead=None,assumption=None,
+        relations=[],commonConditions=[],examples=[],targetEntryRanges=[],targetEntryExclusions=[],
+        confirmedAt=None,confirmedDirection=None,
+        activation=dict(endpoint='2026-10-14',ranges=[],exclusions=[dict(
+            priceRange=dict(lower=0,upper=None,lowerInclusive=False,upperInclusive=False),reason='CURRENT_DIF_NOT_POSITIVE')]))
+    assert ForecastResponseDto.model_validate(value)
+    for mutate in [lambda v:v.update(direction='BOTTOM'),lambda v:v.update(ordinaryState='DULL'),
+                   lambda v:v.update(ordinaryState='STRUCTURE'),lambda v:v.update(dataStatus='DELAYED'),
+                   lambda v:v.update(status='READY'),lambda v:v.update(rearmContext=json.loads((folder/'api_forecast_9_m120.json').read_text())['rearmContext'])]:
+        bad=deepcopy(value);mutate(bad)
+        with pytest.raises(ValidationError,match='Current-DIF'):ForecastResponseDto.model_validate(bad)
+    for mutate in [lambda v:v.update(reasonCode='CURRENT_DIF_NOT_POSITIVE'),
+                   lambda v:v['activation']['exclusions'][0].update(reason='UNKNOWN'),
+                   lambda v:v.update(targetEntryExclusions=[dict(entryRangeIds=[],priceRange=value['activation']['exclusions'][0]['priceRange'],reason='CURRENT_DIF_NOT_POSITIVE')])]:
+        bad=deepcopy(value);mutate(bad)
+        with pytest.raises(ValidationError):ForecastResponseDto.model_validate(bad)
+
+
+def test_r2_real_query_cannot_hit_old_series_or_either_old_forecast_identity(source_db,monkeypatch):
+    from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+    from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
+    cache=XxmCache();service=IndexDetailXxmForecastQueryService(cache=cache)
+    now=datetime(2026,10,14,11,15,tzinfo=CN_ZONE)
+    old_main='533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730'
+    old_forecast='983eae6fffebc5b76e3fa2cac210bb10e5f68db080af4fdb927baecde360dcae'
+    old_json=json.loads((ROOT/'reports/xxm_reference_rescue_r1_implementation_20261017/api_02/api_forecast_5_day.json').read_text())
+    # Intentionally stale cache entry: bypass current DTO validation only to
+    # model a prior process' old object. This is never a positive response.
+    stale=ForecastResponseDto.model_construct(**old_json)
+    seen=[];get=cache.get_forecast
+    def observed(key):seen.append(key);return get(key)
+    monkeypatch.setattr(cache,'get_forecast',observed)
+    with Session(source_db) as session:
+        old_series=(id(session.get_bind()),'daily','day',old_main)
+        sentinel=object();cache.put(old_series,sentinel)
+        first=service.build(session,period='day',now=now)
+        key=seen[-1]
+        assert key[3:5]==(MAIN_SPEC.spec_hash,FORECAST_SPEC.spec_hash)
+        assert cache.get(old_series) is sentinel
+        assert cache.get((id(session.get_bind()),'daily','day',MAIN_SPEC.spec_hash)).calculator.processed==912
+        for detector,forecast in ((old_main,key[4]),(key[3],old_forecast),(old_main,old_forecast)):
+            cache.entries.pop(('forecast',*key),None)
+            old_key=(*key[:3],detector,forecast,*key[5:])
+            cache.put_forecast(old_key,stale)
+            current=service.build(session,period='day',now=now)
+            assert current==first and current.forecastVersion=='xxm-key-point-forecast-v0.3-r2'
+            assert cache.get_forecast(old_key).forecastVersion=='xxm-key-point-forecast-v0.3-r1'
+        warm=service.build(session,period='day',now=now);warm.display.conditionsText='changed copy'
+        assert service.build(session,period='day',now=now).display.conditionsText==first.display.conditionsText

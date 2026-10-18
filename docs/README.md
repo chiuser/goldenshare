@@ -275,7 +275,7 @@ docs/
 ## 9. 产品原始材料
 
 - [徐小明方向识别研究算法方案 V0.1（算法取舍及呈现方式已确认；Figma 已获用户确认，“顶消失”文案已修正，开发态已实现并完成技术验收，等用户验收，未部署）](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md)
-- [上证关键高低点条件预测第一步方案 V0.1（待用户确认；四周期时间窗口、点位和结构条件；技术面底部纯文字，评分下一步；仅文档，未实现）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)
+- [上证关键高低点条件预测第一步方案 V0.1（单时点／滚动更新需求已确认；Figma已确认；五项修订及开发／接口验证完成，待用户手动页面验收；技术面底部文字，评分下一步；未部署）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)
 - [徐小明方向识别研究：MACD 钝化、结构与历史撤销（§8.49 实现、连续基线与页面技术验收已同步；等用户验收；原公式及完整软件时间线未验证）](/Users/congming/github/goldenshare/docs/product/xxm-macd-structure-research-v1.md)
 - [财势乾坤数据中心与上市公司公告产品方案 v1（产品规则与Figma R1已确认；查询API完成、页面待开发）](/Users/congming/github/goldenshare/docs/product/wealth-data-center-announcements-product-plan-v1.md)
 - [财势乾坤数据中心与公告技术方案 v1（Figma/产品对照，DC2查询后端完成、页面待开发）](/Users/congming/github/goldenshare/wealth/docs/pages/data-center/data-center-announcements-implementation-design-v1.md)

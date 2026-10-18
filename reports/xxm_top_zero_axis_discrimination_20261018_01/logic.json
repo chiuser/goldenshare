@@ -1,0 +1,41 @@
+{
+  "scope": "TOP first activation only under current segment maximum comparison and pool/order",
+  "proof": [
+    "incoming DIF <= current-wave maximum DIF",
+    "eligible current-wave maximum DIF < chosen historical reference DIF",
+    "therefore incoming DIF > 0 implies chosen reference DIF > 0",
+    "ZR original positive reference stays first eligible under unchanged strongest-first order"
+  ],
+  "qualifiedWitnesses": [
+    {
+      "current": ".1",
+      "wave": ".5",
+      "ref": "1",
+      "expectedZC": true,
+      "expectedZR": true
+    },
+    {
+      "current": "-.1",
+      "wave": "-.05",
+      "ref": ".5",
+      "expectedZC": false,
+      "expectedZR": true
+    },
+    {
+      "current": "-2",
+      "wave": "-1",
+      "ref": "-.5",
+      "expectedZC": false,
+      "expectedZR": false
+    },
+    {
+      "current": "0",
+      "wave": "0",
+      "ref": "1",
+      "expectedZC": false,
+      "expectedZR": true
+    }
+  ],
+  "doesNotProveSoftwareRule": true,
+  "doesNotApplyGateToAllHistoricalLabelsOrContinuingStates": true
+}

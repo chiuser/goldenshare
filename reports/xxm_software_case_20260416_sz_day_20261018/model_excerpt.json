@@ -1,0 +1,435 @@
+{
+  "ts_code": "399001.SZ",
+  "priorReport": "reports/xxm_sz_daily_dates_20261018_02",
+  "sourceSha256": "319020f87fd629f9da4beefdd4f2b4922068e9965df8975d17f93b0432238606",
+  "resultSha256": "f97a3ed07ce443fdd9037626b4e268028f70438789cadc44ae54342742bcf6db",
+  "sourceRows": [
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2026-04-13",
+      "close": 14407.8639,
+      "macd_dif_bfq": -0.002,
+      "macd_dea_bfq": -93.651,
+      "macd_bfq": 187.298
+    },
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2026-04-14",
+      "close": 14639.9522,
+      "macd_dif_bfq": 57.843,
+      "macd_dea_bfq": -63.352,
+      "macd_bfq": 242.391
+    },
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2026-04-15",
+      "close": 14498.4546,
+      "macd_dif_bfq": 91.217,
+      "macd_dea_bfq": -32.439,
+      "macd_bfq": 247.311
+    },
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2026-04-16",
+      "close": 14796.3345,
+      "macd_dif_bfq": 140.087,
+      "macd_dea_bfq": 2.067,
+      "macd_bfq": 276.041
+    }
+  ],
+  "dailyResults": [
+    {
+      "bar": {
+        "time": "2026-04-13",
+        "close": 14407.8639,
+        "dif": -0.002,
+        "dea": -93.651,
+        "hist": 187.298,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-13",
+        "count": 4,
+        "price": 14407.8639,
+        "dif": -0.002,
+        "price_at": "2026-04-13",
+        "dif_at": "2026-04-13"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-13",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-13",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "bar": {
+        "time": "2026-04-14",
+        "close": 14639.9522,
+        "dif": 57.843,
+        "dea": -63.352,
+        "hist": 242.391,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-14",
+        "count": 5,
+        "price": 14639.9522,
+        "dif": 57.843,
+        "price_at": "2026-04-14",
+        "dif_at": "2026-04-14"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-03-02",
+              "price": 14503.7865,
+              "dif": 124.162
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-14",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-03-02",
+                "price": 14503.7865,
+                "dif": 124.162
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": []
+        }
+      }
+    },
+    {
+      "bar": {
+        "time": "2026-04-15",
+        "close": 14498.4546,
+        "dif": 91.217,
+        "dea": -32.439,
+        "hist": 247.311,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-15",
+        "count": 6,
+        "price": 14639.9522,
+        "dif": 91.217,
+        "price_at": "2026-04-14",
+        "dif_at": "2026-04-15"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-15",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-03-02",
+              "price": 14503.7865,
+              "dif": 124.162
+            }
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-15",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "bar": {
+        "time": "2026-04-16",
+        "close": 14796.3345,
+        "dif": 140.087,
+        "dea": 2.067,
+        "hist": 276.041,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-16",
+        "count": 7,
+        "price": 14796.3345,
+        "dif": 140.087,
+        "price_at": "2026-04-16",
+        "dif_at": "2026-04-16"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-16",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-03-02",
+                "price": 14503.7865,
+                "dif": 124.162
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      }
+    }
+  ],
+  "softwareMinusSourceApril16": {
+    "close": "-0.0045",
+    "dif": "-0.001",
+    "dea": "-0.001",
+    "hist": "0.000"
+  },
+  "notRecomputed": true
+}

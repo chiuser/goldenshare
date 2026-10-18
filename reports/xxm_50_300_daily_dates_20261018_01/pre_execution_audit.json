@@ -1,0 +1,45 @@
+{
+  "codes": [
+    "000016.SH",
+    "399300.SZ"
+  ],
+  "inputStart": "2020-01-01",
+  "candidateStart": "2022-09-13",
+  "end": "2024-08-30",
+  "tailStart": "2023-01-06",
+  "prefixDirectory": "reports/xxm_software_case_20230106_50_300_day_20261018",
+  "calendarDirectory": "reports/xxm_cross_index_daily_20261018_01/run_01",
+  "projection": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "batch": 500,
+  "maxTailRows": 500,
+  "maxCombinedRows": 1200,
+  "maxBytesPerUnit": 20000000,
+  "querySeconds": 15,
+  "connectionSeconds": 5,
+  "phaseSeconds": 60,
+  "totalSeconds": 240,
+  "readonly": true,
+  "sourcePrecheckRequired": true,
+  "overlapMustMatch": true,
+  "noNewExecutableCode": true,
+  "productCodeChanged": false,
+  "sourceContracts": "Existing IndexFactorPro six columns, real audited schema and images",
+  "codegraph": [
+    "query ReferenceGateCalculator",
+    "impact ReferenceGateCalculator"
+  ],
+  "reuse": [
+    "readonly_session",
+    "daily_window_precheck.validate_window",
+    "cross_index_daily.calculate/classify/seal/read_unit"
+  ],
+  "existingCalibration": "2023-01-06 000016.SH DULL, 399300.SZ no event; same three numerical records required",
+  "plannedValidation": "source overlap, full calendar, base equality, history/segments, 2021 warmup, prefixes/restores, source identity rejection, literal candidate conditions"
+}

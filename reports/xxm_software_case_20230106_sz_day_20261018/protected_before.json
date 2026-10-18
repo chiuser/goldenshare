@@ -1,0 +1,18 @@
+{
+  "reports/xxm_cross_index_daily_20261018_01/run_01/identity.json": "fadf39fce87c9430a50d785342b935e02cdf06f18690f4a462d66b93151b50ca",
+  "reports/xxm_cross_index_daily_20261018_01/run_01/result_399001.SZ.json": "7c0fb1db392b7c7dc885c11e16118574919f120105913575aac034dc12086747",
+  "reports/xxm_cross_index_daily_20261018_01/run_01/source_399001.SZ.json": "e9f46383807475268fada3225baf419dfc5a4f26c6631a5da6195b6cc512b710",
+  "reports/xxm_cross_index_daily_20261018_01/run_01/source_manifest.json": "24dfcdf9ed4f8e9e9824fdf13175963bb9e01c2c09d7e07d013d9a28afa241c6",
+  "reports/xxm_cross_index_daily_20261018_01/run_01/summary.json": "78d1729a89707ab0180d643955c1fcba8cac3dd47221b141f3fe2dbd8200741d",
+  "reports/xxm_software_case_20240924_25_day_20261018/case.json": "50c79f8a092123bd921faf6ee3d4f0fd7ecf4d49a58df58438a3cb4511709a46",
+  "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZC.json": "185c446bd69e4970437a17987d3cd74c89716ec6fdf1d00372a82d7efaff6d04",
+  "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZR.json": "7c0dca7e6372262ea126df51261cd83714df1ed58890398455ad3d849f6c95c6",
+  "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py": "be83fb63636eac32fa3c93345792890f40e04f447586cfe0ad94bf1b49520d10",
+  "scripts/research/index_market/xxm/bottom_history_acceptance.py": "65e16f2c3de78f1331b954b125f173286050bfbcc842d4dd7e4d30bf7d73d00c",
+  "scripts/research/index_market/xxm/cross_index_daily.py": "efe07bc23d7a02f0b71b21a316339a536700063e34ecac4b080acad83043ea13",
+  "scripts/research/index_market/xxm/top_daily_ambiguity.py": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d",
+  "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+  "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+  "src/biz/services/wealth/market/index_detail_xxm/types.py": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac"
+}

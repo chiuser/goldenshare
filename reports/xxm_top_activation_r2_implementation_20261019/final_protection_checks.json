@@ -1,0 +1,43 @@
+{
+  "branch": "dev-interface",
+  "oldExpectedFilesPreserved": 117,
+  "oldSourcesAndEvidencePreserved": 36,
+  "completedUnitsReadBack": 13,
+  "unitCodeIdentityMatchesCurrent": true,
+  "finalEngineTableAtDocumentEnd": true,
+  "noFormalDatabaseLakeNetworkAccess": true,
+  "noFormalWrites": true,
+  "committed": false,
+  "deployed": false,
+  "versions": {
+    "detector": "xxm-direction-v0.1-r2",
+    "detectorHash": "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d",
+    "forecast": "xxm-key-point-forecast-v0.3-r2",
+    "forecastHash": "add5e3636e6972e267bdda81c05e0e864f600f9e67d658b6a560445e39dda6d8"
+  },
+  "calculatorOnlyActivationClauseChanged": true,
+  "pythonTestsPassed": 434,
+  "wealthTestsPassed": 1191,
+  "typecheckPassed": true,
+  "buildPassed": true,
+  "docsIntegrityPassed": true,
+  "scopedWhitespaceCheckPassed": true,
+  "resourceMeasurements": [
+    {
+      "unit": "frozen_08_memory",
+      "exitCode": 0,
+      "seconds": 19.88207249995321,
+      "maxResidentBytes": 221921280,
+      "limitBytes": 268435456,
+      "measurement": "macOS wait4 ru_maxrss bytes"
+    },
+    {
+      "unit": "daily_2020_02_memory",
+      "exitCode": 0,
+      "seconds": 89.62961270892993,
+      "maxResidentBytes": 124387328,
+      "limitBytes": 268435456,
+      "measurement": "macOS wait4 ru_maxrss bytes"
+    }
+  ]
+}

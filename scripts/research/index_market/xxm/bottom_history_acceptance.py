@@ -13,6 +13,7 @@ from copy import deepcopy
 from datetime import date, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import time
@@ -20,6 +21,7 @@ import time
 from .acceptance import load_source, sha
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, inactive_result
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import build_display_context, make_display
@@ -33,7 +35,9 @@ PERIODS = ('day', 'm60', 'm90', 'm120')
 
 
 def save(out, name, value):
-    (out / name).write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n')
+    partial=out/(name+'.partial')
+    partial.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False)+'\n')
+    os.replace(partial,out/name)
 
 
 def new(period):
@@ -100,7 +104,7 @@ def forecast_result(period, bars, calculator, confirmation, calendar, check):
 def frozen_mode(source, out, sources):
     # The A1 acceptance owns the current semantic baseline. B's five software
     # positives remain explicit checks there; old 95/356 totals are archived.
-    from .same_segment_acceptance import frozen_mode as current_frozen
+    from .reference_rescue_acceptance import frozen_mode as current_frozen
     return current_frozen(source, out, sources)
 
 
@@ -175,6 +179,9 @@ def api_mode(source, out, sources):
         cases += [(p,sources[p][-1].time) for p in PERIODS]
         cases += [('m120','2026-07-10T15:00:00+08:00'), ('m120','2026-07-13T15:00:00+08:00'),
                   ('m90','2026-07-13T15:00:00+08:00'), ('day','2024-08-15')]
+        cases += [('m90','2025-12-15T15:00:00+08:00'),('m90','2025-12-16T11:00:00+08:00'),
+                  ('m90','2025-12-16T15:00:00+08:00'),('m60','2023-09-20T15:00:00+08:00'),
+                  ('m60','2023-09-21T10:30:00+08:00')]
         for i,(period,through) in enumerate(cases):
             response=recognition(client,period,through)
             assert response.status_code==200,(period,response.text)
@@ -186,12 +193,14 @@ def api_mode(source, out, sources):
             save(out,f'api_{i}_{period}.json',value)
             predicted=prediction(client,period,through); assert predicted.status_code==200,predicted.text
             value=predicted.json(); assert value['detectorSpecHash']==MAIN_SPEC.spec_hash
-            assert value['forecastVersion']=='xxm-key-point-forecast-v0.2-a1' and 'rearmContext' in value
+            assert value['forecastVersion']==FORECAST_SPEC.forecast_version and 'rearmContext' in value and 'nextBarOutcomes' in value
             if i==9:
                 assert value['ordinaryState']=='NONE' and value['status']=='CONDITIONAL_ENTRY'
                 assert value['rearmContext']['status']=='WAITING' and value['targetEndpoint']=='2026-07-13T15:00:00+08:00'
             if i in (10,11): assert value['ordinaryState']=='DULL' and value['rearmContext'] is None
             if i==12: assert value['status']=='CONFIRMED' and value['confirmedAt']=='2024-08-15' and value['rearmContext'] is None
+            if i in (13,14,15,16): assert value['ordinaryState']=='DULL' and value['nextBarOutcomes'] is not None
+            if i==17: assert value['ordinaryState']=='NONE'
             save(out,f'api_forecast_{i}_{period}.json',value)
             results.append(dict(period=period,through=through,recognitionStatus=200,forecastStatus=200))
         for status in (401,403):
@@ -211,6 +220,17 @@ def readonly_session():
     try:
         session=next(generator); session.execute(text('SET TRANSACTION READ ONLY')); yield session
     finally: generator.close()
+
+
+def verify_cache_mode(period, kind, stages):
+    if kind=='cold':
+        assert stages.get('sourceReadSeconds',0)>0,'Cold request did not load source'
+    else:
+        assert not stages.get('detectorStepSeconds',0),'Warm request reran calculator'
+        # Daily freshness validates the complete SQL projection every time;
+        # minute freshness can validate signatures without a complete reread.
+        if period!='day':
+            assert not stages.get('sourceReadSeconds',0),'Warm minute request reread source'
 
 
 def budget_mode(source, out, sources):
@@ -258,7 +278,7 @@ def budget_mode(source, out, sources):
     fq.future_calendar=calendar; fq.IndexDetailXxmForecastQueryService.build=build
     try:
         # Compare every frozen overlap value; later appended bars are allowed.
-        for period in PERIODS:
+        for period in sources:
             q._CACHE=q.XxmCache()
             with readonly_session() as s:
                 service=q.IndexDetailXxmQueryService(lake_root=FORMAL_LAKE_ROOT)
@@ -269,10 +289,11 @@ def budget_mode(source, out, sources):
                         inputId=entry.fingerprints[-1],frozenOverlapRows=len(sources[period]),differences=differences)
                     save(out,'budget_records.json',metadata)
                     assert not differences,(period,'frozen source overlap revised')
-        for period in PERIODS:
+        for period in sources:
             through=sources[period][-1].time
             for kind in ('cold','warm'):
-                if kind=='warm': q._CACHE=q.XxmCache()
+                # The final cold iteration already loaded this exact source.
+                # Keep it for all twenty real warm-cache requests.
                 for iteration in range(1,21):
                     if kind=='cold': q._CACHE=q.XxmCache()
                     # Forecast goes first: its cold read, full detector and model
@@ -287,6 +308,7 @@ def budget_mode(source, out, sources):
                     assert response.status_code==200,(period,kind,iteration,response.status_code)
                     payload=response.json(); assert payload['detectorSpecHash']==MAIN_SPEC.spec_hash
                     assert elapsed<=4 and model_duration[0]<=.2,(period,kind,iteration,'budget')
+                    verify_cache_mode(period,kind,stages)
                     start=time.perf_counter(); response=recognition(client,period,through); rtime=time.perf_counter()-start
                     row.update(recognitionHttpStatus=response.status_code,recognitionHttpSeconds=rtime,recognitionBytes=len(response.content),
                                forecastBytes=len(json.dumps(payload,ensure_ascii=False).encode()),
@@ -296,7 +318,7 @@ def budget_mode(source, out, sources):
                     assert row['forecastBytes']<=32768 and row['cacheBytes']<=64*1024*1024 and row['cacheEntries']<=16
                     if iteration in (1,10,20): print(json.dumps(row),flush=True)
         metadata['latest']=[]
-        for period in PERIODS:
+        for period in sources:
             start=time.perf_counter(); response=prediction(client,period); elapsed=time.perf_counter()-start
             value=response.json()
             row=dict(period=period,httpStatus=response.status_code,httpSeconds=elapsed,
@@ -306,7 +328,7 @@ def budget_mode(source, out, sources):
             save(out,f'latest_{period}.json',value)
         from concurrent.futures import ThreadPoolExecutor
         metadata['concurrentPairs']=[]
-        for period in PERIODS:
+        for period in sources:
             q._CACHE=q.XxmCache();through=sources[period][-1].time
             def timed(request):
                 start=time.perf_counter();response=request(client,period,through)
@@ -332,27 +354,35 @@ def budget_mode(source, out, sources):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode',required=True,choices=('frozen','api','budget'))
+    parser.add_argument('--mode',required=True,choices=('frozen','api','budget','replay-budget'))
     parser.add_argument('--source',required=True,type=Path)
     parser.add_argument('--output',required=True,type=Path)
     parser.add_argument('--formal-source',action='store_true')
+    parser.add_argument('--periods',nargs='+',choices=PERIODS,default=PERIODS,
+                        help='Budget case selection only; defaults to all four periods, never trims source history')
     args=parser.parse_args()
-    if args.formal_source != (args.mode=='budget'): parser.error('--formal-source is required only for budget mode')
-    sources={period:load_source(args.source,period) for period in PERIODS}
+    formal=args.mode in ('budget','replay-budget')
+    if args.formal_source != formal: parser.error('--formal-source is required only for budget/replay-budget modes')
+    if len(set(args.periods))!=len(args.periods): parser.error('--periods must not contain duplicates')
+    if not formal and tuple(args.periods)!=PERIODS: parser.error('--periods selection is supported only for budget/replay-budget modes')
+    sources={period:load_source(args.source,period) for period in args.periods}
     args.output.mkdir(parents=True,exist_ok=False)
     metadata=dict(mode=args.mode,source=str(args.source),sourceManifestSha256=sha(args.source/'manifest.json'),
                   algorithmVersion=MAIN_SPEC.algorithm_version,specHash=MAIN_SPEC.spec_hash,
-                  startedAt=datetime.now(CN_ZONE).isoformat(),formalWrites=False)
+                  startedAt=datetime.now(CN_ZONE).isoformat(),formalWrites=False,periods=list(sources))
     save(args.output,'run.json',metadata)
     try:
-        handler={'frozen':frozen_mode,'api':api_mode,'budget':budget_mode}[args.mode]
+        if args.mode=='replay-budget':
+            from .reference_rescue_acceptance import formal_replay_mode
+            handler=formal_replay_mode
+        else: handler={'frozen':frozen_mode,'api':api_mode,'budget':budget_mode}[args.mode]
         result=handler(args.source,args.output,sources)
         save(args.output,'result.json',result)
         metadata['passed']=True
     except Exception as exc:
         metadata.update(passed=False,failure=dict(type=type(exc).__name__,code=getattr(exc,'code',None)))
         # Do not print DB errors/connection details. Assertions use safe labels.
-        if args.mode == 'budget':
+        if formal:
             print(json.dumps(metadata['failure']), flush=True)
             raise SystemExit(1) from None
         raise

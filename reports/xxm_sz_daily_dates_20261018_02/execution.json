@@ -1,0 +1,15 @@
+{
+  "status": "COMPLETE",
+  "readonly": true,
+  "formalWrites": false,
+  "productCodeChanged": false,
+  "captureSeconds": 3.445194374769926,
+  "comparisonSeconds": 0.31533116614446044,
+  "sourceRowsPerCode": 1636,
+  "tailRowsPerCode": 505,
+  "targetRowsPerCode": 504,
+  "candidates": 2,
+  "priorWindowIdentical": true,
+  "seconds": 3.7605295409448445,
+  "protectedUnchanged": true
+}

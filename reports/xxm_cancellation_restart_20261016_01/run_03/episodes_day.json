@@ -1,0 +1,1579 @@
+{
+  "episodes": [
+    {
+      "cancel": {
+        "bar": {
+          "time": "2023-08-21",
+          "close": 3092.9777,
+          "dif": -24.741,
+          "dea": -8.069,
+          "hist": -33.344,
+          "completed": true
+        },
+        "event": {
+          "id": "a13213204f22df447d468782",
+          "time": "2023-08-21",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2023-06-26",
+            "endTime": "2023-06-30",
+            "price": 3150.6189,
+            "dif": -18.469
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-08-11",
+            "end": "2023-08-21",
+            "count": 7,
+            "price": 3092.9777,
+            "dif": -24.741,
+            "price_at": "2023-08-21",
+            "dif_at": "2023-08-21"
+          },
+          "pool": [
+            {
+              "startTime": "2023-06-26",
+              "endTime": "2023-06-30",
+              "price": 3150.6189,
+              "dif": -18.469
+            },
+            {
+              "startTime": "2023-07-20",
+              "endTime": "2023-07-25",
+              "price": 3164.1608,
+              "dif": -13.515
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2023-08-16",
+          "close": 3150.1277,
+          "dif": -9.712,
+          "dea": 2.763,
+          "hist": -24.948,
+          "completed": true
+        },
+        "event": {
+          "id": "5ae736f61ff273ec0132acef",
+          "time": "2023-08-16",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2023-06-26",
+            "endTime": "2023-06-30",
+            "price": 3150.6189,
+            "dif": -18.469
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-08-11",
+            "end": "2023-08-16",
+            "count": 4,
+            "price": 3150.1277,
+            "dif": -9.712,
+            "price_at": "2023-08-16",
+            "dif_at": "2023-08-16"
+          },
+          "pool": [
+            {
+              "startTime": "2023-06-26",
+              "endTime": "2023-06-30",
+              "price": 3150.6189,
+              "dif": -18.469
+            },
+            {
+              "startTime": "2023-07-20",
+              "endTime": "2023-07-25",
+              "price": 3164.1608,
+              "dif": -13.515
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2023-10-18",
+          "close": 3058.7098,
+          "dif": -17.652,
+          "dea": -15.716,
+          "hist": -3.872,
+          "completed": true
+        },
+        "event": {
+          "id": "716f63c46638e4259aef79fb",
+          "time": "2023-10-18",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2023-08-11",
+            "endTime": "2023-08-31",
+            "price": 3064.0747,
+            "dif": -40.045
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-10-10",
+            "end": "2023-10-18",
+            "count": 7,
+            "price": 3058.7098,
+            "dif": -17.652,
+            "price_at": "2023-10-18",
+            "dif_at": "2023-10-18"
+          },
+          "pool": [
+            {
+              "startTime": "2023-08-11",
+              "endTime": "2023-08-31",
+              "price": 3064.0747,
+              "dif": -40.045
+            },
+            {
+              "startTime": "2023-09-21",
+              "endTime": "2023-09-21",
+              "price": 3084.701,
+              "dif": -15.915
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2023-09-01",
+      "firstZeroAt": null,
+      "redBars": 20,
+      "zeroBars": 0,
+      "barsObserved": 37,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2023-10-18",
+      "negativeBarsAtRestart": 7,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2023-10-24",
+          "close": 2962.2437,
+          "dif": -40.177,
+          "dea": -26.341,
+          "hist": -27.67,
+          "completed": true
+        },
+        "event": {
+          "id": "3c3d15442118d70788933c47",
+          "time": "2023-10-24",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2023-08-11",
+            "endTime": "2023-08-31",
+            "price": 3064.0747,
+            "dif": -40.045
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-10-10",
+            "end": "2023-10-24",
+            "count": 11,
+            "price": 2939.2913,
+            "dif": -40.177,
+            "price_at": "2023-10-23",
+            "dif_at": "2023-10-24"
+          },
+          "pool": [
+            {
+              "startTime": "2023-08-11",
+              "endTime": "2023-08-31",
+              "price": 3064.0747,
+              "dif": -40.045
+            },
+            {
+              "startTime": "2023-09-21",
+              "endTime": "2023-09-21",
+              "price": 3084.701,
+              "dif": -15.915
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2023-10-18",
+          "close": 3058.7098,
+          "dif": -17.652,
+          "dea": -15.716,
+          "hist": -3.872,
+          "completed": true
+        },
+        "event": {
+          "id": "716f63c46638e4259aef79fb",
+          "time": "2023-10-18",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2023-08-11",
+            "endTime": "2023-08-31",
+            "price": 3064.0747,
+            "dif": -40.045
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-10-10",
+            "end": "2023-10-18",
+            "count": 7,
+            "price": 3058.7098,
+            "dif": -17.652,
+            "price_at": "2023-10-18",
+            "dif_at": "2023-10-18"
+          },
+          "pool": [
+            {
+              "startTime": "2023-08-11",
+              "endTime": "2023-08-31",
+              "price": 3064.0747,
+              "dif": -40.045
+            },
+            {
+              "startTime": "2023-09-21",
+              "endTime": "2023-09-21",
+              "price": 3084.701,
+              "dif": -15.915
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2023-12-18",
+          "close": 2930.8036,
+          "dif": -25.522,
+          "dea": -19.065,
+          "hist": -12.913,
+          "completed": true
+        },
+        "event": {
+          "id": "b354a1b7b82dac4554008931",
+          "time": "2023-12-18",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2023-10-10",
+            "endTime": "2023-10-30",
+            "price": 2939.2913,
+            "dif": -41.712
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2023-11-28",
+            "end": "2023-12-18",
+            "count": 15,
+            "price": 2930.8036,
+            "dif": -25.522,
+            "price_at": "2023-12-18",
+            "dif_at": "2023-12-18"
+          },
+          "pool": [
+            {
+              "startTime": "2023-09-21",
+              "endTime": "2023-09-21",
+              "price": 3084.701,
+              "dif": -15.915
+            },
+            {
+              "startTime": "2023-10-10",
+              "endTime": "2023-10-30",
+              "price": 2939.2913,
+              "dif": -41.712
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2023-10-31",
+      "firstZeroAt": null,
+      "redBars": 20,
+      "zeroBars": 0,
+      "barsObserved": 40,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2023-12-18",
+      "negativeBarsAtRestart": 15,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2024-01-23",
+          "close": 2770.9763,
+          "dif": -44.079,
+          "dea": -32.576,
+          "hist": -23.007,
+          "completed": true
+        },
+        "event": {
+          "id": "ed9d977b9900f06b17635933",
+          "time": "2024-01-23",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2023-10-10",
+            "endTime": "2023-10-30",
+            "price": 2939.2913,
+            "dif": -41.712
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-01-09",
+            "end": "2024-01-23",
+            "count": 11,
+            "price": 2756.3399,
+            "dif": -44.079,
+            "price_at": "2024-01-22",
+            "dif_at": "2024-01-23"
+          },
+          "pool": [
+            {
+              "startTime": "2023-10-10",
+              "endTime": "2023-10-30",
+              "price": 2939.2913,
+              "dif": -41.712
+            },
+            {
+              "startTime": "2023-11-28",
+              "endTime": "2023-12-27",
+              "price": 2898.8787,
+              "dif": -32.99
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2024-01-17",
+          "close": 2833.6152,
+          "dif": -28.773,
+          "dea": -24.573,
+          "hist": -8.4,
+          "completed": true
+        },
+        "event": {
+          "id": "eb147684d8b18b50b1e4ba17",
+          "time": "2024-01-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "dif_return",
+          "fromState": "STRUCTURE",
+          "eventReference": {
+            "startTime": "2023-10-10",
+            "endTime": "2023-10-30",
+            "price": 2939.2913,
+            "dif": -41.712
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-01-09",
+            "end": "2024-01-17",
+            "count": 7,
+            "price": 2833.6152,
+            "dif": -28.773,
+            "price_at": "2024-01-17",
+            "dif_at": "2024-01-17"
+          },
+          "pool": [
+            {
+              "startTime": "2023-10-10",
+              "endTime": "2023-10-30",
+              "price": 2939.2913,
+              "dif": -41.712
+            },
+            {
+              "startTime": "2023-11-28",
+              "endTime": "2023-12-27",
+              "price": 2898.8787,
+              "dif": -32.99
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2024-02-02",
+          "close": 2730.152,
+          "dif": -38.496,
+          "dea": -31.819,
+          "hist": -13.354,
+          "completed": true
+        },
+        "event": {
+          "id": "f13eaca41ddff8f60d0b1267",
+          "time": "2024-02-02",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-01-09",
+            "endTime": "2024-01-24",
+            "price": 2756.3399,
+            "dif": -44.079
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-02-01",
+            "end": "2024-02-02",
+            "count": 2,
+            "price": 2730.152,
+            "dif": -38.496,
+            "price_at": "2024-02-02",
+            "dif_at": "2024-02-02"
+          },
+          "pool": [
+            {
+              "startTime": "2023-11-28",
+              "endTime": "2023-12-27",
+              "price": 2898.8787,
+              "dif": -32.99
+            },
+            {
+              "startTime": "2024-01-09",
+              "endTime": "2024-01-24",
+              "price": 2756.3399,
+              "dif": -44.079
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2024-01-25",
+      "firstZeroAt": null,
+      "redBars": 5,
+      "zeroBars": 0,
+      "barsObserved": 9,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2024-02-02",
+      "negativeBarsAtRestart": 2,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2024-02-05",
+          "close": 2702.185,
+          "dif": -45.047,
+          "dea": -34.464,
+          "hist": -21.165,
+          "completed": true
+        },
+        "event": {
+          "id": "f707c94e3b54ea48b9cca6d3",
+          "time": "2024-02-05",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-01-09",
+            "endTime": "2024-01-24",
+            "price": 2756.3399,
+            "dif": -44.079
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-02-01",
+            "end": "2024-02-05",
+            "count": 3,
+            "price": 2702.185,
+            "dif": -45.047,
+            "price_at": "2024-02-05",
+            "dif_at": "2024-02-05"
+          },
+          "pool": [
+            {
+              "startTime": "2023-11-28",
+              "endTime": "2023-12-27",
+              "price": 2898.8787,
+              "dif": -32.99
+            },
+            {
+              "startTime": "2024-01-09",
+              "endTime": "2024-01-24",
+              "price": 2756.3399,
+              "dif": -44.079
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2024-02-02",
+          "close": 2730.152,
+          "dif": -38.496,
+          "dea": -31.819,
+          "hist": -13.354,
+          "completed": true
+        },
+        "event": {
+          "id": "f13eaca41ddff8f60d0b1267",
+          "time": "2024-02-02",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-01-09",
+            "endTime": "2024-01-24",
+            "price": 2756.3399,
+            "dif": -44.079
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-02-01",
+            "end": "2024-02-02",
+            "count": 2,
+            "price": 2730.152,
+            "dif": -38.496,
+            "price_at": "2024-02-02",
+            "dif_at": "2024-02-02"
+          },
+          "pool": [
+            {
+              "startTime": "2023-11-28",
+              "endTime": "2023-12-27",
+              "price": 2898.8787,
+              "dif": -32.99
+            },
+            {
+              "startTime": "2024-01-09",
+              "endTime": "2024-01-24",
+              "price": 2756.3399,
+              "dif": -44.079
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2024-07-08",
+          "close": 2922.4498,
+          "dif": -31.67,
+          "dea": -29.463,
+          "hist": -4.413,
+          "completed": true
+        },
+        "event": {
+          "id": "d8ad0410c6cf5a6514e41029",
+          "time": "2024-07-08",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-05-23",
+            "endTime": "2024-07-01",
+            "price": 2945.8524,
+            "dif": -35.168
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-07-05",
+            "end": "2024-07-08",
+            "count": 2,
+            "price": 2922.4498,
+            "dif": -31.67,
+            "price_at": "2024-07-08",
+            "dif_at": "2024-07-08"
+          },
+          "pool": [
+            {
+              "startTime": "2024-03-19",
+              "endTime": "2024-04-25",
+              "price": 2993.1388,
+              "dif": 7.001
+            },
+            {
+              "startTime": "2024-05-23",
+              "endTime": "2024-07-01",
+              "price": 2945.8524,
+              "dif": -35.168
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2024-02-08",
+      "firstZeroAt": null,
+      "redBars": 41,
+      "zeroBars": 0,
+      "barsObserved": 99,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2024-07-08",
+      "negativeBarsAtRestart": 2,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2024-09-06",
+          "close": 2765.8066,
+          "dif": -31.825,
+          "dea": -26.638,
+          "hist": -10.375,
+          "completed": true
+        },
+        "event": {
+          "id": "3a4677f599033a406ff6cfbd",
+          "time": "2024-09-06",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-05",
+            "endTime": "2024-08-14",
+            "price": 2850.6539,
+            "dif": -30.213
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-06",
+            "count": 5,
+            "price": 2765.8066,
+            "dif": -31.825,
+            "price_at": "2024-09-06",
+            "dif_at": "2024-09-06"
+          },
+          "pool": [
+            {
+              "startTime": "2024-08-05",
+              "endTime": "2024-08-14",
+              "price": 2850.6539,
+              "dif": -30.213
+            },
+            {
+              "startTime": "2024-08-29",
+              "endTime": "2024-08-29",
+              "price": 2823.106,
+              "dif": -23.0
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2024-09-03",
+          "close": 2802.9787,
+          "dif": -25.525,
+          "dea": -23.423,
+          "hist": -4.205,
+          "completed": true
+        },
+        "event": {
+          "id": "a485190a7062b85d969dca1c",
+          "time": "2024-09-03",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-05",
+            "endTime": "2024-08-14",
+            "price": 2850.6539,
+            "dif": -30.213
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2024-09-02",
+            "end": "2024-09-03",
+            "count": 2,
+            "price": 2802.9787,
+            "dif": -25.525,
+            "price_at": "2024-09-03",
+            "dif_at": "2024-09-03"
+          },
+          "pool": [
+            {
+              "startTime": "2024-08-05",
+              "endTime": "2024-08-14",
+              "price": 2850.6539,
+              "dif": -30.213
+            },
+            {
+              "startTime": "2024-08-29",
+              "endTime": "2024-08-29",
+              "price": 2823.106,
+              "dif": -23.0
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2026-07-13",
+          "close": 3913.794,
+          "dif": -28.116,
+          "dea": -14.749,
+          "hist": -26.736,
+          "completed": true
+        },
+        "event": {
+          "id": "2bf91f7a77f20863bcc65a74",
+          "time": "2026-07-13",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-13",
+            "count": 8,
+            "price": 3913.794,
+            "dif": -28.116,
+            "price_at": "2026-07-13",
+            "dif_at": "2026-07-13"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2024-09-23",
+      "firstZeroAt": null,
+      "redBars": 215,
+      "zeroBars": 0,
+      "barsObserved": 444,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2026-07-13",
+      "negativeBarsAtRestart": 8,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2026-07-15",
+          "close": 3955.5781,
+          "dif": -32.017,
+          "dea": -20.639,
+          "hist": -22.757,
+          "completed": true
+        },
+        "event": {
+          "id": "337118cd409e9c6904772219",
+          "time": "2026-07-15",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-15",
+            "count": 10,
+            "price": 3913.794,
+            "dif": -32.017,
+            "price_at": "2026-07-13",
+            "dif_at": "2026-07-15"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2026-07-13",
+          "close": 3913.794,
+          "dif": -28.116,
+          "dea": -14.749,
+          "hist": -26.736,
+          "completed": true
+        },
+        "event": {
+          "id": "2bf91f7a77f20863bcc65a74",
+          "time": "2026-07-13",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-05-18",
+            "endTime": "2026-06-15",
+            "price": 3959.3378,
+            "dif": -30.025
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-13",
+            "count": 8,
+            "price": 3913.794,
+            "dif": -28.116,
+            "price_at": "2026-07-13",
+            "dif_at": "2026-07-13"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2026-07-17",
+          "close": 3764.1547,
+          "dif": -53.613,
+          "dea": -30.186,
+          "hist": -46.855,
+          "completed": true
+        },
+        "event": {
+          "id": "117e6b02c574b3899c9636cb",
+          "time": "2026-07-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-17",
+            "count": 12,
+            "price": 3764.1547,
+            "dif": -53.613,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-17"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": null,
+      "firstZeroAt": null,
+      "redBars": 0,
+      "zeroBars": 0,
+      "barsObserved": 3,
+      "status": "RESTART_BEFORE_RED",
+      "observedThrough": "2026-07-17",
+      "negativeBarsAtRestart": 12,
+      "referenceChanged": true,
+      "sameContinuousGreen": true,
+      "explanation": {
+        "checks": {
+          "referenceAlreadyInPool": true,
+          "lowerDifReference": true,
+          "sameSegment": true,
+          "divergenceRetained": true,
+          "priceQualified": true,
+          "activationRoute": true
+        },
+        "priceQualifiedAtCancel": false,
+        "reason": "price_qualified_after_cancel"
+      }
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2026-07-20",
+          "close": 3796.2814,
+          "dif": -61.82,
+          "dea": -36.513,
+          "hist": -50.616,
+          "completed": true
+        },
+        "event": {
+          "id": "d20de408feabda287f308ae7",
+          "time": "2026-07-20",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-20",
+            "count": 13,
+            "price": 3764.1547,
+            "dif": -61.82,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-20"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2026-07-17",
+          "close": 3764.1547,
+          "dif": -53.613,
+          "dea": -30.186,
+          "hist": -46.855,
+          "completed": true
+        },
+        "event": {
+          "id": "117e6b02c574b3899c9636cb",
+          "time": "2026-07-17",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-03-04",
+            "endTime": "2026-04-07",
+            "price": 3813.2829,
+            "dif": -56.353
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-07-02",
+            "end": "2026-07-17",
+            "count": 12,
+            "price": 3764.1547,
+            "dif": -53.613,
+            "price_at": "2026-07-17",
+            "dif_at": "2026-07-17"
+          },
+          "pool": [
+            {
+              "startTime": "2026-03-04",
+              "endTime": "2026-04-07",
+              "price": 3813.2829,
+              "dif": -56.353
+            },
+            {
+              "startTime": "2026-05-18",
+              "endTime": "2026-06-15",
+              "price": 3959.3378,
+              "dif": -30.025
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": {
+        "bar": {
+          "time": "2026-09-28",
+          "close": 3823.6206,
+          "dif": -9.978,
+          "dea": -4.176,
+          "hist": -11.604,
+          "completed": true
+        },
+        "event": {
+          "id": "108bb0aa45972f86d1449c95",
+          "time": "2026-09-28",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-09-24",
+            "end": "2026-09-28",
+            "count": 2,
+            "price": 3823.6206,
+            "dif": -9.978,
+            "price_at": "2026-09-28",
+            "dif_at": "2026-09-28"
+          },
+          "pool": [
+            {
+              "startTime": "2026-07-02",
+              "endTime": "2026-08-03",
+              "price": 3764.1547,
+              "dif": -62.142
+            },
+            {
+              "startTime": "2026-09-11",
+              "endTime": "2026-09-21",
+              "price": 3864.2794,
+              "dif": -10.316
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "firstRedAt": "2026-08-04",
+      "firstZeroAt": null,
+      "redBars": 30,
+      "zeroBars": 0,
+      "barsObserved": 50,
+      "status": "RESTART_AFTER_RED",
+      "observedThrough": "2026-09-28",
+      "negativeBarsAtRestart": 2,
+      "referenceChanged": true,
+      "sameContinuousGreen": false
+    },
+    {
+      "cancel": {
+        "bar": {
+          "time": "2026-09-29",
+          "close": 3830.4513,
+          "dif": -14.99,
+          "dea": -6.339,
+          "hist": -17.302,
+          "completed": true
+        },
+        "event": {
+          "id": "72cc8edb1348a5084a61cf08",
+          "time": "2026-09-29",
+          "direction": "BOTTOM",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-09-24",
+            "end": "2026-09-29",
+            "count": 3,
+            "price": 3823.6206,
+            "dif": -14.99,
+            "price_at": "2026-09-28",
+            "dif_at": "2026-09-29"
+          },
+          "pool": [
+            {
+              "startTime": "2026-07-02",
+              "endTime": "2026-08-03",
+              "price": 3764.1547,
+              "dif": -62.142
+            },
+            {
+              "startTime": "2026-09-11",
+              "endTime": "2026-09-21",
+              "price": 3864.2794,
+              "dif": -10.316
+            }
+          ],
+          "ordinaryState": "NONE",
+          "pendingRearm": null
+        }
+      },
+      "precedingDull": {
+        "bar": {
+          "time": "2026-09-28",
+          "close": 3823.6206,
+          "dif": -9.978,
+          "dea": -4.176,
+          "hist": -11.604,
+          "completed": true
+        },
+        "event": {
+          "id": "108bb0aa45972f86d1449c95",
+          "time": "2026-09-28",
+          "direction": "BOTTOM",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2026-09-11",
+            "endTime": "2026-09-21",
+            "price": 3864.2794,
+            "dif": -10.316
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        "context": {
+          "wave": {
+            "sign": -1,
+            "start": "2026-09-24",
+            "end": "2026-09-28",
+            "count": 2,
+            "price": 3823.6206,
+            "dif": -9.978,
+            "price_at": "2026-09-28",
+            "dif_at": "2026-09-28"
+          },
+          "pool": [
+            {
+              "startTime": "2026-07-02",
+              "endTime": "2026-08-03",
+              "price": 3764.1547,
+              "dif": -62.142
+            },
+            {
+              "startTime": "2026-09-11",
+              "endTime": "2026-09-21",
+              "price": 3864.2794,
+              "dif": -10.316
+            }
+          ],
+          "ordinaryState": "DULL",
+          "pendingRearm": null
+        }
+      },
+      "nextDull": null,
+      "firstRedAt": null,
+      "firstZeroAt": null,
+      "redBars": 0,
+      "zeroBars": 0,
+      "barsObserved": 6,
+      "status": "RIGHT_CENSORED",
+      "observedThrough": "2026-10-13"
+    }
+  ],
+  "counterexampleWindows": [
+    {
+      "cancelAt": "2026-07-15",
+      "restartAt": "2026-07-17",
+      "rows": [
+        {
+          "bar": {
+            "time": "2026-07-13",
+            "close": 3913.794,
+            "dif": -28.116,
+            "dea": -14.749,
+            "hist": -26.736,
+            "completed": true
+          },
+          "events": [
+            {
+              "id": "2bf91f7a77f20863bcc65a74",
+              "time": "2026-07-13",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-05-18",
+                "endTime": "2026-06-15",
+                "price": 3959.3378,
+                "dif": -30.025
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2026-07-14",
+            "close": 3967.1262,
+            "dif": -29.979,
+            "dea": -17.795,
+            "hist": -24.368,
+            "completed": true
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2026-07-15",
+            "close": 3955.5781,
+            "dif": -32.017,
+            "dea": -20.639,
+            "hist": -22.757,
+            "completed": true
+          },
+          "events": [
+            {
+              "id": "337118cd409e9c6904772219",
+              "time": "2026-07-15",
+              "direction": "BOTTOM",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-05-18",
+                "endTime": "2026-06-15",
+                "price": 3959.3378,
+                "dif": -30.025
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        },
+        {
+          "bar": {
+            "time": "2026-07-16",
+            "close": 3882.4126,
+            "dif": -39.086,
+            "dea": -24.329,
+            "hist": -29.516,
+            "completed": true
+          },
+          "events": []
+        },
+        {
+          "bar": {
+            "time": "2026-07-17",
+            "close": 3764.1547,
+            "dif": -53.613,
+            "dea": -30.186,
+            "hist": -46.855,
+            "completed": true
+          },
+          "events": [
+            {
+              "id": "117e6b02c574b3899c9636cb",
+              "time": "2026-07-17",
+              "direction": "BOTTOM",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-04",
+                "endTime": "2026-04-07",
+                "price": 3813.2829,
+                "dif": -56.353
+              },
+              "relatedTopHistoryId": null,
+              "relatedBottomHistoryId": null,
+              "relatedRearmId": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "suppliedEvidenceContexts": {
+    "2024-08-06": {
+      "time": "2024-08-06",
+      "point": {
+        "time": "2024-08-06",
+        "close": 2867.2837,
+        "dif": -28.44,
+        "dea": -25.797,
+        "hist": -5.287,
+        "ordinaryState": "DULL",
+        "ordinaryDirection": "BOTTOM",
+        "activeReference": {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        },
+        "pendingTopHistoryId": "cfd71cdd89bc11db63920cf8",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2024-08-05",
+        "end": "2024-08-06",
+        "count": 2,
+        "price": 2860.6978,
+        "dif": -28.44,
+        "price_at": "2024-08-05",
+        "dif_at": "2024-08-06"
+      },
+      "pool": [
+        {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        },
+        {
+          "startTime": "2024-07-24",
+          "endTime": "2024-07-31",
+          "price": 2879.2996,
+          "dif": -30.348
+        }
+      ]
+    },
+    "2026-07-20": {
+      "time": "2026-07-20",
+      "point": {
+        "time": "2026-07-20",
+        "close": 3796.2814,
+        "dif": -61.82,
+        "dea": -36.513,
+        "hist": -50.616,
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null,
+        "pendingTopHistoryId": "64bc042f43b1c1b5d4820b41",
+        "pendingBottomHistoryId": null,
+        "pendingRearmId": null
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2026-07-02",
+        "end": "2026-07-20",
+        "count": 13,
+        "price": 3764.1547,
+        "dif": -61.82,
+        "price_at": "2026-07-17",
+        "dif_at": "2026-07-20"
+      },
+      "pool": [
+        {
+          "startTime": "2026-03-04",
+          "endTime": "2026-04-07",
+          "price": 3813.2829,
+          "dif": -56.353
+        },
+        {
+          "startTime": "2026-05-18",
+          "endTime": "2026-06-15",
+          "price": 3959.3378,
+          "dif": -30.025
+        }
+      ]
+    }
+  }
+}

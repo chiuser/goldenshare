@@ -1,0 +1,92 @@
+{
+  "readonly": "on",
+  "columns": [
+    {
+      "column_name": "close",
+      "data_type": "double precision",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "macd_bfq",
+      "data_type": "double precision",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "macd_dea_bfq",
+      "data_type": "double precision",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "macd_dif_bfq",
+      "data_type": "double precision",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "trade_date",
+      "data_type": "date",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "ts_code",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    }
+  ],
+  "counts": [
+    {
+      "ts_code": "399001.SZ",
+      "rows": 1132,
+      "first_date": "2020-01-02",
+      "last_date": "2024-08-30",
+      "missing_values": 0
+    },
+    {
+      "ts_code": "399006.SZ",
+      "rows": 1132,
+      "first_date": "2020-01-02",
+      "last_date": "2024-08-30",
+      "missing_values": 0
+    }
+  ],
+  "samples": [
+    {
+      "ts_code": "399006.SZ",
+      "trade_date": "2024-08-29",
+      "close": 1541.3995,
+      "macd_dif_bfq": -33.75,
+      "macd_dea_bfq": -32.031,
+      "macd_bfq": -3.437
+    },
+    {
+      "ts_code": "399006.SZ",
+      "trade_date": "2024-08-30",
+      "close": 1580.4595,
+      "macd_dif_bfq": -29.591,
+      "macd_dea_bfq": -31.543,
+      "macd_bfq": 3.904
+    },
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2024-08-29",
+      "close": 8154.4391,
+      "macd_dif_bfq": -143.245,
+      "macd_dea_bfq": -138.291,
+      "macd_bfq": -9.91
+    },
+    {
+      "ts_code": "399001.SZ",
+      "trade_date": "2024-08-30",
+      "close": 8348.4774,
+      "macd_dif_bfq": -122.695,
+      "macd_dea_bfq": -135.171,
+      "macd_bfq": 24.953
+    }
+  ],
+  "calendar": {
+    "days": 0,
+    "open_days": 0,
+    "first_date": null,
+    "last_date": null
+  },
+  "seconds": 3.527765250299126
+}

@@ -1,0 +1,26 @@
+{
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 80.39941685274243,
+        "calibrationProtected": 18
+      },
+      "1.0": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 80.58358309790492,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "forecasts": 26,
+        "maxMs": 83.89745838940144,
+        "calibrationProtected": 18
+      }
+    }
+  },
+  "softwareUniqueFormulaProven": false,
+  "liveSource": false
+}

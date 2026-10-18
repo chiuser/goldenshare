@@ -1,0 +1,14 @@
+{
+  "imageSha256": "4e93d2129a92fb1d13ee4cb4d51bb0a1f7ffd3769172321369555966abe8696e",
+  "originalManifestMatch": [
+    {
+      "file": "codex-clipboard-72b9927e-452f-4bfc-8502-9e5d3f8a87b2.png",
+      "original_path": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-72b9927e-452f-4bfc-8502-9e5d3f8a87b2.png",
+      "saved_path": "/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260423_60.png",
+      "bytes": 1974205,
+      "sha256": "4e93d2129a92fb1d13ee4cb4d51bb0a1f7ffd3769172321369555966abe8696e",
+      "image_date": "2026-04-23",
+      "period": "60"
+    }
+  ]
+}

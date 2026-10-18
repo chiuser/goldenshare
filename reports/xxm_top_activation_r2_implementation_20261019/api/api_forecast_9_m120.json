@@ -1,0 +1,480 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m120",
+  "forecastVersion": "xxm-key-point-forecast-v0.3-r2",
+  "forecastSpecHash": "add5e3636e6972e267bdda81c05e0e864f600f9e67d658b6a560445e39dda6d8",
+  "detectorSpecHash": "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d",
+  "sourceInputId": "173126eb24bf24c7cd20f805c989c7be1c674023d06085a079e68df31dbc4c89",
+  "calendarInputId": "f8606b1ff18286342f56543705a3c856af35db066ee3943f9f77650c5236f398",
+  "computedThrough": "2026-07-10T15:00:00+08:00",
+  "requestedAsOf": "2026-07-10T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "rearmContext": {
+    "id": "1012ebc7e6a7cea7c17ad0e3",
+    "direction": "BOTTOM",
+    "bottomHistoryId": "2c1a457365c50bbf0a159cd7",
+    "structureEventId": "0f6f92b85631fa25e9b031fc",
+    "structureConfirmedAt": "2026-07-09T15:00:00+08:00",
+    "structureRoute": "dif_turn",
+    "segmentStart": "2026-07-02T15:00:00+08:00",
+    "nearestPriceGate": 4027.265,
+    "reference": {
+      "startTime": "2026-05-14T15:00:00+08:00",
+      "endTime": "2026-06-11T15:00:00+08:00",
+      "price": 3959.338,
+      "dif": -35.908539098328674
+    },
+    "disappearedAt": "2026-07-10T15:00:00+08:00",
+    "observedThrough": "2026-07-10T15:00:00+08:00",
+    "status": "WAITING",
+    "endedAt": null,
+    "endReason": null
+  },
+  "nextBarOutcomes": null,
+  "direction": "BOTTOM",
+  "status": "CONDITIONAL_ENTRY",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "e26ce7f0231f5b4fa9950494d41d9284d3b7005e73541d901baa27cde7e1eba4",
+  "targetEndpoint": "2026-07-13T15:00:00+08:00",
+  "barsAhead": 2,
+  "activation": {
+    "endpoint": "2026-07-13T11:30:00+08:00",
+    "ranges": [
+      {
+        "entryRangeId": "entry-1",
+        "priceRange": {
+          "lower": 3789.6734149592853,
+          "upper": 3959.338,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2026-05-14T15:00:00+08:00",
+          "endTime": "2026-06-11T15:00:00+08:00",
+          "price": 3959.338,
+          "dif": -35.908539098328674
+        }
+      }
+    ],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3789.67341495924,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      },
+      {
+        "priceRange": {
+          "lower": 3789.67341495924,
+          "upper": 3789.6734149592853,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "PRECISION_UNRESOLVED"
+      },
+      {
+        "priceRange": {
+          "lower": 3959.338,
+          "upper": 4027.7987927401145,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "PRICE_NOT_EXTREME"
+      },
+      {
+        "priceRange": {
+          "lower": 4027.7987927401145,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      }
+    ]
+  },
+  "assumption": {
+    "policy": "entry_range_then_flat",
+    "activationEndpoint": "2026-07-13T11:30:00+08:00",
+    "intermediateEndpoints": [
+      "2026-07-13T11:30:00+08:00"
+    ],
+    "intermediateCloseExpression": {
+      "op": "affine",
+      "pCoefficient": 1.0,
+      "cCoefficient": 0.0,
+      "constant": 0.0
+    }
+  },
+  "targetEntryRanges": [
+    {
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "priceRange": {
+        "lower": 3789.6734149592853,
+        "upper": 3959.338,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      }
+    }
+  ],
+  "targetEntryExclusions": [],
+  "relations": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3789.6734149592853,
+        "upper": 3959.338,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "initialReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "referenceTransitions": [],
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -584.6732449221677
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 35.908539098328674
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -805.5988562173783
+            },
+            "factor": -1.0
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07977207977207978,
+              "cCoefficient": 0.0,
+              "constant": -338.21866906658715
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.06159040916875674,
+                  "cCoefficient": 0.07977207977207978,
+                  "constant": -584.6732449221677
+                },
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.07977207977207978,
+                  "cCoefficient": 0.0,
+                  "constant": -338.21866906658715
+                }
+              ]
+            },
+            "factor": 1.0
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07977207977207978,
+                "cCoefficient": 0.0,
+                "constant": -338.21866906658715
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3789.6734149592853,
+        "upper": 3959.338,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "initialReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "referenceTransitions": [],
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.06159040916875674,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -584.6732449221677
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 35.908539098328674
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.07301758914294525,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -805.5988562173783
+            },
+            "factor": -1.0
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "commonConditions": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3789.6734149592853,
+        "upper": 3959.338,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "route": "dif_turn",
+      "closeRanges": [
+        {
+          "lower": 3994.7021127208086,
+          "upper": 4046.666000897768,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3994.71,
+          "displayUpper": 4046.66,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 3789.6734149592853,
+        "upper": 3959.338,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 4143.727678037869,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 4143.73,
+          "displayUpper": null,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "preClose": 3789.68,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 3957.730202692318,
+          "upper": 4143.7239108692775,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3957.74,
+          "displayUpper": 4143.72,
+          "displayPlaces": 2,
+          "relationId": "relation-1"
+        },
+        {
+          "lower": 4143.7239108692775,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 4143.73,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    },
+    {
+      "preClose": 3874.51,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 3976.216375626791,
+          "upper": 4095.19438380375,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3976.22,
+          "displayUpper": 4095.19,
+          "displayPlaces": 2,
+          "relationId": "relation-1"
+        },
+        {
+          "lower": 4095.19438380375,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 4095.2,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    },
+    {
+      "preClose": 3959.33,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 3994.7003693589845,
+          "upper": 4046.6705775359437,
+          "lowerInclusive": true,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3994.71,
+          "displayUpper": 4046.67,
+          "displayPlaces": 2,
+          "relationId": "relation-1"
+        },
+        {
+          "lower": 4046.6705775359437,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 4046.68,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    }
+  ],
+  "applicabilityText": "仅适用于本周期已计算的收盘条件；实际收盘后更新。",
+  "invalidationText": "原结构已消失，需先重新形成钝化，再判断结构；参照DIF突破、柱色改变或零柱时，等待条件结束。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "结构消失，待重新钝化",
+    "targetText": "07/13 15:00 收盘 · 底部结构条件",
+    "conditionsText": "原底部结构已消失；当前未重新形成底钝化。\n重新钝化：07/13 11:30 收盘不高于3959.3379点，可形成底钝化。\n未触发：07/13 11:30 收盘3959.3381～4027.7987点，底钝化条件不成立。\n推算失效：07/13 11:30 收盘不低于4027.7988点，MACD柱色改变或出现零柱，需重新判断。\n结构成立：若底钝化形成并保持有效，最早可在07/13 15:00 收盘形成底部结构；当前近期适用的收盘区间为3995～4046点。\n07/13 11:30 收盘后更新结构条件和确认时点。底钝化消失或出现零柱时，原条件失效；未达到上述结构区间不等于钝化消失。\n参照DIF突破、MACD柱色改变或出现零柱时，本次等待条件结束。",
+    "asOfText": "历史回放 · 截至 07/10 15:00 收盘"
+  },
+  "refreshAfterMs": 60000
+}

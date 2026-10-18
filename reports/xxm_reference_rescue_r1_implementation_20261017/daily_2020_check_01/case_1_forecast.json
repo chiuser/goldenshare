@@ -1,0 +1,450 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.3-r1",
+  "forecastSpecHash": "983eae6fffebc5b76e3fa2cac210bb10e5f68db080af4fdb927baecde360dcae",
+  "detectorSpecHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "sourceInputId": "57143ad5b6ce161e0f93ba43d6842f885e2b4476d60e7d2b1ab7001ef6e741a1",
+  "calendarInputId": "a7aed4468d24c2eab4eed7a387c128a9a9d9ae0201cef3479133eb84827d68b8",
+  "computedThrough": "2024-08-05",
+  "requestedAsOf": "2024-08-05",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "rearmContext": null,
+  "nextBarOutcomes": null,
+  "direction": "BOTTOM",
+  "status": "CONDITIONAL_ENTRY",
+  "reasonCode": null,
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "2cc89c86e4de4c0a928d98fd5c37ecc2431205c92b9ab52c4611be718a77206e",
+  "targetEndpoint": "2024-08-07",
+  "barsAhead": 2,
+  "activation": {
+    "endpoint": "2024-08-06",
+    "ranges": [
+      {
+        "entryRangeId": "entry-1",
+        "priceRange": {
+          "lower": 2826.800199177007,
+          "upper": 2908.7029591254436,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-05",
+          "endTime": "2024-07-10",
+          "price": 2922.4498,
+          "dif": -31.67
+        }
+      }
+    ],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 2826.800199174454,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      },
+      {
+        "priceRange": {
+          "lower": 2826.800199174454,
+          "upper": 2826.800199177007,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reason": "PRECISION_UNRESOLVED"
+      },
+      {
+        "priceRange": {
+          "lower": 2908.7029591254436,
+          "upper": 2908.702959127068,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "PRECISION_UNRESOLVED"
+      },
+      {
+        "priceRange": {
+          "lower": 2908.702959127068,
+          "upper": null,
+          "lowerInclusive": true,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      }
+    ]
+  },
+  "assumption": {
+    "policy": "entry_range_then_flat",
+    "activationEndpoint": "2024-08-06",
+    "intermediateEndpoints": [
+      "2024-08-06"
+    ],
+    "intermediateCloseExpression": {
+      "op": "affine",
+      "pCoefficient": 1.0,
+      "cCoefficient": 0.0,
+      "constant": 0.0
+    }
+  },
+  "targetEntryRanges": [
+    {
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "priceRange": {
+        "lower": 2826.800199177007,
+        "upper": 2908.7029591254436,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      }
+    }
+  ],
+  "targetEntryExclusions": [],
+  "relations": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 2826.800199177007,
+        "upper": 2908.7029591254436,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "initialReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "referenceTransitions": [],
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.06159040916875674,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -434.70141471297484
+              },
+              "guard": 1e-10
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 31.67
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07301758914294525,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -581.0544981049002
+              },
+              "guard": 1e-10
+            },
+            "factor": -1.0
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07977207977207978,
+                "cCoefficient": 0.0,
+                "constant": -257.1692309883756
+              },
+              "guard": 1e-10
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "round3",
+                  "arg": {
+                    "op": "affine",
+                    "pCoefficient": 0.06159040916875674,
+                    "cCoefficient": 0.07977207977207978,
+                    "constant": -434.70141471297484
+                  },
+                  "guard": 1e-10
+                },
+                {
+                  "op": "round3",
+                  "arg": {
+                    "op": "affine",
+                    "pCoefficient": 0.07977207977207978,
+                    "cCoefficient": 0.0,
+                    "constant": -257.1692309883756
+                  },
+                  "guard": 1e-10
+                }
+              ]
+            },
+            "factor": 1.0
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "round3",
+                "arg": {
+                  "op": "affine",
+                  "pCoefficient": 0.07977207977207978,
+                  "cCoefficient": 0.0,
+                  "constant": -257.1692309883756
+                },
+                "guard": 1e-10
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 2826.800199177007,
+        "upper": 2908.7029591254436,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "initialReference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "referenceTransitions": [],
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.06159040916875674,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -434.70141471297484
+              },
+              "guard": 1e-10
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 31.67
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "round3",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07301758914294525,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -581.0544981049002
+              },
+              "guard": 1e-10
+            },
+            "factor": -1.0
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "commonConditions": [
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [
+        "entry-1"
+      ],
+      "entryDomain": {
+        "lower": 2826.800199177007,
+        "upper": 2908.7029591254436,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      "reference": {
+        "startTime": "2024-07-05",
+        "endTime": "2024-07-10",
+        "price": 2922.4498,
+        "dif": -31.67
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 2935.3069366713494,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 2935.31,
+          "displayUpper": null,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "preClose": 2826.81,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 2873.743931783224,
+          "upper": 2935.29349499577,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 2873.75,
+          "displayUpper": 2935.29,
+          "displayPlaces": 2,
+          "relationId": "relation-1"
+        },
+        {
+          "lower": 2935.3013298187648,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 2935.31,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    },
+    {
+      "preClose": 2867.75,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 2882.675485914279,
+          "upper": 2911.872549126824,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 2882.68,
+          "displayUpper": 2911.87,
+          "displayPlaces": 2,
+          "relationId": "relation-1"
+        },
+        {
+          "lower": 2911.8803839498196,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 2911.89,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    },
+    {
+      "preClose": 2908.7,
+      "entryRangeId": "entry-1",
+      "closeRanges": [
+        {
+          "lower": 2888.453717283153,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 2888.46,
+          "displayUpper": null,
+          "displayPlaces": 2,
+          "relationId": "relation-2"
+        }
+      ]
+    }
+  ],
+  "applicabilityText": "仅适用于本周期已计算的收盘条件；实际收盘后更新。",
+  "invalidationText": "钝化真正消失、零柱、参照或前序走势变化时重新计算；未达结构条件不等于钝化已消失。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "需先形成底钝化",
+    "targetText": "08/06 收盘后更新结构条件",
+    "conditionsText": "钝化触发：08/06 收盘2826.8002～2908.7029点，可形成底钝化。\n未触发：08/06 收盘不高于2826.8001点，指标也创新低，底钝化条件不成立。\n推算失效：08/06 收盘不低于2908.7030点，MACD柱色改变或出现零柱，需重新判断。\n结构条件待08/06 收盘后更新。",
+    "asOfText": "历史回放 · 截至 08/05 收盘"
+  },
+  "refreshAfterMs": 60000
+}

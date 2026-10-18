@@ -1,0 +1,30 @@
+{
+  "status": "PENDING_DATA_COMPLETENESS",
+  "asOf": "2026-10-17T14:13:30.017576+08:00",
+  "object": "000001.SH",
+  "period": "day",
+  "dataset": "core_serving.index_factor_pro",
+  "earlierHistoryScope": "Before 2020; formal source keeps its actual earliest available date",
+  "actualSourceFirst": "2017-01-03",
+  "actualSourceLast": "2026-10-16",
+  "actualRows": 2078,
+  "expectedRows": 2374,
+  "missingCount": 296,
+  "missingByYear": {
+    "2018": 52,
+    "2019": 244
+  },
+  "firstMissing": "2018-10-18",
+  "lastMissing": "2019-12-31",
+  "snapshot": "daily_complete_diagnosis_141330.json",
+  "missingDatesCsv": "before_2020_missing_dates_141330.csv",
+  "resumeAfterUserNotification": true,
+  "automaticPolling": false,
+  "formalWrites": false,
+  "formalDailyAccepted": false,
+  "fourPeriodWholePageAccepted": false,
+  "todoId": "TODO-XXM-DAILY-PRE2020",
+  "title": "2020年以前日线及完整来源正式验收",
+  "todoState": "TODO",
+  "resumeGate": "WAIT_USER_DATA_COMPLETION_NOTICE"
+}

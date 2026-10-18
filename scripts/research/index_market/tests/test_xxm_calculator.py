@@ -91,8 +91,13 @@ def test_raw_two_pool_strongest_eligible_tie_and_nearest_price_gate():
 def test_turn_exact_threshold_zero_basis_mirror_and_independent_extremes():
     _, steps = run([(100, 200, 2), (99, 0, -2), (101, 90, 2), (102, 100, 2), (101, 99, 2)])
     assert steps[-1].events[0]["type"] == "STRUCTURE"  # exactly 1%
-    _, steps = run([(100, 10, 2), (99, 0, -2), (101, 0, 2), (102, 0, 2), (101, -1, 2)])
-    assert not steps[-1].events
+    _, steps = run([(100, 10, 2), (99, 0, -2), (101, 1, 2), (102, .5, 2), (103, 0, 2), (104, -1, 2)])
+    assert steps[3].events[0]["type"] == "DULL"
+    assert steps[4].events[0]["type"] == "STRUCTURE"
+    assert steps[-1].point['ordinaryState'] == 'STRUCTURE'
+    # Zero blocks the ordinary turn. Price 104 still breaks the independently
+    # frozen structure peak 103, so its historical event must not be swallowed.
+    assert [e['type'] for e in steps[-1].events] == ['RESEARCH_HISTORICAL_WITHDRAWAL']
     _, mirrored = run([(200 - c, -d, -h) for c, d, h in BASE])
     assert mirrored[-1].events[0]["direction"] == "BOTTOM"
     _, steps = run(BASE[:4] + [(105, 10, 2), (103, 9.8, 2)])
@@ -120,52 +125,13 @@ def test_resume_causality_identity_and_no_expiry():
 
 @pytest.mark.parametrize("gate", [0.75, 1.0, 1.2])
 def test_entire_frozen_ordinary_and_historical_baseline(gate):
-    series, manifest = load_frozen_inputs(ROOT)
-    source = (ROOT / "replay_color_flip.py").read_bytes()
-    assert hashlib.sha256(source).hexdigest() == "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba"
-    tree = ast.parse(source)
-    tree.body = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
-    namespace = {}
-    exec(compile(tree, str(ROOT / "replay_color_flip.py"), "exec"), namespace)
+    from scripts.research.index_market.xxm.frozen_inputs import assert_expected_recognition
+    series, _ = load_frozen_inputs(ROOT)
+    # Preserve the original independent source/oracle identity. New full-step
+    # expected files were locked before the parent calculator was modified.
+    assert hashlib.sha256((ROOT / "replay_color_flip.py").read_bytes()).hexdigest() == "f472817f85fa8b152501ad659a4afcefe8f903f5b19f8db6bb62403c6ce301ba"
     for freq, values in series.items():
-        calc = XxmCalculator(period=f"m{freq}", source_identity="frozen", spec=XxmSpec(dif_turn_pct=gate))
-        histories, events, steps = {}, [], []
-        for bar in values:
-            step = calc.step(bar); steps.append(step); events.extend(step.events)
-            histories.update({history["id"]: history for history in step.histories})
-        normalize = lambda stamp: stamp.replace("T", " ").removesuffix("+08:00")
-        old = namespace["replay"]([{"time": normalize(b.time), "close": b.close, "dif": b.dif, "hist": b.hist} for b in values],
-                                  gate, reference_policy="strongest_eligible", max_refs=2)
-        for current, expected in zip(steps, old, strict=True):
-            ordinary = next((e for e in current.events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL"), None)
-            if expected["wave_sign"] > 0:
-                assert current.point["ordinaryState"] == expected["state"]
-            if expected["event_direction"] != 1 and not (ordinary and ordinary["direction"] == "TOP"):
-                continue
-            assert (ordinary["type"] if ordinary else "NONE") == expected["event"]
-            if ordinary:
-                assert ordinary["route"] == expected["event_route"]
-                assert ordinary["direction"] == ("TOP" if expected["event_direction"] == 1 else "BOTTOM")
-                assert normalize(ordinary["eventReference"]["startTime"]) == expected["event_ref_start"]
-                assert ordinary["eventReference"]["dif"] == expected["event_ref_dif"]
-        # All BOTTOM differences are separately checked against the frozen A2
-        # research ledger by the product acceptance runner, including references.
-        by_anchor = {normalize(h["confirmedAt"]): h for h in histories.values()}
-        expected_episodes = [e for e in manifest["episodes"] if e["period"] == str(freq) and e["gate"] == gate and not e["require_dif"]]
-        assert set(by_anchor) == {e["anchor"] for e in expected_episodes}
-        for episode in expected_episodes:
-            actual = by_anchor[episode["anchor"]]
-            assert actual["pricePeak"] == episode["peak"]["close"]
-            assert actual["originalReference"]["dif"] == episode["old_ref"]
-            if episode["closure"]["reason"] == "input_end":
-                assert actual["status"] == "PENDING" and actual["endedAt"] is None
-            else:
-                reason = "historical_price_break" if episode["closure"]["reason"] == "diagnostic_withdrawal" else episode["closure"]["reason"]
-                assert actual["endReason"] == reason
-                assert normalize(actual["endedAt"]) == episode["closure"]["time"]
-        summary = next(s for s in manifest["summaries"] if s["period"] == str(freq) and s["gate"] == gate)
-        assert Counter(e["type"] for e in events if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL" and e["direction"] == "TOP") == Counter(e["event"] for e in old if e["event_direction"] == 1)
-        assert sum(e["type"] == "RESEARCH_HISTORICAL_WITHDRAWAL" and e["direction"] == "TOP" for e in events) == summary["primary_predictions"]
+        assert_expected_recognition(values, 'legacy', f'm{freq}', gate)
 
 # B-group: completed bottom structures keep a separate, frozen history record.
 BOTTOM = [(200-c, -d, -h) for c, d, h in BASE]
@@ -274,8 +240,9 @@ def test_bottom_period_identity_and_step_snapshot_continuation(period):
     child = XxmCalculator(period=period, source_identity='B-test'); child.restore(calc.snapshot())
     assert [child.step(b) for b in values[6:]] == [calc.step(b) for b in values[6:]]
     assert calc.snapshot() == child.snapshot()
-    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-a1'
-    assert calc.spec.spec_hash == 'f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712'
+    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-r2'
+    # Approved r1 version plus immutable prebreak_strongest_eligible_v1 policy.
+    assert calc.spec.spec_hash == '6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d'
 
 
 def test_new_top_structure_and_bottom_history_disappearance_are_independent_on_same_bar():
@@ -464,26 +431,7 @@ def test_rearm_period_specific_identity_restore_and_rewind(period):
 @pytest.mark.parametrize('gate',[.75,1.,1.2])
 def test_full_four_period_top_oracle_and_first_activation_are_preserved(gate):
     from scripts.research.index_market.xxm.acceptance import load_source
-    tree=ast.parse((ROOT/'replay_color_flip.py').read_bytes())
-    tree.body=[n for n in tree.body if isinstance(n,ast.FunctionDef)]
-    namespace={};exec(compile(tree,str(ROOT/'replay_color_flip.py'),'exec'),namespace)
+    from scripts.research.index_market.xxm.frozen_inputs import assert_expected_recognition
     source=ROOT.parent/'xxm_source_audit_20261013_213852'
     for period in ('day','m60','m90','m120'):
-        values=load_source(source,period)
-        old=namespace['replay']([dict(time=b.time,close=b.close,dif=b.dif,hist=b.hist) for b in values],
-                               gate,reference_policy='strongest_eligible',max_refs=2)
-        c=XxmCalculator(period=period,source_identity='full-top-oracle',spec=XxmSpec(dif_turn_pct=gate))
-        for bar,expected in zip(values,old,strict=True):
-            previous=c.snapshot();step=c.step(bar)
-            ordinary=next((e for e in step.events if e['direction']=='TOP' and e['type']!='RESEARCH_HISTORICAL_WITHDRAWAL'),None)
-            assert (ordinary['type'] if ordinary else 'NONE')==(expected['event'] if expected['event_direction']==1 else 'NONE')
-            if ordinary:
-                assert ordinary['route']==expected['event_route']
-                assert ordinary['eventReference']['startTime']==expected['event_ref_start']
-                assert ordinary['eventReference']['dif']==expected['event_ref_dif']
-                assert ordinary['eventReference']['price']==expected['event_ref_price']
-            if bar.hist>0:assert c.state==expected['state']
-            # The first activation branch retains the original price/pool rule.
-            # A genuine NONE+waiting is deliberately excluded from that branch.
-            if previous['state']=='NONE' and previous['pendingRearm'] is None and expected['event']=='DULL' and expected['event_route']=='activation':
-                assert any(e['type']=='DULL' and e['route']=='activation' for e in step.events)
+        assert_expected_recognition(load_source(source,period), 'source', period, gate)

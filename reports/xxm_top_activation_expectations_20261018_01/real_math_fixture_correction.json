@@ -1,0 +1,7 @@
+{
+  "failure": "New preparation test typed wrong color-flip coefficients (-751/1755, 3821407/35100).",
+  "source": "Sealed literal: D1=(28P-2206)/351; D2=(7588P+9828C-1565182)/123201; A1=-8/5+D1/5.",
+  "independentDerivation": "C<(A1-D2(P,0))/(28/351)=(-1004/1755)P+1516499/12285; P=100 gives 30137/455.",
+  "impact": "Only the new preparation test literal; no original fixture, source, or product changes.",
+  "productUsedToGenerateExpected": false
+}

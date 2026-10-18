@@ -65,6 +65,8 @@ class XxmCalculator:
         if reactivated is not None:
             event_type, route, direction, event_ref = "DULL", "reactivation", -1, reactivated
         if not event_type and not blocked:
+            if reactivated is None:
+                self._rescue_bottom_dull_reference(bar, old_wave, old_state)
             ref = self.reference
             if sign and ref is not None and sign * (wave.dif - ref.dif) > 0:
                 event_type, route, direction, event_ref = "CANCEL", "dif_break", sign, ref
@@ -87,16 +89,13 @@ class XxmCalculator:
                         event_type, route, self.state = "DULL", "dif_return", "DULL"
                 if event_type:
                     direction, event_ref = sign, ref
-            elif sign and wave.count >= self.spec.min_bars and self.history[sign]:
-                pool = list(reversed(self.history[sign]))
-                if sign * (wave.price - pool[0].price) > 0:
-                    pool.sort(key=lambda candidate: sign * candidate.dif, reverse=True)
-                    for candidate in pool:
-                        if sign * (wave.price - candidate.price) > 0 and sign * (wave.dif - candidate.dif) < 0:
-                            self.reference = deepcopy(candidate)
-                            event_type, route, direction, event_ref = "DULL", "activation", sign, self.reference
-                            self.state = "DULL"
-                            break
+            elif (sign and wave.count >= self.spec.min_bars and self.history[sign]
+                  and (sign != 1 or bar.dif > 0)):
+                candidate = self._select_eligible_reference(wave, self.history[sign])
+                if candidate is not None:
+                    self.reference = deepcopy(candidate)
+                    event_type, route, direction, event_ref = "DULL", "activation", sign, self.reference
+                    self.state = "DULL"
         events: list[dict[str, Any]] = []
         if event_type:
             events.append({"id": self._id(bar.time, event_type, direction, event_ref.start if event_ref else ""), "time": bar.time,
@@ -158,6 +157,28 @@ class XxmCalculator:
         self.previous = bar
         self.processed += 1
         return XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories), rearm_records)
+
+    def _select_eligible_reference(self, wave: Wave, history: list[Wave]) -> Wave | None:
+        if not history or wave.count < self.spec.min_bars:
+            return None
+        sign = wave.sign
+        pool = list(reversed(history))
+        if sign * (wave.price - pool[0].price) <= 0:
+            return None
+        pool.sort(key=lambda candidate: sign * candidate.dif, reverse=True)
+        return next((candidate for candidate in pool
+                     if sign * (wave.price - candidate.price) > 0
+                     and sign * (wave.dif - candidate.dif) < 0), None)
+
+    def _rescue_bottom_dull_reference(self, bar: XxmBar, old_wave: Wave | None, old_state: str) -> None:
+        wave, ref = self.wave, self.reference
+        if (old_state != 'DULL' or self.state != 'DULL' or wave is None or wave is not old_wave
+                or wave.sign != -1 or bar.hist >= 0 or ref is None or self.pending_rearm is not None
+                or wave.dif >= ref.dif):
+            return
+        candidate = self._select_eligible_reference(wave, self.history[-1])
+        if candidate is not None:
+            self.reference = deepcopy(candidate)
 
     def snapshot(self) -> dict[str, Any]:
         return {"specHash": self.spec.spec_hash, "tsCode": self.ts_code, "period": self.period, "sourceIdentity": self.source_identity,

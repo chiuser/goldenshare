@@ -1,0 +1,590 @@
+[
+  {
+    "period": "m60",
+    "time": "2023-03-30T11:30:00+08:00",
+    "bar": {
+      "time": "2023-03-30T11:30:00+08:00",
+      "close": 3232.388,
+      "dif": -5.925762883077368,
+      "dea": -4.0336536261251075,
+      "hist": -3.7842185139045217,
+      "completed": true
+    },
+    "wait": {
+      "id": "c8c2aab47baeec930cb63f5b",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "03e1030c50af724b3961f634",
+      "structureEventId": "243089e8feafb654c943ca9a",
+      "structureConfirmedAt": "2023-03-28T14:00:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2023-03-27T10:30:00+08:00",
+      "nearestPriceGate": 3234.91,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2023-03-20T15:00:00+08:00",
+        "end": "2023-03-21T14:00:00+08:00",
+        "count": 4,
+        "price": 3234.91,
+        "dif": -5.962610216716257,
+        "price_at": "2023-03-20T15:00:00+08:00",
+        "dif_at": "2023-03-21T11:30:00+08:00"
+      },
+      "disappearedAt": "2023-03-28T15:00:00+08:00",
+      "observedThrough": "2023-03-30T10:30:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2023-03-28T14:00:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2023-03-27T10:30:00+08:00",
+        "end": "2023-03-28T14:00:00+08:00",
+        "count": 7,
+        "price": 3231.275,
+        "dif": -2.391354919011519,
+        "price_at": "2023-03-27T11:30:00+08:00",
+        "dif_at": "2023-03-28T11:30:00+08:00"
+      },
+      "bar": {
+        "time": "2023-03-28T14:00:00+08:00",
+        "close": 3255.195,
+        "dif": -2.199404931292065,
+        "dea": -0.9598489744805174,
+        "hist": -2.4791119136230955,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2023-03-27T10:30:00+08:00",
+      "end": "2023-03-30T11:30:00+08:00",
+      "count": 14,
+      "price": 3231.275,
+      "dif": -5.925762883077368,
+      "price_at": "2023-03-27T11:30:00+08:00",
+      "dif_at": "2023-03-30T11:30:00+08:00"
+    },
+    "barsAfterDisappearance": 6,
+    "margins": {
+      "priceGap": 2.5219999999999345,
+      "difGap": 0.03684733363888881,
+      "belowOriginClose": false,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": true,
+      "originCloseGap": -1.112999999999829,
+      "originDifGap": -3.5344079640658492,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m90",
+    "time": "2025-12-15T15:00:00+08:00",
+    "bar": {
+      "time": "2025-12-15T15:00:00+08:00",
+      "close": 3867.921,
+      "dif": -5.1276345043547735,
+      "dea": -3.168380819969654,
+      "hist": -3.918507368770239,
+      "completed": true
+    },
+    "wait": {
+      "id": "0f44c4a4a112ea33c26d6cbb",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "c921e0375c87864b8ed5a48b",
+      "structureEventId": "a9510e13f95d7016180bf483",
+      "structureConfirmedAt": "2025-12-12T14:00:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2025-12-10T14:00:00+08:00",
+      "nearestPriceGate": 3873.8203,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2025-12-05T11:00:00+08:00",
+        "end": "2025-12-05T11:00:00+08:00",
+        "count": 1,
+        "price": 3873.8203,
+        "dif": -7.239400383468819,
+        "price_at": "2025-12-05T11:00:00+08:00",
+        "dif_at": "2025-12-05T11:00:00+08:00"
+      },
+      "disappearedAt": "2025-12-15T14:00:00+08:00",
+      "observedThrough": "2025-12-15T14:00:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2025-12-12T14:00:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2025-12-10T14:00:00+08:00",
+        "end": "2025-12-12T14:00:00+08:00",
+        "count": 7,
+        "price": 3870.6157,
+        "dif": -4.751109750833621,
+        "price_at": "2025-12-12T11:00:00+08:00",
+        "dif_at": "2025-12-12T11:00:00+08:00"
+      },
+      "bar": {
+        "time": "2025-12-12T14:00:00+08:00",
+        "close": 3888.4895,
+        "dif": -4.388280320458762,
+        "dea": -1.6612579583980684,
+        "hist": -5.4540447241213865,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2025-12-10T14:00:00+08:00",
+      "end": "2025-12-15T15:00:00+08:00",
+      "count": 11,
+      "price": 3867.921,
+      "dif": -5.1276345043547735,
+      "price_at": "2025-12-15T15:00:00+08:00",
+      "dif_at": "2025-12-15T15:00:00+08:00"
+    },
+    "barsAfterDisappearance": 1,
+    "margins": {
+      "priceGap": 5.899300000000039,
+      "difGap": 2.1117658791140457,
+      "belowOriginClose": true,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": false,
+      "originCloseGap": 2.6947000000000116,
+      "originDifGap": -0.3765247535211529,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2010-06-07T11:30:00+08:00",
+    "bar": {
+      "time": "2010-06-07T11:30:00+08:00",
+      "close": 2500.306,
+      "dif": -34.798556484574874,
+      "dea": -30.30682875227077,
+      "hist": -8.983455464608205,
+      "completed": true
+    },
+    "wait": {
+      "id": "f6dfa92052318a11f2e2042c",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "dceb9237b4c0a974df6f1cd5",
+      "structureEventId": "ba8e199df319f19a93386124",
+      "structureConfirmedAt": "2010-06-03T11:30:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2010-06-02T11:30:00+08:00",
+      "nearestPriceGate": 2539.196,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2010-04-08T11:30:00+08:00",
+        "end": "2010-05-13T11:30:00+08:00",
+        "count": 49,
+        "price": 2622.667,
+        "dif": -88.60545622384643,
+        "price_at": "2010-05-12T11:30:00+08:00",
+        "dif_at": "2010-05-12T11:30:00+08:00"
+      },
+      "disappearedAt": "2010-06-03T15:00:00+08:00",
+      "observedThrough": "2010-06-04T15:00:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2010-06-03T11:30:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2010-06-02T11:30:00+08:00",
+        "end": "2010-06-03T11:30:00+08:00",
+        "count": 3,
+        "price": 2527.475,
+        "dif": -30.092155665561677,
+        "price_at": "2010-06-02T11:30:00+08:00",
+        "dif_at": "2010-06-02T15:00:00+08:00"
+      },
+      "bar": {
+        "time": "2010-06-03T11:30:00+08:00",
+        "close": 2587.47,
+        "dif": -28.601157125733152,
+        "dea": -27.823040613755587,
+        "hist": -1.55623302395513,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2010-06-02T11:30:00+08:00",
+      "end": "2010-06-07T11:30:00+08:00",
+      "count": 7,
+      "price": 2500.306,
+      "dif": -34.798556484574874,
+      "price_at": "2010-06-07T11:30:00+08:00",
+      "dif_at": "2010-06-07T11:30:00+08:00"
+    },
+    "barsAfterDisappearance": 3,
+    "margins": {
+      "priceGap": 38.88999999999987,
+      "difGap": 53.80689973927156,
+      "belowOriginClose": true,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": true,
+      "originCloseGap": 27.16899999999987,
+      "originDifGap": -4.706400819013197,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2012-08-23T11:30:00+08:00",
+    "bar": {
+      "time": "2012-08-23T11:30:00+08:00",
+      "close": 2103.967,
+      "dif": -10.208050961148729,
+      "dea": -8.868788089759063,
+      "hist": -2.678525742779332,
+      "completed": true
+    },
+    "wait": {
+      "id": "d8504112ce83482bb03b57ad",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "9486f0d5bd648c4794c88c0d",
+      "structureEventId": "f0cc5f539dfb90ff749555b9",
+      "structureConfirmedAt": "2012-08-21T11:30:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2012-08-14T11:30:00+08:00",
+      "nearestPriceGate": 2104.067,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2012-07-09T15:00:00+08:00",
+        "end": "2012-07-12T11:30:00+08:00",
+        "count": 6,
+        "price": 2159.332,
+        "dif": -25.317468786516656,
+        "price_at": "2012-07-10T11:30:00+08:00",
+        "dif_at": "2012-07-11T11:30:00+08:00"
+      },
+      "disappearedAt": "2012-08-22T15:00:00+08:00",
+      "observedThrough": "2012-08-22T15:00:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2012-08-21T11:30:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2012-08-14T11:30:00+08:00",
+        "end": "2012-08-21T11:30:00+08:00",
+        "count": 11,
+        "price": 2096.464,
+        "dif": -11.008879874818376,
+        "price_at": "2012-08-20T11:30:00+08:00",
+        "dif_at": "2012-08-20T15:00:00+08:00"
+      },
+      "bar": {
+        "time": "2012-08-21T11:30:00+08:00",
+        "close": 2119.719,
+        "dif": -10.247818177698264,
+        "dea": -7.370584815343289,
+        "hist": -5.75446672470995,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2012-08-14T11:30:00+08:00",
+      "end": "2012-08-23T11:30:00+08:00",
+      "count": 15,
+      "price": 2096.464,
+      "dif": -11.008879874818376,
+      "price_at": "2012-08-20T11:30:00+08:00",
+      "dif_at": "2012-08-20T15:00:00+08:00"
+    },
+    "barsAfterDisappearance": 1,
+    "margins": {
+      "priceGap": 0.09999999999990905,
+      "difGap": 14.30858891169828,
+      "belowOriginClose": false,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": false,
+      "originCloseGap": -7.503000000000156,
+      "originDifGap": 0.0,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2021-11-02T11:30:00+08:00",
+    "bar": {
+      "time": "2021-11-02T11:30:00+08:00",
+      "close": 3522.329,
+      "dif": -14.05432834992871,
+      "dea": -9.251788003488853,
+      "hist": -9.605080692879714,
+      "completed": true
+    },
+    "wait": {
+      "id": "be1e0bea3337ddaf7296d4dd",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "0b9e818d3601796e132c6f85",
+      "structureEventId": "9ddc782218deeafed736f0f6",
+      "structureConfirmedAt": "2021-11-01T11:30:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2021-10-27T15:00:00+08:00",
+      "nearestPriceGate": 3534.431,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2021-09-14T15:00:00+08:00",
+        "end": "2021-10-11T11:30:00+08:00",
+        "count": 24,
+        "price": 3536.294,
+        "dif": -18.348141633526666,
+        "price_at": "2021-09-29T15:00:00+08:00",
+        "dif_at": "2021-09-30T11:30:00+08:00"
+      },
+      "disappearedAt": "2021-11-01T15:00:00+08:00",
+      "observedThrough": "2021-11-01T15:00:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2021-11-01T11:30:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2021-10-27T15:00:00+08:00",
+        "end": "2021-11-01T11:30:00+08:00",
+        "count": 6,
+        "price": 3518.417,
+        "dif": -12.31358004727008,
+        "price_at": "2021-10-28T15:00:00+08:00",
+        "dif_at": "2021-10-29T15:00:00+08:00"
+      },
+      "bar": {
+        "time": "2021-11-01T11:30:00+08:00",
+        "close": 3549.928,
+        "dif": -12.14070436296106,
+        "dea": -6.98856536207972,
+        "hist": -10.304278001762679,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2021-10-27T15:00:00+08:00",
+      "end": "2021-11-02T11:30:00+08:00",
+      "count": 8,
+      "price": 3518.417,
+      "dif": -14.05432834992871,
+      "price_at": "2021-10-28T15:00:00+08:00",
+      "dif_at": "2021-11-02T11:30:00+08:00"
+    },
+    "barsAfterDisappearance": 1,
+    "margins": {
+      "priceGap": 12.101999999999862,
+      "difGap": 4.293813283597956,
+      "belowOriginClose": false,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": false,
+      "originCloseGap": -3.912000000000262,
+      "originDifGap": -1.7407483026586306,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2023-05-23T15:00:00+08:00",
+    "bar": {
+      "time": "2023-05-23T15:00:00+08:00",
+      "close": 3246.238,
+      "dif": -11.90836860185027,
+      "dea": -8.574227471533593,
+      "hist": -6.6682822606333545,
+      "completed": true
+    },
+    "wait": {
+      "id": "6fe272e2d0712d8d601c8454",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "a479b4ee09e15a8a4a6452ae",
+      "structureEventId": "7a20cde09dfdab8507e685b1",
+      "structureConfirmedAt": "2023-05-15T15:00:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2023-05-11T11:30:00+08:00",
+      "nearestPriceGate": 3254.691,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2023-04-20T15:00:00+08:00",
+        "end": "2023-04-28T15:00:00+08:00",
+        "count": 13,
+        "price": 3254.691,
+        "dif": -14.470666254701428,
+        "price_at": "2023-04-26T11:30:00+08:00",
+        "dif_at": "2023-04-27T11:30:00+08:00"
+      },
+      "disappearedAt": "2023-05-16T15:00:00+08:00",
+      "observedThrough": "2023-05-23T11:30:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2023-05-15T15:00:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2023-05-11T11:30:00+08:00",
+        "end": "2023-05-15T15:00:00+08:00",
+        "count": 6,
+        "price": 3241.5752,
+        "dif": -9.474134353305544,
+        "price_at": "2023-05-15T11:30:00+08:00",
+        "dif_at": "2023-05-15T11:30:00+08:00"
+      },
+      "bar": {
+        "time": "2023-05-15T15:00:00+08:00",
+        "close": 3310.7368,
+        "dif": -8.447462588059352,
+        "dea": -0.5847514025459305,
+        "hist": -15.725422371026843,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2023-05-11T11:30:00+08:00",
+      "end": "2023-05-23T15:00:00+08:00",
+      "count": 18,
+      "price": 3241.5752,
+      "dif": -11.90836860185027,
+      "price_at": "2023-05-15T11:30:00+08:00",
+      "dif_at": "2023-05-23T15:00:00+08:00"
+    },
+    "barsAfterDisappearance": 10,
+    "margins": {
+      "priceGap": 8.452999999999975,
+      "difGap": 2.562297652851157,
+      "belowOriginClose": false,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": true,
+      "originCloseGap": -4.662799999999606,
+      "originDifGap": -2.434234248544726,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  },
+  {
+    "period": "m120",
+    "time": "2026-07-13T11:30:00+08:00",
+    "bar": {
+      "time": "2026-07-13T11:30:00+08:00",
+      "close": 3934.74,
+      "dif": -24.336275904198374,
+      "dea": -18.397481153832675,
+      "hist": -11.877589500731396,
+      "completed": true
+    },
+    "wait": {
+      "id": "13980fb3912d158db0d17388",
+      "direction": "BOTTOM",
+      "bottomHistoryId": "1674f1e64981910f6f1f506d",
+      "structureEventId": "5eff9c29f382839ee5d55510",
+      "structureConfirmedAt": "2026-07-09T15:00:00+08:00",
+      "structureRoute": "dif_turn",
+      "segmentStart": "2026-07-02T15:00:00+08:00",
+      "nearestPriceGate": 4027.265,
+      "referenceWave": {
+        "sign": -1,
+        "start": "2026-05-14T15:00:00+08:00",
+        "end": "2026-06-11T15:00:00+08:00",
+        "count": 41,
+        "price": 3959.338,
+        "dif": -35.908539098328674,
+        "price_at": "2026-06-08T15:00:00+08:00",
+        "dif_at": "2026-06-11T11:30:00+08:00"
+      },
+      "disappearedAt": "2026-07-10T15:00:00+08:00",
+      "observedThrough": "2026-07-10T15:00:00+08:00",
+      "status": "WAITING",
+      "endedAt": null,
+      "endReason": null
+    },
+    "origin": {
+      "time": "2026-07-09T15:00:00+08:00",
+      "wave": {
+        "sign": -1,
+        "start": "2026-07-02T15:00:00+08:00",
+        "end": "2026-07-09T15:00:00+08:00",
+        "count": 11,
+        "price": 3952.4917,
+        "dif": -26.57923234618238,
+        "price_at": "2026-07-09T11:30:00+08:00",
+        "dif_at": "2026-07-09T11:30:00+08:00"
+      },
+      "bar": {
+        "time": "2026-07-09T15:00:00+08:00",
+        "close": 4036.588,
+        "dif": -23.03476305462891,
+        "dea": -16.1811163365008,
+        "hist": -13.707293436256222,
+        "completed": true
+      }
+    },
+    "segment": {
+      "sign": -1,
+      "start": "2026-07-02T15:00:00+08:00",
+      "end": "2026-07-13T11:30:00+08:00",
+      "count": 14,
+      "price": 3934.74,
+      "dif": -26.57923234618238,
+      "price_at": "2026-07-13T11:30:00+08:00",
+      "dif_at": "2026-07-09T11:30:00+08:00"
+    },
+    "barsAfterDisappearance": 1,
+    "margins": {
+      "priceGap": 24.59800000000041,
+      "difGap": 9.329306752146294,
+      "belowOriginClose": true,
+      "aboveOriginDif": false,
+      "atLeastTwoFollowingBars": false,
+      "originCloseGap": 17.751700000000255,
+      "originDifGap": 0.0,
+      "displayRoundingOnly": {
+        "priceUnit": 0.01,
+        "difUnit": 0.001,
+        "priceComparisonStable": true,
+        "difComparisonStable": true
+      }
+    }
+  }
+]

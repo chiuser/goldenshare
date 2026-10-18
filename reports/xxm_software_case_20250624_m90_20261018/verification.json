@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "protectedFiles": 6,
+  "imageIdentical": true,
+  "boundedSourceRows": 6,
+  "readouts": 4,
+  "closeMatches": true,
+  "threeIndicatorDisplaysDiffer": true,
+  "variantsSame": true,
+  "localLinks": 463,
+  "coreTableLast": true,
+  "productCodeChanged": false
+}

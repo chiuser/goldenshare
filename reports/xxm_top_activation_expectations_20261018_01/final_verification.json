@@ -1,0 +1,20 @@
+{
+  "status": "PASS_EXPECTATION_PREPARATION_ONLY",
+  "readbackUnits": 24,
+  "fullRowsVerified": 133653,
+  "independentVersionedIds": 11293,
+  "compressedBytes": 13762847,
+  "protectedFiles": 61,
+  "sourceFiles": 36,
+  "syntheticCases": 96,
+  "syntheticSteps": 456,
+  "restoreRows": 2400,
+  "retainedRealForecasts": 693,
+  "changedRealForecasts": 522,
+  "independentNoEntry": 219,
+  "independentSecondEndpoint": 303,
+  "originalFilesUnchanged": true,
+  "productStillR1": true,
+  "newProductOrApiAccepted": false,
+  "seconds": 2.588605500292033
+}

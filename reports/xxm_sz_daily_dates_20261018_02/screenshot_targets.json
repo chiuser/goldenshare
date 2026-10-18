@@ -1,0 +1,666 @@
+{
+  "independentCases": 2,
+  "observationDates": [
+    {
+      "date": "2026-03-12",
+      "ts_code": "399006.SZ",
+      "period": "day",
+      "priority": "最优先",
+      "independentFirstCandidate": true,
+      "caseDate": "2026-03-12",
+      "modelPrediction": "当根DIF条件：不报；历史DIF条件：首次钝化",
+      "lookFor": "末端是否有黄色钝化，DIF是否为负且约-1.841。",
+      "limitations": "模型用原段3/11最高收盘判断价资格；3/12当根收盘低于该历史参照，软件若有额外当根价格要求也会影响，不能仅凭无标记证明唯一公式。",
+      "bar": {
+        "time": "2026-03-12",
+        "close": 3317.5225,
+        "dif": -1.841,
+        "dea": -6.057,
+        "hist": 8.431,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-03-11",
+        "end": "2026-03-12",
+        "count": 2,
+        "price": 3349.5287,
+        "dif": -1.841,
+        "price_at": "2026-03-11",
+        "dif_at": "2026-03-12"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2025-12-04",
+          "end": "2026-01-19",
+          "count": 31,
+          "price": 3388.3407,
+          "dif": 58.457,
+          "price_at": "2026-01-12",
+          "dif_at": "2026-01-15"
+        },
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-02-26",
+          "count": 1,
+          "price": 3344.9823,
+          "dif": 12.38,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-02-26"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-02-26",
+              "price": 3344.9823,
+              "dif": 12.38
+            }
+          },
+          "events": [
+            {
+              "time": "2026-03-12",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-02-26",
+                "price": 3344.9823,
+                "dif": 12.38
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-02-26",
+              "price": 3344.9823,
+              "dif": 12.38
+            }
+          },
+          "events": [
+            {
+              "time": "2026-03-12",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-02-26",
+                "price": 3344.9823,
+                "dif": 12.38
+              }
+            }
+          ]
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2026-03-13",
+      "ts_code": "399006.SZ",
+      "period": "day",
+      "priority": "配对",
+      "independentFirstCandidate": false,
+      "caseDate": "2026-03-12",
+      "modelPrediction": "当根条件当天首次钝化；历史条件前一天已钝化",
+      "lookFor": "首次黄字落在12日还是13日，最好与12日当日图成对。",
+      "limitations": "只确认13日有钝化不足区分，两者当日普通状态均为DULL。",
+      "bar": {
+        "time": "2026-03-13",
+        "close": 3310.2779,
+        "dif": 0.61,
+        "dea": -4.724,
+        "hist": 10.666,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-03-11",
+        "end": "2026-03-13",
+        "count": 3,
+        "price": 3349.5287,
+        "dif": 0.61,
+        "price_at": "2026-03-11",
+        "dif_at": "2026-03-13"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2025-12-04",
+          "end": "2026-01-19",
+          "count": 31,
+          "price": 3388.3407,
+          "dif": 58.457,
+          "price_at": "2026-01-12",
+          "dif_at": "2026-01-15"
+        },
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-02-26",
+          "count": 1,
+          "price": 3344.9823,
+          "dif": 12.38,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-02-26"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-02-26",
+              "price": 3344.9823,
+              "dif": 12.38
+            }
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-02-26",
+              "price": 3344.9823,
+              "dif": 12.38
+            }
+          },
+          "events": [
+            {
+              "time": "2026-03-13",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-02-26",
+                "price": 3344.9823,
+                "dif": 12.38
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-02-26",
+              "price": 3344.9823,
+              "dif": 12.38
+            }
+          },
+          "events": []
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2026-04-13",
+      "ts_code": "399001.SZ",
+      "period": "day",
+      "priority": "独立第二案例",
+      "independentFirstCandidate": true,
+      "caseDate": "2026-04-13",
+      "modelPrediction": "当根条件：不报；历史条件：首次钝化",
+      "lookFor": "末端是否有黄色钝化，同时核软件DIF符号与具体数值。",
+      "limitations": "模型DIF-0.002太近0；软件若实际为正或符号看不清，本日不能用于DIF二选一。",
+      "bar": {
+        "time": "2026-04-13",
+        "close": 14407.8639,
+        "dif": -0.002,
+        "dea": -93.651,
+        "hist": 187.298,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-13",
+        "count": 4,
+        "price": 14407.8639,
+        "dif": -0.002,
+        "price_at": "2026-04-13",
+        "dif_at": "2026-04-13"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-13",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-13",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2026-04-14",
+      "ts_code": "399001.SZ",
+      "period": "day",
+      "priority": "配对",
+      "independentFirstCandidate": false,
+      "caseDate": "2026-04-13",
+      "modelPrediction": "当根条件当日首次钝化，选2/26—3/2；历史条件13日已钝化，锁3/12",
+      "lookFor": "黄字首次落在13日还是14日；保留前一根和指标读数。",
+      "limitations": "只看末端有钝化不够；两者当日都有钝化但锁定参照不同。",
+      "bar": {
+        "time": "2026-04-14",
+        "close": 14639.9522,
+        "dif": 57.843,
+        "dea": -63.352,
+        "hist": 242.391,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-14",
+        "count": 5,
+        "price": 14639.9522,
+        "dif": 57.843,
+        "price_at": "2026-04-14",
+        "dif_at": "2026-04-14"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-03-02",
+              "price": 14503.7865,
+              "dif": 124.162
+            }
+          },
+          "events": [
+            {
+              "time": "2026-04-14",
+              "direction": "TOP",
+              "type": "DULL",
+              "route": "activation",
+              "fromState": "NONE",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-03-02",
+                "price": 14503.7865,
+                "dif": 124.162
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-03-12",
+              "endTime": "2026-03-12",
+              "price": 14374.8711,
+              "dif": 59.454
+            }
+          },
+          "events": []
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2026-04-15",
+      "ts_code": "399001.SZ",
+      "period": "day",
+      "priority": "优先备用",
+      "independentFirstCandidate": false,
+      "caseDate": "2026-04-13",
+      "modelPrediction": "当根条件：仍钝化；历史条件：取消",
+      "lookFor": "末端是否出现绿色消失，还是仍保持钝化；配13／14或16日更好。",
+      "limitations": "此处是前两日首次时机和锁参照差别的后果；其他参照选择规则也可能影响，单图不能证明唯一公式。",
+      "bar": {
+        "time": "2026-04-15",
+        "close": 14498.4546,
+        "dif": 91.217,
+        "dea": -32.439,
+        "hist": 247.311,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-15",
+        "count": 6,
+        "price": 14639.9522,
+        "dif": 91.217,
+        "price_at": "2026-04-14",
+        "dif_at": "2026-04-15"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-15",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "DULL",
+            "ordinaryDirection": "TOP",
+            "activeReference": {
+              "startTime": "2026-02-26",
+              "endTime": "2026-03-02",
+              "price": 14503.7865,
+              "dif": 124.162
+            }
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-15",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-03-12",
+                "endTime": "2026-03-12",
+                "price": 14374.8711,
+                "dif": 59.454
+              }
+            }
+          ]
+        }
+      },
+      "softwareVerified": false
+    },
+    {
+      "date": "2026-04-16",
+      "ts_code": "399001.SZ",
+      "period": "day",
+      "priority": "配对",
+      "independentFirstCandidate": false,
+      "caseDate": "2026-04-13",
+      "modelPrediction": "当根条件当天取消；历史条件15日已取消",
+      "lookFor": "绿色消失在15日还是16日，最好与15日当日图配对。",
+      "limitations": "仅确认16日已没有钝化不能区分；须看消失发生位置／前一日图。",
+      "bar": {
+        "time": "2026-04-16",
+        "close": 14796.3345,
+        "dif": 140.087,
+        "dea": 2.067,
+        "hist": 276.041,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2026-04-08",
+        "end": "2026-04-16",
+        "count": 7,
+        "price": 14796.3345,
+        "dif": 140.087,
+        "price_at": "2026-04-16",
+        "dif_at": "2026-04-16"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2026-02-26",
+          "end": "2026-03-02",
+          "count": 3,
+          "price": 14503.7865,
+          "dif": 124.162,
+          "price_at": "2026-02-26",
+          "dif_at": "2026-03-02"
+        },
+        {
+          "sign": 1,
+          "start": "2026-03-12",
+          "end": "2026-03-12",
+          "count": 1,
+          "price": 14374.8711,
+          "dif": 59.454,
+          "price_at": "2026-03-12",
+          "dif_at": "2026-03-12"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": [
+            {
+              "time": "2026-04-16",
+              "direction": "TOP",
+              "type": "CANCEL",
+              "route": "dif_break",
+              "fromState": "DULL",
+              "eventReference": {
+                "startTime": "2026-02-26",
+                "endTime": "2026-03-02",
+                "price": 14503.7865,
+                "dif": 124.162
+              }
+            }
+          ]
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      },
+      "softwareVerified": false
+    }
+  ],
+  "priorityOrder": [
+    "399006.SZ:2026-03-12",
+    "399001.SZ:2026-04-15",
+    "399001.SZ:2026-04-13",
+    "399006.SZ:2026-03-13",
+    "399001.SZ:2026-04-14",
+    "399001.SZ:2026-04-16"
+  ],
+  "unavailable50SepDatesNotRequestedAgain": true,
+  "allDailyNoMinuteScreenshotsNeeded": true,
+  "fallbackMinuteSearchActivated": false,
+  "fallbackInventoryOnly": true
+}

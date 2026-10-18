@@ -1,0 +1,45 @@
+{
+  "status": "COMPLETE_BOUNDED_RESEARCH",
+  "readonly": true,
+  "counts": [
+    {
+      "ts_code": "399001.SZ",
+      "rows": 1132,
+      "first_date": "2020-01-02",
+      "last_date": "2024-08-30",
+      "missing_values": 0
+    },
+    {
+      "ts_code": "399006.SZ",
+      "rows": 1132,
+      "first_date": "2020-01-02",
+      "last_date": "2024-08-30",
+      "missing_values": 0
+    }
+  ],
+  "sampleRows": 4,
+  "calendarMissing": false,
+  "formalCaptureCompleted": true,
+  "newExperimentRun": true,
+  "newCandidates": 0,
+  "existingSelectorTestsPassed": 12,
+  "productCodeChanged": false,
+  "codegraph": [
+    "query ReferenceGateCalculator",
+    "impact ReferenceGateCalculator"
+  ],
+  "protectedFiles": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+    "scripts/research/index_market/xxm/top_daily_ambiguity.py": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d",
+    "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py": "be83fb63636eac32fa3c93345792890f40e04f447586cfe0ad94bf1b49520d10",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZC.json": "185c446bd69e4970437a17987d3cd74c89716ec6fdf1d00372a82d7efaff6d04",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZR.json": "7c0dca7e6372262ea126df51261cd83714df1ed58890398455ad3d849f6c95c6",
+    "reports/xxm_software_case_20240924_25_day_20261018/case.json": "50c79f8a092123bd921faf6ee3d4f0fd7ecf4d49a58df58438a3cb4511709a46"
+  },
+  "initialSzseCalendarMissing": true,
+  "sharedCalendarConfirmed": true,
+  "newInputTestsPassed": 21,
+  "protectedUnchanged": true
+}

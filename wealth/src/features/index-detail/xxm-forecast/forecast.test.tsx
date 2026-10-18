@@ -1,3 +1,5 @@
+import { XXM_SPEC_HASH } from "../xxm/types";
+import { XXM_FORECAST_VERSION, XXM_FORECAST_SPEC_HASH } from "./types";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
@@ -10,9 +12,9 @@ import { FORECAST_PERIODS, type ForecastPeriod, type ForecastResponse, type Fore
 vi.mock("./apiClient", () => ({ fetchForecast: vi.fn() }));
 const mocked = vi.mocked(fetchForecast);
 function response(period: ForecastPeriod, asOf?: string): ForecastResponse {
-  return { tsCode:"000001.SH",period,forecastVersion:"xxm-key-point-forecast-v0.2-a1",forecastSpecHash:"a".repeat(64),detectorSpecHash:"b".repeat(64),
+  return { tsCode:"000001.SH",period,forecastVersion:XXM_FORECAST_VERSION,forecastSpecHash:XXM_FORECAST_SPEC_HASH,detectorSpecHash:XXM_SPEC_HASH,
     sourceInputId:"c".repeat(64),calendarInputId:"d".repeat(64),computedThrough:asOf??(period==="day"?"2026-10-13":"2026-10-13T15:00:00+08:00"),requestedAsOf:asOf??null,
-    mode:asOf?"REPLAY":"LATEST",dataStatus:"READY",rearmContext: null, ordinaryState:"NONE",direction:"BOTTOM",status:"NO_CANDIDATE",reasonCode:"NO_ENTRY_RANGE",precisionPolicy:period==="day"?"rounded3_guarded":"full_float",
+    mode:asOf?"REPLAY":"LATEST",dataStatus:"READY",rearmContext: null, nextBarOutcomes: null, ordinaryState:"NONE",direction:"BOTTOM",status:"NO_CANDIDATE",reasonCode:"NO_ENTRY_RANGE",precisionPolicy:period==="day"?"rounded3_guarded":"full_float",
     forecastId:"f".repeat(64),targetEndpoint:null,barsAhead:null,activation:null,assumption:null,targetEntryRanges:[],targetEntryExclusions:[],relations:[],commonConditions:[],examples:[],applicabilityText:"",invalidationText:"",confirmedAt:null,confirmedDirection:null,refreshAfterMs:60000,
     display:{statusLabel:"暂无候选",targetText:"暂无有效候选时点",conditionsText:"当前参考情景内暂无时点。",asOfText:"截至10/13"}};
 }
@@ -127,7 +129,7 @@ it("renders current real producer copy for four periods without dropping protect
   {
     const indexes={day:5,m60:6,m90:7,m120:8};
     const rows=Object.fromEntries(FORECAST_PERIODS.map(period=>{
-      const file=resolve(process.cwd(),"../reports/xxm_same_segment_a1_implementation_20261016/api",`api_forecast_${indexes[period]}_${period}.json`);
+      const file=resolve(process.cwd(),"../reports/xxm_top_activation_r2_implementation_20261019/api",`api_forecast_${indexes[period]}_${period}.json`);
       const value=JSON.parse(readFileSync(file,"utf8")) as ForecastResponse;
       const adapted=adaptForecast(value,period,value.requestedAsOf??undefined);
       expect(adapted).toBe(value);

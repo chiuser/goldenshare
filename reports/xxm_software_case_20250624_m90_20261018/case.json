@@ -1,0 +1,235 @@
+{
+  "date": "2026-10-18",
+  "softwareDate": "2025-06-24",
+  "period": "m90",
+  "tsCode": "000001.SH",
+  "sourceImage": {
+    "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-069b0bd4-ffb7-4593-97b8-f1e3eed8b281.png",
+    "archivedPath": "reports/xxm_software_case_20250624_m90_20261018/20250624_m90_original.png",
+    "sha256": "2a36263796bbaa488287d5a0752fe674a1743a2dd66672006cc388c60b1d8357",
+    "identicalBytes": true
+  },
+  "softwareObservation": {
+    "yellowDullnessVisible": true,
+    "greenDisappearanceVisible": true,
+    "greenExactMeaningConfirmed": false,
+    "firstYellowTimeConfirmed": false,
+    "greenTimeConfirmed": false,
+    "closingDullnessMatchesCurrentModel": true
+  },
+  "readouts": [
+    {
+      "field": "close",
+      "softwareDisplay": "3420.57",
+      "sourceValue": "3420.566",
+      "sourceAtSameDisplayPlaces": "3420.57",
+      "softwareMinusSource": "0.004",
+      "sameDisplay": true
+    },
+    {
+      "field": "macd_dif",
+      "softwareDisplay": "5.585",
+      "sourceValue": "5.607456568490761",
+      "sourceAtSameDisplayPlaces": "5.607",
+      "softwareMinusSource": "-0.022456568490761",
+      "sameDisplay": false
+    },
+    {
+      "field": "macd_dea",
+      "softwareDisplay": "-0.078",
+      "sourceValue": "-0.04773838231340598",
+      "sourceAtSameDisplayPlaces": "-0.048",
+      "softwareMinusSource": "-0.03026161768659402",
+      "sameDisplay": false
+    },
+    {
+      "field": "macd",
+      "softwareDisplay": "11.326",
+      "sourceValue": "11.310389901608334",
+      "sourceAtSameDisplayPlaces": "11.310",
+      "softwareMinusSource": "0.015610098391666",
+      "sameDisplay": false
+    }
+  ],
+  "sourceRows": [
+    {
+      "trade_time": "2025-06-23 11:00:00",
+      "close": "3365.0312",
+      "macd_dif": "-5.436560761842429",
+      "macd_dea": "-2.8722415304979814",
+      "macd": "-5.128638462688896"
+    },
+    {
+      "trade_time": "2025-06-23 14:00:00",
+      "close": "3377.9104",
+      "macd_dif": "-4.455923609240017",
+      "macd_dea": "-3.1889779462463888",
+      "macd": "-2.5338913259872564"
+    },
+    {
+      "trade_time": "2025-06-23 15:00:00",
+      "close": "3381.5815",
+      "macd_dif": "-3.343987109517002",
+      "macd_dea": "-3.219979778900512",
+      "macd": "-0.24801466123297988"
+    },
+    {
+      "trade_time": "2025-06-24 11:00:00",
+      "close": "3412.122",
+      "macd_dif": "0.0015755282656755298",
+      "macd_dea": "-2.5756687174672748",
+      "macd": "5.154488491465901"
+    },
+    {
+      "trade_time": "2025-06-24 14:00:00",
+      "close": "3416.7886",
+      "macd_dif": "2.9949892697968608",
+      "macd_dea": "-1.4615371200144478",
+      "macd": "8.913052779622618"
+    },
+    {
+      "trade_time": "2025-06-24 15:00:00",
+      "close": "3420.566",
+      "macd_dif": "5.607456568490761",
+      "macd_dea": "-0.04773838231340598",
+      "macd": "11.310389901608334"
+    }
+  ],
+  "existingModelEvents": [
+    {
+      "existingVariantId": "BASE",
+      "events": [
+        {
+          "id": "b36eab67497a40131486246d",
+          "time": "2025-06-24T11:00:00+08:00",
+          "direction": "TOP",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": "71275d0e47d97ef51355c293",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        {
+          "id": "a0fc8c54f72ec0a68afcdd0f",
+          "time": "2025-06-24T14:00:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    },
+    {
+      "existingVariantId": "ZC",
+      "events": [
+        {
+          "id": "b36eab67497a40131486246d",
+          "time": "2025-06-24T11:00:00+08:00",
+          "direction": "TOP",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": "71275d0e47d97ef51355c293",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        {
+          "id": "a0fc8c54f72ec0a68afcdd0f",
+          "time": "2025-06-24T14:00:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    },
+    {
+      "existingVariantId": "ZR",
+      "events": [
+        {
+          "id": "b36eab67497a40131486246d",
+          "time": "2025-06-24T11:00:00+08:00",
+          "direction": "TOP",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": "71275d0e47d97ef51355c293",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        },
+        {
+          "id": "a0fc8c54f72ec0a68afcdd0f",
+          "time": "2025-06-24T14:00:00+08:00",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-05-06T14:00:00+08:00",
+            "endTime": "2025-05-15T14:00:00+08:00",
+            "price": 3403.948,
+            "dif": 23.498217554217263
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ]
+    }
+  ],
+  "formulasDistinguished": false,
+  "productCodeChanged": false,
+  "newModelReplay": false,
+  "databaseOrLakeAccess": false,
+  "protectedFiles": {
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+    "reports/xxm_source_audit_20261013_213852/minute_90_source.csv": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/m90_BASE.json": "33f50772848f43a92ee79086fc823ccfb5ee04a1a2f24de0995b66641df1aac5",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/m90_ZC.json": "003a8e9384307911d2581847cdc40a6b7d6e6064f4649684f22ae2c2a8a4b4bf",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/m90_ZR.json": "e3007a804a59199e4a29b6c8b6e8a7d5dd0849677823bb48f3d3a6e907416b4c"
+  },
+  "missingMaterials": {
+    "june24m60": "USER_COULD_NOT_FIND_STOP_REPEAT_REQUEST",
+    "april8m60": "USER_COULD_NOT_FIND_STOP_REPEAT_REQUEST"
+  },
+  "conclusion": "90-minute daily dullness is compatible; three indicator displays differ. Both remaining proposed rules have the same events for this90mdate, so the image cannot decide the60mquestion. Exact software mark times and green meaning remain unconfirmed.",
+  "seconds": 0.034122792072594166
+}

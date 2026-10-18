@@ -19,6 +19,9 @@ def entry_partition(c, projection):
         error=8*math.ulp(max(abs(projection.e12),abs(projection.e26),abs(root),1.))/abs(slope)
         band=Interval(max(0.,root-error),root+error,True,True)
         cuts.update((root,band.lo,band.hi));bands.append(band)
+    if c.state == 'NONE' and w.sign == 1 and c.pending_rearm is None:
+        for shift in ((-GUARD, 0., GUARD) if day else (0.,)):
+            add_root(((.0005 if day else 0.) + shift - b) / K, K)
     for ref in c.history[w.sign]:
         cuts.add(ref.price)
         for d in ((ref.dif-.0005,ref.dif+.0005) if day else (ref.dif,)):
@@ -45,6 +48,11 @@ def stable_reference_on_band(c,projection,region,reference):
     error=8*math.ulp(max(abs(projection.e12),abs(projection.e26),abs(region.hi),1.))
     dlow=min(v[0] for v in values)-error;dhigh=max(v[0] for v in values)+error
     hlow=min(v[2] for v in values)-2*error;hhigh=max(v[2] for v in values)+2*error
+    if c.state == 'NONE' and c.wave.sign == 1 and c.pending_rearm is None:
+        # Check the current input, before the conservative segment-DIF floor.
+        # Daily raw .0006 is supplied as .001 and already satisfies the rule.
+        if min(source_options(dlow, c.period == 'day')) <= 0:
+            return False
     if c.period=='day':
         dlow=math.floor(dlow*1000)/1000;dhigh=math.ceil(dhigh*1000)/1000
         hlow=math.floor(hlow*1000)/1000;hhigh=math.ceil(hhigh*1000)/1000
@@ -80,6 +88,8 @@ def reason_for(c, projection, p):
         if any(min(w.dif,dd)<=ref['dif'] for dd in ds):
             return 'DIF_NOT_DIVERGENT'
         return 'PRICE_NOT_EXTREME'
+    if c.state == 'NONE' and w.sign == 1 and max(ds) <= 0:
+        return 'CURRENT_DIF_NOT_POSITIVE'
     refs = list(reversed(c.history[w.sign]))
     extreme_price = max(w.price, p) if w.sign > 0 else min(w.price, p)
     if w.sign*(extreme_price-refs[0].price) <= 0:

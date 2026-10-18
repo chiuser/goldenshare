@@ -1,0 +1,73 @@
+{
+  "tsCode": "000001.SH",
+  "period": "day",
+  "forecastVersion": "xxm-key-point-forecast-v0.3-r1",
+  "forecastSpecHash": "983eae6fffebc5b76e3fa2cac210bb10e5f68db080af4fdb927baecde360dcae",
+  "detectorSpecHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "sourceInputId": "9b94543235b8baf98d6774ab02fca7a7c2816ec01d38ec6c419d2aac6dc5cf89",
+  "calendarInputId": "14b2079623b5cf3d6596b40ed52d5b8724655fe4a78b143c573de4694d724730",
+  "computedThrough": "2024-08-22",
+  "requestedAsOf": "2024-08-22",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "NONE",
+  "rearmContext": null,
+  "nextBarOutcomes": null,
+  "direction": "TOP",
+  "status": "NO_CANDIDATE",
+  "reasonCode": "NO_ENTRY_RANGE",
+  "precisionPolicy": "rounded3_guarded",
+  "forecastId": "bb492ee977374dbd2eb5fb6a82a84d6ed6e8ee32bf508546e991348081de74f1",
+  "targetEndpoint": null,
+  "barsAhead": null,
+  "activation": {
+    "endpoint": "2024-08-23",
+    "ranges": [],
+    "exclusions": [
+      {
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 2823.667838004312,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "WRONG_COLOR_OR_ZERO"
+      },
+      {
+        "priceRange": {
+          "lower": 2823.667838004312,
+          "upper": 2948.4889432182845,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "reason": "PRICE_NOT_EXTREME"
+      },
+      {
+        "priceRange": {
+          "lower": 2948.4889432182845,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reason": "DIF_NOT_DIVERGENT"
+      }
+    ]
+  },
+  "assumption": null,
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [],
+  "commonConditions": [],
+  "examples": [],
+  "applicabilityText": "仅适用于本周期已计算的收盘条件；实际收盘后更新。",
+  "invalidationText": "新完成行情到达后重新判断。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "暂无条件",
+    "targetText": "暂无结构条件",
+    "conditionsText": "当前没有可形成钝化的收盘条件。\n本周期新收盘后重新判断。",
+    "asOfText": "历史回放 · 截至 08/22 收盘"
+  },
+  "refreshAfterMs": 60000
+}

@@ -1,0 +1,32 @@
+{
+  "status": "PASS_EVIDENCE_RECORDING_EVENT_DATES_PENDING",
+  "originalBytesIdentical": true,
+  "frozenSourceAndResultCompletionSha": "PASS",
+  "protectedFileCount": 12,
+  "protectedUnchanged": true,
+  "extractedDates": [
+    "2026-04-13",
+    "2026-04-14",
+    "2026-04-15",
+    "2026-04-16"
+  ],
+  "existingModelEventsLiteralCheck": "PASS",
+  "visibleSoftwareLabels": [
+    "钝化",
+    "消失"
+  ],
+  "confirmedSoftwareEventDates": 0,
+  "tentativeDatesNotGoldLabels": true,
+  "waitingForUserDateConfirmation": true,
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "engineTableRemainsLastH2": true,
+  "newCalculationRuns": 0,
+  "newDatabaseOrLakeReads": 0,
+  "formalWrites": false,
+  "productCodeChanged": false,
+  "dependencyMatrixChanged": false,
+  "newOrRepeatedKernelTests": "NOT_NEEDED_IMAGE_EVIDENCE_ONLY",
+  "moreEarlyDailyTodo": "UNCHANGED",
+  "newRelativeLinks": "PASS"
+}

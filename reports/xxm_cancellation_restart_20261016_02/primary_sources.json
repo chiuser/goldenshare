@@ -1,0 +1,47 @@
+{
+  "readOn": "2026-10-16",
+  "captureMethod": "web tool readable article text; bounded research summaries, no full article copy",
+  "author": "徐小明",
+  "primaryAuthorId": "1300871220",
+  "sources": [
+    {
+      "url": "https://blog.sina.com.cn/s/blog_4d89b8340103021s.html",
+      "title": "徐小明：12月16日盘中即时直播",
+      "publishedAt": "2025-12-15 14:59:52",
+      "businessDate": "2025-12-16",
+      "observations": [
+        {"time": "13:06", "summary": "作者提到钝化较大、下跌速度偏快；没有点明是哪一个分钟周期。", "periodExplicit": false},
+        {"time": "13:55", "summary": "作者提到几个分钟周期有钝化，未逐一列出事件柱时点。", "periodExplicit": false}
+      ],
+      "cannotEstablish": "90分钟11:00已完成柱是否先消失，以及14:00柱上是否有新的黄色；盘中判断不能当已完成柱标签"
+    },
+    {
+      "url": "https://blog.sina.com.cn/s/blog_4d89b8340103021u.html",
+      "title": "徐小明：c浪确立",
+      "publishedAt": "2025-12-16 12:58:39",
+      "businessDate": "2025-12-16",
+      "observations": [
+        {"time": "12:58", "summary": "午评称分钟线有底钝化，观察后续结构。未明确90分钟的中间事件。", "periodExplicit": false}
+      ],
+      "cannotEstablish": "不能将泛指分钟线的午评归到90分钟11:00柱"
+    },
+    {
+      "url": "https://blog.sina.com.cn/s/blog_4d89b8340103021w.html",
+      "title": "徐小明：周三操作策略",
+      "publishedAt": "2025-12-16 16:26:37",
+      "businessDate": "2025-12-16",
+      "observations": [
+        {"time": "close", "summary": "盘后明确60、90、120分钟都有新的底钝化，继续等结构。", "periodExplicit": true, "periods": ["m60", "m90", "m120"]}
+      ],
+      "cannotEstablish": "收盘有钝化与三种处理顺序均相容，新的一词没有定位消失和新黄色的先后柱"
+    }
+  ],
+  "unavailable": [
+    {"url": "https://blog.sina.com.cn/s/blog_4d89b8340103021v.html", "reason": "12/17直播正文cache miss，手机入口亦不可读；只确认归档链接存在"},
+    {"url": "https://blog.sina.com.cn/s/blog_4d89b8340103021y.html", "reason": "12/18直播正文cache miss，手机入口亦不可读；只确认归档链接存在"},
+    {"url": "https://blog.sina.com.cn/s/blog_4d89b8340103021t.html", "reason": "12/15盘后正文cache miss，手机入口亦不可读；不引用未读内容"}
+  ],
+  "imageCapture": "12/16直播正文图片链接被解析为透明占位图且获取超时；没有取得新90分钟图，不记新增软件标签",
+  "transcriptReuse": "复用已冻结20251216_vidiq_transcript.json，未重试曾返回额度不足的字幕服务",
+  "newSoftwareEventObservations": 0
+}

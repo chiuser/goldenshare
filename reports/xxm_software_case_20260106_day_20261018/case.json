@@ -1,0 +1,332 @@
+{
+  "scope": "NEW_SOFTWARE_EVIDENCE_ONLY",
+  "date": "2026-10-18",
+  "softwareEndpoint": "2026-01-06",
+  "period": "day",
+  "tsCode": "000001.SH",
+  "sources": [
+    {
+      "originalPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-87806dc4-f1ca-4ba1-9003-979d966ca439.png",
+      "archivedPath": "reports/xxm_software_case_20260106_day_20261018/20260106_day_original.png",
+      "sha256": "7adec8cba994f03408a0f1a0498baed8e4fce906ef4d8bcfaed32cf99f063dfe",
+      "identicalBytes": true
+    },
+    {
+      "originalPath": "/Users/congming/.codex/attachments/f8fe6142-ad2e-44a9-84d0-a7804fa72f40/Pasted text.txt",
+      "archivedPath": "reports/xxm_software_case_20260106_day_20261018/20260106_user_transcript.txt",
+      "sha256": "e15e061736c50fee68916e045432fab0e56679e4e6f531db22987cea0dd7e270",
+      "identicalBytes": true
+    }
+  ],
+  "observation": {
+    "type": "DULL",
+    "direction": "TOP",
+    "confidence": "DIRECT_POSITIVE",
+    "basis": [
+      "Last yellow label in Jan6 screenshot",
+      "Transcript 0:58 and 1:49-1:57 says current daily dullness"
+    ],
+    "exactSoftwareReferenceUnknown": true,
+    "nextDayActualEventObserved": false
+  },
+  "readouts": [
+    {
+      "field": "close",
+      "softwareDisplay": "4083.67",
+      "sourceValue": 4083.6672,
+      "sourceDisplay": "4083.67",
+      "displayMatches": true
+    },
+    {
+      "field": "dif",
+      "softwareDisplay": "30.034",
+      "sourceValue": 30.034,
+      "sourceDisplay": "30.034",
+      "displayMatches": true
+    },
+    {
+      "field": "dea",
+      "softwareDisplay": "12.167",
+      "sourceValue": 12.167,
+      "sourceDisplay": "12.167",
+      "displayMatches": true
+    },
+    {
+      "field": "hist",
+      "softwareDisplay": "35.733",
+      "sourceValue": 35.733,
+      "sourceDisplay": "35.733",
+      "displayMatches": true
+    }
+  ],
+  "transcriptEvidence": [
+    {
+      "time": "0:58",
+      "text": "日线有一个钝化"
+    },
+    {
+      "time": "1:49-1:57",
+      "meaning": "今天日线钝化级别小，可能明天或后天消失，属于未来条件"
+    },
+    {
+      "time": "3:32-3:41",
+      "text": "涨4个点 日线钝化就消失了 目前的价格是4083-4087 日线钝化消失"
+    },
+    {
+      "time": "4:34-4:42",
+      "meaning": "次日横盘时，后天的消失条件仍会变化"
+    }
+  ],
+  "source": {
+    "path": "reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01/daily_source.csv",
+    "sha256": "8b0f62ff5a44a2935ce86cada196fd4c566b7c2493d60b9b28ed515d10da2f14",
+    "reusedFrozenEvidence": true,
+    "start": "2020-01-02",
+    "end": "2026-01-06",
+    "rows": 1457,
+    "noDatabaseOrLakeAccess": true,
+    "noFutureBarsUsed": true
+  },
+  "currentResult": {
+    "events": [
+      {
+        "id": "513303566066409b931ad867",
+        "time": "2026-01-06",
+        "direction": "TOP",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-11-13",
+          "endTime": "2025-11-13",
+          "price": 4029.5012,
+          "dif": 37.146
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": null
+      }
+    ],
+    "state": "DULL",
+    "reference": {
+      "sign": 1,
+      "start": "2025-11-13",
+      "end": "2025-11-13",
+      "count": 1,
+      "price": 4029.5012,
+      "dif": 37.146,
+      "price_at": "2025-11-13",
+      "dif_at": "2025-11-13"
+    },
+    "sameAsPriorTrace": true
+  },
+  "variants": [
+    {
+      "variant": "BASE",
+      "state": "DULL",
+      "events": [
+        {
+          "id": "513303566066409b931ad867",
+          "time": "2026-01-06",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-11-13",
+            "endTime": "2025-11-13",
+            "price": 4029.5012,
+            "dif": 37.146
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "matchesNewDirectPositive": true,
+      "oldResultUnchanged": true
+    },
+    {
+      "variant": "T2",
+      "state": "NONE",
+      "events": [],
+      "matchesNewDirectPositive": false,
+      "oldResultUnchanged": true
+    },
+    {
+      "variant": "S2",
+      "state": "NONE",
+      "events": [],
+      "matchesNewDirectPositive": false,
+      "oldResultUnchanged": true
+    },
+    {
+      "variant": "ZC",
+      "state": "DULL",
+      "events": [
+        {
+          "id": "513303566066409b931ad867",
+          "time": "2026-01-06",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-11-13",
+            "endTime": "2025-11-13",
+            "price": 4029.5012,
+            "dif": 37.146
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "matchesNewDirectPositive": true,
+      "oldResultUnchanged": true
+    },
+    {
+      "variant": "ZR",
+      "state": "DULL",
+      "events": [
+        {
+          "id": "513303566066409b931ad867",
+          "time": "2026-01-06",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2025-11-13",
+            "endTime": "2025-11-13",
+            "price": 4029.5012,
+            "dif": 37.146
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "matchesNewDirectPositive": true,
+      "oldResultUnchanged": true
+    }
+  ],
+  "nextDayConditionalArithmetic": {
+    "precision": 50,
+    "e12": "3970.5581023341430925636407775051710477541971579921",
+    "e26": "3940.5242845548601842105946715799424495444592825991",
+    "dif": "30.0338177792829083530461059252285982097378753930",
+    "dea": "12.167208912830996206476439897683354873108582631170",
+    "hist": "35.733217732903824293139332055090486673258585523660",
+    "nextDifSlope": "0.079772079772079772079772079772079772079772079772076",
+    "nextDifConstant": "-288.9305871427038785670711035454287604528567262708",
+    "referenceDif": "37.146",
+    "continuousEqualityPrice": "4087.6029316817521920372127623016248185340253900377",
+    "threeDecimalRoundingTransitionPrice": "4087.6091995388950491800699051587676756768825328949",
+    "modelTwoDecimalFirstCancelPrice": "4087.61",
+    "authorOralApproximation": "4087",
+    "modelMinusOralPoint": 0.61,
+    "notSoftwareExactThreshold": true
+  },
+  "modelOnlyProbes": [
+    {
+      "close": 4087.0,
+      "projectedBar": {
+        "time": "2026-01-07",
+        "close": 4087.0,
+        "dif": 37.098,
+        "dea": 17.153,
+        "hist": 39.889,
+        "completed": true
+      },
+      "events": [],
+      "state": "DULL"
+    },
+    {
+      "close": 4087.6,
+      "projectedBar": {
+        "time": "2026-01-07",
+        "close": 4087.6,
+        "dif": 37.146,
+        "dea": 17.163,
+        "hist": 39.966,
+        "completed": true
+      },
+      "events": [],
+      "state": "DULL"
+    },
+    {
+      "close": 4087.61,
+      "projectedBar": {
+        "time": "2026-01-07",
+        "close": 4087.61,
+        "dif": 37.147,
+        "dea": 17.163,
+        "hist": 39.967,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "1f98236492df5e0df1c498f1",
+          "time": "2026-01-07",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2025-11-13",
+            "endTime": "2025-11-13",
+            "price": 4029.5012,
+            "dif": 37.146
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "state": "NONE"
+    }
+  ],
+  "protectedProduct": [
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/calculator.py",
+      "sha256": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+      "sameAsPriorRun": true
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/projection.py",
+      "sha256": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+      "sameAsPriorRun": true
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/spec.py",
+      "sha256": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+      "sameAsPriorRun": true
+    },
+    {
+      "path": "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py",
+      "sha256": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+      "sameAsPriorRun": true
+    }
+  ],
+  "researchCode": [
+    {
+      "path": "scripts/research/index_market/xxm/top_daily_ambiguity.py",
+      "sha256": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d"
+    },
+    {
+      "path": "scripts/research/index_market/tests/test_xxm_top_daily_ambiguity.py",
+      "sha256": "be83fb63636eac32fa3c93345792890f40e04f447586cfe0ad94bf1b49520d10"
+    }
+  ],
+  "oldEvidenceUnchanged": {
+    "reports/xxm_top_daily_ambiguity_20261017_01/followup_trace.json": "91d818fedbae810d0a3844330f2053ce02c5d1e796f5550a958c2600c04d1a0f",
+    "reports/xxm_top_daily_ambiguity_20261017_01/summary.json": "3c24047f325e05327a7d014176910ae0e903444f517eb44e93d61b542a23a1c2",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/observations.json": "2d6cb9f58514f8e1a3dad0436fdd5c7e2627bb174dc16be377e3ecf61ff07e12",
+    "reports/xxm_top_daily_ambiguity_20261017_01/run_01/run.json": "62fe13a83ef2c7397a8e00521c9d4aa7fe0f954d4c57707ef82eb9e64df9720a"
+  },
+  "productCodeChanged": false,
+  "softwareFormulaConfirmed": false,
+  "conclusion": "T2 and S2 conflict with new direct daily positive under fixed current input/segmentation/pool; BASE,ZC,ZR remain compatible. Oral approx4087 is near but not equal to model first cancel4087.61; no exact software threshold inferred.",
+  "seconds": 0.10067712469026446
+}

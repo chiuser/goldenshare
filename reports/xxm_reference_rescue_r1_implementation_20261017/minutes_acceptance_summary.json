@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "periods": [
+    "m60",
+    "m90",
+    "m120"
+  ],
+  "through": "2026-10-16T15:00:00+08:00",
+  "businessHttpRequests": 491,
+  "budgetRequests": 249,
+  "mixedRequests": 216,
+  "formalReplayRequests": 26,
+  "perPeriod": {
+    "m60": {
+      "sourceRows": 17272,
+      "frozenOverlapRows": 17260,
+      "coldCount": 20,
+      "warmCount": 20,
+      "maxColdSeconds": 1.997256041970104,
+      "maxWarmSeconds": 0.47683516703546047,
+      "maxModelMs": 25.17670812085271,
+      "maxForecastBytes": 2000
+    },
+    "m90": {
+      "sourceRows": 12954,
+      "frozenOverlapRows": 12945,
+      "coldCount": 20,
+      "warmCount": 20,
+      "maxColdSeconds": 2.1446005003526807,
+      "maxWarmSeconds": 0.8325361660681665,
+      "maxModelMs": 34.86029198393226,
+      "maxForecastBytes": 12666
+    },
+    "m120": {
+      "sourceRows": 8636,
+      "frozenOverlapRows": 8630,
+      "coldCount": 20,
+      "warmCount": 20,
+      "maxColdSeconds": 1.976827707607299,
+      "maxWarmSeconds": 0.5368208750151098,
+      "maxModelMs": 16.507375054061413,
+      "maxForecastBytes": 1866
+    }
+  },
+  "maxHttpSeconds": 3.290709749999998,
+  "maxRecordedModelEnvelopeMs": 34.86029198393226,
+  "mixedMaxCacheBytes": 48910335,
+  "mixedMaxCacheEntries": 6,
+  "cacheObservationScope": "Per paired budget request, historical replay and mixed round; LATEST-only cache counters were not recorded separately, and product cache limits remain enforced",
+  "mixedForecastResponsesEqualLatest": 54,
+  "mixedMaxForecastSeconds": 2.0808919999999924,
+  "mixedColdPageSeconds": [
+    8.828143833000002,
+    13.052957208
+  ],
+  "mixedWarmPageSeconds": [
+    4.334931917000001,
+    9.622111292000001
+  ],
+  "quoteAuthRequired": false,
+  "dailyAccepted": false,
+  "fourPeriodWholePageAccepted": false,
+  "pageAutomation": false,
+  "formalWrites": false,
+  "primaryRuns": [
+    "minutes_budget_02",
+    "minutes_page_mix_01",
+    "minutes_replay_budget_02"
+  ],
+  "priorRunsPreserved": {
+    "minutes_budget_01": "timings passed, warm group first iteration was cold; superseded for strict warm-count acceptance",
+    "minutes_replay_budget_01": "audit dependency injection AttributeError before first scored request; fixed in tool only"
+  }
+}

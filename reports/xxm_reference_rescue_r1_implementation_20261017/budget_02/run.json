@@ -1,0 +1,15 @@
+{
+  "mode": "budget",
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "algorithmVersion": "xxm-direction-v0.1-r1",
+  "specHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "startedAt": "2026-10-17T11:57:04.392093+08:00",
+  "formalWrites": false,
+  "passed": false,
+  "failure": {
+    "type": "XxmQueryError",
+    "code": "XXM_SOURCE_CONTRACT_INVALID"
+  },
+  "finishedAt": "2026-10-17T11:57:05.529770+08:00"
+}

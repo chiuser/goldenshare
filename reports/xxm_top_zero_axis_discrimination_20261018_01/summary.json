@@ -1,0 +1,28 @@
+{
+  "status": "RESEARCH_COMPLETE_FORMULA_UNRESOLVED",
+  "protectedFiles": 64,
+  "protectedUnchanged": true,
+  "productChanged": false,
+  "newExternalMaterials": false,
+  "newSoftwareLabels": 0,
+  "oldCandidateDefinitionsUnchanged": true,
+  "fullReplayPerformed": false,
+  "formalReads": false,
+  "eventDifferenceEndpoints": {
+    "day": 0,
+    "m60": 6,
+    "m90": 5,
+    "m120": 2
+  },
+  "pointDifferenceEndpoints": {
+    "day": 0,
+    "m60": 3,
+    "m90": 21,
+    "m120": 20
+  },
+  "recentUsableInterval": "2025-06-24 m60 first two completed bars",
+  "june24TextInsufficient": true,
+  "zeroKeywordsFound": 0,
+  "textFilesSearched": 37,
+  "seconds": 0.0670345420949161
+}

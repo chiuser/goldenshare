@@ -1,0 +1,11 @@
+{
+  "mode": "api",
+  "source": "reports/xxm_source_audit_20261013_213852",
+  "sourceManifestSha256": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+  "algorithmVersion": "xxm-direction-v0.1-r1",
+  "specHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "startedAt": "2026-10-17T11:47:27.727777+08:00",
+  "formalWrites": false,
+  "passed": true,
+  "finishedAt": "2026-10-17T11:47:29.539692+08:00"
+}

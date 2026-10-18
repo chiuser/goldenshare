@@ -1,0 +1,120 @@
+{
+  "status": "PASS_BOUNDED_DATE_SEARCH_NO_DISCRIMINATING_DATE",
+  "scope": {
+    "codes": [
+      "000016.SH",
+      "399300.SZ"
+    ],
+    "candidateStart": "2022-09-13",
+    "end": "2024-08-30"
+  },
+  "counts": {
+    "000016.SH": {
+      "prefixReused": 732,
+      "tailRead": 401,
+      "overlap": 1,
+      "combined": 1132,
+      "target": 478
+    },
+    "399300.SZ": {
+      "prefixReused": 732,
+      "tailRead": 401,
+      "overlap": 1,
+      "combined": 1132,
+      "target": 478
+    }
+  },
+  "calendarOpenDates": 1132,
+  "frozenPrefixCurrentTailOverlapExact": true,
+  "allOpenDatesPresent": true,
+  "oldJan6NumericalRecordsIdentical": true,
+  "allThreeVariantsAgree": true,
+  "candidatesCurrentVsReference": 0,
+  "candidatesBaseVsBoth": 0,
+  "recommendedDates": [],
+  "firstTopActivations": {
+    "000016.SH": [
+      {
+        "date": "2023-01-06",
+        "dif": 20.382,
+        "reference": {
+          "startTime": "2022-11-04",
+          "endTime": "2022-12-16",
+          "price": 2706.7388,
+          "dif": 46.905
+        }
+      },
+      {
+        "date": "2024-04-26",
+        "dif": 8.806,
+        "reference": {
+          "startTime": "2024-01-19",
+          "endTime": "2024-03-12",
+          "price": 2450.4693,
+          "dif": 39.248
+        }
+      }
+    ],
+    "399300.SZ": [
+      {
+        "date": "2023-01-09",
+        "dif": 26.253,
+        "reference": {
+          "startTime": "2022-11-03",
+          "endTime": "2022-12-16",
+          "price": 3998.2442,
+          "dif": 54.029
+        }
+      },
+      {
+        "date": "2024-04-30",
+        "dif": 15.784,
+        "reference": {
+          "startTime": "2024-02-06",
+          "endTime": "2024-03-18",
+          "price": 3603.528,
+          "dif": 65.431
+        }
+      }
+    ]
+  },
+  "fourIndexReview": {
+    "targetRows": 1912,
+    "firstTopActivations": 7,
+    "discriminatingCandidates": 0
+  },
+  "prefixRestores": 12,
+  "crossSourceRestoreRejected": true,
+  "newSoftwareLabels": 0,
+  "protectedFilesUnchanged": true,
+  "protectedFileCount": 31,
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "formalWrites": false,
+  "isolatedTests": {
+    "passed": 41,
+    "deselected": 2,
+    "scope": "existing input/selector/persistence/calendar checks; not software formula proof"
+  },
+  "execution": {
+    "status": "COMPLETE",
+    "readonly": true,
+    "formalWrites": false,
+    "productCodeChanged": false,
+    "captureSeconds": 0.6719967504031956,
+    "comparisonSeconds": 0.23344858270138502,
+    "reusedPrefixRowsPerCode": 732,
+    "readTailRowsPerCode": 401,
+    "overlapExact": true,
+    "combinedRowsPerCode": 1132,
+    "calendarOpenDays": 1132,
+    "candidates": 0,
+    "seconds": 0.9054480833001435,
+    "protectedUnchanged": true
+  },
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingLinks": [],
+  "engineChangeTableRemainsLast": true,
+  "scopeExpandedBeyond20240830": false
+}

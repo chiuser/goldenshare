@@ -1,0 +1,29 @@
+{
+  "status": "PASS_SINGLE_IMAGE_COMPARISON_NOT_UNIQUE_FORMULA_PROOF",
+  "date": "2023-01-06",
+  "ts_code": "399001.SZ",
+  "originalCopyIdentical": true,
+  "protectedUnchanged": true,
+  "protectedFileCount": 16,
+  "displayPrecisionMatches": {
+    "close": true,
+    "dif": true,
+    "dea": true,
+    "hist": false
+  },
+  "histSourceMinusSoftware": "0.001",
+  "literalPriceAndDifChecks": "PASS",
+  "sourceAndResultHashes": "PASS",
+  "modelEventCount": 0,
+  "softwareTargetTopDullTextVisible": false,
+  "softwareInternalState": null,
+  "zeroAxisConditionsDistinguished": false,
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingRelativeLinks": [],
+  "engineChangeTableRemainsLast": true,
+  "productCodeChanged": false,
+  "newReplay": false,
+  "databaseOrLakeReads": false,
+  "testsNotRun": "No executable changes; source/math/hash/document checks only"
+}

@@ -30,13 +30,16 @@ from src.biz.queries.wealth.market.index_detail_minutes.index_detail_minutes_que
 from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import IndexMinuteNineTurnQueryService
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 from src.biz.queries.wealth.market.index_detail_xxm import query_service as q, forecast_query_service as fq
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',required=True)
+    parser.add_argument('--periods',nargs='+',choices=('day','m60','m90','m120'),default=('day','m60','m90','m120'))
     args=parser.parse_args()
+    if len(set(args.periods))!=len(args.periods):parser.error('--periods must not contain duplicates')
     out=Path(args.output).resolve();out.mkdir(parents=True,exist_ok=False)
     local=threading.local();counts={};max_compute=0.;lock=threading.Lock()
     original_read=MajorIndexMinsLakeReader._read_complete_history
@@ -77,7 +80,8 @@ def main():
     def audit_context(_user=Depends(require_quote_access),session=Depends(readonly_session)):
         value=MarketPageContextQuery().resolve_context(session,market="CN_A",requested_trade_date=None)
         return dict(businessDate=value.trade_date.isoformat(),generatedAt=value.generated_at.isoformat(),
-                    algorithmVersion=MAIN_SPEC.algorithm_version,specHash=MAIN_SPEC.spec_hash)
+                    algorithmVersion=MAIN_SPEC.algorithm_version,specHash=MAIN_SPEC.spec_hash,
+                    forecastVersion=FORECAST_SPEC.forecast_version,forecastSpecHash=FORECAST_SPEC.spec_hash)
     @app.get('/__audit__/reset')
     def reset(fresh:int,_user=Depends(require_quote_access)):
         nonlocal max_compute
@@ -99,11 +103,11 @@ def main():
             time.sleep(.01)
         node=shutil.which('node')
         if not node:raise RuntimeError('Existing Node runtime is required; do not install automatically')
-        subprocess.run([node,str(Path(__file__).with_suffix('.mjs')),base,str(out)],check=True)
+        subprocess.run([node,str(Path(__file__).with_suffix('.mjs')),base,str(out),*args.periods],check=True)
     finally:
         server.should_exit=True;thread.join(10);sock.close()
         (out/'server.json').write_text(json.dumps(dict(serverStopped=not thread.is_alive(),formalWrites=False,
-            auth='original require_quote_access',pageAutomation=False,installedDependencies=False),indent=2)+'\n')
+            auth='original require_quote_access',pageAutomation=False,installedDependencies=False,periods=args.periods),indent=2)+'\n')
 
 
 if __name__=='__main__':main()

@@ -1,0 +1,3377 @@
+[
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2010-06-01T15:00:00+08:00",
+    "rows": 688,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "73d630aedaaa72594814a39d6bbab0ffb447c8a3f51087e7411c13a7c539b5c9",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2010-06-02T11:30:00+08:00",
+    "targetEndpoint": "2010-06-02T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2614.6262259770806,
+      "e26": 2639.4979040318563,
+      "dea": -26.270359030241558
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -89382411504642901,
+        385928581349376
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -52956219813336940747,
+        135460932053630976
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            3473412207725773,
+            1099511627776
+          ],
+          "upper": [
+            201624021000539153,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2010-03-26T15:00:00+08:00",
+          "endTime": "2010-04-07T15:00:00+08:00",
+          "price": 3159.05,
+          "dif": 29.61583968635796
+        },
+        "secondAtZeroUpperBound": [
+          -11236539543179437,
+          59373627899904
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              1001935741028913714883,
+              246994292063600640
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  1001935741028913714883,
+                  246994292063600640
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              2189672563958857907851,
+              1080600027778252800
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2010-12-09T11:30:00+08:00",
+    "rows": 939,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "6b6b92e4fc3c006406f2081634dc75e2542f2256eceb1bb65da19e47db3081d3",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2010-12-09T15:00:00+08:00",
+    "targetEndpoint": "2010-12-10T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2848.1644551705276,
+      "e26": 2863.693161468827,
+      "dea": -21.11143844974388
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -20718570219125369,
+        85761906966528
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -12520713523458026693,
+        30102429345251328
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            3473705777330389,
+            1099511627776
+          ],
+          "upper": [
+            57179285967771351,
+            15393162788864
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2010-11-05T11:30:00+08:00",
+          "endTime": "2010-11-09T15:00:00+08:00",
+          "price": 3159.317,
+          "dif": 54.73812246715761
+        },
+        "secondAtZeroUpperBound": [
+          -16050672909799967,
+          85761906966528
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              844629234130191672619,
+              192106671605022720
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  844629234130191672619,
+                  192106671605022720
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              532121755801415221919,
+              240133339506278400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2010-12-09T15:00:00+08:00",
+    "rows": 940,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "19ccda469c46b0b0d1666d406d4f1d0cac9cab8d275de18f5ef500f8a2d7f06b",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2010-12-10T11:30:00+08:00",
+    "targetEndpoint": "2010-12-10T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2842.5106928366004,
+      "e26": 2859.820705063729,
+      "dea": -20.3511532052208
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -187392083114118661,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -112883640042905981017,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            3473705777330389,
+            1099511627776
+          ],
+          "upper": [
+            7176315469158617,
+            1924145348608
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2010-11-05T11:30:00+08:00",
+          "endTime": "2010-11-09T15:00:00+08:00",
+          "price": 3159.317,
+          "dif": 54.73812246715761
+        },
+        "secondAtZeroUpperBound": [
+          -144303795710434343,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              15250857266851541193451,
+              3457920088890408960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  15250857266851541193451,
+                  3457920088890408960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4776676508158088750611,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2010-12-10T11:30:00+08:00",
+    "rows": 941,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "3cd1cdf81d07e39f2ac63bfbc7cd40db01b9a3e3903d6502680006980bdfb04a",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2010-12-10T15:00:00+08:00",
+    "targetEndpoint": "2010-12-13T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2838.260893938662,
+      "e26": 2856.492282466416,
+      "dea": -19.927200269727443
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -6955144566687289,
+        28587302322176
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -4182773711190606133,
+        10034143115083776
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            3473705777330389,
+            1099511627776
+          ],
+          "upper": [
+            115019457599756943,
+            30786325577728
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2010-11-05T11:30:00+08:00",
+          "endTime": "2010-11-09T15:00:00+08:00",
+          "price": 3159.317,
+          "dif": 54.73812246715761
+        },
+        "secondAtZeroUpperBound": [
+          -144143430721020235,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              282764852727812279651,
+              64035557201674240
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  282764852727812279651,
+                  64035557201674240
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              25227578938749143977,
+              11434920928870400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2011-09-09T15:00:00+08:00",
+    "rows": 1312,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "6196eb83baeade9e858e6494bd9c38dcf816c6c4a353b7d787bac1034cbcdad0",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2011-08-12T11:30:00+08:00",
+        "end": "2011-08-19T11:30:00+08:00",
+        "count": 11,
+        "price": 2626.494,
+        "dif": -18.36589553394515,
+        "price_at": "2011-08-15T15:00:00+08:00",
+        "dif_at": "2011-08-18T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2011-08-24T11:30:00+08:00",
+        "end": "2011-09-01T15:00:00+08:00",
+        "count": 14,
+        "price": 2615.042,
+        "dif": -3.501312877086093,
+        "price_at": "2011-08-25T15:00:00+08:00",
+        "dif_at": "2011-08-30T11:30:00+08:00"
+      }
+    ],
+    "currentWaveDif": -21.299914354221073
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2011-09-16T15:00:00+08:00",
+    "rows": 1320,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "88f6187a0e315267ec7f01ebdbc952e58902707e2d7a20eba42bd99c192c2b2f",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2011-08-24T11:30:00+08:00",
+        "end": "2011-09-01T15:00:00+08:00",
+        "count": 14,
+        "price": 2615.042,
+        "dif": -3.501312877086093,
+        "price_at": "2011-08-25T15:00:00+08:00",
+        "dif_at": "2011-08-30T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2011-09-09T15:00:00+08:00",
+        "end": "2011-09-09T15:00:00+08:00",
+        "count": 1,
+        "price": 2497.338,
+        "dif": -21.299914354221073,
+        "price_at": "2011-09-09T15:00:00+08:00",
+        "dif_at": "2011-09-09T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.154935376031517
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2011-09-19T11:30:00+08:00",
+    "rows": 1321,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "4f61a5ce6611002b52764d62c2ae4a8a5fdc27ee3af93c945bc9e5ee1edd540b",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2011-08-24T11:30:00+08:00",
+        "end": "2011-09-01T15:00:00+08:00",
+        "count": 14,
+        "price": 2615.042,
+        "dif": -3.501312877086093,
+        "price_at": "2011-08-25T15:00:00+08:00",
+        "dif_at": "2011-08-30T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2011-09-09T15:00:00+08:00",
+        "end": "2011-09-09T15:00:00+08:00",
+        "count": 1,
+        "price": 2497.338,
+        "dif": -21.299914354221073,
+        "price_at": "2011-09-09T15:00:00+08:00",
+        "dif_at": "2011-09-09T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.154935376031517
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2011-09-22T15:00:00+08:00",
+    "rows": 1328,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "2329c5de0fb4596cfcba380b7c3bcc4cca9a81bb66be86e9f187592701f8a3b5",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2011-09-09T15:00:00+08:00",
+        "end": "2011-09-09T15:00:00+08:00",
+        "count": 1,
+        "price": 2497.338,
+        "dif": -21.299914354221073,
+        "price_at": "2011-09-09T15:00:00+08:00",
+        "dif_at": "2011-09-09T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2011-09-15T11:30:00+08:00",
+        "end": "2011-09-19T11:30:00+08:00",
+        "count": 5,
+        "price": 2489.39,
+        "dif": -19.154935376031517,
+        "price_at": "2011-09-16T11:30:00+08:00",
+        "dif_at": "2011-09-16T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -13.817827918489456
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-06-01T15:00:00+08:00",
+    "rows": 1656,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "a86ba76596342cdfbb319e80f9b292e67ca2a97ecf85692b6d71648ef7009879",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2012-06-04T11:30:00+08:00",
+    "targetEndpoint": "2012-06-04T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2372.38322910392,
+      "e26": 2371.9193629389456,
+      "dea": -3.0232599386581174
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -2698933479912801,
+        14293651161088
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -1680559968321344797,
+        5017071557541888
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            2696359852585779,
+            1099511627776
+          ],
+          "upper": [
+            82149304436342469,
+            30786325577728
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2012-04-06T15:00:00+08:00",
+          "endTime": "2012-05-08T15:00:00+08:00",
+          "price": 2452.325,
+          "dif": 24.04097785724116
+        },
+        "secondAtZeroUpperBound": [
+          -16462006867825855,
+          96482145337344
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              3786138902712392160859,
+              1024568915226787840
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  3786138902712392160859,
+                  1024568915226787840
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              74270757338644557751,
+              40022223251046400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-06-04T11:30:00+08:00",
+    "rows": 1657,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "53cb3ad9b7c6dcf561af22ed6b52f0418b4a6166536c2c818f3baf9aae98fd66",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2012-06-04T15:00:00+08:00",
+    "targetEndpoint": "2012-06-05T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2366.054886164855,
+      "e26": 2368.9067434619865,
+      "dea": -2.988979410352809
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -36930611197202717,
+        192964290674688
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -22819505844037322549,
+        67730466026815488
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            2696359852585779,
+            1099511627776
+          ],
+          "upper": [
+            20784830718275569,
+            7696581394432
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2012-04-06T15:00:00+08:00",
+          "endTime": "2012-05-08T15:00:00+08:00",
+          "price": 2452.325,
+          "dif": 24.04097785724116
+        },
+        "secondAtZeroUpperBound": [
+          -3657526937237089,
+          21440476741632
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              51366453665964775100387,
+              13831680355561635840
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  51366453665964775100387,
+                  13831680355561635840
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              998648775912135041867,
+              540300013889126400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-07-16T11:30:00+08:00",
+    "rows": 1715,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "45c796ad7899a698f097df1e083d268ee8b48b82f11a4bb2cf595ef3ae16afb2",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2012-06-13T15:00:00+08:00",
+        "end": "2012-06-20T15:00:00+08:00",
+        "count": 11,
+        "price": 2322.865,
+        "dif": -8.245896555711624,
+        "price_at": "2012-06-18T11:30:00+08:00",
+        "dif_at": "2012-06-19T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2012-07-02T15:00:00+08:00",
+        "end": "2012-07-09T11:30:00+08:00",
+        "count": 10,
+        "price": 2240.227,
+        "dif": -17.836130033845166,
+        "price_at": "2012-07-03T11:30:00+08:00",
+        "dif_at": "2012-07-04T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.121398595732444
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-07-16T15:00:00+08:00",
+    "rows": 1716,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "28aa8183fb62b1d7c5c5f88105e406970c1a91750ca59469bf132e25904940c5",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2012-06-13T15:00:00+08:00",
+        "end": "2012-06-20T15:00:00+08:00",
+        "count": 11,
+        "price": 2322.865,
+        "dif": -8.245896555711624,
+        "price_at": "2012-06-18T11:30:00+08:00",
+        "dif_at": "2012-06-19T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2012-07-02T15:00:00+08:00",
+        "end": "2012-07-09T11:30:00+08:00",
+        "count": 10,
+        "price": 2240.227,
+        "dif": -17.836130033845166,
+        "price_at": "2012-07-03T11:30:00+08:00",
+        "dif_at": "2012-07-04T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.121398595732444
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-07-17T11:30:00+08:00",
+    "rows": 1717,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "ddd0ccf0204ee7b2f081d4f7e2d30f0104d459455df7ea50dadae01ee8b97a02",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2012-06-13T15:00:00+08:00",
+        "end": "2012-06-20T15:00:00+08:00",
+        "count": 11,
+        "price": 2322.865,
+        "dif": -8.245896555711624,
+        "price_at": "2012-06-18T11:30:00+08:00",
+        "dif_at": "2012-06-19T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2012-07-02T15:00:00+08:00",
+        "end": "2012-07-09T11:30:00+08:00",
+        "count": 10,
+        "price": 2240.227,
+        "dif": -17.836130033845166,
+        "price_at": "2012-07-03T11:30:00+08:00",
+        "dif_at": "2012-07-04T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.121398595732444
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-09-04T11:30:00+08:00",
+    "rows": 1787,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "9d31547526764c558f955b718718dcc81e0b1a83a70d33951a61086e329c6b8b",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2012-09-04T15:00:00+08:00",
+    "targetEndpoint": "2012-09-05T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2061.740508955349,
+      "e26": 2079.6470854067,
+      "dea": -18.61735720680373
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -139744346995228337,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -83120121025350273089,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            139744346995228337,
+            61572651155456
+          ],
+          "upper": [
+            10307792018268457,
+            4398046511104
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2012-08-01T15:00:00+08:00",
+          "endTime": "2012-08-13T15:00:00+08:00",
+          "price": 2174.889,
+          "dif": 5.9139714977441145
+        },
+        "secondAtZeroUpperBound": [
+          -125391333641138881,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              2770999542836432648303,
+              864480022222602240
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  2770999542836432648303,
+                  864480022222602240
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              3456035788797837826487,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-09-04T15:00:00+08:00",
+    "rows": 1788,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "ffc3a7a66485378a254fc94d5ca62b8c20dbcc7000ae2ae70fe222e5fda9a706",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2012-09-05T11:30:00+08:00",
+    "targetEndpoint": "2012-09-05T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2058.8178152699106,
+      "e26": 2076.9134494506484,
+      "dea": -18.51301260159054
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -111938706136345,
+        618475290624
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -532385255994746495,
+        1736678616072192
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            4365609539317455,
+            1924145348608
+          ],
+          "upper": [
+            144264246518688621,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2012-08-01T15:00:00+08:00",
+          "endTime": "2012-08-13T15:00:00+08:00",
+          "price": 2174.889,
+          "dif": 5.9139714977441145
+        },
+        "secondAtZeroUpperBound": [
+          -125232162759589279,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              142015857966454174909,
+              44332308831928320
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  142015857966454174909,
+                  44332308831928320
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              1106023040160991513,
+              692692325498880
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2012-09-05T11:30:00+08:00",
+    "rows": 1789,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "3f0baa2948408e52ce9c4a7397c034a40e4c0833e32ac23aab2547a3f20d2adf",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2012-09-05T15:00:00+08:00",
+    "targetEndpoint": "2012-09-06T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2056.1129206130013,
+      "e26": 2074.270675417267,
+      "dea": -18.44196104212554
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -139577354249167199,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -82962936239326986503,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            139577354249167199,
+            61572651155456
+          ],
+          "upper": [
+            36035523877424315,
+            15393162788864
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2012-08-01T15:00:00+08:00",
+          "endTime": "2012-08-13T15:00:00+08:00",
+          "price": 2174.889,
+          "dif": 5.9139714977441145
+        },
+        "secondAtZeroUpperBound": [
+          -125072445459256493,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              276670166401498100795,
+              86448002222260224
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  276670166401498100795,
+                  86448002222260224
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              3446120141128387652249,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2014-01-17T11:30:00+08:00",
+    "rows": 2445,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "c0ae77f115edf180f9aaeeb10d3062cb90b12dc16f5c8cd8ec07e3e546ae81b3",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2014-01-17T15:00:00+08:00",
+    "targetEndpoint": "2014-01-20T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2025.2044947399202,
+      "e26": 2046.0841125692423,
+      "dea": -23.582824471126646
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -279239017109081635,
+        1543714325397504
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -164822823225062613595,
+        541843728214523904
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            279239017109081635,
+            123145302310912
+          ],
+          "upper": [
+            309488464329719995,
+            123145302310912
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2013-12-04T11:30:00+08:00",
+          "endTime": "2013-12-06T15:00:00+08:00",
+          "price": 2251.788,
+          "dif": 19.595236452087192
+        },
+        "secondAtZeroUpperBound": [
+          -38438484991314575,
+          257285720899584
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              10799814383791512568379,
+              3457920088890408960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  10799814383791512568379,
+                  3457920088890408960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              1355801143396556724977,
+              864480022222602240
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2014-01-17T15:00:00+08:00",
+    "rows": 2446,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "2ad76acba2bb6687ba04b689cab9d49e3c73b9838e288d623f484135533212f6",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2014-01-20T11:30:00+08:00",
+    "targetEndpoint": "2014-01-20T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2022.2713417030093,
+      "e26": 2043.125215341891,
+      "dea": -23.037034304677643
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -278841015243868975,
+        1543714325397504
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -164586195025684494775,
+        541843728214523904
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            278841015243868975,
+            123145302310912
+          ],
+          "upper": [
+            309090462464507335,
+            123145302310912
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2013-12-04T11:30:00+08:00",
+          "endTime": "2013-12-06T15:00:00+08:00",
+          "price": 2251.788,
+          "dif": 19.595236452087192
+        },
+        "secondAtZeroUpperBound": [
+          -328011459719495,
+          2199023255552
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              10802046216947436753077,
+              3457920088890408960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  10802046216947436753077,
+                  3457920088890408960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              270766922554369858609,
+              172896004444520448
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2014-01-20T11:30:00+08:00",
+    "rows": 2447,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "c0500db569ea49ad0fb9c3a87303daba889daa2ad371fd2fd123217bea357f62",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2014-01-20T15:00:00+08:00",
+    "targetEndpoint": "2014-01-21T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2018.301904517931,
+      "e26": 2039.6692734647136,
+      "dea": -22.70310123309863
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -279086169982107485,
+        1543714325397504
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -164520691505590300445,
+        541843728214523904
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            279086169982107485,
+            123145302310912
+          ],
+          "upper": [
+            309335617202745845,
+            123145302310912
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2013-12-04T11:30:00+08:00",
+          "endTime": "2013-12-06T15:00:00+08:00",
+          "price": 2251.788,
+          "dif": 19.595236452087192
+        },
+        "secondAtZeroUpperBound": [
+          -38314690998882325,
+          257285720899584
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              5403504638460288893669,
+              1728960044445204480
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  5403504638460288893669,
+                  1728960044445204480
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              1350820765970155409647,
+              864480022222602240
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2016-05-25T15:00:00+08:00",
+    "rows": 3592,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "f9cde2ede8f690ccf39adedf9814d80bb303a2414db11679c30d284486428eb7",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2016-05-03T11:30:00+08:00",
+        "end": "2016-05-06T11:30:00+08:00",
+        "count": 7,
+        "price": 2997.842,
+        "dif": -2.2934244020361803,
+        "price_at": "2016-05-05T15:00:00+08:00",
+        "dif_at": "2016-05-05T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2016-05-17T11:30:00+08:00",
+        "end": "2016-05-17T15:00:00+08:00",
+        "count": 2,
+        "price": 2843.684,
+        "dif": -32.779859816938824,
+        "price_at": "2016-05-17T15:00:00+08:00",
+        "dif_at": "2016-05-17T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.654281680070653
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2016-05-26T11:30:00+08:00",
+    "rows": 3593,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "a5cdf6c1dde11e876fd22362b2bc16c71c2f4a735d71182ea530a58fdc55c928",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2016-05-03T11:30:00+08:00",
+        "end": "2016-05-06T11:30:00+08:00",
+        "count": 7,
+        "price": 2997.842,
+        "dif": -2.2934244020361803,
+        "price_at": "2016-05-05T15:00:00+08:00",
+        "dif_at": "2016-05-05T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2016-05-17T11:30:00+08:00",
+        "end": "2016-05-17T15:00:00+08:00",
+        "count": 2,
+        "price": 2843.684,
+        "dif": -32.779859816938824,
+        "price_at": "2016-05-17T15:00:00+08:00",
+        "dif_at": "2016-05-17T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.654281680070653
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2016-05-26T15:00:00+08:00",
+    "rows": 3594,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "31703f78749f54dbcbcc664362ff04cecbc4fe4d47fb4efddce9f90b80d177f7",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2016-05-03T11:30:00+08:00",
+        "end": "2016-05-06T11:30:00+08:00",
+        "count": 7,
+        "price": 2997.842,
+        "dif": -2.2934244020361803,
+        "price_at": "2016-05-05T15:00:00+08:00",
+        "dif_at": "2016-05-05T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2016-05-17T11:30:00+08:00",
+        "end": "2016-05-17T15:00:00+08:00",
+        "count": 2,
+        "price": 2843.684,
+        "dif": -32.779859816938824,
+        "price_at": "2016-05-17T15:00:00+08:00",
+        "dif_at": "2016-05-17T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -19.559168949033392
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2018-04-26T15:00:00+08:00",
+    "rows": 4528,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "989c981287c7b4a527b8884e727bc94ef2c259235c771b89e2ee031a15dbfbd5",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2018-03-21T11:30:00+08:00",
+        "end": "2018-03-21T11:30:00+08:00",
+        "count": 1,
+        "price": 3306.282,
+        "dif": -0.5445872193140531,
+        "price_at": "2018-03-21T11:30:00+08:00",
+        "dif_at": "2018-03-21T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2018-03-30T15:00:00+08:00",
+        "end": "2018-04-16T11:30:00+08:00",
+        "count": 18,
+        "price": 3219.07,
+        "dif": -5.367732192853055,
+        "price_at": "2018-04-11T11:30:00+08:00",
+        "dif_at": "2018-04-12T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -14.295092600185853
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2018-04-27T15:00:00+08:00",
+    "rows": 4530,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "3eb0b30a08c17a4f5a05c4369336860b8abe90b24877598bc401e4c197e914e2",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2018-03-30T15:00:00+08:00",
+        "end": "2018-04-16T11:30:00+08:00",
+        "count": 18,
+        "price": 3219.07,
+        "dif": -5.367732192853055,
+        "price_at": "2018-04-11T11:30:00+08:00",
+        "dif_at": "2018-04-12T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2018-04-24T11:30:00+08:00",
+        "end": "2018-04-26T15:00:00+08:00",
+        "count": 6,
+        "price": 3131.173,
+        "dif": -14.295092600185853,
+        "price_at": "2018-04-24T11:30:00+08:00",
+        "dif_at": "2018-04-25T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -18.37060489211217
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2018-09-14T15:00:00+08:00",
+    "rows": 4724,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "73f1b00726e3974c6e0dcbdf18e8b449a57223887da59cf39160e8a3d32cb696",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2018-09-17T11:30:00+08:00",
+    "targetEndpoint": "2018-09-17T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2681.1411654591175,
+      "e26": 2697.439396064148,
+      "dea": -17.289659570381893
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -58911010273303517,
+        257285720899584
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -35489490337078993649,
+        90307288035753984
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            25247575831415793,
+            8796093022208
+          ],
+          "upper": [
+            22489802954211081,
+            7696581394432
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2018-08-21T15:00:00+08:00",
+          "endTime": "2018-08-31T15:00:00+08:00",
+          "price": 2780.976,
+          "dif": 4.126920067231822
+        },
+        "secondAtZeroUpperBound": [
+          -54805867242647063,
+          257285720899584
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              2408386528192240021579,
+              576320014815068160
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  2408386528192240021579,
+                  576320014815068160
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              214550048245839350381,
+              102914288359833600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2019-11-08T15:00:00+08:00",
+    "rows": 5276,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "1b55c59025e2bbf41ad5598056ef733fad929ad0bde6b8b9aa987280670a28f9",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2019-10-11T11:30:00+08:00",
+        "end": "2019-10-18T11:30:00+08:00",
+        "count": 11,
+        "price": 3014.725,
+        "dif": 7.645069737134236,
+        "price_at": "2019-10-14T11:30:00+08:00",
+        "dif_at": "2019-10-16T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2019-10-28T11:30:00+08:00",
+        "end": "2019-10-30T11:30:00+08:00",
+        "count": 5,
+        "price": 2980.05,
+        "dif": 0.7611967514562821,
+        "price_at": "2019-10-28T15:00:00+08:00",
+        "dif_at": "2019-10-29T11:30:00+08:00"
+      }
+    ],
+    "currentWaveDif": 7.662189415532794
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2019-11-28T15:00:00+08:00",
+    "rows": 5304,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "5a0b3fe40f53cd6492e420aa6b84b380179497f80273ab04a7182d3684b95e17",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2019-11-29T11:30:00+08:00",
+    "targetEndpoint": "2019-11-29T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2901.7824422503054,
+      "e26": 2911.0198885469676,
+      "dea": -10.02097729602214
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -6861936288699775,
+        28587302322176
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -155389041197414225,
+        371634930188288
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            185272279794893925,
+            61572651155456
+          ],
+          "upper": [
+            47796598894306869,
+            15393162788864
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2019-11-04T11:30:00+08:00",
+          "endTime": "2019-11-08T15:00:00+08:00",
+          "price": 2995.586,
+          "dif": 7.662189415532794
+        },
+        "secondAtZeroUpperBound": [
+          -58373312280613793,
+          257285720899584
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              1162673487548936561493,
+              256142228806696960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  1162673487548936561493,
+                  256142228806696960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              7244199485479597041,
+              3201777860083712
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2021-07-23T15:00:00+08:00",
+    "rows": 6106,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "ce3572bf909a2d4e06c3a07d53762c362f9a3efd4b5b577c9fa2878689ddb82a",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2021-07-26T11:30:00+08:00",
+    "targetEndpoint": "2021-07-26T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 3552.818532494506,
+      "e26": 3550.234500900071,
+      "dea": 0.33192645626277395
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -54227423452479761,
+        192964290674688
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -33866579488960230617,
+        67730466026815488
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            1983278183461421,
+            549755813888
+          ],
+          "upper": [
+            112024374347834617,
+            30786325577728
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2021-06-23T11:30:00+08:00",
+          "endTime": "2021-07-01T15:00:00+08:00",
+          "price": 3607.562,
+          "dif": 9.24919172970931
+        },
+        "secondAtZeroUpperBound": [
+          -106480209486203077,
+          385928581349376
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              30799666779598435378379,
+              5532672142224654336
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  30799666779598435378379,
+                  5532672142224654336
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              1502309211345803846711,
+              540300013889126400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-07-11T15:00:00+08:00",
+    "rows": 7542,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "753c543ab59cc7feef39a2efa06714bdc29bc18616d267bae999649dea561c00",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2024-06-18T11:30:00+08:00",
+        "end": "2024-06-21T11:30:00+08:00",
+        "count": 7,
+        "price": 3030.2463,
+        "dif": -18.258329512358614,
+        "price_at": "2024-06-18T15:00:00+08:00",
+        "dif_at": "2024-06-19T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2024-06-28T11:30:00+08:00",
+        "end": "2024-07-05T11:30:00+08:00",
+        "count": 11,
+        "price": 2997.011,
+        "dif": -10.321572504762116,
+        "price_at": "2024-07-02T15:00:00+08:00",
+        "dif_at": "2024-07-03T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -11.325990502202785
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-07-22T15:00:00+08:00",
+    "rows": 7556,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "ca93cbc4b8e254239bdc33acc17ab4bc74f7a13aff1c001d4514cc04191c84a5",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2024-06-18T11:30:00+08:00",
+        "end": "2024-06-21T11:30:00+08:00",
+        "count": 7,
+        "price": 3030.2463,
+        "dif": -18.258329512358614,
+        "price_at": "2024-06-18T15:00:00+08:00",
+        "dif_at": "2024-06-19T15:00:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2024-06-28T11:30:00+08:00",
+        "end": "2024-07-05T11:30:00+08:00",
+        "count": 11,
+        "price": 2997.011,
+        "dif": -10.321572504762116,
+        "price_at": "2024-07-02T15:00:00+08:00",
+        "dif_at": "2024-07-03T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": 0.6670714231049715
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-07-31T15:00:00+08:00",
+    "rows": 7570,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "15403a53384d8d6bf9b9712e810b544e21c2c5bb29251c4e6ba18dad1ffe8cfa",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-01T11:30:00+08:00",
+    "targetEndpoint": "2024-08-01T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2910.245099760167,
+      "e26": 2924.917431752431,
+      "dea": -17.90461663481884
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -189677566065262921,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -114865086343619624137,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            189677566065262921,
+            61572651155456
+          ],
+          "upper": [
+            27170349988745449,
+            8796093022208
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -22550901857182873,
+          96482145337344
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              15627059122235737251991,
+              3457920088890408960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  15627059122235737251991,
+                  3457920088890408960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4895402891160141171871,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-02T15:00:00+08:00",
+    "rows": 7574,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "96250d9e4b2fcd08c4c973ba837b69a80bb50727df070a0fa49447baf9b94c63",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-05T11:30:00+08:00",
+    "targetEndpoint": "2024-08-05T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2915.1508251667865,
+      "e26": 2923.982119401201,
+      "dea": -12.889877873546162
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -15483761398159729,
+        64321430224896
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -9474688183784384563,
+        22576822008938496
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            46451284194479187,
+            15393162788864
+          ],
+          "upper": [
+            93160010316935985,
+            30786325577728
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -10003724693515877,
+          42880953483264
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              372796258324990469729,
+              82331430687866880
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  372796258324990469729,
+                  82331430687866880
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              409423593553786033279,
+              180100004629708800
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-05T11:30:00+08:00",
+    "rows": 7575,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "69768a1240f73da19e749093f0986b37f05a796ee7604d60b4475b5ad7f3af8d",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-05T15:00:00+08:00",
+    "targetEndpoint": "2024-08-06T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2913.9468828334348,
+      "e26": 2922.7482735196304,
+      "dea": -12.07218043607606
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -185709635312277971,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -113643203642453094887,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            185709635312277971,
+            61572651155456
+          ],
+          "upper": [
+            186224519168233193,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -2812337916126331,
+          12060268167168
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              7839191451317314046551,
+              1728960044445204480
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  7839191451317314046551,
+                  1728960044445204480
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4911096246778962274421,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-13T15:00:00+08:00",
+    "rows": 7588,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "eaee079fe6d502bb2459cd280d6aad4e5e1f2245db94a7e82984a43533da47e2",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-14T11:30:00+08:00",
+    "targetEndpoint": "2024-08-14T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2870.6222715310937,
+      "e26": 2886.828421662075,
+      "dea": -16.356457571158916
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -20926008506210011,
+        85761906966528
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -12633762947412455467,
+        30102429345251328
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            188334076555890099,
+            61572651155456
+          ],
+          "upper": [
+            26978422915977903,
+            8796093022208
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -1141898572852327,
+          4947802324992
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              1723337898172317240547,
+              384213343210045440
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  1723337898172317240547,
+                  384213343210045440
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              536218425158953874461,
+              240133339506278400
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-14T11:30:00+08:00",
+    "rows": 7589,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "2eb046fe5943e2e59e78b91414e9e955a0ce7c9b9ce70f051201d08ded975c6f",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-14T15:00:00+08:00",
+    "targetEndpoint": "2024-08-15T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2868.6653989878487,
+      "e26": 2884.6857682056248,
+      "dea": -16.28923990048235
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -188080812347141983,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -113585770179222069451,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            188080812347141983,
+            61572651155456
+          ],
+          "upper": [
+            188595696203097205,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -3708234598064027,
+          16080357556224
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              7748160652917555795473,
+              1728960044445204480
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  7748160652917555795473,
+                  1728960044445204480
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4822956869671370177833,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-14T15:00:00+08:00",
+    "rows": 7590,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "09d572e2a512c9378300ee7d69eb06078eb992b975f9e028fefe87e4aa5a6440",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-15T11:30:00+08:00",
+    "targetEndpoint": "2024-08-15T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2865.894383758949,
+      "e26": 2882.164881671875,
+      "dea": -16.28549150297103
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -7234190623415341,
+        29686813949952
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -4366836275550462127,
+        10420071696433152
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            94044478104399433,
+            30786325577728
+          ],
+          "upper": [
+            23575480008094261,
+            7696581394432
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -6840467072842829,
+          29686813949952
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              1191436576809157237127,
+              265993852991569920
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  1191436576809157237127,
+                  265993852991569920
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              185302737581986528291,
+              83123079059865600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-15T11:30:00+08:00",
+    "rows": 7591,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "f5511962e0ac49f41b515eb59a3912a501bdfea1b9b1cb95f5ab4c05fc479537",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-15T15:00:00+08:00",
+    "targetEndpoint": "2024-08-16T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2868.1004785652644,
+      "e26": 2882.021853399884,
+      "dea": -15.812668169300757
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -186545914023935561,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -113076597480691201817,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            186545914023935561,
+            61572651155456
+          ],
+          "upper": [
+            187060797879890783,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -22216211273233903,
+          96482145337344
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              7724310102932936351953,
+              1728960044445204480
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  7724310102932936351953,
+                  1728960044445204480
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4825375781651383372511,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-15T15:00:00+08:00",
+    "rows": 7592,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "9339839e75e29216802fd8ec63c89e1cc24e00333ac7da30e6e4b90253e2a773",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2024-08-16T11:30:00+08:00",
+    "targetEndpoint": "2024-08-16T15:00:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2869.524712632147,
+      "e26": 2881.6763827776704,
+      "dea": -15.080468564545296
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -185368830817095283,
+        771857162698752
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -112720090517075181451,
+        270921864107261952
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            185368830817095283,
+            61572651155456
+          ],
+          "upper": [
+            185883714673050505,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2024-07-10T11:30:00+08:00",
+          "endTime": "2024-07-22T15:00:00+08:00",
+          "price": 2982.3086,
+          "dif": 0.6670714231049715
+        },
+        "secondAtZeroUpperBound": [
+          -44405700741223999,
+          192964290674688
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              15430191307139365047937,
+              3457920088890408960
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  15430191307139365047937,
+                  3457920088890408960
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              7649,
+              35100
+            ],
+            "b": [
+              4830627549644274156133,
+              2161200055556505600
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  {
+    "period": "m120",
+    "gate": 1.0,
+    "through": "2024-08-30T15:00:00+08:00",
+    "rows": 7614,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m120_1.0.json",
+    "oldResultSha256": "a5cf23e20ac323724e51ab3000b4daf6ddfc5fb88ec287fd1bddbb8dabf3deb3",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2024-07-31T15:00:00+08:00",
+        "end": "2024-08-05T11:30:00+08:00",
+        "count": 6,
+        "price": 2938.7493,
+        "dif": -8.538612665281107,
+        "price_at": "2024-07-31T15:00:00+08:00",
+        "dif_at": "2024-08-02T11:30:00+08:00"
+      },
+      {
+        "sign": 1,
+        "start": "2024-08-13T15:00:00+08:00",
+        "end": "2024-08-21T15:00:00+08:00",
+        "count": 13,
+        "price": 2894.5654,
+        "dif": -4.6405733087340195,
+        "price_at": "2024-08-19T11:30:00+08:00",
+        "dif_at": "2024-08-19T15:00:00+08:00"
+      }
+    ],
+    "currentWaveDif": -10.036056945920336
+  }
+]

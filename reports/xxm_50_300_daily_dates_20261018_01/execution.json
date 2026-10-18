@@ -1,0 +1,16 @@
+{
+  "status": "COMPLETE",
+  "readonly": true,
+  "formalWrites": false,
+  "productCodeChanged": false,
+  "captureSeconds": 0.6719967504031956,
+  "comparisonSeconds": 0.23344858270138502,
+  "reusedPrefixRowsPerCode": 732,
+  "readTailRowsPerCode": 401,
+  "overlapExact": true,
+  "combinedRowsPerCode": 1132,
+  "calendarOpenDays": 1132,
+  "candidates": 0,
+  "seconds": 0.9054480833001435,
+  "protectedUnchanged": true
+}

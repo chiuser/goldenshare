@@ -1,3 +1,4 @@
+import { XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type { XxmResponse } from "./types";
 
@@ -7,7 +8,7 @@ export function xxmFixture(): { response: XxmResponse; points: DetailChartPoint[
   const point = { time: "2026-10-09", close: 106, dif: -1, dea: -0.5, hist: -1,
     ordinaryState: "DULL" as const, ordinaryDirection: "BOTTOM" as const, activeReference: reference, pendingTopHistoryId: null, pendingBottomHistoryId: null, pendingRearmId: null };
   const response: XxmResponse = {
-    tsCode: "000001.SH", period: "day", algorithmVersion: "xxm-direction-v0.1-a1", specHash: "a".repeat(64),
+    tsCode: "000001.SH", period: "day", algorithmVersion: XXM_ALGORITHM_VERSION, specHash: XXM_SPEC_HASH,
     source: { kind: "daily_factor", inputId: "b".repeat(64), startTime: "2023-01-03", computedThrough: point.time, initialHistoryIncomplete: true, indicatorVersion: null },
     points: [point], events: [
       { id: "e1", time: point.time, direction: "BOTTOM", type: "DULL", route: "activation", fromState: "NONE", eventReference: reference, relatedTopHistoryId: null, relatedBottomHistoryId: null, relatedRearmId: null },

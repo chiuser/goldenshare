@@ -1,0 +1,11 @@
+{
+  "status": "COMPLETE",
+  "readonly": true,
+  "productCodeChanged": false,
+  "formalWrites": false,
+  "candidates": 0,
+  "sourceSeconds": 0.001040749717503786,
+  "comparisonSeconds": 0.01508141728118062,
+  "seconds": 0.024499665945768356,
+  "codeUnchanged": true
+}

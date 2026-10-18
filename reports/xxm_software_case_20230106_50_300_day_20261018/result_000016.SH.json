@@ -1,0 +1,295 @@
+{
+  "ts_code": "000016.SH",
+  "sourceSha256": "46fffacabc97ea363d4d74c80e9452b71b297516b2fc6e51ff014e72f3ffea3e",
+  "inputRows": 732,
+  "targetDate": "2023-01-06",
+  "record": {
+    "bar": {
+      "time": "2023-01-06",
+      "close": 2713.6307,
+      "dif": 20.382,
+      "dea": 17.001,
+      "hist": 6.761,
+      "completed": true
+    },
+    "wave": {
+      "sign": 1,
+      "start": "2023-01-05",
+      "end": "2023-01-06",
+      "count": 2,
+      "price": 2713.6307,
+      "dif": 20.382,
+      "price_at": "2023-01-06",
+      "dif_at": "2023-01-06"
+    },
+    "history": [
+      {
+        "sign": 1,
+        "start": "2022-08-12",
+        "end": "2022-09-16",
+        "count": 25,
+        "price": 2796.8887,
+        "dif": -12.804,
+        "price_at": "2022-08-12",
+        "dif_at": "2022-09-15"
+      },
+      {
+        "sign": 1,
+        "start": "2022-11-04",
+        "end": "2022-12-16",
+        "count": 31,
+        "price": 2706.7388,
+        "dif": 46.905,
+        "price_at": "2022-12-09",
+        "dif_at": "2022-12-09"
+      }
+    ],
+    "variants": {
+      "BASE": {
+        "point": {
+          "ordinaryState": "DULL",
+          "ordinaryDirection": "TOP",
+          "activeReference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        },
+        "events": [
+          {
+            "time": "2023-01-06",
+            "direction": "TOP",
+            "type": "DULL",
+            "route": "activation",
+            "fromState": "NONE",
+            "eventReference": {
+              "startTime": "2022-11-04",
+              "endTime": "2022-12-16",
+              "price": 2706.7388,
+              "dif": 46.905
+            }
+          }
+        ]
+      },
+      "ZC": {
+        "point": {
+          "ordinaryState": "DULL",
+          "ordinaryDirection": "TOP",
+          "activeReference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        },
+        "events": [
+          {
+            "time": "2023-01-06",
+            "direction": "TOP",
+            "type": "DULL",
+            "route": "activation",
+            "fromState": "NONE",
+            "eventReference": {
+              "startTime": "2022-11-04",
+              "endTime": "2022-12-16",
+              "price": 2706.7388,
+              "dif": 46.905
+            }
+          }
+        ]
+      },
+      "ZR": {
+        "point": {
+          "ordinaryState": "DULL",
+          "ordinaryDirection": "TOP",
+          "activeReference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        },
+        "events": [
+          {
+            "time": "2023-01-06",
+            "direction": "TOP",
+            "type": "DULL",
+            "route": "activation",
+            "fromState": "NONE",
+            "eventReference": {
+              "startTime": "2022-11-04",
+              "endTime": "2022-12-16",
+              "price": 2706.7388,
+              "dif": 46.905
+            }
+          }
+        ]
+      }
+    }
+  },
+  "previousTwo": [
+    {
+      "bar": {
+        "time": "2023-01-04",
+        "close": 2651.005,
+        "dif": 11.903,
+        "dea": 16.154,
+        "hist": -8.501,
+        "completed": true
+      },
+      "wave": {
+        "sign": -1,
+        "start": "2022-12-19",
+        "end": "2023-01-04",
+        "count": 12,
+        "price": 2599.4882,
+        "dif": 11.311,
+        "price_at": "2022-12-20",
+        "dif_at": "2023-01-03"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2022-08-12",
+          "end": "2022-09-16",
+          "count": 25,
+          "price": 2796.8887,
+          "dif": -12.804,
+          "price_at": "2022-08-12",
+          "dif_at": "2022-09-15"
+        },
+        {
+          "sign": 1,
+          "start": "2022-11-04",
+          "end": "2022-12-16",
+          "count": 31,
+          "price": 2706.7388,
+          "dif": 46.905,
+          "price_at": "2022-12-09",
+          "dif_at": "2022-12-09"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      }
+    },
+    {
+      "bar": {
+        "time": "2023-01-05",
+        "close": 2700.3082,
+        "dif": 16.165,
+        "dea": 16.156,
+        "hist": 0.017,
+        "completed": true
+      },
+      "wave": {
+        "sign": 1,
+        "start": "2023-01-05",
+        "end": "2023-01-05",
+        "count": 1,
+        "price": 2700.3082,
+        "dif": 16.165,
+        "price_at": "2023-01-05",
+        "dif_at": "2023-01-05"
+      },
+      "history": [
+        {
+          "sign": 1,
+          "start": "2022-08-12",
+          "end": "2022-09-16",
+          "count": 25,
+          "price": 2796.8887,
+          "dif": -12.804,
+          "price_at": "2022-08-12",
+          "dif_at": "2022-09-15"
+        },
+        {
+          "sign": 1,
+          "start": "2022-11-04",
+          "end": "2022-12-16",
+          "count": 31,
+          "price": 2706.7388,
+          "dif": 46.905,
+          "price_at": "2022-12-09",
+          "dif_at": "2022-12-09"
+        }
+      ],
+      "variants": {
+        "BASE": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZC": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        },
+        "ZR": {
+          "point": {
+            "ordinaryState": "NONE",
+            "ordinaryDirection": null,
+            "activeReference": null
+          },
+          "events": []
+        }
+      }
+    }
+  ],
+  "sameSegmentFirstActivations": [
+    {
+      "date": "2023-01-06",
+      "events": [
+        {
+          "time": "2023-01-06",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2022-11-04",
+            "endTime": "2022-12-16",
+            "price": 2706.7388,
+            "dif": 46.905
+          }
+        }
+      ]
+    }
+  ],
+  "threeVariantsAgree": true,
+  "targetStableFrom2020And2021": true,
+  "baseMatchesProduct": true,
+  "segmentationAndHistoryUnchanged": true,
+  "prefixAndRestoreChecks": 6,
+  "crossSourceRestoreRejected": true
+}

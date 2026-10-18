@@ -1,0 +1,1615 @@
+{
+  "file": "daily2020_day_0.75.ndjson.gz",
+  "sha256": "9c2d158286ca1d26c554fc314f1f1f1202dd247f215891a781c672bea7e25d52",
+  "contentSha256": "4ca3573982d14cc6b866791e74ffb1f2d086fd7c1b283f49cc741fb43d01ff47",
+  "rawBytes": 1129631,
+  "rows": 1643,
+  "through": "2026-10-16",
+  "start": "2020-01-02",
+  "inputSha256": "9fad92c7eb2c234e0a4728930b2cca61d3d17983f89f62d1692a28430c8512c7",
+  "group": "daily2020",
+  "period": "day",
+  "gate": 0.75,
+  "oldSpecHash": "6002bf505e12beae7889d4da35d3968ebe3d3a65f356a1c08a5d6e80490fbac5",
+  "expectedSpecHash": "ddc241ad701a483a0e1659ed1a70ef46e695499199776c13694a29ddda3c1a04",
+  "sourceIdentity": "top-activation-freeze:daily2020:day",
+  "eventCounts": {
+    "TOP:DULL": 21,
+    "TOP:CANCEL": 9,
+    "TOP:STRUCTURE": 12,
+    "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 5,
+    "BOTTOM:DULL": 20,
+    "BOTTOM:CANCEL": 11,
+    "BOTTOM:STRUCTURE": 8,
+    "BOTTOM:RESEARCH_HISTORICAL_WITHDRAWAL": 4
+  },
+  "bottomProtected": {
+    "events": 43,
+    "historyUpdates": 226,
+    "rearmUpdates": 0
+  },
+  "changedEndpoints": 18,
+  "changes": [
+    {
+      "time": "2021-08-25",
+      "oldState": "DULL",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "a21af9cbbd55fd17f7b8dc2e",
+          "time": "2021-08-25",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2021-08-09",
+            "endTime": "2021-08-19",
+            "price": 3532.6213,
+            "dif": -2.003
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "aa42cc2b51ecdebd25af6f33729fa35ffa466946c005edf96f0b2f880aa81bbf",
+      "newStepSha256": "b3d8a72da3a50f7e5ff97c3badb71c4a3acbbab925f190dc5659dc0fb0d3e86d"
+    },
+    {
+      "time": "2021-08-26",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "e5e027249f1daa229ea0a64e",
+          "time": "2021-08-26",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2021-08-09",
+            "endTime": "2021-08-19",
+            "price": 3532.6213,
+            "dif": -2.003
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "482b0397777de76db13b0d642a4b1343e453881294acac4964a5fdf27ee15d3b",
+      "newStepSha256": "8445a27597856b0a12aca091dc94b15f135a52fd6a47865fea1b239236e2193f"
+    },
+    {
+      "time": "2021-08-27",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "e377a71988f543da9507a1f509f992c865b07792c99895b51632346185375e67",
+      "newStepSha256": "946adf918e9874c3d2477901d18aebfdfb3d27c2c5f283da356bc6c65750e83e"
+    },
+    {
+      "time": "2021-08-30",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "55eeae60479291869a97f9a664c40adf929355991c5a6c6ac3931bbc75453aae",
+      "newStepSha256": "a063a5bc502a0043fa1e709f90ab4e7022034e356fe5c0b5fb749c36c44ce615"
+    },
+    {
+      "time": "2021-08-31",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "f1b18eafd4531ce3d62cde0dd8dbc5a19fde463125d35845a309bb9e68b61766",
+      "newStepSha256": "84af0a14ce3f065708158bc8873fb7db82e92d2d172134d15e99a2789fb751ec"
+    },
+    {
+      "time": "2021-09-01",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "c4df61b574a84f65840bb328b98e9dcf74dfd38cdb08741abeb1b36bc0861b7d",
+      "newStepSha256": "20c72dfaccab3a0067a85b71c862d331fd2d69a1a746edb20347853e8a3d27c4"
+    },
+    {
+      "time": "2021-09-02",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "5355425be97a4c80b453e51e4e346831b1de2e3f5c4f8272c9e7d85dc65ea455",
+      "newStepSha256": "cca0e8ef086c0545adb9fdeb2ce514ae32fd8cc4824f558bd6c39fec55528a66"
+    },
+    {
+      "time": "2021-09-03",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "2902f0fe05bafd2ecb93b018cbe41a102d5bbab30ac53524131a86d7067c99c0",
+      "newStepSha256": "2351d3bbc808953edcc079c6bafdc644c72744c7c556312948a7ee940d2126e3"
+    },
+    {
+      "time": "2021-09-06",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "010fe549746bc4fb2b22079b429acb3b0d55649a999a435bdfd4ea687788d33a",
+      "newStepSha256": "f3a2b4eb4db43db5192b13cc80f87bea23a02ca4f3a7c601eb34dde198fe7f31"
+    },
+    {
+      "time": "2021-09-07",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "b6053acafdcf66d3a381709a95d1848d9f3262879cb5aa25df17986f6787c6a9",
+      "newStepSha256": "749568576653976e206bc350071d9fb1fad3dfe1a3eb302d5aa445c1468a41ce"
+    },
+    {
+      "time": "2021-09-08",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "e9cad1d7847203b6f6f65820b18bd89efc5a76234cf2d0548dfae477677bf7dd",
+      "newStepSha256": "53ceab7a0dfb42b1382241cb3a5676eae119aa8f31acc3c6bc922551fdaafa4e"
+    },
+    {
+      "time": "2021-09-09",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "59078214cc67c9928306e56d02cfeee1cc7c40be422077efd2450582f2f3bc3d",
+      "newStepSha256": "d6a8a87b658765fab008f794218e017702ba471e8d110044ed1ffcc27660a12a"
+    },
+    {
+      "time": "2021-09-10",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [
+        {
+          "id": "a5fae85516c3ff7885c47f5e",
+          "time": "2021-09-10",
+          "direction": "TOP",
+          "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+          "route": "historical_price_break",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2020-12-31",
+            "endTime": "2021-01-25",
+            "price": 3624.2381,
+            "dif": 55.3
+          },
+          "relatedTopHistoryId": "db0cfa84cd77baaa5ba3a238",
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "oldStepSha256": "1bb605e51de439435b54af3b7c527c486ea36ca6508578dabf2f269a8f8f996e",
+      "newStepSha256": "53d748808dd641d5aa2900fa57f3eb01e87559be4580f3136a607a9d4952678e"
+    },
+    {
+      "time": "2024-09-24",
+      "oldState": "DULL",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "f6da16670369490e65f88cc2",
+          "time": "2024-09-24",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "cd9694b34d2966b95019d0e9647b658c32120f55236ea7cf3cf9f479f8517d32",
+      "newStepSha256": "89845040d825716c13e868cfcb86c2304d6ddfc102df8880519c8af86cd4b841"
+    },
+    {
+      "time": "2024-09-25",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [
+        {
+          "id": "7d0f068bef3693e1336b6e50",
+          "time": "2024-09-25",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "newEvents": [],
+      "oldStepSha256": "30342b61769e02122a0bced7e86f0860730107488e2023dbcc54726d39ab625c",
+      "newStepSha256": "8867697d2cf677153dc82ccdb16f28180e2e76e0c6c06a02275c36c4287ebe53"
+    },
+    {
+      "time": "2024-09-26",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "2e25dc4a7efa2040266c1ea726dfc60e680e074edeab7ec40e227d42d55217bd",
+      "newStepSha256": "032fc4646a6252bda4e70fc52d9cf59c485d2f0d4db7afa0e2531b1f066b6402"
+    },
+    {
+      "time": "2024-09-27",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "4ce398e0fa66530943cb19856a00ac2bd5ace9f371db772a3788b753da8991aa",
+      "newStepSha256": "d23f0be386e2351148e9e85a2d3dd5381ab8a547a9014527efc25d079115dba5"
+    },
+    {
+      "time": "2024-09-30",
+      "oldState": "NONE",
+      "newState": "NONE",
+      "oldEvents": [],
+      "newEvents": [],
+      "oldStepSha256": "2cc8bb199f2cbf3831ed28dd2cb2ebab1d92752b98dd7fe8094b5596b91b22d2",
+      "newStepSha256": "fa2b22a8a617845d3e116b940137e6fe80573f4a4165efa4df6cc3260c8adcf2"
+    }
+  ],
+  "identityMap": {
+    "0dff33f0abc143a610e3eff0": {
+      "kind": "event",
+      "parts": [
+        "2020-06-02",
+        "DULL",
+        1,
+        "2020-04-02"
+      ],
+      "dependencies": [],
+      "new": "707bf93bc8cdea6ca54b3dfa"
+    },
+    "70d71bb7174afaf0e1c0a367": {
+      "kind": "event",
+      "parts": [
+        "2020-06-05",
+        "CANCEL",
+        1,
+        "2020-04-02"
+      ],
+      "dependencies": [],
+      "new": "32dc33cfce148f7fcd34891d"
+    },
+    "e2d8ff6653dc33275e1d57b7": {
+      "kind": "event",
+      "parts": [
+        "2020-06-19",
+        "DULL",
+        1,
+        "2020-06-01"
+      ],
+      "dependencies": [],
+      "new": "5e8a906780ff0d38d0f6d7fa"
+    },
+    "d7dde2c9d80fdd26f09db25d": {
+      "kind": "event",
+      "parts": [
+        "2020-06-24",
+        "CANCEL",
+        1,
+        "2020-06-01"
+      ],
+      "dependencies": [],
+      "new": "ae02b870f7c284bd82096f4b"
+    },
+    "30013372a634a77c078e504d": {
+      "kind": "event",
+      "parts": [
+        "2020-08-19",
+        "DULL",
+        1,
+        "2020-06-17"
+      ],
+      "dependencies": [],
+      "new": "2c56137926fbe3b8fc13bc86"
+    },
+    "f3cc5ee8ed3aa4155b8990c1": {
+      "kind": "event",
+      "parts": [
+        "2020-08-20",
+        "STRUCTURE",
+        1,
+        "2020-06-17"
+      ],
+      "dependencies": [],
+      "new": "ea9cbd831be8a6fda0da87f5"
+    },
+    "0a2ab8eaec9f33901f9d7c95": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2020-08-20",
+        "color_flip",
+        "2020-06-17"
+      ],
+      "dependencies": [],
+      "new": "2ff0c10ba4d6aa1415d1d2cb"
+    },
+    "1e1a01bbb2a5ec638bc9a110": {
+      "kind": "event",
+      "parts": [
+        "2020-11-09",
+        "DULL",
+        1,
+        "2020-10-12"
+      ],
+      "dependencies": [],
+      "new": "47cbf56bba4baac8f5e3adfa"
+    },
+    "ad9e4c7a42a39945de7e2177": {
+      "kind": "event",
+      "parts": [
+        "2020-11-10",
+        "CANCEL",
+        1,
+        "2020-10-12"
+      ],
+      "dependencies": [],
+      "new": "3a48cb073eb8ed070fb08037"
+    },
+    "4aff0610ee6c4ac824692144": {
+      "kind": "event",
+      "parts": [
+        "2020-12-01",
+        "DULL",
+        1,
+        "2020-08-18"
+      ],
+      "dependencies": [],
+      "new": "c9ed4d32bb95a385a23a6634"
+    },
+    "e0742daafca6a76c54288990": {
+      "kind": "event",
+      "parts": [
+        "2020-12-07",
+        "STRUCTURE",
+        1,
+        "2020-08-18"
+      ],
+      "dependencies": [],
+      "new": "2b111bb1ddb331e55843b048"
+    },
+    "2b75eb2d6df2c52433d554cb": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2020-12-07",
+        "dif_turn",
+        "2020-08-18"
+      ],
+      "dependencies": [],
+      "new": "e50d65c13724f24781f4387c"
+    },
+    "ae7f0bd7bf2c5b75a587647e": {
+      "kind": "withdrawal",
+      "parts": [
+        "2020-12-31",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "2b75eb2d6df2c52433d554cb"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "c9f35aa8cf43f19a0a4fbedd"
+    },
+    "7979db209cb945424f38348c": {
+      "kind": "event",
+      "parts": [
+        "2021-01-04",
+        "DULL",
+        1,
+        "2020-11-05"
+      ],
+      "dependencies": [],
+      "new": "f560f349eadc1ec20e520a6b"
+    },
+    "4f0f5c6b1238e13072d5b8fc": {
+      "kind": "event",
+      "parts": [
+        "2021-01-07",
+        "CANCEL",
+        1,
+        "2020-11-05"
+      ],
+      "dependencies": [],
+      "new": "a51da315419b947f9b92ddae"
+    },
+    "c0e4c2e5b35adb0560595a12": {
+      "kind": "event",
+      "parts": [
+        "2021-02-18",
+        "DULL",
+        1,
+        "2020-12-31"
+      ],
+      "dependencies": [],
+      "new": "f87f5d134d8da6e6ad105b26"
+    },
+    "a8f1286dd3fa4381b366fc89": {
+      "kind": "event",
+      "parts": [
+        "2021-02-24",
+        "STRUCTURE",
+        1,
+        "2020-12-31"
+      ],
+      "dependencies": [],
+      "new": "77f187f87adf1aa8ca5064f6"
+    },
+    "db0cfa84cd77baaa5ba3a238": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2021-02-24",
+        "dif_turn",
+        "2020-12-31"
+      ],
+      "dependencies": [],
+      "new": "51d0e61dbe01f38d17ac03fb"
+    },
+    "a5fae85516c3ff7885c47f5e": {
+      "kind": "withdrawal",
+      "parts": [
+        "2021-09-10",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "db0cfa84cd77baaa5ba3a238"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "56a83b01ad973b20c2518539"
+    },
+    "5821fcfd69f59a1b68b7bf89": {
+      "kind": "event",
+      "parts": [
+        "2022-03-08",
+        "DULL",
+        -1,
+        "2021-12-20"
+      ],
+      "dependencies": [],
+      "new": "b5b47fa564b30788f9aa666f"
+    },
+    "ca5d57c826043212749057ec": {
+      "kind": "event",
+      "parts": [
+        "2022-03-11",
+        "CANCEL",
+        -1,
+        "2021-12-20"
+      ],
+      "dependencies": [],
+      "new": "9c358c4b3f67ac93214f86b2"
+    },
+    "2a55d0e4535a5a6be3d9ade6": {
+      "kind": "event",
+      "parts": [
+        "2022-04-25",
+        "DULL",
+        -1,
+        "2022-03-07"
+      ],
+      "dependencies": [],
+      "new": "8623021c9711530d597389dc"
+    },
+    "4da520138ddc4a3bff38a0ad": {
+      "kind": "event",
+      "parts": [
+        "2022-04-27",
+        "CANCEL",
+        -1,
+        "2022-03-07"
+      ],
+      "dependencies": [],
+      "new": "14ddd51baf59a85ac2f4523e"
+    },
+    "3c0746b13e39bcaba83ba4e9": {
+      "kind": "event",
+      "parts": [
+        "2022-09-19",
+        "DULL",
+        -1,
+        "2022-07-06"
+      ],
+      "dependencies": [],
+      "new": "384043a7fff82b552507adf4"
+    },
+    "a5a460b03938935edc0e165f": {
+      "kind": "event",
+      "parts": [
+        "2022-09-20",
+        "CANCEL",
+        -1,
+        "2022-07-06"
+      ],
+      "dependencies": [],
+      "new": "0fd9bf08c047519a942240bf"
+    },
+    "547e74e730501d55fd975c24": {
+      "kind": "event",
+      "parts": [
+        "2022-10-31",
+        "DULL",
+        -1,
+        "2022-09-16"
+      ],
+      "dependencies": [],
+      "new": "8c9630d2490b232a385a88a2"
+    },
+    "3ccc8c453b5e54b378739fa1": {
+      "kind": "event",
+      "parts": [
+        "2022-11-01",
+        "STRUCTURE",
+        -1,
+        "2022-09-16"
+      ],
+      "dependencies": [],
+      "new": "d5b5aeafb645d7dd536cbed6"
+    },
+    "4757b5a5840efb3b6028f669": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "3ccc8c453b5e54b378739fa1"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "578f4eaae312c554acfa1d0c"
+    },
+    "44d91accf8806293ce62ff2d": {
+      "kind": "event",
+      "parts": [
+        "2023-01-16",
+        "DULL",
+        1,
+        "2022-11-02"
+      ],
+      "dependencies": [],
+      "new": "3d1a13c0910956ed4affffb5"
+    },
+    "4dd017d75930ba76b2240a8e": {
+      "kind": "event",
+      "parts": [
+        "2023-02-01",
+        "CANCEL",
+        1,
+        "2022-11-02"
+      ],
+      "dependencies": [],
+      "new": "9fa61bca504672163f91a162"
+    },
+    "53d3d2979d0107fefa637273": {
+      "kind": "event",
+      "parts": [
+        "2023-03-06",
+        "DULL",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "baf9d7b9a2b3f131b9cbb6b4"
+    },
+    "e2abdbf6f5fa2786eb8d4b5f": {
+      "kind": "event",
+      "parts": [
+        "2023-03-07",
+        "STRUCTURE",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "6cd5ccad0d90a9c24cb06451"
+    },
+    "ff7c2c2a794c29728c3f5afa": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-03-07",
+        "color_flip",
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "a0e8496db1aafedaa776ccf2"
+    },
+    "e46e3a941c920e7a5333fe29": {
+      "kind": "event",
+      "parts": [
+        "2023-04-14",
+        "DULL",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "c733147794ecd5c8cb42c584"
+    },
+    "5128e7951ba25b404068b85e": {
+      "kind": "event",
+      "parts": [
+        "2023-04-21",
+        "STRUCTURE",
+        1,
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "49c89113ec59f29dbcef6f0c"
+    },
+    "ca54470a121f02ef8f17c89a": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-04-21",
+        "dif_turn",
+        "2023-01-05"
+      ],
+      "dependencies": [],
+      "new": "947d612be6af1aeb4ecd781d"
+    },
+    "5076ea2119265d44c23bfdde": {
+      "kind": "withdrawal",
+      "parts": [
+        "2023-05-08",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "ca54470a121f02ef8f17c89a"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "b76f6732942d242f89f1b4ec"
+    },
+    "991972dfcf0fc89d7d6ce685": {
+      "kind": "event",
+      "parts": [
+        "2023-05-09",
+        "DULL",
+        1,
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "6a1236711d62972103c21090"
+    },
+    "b788f529cc7daec95423dc2d": {
+      "kind": "event",
+      "parts": [
+        "2023-05-10",
+        "STRUCTURE",
+        1,
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "fb7f11680d51a1c812640427"
+    },
+    "34149e36f815b61e04c32ecc": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2023-05-10",
+        "dif_turn",
+        "2023-04-03"
+      ],
+      "dependencies": [],
+      "new": "d2c489e279ce92e778ea9c15"
+    },
+    "ac291ba2b635db88f75dc96d": {
+      "kind": "event",
+      "parts": [
+        "2023-06-27",
+        "DULL",
+        -1,
+        "2023-05-11"
+      ],
+      "dependencies": [],
+      "new": "85f5e56e0bd3b9a51ec86455"
+    },
+    "d1dfb1c0eafd1a1b5cbc67ed": {
+      "kind": "event",
+      "parts": [
+        "2023-06-30",
+        "STRUCTURE",
+        -1,
+        "2023-05-11"
+      ],
+      "dependencies": [],
+      "new": "1546002aa12979d221278c8e"
+    },
+    "5ee8dabee6ed518e2d723b6c": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "d1dfb1c0eafd1a1b5cbc67ed"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "9607db62e130d86d7550d48e"
+    },
+    "b424f88ddb785f2e054d862e": {
+      "kind": "event",
+      "parts": [
+        "2023-08-16",
+        "DULL",
+        -1,
+        "2023-06-26"
+      ],
+      "dependencies": [],
+      "new": "c04d9ba14b442d3840895cd7"
+    },
+    "d957ce4b9ab7107d35be3303": {
+      "kind": "event",
+      "parts": [
+        "2023-08-21",
+        "CANCEL",
+        -1,
+        "2023-06-26"
+      ],
+      "dependencies": [],
+      "new": "1d96c79f9331747416c7d0c0"
+    },
+    "fea24c695056a3de87c2058a": {
+      "kind": "event",
+      "parts": [
+        "2023-10-18",
+        "DULL",
+        -1,
+        "2023-08-11"
+      ],
+      "dependencies": [],
+      "new": "d2a091aa54c86b25e1572266"
+    },
+    "f5c53a1df697755e98bd1f9b": {
+      "kind": "event",
+      "parts": [
+        "2023-10-24",
+        "CANCEL",
+        -1,
+        "2023-08-11"
+      ],
+      "dependencies": [],
+      "new": "1d5b0850bb939f145c9dce4a"
+    },
+    "264c3672990a47f7659888a2": {
+      "kind": "event",
+      "parts": [
+        "2023-12-18",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "e2bb6999aafa86e2fd82e337"
+    },
+    "22238b5a97950342b294509c": {
+      "kind": "event",
+      "parts": [
+        "2023-12-27",
+        "STRUCTURE",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "ac387ad31d903acf5fea40fe"
+    },
+    "1ba98ce9d84f5c2a81666d98": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "22238b5a97950342b294509c"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "753d6c27cea97c8102da957f"
+    },
+    "14fae9e4c04eb08f78907fb3": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-01-08",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "1ba98ce9d84f5c2a81666d98"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "3aa220e5a08d9aeba2e8d0fc"
+    },
+    "33d30fed5ae3b67639dda551": {
+      "kind": "event",
+      "parts": [
+        "2024-01-10",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "cd30a98303b9592ab323fee1"
+    },
+    "6ace3980b9a6d349a90d80d3": {
+      "kind": "event",
+      "parts": [
+        "2024-01-16",
+        "STRUCTURE",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "4d72f88c2540c693e3c33522"
+    },
+    "1e6ed8a43c4144144b197486": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "6ace3980b9a6d349a90d80d3"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "ddb11ac9717fc9f7080de659"
+    },
+    "e7f237a351fd3716ac4f4c96": {
+      "kind": "event",
+      "parts": [
+        "2024-01-17",
+        "DULL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "b6933e132e43899a1e468298"
+    },
+    "3f9c6dce898943654a625d76": {
+      "kind": "event",
+      "parts": [
+        "2024-01-23",
+        "CANCEL",
+        -1,
+        "2023-10-10"
+      ],
+      "dependencies": [],
+      "new": "a5880df63ee9a28728da42ff"
+    },
+    "e97e30b9a2c5ec5f2b3fd435": {
+      "kind": "event",
+      "parts": [
+        "2024-02-02",
+        "DULL",
+        -1,
+        "2024-01-09"
+      ],
+      "dependencies": [],
+      "new": "1eca590182422b1869919e93"
+    },
+    "1c00363ee014e2b222111d3f": {
+      "kind": "event",
+      "parts": [
+        "2024-02-05",
+        "CANCEL",
+        -1,
+        "2024-01-09"
+      ],
+      "dependencies": [],
+      "new": "90fc1d372a5ea48c21c1beb9"
+    },
+    "2e002d674d7632fee0292e6e": {
+      "kind": "event",
+      "parts": [
+        "2024-04-29",
+        "DULL",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "f3a60002980d69301ae0ba55"
+    },
+    "25de9e9d5d34abef39fe10d7": {
+      "kind": "event",
+      "parts": [
+        "2024-05-15",
+        "STRUCTURE",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "4be21fa57f69f510a31f7db9"
+    },
+    "0435412a9c3df52589b2a238": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2024-05-15",
+        "dif_turn",
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "0eb0104edfd4a9bc52a08fa7"
+    },
+    "76c3f6c0ce2b75215efda8a0": {
+      "kind": "event",
+      "parts": [
+        "2024-05-17",
+        "DULL",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "0174ae7016120e6e42270326"
+    },
+    "af3466a6432835864ab33422": {
+      "kind": "event",
+      "parts": [
+        "2024-05-22",
+        "STRUCTURE",
+        1,
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "598e3c3e517d09e0072ebf7b"
+    },
+    "3cdbcc89ac012ee6e37fbd85": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2024-05-22",
+        "dif_turn",
+        "2024-02-08"
+      ],
+      "dependencies": [],
+      "new": "ba02e949c912b014b0593abc"
+    },
+    "d347b1715cce914776ee282f": {
+      "kind": "event",
+      "parts": [
+        "2024-07-08",
+        "DULL",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "ca20949db07eb1eeccf97899"
+    },
+    "b915d66d0ddf8df9616cd30d": {
+      "kind": "event",
+      "parts": [
+        "2024-07-09",
+        "STRUCTURE",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "a9d0f5d14462003332a6251e"
+    },
+    "e57105d3190036bce30eea0b": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "b915d66d0ddf8df9616cd30d"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "c3fa56116702eaabffb00aaf"
+    },
+    "43c3df5d3ba3055f302915dd": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-07-23",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "e57105d3190036bce30eea0b"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "38a25b39456feffec8b67ae2"
+    },
+    "f4cd9cafa1cf4243c51ecf4c": {
+      "kind": "event",
+      "parts": [
+        "2024-07-25",
+        "DULL",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "7646164cb6755027860b92fe"
+    },
+    "1a18012b8ba2c47212983d52": {
+      "kind": "event",
+      "parts": [
+        "2024-07-31",
+        "STRUCTURE",
+        -1,
+        "2024-05-23"
+      ],
+      "dependencies": [],
+      "new": "a35bf10febdc1563ac06efa1"
+    },
+    "34e1344c9ba95c0ee8e1a13e": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "1a18012b8ba2c47212983d52"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "9a882402e58435bd1c06d40f"
+    },
+    "26e12a5061764ca4eed06935": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-08-05",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "34e1344c9ba95c0ee8e1a13e"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "337bc1403553787d6edabb64"
+    },
+    "74a533ebfd9f19d8c71ea76f": {
+      "kind": "event",
+      "parts": [
+        "2024-08-06",
+        "DULL",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "0730f9c1f5f8bcfa7f52c6b0"
+    },
+    "e99ca598d85820ec269f1ef6": {
+      "kind": "event",
+      "parts": [
+        "2024-08-13",
+        "STRUCTURE",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "06d6bd74ad21acd0bcd3fb34"
+    },
+    "23df0e533b46fad1be149b35": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "e99ca598d85820ec269f1ef6"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "5b1e4a78b12e6c303803da12"
+    },
+    "5753fe201ece90b58c99db05": {
+      "kind": "event",
+      "parts": [
+        "2024-08-14",
+        "DULL",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "f10c16a44552f09105fed352"
+    },
+    "aad739f34432977a91f717ec": {
+      "kind": "event",
+      "parts": [
+        "2024-08-15",
+        "STRUCTURE",
+        -1,
+        "2024-07-05"
+      ],
+      "dependencies": [],
+      "new": "afec322bf5913ec5958eaa44"
+    },
+    "28749ce36b861f1382a939e3": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "aad739f34432977a91f717ec"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "4f41349b12ebb0bba9ec5f12"
+    },
+    "0698df06f3e43bd0fd9e88fa": {
+      "kind": "withdrawal",
+      "parts": [
+        "2024-08-22",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "28749ce36b861f1382a939e3"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "d04d58ce1cef13e3e2dce616"
+    },
+    "6b0fc61bc3ae8b41d82b71a7": {
+      "kind": "event",
+      "parts": [
+        "2024-09-03",
+        "DULL",
+        -1,
+        "2024-08-05"
+      ],
+      "dependencies": [],
+      "new": "7570272fde055646726db625"
+    },
+    "e55e20d6099d8fef9d6df843": {
+      "kind": "event",
+      "parts": [
+        "2024-09-06",
+        "CANCEL",
+        -1,
+        "2024-08-05"
+      ],
+      "dependencies": [],
+      "new": "910becf90beeb1f8a73d2792"
+    },
+    "3ab2af78fe89c879e0d8a3d3": {
+      "kind": "event",
+      "parts": [
+        "2025-03-17",
+        "DULL",
+        1,
+        "2025-01-21"
+      ],
+      "dependencies": [],
+      "new": "02661a82eda7879666d8dff1"
+    },
+    "2e76591bdadd0cdaa2b2daf7": {
+      "kind": "event",
+      "parts": [
+        "2025-03-19",
+        "CANCEL",
+        1,
+        "2025-01-21"
+      ],
+      "dependencies": [],
+      "new": "007024a12788fae8f3d09ce2"
+    },
+    "c3abec7bcaf596b1e8cf61f4": {
+      "kind": "event",
+      "parts": [
+        "2025-06-26",
+        "DULL",
+        1,
+        "2025-04-17"
+      ],
+      "dependencies": [],
+      "new": "d4cbf9da3d4215010bdbf9b5"
+    },
+    "4dd123f0dbceea696778edde": {
+      "kind": "event",
+      "parts": [
+        "2025-07-01",
+        "CANCEL",
+        1,
+        "2025-04-17"
+      ],
+      "dependencies": [],
+      "new": "6dc622a8705f6803620e3036"
+    },
+    "3ca884126aee22651b05f60c": {
+      "kind": "event",
+      "parts": [
+        "2025-08-08",
+        "DULL",
+        1,
+        "2025-06-25"
+      ],
+      "dependencies": [],
+      "new": "99a13b146cbc2881be39f8c4"
+    },
+    "bc26c1ed422d28fdda038c53": {
+      "kind": "event",
+      "parts": [
+        "2025-08-18",
+        "CANCEL",
+        1,
+        "2025-06-25"
+      ],
+      "dependencies": [],
+      "new": "70354ae0d63cfae013244e85"
+    },
+    "1ac6e56c835d74b9879cce2f": {
+      "kind": "event",
+      "parts": [
+        "2025-10-10",
+        "DULL",
+        1,
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "d9441a8d27f2ebe34f5f1341"
+    },
+    "a3e5d454bb0b4dc2106b5dab": {
+      "kind": "event",
+      "parts": [
+        "2025-10-13",
+        "STRUCTURE",
+        1,
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "c008658c1403afbcaa98595d"
+    },
+    "c6c5baf4224dc2c62244091c": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-10-13",
+        "color_flip",
+        "2025-08-07"
+      ],
+      "dependencies": [],
+      "new": "644d8639e84703c35b3353d3"
+    },
+    "2520d57308a32ea11a46b4d9": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-10-24",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "c6c5baf4224dc2c62244091c"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "32d21a66d14a7e89aa044de5"
+    },
+    "0f9dd95e4edbc8acf100e489": {
+      "kind": "event",
+      "parts": [
+        "2025-11-10",
+        "DULL",
+        1,
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "61cc465e6264567a50192bb4"
+    },
+    "ff778244622b0c0a6eb12a62": {
+      "kind": "event",
+      "parts": [
+        "2025-11-11",
+        "STRUCTURE",
+        1,
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "8e8ffbd365ceba3e585ee0c7"
+    },
+    "4f44cb30926834816f2ee5a9": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-11-11",
+        "dif_turn",
+        "2025-10-24"
+      ],
+      "dependencies": [],
+      "new": "c2b52768ff305354acd3b016"
+    },
+    "1538c846a1dd04fd56d4e587": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-11-13",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "4f44cb30926834816f2ee5a9"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "01a7816613286ff4a3c73e56"
+    },
+    "1723fa51775207bcdcd3c0e2": {
+      "kind": "event",
+      "parts": [
+        "2026-01-06",
+        "DULL",
+        1,
+        "2025-11-13"
+      ],
+      "dependencies": [],
+      "new": "db2336e41c438197718ad7ae"
+    },
+    "dc7a7bdcb0b19ec1abc57b37": {
+      "kind": "event",
+      "parts": [
+        "2026-01-08",
+        "CANCEL",
+        1,
+        "2025-11-13"
+      ],
+      "dependencies": [],
+      "new": "69b4188de92c6fe0847c3720"
+    },
+    "f114a767c0a2b69c205b3205": {
+      "kind": "event",
+      "parts": [
+        "2026-03-02",
+        "DULL",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "82d908d77f3b006d92abea6a"
+    },
+    "f67c36019445567ba28c2380": {
+      "kind": "event",
+      "parts": [
+        "2026-03-03",
+        "STRUCTURE",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "aa3e0b8043a0ed2f92b497e4"
+    },
+    "e48a1e1d9e4991a136f406c4": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2026-03-03",
+        "dif_turn",
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "bfd43eae8fdd9c113ec91a14"
+    },
+    "038cb07abfa45f05d953f89f": {
+      "kind": "event",
+      "parts": [
+        "2026-05-11",
+        "DULL",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "f7644e4a361a07ca1bc36cf3"
+    },
+    "31bd88de11bd0fc3d0cd66eb": {
+      "kind": "event",
+      "parts": [
+        "2026-05-14",
+        "STRUCTURE",
+        1,
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "d7ca101f7616ee695051ae46"
+    },
+    "789227f2a51067f48a83bb67": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2026-05-14",
+        "dif_turn",
+        "2025-12-22"
+      ],
+      "dependencies": [],
+      "new": "8f2393d0998cb7520fe2ede1"
+    },
+    "ac09a8159510c269c916fe60": {
+      "kind": "event",
+      "parts": [
+        "2026-07-13",
+        "DULL",
+        -1,
+        "2026-05-18"
+      ],
+      "dependencies": [],
+      "new": "a5329facc0d5a9caf5fb4ab9"
+    },
+    "68aad81a86f224c80689dc82": {
+      "kind": "event",
+      "parts": [
+        "2026-07-15",
+        "CANCEL",
+        -1,
+        "2026-05-18"
+      ],
+      "dependencies": [],
+      "new": "e807c71979eb732b6dcba258"
+    },
+    "8ab0f148b6e977d184e9f298": {
+      "kind": "event",
+      "parts": [
+        "2026-07-17",
+        "DULL",
+        -1,
+        "2026-03-04"
+      ],
+      "dependencies": [],
+      "new": "59f15a141d04b2314f0e68b9"
+    },
+    "c43e967641ddb89730bace6e": {
+      "kind": "event",
+      "parts": [
+        "2026-07-20",
+        "CANCEL",
+        -1,
+        "2026-03-04"
+      ],
+      "dependencies": [],
+      "new": "602c893397e7ebbbbff085fd"
+    },
+    "a2e21605b1519cac9747248b": {
+      "kind": "event",
+      "parts": [
+        "2026-09-28",
+        "DULL",
+        -1,
+        "2026-09-11"
+      ],
+      "dependencies": [],
+      "new": "6ed6d9cd692f7f6aa010db43"
+    },
+    "0fcef2278ed48f4d3f9fcfc3": {
+      "kind": "event",
+      "parts": [
+        "2026-09-29",
+        "CANCEL",
+        -1,
+        "2026-09-11"
+      ],
+      "dependencies": [],
+      "new": "6e0a459f0e9cf9b0adec10b6"
+    },
+    "9f948799b2f30e672936299c": {
+      "kind": "event",
+      "parts": [
+        "2026-10-15",
+        "DULL",
+        -1,
+        "2026-07-02"
+      ],
+      "dependencies": [],
+      "new": "7df874ab17de9ac714921456"
+    }
+  },
+  "finalSnapshot": {
+    "specHash": "ddc241ad701a483a0e1659ed1a70ef46e695499199776c13694a29ddda3c1a04",
+    "tsCode": "000001.SH",
+    "period": "day",
+    "sourceIdentity": "top-activation-freeze:daily2020:day",
+    "processed": 1643,
+    "wave": {
+      "sign": -1,
+      "start": "2026-09-24",
+      "end": "2026-10-16",
+      "count": 11,
+      "price": 3707.476,
+      "dif": -46.885,
+      "price_at": "2026-10-15",
+      "dif_at": "2026-10-16"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2026-08-04",
+          "end": "2026-09-10",
+          "count": 28,
+          "price": 3990.3037,
+          "dif": 11.035,
+          "price_at": "2026-08-18",
+          "dif_at": "2026-09-01"
+        },
+        {
+          "sign": 1,
+          "start": "2026-09-22",
+          "end": "2026-09-23",
+          "count": 2,
+          "price": 3952.128,
+          "dif": -0.055,
+          "price_at": "2026-09-22",
+          "dif_at": "2026-09-23"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2026-07-02",
+          "end": "2026-08-03",
+          "count": 23,
+          "price": 3764.1547,
+          "dif": -62.142,
+          "price_at": "2026-07-17",
+          "dif_at": "2026-07-24"
+        },
+        {
+          "sign": -1,
+          "start": "2026-09-11",
+          "end": "2026-09-21",
+          "count": 7,
+          "price": 3864.2794,
+          "dif": -10.316,
+          "price_at": "2026-09-15",
+          "dif_at": "2026-09-17"
+        }
+      ]
+    },
+    "state": "DULL",
+    "reference": {
+      "sign": -1,
+      "start": "2026-07-02",
+      "end": "2026-08-03",
+      "count": 23,
+      "price": 3764.1547,
+      "dif": -62.142,
+      "price_at": "2026-07-17",
+      "dif_at": "2026-07-24"
+    },
+    "previous": {
+      "time": "2026-10-16",
+      "close": 3716.2842,
+      "dif": -46.885,
+      "dea": -30.719,
+      "hist": -32.332,
+      "completed": true
+    },
+    "pending": {
+      "id": "8f2393d0998cb7520fe2ede1",
+      "confirmedAt": "2026-05-14",
+      "confirmationRoute": "dif_turn",
+      "pricePeak": 4242.572,
+      "pricePeakAt": "2026-05-13",
+      "originalReference": {
+        "startTime": "2025-12-22",
+        "endTime": "2026-01-21",
+        "price": 4165.287,
+        "dif": 60.557
+      },
+      "status": "PENDING",
+      "endedAt": null,
+      "endReason": null,
+      "observedThrough": "2026-10-16",
+      "ageBars": 104,
+      "negativeBars": 62,
+      "zeroBars": 0,
+      "colorChanges": 7
+    },
+    "pendingBottomHistory": null,
+    "pendingRearm": null
+  },
+  "forecasts": [],
+  "restoreRows": 100,
+  "finalR1SnapshotSha256": "f20758360e07b455e85222b4a049e36d1cae05bb61569e6c59f2f91e277e8d36"
+}

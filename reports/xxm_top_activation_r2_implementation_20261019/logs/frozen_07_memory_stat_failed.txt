@@ -1,0 +1,89 @@
+{"period": "day", "gate": 0.75, "completed": 15, "total": 26}
+day 0.75 {"rows": 912, "forecasts": 26, "maxMs": 81.38337498530746, "calibrationProtected": 18}
+{"period": "day", "gate": 1.0, "completed": 15, "total": 26}
+day 1.0 {"rows": 912, "forecasts": 26, "maxMs": 79.87970812246203, "calibrationProtected": 18}
+{"period": "day", "gate": 1.2, "completed": 15, "total": 26}
+day 1.2 {"rows": 912, "forecasts": 26, "maxMs": 82.40849990397692, "calibrationProtected": 18}
+{"period": "m60", "gate": 0.75, "completed": 15, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 30, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 45, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 60, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 75, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 90, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 105, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 120, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 135, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 150, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 165, "total": 182}
+{"period": "m60", "gate": 0.75, "completed": 180, "total": 182}
+m60 0.75 {"rows": 17260, "forecasts": 182, "maxMs": 23.48233386874199, "calibrationProtected": 0}
+{"period": "m60", "gate": 1.0, "completed": 15, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 30, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 45, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 60, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 75, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 90, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 105, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 120, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 135, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 150, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 165, "total": 182}
+{"period": "m60", "gate": 1.0, "completed": 180, "total": 182}
+m60 1.0 {"rows": 17260, "forecasts": 182, "maxMs": 29.223292134702206, "calibrationProtected": 0}
+{"period": "m60", "gate": 1.2, "completed": 15, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 30, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 45, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 60, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 75, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 90, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 105, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 120, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 135, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 150, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 165, "total": 182}
+{"period": "m60", "gate": 1.2, "completed": 180, "total": 182}
+m60 1.2 {"rows": 17260, "forecasts": 182, "maxMs": 25.439999997615814, "calibrationProtected": 0}
+{"period": "m90", "gate": 0.75, "completed": 15, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 30, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 45, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 60, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 75, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 90, "total": 113}
+{"period": "m90", "gate": 0.75, "completed": 105, "total": 113}
+m90 0.75 {"rows": 12945, "forecasts": 113, "maxMs": 25.873125065118074, "calibrationProtected": 0}
+{"period": "m90", "gate": 1.0, "completed": 15, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 30, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 45, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 60, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 75, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 90, "total": 113}
+{"period": "m90", "gate": 1.0, "completed": 105, "total": 113}
+m90 1.0 {"rows": 12945, "forecasts": 113, "maxMs": 25.267417076975107, "calibrationProtected": 0}
+{"period": "m90", "gate": 1.2, "completed": 15, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 30, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 45, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 60, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 75, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 90, "total": 113}
+{"period": "m90", "gate": 1.2, "completed": 105, "total": 113}
+m90 1.2 {"rows": 12945, "forecasts": 113, "maxMs": 33.154542092233896, "calibrationProtected": 0}
+{"period": "m120", "gate": 0.75, "completed": 15, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 30, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 45, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 60, "total": 84}
+{"period": "m120", "gate": 0.75, "completed": 75, "total": 84}
+m120 0.75 {"rows": 8630, "forecasts": 84, "maxMs": 123.12399968504906, "calibrationProtected": 0}
+{"period": "m120", "gate": 1.0, "completed": 15, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 30, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 45, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 60, "total": 84}
+{"period": "m120", "gate": 1.0, "completed": 75, "total": 84}
+m120 1.0 {"rows": 8630, "forecasts": 84, "maxMs": 17.930124886333942, "calibrationProtected": 0}
+{"period": "m120", "gate": 1.2, "completed": 15, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 30, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 45, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 60, "total": 84}
+{"period": "m120", "gate": 1.2, "completed": 75, "total": 84}
+m120 1.2 {"rows": 8630, "forecasts": 84, "maxMs": 34.30141694843769, "calibrationProtected": 0}
+       20.69 real        19.62 user         0.49 sys
+time: sysctl kern.clockrate: Operation not permitted

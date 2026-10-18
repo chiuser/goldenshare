@@ -1,0 +1,39 @@
+[
+  {
+    "period": "day",
+    "gate": 1.0,
+    "through": "2024-08-15",
+    "rows": 393,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_day_1.0.json",
+    "oldResultSha256": "54761c5c13c3c1af83413a9da363def923a08f200b9eb521d6ed68cd56fb80b9",
+    "classification": "NO_ENTRY",
+    "activationRanges": [],
+    "status": "NO_CANDIDATE",
+    "reasonCode": "NO_ENTRY_RANGE",
+    "targetEndpoint": null,
+    "proof": "D1>0 and max(current wave DIF,D1)<any available ref DIF cannot both hold",
+    "history": [
+      {
+        "sign": 1,
+        "start": "2024-07-11",
+        "end": "2024-07-23",
+        "count": 9,
+        "price": 2982.3086,
+        "dif": -14.436,
+        "price_at": "2024-07-19",
+        "dif_at": "2024-07-22"
+      },
+      {
+        "sign": 1,
+        "start": "2024-08-01",
+        "end": "2024-08-02",
+        "count": 2,
+        "price": 2932.3871,
+        "dif": -23.721,
+        "price_at": "2024-08-01",
+        "dif_at": "2024-08-02"
+      }
+    ],
+    "currentWaveDif": -27.56
+  }
+]

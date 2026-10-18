@@ -1,0 +1,110 @@
+{
+  "ZC": {
+    "day": {
+      "rows": 1643,
+      "labels": 13,
+      "direct": 7,
+      "mapped": 6,
+      "matched": 13,
+      "bottomEvents": 43,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 18,
+      "changedEventTimes": 5,
+      "prefixAndRestoreCuts": 3
+    },
+    "m60": {
+      "rows": 17260,
+      "labels": 2,
+      "direct": 2,
+      "mapped": 0,
+      "matched": 2,
+      "bottomEvents": 512,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 19,
+      "changedEventTimes": 12,
+      "prefixAndRestoreCuts": 1
+    },
+    "m90": {
+      "rows": 12945,
+      "labels": 6,
+      "direct": 3,
+      "mapped": 3,
+      "matched": 6,
+      "bottomEvents": 355,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 342,
+      "changedEventTimes": 11,
+      "prefixAndRestoreCuts": 1
+    },
+    "m120": {
+      "rows": 8630,
+      "labels": 31,
+      "direct": 8,
+      "mapped": 23,
+      "matched": 31,
+      "bottomEvents": 269,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 21,
+      "changedEventTimes": 2,
+      "prefixAndRestoreCuts": 1
+    }
+  },
+  "ZR": {
+    "day": {
+      "rows": 1643,
+      "labels": 13,
+      "direct": 7,
+      "mapped": 6,
+      "matched": 13,
+      "bottomEvents": 43,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 18,
+      "changedEventTimes": 5,
+      "prefixAndRestoreCuts": 3
+    },
+    "m60": {
+      "rows": 17260,
+      "labels": 2,
+      "direct": 2,
+      "mapped": 0,
+      "matched": 2,
+      "bottomEvents": 512,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 13,
+      "changedEventTimes": 6,
+      "prefixAndRestoreCuts": 1
+    },
+    "m90": {
+      "rows": 12945,
+      "labels": 6,
+      "direct": 3,
+      "mapped": 3,
+      "matched": 6,
+      "bottomEvents": 355,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 319,
+      "changedEventTimes": 6,
+      "prefixAndRestoreCuts": 1
+    },
+    "m120": {
+      "rows": 8630,
+      "labels": 31,
+      "direct": 8,
+      "mapped": 23,
+      "matched": 31,
+      "bottomEvents": 269,
+      "allBottomEventsByteFieldsEqualBase": true,
+      "baseEventsEqualPriorBase": true,
+      "changedPointOrEventTimes": 0,
+      "changedEventTimes": 0,
+      "prefixAndRestoreCuts": 1
+    }
+  }
+}

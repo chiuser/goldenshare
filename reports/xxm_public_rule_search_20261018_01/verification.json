@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "protectedFiles": 18,
+  "changedProtectedFiles": [],
+  "localLinks": 459,
+  "coreTableLast": true,
+  "sourceRecords": 11,
+  "searchQueries": 38,
+  "directAnswersFound": 0,
+  "newSoftwareLabels": 0,
+  "newCalculationRuns": 0,
+  "productCodeChanged": false,
+  "databaseOrLakeRead": false,
+  "dependencyOrApiChanged": false,
+  "docsIntegrity": "PASS",
+  "scopedDiffCheck": "PASS"
+}

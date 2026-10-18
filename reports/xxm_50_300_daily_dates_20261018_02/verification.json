@@ -1,0 +1,66 @@
+{
+  "status": "PASS_BOUNDED_RESEARCH_CANDIDATES_AWAIT_SOFTWARE",
+  "sourceCodes": [
+    "000016.SH",
+    "399300.SZ"
+  ],
+  "candidateWindow": [
+    "2024-09-01",
+    "2026-09-30"
+  ],
+  "newRangeRowsPerIndex": 504,
+  "combinedRowsPerIndex": 1636,
+  "reusedRowsPerIndex": 1132,
+  "readTailRowsPerIndex": 505,
+  "overlapExact": true,
+  "allOpenDatesPresent": true,
+  "oldWindowIdentical": true,
+  "currentVsReferenceIndependentCandidates": 0,
+  "baseVsBothIndependentCandidates": 1,
+  "observationDates": [
+    "2024-09-25",
+    "2024-09-26",
+    "2024-09-27"
+  ],
+  "observationIndex": "000016.SH",
+  "linkedDatesNotCountedAsIndependentCases": true,
+  "oldReferenceCountForSep25": 11,
+  "sameThreeResultsForOtherIndex": true,
+  "literalEligibilityAndEventChecks": "PASS",
+  "prefixRestores": 12,
+  "crossSourceRestoreRejected": true,
+  "sourceAndResultHashes": "PASS",
+  "internalProductIdsNotUsedAsIndexIdentity": true,
+  "protectedFileCount": 55,
+  "protectedUnchanged": true,
+  "softwareVerifiedNewLabels": 0,
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "formalWrites": false,
+  "isolatedTests": {
+    "passed": 41,
+    "deselected": 2,
+    "excluded": "unrelated Web/future prediction; not software correctness"
+  },
+  "execution": {
+    "status": "COMPLETE",
+    "readonly": true,
+    "formalWrites": false,
+    "productCodeChanged": false,
+    "captureSeconds": 0.7944605420343578,
+    "comparisonSeconds": 0.3417233326472342,
+    "reusedPrefixRowsPerCode": 1132,
+    "readTailRowsPerCode": 505,
+    "combinedRowsPerCode": 1636,
+    "calendarOpenDays": 1636,
+    "targetRowsPerCode": 504,
+    "candidates": 1,
+    "priorWindowIdentical": true,
+    "seconds": 1.1361868749372661,
+    "protectedUnchanged": true
+  },
+  "docsIntegrity": "PASS",
+  "scopedWhitespace": "PASS",
+  "missingRelativeLinks": [],
+  "engineChangeTableRemainsLast": true
+}

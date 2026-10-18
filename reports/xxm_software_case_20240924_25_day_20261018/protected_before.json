@@ -1,0 +1,11 @@
+{
+  "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+  "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+  "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b",
+  "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "e08c42139bb6c7fea727ce86031b27376dcb76ce2864f1be6bbb09d465112844",
+  "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_BASE.json": "c6affc665577187d0ff24347457ef2b5265fce953a41b2869f29047156484a21",
+  "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZC.json": "185c446bd69e4970437a17987d3cd74c89716ec6fdf1d00372a82d7efaff6d04",
+  "reports/xxm_top_daily_ambiguity_20261017_01/run_01/day_ZR.json": "7c0dca7e6372262ea126df51261cd83714df1ed58890398455ad3d849f6c95c6",
+  "reports/xxm_top_daily_ambiguity_20261017_01/summary.json": "3c24047f325e05327a7d014176910ae0e903444f517eb44e93d61b542a23a1c2",
+  "reports/xxm_top_zero_axis_discrimination_20261018_01/comparison.json": "093d9eaa0850bdc0644c75482587bcb8d721f71abe8d6d478c9f1139c1af5539"
+}

@@ -1,0 +1,308 @@
+{
+  "recordedOn": "2026-10-18",
+  "images": [
+    {
+      "date": "2024-09-25",
+      "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-0ec57808-b884-4110-8bf9-822901cd43c3.png",
+      "archivedImage": "20240925_day_original.png",
+      "sha256": "b65ea4ece57d82bda47a1143b4fcc7ceec952541b135ca44af90a2d2633d1300",
+      "period": "day",
+      "parameters": [
+        12,
+        26,
+        9
+      ],
+      "targetTextVisible": false,
+      "internalOrdinaryState": null,
+      "softwareHistoricalReference": null,
+      "observation": "当日末端未见对应目标文字，副图可见其他历史标记；不将截图缺字等同于已知的软件内部状态。"
+    },
+    {
+      "date": "2024-09-24",
+      "attachmentPath": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/codex-clipboard-270a392d-e8a1-4fe2-8bd9-deaffb8c5641.png",
+      "archivedImage": "20240924_day_original.png",
+      "sha256": "5d8be920879cbf17d10351cef90bafd7da096fda99f067b685399ccd36e75206",
+      "period": "day",
+      "parameters": [
+        12,
+        26,
+        9
+      ],
+      "targetTextVisible": false,
+      "internalOrdinaryState": null,
+      "softwareHistoricalReference": null,
+      "observation": "当日末端未见对应目标文字，副图可见其他历史标记；不将截图缺字等同于已知的软件内部状态。"
+    }
+  ],
+  "softwareReadouts": {
+    "2024-09-24": {
+      "close": 2863.13,
+      "dif": -26.795,
+      "dea": -37.117,
+      "hist": 20.645,
+      "target": "末根顶钝化",
+      "readoutNote": "四项显示位可读。"
+    },
+    "2024-09-25": {
+      "close": 2896.31,
+      "dif": -14.514,
+      "dea": -32.597,
+      "hist": null,
+      "histApproximate": 36.16,
+      "target": "末根钝化消失及前一根顶钝化",
+      "readoutNote": "DIF、DEA与收盘可读；MACD柱值约36.16，末位不确定，不按模型补写。"
+    }
+  },
+  "comparison": [
+    {
+      "date": "2024-09-24",
+      "fields": {
+        "close": {
+          "software": 2863.13,
+          "model": 2863.1255,
+          "softwareMinusModel": 0.0045
+        },
+        "dif": {
+          "software": -26.795,
+          "model": -26.795,
+          "softwareMinusModel": 0.0
+        },
+        "dea": {
+          "software": -37.117,
+          "model": -37.117,
+          "softwareMinusModel": 0.0
+        },
+        "hist": {
+          "software": 20.645,
+          "model": 20.645,
+          "softwareMinusModel": 0.0
+        }
+      },
+      "roundedCloseMatches": true,
+      "allThreeIndicatorDisplaysMatch": true
+    },
+    {
+      "date": "2024-09-25",
+      "fields": {
+        "close": {
+          "software": 2896.31,
+          "model": 2896.3057,
+          "softwareMinusModel": 0.0043
+        },
+        "dif": {
+          "software": -14.514,
+          "model": -14.515,
+          "softwareMinusModel": 0.001
+        },
+        "dea": {
+          "software": -32.597,
+          "model": -32.597,
+          "softwareMinusModel": 0.0
+        },
+        "hist": {
+          "software": null,
+          "model": 36.164,
+          "softwareMinusModel": null
+        }
+      },
+      "roundedCloseMatches": true,
+      "allThreeIndicatorDisplaysMatch": false
+    }
+  ],
+  "existingResults": [
+    {
+      "variant": "BASE",
+      "date": "2024-09-24",
+      "bar": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "038e17b35dc6a5c6ebdc63f3",
+          "time": "2024-09-24",
+          "direction": "TOP",
+          "type": "DULL",
+          "route": "activation",
+          "fromState": "NONE",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "DULL",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-24",
+        "count": 2,
+        "price": 2863.1255,
+        "dif": -26.795,
+        "price_at": "2024-09-24",
+        "dif_at": "2024-09-24"
+      },
+      "selectedReferenceBars": 1
+    },
+    {
+      "variant": "BASE",
+      "date": "2024-09-25",
+      "bar": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "completed": true
+      },
+      "events": [
+        {
+          "id": "ad943014e28435adf321bab7",
+          "time": "2024-09-25",
+          "direction": "TOP",
+          "type": "CANCEL",
+          "route": "dif_break",
+          "fromState": "DULL",
+          "eventReference": {
+            "startTime": "2024-08-30",
+            "endTime": "2024-08-30",
+            "price": 2842.2142,
+            "dif": -22.237
+          },
+          "relatedTopHistoryId": null,
+          "relatedBottomHistoryId": null,
+          "relatedRearmId": null
+        }
+      ],
+      "ordinary": "CANCEL",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-25",
+        "count": 3,
+        "price": 2896.3057,
+        "dif": -14.515,
+        "price_at": "2024-09-25",
+        "dif_at": "2024-09-25"
+      },
+      "selectedReferenceBars": 1
+    },
+    {
+      "variant": "ZC",
+      "date": "2024-09-24",
+      "bar": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-24",
+        "count": 2,
+        "price": 2863.1255,
+        "dif": -26.795,
+        "price_at": "2024-09-24",
+        "dif_at": "2024-09-24"
+      },
+      "selectedReferenceBars": null
+    },
+    {
+      "variant": "ZC",
+      "date": "2024-09-25",
+      "bar": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-25",
+        "count": 3,
+        "price": 2896.3057,
+        "dif": -14.515,
+        "price_at": "2024-09-25",
+        "dif_at": "2024-09-25"
+      },
+      "selectedReferenceBars": null
+    },
+    {
+      "variant": "ZR",
+      "date": "2024-09-24",
+      "bar": {
+        "time": "2024-09-24",
+        "close": 2863.1255,
+        "dif": -26.795,
+        "dea": -37.117,
+        "hist": 20.645,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-24",
+        "count": 2,
+        "price": 2863.1255,
+        "dif": -26.795,
+        "price_at": "2024-09-24",
+        "dif_at": "2024-09-24"
+      },
+      "selectedReferenceBars": null
+    },
+    {
+      "variant": "ZR",
+      "date": "2024-09-25",
+      "bar": {
+        "time": "2024-09-25",
+        "close": 2896.3057,
+        "dif": -14.515,
+        "dea": -32.597,
+        "hist": 36.164,
+        "completed": true
+      },
+      "events": [],
+      "ordinary": "NONE",
+      "wave": {
+        "sign": 1,
+        "start": "2024-09-23",
+        "end": "2024-09-25",
+        "count": 3,
+        "price": 2896.3057,
+        "dif": -14.515,
+        "price_at": "2024-09-25",
+        "dif_at": "2024-09-25"
+      },
+      "selectedReferenceBars": null
+    }
+  ],
+  "result": "两天当日图未显示当前算法多出的顶钝化／钝化消失文字；9/24末端指标三值相同。具体缺少的条件仍未唯一确定。",
+  "newPositiveSoftwareLabels": 0,
+  "newSameDayScreenshotObservations": 2,
+  "old52LabelsModified": false,
+  "unavailableMaterial": "2023-09-25上证90分钟，用户未找到，停止重复索取。",
+  "fullReplayPerformed": false,
+  "formalMarketDataRead": false,
+  "productCodeChanged": false
+}

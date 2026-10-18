@@ -1,0 +1,419 @@
+{
+  "tsCode": "000001.SH",
+  "period": "m60",
+  "forecastVersion": "xxm-key-point-forecast-v0.3-r1",
+  "forecastSpecHash": "983eae6fffebc5b76e3fa2cac210bb10e5f68db080af4fdb927baecde360dcae",
+  "detectorSpecHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "sourceInputId": "0433f3c0a62a539db4c444c22712028794a1abad80ec510103c4dd51706bce2c",
+  "calendarInputId": "39173ce5f75fd17cda2898321f7cadc9761ff42a8fa339c481e297be7443f331",
+  "computedThrough": "2023-09-20T15:00:00+08:00",
+  "requestedAsOf": "2023-09-20T15:00:00+08:00",
+  "mode": "REPLAY",
+  "dataStatus": "READY",
+  "ordinaryState": "DULL",
+  "rearmContext": null,
+  "nextBarOutcomes": {
+    "endpoint": "2023-09-21T10:30:00+08:00",
+    "initialReference": {
+      "startTime": "2023-09-13T10:30:00+08:00",
+      "endTime": "2023-09-14T15:00:00+08:00",
+      "price": 3109.8774,
+      "dif": -4.934538878503645
+    },
+    "branches": [
+      {
+        "branchId": "next-1",
+        "priceRange": {
+          "lower": 0.0,
+          "upper": 3104.086106590684,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "outcome": "CANCELLED",
+        "reference": {
+          "startTime": "2023-09-13T10:30:00+08:00",
+          "endTime": "2023-09-14T15:00:00+08:00",
+          "price": 3109.8774,
+          "dif": -4.934538878503645
+        },
+        "route": "dif_break"
+      },
+      {
+        "branchId": "next-2",
+        "priceRange": {
+          "lower": 3104.086106590684,
+          "upper": 3104.0861065907748,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "outcome": "PRECISION_UNRESOLVED",
+        "reference": null,
+        "route": null
+      },
+      {
+        "branchId": "next-3",
+        "priceRange": {
+          "lower": 3104.0861065907748,
+          "upper": 3114.750397132108,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "outcome": "PRESERVED",
+        "reference": {
+          "startTime": "2023-09-13T10:30:00+08:00",
+          "endTime": "2023-09-14T15:00:00+08:00",
+          "price": 3109.8774,
+          "dif": -4.934538878503645
+        },
+        "route": null
+      },
+      {
+        "branchId": "next-4",
+        "priceRange": {
+          "lower": 3114.750397132108,
+          "upper": 3114.750397132199,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "outcome": "PRECISION_UNRESOLVED",
+        "reference": null,
+        "route": null
+      },
+      {
+        "branchId": "next-5",
+        "priceRange": {
+          "lower": 3114.750397132199,
+          "upper": 3121.0739446376397,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "outcome": "STRUCTURE_CONFIRMED",
+        "reference": {
+          "startTime": "2023-09-13T10:30:00+08:00",
+          "endTime": "2023-09-14T15:00:00+08:00",
+          "price": 3109.8774,
+          "dif": -4.934538878503645
+        },
+        "route": "dif_turn"
+      },
+      {
+        "branchId": "next-6",
+        "priceRange": {
+          "lower": 3121.0739446376397,
+          "upper": 3121.0739446377306,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "outcome": "PRECISION_UNRESOLVED",
+        "reference": null,
+        "route": null
+      },
+      {
+        "branchId": "next-7",
+        "priceRange": {
+          "lower": 3121.0739446377306,
+          "upper": 3126.3700881819004,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "outcome": "STRUCTURE_CONFIRMED",
+        "reference": {
+          "startTime": "2023-09-13T10:30:00+08:00",
+          "endTime": "2023-09-14T15:00:00+08:00",
+          "price": 3109.8774,
+          "dif": -4.934538878503645
+        },
+        "route": "dif_turn"
+      },
+      {
+        "branchId": "next-8",
+        "priceRange": {
+          "lower": 3126.3700881819004,
+          "upper": 3126.3700881819577,
+          "lowerInclusive": true,
+          "upperInclusive": true
+        },
+        "outcome": "PRECISION_UNRESOLVED",
+        "reference": null,
+        "route": null
+      },
+      {
+        "branchId": "next-9",
+        "priceRange": {
+          "lower": 3126.3700881819577,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "outcome": "STRUCTURE_CONFIRMED",
+        "reference": {
+          "startTime": "2023-09-13T10:30:00+08:00",
+          "endTime": "2023-09-14T15:00:00+08:00",
+          "price": 3109.8774,
+          "dif": -4.934538878503645
+        },
+        "route": "color_flip"
+      }
+    ]
+  },
+  "direction": "BOTTOM",
+  "status": "READY",
+  "reasonCode": null,
+  "precisionPolicy": "full_float",
+  "forecastId": "2b0ff8b7d646ca1a22569e976aff05159e92d9f39a8bb0ac19ac294745344ea7",
+  "targetEndpoint": "2023-09-21T10:30:00+08:00",
+  "barsAhead": 1,
+  "activation": null,
+  "assumption": {
+    "policy": "entry_range_then_flat",
+    "activationEndpoint": null,
+    "intermediateEndpoints": [],
+    "intermediateCloseExpression": {
+      "op": "affine",
+      "pCoefficient": 0.0,
+      "cCoefficient": 0.0,
+      "constant": 3108.5679
+    }
+  },
+  "targetEntryRanges": [],
+  "targetEntryExclusions": [],
+  "relations": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "initialReference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "referenceTransitions": [],
+      "route": "dif_turn",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -252.55394339286386
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 4.934538878503645
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -399.03527051438874
+            },
+            "factor": -1.0
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "abs",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": -4.125077012849033
+            }
+          },
+          "op": "gt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "sub",
+              "args": [
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.0,
+                  "cCoefficient": 0.07977207977207978,
+                  "constant": -252.55394339286386
+                },
+                {
+                  "op": "affine",
+                  "pCoefficient": 0.0,
+                  "cCoefficient": 0.0,
+                  "constant": -4.125077012849033
+                }
+              ]
+            },
+            "factor": 1.0
+          },
+          "op": "ge",
+          "right": {
+            "op": "scale",
+            "arg": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.0,
+                "cCoefficient": 0.0,
+                "constant": -4.125077012849033
+              }
+            },
+            "factor": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "initialReference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "referenceTransitions": [],
+      "route": "color_flip",
+      "prefixConditions": [],
+      "targetConditions": [
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.07977207977207978,
+              "constant": -252.55394339286386
+            },
+            "factor": -1.0
+          },
+          "op": "le",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 4.934538878503645
+          }
+        },
+        {
+          "left": {
+            "op": "scale",
+            "arg": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.12763532763532767,
+              "constant": -399.03527051438874
+            },
+            "factor": -1.0
+          },
+          "op": "lt",
+          "right": {
+            "op": "affine",
+            "pCoefficient": 0.0,
+            "cCoefficient": 0.0,
+            "constant": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "commonConditions": [
+    {
+      "relationId": "relation-1",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "route": "dif_turn",
+      "closeRanges": [
+        {
+          "lower": 3114.7503971321535,
+          "upper": 3126.3700881819286,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "dif_turn",
+          "displayLower": 3114.76,
+          "displayUpper": 3126.37,
+          "displayPlaces": 2
+        }
+      ]
+    },
+    {
+      "relationId": "relation-2",
+      "entryRangeIds": [],
+      "entryDomain": null,
+      "reference": {
+        "startTime": "2023-09-13T10:30:00+08:00",
+        "endTime": "2023-09-14T15:00:00+08:00",
+        "price": 3109.8774,
+        "dif": -4.934538878503645
+      },
+      "route": "color_flip",
+      "closeRanges": [
+        {
+          "lower": 3126.3700881819286,
+          "upper": null,
+          "lowerInclusive": false,
+          "upperInclusive": false,
+          "route": "color_flip",
+          "displayLower": 3126.38,
+          "displayUpper": null,
+          "displayPlaces": 2
+        }
+      ]
+    }
+  ],
+  "examples": [],
+  "applicabilityText": "按当前真实状态与明确的中间走势假设计算。",
+  "invalidationText": "钝化真正消失、零柱、参照或前序走势变化时重新计算；未达结构条件不等于钝化已消失。",
+  "confirmedAt": null,
+  "confirmedDirection": null,
+  "display": {
+    "statusLabel": "底钝化有效",
+    "targetText": "09/21 10:30 收盘 · 底部结构条件",
+    "conditionsText": "当前底钝化有效。\n结构成立：若底钝化保持有效，最早可在09/21 10:30 收盘形成底部结构；当前近期适用的收盘区间为3115～3126点。\n结构成立：若底钝化保持有效，最早可在09/21 10:30 收盘形成底部结构；当前近期适用的收盘区间为不低于3127点。\n新收盘后更新结构条件和确认时点。底钝化消失或出现零柱时，原条件失效；未达到上述结构区间不等于钝化消失。\n钝化失效：09/21 10:30 收盘收盘不高于3104点，底钝化消失。",
+    "asOfText": "历史回放 · 截至 09/20 15:00 收盘"
+  },
+  "refreshAfterMs": 60000
+}

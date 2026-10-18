@@ -1,0 +1,118 @@
+{
+  "policyHash": "d34d666e75925959e7213ad84ec9e76d264c963652cb87d2288b33191e930d6e",
+  "codeSha256": {
+    "scripts/research/index_market/xxm/reference_rescue_forecast.py": "9948a0e01f83e1c2471a6a64c7e24168e94824d81a4c4feef03f84cc6ee91706",
+    "scripts/research/index_market/xxm/reference_rescue_paths.py": "965b14d952abaf53f15db2e0e7350f6cf230894761fa7454dbc46d9827afe0d6"
+  },
+  "periods": {
+    "day": {
+      "0.75": {
+        "rows": 912,
+        "rescues": 0,
+        "forecasts": 26,
+        "maxMs": 80.47345792874694,
+        "maxEstimatedBytes": 13923,
+        "calibrationProtected": 18
+      },
+      "1.0": {
+        "rows": 912,
+        "rescues": 0,
+        "forecasts": 26,
+        "maxMs": 82.02941715717316,
+        "maxEstimatedBytes": 13919,
+        "calibrationProtected": 18
+      },
+      "1.2": {
+        "rows": 912,
+        "rescues": 0,
+        "forecasts": 26,
+        "maxMs": 81.15066587924957,
+        "maxEstimatedBytes": 13920,
+        "calibrationProtected": 18
+      }
+    },
+    "m60": {
+      "0.75": {
+        "rows": 17260,
+        "rescues": 5,
+        "forecasts": 182,
+        "maxMs": 27.58116601034999,
+        "maxEstimatedBytes": 13761,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 17260,
+        "rescues": 5,
+        "forecasts": 182,
+        "maxMs": 28.398999944329262,
+        "maxEstimatedBytes": 13761,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 17260,
+        "rescues": 5,
+        "forecasts": 182,
+        "maxMs": 33.23666611686349,
+        "maxEstimatedBytes": 13761,
+        "calibrationProtected": 0
+      }
+    },
+    "m90": {
+      "0.75": {
+        "rows": 12945,
+        "rescues": 3,
+        "forecasts": 113,
+        "maxMs": 25.28104232624173,
+        "maxEstimatedBytes": 13229,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 12945,
+        "rescues": 3,
+        "forecasts": 113,
+        "maxMs": 26.58066712319851,
+        "maxEstimatedBytes": 13226,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 12945,
+        "rescues": 3,
+        "forecasts": 113,
+        "maxMs": 26.326583232730627,
+        "maxEstimatedBytes": 13225,
+        "calibrationProtected": 0
+      }
+    },
+    "m120": {
+      "0.75": {
+        "rows": 8630,
+        "rescues": 1,
+        "forecasts": 84,
+        "maxMs": 22.167541086673737,
+        "maxEstimatedBytes": 13271,
+        "calibrationProtected": 0
+      },
+      "1.0": {
+        "rows": 8630,
+        "rescues": 1,
+        "forecasts": 84,
+        "maxMs": 21.95145795121789,
+        "maxEstimatedBytes": 13268,
+        "calibrationProtected": 0
+      },
+      "1.2": {
+        "rows": 8630,
+        "rescues": 1,
+        "forecasts": 84,
+        "maxMs": 22.282666992396116,
+        "maxEstimatedBytes": 13272,
+        "calibrationProtected": 0
+      }
+    }
+  },
+  "softwareUniqueFormulaProven": false,
+  "liveSourceRead": false,
+  "formalHttpBudgetTested": false,
+  "passed": true,
+  "protectedUnchanged": true
+}

@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-19",
+  "branch": "dev-interface",
+  "scope": "LLD26-29 first TOP activation and necessary forecast/identity/consumers",
+  "authorization": "User approved final item-by-item reconciliation followed by LLD development; no commit/deploy",
+  "existingProduct": "r1",
+  "frozenSourceAndCodeMatched": true,
+  "expectedManifestSha256": "83e86164dc95b44b492311d8ba38ef255bcc20d70ca40338a58a79f6d7a6688f",
+  "codegraph": [
+    "codegraph_explore: solve_entry_ranges / IndexDetailXxmForecastQueryService / XxmCalculator / XxmForecastResponse",
+    "codegraph_impact: solve_entry_ranges depth 2"
+  ],
+  "scopeManuallyConfirmed": [
+    "three routes, query and cache, spec/calculator/forecast, DTO, TS adapters/hooks/Card, current tests and acceptance delegates"
+  ],
+  "noNewConfig": true,
+  "noDatabaseOrLakeWrites": true,
+  "formalSourceReadPlanned": false,
+  "constraints": [
+    [
+      "First TOP only",
+      "calculator.step final activation elif",
+      "negative/zero/positive, later activation, tiny positive"
+    ],
+    [
+      "Existing DULL/STRUCTURE and BOTTOM unchanged",
+      "original selector and transitions",
+      "24 frozen step ledgers plus literal cases"
+    ],
+    [
+      "Forecast full domain before target search",
+      "entry_partition/stability/reason_for",
+      "independent Fraction/522 proofs, complete partition, old 693"
+    ],
+    [
+      "Daily source precision",
+      "source_options and incoming dif",
+      "+.0005 guard, .0006, raw root/ULP, all source choices"
+    ],
+    [
+      "Only one current identity",
+      "two Spec defaults and existing keys",
+      "three literal hashes, old restore/cache rejected"
+    ],
+    [
+      "New reason only first TOP exclusions",
+      "Python/TS validators and backend text",
+      "valid TOP, invalid bottom/active/rearm/root/target/outcome"
+    ],
+    [
+      "No relabeling old JSON",
+      "actual api_mode new output",
+      "new real-route JSON for TS positives, old fixtures rejected"
+    ],
+    [
+      "No fabricated expected after parent change",
+      "sealed 24 recognition units / 1215 forecast inventory",
+      "artifact bytes preserved, current product compared against files"
+    ],
+    [
+      "Original source and performance bounds",
+      "daily source manifest / existing budgets",
+      "wrong manifest/source rejection, API budgets unchanged"
+    ],
+    [
+      "No extra domain or UI behavior",
+      "same routes/periods/layout",
+      "current clients/hooks/Card and full Wealth checks"
+    ]
+  ]
+}

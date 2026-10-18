@@ -1,0 +1,27 @@
+{
+  "scope": "ISOLATED_DAILY_2020_WINDOW",
+  "formalApiAccepted": false,
+  "formalWrites": false,
+  "startDate": "2020-01-01",
+  "businessDate": "2026-10-16",
+  "capturedAt": "2026-10-17T14:05:59.463824+08:00",
+  "rows": 1643,
+  "calendarRows": 2571,
+  "algorithmVersion": "xxm-direction-v0.1-r1",
+  "specHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "sourceProjection": "core_serving.index_factor_pro: trade_date, close, macd_dif_bfq, macd_dea_bfq, macd_bfq",
+  "calendarProjection": "core_serving.trade_calendar: SSE, trade_date, is_open",
+  "batchRows": 1000,
+  "maxRows": 2000,
+  "maxCalendarRows": 3000,
+  "files": [
+    {
+      "name": "daily_source.csv",
+      "sha256": "8b0f62ff5a44a2935ce86cada196fd4c566b7c2493d60b9b28ed515d10da2f14"
+    },
+    {
+      "name": "calendar.json",
+      "sha256": "2e667b29e9dc3ba41b9cb995a8f0120909c63489c8fe855e0d9ca887ad5d8820"
+    }
+  ]
+}

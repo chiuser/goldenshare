@@ -1,0 +1,649 @@
+{
+  "period": "m60",
+  "gate": 0.75,
+  "through": "2010-02-02T15:00:00+08:00",
+  "rows": 1064,
+  "result": {
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "targetEndpoint": "2010-02-03T11:30:00+08:00",
+    "barsAhead": 2,
+    "activation": {
+      "endpoint": "2010-02-03T10:30:00+08:00",
+      "ranges": [
+        {
+          "entryRangeId": "entry-1",
+          "priceRange": {
+            "lower": 3396.7762295994594,
+            "upper": 3483.690491724546,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reference": {
+            "startTime": "2010-01-15T10:30:00+08:00",
+            "endTime": "2010-01-20T10:30:00+08:00",
+            "price": 3252.333,
+            "dif": 6.933331451581125
+          }
+        }
+      ],
+      "exclusions": [
+        {
+          "priceRange": {
+            "lower": 0.0,
+            "upper": 2894.358643180334,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "WRONG_COLOR_OR_ZERO"
+        },
+        {
+          "priceRange": {
+            "lower": 2894.358643180334,
+            "upper": 3396.776229599414,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "CURRENT_DIF_NOT_POSITIVE"
+        },
+        {
+          "priceRange": {
+            "lower": 3396.776229599414,
+            "upper": 3396.7762295994594,
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          "reason": "PRECISION_UNRESOLVED"
+        },
+        {
+          "priceRange": {
+            "lower": 3483.690491724546,
+            "upper": 3483.6904917245915,
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          "reason": "PRECISION_UNRESOLVED"
+        },
+        {
+          "priceRange": {
+            "lower": 3483.6904917245915,
+            "upper": null,
+            "lowerInclusive": true,
+            "upperInclusive": false
+          },
+          "reason": "DIF_NOT_DIVERGENT"
+        }
+      ]
+    },
+    "assumption": {
+      "policy": "entry_range_then_flat",
+      "activationEndpoint": "2010-02-03T10:30:00+08:00",
+      "intermediateEndpoints": [
+        "2010-02-03T10:30:00+08:00"
+      ],
+      "intermediateCloseExpression": {
+        "op": "affine",
+        "pCoefficient": 1,
+        "cCoefficient": 0.0,
+        "constant": 0.0
+      }
+    },
+    "targetEntryRanges": [
+      {
+        "entryRangeIds": [
+          "entry-1"
+        ],
+        "priceRange": {
+          "lower": 3396.7762295994594,
+          "upper": 3483.690491724546,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        }
+      }
+    ],
+    "targetEntryExclusions": [],
+    "relations": [
+      {
+        "entryDomain": {
+          "lower": 3396.7762295994594,
+          "upper": 3483.690491724546,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "route": "dif_turn",
+        "prefixConditions": [],
+        "targetConditions": [
+          {
+            "left": {
+              "op": "scale",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.06159040916875674,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -451.16907652038526
+              },
+              "factor": 1
+            },
+            "op": "le",
+            "right": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": 6.933331451581125
+            }
+          },
+          {
+            "left": {
+              "op": "scale",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07301758914294525,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -583.8598064369738
+              },
+              "factor": 1
+            },
+            "op": "gt",
+            "right": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": 0
+            }
+          },
+          {
+            "left": {
+              "op": "abs",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07977207977207978,
+                "cCoefficient": 0.0,
+                "constant": -270.96790435550884
+              }
+            },
+            "op": "gt",
+            "right": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": 0
+            }
+          },
+          {
+            "left": {
+              "op": "scale",
+              "arg": {
+                "op": "sub",
+                "args": [
+                  {
+                    "op": "affine",
+                    "pCoefficient": 0.06159040916875674,
+                    "cCoefficient": 0.07977207977207978,
+                    "constant": -451.16907652038526
+                  },
+                  {
+                    "op": "affine",
+                    "pCoefficient": 0.07977207977207978,
+                    "cCoefficient": 0.0,
+                    "constant": -270.96790435550884
+                  }
+                ]
+              },
+              "factor": -1
+            },
+            "op": "ge",
+            "right": {
+              "op": "scale",
+              "arg": {
+                "op": "abs",
+                "arg": {
+                  "op": "affine",
+                  "pCoefficient": 0.07977207977207978,
+                  "cCoefficient": 0.0,
+                  "constant": -270.96790435550884
+                }
+              },
+              "factor": 0.0075
+            }
+          }
+        ],
+        "initialReference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "referenceTransitions": [],
+        "relationId": "relation-1",
+        "entryRangeIds": [
+          "entry-1"
+        ]
+      },
+      {
+        "entryDomain": {
+          "lower": 3396.7762295994594,
+          "upper": 3483.690491724546,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "route": "color_flip",
+        "prefixConditions": [],
+        "targetConditions": [
+          {
+            "left": {
+              "op": "scale",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.06159040916875674,
+                "cCoefficient": 0.07977207977207978,
+                "constant": -451.16907652038526
+              },
+              "factor": 1
+            },
+            "op": "le",
+            "right": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": 6.933331451581125
+            }
+          },
+          {
+            "left": {
+              "op": "scale",
+              "arg": {
+                "op": "affine",
+                "pCoefficient": 0.07301758914294525,
+                "cCoefficient": 0.12763532763532767,
+                "constant": -583.8598064369738
+              },
+              "factor": 1
+            },
+            "op": "lt",
+            "right": {
+              "op": "affine",
+              "pCoefficient": 0.0,
+              "cCoefficient": 0.0,
+              "constant": 0
+            }
+          }
+        ],
+        "initialReference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "referenceTransitions": [],
+        "relationId": "relation-2",
+        "entryRangeIds": [
+          "entry-1"
+        ]
+      }
+    ],
+    "commonConditions": [
+      {
+        "relationId": "relation-1",
+        "entryRangeIds": [
+          "entry-1"
+        ],
+        "entryDomain": {
+          "lower": 3396.7762295994594,
+          "upper": 3483.690491724546,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "route": "dif_turn",
+        "closeRanges": [
+          {
+            "lower": 2631.2103515187223,
+            "upper": 3033.144420654022,
+            "lowerInclusive": false,
+            "upperInclusive": false,
+            "displayLower": 2631.22,
+            "displayUpper": 3033.14,
+            "displayPlaces": 2,
+            "route": "dif_turn"
+          }
+        ]
+      },
+      {
+        "relationId": "relation-2",
+        "entryRangeIds": [
+          "entry-1"
+        ],
+        "entryDomain": {
+          "lower": 3396.7762295994594,
+          "upper": 3483.690491724546,
+          "lowerInclusive": false,
+          "upperInclusive": true
+        },
+        "reference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "route": "color_flip",
+        "closeRanges": [
+          {
+            "lower": 0.0,
+            "upper": 2581.4884602517213,
+            "lowerInclusive": false,
+            "upperInclusive": false,
+            "displayLower": 0.01,
+            "displayUpper": 2581.48,
+            "displayPlaces": 2,
+            "route": "color_flip"
+          }
+        ]
+      }
+    ],
+    "examples": [
+      {
+        "preClose": 3396.78,
+        "entryRangeId": "entry-1",
+        "closeRanges": [
+          {
+            "lower": 2631.2081945488408,
+            "upper": 3033.1452517265684,
+            "lowerInclusive": false,
+            "upperInclusive": true,
+            "displayLower": 2631.21,
+            "displayUpper": 3033.14,
+            "displayPlaces": 2,
+            "route": "dif_turn",
+            "relationId": "relation-1"
+          },
+          {
+            "lower": 0.0,
+            "upper": 2631.2081945488408,
+            "lowerInclusive": false,
+            "upperInclusive": false,
+            "displayLower": 0.01,
+            "displayUpper": 2631.2,
+            "displayPlaces": 2,
+            "route": "color_flip",
+            "relationId": "relation-2"
+          }
+        ]
+      },
+      {
+        "preClose": 3440.23,
+        "entryRangeId": "entry-1",
+        "closeRanges": [
+          {
+            "lower": 2606.3513284519745,
+            "upper": 3042.722510629702,
+            "lowerInclusive": false,
+            "upperInclusive": true,
+            "displayLower": 2606.36,
+            "displayUpper": 3042.72,
+            "displayPlaces": 2,
+            "route": "dif_turn",
+            "relationId": "relation-1"
+          },
+          {
+            "lower": 0.0,
+            "upper": 2606.3513284519745,
+            "lowerInclusive": false,
+            "upperInclusive": false,
+            "displayLower": 0.01,
+            "displayUpper": 2606.35,
+            "displayPlaces": 2,
+            "route": "color_flip",
+            "relationId": "relation-2"
+          }
+        ]
+      },
+      {
+        "preClose": 3483.69,
+        "entryRangeId": "entry-1",
+        "closeRanges": [
+          {
+            "lower": 2581.4887415573876,
+            "upper": 3052.301973735116,
+            "lowerInclusive": false,
+            "upperInclusive": true,
+            "displayLower": 2581.49,
+            "displayUpper": 3052.3,
+            "displayPlaces": 2,
+            "route": "dif_turn",
+            "relationId": "relation-1"
+          },
+          {
+            "lower": 0.0,
+            "upper": 2581.4887415573876,
+            "lowerInclusive": false,
+            "upperInclusive": false,
+            "displayLower": 0.01,
+            "displayUpper": 2581.48,
+            "displayPlaces": 2,
+            "route": "color_flip",
+            "relationId": "relation-2"
+          }
+        ]
+      }
+    ],
+    "nextBarOutcomes": null,
+    "direction": "TOP",
+    "rearmContext": null,
+    "confirmedAt": null,
+    "confirmedDirection": null,
+    "display": {
+      "statusLabel": "近期暂无条件",
+      "targetText": "02/03 10:30 收盘后更新结构条件",
+      "conditionsText": "近期触发：暂无近期顶钝化条件。\n推算失效：02/03 10:30 收盘不高于2894.3586点，MACD柱色改变或出现零柱，需重新判断。\n未触发：02/03 10:30 收盘2894.3587～3396.7762点，DIF未转为正值，顶钝化条件不成立。\n当前暂无近期结构条件，02/03 10:30 收盘后更新。",
+      "asOfText": "历史回放 · 截至 02/02 15:00 收盘"
+    }
+  },
+  "proof": {
+    "period": "m60",
+    "gate": 0.75,
+    "through": "2010-02-02T15:00:00+08:00",
+    "rows": 1064,
+    "originalFile": "reports/xxm_reference_rescue_forecast_precheck_20261017_01/run_02/forecasts_m60_0.75.json",
+    "oldResultSha256": "1535c33a85d3e4e56ef9f0bac7cacc64d7dad867777898aad3ac896548544ecc",
+    "classification": "NONEMPTY_SECOND_ENDPOINT",
+    "status": "CONDITIONAL_ENTRY",
+    "reasonCode": null,
+    "activationEndpoint": "2010-02-03T10:30:00+08:00",
+    "targetEndpoint": "2010-02-03T11:30:00+08:00",
+    "barsAhead": 2,
+    "projection": {
+      "e12": 2967.0295463003017,
+      "e26": 3004.0538759383794,
+      "dea": -40.078895782718604
+    },
+    "firstDif": {
+      "p": [
+        28,
+        351
+      ],
+      "b": [
+        -4357260788297293,
+        16080357556224
+      ]
+    },
+    "secondDif": {
+      "p": [
+        7588,
+        123201
+      ],
+      "c": [
+        28,
+        351
+      ],
+      "b": [
+        -10185963936537895159,
+        22576822008938496
+      ]
+    },
+    "ranges": [
+      {
+        "entryDomain": {
+          "lower": [
+            13071782364891879,
+            3848290697216
+          ],
+          "upper": [
+            214500059380537491,
+            61572651155456
+          ],
+          "lowerInclusive": false,
+          "upperInclusive": false
+        },
+        "reference": {
+          "startTime": "2010-01-15T10:30:00+08:00",
+          "endTime": "2010-01-20T10:30:00+08:00",
+          "price": 3252.333,
+          "dif": 6.933331451581125
+        },
+        "secondAtZeroUpperBound": [
+          -182626926342817897,
+          771857162698752
+        ],
+        "colorFlip": {
+          "lowerC": [
+            0,
+            1
+          ],
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              -1004,
+              1755
+            ],
+            "b": [
+              659084946405042269471,
+              144080003703767040
+            ]
+          },
+          "upperInclusive": false
+        },
+        "difTurn": {
+          "lowerC": {
+            "op": "max",
+            "values": [
+              [
+                0,
+                1
+              ],
+              {
+                "p": [
+                  -1004,
+                  1755
+                ],
+                "b": [
+                  659084946405042269471,
+                  144080003703767040
+                ]
+              }
+            ]
+          },
+          "lowerInclusive": false,
+          "upperC": {
+            "p": [
+              30947,
+              140400
+            ],
+            "b": [
+              411425174586926628229,
+              180100004629708800
+            ]
+          },
+          "upperInclusive": true
+        }
+      }
+    ],
+    "proof": "First endpoint only activates; D2(P,0)<0 for every allowed P and D1>0, so a positive C exists at endpoint two"
+  },
+  "context": {
+    "state": "NONE",
+    "wave": {
+      "sign": 1,
+      "start": "2010-02-02T10:30:00+08:00",
+      "end": "2010-02-02T15:00:00+08:00",
+      "count": 4,
+      "price": 2989.591,
+      "dif": -36.6596167494622,
+      "price_at": "2010-02-02T10:30:00+08:00",
+      "dif_at": "2010-02-02T14:00:00+08:00"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2010-01-15T10:30:00+08:00",
+          "end": "2010-01-20T10:30:00+08:00",
+          "count": 13,
+          "price": 3252.333,
+          "dif": 6.933331451581125,
+          "price_at": "2010-01-19T10:30:00+08:00",
+          "dif_at": "2010-01-19T15:00:00+08:00"
+        },
+        {
+          "sign": 1,
+          "start": "2010-01-29T10:30:00+08:00",
+          "end": "2010-02-01T10:30:00+08:00",
+          "count": 5,
+          "price": 3014.0,
+          "dif": -38.641150988659774,
+          "price_at": "2010-01-29T11:30:00+08:00",
+          "dif_at": "2010-01-29T15:00:00+08:00"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2010-01-20T11:30:00+08:00",
+          "end": "2010-01-28T15:00:00+08:00",
+          "count": 27,
+          "price": 2977.997,
+          "dif": -50.596976109889965,
+          "price_at": "2010-01-27T10:30:00+08:00",
+          "dif_at": "2010-01-28T10:30:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2010-02-01T11:30:00+08:00",
+          "end": "2010-02-01T15:00:00+08:00",
+          "count": 3,
+          "price": 2931.902,
+          "dif": -45.04204972452453,
+          "price_at": "2010-02-01T14:00:00+08:00",
+          "dif_at": "2010-02-01T14:00:00+08:00"
+        }
+      ]
+    },
+    "reference": null,
+    "previous": {
+      "time": "2010-02-02T15:00:00+08:00",
+      "close": 2934.357,
+      "dif": -37.0243296380836,
+      "dea": -40.07889578272438,
+      "hist": 6.109132289281561,
+      "completed": true
+    },
+    "pendingRearm": null,
+    "confirmedNow": null
+  }
+}

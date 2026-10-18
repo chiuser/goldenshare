@@ -1,0 +1,511 @@
+{
+  "files": [
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250624_vidiq_transcript.json",
+      "sha256": "b29b5e38ecfaab6eb831d716c0e537b94ffc940aef223d9ba30033772730a956",
+      "textChars": 5007,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=0pRHKjTiHGM"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json",
+      "sha256": "8939991abb5c162d477f702a8daa5cb78dcf64a2b82e0e2120e76a4a12e8fd32",
+      "textChars": 5794,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=5SBg6oU2c4c"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250626_vidiq_transcript.json",
+      "sha256": "a1d7166a2ad40d8b4662fe5258a059927e42ba5818d5612530b9695e2e53130f",
+      "textChars": 5511,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=jv_ZGcDSV10"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250703_user_transcript.txt",
+      "sha256": "77976dae557321395bdc7e54b83438a1378fa97e2afc33597ef0156b2b7a4815",
+      "textChars": 6489,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250711_vidiq_transcript.json",
+      "sha256": "60ffceeb69494f34218c4652ea89c68ce4e8f0571f1b70fc81ea58dcc5f28909",
+      "textChars": 4782,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=BlSH7x0QElk"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250722_vidiq_transcript.json",
+      "sha256": "3da220a5d25d3cc5cb636055fdf253ca27d9d1f5e755221f335b952a978efb0e",
+      "textChars": 7863,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=nfiZ-e-zy1E"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250723_vidiq_transcript.json",
+      "sha256": "04fee0b0544f8d3e71fb69315816a485aec0a966b70ca832549a2d469cb9ce5b",
+      "textChars": 4382,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=PQ9MdnGmMgM"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250815_vidiq_transcript.json",
+      "sha256": "4b654865835ed3baccdc50b9a3dd3cd90f32b539cc349ffe4f5785658dbc795c",
+      "textChars": 5052,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=WqGqhpLhLPk"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20250818_vidiq_transcript.json",
+      "sha256": "f602d34b1f1a23f42cf1a91985d45d37523d8495c8c9ee80e4a66dfc899e8fc0",
+      "textChars": 5617,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=_mIgN_lnoc0"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251016_transcript.txt",
+      "sha256": "ed83ff0097bf1a84ff9e3d1da813f48bf638e0202bb130c8317f98ead21cf9ad",
+      "textChars": 6868,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251016_vidiq_transcript.json",
+      "sha256": "9a9d7e8ae11bda26fd46a48f29945b2e1fc9858503ba9f8b61b9a38488a1f041",
+      "textChars": 5325,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=o4w4G6q-fSQ"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251024_vidiq_transcript.json",
+      "sha256": "8c7775baa81a0dec719f585c05d199dec660434eb644df1780195cfa17431b93",
+      "textChars": 5416,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=iflE76iVGO8"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251027_vidiq_transcript.json",
+      "sha256": "ff6b89f5ffded72cb6254ee2c2cb86224ea476413142be76434f24ad4977480f",
+      "textChars": 8976,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=Tt49X3Y-K9E"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251111_user_transcript.txt",
+      "sha256": "44ad256a41cd998ed115a7c65ed18ab64c2c4195096c2708d72754e5aa20a398",
+      "textChars": 6354,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251113_user_transcript.txt",
+      "sha256": "ecc37e05e3d3e202e84ed991c75b660dfc0ed14fe16432bcc99fa058bc7766af",
+      "textChars": 4982,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251114_user_transcript.txt",
+      "sha256": "13090c23b88ceceebb6405a79980e9e14622c41aa2fbec720a2d3416f38bebb0",
+      "textChars": 6709,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251117_user_transcript.txt",
+      "sha256": "6f49d68ea49cf995d5d1d6ecf7979a79028597b47a69a42bf81a753c32980cf3",
+      "textChars": 6694,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20251216_vidiq_transcript.json",
+      "sha256": "4d3271188f4d4fe6c920c6745cb9dd43487d2b9ec3d934fbb7496d18857cf74c",
+      "textChars": 5974,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=MXHvcQgdfHk"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260106_vidiq_transcript.json",
+      "sha256": "c5632ae7860eedbb983adce0b9aea1d1d4ebbd08853effc6c553701fb356436f",
+      "textChars": 4951,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=Inqg55eiSso"
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt",
+      "sha256": "5370dbc997e236c4b775ee8dee71e50f768f95dbe29a2a115302ad9de8d907bc",
+      "textChars": 5463,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260608_user_transcript.txt",
+      "sha256": "6d8d5eebb566c2bbf8b950d4d81eae3f74489fb43c02b380c8629f740b8f7d13",
+      "textChars": 5615,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260609_user_transcript.txt",
+      "sha256": "110f03db75bf5c4c1424b0ad5fd04794a5a6bfc460ed311a2be1f5d369cad0fe",
+      "textChars": 6582,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260615_user_transcript.txt",
+      "sha256": "10978611a37f5c78023992b8082ca132ba4e47f6f694bb45a2f6dcfa3bd87708",
+      "textChars": 6787,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260618_user_transcript.txt",
+      "sha256": "6075689f63257964cde2c5ec831708dae737575dbf26e44138fbbfb8a03c3f24",
+      "textChars": 5431,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_macd_structure_20261011/sources/20260626_user_transcript.txt",
+      "sha256": "5f6b0a6bafea9c3b5638292de225e5464524b1b985615bdecef7750beb7da18d",
+      "textChars": 4176,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_case_20260106_day_20261018/20260106_user_transcript.txt",
+      "sha256": "e15e061736c50fee68916e045432fab0e56679e4e6f531db22987cea0dd7e270",
+      "textChars": 6357,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240723_user_transcript.txt",
+      "sha256": "9e428f2f6a30ff99468eabe3bc214d0fa0e5679a7792a7de1d4804f5cc6852a0",
+      "textChars": 7642,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240805_user_transcript.txt",
+      "sha256": "f041939e7be212cfaa13c39d2000c11495c78ed52c55c313ba2db73863621dca",
+      "textChars": 6466,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_user_transcript.txt",
+      "sha256": "c0a6c1d34ebd6166ddcacbf96f20eb8a7190eee6c958eb53de4cb6dd98b9f5b8",
+      "textChars": 8158,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240822_user_transcript.txt",
+      "sha256": "e2d2b2ecaf48c366cb1eb47596ae519aa9244f7f81b1ba1cb5fe47b185d3957f",
+      "textChars": 7532,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240902_user_transcript.txt",
+      "sha256": "b82a9c2385a6177dee3035ce7bb7bc1f1ecb2496f3249230f12470dfe6eb1416",
+      "textChars": 7736,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240903_user_transcript.txt",
+      "sha256": "01c60f5d25a326207312f8964f6fc5703f4aedfebbd95c559df806eaa84b959c",
+      "textChars": 5966,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_m120_user_visual_confirmation_20261016.txt",
+      "sha256": "c6428261d1f0951c798fba690bcb9e3a855c5f4c9d5f9701c53be48b548239f4",
+      "textChars": 323,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_user_transcript.txt",
+      "sha256": "3f286bd194eddbce920fdc09e22baecb6671cd758dce05a2e9dd1334f64befae",
+      "textChars": 6085,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260710_user_transcript_excerpt.txt",
+      "sha256": "5c8cf97ed0257fdebbd7ed34081cf77843a4431c0b7a398b00dd0366f3ce138e",
+      "textChars": 640,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260713_user_transcript_excerpt.txt",
+      "sha256": "083596a6008e812af9f7552ebb6444c2a87e44f1b44db85589112ac4c0698d85",
+      "textChars": 1836,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    },
+    {
+      "path": "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_user_transcript.txt",
+      "sha256": "9999d1d33eed3dfcb636baae30ef35a8715bbabd108581598b21d78cbfe9e2be",
+      "textChars": 7429,
+      "zeroKeywordCounts": {
+        "零轴": 0,
+        "0轴": 0,
+        "零线": 0,
+        "轴上": 0,
+        "轴下": 0
+      },
+      "sourceUrl": null
+    }
+  ],
+  "filesSearched": 37,
+  "zeroKeywords": [
+    "零轴",
+    "0轴",
+    "零线",
+    "轴上",
+    "轴下"
+  ],
+  "exactZeroKeywordHits": [],
+  "notProofNoRuleWasSpoken": true,
+  "noNewSoftwareEventLabels": true,
+  "june24": {
+    "offset": 3180,
+    "text": "以去听录音好吧 静待花开 满仓就行了 不需要明白 你一定得明白 这这这这怎么能不需要明白呢 就在学员区里 为什么买 为什么卖 一定要搞清楚好吧 然后看啊 然后看DF值仍然是负值 代表目前没出红脚线 日线最快出顶部钝化的时间是本周四 最快出结构的时间是本周五 好吧 好 120分钟线 120分钟线因为跟格峰可以进行比较 因此这个钝化的级别还是比较大的啊 钝化的级别还是比较大的 90分钟也一样啊 他还是可以跟隔风进行对比 所以顿化的级别比较大 所以90分钟 120分钟仍然是有顿化的 但是就是因为这里是三浪三 如果其他的浪型我 们可能就等钝化消失再进行纠错了"
+  },
+  "june25": {
+    "offset": 1323,
+    "text": "算违反规则 当然现在还有钝化 比方说明天日线可能就会出钝化 但是这个钝化的级别并不大 大家看下面这个值啊 下面这个值 这个值呢是15.64 日线啊 15.64 他的昨天的值呢是10.7 就是一天涨了5 最高呢是23 最高呢是23 在这啊这值最高23 今天是15 昨天是10 代表每天运行5 按照目前的这个速度 明天可能就是十八九 后天可能就过了 所以呢如果明天出钝化 后天就有可能钝化消失 那么这个钝化到消失的距离 只有一到两个周期 所以日线的钝化的级别很小 但是大概率会有钝化 叉子动画的级别很小 所以这一波我们没有说它 就是不会出现对话 我们看到了会出现对话 "
+  },
+  "june24MinuteMentions": {
+    "60分钟": 0,
+    "六十分钟": 0,
+    "90分钟": 6,
+    "120分钟": 4
+  },
+  "interpretation": "June24 ASR negative DF cannot be used as DIF-zero rule: June25 explicitly calls yesterday daily DIF about10.7; frozen June24 daily DIF+10.741 and histogram-1.264. Original field/ASR ambiguity retained; no silent correction and no transfer to60m10:30."
+}

@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Annotated, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .index_detail_xxm import XxmReferenceDto, XxmRearmRecordDto
+from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 
 
 class Dto(BaseModel):
@@ -95,7 +97,7 @@ class EntryRangeDto(Dto):
 class EntryExclusionDto(Dto):
     priceRange: PriceRangeDto
     reason: Literal['PRICE_NOT_EXTREME', 'DIF_NOT_DIVERGENT', 'WRONG_COLOR_OR_ZERO',
-                    'INSUFFICIENT_BARS', 'PRECISION_UNRESOLVED']
+                    'INSUFFICIENT_BARS', 'PRECISION_UNRESOLVED', 'CURRENT_DIF_NOT_POSITIVE']
 
 
 class ActivationDto(Dto):
@@ -121,17 +123,62 @@ class TargetEntryExclusionDto(TargetEntryRangeDto):
                     'NO_TARGET_SOLUTION', 'PRECISION_UNRESOLVED']
 
 
+class ReferenceTransitionDto(Dto):
+    endpoint: str
+    fromReference: XxmReferenceDto
+    toReference: XxmReferenceDto
+
+
+class NextBarBranchDto(Dto):
+    branchId: str
+    priceRange: PriceRangeDto
+    outcome: Literal['PRESERVED','REFERENCE_SWITCHED','STRUCTURE_CONFIRMED','CANCELLED','ZERO_RESET','PRECISION_UNRESOLVED']
+    reference: XxmReferenceDto | None
+    route: Literal['dif_turn','color_flip','dif_break','dif_break_on_flip'] | None
+
+
+class NextBarOutcomesDto(Dto):
+    endpoint: str
+    initialReference: XxmReferenceDto
+    branches: list[NextBarBranchDto]
+
+    @model_validator(mode='after')
+    def complete(self):
+        if not self.branches or len({b.branchId for b in self.branches})!=len(self.branches):
+            raise ValueError('Next-bar branches require unique identities')
+        ordered=sorted(self.branches,key=lambda b:(b.priceRange.lower or 0,not b.priceRange.lowerInclusive))
+        if ordered!=self.branches or (ordered[0].priceRange.lower or 0)!=0 or ordered[-1].priceRange.upper is not None:
+            raise ValueError('Next-bar domain must cover all positive prices')
+        for a,b in zip(ordered,ordered[1:]):
+            if a.priceRange.upper!=b.priceRange.lower or a.priceRange.upperInclusive==b.priceRange.lowerInclusive:
+                raise ValueError('Next-bar domain overlaps or has a gap')
+        for b in ordered:
+            if b.outcome in ('ZERO_RESET','PRECISION_UNRESOLVED'):
+                valid=b.reference is None and b.route is None
+            elif b.outcome=='REFERENCE_SWITCHED':
+                valid=b.reference is not None and b.reference!=self.initialReference and b.reference.dif<self.initialReference.dif and b.route is None
+            else:
+                valid=b.reference==self.initialReference and b.route in (
+                    ('dif_turn','color_flip') if b.outcome=='STRUCTURE_CONFIRMED' else
+                    ('dif_break','dif_break_on_flip') if b.outcome=='CANCELLED' else (None,))
+            if not valid:raise ValueError('Next-bar outcome/reference/route mismatch')
+        return self
+
+
 class RelationDto(Dto):
     relationId: str
     entryRangeIds: list[str]
     entryDomain: PriceRangeDto | None
     reference: XxmReferenceDto
+    initialReference: XxmReferenceDto
+    referenceTransitions: list[ReferenceTransitionDto]
     route: Literal['dif_turn', 'color_flip']
     prefixConditions: list[ConditionDto]
     targetConditions: list[ConditionDto]
 
 
 class CommonConditionDto(Dto):
+    relationId: str
     entryRangeIds: list[str]
     entryDomain: PriceRangeDto | None
     reference: XxmReferenceDto
@@ -139,10 +186,14 @@ class CommonConditionDto(Dto):
     closeRanges: list[CloseRangeDto]
 
 
+class ExampleCloseRangeDto(CloseRangeDto):
+    relationId: str
+
+
 class ExampleDto(Dto):
     preClose: float = Field(gt=0)
     entryRangeId: str
-    closeRanges: list[CloseRangeDto]
+    closeRanges: list[ExampleCloseRangeDto]
 
 
 class ForecastDisplayDto(Dto):
@@ -155,7 +206,7 @@ class ForecastDisplayDto(Dto):
 class ForecastResponseDto(Dto):
     tsCode: Literal['000001.SH'] = '000001.SH'
     period: Literal['day', 'm60', 'm90', 'm120']
-    forecastVersion: Literal['xxm-key-point-forecast-v0.2-a1']
+    forecastVersion: Literal['xxm-key-point-forecast-v0.3-r2']
     forecastSpecHash: str
     detectorSpecHash: str
     sourceInputId: str | None
@@ -166,6 +217,7 @@ class ForecastResponseDto(Dto):
     dataStatus: Literal['READY', 'DELAYED', 'EMPTY']
     ordinaryState: Literal['NONE', 'DULL', 'STRUCTURE'] | None
     rearmContext: XxmRearmRecordDto | None
+    nextBarOutcomes: NextBarOutcomesDto | None
     direction: Literal['TOP', 'BOTTOM'] | None
     status: Literal['READY', 'CONDITIONAL_ENTRY', 'ENTRY_ONLY', 'NO_CANDIDATE', 'CONFIRMED',
                     'PRECISION_PENDING', 'DELAYED', 'EMPTY']
@@ -191,6 +243,13 @@ class ForecastResponseDto(Dto):
 
     @model_validator(mode='after')
     def consistent(self):
+        if self.detectorSpecHash != MAIN_SPEC.spec_hash or self.forecastSpecHash != FORECAST_SPEC.spec_hash:
+            raise ValueError('Forecast requires the current detector and forecast identities')
+        if self.activation and any(e.reason == 'CURRENT_DIF_NOT_POSITIVE' for e in self.activation.exclusions):
+            if (self.dataStatus != 'READY' or self.ordinaryState != 'NONE' or self.direction != 'TOP'
+                    or self.rearmContext is not None or self.status not in
+                    ('CONDITIONAL_ENTRY', 'ENTRY_ONLY', 'NO_CANDIDATE', 'PRECISION_PENDING')):
+                raise ValueError('Current-DIF exclusion requires inactive TOP activation')
         success = self.status in ('READY', 'CONDITIONAL_ENTRY')
         if self.rearmContext is not None:
             context = self.rearmContext
@@ -200,9 +259,16 @@ class ForecastResponseDto(Dto):
                 raise ValueError('Waiting rearm requires actual inactive bottom state')
             context.validate_cutoff(self.period, self.computedThrough)
             references = ([r.reference for r in self.activation.ranges] if self.activation else [])
-            references += [r.reference for r in self.relations] + [c.reference for c in self.commonConditions]
+            references += [r.initialReference for r in self.relations]
             if any(r != context.reference for r in references):
-                raise ValueError('Waiting forecast cannot replace the saved reference')
+                raise ValueError('Waiting activation cannot replace the saved reference')
+        if self.nextBarOutcomes is not None:
+            if (self.dataStatus!='READY' or self.ordinaryState!='DULL' or self.direction!='BOTTOM'
+                    or not self.computedThrough or self.nextBarOutcomes.endpoint<=self.computedThrough):
+                raise ValueError('Next-bar outcomes require actual bottom DULL')
+        elif (self.dataStatus=='READY' and self.ordinaryState=='DULL' and self.direction=='BOTTOM'
+                and self.reasonCode!='CALIBRATION_FAILED'):
+            raise ValueError('Actual bottom DULL requires next-bar outcomes')
         if self.precisionPolicy != ('rounded3_guarded' if self.period=='day' else 'full_float'):
             raise ValueError('Precision policy does not match period')
         if self.targetEndpoint is not None:
@@ -241,18 +307,43 @@ class ForecastResponseDto(Dto):
             if not part.entryRangeIds or not set(part.entryRangeIds)<=ids:
                 raise ValueError('Target range must reference activation')
         relation_ids=set()
+        relation_map={}
         for r in self.relations:
             if not r.targetConditions or r.relationId in relation_ids or not set(r.entryRangeIds) <= ids:
                 raise ValueError('Invalid relation')
             relation_ids.add(r.relationId)
+            relation_map[r.relationId]=r
             if self.status == 'CONDITIONAL_ENTRY' and (not r.entryRangeIds or r.entryDomain is None):
                 raise ValueError('Relation must state its preceding range')
+            if len(r.referenceTransitions)>1 or r.referenceTransitions and self.direction!='BOTTOM':
+                raise ValueError('Only one bottom reference transition is possible')
+            current=r.initialReference
+            for t in r.referenceTransitions:
+                activation_at=self.activation.endpoint if self.activation else self.computedThrough
+                if (t.fromReference!=current or t.toReference==current or t.toReference.dif>=current.dif
+                        or self.assumption is None or t.endpoint not in self.assumption.intermediateEndpoints
+                        or t.endpoint<=activation_at or t.endpoint>=self.targetEndpoint):
+                    raise ValueError('Invalid reference transition path')
+                current=t.toReference
+            if current!=r.reference:raise ValueError('Final confirmation reference differs from path')
+            if self.activation and any(next(a.reference for a in self.activation.ranges if a.entryRangeId==key)!=r.initialReference for key in r.entryRangeIds):
+                raise ValueError('Initial reference differs from activation')
+            if self.status=='READY' and self.nextBarOutcomes and r.initialReference!=self.nextBarOutcomes.initialReference:
+                raise ValueError('Initial reference differs from current DULL')
         for example in self.examples:
             if example.entryRangeId not in ids or not example.closeRanges or not any(example.entryRangeId in r.entryRangeIds and inside(example.preClose,r.priceRange) for r in self.targetEntryRanges):
                 raise ValueError('Invalid explanatory example')
+            for close in example.closeRanges:
+                r=relation_map.get(close.relationId)
+                if (r is None or example.entryRangeId not in r.entryRangeIds or r.entryDomain is None
+                        or not inside(example.preClose,r.entryDomain) or close.route!=r.route):
+                    raise ValueError('Example must bind its exact relation')
         for c in self.commonConditions:
             if not c.closeRanges or not set(c.entryRangeIds) <= ids or any(r.route != c.route for r in c.closeRanges):
                 raise ValueError('Invalid universal sufficient condition')
+            r=relation_map.get(c.relationId)
+            if r is None or (c.entryRangeIds,c.entryDomain,c.reference,c.route)!=(r.entryRangeIds,r.entryDomain,r.reference,r.route):
+                raise ValueError('Common condition must bind its exact relation')
         if self.assumption:
             expression=self.assumption.intermediateCloseExpression
             if expression.cCoefficient!=0:

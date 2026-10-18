@@ -1,0 +1,130 @@
+{
+  "spec": {
+    "algorithm_version": "xxm-direction-v0.1-a1",
+    "dif_turn_pct": 1.0,
+    "max_refs": 2,
+    "min_bars": 2,
+    "reference_policy": "strongest_eligible",
+    "macd_parameters": [
+      12,
+      26,
+      9
+    ],
+    "histogram_multiplier": 2,
+    "color_flip": true,
+    "flip_requires_turn": false,
+    "historical_price_only": true,
+    "fixed_expiry": null,
+    "bottom_history_policy": "closed_origin_close_break_v1",
+    "same_segment_bottom_policy": "current_close_rearm_v1"
+  },
+  "specHash": "f0bf6da2dd73fc95cbebeea6d4f4c25c314c8994b247fb48dce657b3ac812712",
+  "periods": {
+    "day": {
+      "rows": 912,
+      "start": "2023-01-03",
+      "through": "2026-10-13",
+      "trueCancels": 8,
+      "statuses": {
+        "RESTART_AFTER_RED": 6,
+        "RESTART_BEFORE_RED": 1,
+        "RIGHT_CENSORED": 1
+      },
+      "baselineEventsEqual": true,
+      "sameGreenRestarts": 1,
+      "changedReferenceRestarts": 1,
+      "afterRedTooFewGreen": 0,
+      "excluded": {
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 4
+      }
+    },
+    "m60": {
+      "rows": 17260,
+      "start": "2009-01-05T10:30:00+08:00",
+      "through": "2026-10-13T15:00:00+08:00",
+      "trueCancels": 94,
+      "statuses": {
+        "RESTART_AFTER_RED": 86,
+        "RESTART_BEFORE_RED": 8
+      },
+      "baselineEventsEqual": true,
+      "sameGreenRestarts": 8,
+      "changedReferenceRestarts": 8,
+      "afterRedTooFewGreen": 0,
+      "excluded": {
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 46,
+        "STRUCTURE_DISAPPEARED": 4
+      }
+    },
+    "m90": {
+      "rows": 12945,
+      "start": "2009-01-05T11:00:00+08:00",
+      "through": "2026-10-13T15:00:00+08:00",
+      "trueCancels": 68,
+      "statuses": {
+        "RESTART_AFTER_RED": 64,
+        "RESTART_BEFORE_RED": 3,
+        "RIGHT_CENSORED": 1
+      },
+      "baselineEventsEqual": true,
+      "sameGreenRestarts": 3,
+      "changedReferenceRestarts": 3,
+      "afterRedTooFewGreen": 0,
+      "excluded": {
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 24,
+        "STRUCTURE_DISAPPEARED": 4
+      }
+    },
+    "m120": {
+      "rows": 8630,
+      "start": "2009-01-05T11:30:00+08:00",
+      "through": "2026-10-13T15:00:00+08:00",
+      "trueCancels": 51,
+      "statuses": {
+        "RESTART_AFTER_RED": 46,
+        "RESTART_BEFORE_RED": 4,
+        "RIGHT_CENSORED": 1
+      },
+      "baselineEventsEqual": true,
+      "sameGreenRestarts": 4,
+      "changedReferenceRestarts": 4,
+      "afterRedTooFewGreen": 0,
+      "excluded": {
+        "RESEARCH_HISTORICAL_WITHDRAWAL": 19,
+        "STRUCTURE_DISAPPEARED": 6
+      }
+    }
+  },
+  "softwareFormulaProven": false,
+  "formalBudgetTested": false,
+  "productModified": false,
+  "elapsedMs": 515.1060409843922,
+  "protectedSha256": {
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": "00cb3967372ae50e47c83cd44f790203e076f161ef59dddc15ae37b519ba9333",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py": "4cb151521088cfb2f092824d692960ef176c8c7f7441f05e7d3c7dfac14a615a",
+    "src/biz/services/wealth/market/index_detail_xxm/__init__.py": "d77f22c1f2b802632952a8d216c7b028124c20814e94730c8df8b8c197dfa1fd",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "7e498dbe454cff3104d0842fc16172194bde1a28124eccd1fe497087e3784885",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac",
+    "src/biz/services/wealth/market/index_detail_xxm/runtime.py": "54926aa94ba81543ed42f968b712d74e23dbded9e9befb84c6cc73f2f6be0dc0",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py": "213ad7ef4e294ac32abfb617263a320e88ee7c6221caac2077ee4690f8534943",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "acd5256106b96d26754ef3110d3c620d588d0991f5a0a0104fee3341403764d9",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_text.py": "ddf316386a313fcf980c3cba2bf17be715bab606b0804a0df664753d91b2c02f",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_math.py": "4f1b8a5dd455991bd4d287a2cba947c41797bcdd12a994362283acdf464b889c",
+    "src/biz/services/wealth/market/index_detail_xxm/projection.py": "63ccc7583226c905942b630b5ef20ace3aba39f8137ba055f878cf31e65ff280",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_joint.py": "f97fb04f3aa427a14dbd9345a91f6472597de1ba4e5a27d270f685cc94654f61",
+    "src/biz/services/wealth/market/index_detail_xxm/forecast_entry.py": "4610fa6c1348e05d1d39df11d9cfcf3805521f2f878d20418c599fc74ab52b35",
+    "scripts/research/index_market/xxm/cancellation_restart_audit.py": "363b1114664948d2f248d71e606151c729fd7e9757bdff2559d8c294a5ad854e",
+    "reports/xxm_source_audit_20261013_213852/manifest.json": "0da1a99ab8d8c3fbd0772b1558970363fd71b12679d9c92ed52d497f51bf2d39",
+    "reports/xxm_source_audit_20261013_213852/daily_source.csv": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+    "reports/xxm_source_audit_20261013_213852/minute_60_source.csv": "c018930e367047b187a2195c2a73d2643da717f4ce545a8ca769355b92b9f60b",
+    "reports/xxm_source_audit_20261013_213852/minute_90_source.csv": "9b1690492e3e8d470addba8bc6a0bed3ccdcb4d76f26fbdc1da668606c955e04",
+    "reports/xxm_source_audit_20261013_213852/minute_120_source.csv": "dcaf1206e6567ee69c4a131f8855bc8fa1e6f963fb0ccf155193d1daa55cdf4b",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_day.json": "10378878d419c8f52f61b943b32d981664cc11271b00ecb2c878048e0d62c251",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m60.json": "b0d0c1813972623d1ce92ffe690d58fc669a400a9026f81aee54f14cac92e2ee",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m90.json": "61a234cce982e337dfb1a1a36d9d2f3e16c153b5c3931e9f39da79afd91aed66",
+    "reports/xxm_same_segment_a1_implementation_20261016/frozen_final/events_m120.json": "8b9f00bfccc730c4bd91e2b549e9fe85a0dd5f77b6b3ab92a81d1f5cfd679826",
+    "reports/xxm_software_indicator_crosscheck_20261015/sources/20260803_day.png": "873465280f34b0756a2bd54f22cb89849540b218c3d0d5cb7c6a591f9b750bbc",
+    "reports/xxm_software_indicator_crosscheck_20261015/sources/20240806_user_transcript.txt": "c0a6c1d34ebd6166ddcacbf96f20eb8a7190eee6c958eb53de4cb6dd98b9f5b8",
+    "reports/xxm_software_indicator_crosscheck_20261015/case_20260803_events_20261015.json": "74c6d56529e7c02fe0ae4f3f58a17eb006f991317787c9e90c46e13b86005ad0"
+  }
+}

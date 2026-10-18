@@ -1,0 +1,767 @@
+{
+  "file": "legacy_m120_1.0.ndjson.gz",
+  "sha256": "d07f7893cb8dd6feec1e7bdc38d8cfb3c5512e0038ab8fd89d7530fa5eade3a1",
+  "contentSha256": "d3026a31b5b7123ad8897f4c2ec20f2e5d2c79c996e0b04f8245a69e44a927b8",
+  "rawBytes": 532809,
+  "rows": 738,
+  "through": "2026-10-09T15:00:00+08:00",
+  "start": "2025-04-01T11:30:00+08:00",
+  "inputSha256": "bb1cecdfab70f8e42b9173ee4b3dc4f2c828aef4a2571b132f7d9bed30a8ff3b",
+  "group": "legacy",
+  "period": "m120",
+  "gate": 1.0,
+  "oldSpecHash": "533a9b441e49c1b2c076482ad6815f61e49494f63ec2c8c922a03d868e4ce730",
+  "expectedSpecHash": "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d",
+  "sourceIdentity": "top-activation-freeze:legacy:m120",
+  "eventCounts": {
+    "TOP:DULL": 16,
+    "TOP:CANCEL": 6,
+    "TOP:STRUCTURE": 10,
+    "TOP:RESEARCH_HISTORICAL_WITHDRAWAL": 3,
+    "BOTTOM:DULL": 5,
+    "BOTTOM:STRUCTURE": 2,
+    "BOTTOM:STRUCTURE_DISAPPEARED": 1,
+    "BOTTOM:CANCEL": 3
+  },
+  "bottomProtected": {
+    "events": 11,
+    "historyUpdates": 123,
+    "rearmUpdates": 2
+  },
+  "changedEndpoints": 0,
+  "changes": [],
+  "identityMap": {
+    "d7dd5f5c537aa58815408a99": {
+      "kind": "event",
+      "parts": [
+        "2025-05-06T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-04-11T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "9f5b48b9a7b5e4c09b52f624"
+    },
+    "b20833f66c7959edcbfeb5e1": {
+      "kind": "event",
+      "parts": [
+        "2025-05-07T11:30:00+08:00",
+        "CANCEL",
+        1,
+        "2025-04-11T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "74e8f514c0783ea46092af51"
+    },
+    "cdea6337af2ddf21c74c3f26": {
+      "kind": "event",
+      "parts": [
+        "2025-06-12T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "f7884e8107e3da8b60b9aabc"
+    },
+    "e4b6f8d8f6568e1721e59ad0": {
+      "kind": "event",
+      "parts": [
+        "2025-06-13T11:30:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "cd38f643e0ec27d8e18afdfa"
+    },
+    "6332e4b4daab8ef2f379ffc2": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-06-13T11:30:00+08:00",
+        "color_flip",
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "afafe2ad074e1022bfb5d198"
+    },
+    "1898aeb6ec219ca320938b5f": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-06-24T11:30:00+08:00",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "6332e4b4daab8ef2f379ffc2"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "349334942c97463d5a67cb00"
+    },
+    "c67f3645b7970c80e38b8156": {
+      "kind": "event",
+      "parts": [
+        "2025-06-24T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "3c9371bd0457f784b649845e"
+    },
+    "da420493c1afd4358c7af8d0": {
+      "kind": "event",
+      "parts": [
+        "2025-06-27T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "cfbe035c43d4a0c44d76b729"
+    },
+    "69f036489e16c3887c995760": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-06-27T15:00:00+08:00",
+        "dif_turn",
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "1028de3741d25006cbd64a6c"
+    },
+    "f11a60c3b3fef45468011f49": {
+      "kind": "event",
+      "parts": [
+        "2025-06-30T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "77a08855b066b12b6de3aad5"
+    },
+    "f5874f4595eedf31835fc001": {
+      "kind": "event",
+      "parts": [
+        "2025-07-07T11:30:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "9f643f9f4ca7277837631244"
+    },
+    "f57bb137dbfca39bf6cec55c": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-07-07T11:30:00+08:00",
+        "dif_turn",
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "8feac2ff98658bd3f00d0ea3"
+    },
+    "b2bfd0733dda6ab6eb1f501f": {
+      "kind": "event",
+      "parts": [
+        "2025-07-08T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "8704b0a93c077928ea86f760"
+    },
+    "83acfa9e9aa99918f6dccdfe": {
+      "kind": "event",
+      "parts": [
+        "2025-07-09T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "d0b46a4ce00c83de88a3683a"
+    },
+    "ea8a8d3be42a17d59b1a6d9c": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-07-09T15:00:00+08:00",
+        "dif_turn",
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "0bbe677f7c23ba6ccaf04c9d"
+    },
+    "b0cee06acecb21e3dc38b1f0": {
+      "kind": "event",
+      "parts": [
+        "2025-07-10T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "e3df6c5b4159b956df068e74"
+    },
+    "c5a31493bb8cd3b77f7451dc": {
+      "kind": "event",
+      "parts": [
+        "2025-07-11T11:30:00+08:00",
+        "CANCEL",
+        1,
+        "2025-05-06T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "7f249645d11cb52cfc2f20a6"
+    },
+    "a6cb00c8fec2e4f74b20eb95": {
+      "kind": "event",
+      "parts": [
+        "2025-07-21T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-06-24T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "9dc87a9f00366e60320988ec"
+    },
+    "9355e4441b9be20f65290942": {
+      "kind": "event",
+      "parts": [
+        "2025-07-23T11:30:00+08:00",
+        "CANCEL",
+        1,
+        "2025-06-24T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "2f6a8d44d6722055cffca2d2"
+    },
+    "0d3b550b28e81e35f2ec6451": {
+      "kind": "event",
+      "parts": [
+        "2025-07-30T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "704e636ccbbe13ab1908ecee"
+    },
+    "97aeb8b3d22b211dff8ee2ed": {
+      "kind": "event",
+      "parts": [
+        "2025-07-31T11:30:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "289ecb5cbfac994e37ccf698"
+    },
+    "9447665dc357d835dad7c325": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-07-31T11:30:00+08:00",
+        "color_flip",
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "6869b0ab0ab96d3fef52a221"
+    },
+    "ce5fd3be79f2d019ef2881bd": {
+      "kind": "withdrawal",
+      "parts": [
+        "2025-08-06T15:00:00+08:00",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "9447665dc357d835dad7c325"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "4a75db943d2e30f2dc3f1a17"
+    },
+    "cc083cb4a9c1aa00e3eb9647": {
+      "kind": "event",
+      "parts": [
+        "2025-08-07T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "3ecc8cd74c837c7f47666aa4"
+    },
+    "84d4aa1814d60254e7c8afd2": {
+      "kind": "event",
+      "parts": [
+        "2025-08-14T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "fb38243954f4bb7b0e3fdc1b"
+    },
+    "114215d6529340de66718a36": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-08-14T15:00:00+08:00",
+        "dif_turn",
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "6ca2db72ea616a1d9d73812c"
+    },
+    "ea8ad95b1933facfb7267a11": {
+      "kind": "event",
+      "parts": [
+        "2025-08-15T15:00:00+08:00",
+        "DULL",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "8d52b4f15d985165355ca58c"
+    },
+    "9ee760443b9479e50a912725": {
+      "kind": "event",
+      "parts": [
+        "2025-08-18T15:00:00+08:00",
+        "CANCEL",
+        1,
+        "2025-07-21T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "76edcbff64f08f57b5f599cd"
+    },
+    "d092a2bdbb895b2becff2b65": {
+      "kind": "event",
+      "parts": [
+        "2025-09-18T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "c5d602dc90258e1fdb05db69"
+    },
+    "0ccd6e4e7149abb93bae74ba": {
+      "kind": "event",
+      "parts": [
+        "2025-09-18T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "cd8e87a57dfaedc9ef192701"
+    },
+    "9009c0a823eade519a86016c": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-09-18T15:00:00+08:00",
+        "color_flip",
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "eab6a1e7f308e1f29636d9c7"
+    },
+    "51302b7f9ba93932090967c5": {
+      "kind": "event",
+      "parts": [
+        "2025-10-09T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "0102aeb4eeb0d0aa08f4435b"
+    },
+    "8506aee0f7e256da8ebfc3fb": {
+      "kind": "event",
+      "parts": [
+        "2025-10-10T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "6bbda1c67c6e3e545fda1f5f"
+    },
+    "9dcc726b0b8b37ab6b8f3c10": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-10-10T15:00:00+08:00",
+        "dif_turn",
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "821f6b221203e5b0fab90b51"
+    },
+    "39d86ec5abdb874372a48a65": {
+      "kind": "event",
+      "parts": [
+        "2025-10-14T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "a1a4d825db73db3067e4ed5e"
+    },
+    "0a98ed3b8d9a4886dcda2169": {
+      "kind": "event",
+      "parts": [
+        "2025-10-14T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "c31a3aea84f2b53ae4c71a78"
+    },
+    "6f9873e8f492fee47d7525a7": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-10-14T15:00:00+08:00",
+        "color_flip",
+        "2025-08-06T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "043e3b35ed39f4b23a34ffed"
+    },
+    "8a1f680c0790f7ae1de0b218": {
+      "kind": "event",
+      "parts": [
+        "2025-10-24T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-10-16T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "504711c30e5a5e52e52545a3"
+    },
+    "0bea300acc8426cb8f287197": {
+      "kind": "event",
+      "parts": [
+        "2025-10-24T15:00:00+08:00",
+        "CANCEL",
+        1,
+        "2025-10-16T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "7dcd2f4367c53535540cda2e"
+    },
+    "13dcfa9989596f0116c1cf1b": {
+      "kind": "event",
+      "parts": [
+        "2025-11-14T11:30:00+08:00",
+        "DULL",
+        1,
+        "2025-10-23T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "5668dabd818fd3560e9e6d7d"
+    },
+    "62fab6239230e1e48b87773a": {
+      "kind": "event",
+      "parts": [
+        "2025-11-14T15:00:00+08:00",
+        "STRUCTURE",
+        1,
+        "2025-10-23T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "de72439d58791ff0cfcc2867"
+    },
+    "e2a56ba64fa18b7c667231b4": {
+      "kind": "top-history",
+      "parts": [
+        "history",
+        "2025-11-14T15:00:00+08:00",
+        "color_flip",
+        "2025-10-23T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "4a0a35dde85fd059c5289924"
+    },
+    "e27c4a7f215b47d5e63b6da9": {
+      "kind": "event",
+      "parts": [
+        "2025-12-16T11:30:00+08:00",
+        "DULL",
+        -1,
+        "2025-11-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "66a23031994a5c829d920e84"
+    },
+    "5b1d45ee6b9059117940c788": {
+      "kind": "event",
+      "parts": [
+        "2025-12-17T15:00:00+08:00",
+        "STRUCTURE",
+        -1,
+        "2025-11-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "27af675eb5f2415cb4aff446"
+    },
+    "c8486598354c946db1060d3b": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "5b1d45ee6b9059117940c788"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "6a0ac0453c400bba690d60ee"
+    },
+    "da44251f1e33f0a519a455ac": {
+      "kind": "withdrawal",
+      "parts": [
+        "2026-01-06T11:30:00+08:00",
+        "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "e2a56ba64fa18b7c667231b4"
+      ],
+      "dependencies": [
+        2
+      ],
+      "new": "92b40c4476b350e3e65c48b0"
+    },
+    "32cde8ec3d62cef498054d34": {
+      "kind": "event",
+      "parts": [
+        "2026-05-06T15:00:00+08:00",
+        "DULL",
+        1,
+        "2026-03-27T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "bde19b0feb33ae231c012944"
+    },
+    "bb299d4bcf306794b8c20037": {
+      "kind": "event",
+      "parts": [
+        "2026-05-07T15:00:00+08:00",
+        "CANCEL",
+        1,
+        "2026-03-27T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "4797d92c8f9efe3e164128e6"
+    },
+    "e1299986b4bbabcb14339473": {
+      "kind": "event",
+      "parts": [
+        "2026-07-09T11:30:00+08:00",
+        "DULL",
+        -1,
+        "2026-05-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "5572c9f08f0d0393f7592e5c"
+    },
+    "3b9bc27433bbfc6567858473": {
+      "kind": "event",
+      "parts": [
+        "2026-07-09T15:00:00+08:00",
+        "STRUCTURE",
+        -1,
+        "2026-05-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "0f6f92b85631fa25e9b031fc"
+    },
+    "72606a07235ed59bf7dae212": {
+      "kind": "bottom-history",
+      "parts": [
+        "bottom-history",
+        "3b9bc27433bbfc6567858473"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "2c1a457365c50bbf0a159cd7"
+    },
+    "5e97ffe57ae0ae9833fa7119": {
+      "kind": "event",
+      "parts": [
+        "2026-07-10T15:00:00+08:00",
+        "STRUCTURE_DISAPPEARED",
+        -1,
+        "2026-05-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "0a2c99ef0a207dd316e080c5"
+    },
+    "b718b127b27641bfe0df70cd": {
+      "kind": "rearm",
+      "parts": [
+        "rearm",
+        "3b9bc27433bbfc6567858473",
+        "2026-07-10T15:00:00+08:00"
+      ],
+      "dependencies": [
+        1
+      ],
+      "new": "1012ebc7e6a7cea7c17ad0e3"
+    },
+    "814ca4dadfcff883b62212de": {
+      "kind": "event",
+      "parts": [
+        "2026-07-13T11:30:00+08:00",
+        "DULL",
+        -1,
+        "2026-05-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "f2aec38a972975076f7cb03c"
+    },
+    "231da5a437a7cbed8929bd51": {
+      "kind": "event",
+      "parts": [
+        "2026-07-14T11:30:00+08:00",
+        "CANCEL",
+        -1,
+        "2026-05-14T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "369f3939ace908ab7f8f765d"
+    },
+    "cd1942257ad0402c1ebd0a40": {
+      "kind": "event",
+      "parts": [
+        "2026-09-11T11:30:00+08:00",
+        "DULL",
+        -1,
+        "2026-08-19T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "9e6a0ba0d15588ea4bf38ca3"
+    },
+    "145737a75559b3bac66e62b6": {
+      "kind": "event",
+      "parts": [
+        "2026-09-11T15:00:00+08:00",
+        "CANCEL",
+        -1,
+        "2026-08-19T11:30:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "266eafc3d4507adf24a7016d"
+    },
+    "4487487b4a23aece017742d5": {
+      "kind": "event",
+      "parts": [
+        "2026-09-28T15:00:00+08:00",
+        "DULL",
+        -1,
+        "2026-09-03T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "99c274a650afa95cdf133a8d"
+    },
+    "dd7f7903b3bc31198b4ca954": {
+      "kind": "event",
+      "parts": [
+        "2026-09-29T11:30:00+08:00",
+        "CANCEL",
+        -1,
+        "2026-09-03T15:00:00+08:00"
+      ],
+      "dependencies": [],
+      "new": "ce8719ca0576835fb28516ab"
+    }
+  },
+  "finalSnapshot": {
+    "specHash": "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d",
+    "tsCode": "000001.SH",
+    "period": "m120",
+    "sourceIdentity": "top-activation-freeze:legacy:m120",
+    "processed": 738,
+    "wave": {
+      "sign": -1,
+      "start": "2026-09-28T11:30:00+08:00",
+      "end": "2026-10-09T15:00:00+08:00",
+      "count": 10,
+      "price": 3765.7107,
+      "dif": -30.01885022469378,
+      "price_at": "2026-10-09T11:30:00+08:00",
+      "dif_at": "2026-10-09T11:30:00+08:00"
+    },
+    "history": {
+      "1": [
+        {
+          "sign": 1,
+          "start": "2026-08-27T15:00:00+08:00",
+          "end": "2026-09-03T11:30:00+08:00",
+          "count": 10,
+          "price": 3987.559,
+          "dif": 17.048927765808003,
+          "price_at": "2026-09-01T11:30:00+08:00",
+          "dif_at": "2026-09-01T15:00:00+08:00"
+        },
+        {
+          "sign": 1,
+          "start": "2026-09-18T15:00:00+08:00",
+          "end": "2026-09-24T15:00:00+08:00",
+          "count": 9,
+          "price": 3958.6394,
+          "dif": 5.365174468662644,
+          "price_at": "2026-09-22T11:30:00+08:00",
+          "dif_at": "2026-09-23T15:00:00+08:00"
+        }
+      ],
+      "-1": [
+        {
+          "sign": -1,
+          "start": "2026-08-19T11:30:00+08:00",
+          "end": "2026-08-27T11:30:00+08:00",
+          "count": 13,
+          "price": 3876.3794,
+          "dif": -5.635218026195162,
+          "price_at": "2026-08-25T11:30:00+08:00",
+          "dif_at": "2026-08-25T15:00:00+08:00"
+        },
+        {
+          "sign": -1,
+          "start": "2026-09-03T15:00:00+08:00",
+          "end": "2026-09-18T11:30:00+08:00",
+          "count": 22,
+          "price": 3862.7302,
+          "dif": -15.685798156841429,
+          "price_at": "2026-09-11T11:30:00+08:00",
+          "dif_at": "2026-09-17T15:00:00+08:00"
+        }
+      ]
+    },
+    "state": "NONE",
+    "reference": null,
+    "previous": {
+      "time": "2026-10-09T15:00:00+08:00",
+      "close": 3813.7913,
+      "dif": -29.77592413408547,
+      "dea": -22.04174886316793,
+      "hist": -15.468350541835086,
+      "completed": true
+    },
+    "pending": null,
+    "pendingBottomHistory": null,
+    "pendingRearm": null
+  },
+  "forecasts": [],
+  "restoreRows": 100,
+  "finalR1SnapshotSha256": "250566907e41c969ea06c2d8398287c5e34a673aba23d8de88f490ed6c7d40a6"
+}

@@ -1,0 +1,1657 @@
+{
+  "candidateWindow": [
+    "2024-09-01",
+    "2026-09-30"
+  ],
+  "sourceRows": {
+    "000016.SH": 1636,
+    "399300.SZ": 1636
+  },
+  "targetRows": {
+    "000016.SH": 504,
+    "399300.SZ": 504
+  },
+  "discriminatingCandidates": [],
+  "baseVsBothCandidates": [
+    {
+      "ts_code": "000016.SH",
+      "date": "2024-09-25",
+      "kind": "BASE_VS_BOTH",
+      "stableFrom2020And2021": true,
+      "softwareVerified": false,
+      "detail": {
+        "bar": {
+          "time": "2024-09-25",
+          "close": 2386.3227,
+          "dif": -9.096,
+          "dea": -25.001,
+          "hist": 31.811,
+          "completed": true
+        },
+        "wave": {
+          "sign": 1,
+          "start": "2024-09-24",
+          "end": "2024-09-25",
+          "count": 2,
+          "price": 2386.3227,
+          "dif": -9.096,
+          "price_at": "2024-09-25",
+          "dif_at": "2024-09-25"
+        },
+        "history": [
+          {
+            "sign": 1,
+            "start": "2024-07-11",
+            "end": "2024-07-24",
+            "count": 10,
+            "price": 2456.79,
+            "dif": 2.18,
+            "price_at": "2024-07-19",
+            "dif_at": "2024-07-22"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-16",
+            "end": "2024-08-30",
+            "count": 11,
+            "price": 2357.0309,
+            "dif": -7.869,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          }
+        ],
+        "variants": {
+          "BASE": {
+            "point": {
+              "ordinaryState": "DULL",
+              "ordinaryDirection": "TOP",
+              "activeReference": {
+                "startTime": "2024-08-16",
+                "endTime": "2024-08-30",
+                "price": 2357.0309,
+                "dif": -7.869
+              }
+            },
+            "events": [
+              {
+                "time": "2024-09-25",
+                "direction": "TOP",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2024-08-16",
+                  "endTime": "2024-08-30",
+                  "price": 2357.0309,
+                  "dif": -7.869
+                }
+              }
+            ]
+          },
+          "ZC": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          },
+          "ZR": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          }
+        }
+      },
+      "following": [
+        {
+          "bar": {
+            "time": "2024-09-26",
+            "close": 2498.1797,
+            "dif": 8.962,
+            "dea": -18.209,
+            "hist": 54.342,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-26",
+            "count": 3,
+            "price": 2498.1797,
+            "dif": 8.962,
+            "price_at": "2024-09-26",
+            "dif_at": "2024-09-26"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-26",
+                  "direction": "TOP",
+                  "type": "CANCEL",
+                  "route": "dif_break",
+                  "fromState": "DULL",
+                  "eventReference": {
+                    "startTime": "2024-08-16",
+                    "endTime": "2024-08-30",
+                    "price": 2357.0309,
+                    "dif": -7.869
+                  }
+                }
+              ]
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-09-27",
+            "close": 2571.0848,
+            "dif": 28.824,
+            "dea": -8.802,
+            "hist": 75.252,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-27",
+            "count": 4,
+            "price": 2571.0848,
+            "dif": 28.824,
+            "price_at": "2024-09-27",
+            "dif_at": "2024-09-27"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-27",
+                  "direction": "TOP",
+                  "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                  "route": "historical_price_break",
+                  "fromState": "NONE",
+                  "eventReference": {
+                    "startTime": "2024-01-19",
+                    "endTime": "2024-03-12",
+                    "price": 2450.4693,
+                    "dif": 39.248
+                  }
+                }
+              ]
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-27",
+                  "direction": "TOP",
+                  "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                  "route": "historical_price_break",
+                  "fromState": "NONE",
+                  "eventReference": {
+                    "startTime": "2024-01-19",
+                    "endTime": "2024-03-12",
+                    "price": 2450.4693,
+                    "dif": 39.248
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-09-30",
+            "close": 2755.4044,
+            "dif": 58.76,
+            "dea": 4.71,
+            "hist": 108.1,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-30",
+            "count": 5,
+            "price": 2755.4044,
+            "dif": 58.76,
+            "price_at": "2024-09-30",
+            "dif_at": "2024-09-30"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-08",
+            "close": 2853.1376,
+            "dif": 89.341,
+            "dea": 21.637,
+            "hist": 135.41,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-08",
+            "count": 6,
+            "price": 2853.1376,
+            "dif": 89.341,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-08"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-09",
+            "close": 2680.7145,
+            "dif": 98.528,
+            "dea": 37.015,
+            "hist": 123.027,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-09",
+            "count": 7,
+            "price": 2853.1376,
+            "dif": 98.528,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-09"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-10",
+            "close": 2739.0507,
+            "dif": 109.257,
+            "dea": 51.463,
+            "hist": 115.587,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-10",
+            "count": 8,
+            "price": 2853.1376,
+            "dif": 109.257,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-10"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-11",
+            "close": 2680.388,
+            "dif": 111.737,
+            "dea": 63.518,
+            "hist": 96.439,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-11",
+            "count": 9,
+            "price": 2853.1376,
+            "dif": 111.737,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-11"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-14",
+            "close": 2723.183,
+            "dif": 115.822,
+            "dea": 73.979,
+            "hist": 83.685,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-14",
+            "count": 10,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-15",
+            "close": 2655.1159,
+            "dif": 112.272,
+            "dea": 81.637,
+            "hist": 61.268,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-15",
+            "count": 11,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-16",
+            "close": 2650.1756,
+            "dif": 107.817,
+            "dea": 86.873,
+            "hist": 41.887,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-16",
+            "count": 12,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "recommended": [
+    {
+      "ts_code": "000016.SH",
+      "date": "2024-09-25",
+      "kind": "BASE_VS_BOTH",
+      "stableFrom2020And2021": true,
+      "softwareVerified": false,
+      "detail": {
+        "bar": {
+          "time": "2024-09-25",
+          "close": 2386.3227,
+          "dif": -9.096,
+          "dea": -25.001,
+          "hist": 31.811,
+          "completed": true
+        },
+        "wave": {
+          "sign": 1,
+          "start": "2024-09-24",
+          "end": "2024-09-25",
+          "count": 2,
+          "price": 2386.3227,
+          "dif": -9.096,
+          "price_at": "2024-09-25",
+          "dif_at": "2024-09-25"
+        },
+        "history": [
+          {
+            "sign": 1,
+            "start": "2024-07-11",
+            "end": "2024-07-24",
+            "count": 10,
+            "price": 2456.79,
+            "dif": 2.18,
+            "price_at": "2024-07-19",
+            "dif_at": "2024-07-22"
+          },
+          {
+            "sign": 1,
+            "start": "2024-08-16",
+            "end": "2024-08-30",
+            "count": 11,
+            "price": 2357.0309,
+            "dif": -7.869,
+            "price_at": "2024-08-19",
+            "dif_at": "2024-08-27"
+          }
+        ],
+        "variants": {
+          "BASE": {
+            "point": {
+              "ordinaryState": "DULL",
+              "ordinaryDirection": "TOP",
+              "activeReference": {
+                "startTime": "2024-08-16",
+                "endTime": "2024-08-30",
+                "price": 2357.0309,
+                "dif": -7.869
+              }
+            },
+            "events": [
+              {
+                "time": "2024-09-25",
+                "direction": "TOP",
+                "type": "DULL",
+                "route": "activation",
+                "fromState": "NONE",
+                "eventReference": {
+                  "startTime": "2024-08-16",
+                  "endTime": "2024-08-30",
+                  "price": 2357.0309,
+                  "dif": -7.869
+                }
+              }
+            ]
+          },
+          "ZC": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          },
+          "ZR": {
+            "point": {
+              "ordinaryState": "NONE",
+              "ordinaryDirection": null,
+              "activeReference": null
+            },
+            "events": []
+          }
+        }
+      },
+      "following": [
+        {
+          "bar": {
+            "time": "2024-09-26",
+            "close": 2498.1797,
+            "dif": 8.962,
+            "dea": -18.209,
+            "hist": 54.342,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-26",
+            "count": 3,
+            "price": 2498.1797,
+            "dif": 8.962,
+            "price_at": "2024-09-26",
+            "dif_at": "2024-09-26"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-26",
+                  "direction": "TOP",
+                  "type": "CANCEL",
+                  "route": "dif_break",
+                  "fromState": "DULL",
+                  "eventReference": {
+                    "startTime": "2024-08-16",
+                    "endTime": "2024-08-30",
+                    "price": 2357.0309,
+                    "dif": -7.869
+                  }
+                }
+              ]
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-09-27",
+            "close": 2571.0848,
+            "dif": 28.824,
+            "dea": -8.802,
+            "hist": 75.252,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-27",
+            "count": 4,
+            "price": 2571.0848,
+            "dif": 28.824,
+            "price_at": "2024-09-27",
+            "dif_at": "2024-09-27"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-27",
+                  "direction": "TOP",
+                  "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                  "route": "historical_price_break",
+                  "fromState": "NONE",
+                  "eventReference": {
+                    "startTime": "2024-01-19",
+                    "endTime": "2024-03-12",
+                    "price": 2450.4693,
+                    "dif": 39.248
+                  }
+                }
+              ]
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": [
+                {
+                  "time": "2024-09-27",
+                  "direction": "TOP",
+                  "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                  "route": "historical_price_break",
+                  "fromState": "NONE",
+                  "eventReference": {
+                    "startTime": "2024-01-19",
+                    "endTime": "2024-03-12",
+                    "price": 2450.4693,
+                    "dif": 39.248
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-09-30",
+            "close": 2755.4044,
+            "dif": 58.76,
+            "dea": 4.71,
+            "hist": 108.1,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-09-30",
+            "count": 5,
+            "price": 2755.4044,
+            "dif": 58.76,
+            "price_at": "2024-09-30",
+            "dif_at": "2024-09-30"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-08",
+            "close": 2853.1376,
+            "dif": 89.341,
+            "dea": 21.637,
+            "hist": 135.41,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-08",
+            "count": 6,
+            "price": 2853.1376,
+            "dif": 89.341,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-08"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-09",
+            "close": 2680.7145,
+            "dif": 98.528,
+            "dea": 37.015,
+            "hist": 123.027,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-09",
+            "count": 7,
+            "price": 2853.1376,
+            "dif": 98.528,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-09"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-10",
+            "close": 2739.0507,
+            "dif": 109.257,
+            "dea": 51.463,
+            "hist": 115.587,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-10",
+            "count": 8,
+            "price": 2853.1376,
+            "dif": 109.257,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-10"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-11",
+            "close": 2680.388,
+            "dif": 111.737,
+            "dea": 63.518,
+            "hist": 96.439,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-11",
+            "count": 9,
+            "price": 2853.1376,
+            "dif": 111.737,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-11"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-14",
+            "close": 2723.183,
+            "dif": 115.822,
+            "dea": 73.979,
+            "hist": 83.685,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-14",
+            "count": 10,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-15",
+            "close": 2655.1159,
+            "dif": 112.272,
+            "dea": 81.637,
+            "hist": 61.268,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-15",
+            "count": 11,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        },
+        {
+          "bar": {
+            "time": "2024-10-16",
+            "close": 2650.1756,
+            "dif": 107.817,
+            "dea": 86.873,
+            "hist": 41.887,
+            "completed": true
+          },
+          "wave": {
+            "sign": 1,
+            "start": "2024-09-24",
+            "end": "2024-10-16",
+            "count": 12,
+            "price": 2853.1376,
+            "dif": 115.822,
+            "price_at": "2024-10-08",
+            "dif_at": "2024-10-14"
+          },
+          "history": [
+            {
+              "sign": 1,
+              "start": "2024-07-11",
+              "end": "2024-07-24",
+              "count": 10,
+              "price": 2456.79,
+              "dif": 2.18,
+              "price_at": "2024-07-19",
+              "dif_at": "2024-07-22"
+            },
+            {
+              "sign": 1,
+              "start": "2024-08-16",
+              "end": "2024-08-30",
+              "count": 11,
+              "price": 2357.0309,
+              "dif": -7.869,
+              "price_at": "2024-08-19",
+              "dif_at": "2024-08-27"
+            }
+          ],
+          "variants": {
+            "BASE": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZC": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            },
+            "ZR": {
+              "point": {
+                "ordinaryState": "NONE",
+                "ordinaryDirection": null,
+                "activeReference": null
+              },
+              "events": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "softwareVerifiedNewLabels": 0,
+  "unlimitedIndependentCandidates": true
+}

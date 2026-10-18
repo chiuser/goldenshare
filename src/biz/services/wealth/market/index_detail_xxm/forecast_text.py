@@ -47,12 +47,14 @@ def reference_band(bars, period, through, endpoint, span, clocks, check, spec=FO
 
 
 def build_display_context(bars, period, through, result, clocks, check=lambda: None, spec=FORECAST_SPEC):
-    context = dict(entry=None, target=None)
+    context = dict(entry=None, target=None, nextBar=None)
     activation = result.get('activation')
     if activation and activation['ranges']:
         context['entry'] = reference_band(bars, period, through, activation['endpoint'], 1, clocks, check, spec)
     if result.get('targetEndpoint') and result['status'] in ('READY','CONDITIONAL_ENTRY'):
         context['target'] = reference_band(bars, period, through, result['targetEndpoint'], result['barsAhead'], clocks, check, spec)
+    if result.get('nextBarOutcomes'):
+        context['nextBar'] = reference_band(bars, period, through, result['nextBarOutcomes']['endpoint'], 1, clocks, check, spec)
     return context
 
 
@@ -189,6 +191,8 @@ def make_display(result, period, through, mode, context, check=lambda: None, spe
                     continue
                 if part['reason'] == 'WRONG_COLOR_OR_ZERO':
                     lines.append(f'推算失效：{stamp}{text}，MACD柱色改变或出现零柱，需重新判断。')
+                elif part['reason'] == 'CURRENT_DIF_NOT_POSITIVE':
+                    lines.append(f'未触发：{stamp}{text}，DIF未转为正值，顶钝化条件不成立。')
                 else:
                     why = '指标也创新高' if side == '顶' else '指标也创新低'
                     suffix = f'，{why}' if part['reason'] == 'DIF_NOT_DIVERGENT' else ''
@@ -250,5 +254,17 @@ def make_display(result, period, through, mode, context, check=lambda: None, spe
         lines.insert(0, '原底部结构已消失；当前未重新形成底钝化。')
         lines = [line.replace('钝化触发：', '重新钝化：') for line in lines]
         lines.append('参照DIF突破、MACD柱色改变或出现零柱时，本次等待条件结束。')
+    outcomes=result.get('nextBarOutcomes')
+    next_band=_band(context.get('nextBar'))
+    if outcomes and next_band:
+        for part in outcomes['branches']:
+            check()
+            if part['outcome'] not in ('CANCELLED','REFERENCE_SWITCHED'):continue
+            interval=as_interval(part['priceRange'])
+            if intersect(interval,next_band) is None:continue
+            text=price_text(interval,(spec.structure_text_places,spec.price_display_places,spec.price_boundary_places))
+            if text:
+                lines.append(f'钝化失效：{time_text(outcomes["endpoint"],period)}收盘{text}，底钝化消失。' if part['outcome']=='CANCELLED' else
+                             f'钝化延续：{time_text(outcomes["endpoint"],period)}收盘{text}，底钝化仍有效，结构条件需重新计算。')
     return dict(statusLabel=labels[status], targetText=target, conditionsText='\n'.join(lines),
                 asOfText=('历史回放 · ' if mode == 'REPLAY' else '') + '截至 ' + time_text(through, period))

@@ -1,0 +1,76 @@
+{
+  "readonly": "on",
+  "basic": [
+    {
+      "ts_code": "000016.SH",
+      "name": "上证50",
+      "fullname": "上证50指数",
+      "market": "SSE",
+      "publisher": "中证指数有限公司、上海证券交易所"
+    },
+    {
+      "ts_code": "000300.SH",
+      "name": "沪深300",
+      "fullname": "沪深300指数",
+      "market": "SSE",
+      "publisher": "中证指数有限公司、上海证券交易所"
+    },
+    {
+      "ts_code": "399300.SZ",
+      "name": "沪深300",
+      "fullname": "沪深300指数",
+      "market": "SZSE",
+      "publisher": "深圳证券交易所"
+    }
+  ],
+  "counts": [
+    {
+      "ts_code": "000300.SH",
+      "rows": 732,
+      "first": "2020-01-02",
+      "last": "2023-01-06",
+      "nulls": 0
+    },
+    {
+      "ts_code": "000016.SH",
+      "rows": 732,
+      "first": "2020-01-02",
+      "last": "2023-01-06",
+      "nulls": 0
+    },
+    {
+      "ts_code": "399300.SZ",
+      "rows": 732,
+      "first": "2020-01-02",
+      "last": "2023-01-06",
+      "nulls": 0
+    }
+  ],
+  "targetSamples": [
+    {
+      "ts_code": "000016.SH",
+      "trade_date": "2023-01-06",
+      "close": 2713.6307,
+      "macd_dif_bfq": 20.382,
+      "macd_dea_bfq": 17.001,
+      "macd_bfq": 6.761
+    },
+    {
+      "ts_code": "000300.SH",
+      "trade_date": "2023-01-06",
+      "close": 3980.8888,
+      "macd_dif_bfq": 19.059,
+      "macd_dea_bfq": 12.546,
+      "macd_bfq": 13.024
+    },
+    {
+      "ts_code": "399300.SZ",
+      "trade_date": "2023-01-06",
+      "close": 3980.8888,
+      "macd_dif_bfq": 19.059,
+      "macd_dea_bfq": 12.546,
+      "macd_bfq": 13.024
+    }
+  ],
+  "seconds": 2.0850085839629173
+}

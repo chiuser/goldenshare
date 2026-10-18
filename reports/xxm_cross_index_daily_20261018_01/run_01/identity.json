@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "codes": [
+      "399006.SZ",
+      "399001.SZ"
+    ],
+    "start": "2020-01-01",
+    "candidate_start": "2022-09-13",
+    "end": "2024-08-30",
+    "alternate_start": "2021-01-01",
+    "calendar_exchange": "SSE",
+    "variants": [
+      "BASE",
+      "ZC",
+      "ZR"
+    ],
+    "batch": 500,
+    "max_rows": 1200,
+    "max_calendar": 2000,
+    "max_bytes": 20000000,
+    "phase_seconds": 60,
+    "total_seconds": 240,
+    "query_seconds": 15,
+    "connection_seconds": 5
+  },
+  "code": {
+    "scripts/research/index_market/xxm/cross_index_daily.py": "efe07bc23d7a02f0b71b21a316339a536700063e34ecac4b080acad83043ea13",
+    "scripts/research/index_market/xxm/top_daily_ambiguity.py": "6cc125b87fa19ef7cf5f809088fef7e549153ad1f701e31bc72f967a4c9caf8d",
+    "scripts/research/index_market/xxm/bottom_history_acceptance.py": "65e16f2c3de78f1331b954b125f173286050bfbcc842d4dd7e4d30bf7d73d00c",
+    "src/biz/services/wealth/market/index_detail_xxm/calculator.py": "f924f43ba8975c1988779eda10dcdf2ba02b8bc689c94d3f1b6e219582242a63",
+    "src/biz/services/wealth/market/index_detail_xxm/types.py": "415e578965deea2944fdec7fc24988948eb034e9b19131bced626f53dc4033ac",
+    "src/biz/services/wealth/market/index_detail_xxm/spec.py": "250b9b43c58c2e72e390fad6f58783c8366c576cbb1e1263da641a2dc278f82b"
+  }
+}

@@ -60,5 +60,5 @@ it("rejects an old detector response and accepts the a1 response on retry", asyn
   expect(result.current.data).toBeNull();
   act(() => result.current.retry());
   await waitFor(() => expect(result.current.phase).toBe("ready"));
-  expect(result.current.data?.response.algorithmVersion).toBe("xxm-direction-v0.1-a1");
+  expect(result.current.data?.response.algorithmVersion).toBe("xxm-direction-v0.1-r2");
 });

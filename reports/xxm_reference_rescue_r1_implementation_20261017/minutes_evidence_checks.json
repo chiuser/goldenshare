@@ -1,0 +1,100 @@
+{
+  "formalRecognitionEventSemantics": [
+    {
+      "case": 3,
+      "period": "m120",
+      "semanticEvents": 122,
+      "matched": true
+    },
+    {
+      "case": 4,
+      "period": "m120",
+      "semanticEvents": 124,
+      "matched": true
+    },
+    {
+      "case": 6,
+      "period": "m60",
+      "semanticEvents": 111,
+      "matched": true
+    },
+    {
+      "case": 7,
+      "period": "m90",
+      "semanticEvents": 132,
+      "matched": true
+    },
+    {
+      "case": 8,
+      "period": "m120",
+      "semanticEvents": 134,
+      "matched": true
+    },
+    {
+      "case": 9,
+      "period": "m120",
+      "semanticEvents": 138,
+      "matched": true
+    },
+    {
+      "case": 10,
+      "period": "m120",
+      "semanticEvents": 139,
+      "matched": true
+    },
+    {
+      "case": 11,
+      "period": "m90",
+      "semanticEvents": 137,
+      "matched": true
+    },
+    {
+      "case": 13,
+      "period": "m90",
+      "semanticEvents": 140,
+      "matched": true
+    },
+    {
+      "case": 14,
+      "period": "m90",
+      "semanticEvents": 140,
+      "matched": true
+    },
+    {
+      "case": 15,
+      "period": "m90",
+      "semanticEvents": 140,
+      "matched": true
+    },
+    {
+      "case": 16,
+      "period": "m60",
+      "semanticEvents": 109,
+      "matched": true
+    },
+    {
+      "case": 17,
+      "period": "m60",
+      "semanticEvents": 109,
+      "matched": true
+    }
+  ],
+  "trueCancelLiteralVerified": "m60 2023-09-21 10:30 BOTTOM CANCEL",
+  "warmGroupingRegression": [
+    {
+      "period": "m60",
+      "oldWarmFirstReadSeconds": 0.9141305829398334,
+      "strictWarmFirstReadSeconds": 0
+    },
+    {
+      "period": "m90",
+      "oldWarmFirstReadSeconds": 0.8316112910397351,
+      "strictWarmFirstReadSeconds": 0
+    },
+    {
+      "period": "m120",
+      "oldWarmFirstReadSeconds": 0.8578913751989603,
+      "strictWarmFirstReadSeconds": 0
+    }
+  ]
+}

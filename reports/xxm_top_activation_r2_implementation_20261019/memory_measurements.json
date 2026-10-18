@@ -1,0 +1,18 @@
+[
+  {
+    "unit": "frozen_08_memory",
+    "exitCode": 0,
+    "seconds": 19.88207249995321,
+    "maxResidentBytes": 221921280,
+    "limitBytes": 268435456,
+    "measurement": "macOS wait4 ru_maxrss bytes"
+  },
+  {
+    "unit": "daily_2020_02_memory",
+    "exitCode": 0,
+    "seconds": 89.62961270892993,
+    "maxResidentBytes": 124387328,
+    "limitBytes": 268435456,
+    "measurement": "macOS wait4 ru_maxrss bytes"
+  }
+]

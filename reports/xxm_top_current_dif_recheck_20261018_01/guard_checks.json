@@ -1,0 +1,340 @@
+{
+  "ZC": {
+    "dateChecks": [
+      {
+        "period": "day",
+        "date": "2024-07-23",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-07-23",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-05",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-05",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-22",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-22",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "m120",
+        "date": "2024-08-05",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-05T15:00:00+08:00",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "m120",
+        "date": "2024-08-14",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-14T15:00:00+08:00",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-14",
+        "type": "DULL",
+        "route": "dif_return",
+        "modelTime": "2024-08-14",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-15",
+        "type": "STRUCTURE",
+        "route": null,
+        "modelTime": "2024-08-15",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-15",
+        "type": "CANCEL",
+        "route": null,
+        "modelTime": "2026-07-15",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-17",
+        "type": "DULL",
+        "route": "activation",
+        "modelTime": "2026-07-17",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-20",
+        "type": "CANCEL",
+        "route": null,
+        "modelTime": "2026-07-20",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      }
+    ],
+    "dec15Sequence": [
+      {
+        "id": "e4513106224640868648a7ea",
+        "time": "2025-12-11T15:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": null
+      },
+      {
+        "id": "0ed4d3fb966a4c23c23aeb23",
+        "time": "2025-12-12T14:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "dif_turn",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": "34241558447d1cd137ebd70f",
+        "relatedRearmId": null
+      },
+      {
+        "id": "f5035389505857246fbdbb73",
+        "time": "2025-12-15T14:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE_DISAPPEARED",
+        "route": "dif_return",
+        "fromState": "STRUCTURE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": "34241558447d1cd137ebd70f",
+        "relatedRearmId": "56e658480a50535013c7cd11"
+      },
+      {
+        "id": "e7c31d0c9585e760be7cb945",
+        "time": "2025-12-15T15:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "reactivation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": "56e658480a50535013c7cd11"
+      }
+    ],
+    "targetTopEvents": {
+      "2024-09-24": [],
+      "2024-09-25": []
+    },
+    "missingSoftwareTextNotInternalNone": true
+  },
+  "ZR": {
+    "dateChecks": [
+      {
+        "period": "day",
+        "date": "2024-07-23",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-07-23",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-05",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-05",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-22",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-22",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "m120",
+        "date": "2024-08-05",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-05T15:00:00+08:00",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "m120",
+        "date": "2024-08-14",
+        "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+        "route": null,
+        "modelTime": "2024-08-14T15:00:00+08:00",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-14",
+        "type": "DULL",
+        "route": "dif_return",
+        "modelTime": "2024-08-14",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2024-08-15",
+        "type": "STRUCTURE",
+        "route": null,
+        "modelTime": "2024-08-15",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-15",
+        "type": "CANCEL",
+        "route": null,
+        "modelTime": "2026-07-15",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-17",
+        "type": "DULL",
+        "route": "activation",
+        "modelTime": "2026-07-17",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      },
+      {
+        "period": "day",
+        "date": "2026-07-20",
+        "type": "CANCEL",
+        "route": null,
+        "modelTime": "2026-07-20",
+        "exactSoftwareMinuteClaimed": false,
+        "pass": true
+      }
+    ],
+    "dec15Sequence": [
+      {
+        "id": "e4513106224640868648a7ea",
+        "time": "2025-12-11T15:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "activation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": null
+      },
+      {
+        "id": "0ed4d3fb966a4c23c23aeb23",
+        "time": "2025-12-12T14:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE",
+        "route": "dif_turn",
+        "fromState": "DULL",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": "34241558447d1cd137ebd70f",
+        "relatedRearmId": null
+      },
+      {
+        "id": "f5035389505857246fbdbb73",
+        "time": "2025-12-15T14:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "STRUCTURE_DISAPPEARED",
+        "route": "dif_return",
+        "fromState": "STRUCTURE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": "34241558447d1cd137ebd70f",
+        "relatedRearmId": "56e658480a50535013c7cd11"
+      },
+      {
+        "id": "e7c31d0c9585e760be7cb945",
+        "time": "2025-12-15T15:00:00+08:00",
+        "direction": "BOTTOM",
+        "type": "DULL",
+        "route": "reactivation",
+        "fromState": "NONE",
+        "eventReference": {
+          "startTime": "2025-12-05T11:00:00+08:00",
+          "endTime": "2025-12-05T11:00:00+08:00",
+          "price": 3873.8203,
+          "dif": -7.239400383468819
+        },
+        "relatedTopHistoryId": null,
+        "relatedBottomHistoryId": null,
+        "relatedRearmId": "56e658480a50535013c7cd11"
+      }
+    ],
+    "targetTopEvents": {
+      "2024-09-24": [],
+      "2024-09-25": []
+    },
+    "missingSoftwareTextNotInternalNone": true
+  }
+}

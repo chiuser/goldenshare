@@ -163,10 +163,24 @@ def test_partial_entry_domain_remains_explicit_even_when_it_covers_the_near_band
 
 @pytest.mark.parametrize('status',['NO_CANDIDATE','PRECISION_PENDING'])
 def test_waiting_without_ranges_never_claims_actual_dulling(status):
- v=json.loads((ROOT/'reports/xxm_same_segment_a1_implementation_20261016/api/api_forecast_9_m120.json').read_text())
+ v=json.loads((ROOT/'reports/xxm_reference_rescue_r1_implementation_20261017/api/api_forecast_9_m120.json').read_text())
  v.update(status=status,reasonCode='NO_CONFIRMATION_IN_HORIZON',activation=None,targetEndpoint=None,barsAhead=None,
           commonConditions=[],relations=[],targetEntryRanges=[],targetEntryExclusions=[],examples=[],assumption=None)
  d=make_display(v,'m120',v['computedThrough'],'REPLAY',dict(entry=None,target=None))
  assert d['statusLabel']=='结构消失，待重新钝化'
  assert '当前未重新形成底钝化' in d['conditionsText'] and '钝化有效' not in d['conditionsText']
  assert '柱色改变或出现零柱' in d['conditionsText']
+
+
+def test_first_top_nonpositive_dif_keeps_its_lower_bound_and_plain_reason():
+ # Artificial geometry only; independent literal ranges, not a current API fixture.
+ v=payload();v.update(direction='TOP',ordinaryState='NONE',rearmContext=None,
+                     status='ENTRY_ONLY',targetEndpoint=None,barsAhead=None,commonConditions=[])
+ v['activation']['ranges']=[dict(entryRangeId='literal',priceRange=Interval(100,200,False,False).json())]
+ v['activation']['exclusions']=[dict(reason='CURRENT_DIF_NOT_POSITIVE',
+                                   priceRange=Interval(0,100,False,True).json())]
+ before=copy.deepcopy(v)
+ d=make_display(v,'day',v['computedThrough'],'LATEST',context(entry=(90,110)))
+ assert '100.0001～199.9999点' in d['conditionsText']
+ assert 'DIF未转为正值，顶钝化条件不成立' in d['conditionsText']
+ assert '指标也创新高' not in d['conditionsText'] and v==before

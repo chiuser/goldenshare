@@ -1,0 +1,25 @@
+{
+  "date": "2023-01-06",
+  "ts_code": "399001.SZ",
+  "period": "day",
+  "parameters": [
+    12,
+    26,
+    9
+  ],
+  "targetTopDullTextVisibleAtRightEdge": false,
+  "softwareInternalOrdinaryState": null,
+  "softwareSelectedReference": null,
+  "readouts": {
+    "close": "11367.73",
+    "dif": "12.496",
+    "dea": "-16.800",
+    "hist": "58.592"
+  },
+  "pricePeakPrintedOnChart": "11511.32",
+  "notes": [
+    "末端指标曲线旁未见黄色钝化或紫色结构形成。左下历史标记不视为当日标记。",
+    "侧栏高9日线9不是MACD顶部钝化。",
+    "图中11511.32为价格高点标注，不等于本模型的历史最高收盘11501.5781。"
+  ]
+}

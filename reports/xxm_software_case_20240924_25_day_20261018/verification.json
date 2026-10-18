@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "protectedFiles": 9,
+  "protectedUnchanged": true,
+  "archivedImagesIdentical": 2,
+  "sameDayScreenshotObservations": 2,
+  "existingDateRecords": 6,
+  "sameReferenceChain": true,
+  "sep24IndicatorDisplaysMatch": true,
+  "sep25DifDifferencePreserved": true,
+  "unclearSep25HistNotFilled": true,
+  "softwareInternalStateNotInferred": true,
+  "old52LabelsModified": false,
+  "fullReplayPerformed": false,
+  "formalMarketDataRead": false,
+  "productCodeChanged": false,
+  "dependencyOrApiChanged": false,
+  "localLinks": 461,
+  "coreTableLast": true
+}

@@ -1,0 +1,74 @@
+{
+  "period": "m120",
+  "through": "2026-07-10T15:00:00+08:00",
+  "sourcePrefixRows": 8508,
+  "softwareObservation": {
+    "close": 3959.16,
+    "low": 3946.16,
+    "addedCandles": 1,
+    "newDull": true,
+    "evidence": "reports/xxm_software_indicator_crosscheck_20261015/case_20260710_simulation_pair_20261016.json",
+    "exactSoftwareIndicatorsKnown": false
+  },
+  "hypothetical": {
+    "time": "2026-07-13T11:30:00+08:00",
+    "close": 3959.16,
+    "dif": -22.388241716159882,
+    "dea": -18.00787431622082,
+    "hist": -8.760734799878122,
+    "completed": true
+  },
+  "events": [
+    {
+      "id": "5ce5336511cd46e01d0d4116",
+      "time": "2026-07-13T11:30:00+08:00",
+      "direction": "BOTTOM",
+      "type": "DULL",
+      "route": "reactivation",
+      "fromState": "NONE",
+      "eventReference": {
+        "startTime": "2026-05-14T15:00:00+08:00",
+        "endTime": "2026-06-11T15:00:00+08:00",
+        "price": 3959.338,
+        "dif": -35.908539098328674
+      },
+      "relatedTopHistoryId": null,
+      "relatedBottomHistoryId": null,
+      "relatedRearmId": "13980fb3912d158db0d17388"
+    }
+  ],
+  "origin": {
+    "time": "2026-07-09T15:00:00+08:00",
+    "wave": {
+      "sign": -1,
+      "start": "2026-07-02T15:00:00+08:00",
+      "end": "2026-07-09T15:00:00+08:00",
+      "count": 11,
+      "price": 3952.4917,
+      "dif": -26.57923234618238,
+      "price_at": "2026-07-09T11:30:00+08:00",
+      "dif_at": "2026-07-09T11:30:00+08:00"
+    }
+  },
+  "difComparison": {
+    "currentDifGap": 4.1909906300224975,
+    "currentDifAboveOrigin": true,
+    "cumulativeDifGap": 0.0,
+    "cumulativeDifAboveOrigin": false
+  },
+  "margins": {
+    "priceGap": 0.17800000000033833,
+    "difGap": 9.329306752146294,
+    "belowOriginClose": false,
+    "aboveOriginDif": false,
+    "atLeastTwoFollowingBars": false,
+    "originCloseGap": -6.668299999999817,
+    "originDifGap": 0.0,
+    "displayRoundingOnly": {
+      "priceUnit": 0.01,
+      "difUnit": 0.001,
+      "priceComparisonStable": true,
+      "difComparisonStable": true
+    }
+  }
+}

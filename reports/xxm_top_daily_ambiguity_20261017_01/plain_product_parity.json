@@ -1,0 +1,26 @@
+[
+  {
+    "period": "day",
+    "rows": 1643,
+    "plainProductStepsEqual": true,
+    "finalSnapshotEqual": true
+  },
+  {
+    "period": "m60",
+    "rows": 17260,
+    "plainProductStepsEqual": true,
+    "finalSnapshotEqual": true
+  },
+  {
+    "period": "m90",
+    "rows": 12945,
+    "plainProductStepsEqual": true,
+    "finalSnapshotEqual": true
+  },
+  {
+    "period": "m120",
+    "rows": 8630,
+    "plainProductStepsEqual": true,
+    "finalSnapshotEqual": true
+  }
+]

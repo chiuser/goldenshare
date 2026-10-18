@@ -1,0 +1,48 @@
+{
+  "codes": [
+    "000016.SH",
+    "399300.SZ"
+  ],
+  "inputStart": "2020-01-01",
+  "candidateStart": "2024-09-01",
+  "end": "2026-09-30",
+  "tailStart": "2024-08-30",
+  "prefixDirectory": "reports/xxm_50_300_daily_dates_20261018_01",
+  "calendarDirectory": "reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01",
+  "projection": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "batch": 500,
+  "maxTailRows": 600,
+  "maxCombinedRows": 1800,
+  "maxCalendarRows": 2600,
+  "maxBytesPerUnit": 20000000,
+  "querySeconds": 15,
+  "connectionSeconds": 5,
+  "phaseSeconds": 60,
+  "totalSeconds": 240,
+  "expectedPrefixRows": 1132,
+  "expectedTailRows": 505,
+  "expectedCombinedRows": 1636,
+  "expectedTargetRows": 504,
+  "readonly": true,
+  "newExecutableCode": false,
+  "productCodeChanged": false,
+  "codegraph": [
+    "query ReferenceGateCalculator",
+    "impact ReferenceGateCalculator"
+  ],
+  "reuse": [
+    "readonly_session",
+    "daily_window_precheck.validate_window",
+    "cross_index_daily.calculate/classify/seal/read_unit"
+  ],
+  "classification": "All independent first-activation differences: current-vs-reference first; BASE-vs-both second. Follow-up dates separately.",
+  "recommendationLimit": null,
+  "previousWindowMustRemainIdentical": true
+}

@@ -1,0 +1,77 @@
+{
+  "ts_code": "399001.SZ",
+  "sourceRow": {
+    "ts_code": "399001.SZ",
+    "trade_date": "2023-01-06",
+    "close": 11367.7321,
+    "macd_dif_bfq": 12.496,
+    "macd_dea_bfq": -16.8,
+    "macd_bfq": 58.593
+  },
+  "bar": {
+    "time": "2023-01-06",
+    "close": 11367.7321,
+    "dif": 12.496,
+    "dea": -16.8,
+    "hist": 58.593,
+    "completed": true
+  },
+  "wave": {
+    "sign": 1,
+    "start": "2023-01-05",
+    "end": "2023-01-06",
+    "count": 2,
+    "price": 11367.7321,
+    "dif": 12.496,
+    "price_at": "2023-01-06",
+    "dif_at": "2023-01-06"
+  },
+  "history": [
+    {
+      "sign": 1,
+      "start": "2022-11-01",
+      "end": "2022-11-23",
+      "count": 17,
+      "price": 11351.3318,
+      "dif": 45.606,
+      "price_at": "2022-11-15",
+      "dif_at": "2022-11-18"
+    },
+    {
+      "sign": 1,
+      "start": "2022-12-01",
+      "end": "2022-12-16",
+      "count": 12,
+      "price": 11501.5781,
+      "dif": 102.45,
+      "price_at": "2022-12-09",
+      "dif_at": "2022-12-12"
+    }
+  ],
+  "variants": {
+    "BASE": {
+      "point": {
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null
+      },
+      "events": []
+    },
+    "ZC": {
+      "point": {
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null
+      },
+      "events": []
+    },
+    "ZR": {
+      "point": {
+        "ordinaryState": "NONE",
+        "ordinaryDirection": null,
+        "activeReference": null
+      },
+      "events": []
+    }
+  }
+}

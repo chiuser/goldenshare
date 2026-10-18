@@ -1,0 +1,16 @@
+{
+  "status": "COMPLETE",
+  "readonly": true,
+  "databaseWrites": false,
+  "productCodeChanged": false,
+  "sourceSeconds": 0.6008904171176255,
+  "comparisonSeconds": 0.13753995765000582,
+  "sourceRows": {
+    "000016.SH": 732,
+    "399300.SZ": 732
+  },
+  "openDays": 732,
+  "calendarNaturalDays": 1102,
+  "seconds": 0.738438333850354,
+  "protectedUnchanged": true
+}

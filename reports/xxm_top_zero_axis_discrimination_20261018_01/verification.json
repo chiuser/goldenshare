@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "protectedFiles": 64,
+  "protectedUnchanged": true,
+  "localLinks": 461,
+  "planCoreTableLast": true,
+  "eventDifferenceEndpoints": 13,
+  "pointDifferenceEndpoints": 44,
+  "transcriptFiles": 37,
+  "boundedProjectedRows": 16,
+  "newSoftwareLabels": 0,
+  "noFullReplay": true,
+  "noProductOrResearchCodeChange": true,
+  "formalApiBudgetTest": false
+}

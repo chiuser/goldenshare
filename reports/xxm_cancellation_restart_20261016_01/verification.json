@@ -1,0 +1,17 @@
+{
+  "status": "research_complete_product_unchanged",
+  "tests": {
+    "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_cancellation_restart_audit.py scripts/research/index_market/tests/test_xxm_calculator.py",
+    "passed": 78,
+    "elapsedSeconds": 3.77,
+    "newAuditTests": 10
+  },
+  "docsIntegrity": "passed",
+  "scopedDiffWhitespace": "passed",
+  "newFilesWhitespace": "passed",
+  "reportLinks": "passed",
+  "protectedSha256Rechecked": 26,
+  "softwareTruth": "one_existing_daily_image_observation_only_minute_cases_unconfirmed",
+  "formalBudgetRetested": false,
+  "productChanged": false
+}

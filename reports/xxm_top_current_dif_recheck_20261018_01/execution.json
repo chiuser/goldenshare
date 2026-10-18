@@ -1,0 +1,55 @@
+{
+  "status": "COMPLETE_RESEARCH_ONLY",
+  "completedUnitsReused": 8,
+  "newMainUnitsRun": 0,
+  "productCodeChanged": false,
+  "formalResourceAccess": false,
+  "sourceRows": {
+    "day": 1643,
+    "m60": 17260,
+    "m90": 12945,
+    "m120": 8630
+  },
+  "frozenDailyOverlap": 912,
+  "units": 8,
+  "unitResultsIdenticalToOld": true,
+  "labelsPerCandidate": 52,
+  "direct": 20,
+  "mapped": 32,
+  "labelsMatchedPerCandidate": {
+    "ZC": 52,
+    "ZR": 52
+  },
+  "newlyLostLabelsPerCandidate": {
+    "ZC": 0,
+    "ZR": 0
+  },
+  "bottomEventsAllFieldsIdenticalToBase": {
+    "ZC": true,
+    "ZR": true
+  },
+  "dateProtectionsPerCandidate": 10,
+  "dec15FourWordSequencePreserved": true,
+  "simulationInputs": 4,
+  "softwareSimulationInputs": 3,
+  "modelOnlyCounterexamples": 1,
+  "simulationRunsIncludingBase": 12,
+  "freshTopStateAnchors": 2,
+  "crossIndexPriorControls": 3,
+  "prefixAndRestoreCuts": 12,
+  "targetSep24Sep25NotEmitted": true,
+  "deepApril16OnlyCurrentDifCandidateMatches": true,
+  "noSoftwareUniqueFormulaClaim": true,
+  "noIndependentBlindTestClaim": true,
+  "newMarketDataRead": false,
+  "productChanged": false,
+  "completedUnitsReusedOnResume": 8,
+  "newMainUnitsRunOnResume": 0,
+  "resumeSeconds": 0.7462793751619756,
+  "firstAttemptFailed": true,
+  "firstFailureReason": "cross-version IDs compared as identical; business expectations unchanged",
+  "versionedIdChecks": "PASS",
+  "protectedFileCount": 278,
+  "protectedUnchanged": true,
+  "protectedChanged": []
+}

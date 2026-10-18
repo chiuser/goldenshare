@@ -1,0 +1,29 @@
+{
+  "scope": "new_user_image_and_confirmed_label_sequence_only",
+  "originalBytesPreserved": true,
+  "softwareSequence": [
+    "钝化",
+    "结构形成",
+    "消失",
+    "钝化"
+  ],
+  "softwareExactCandleAnchorsConfirmed": false,
+  "userApproximatePosition": {
+    "disappearance": "more likely December 15",
+    "lastDull": "December 16",
+    "precision": "approximate user impression, no intraday cursor"
+  },
+  "positionQuestionAnswered": true,
+  "repeatPositionQuestionPlanned": false,
+  "protectedSha256FilesRechecked": 32,
+  "modelPrefixRows": 12357,
+  "modelChainEvents": 6,
+  "modelEventsInDecember12Through16": 5,
+  "modelLedgerMatchesFrozenBaseline": true,
+  "productCodeModified": false,
+  "formalBudgetRetested": false,
+  "newTestsRun": false,
+  "docsIntegrity": "passed",
+  "scopedDiffWhitespace": "passed",
+  "committed": false
+}
