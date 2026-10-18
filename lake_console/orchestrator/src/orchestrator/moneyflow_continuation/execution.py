@@ -16,7 +16,6 @@ from orchestrator.moneyflow_continuation.contract import (
 from orchestrator.moneyflow_continuation.plan import validate_plan
 from orchestrator.moneyflow_continuation.recovery import (
     ACTION,
-    RAW_ACTION,
     RECOVERY_ACTIONS,
     action_layer,
 )
@@ -209,7 +208,6 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                     )
                     phase = {
                         "raw": "silver",
-                        RAW_ACTION: "silver",
                         "silver": "complete",
                         ACTION: "complete",
                     }[layer]
@@ -265,7 +263,6 @@ def apply(backend, plan, *, root=CONTROL, stop=None, output=print, clock=now):
                     phase = {
                         "register": "raw",
                         "raw": "silver",
-                        RAW_ACTION: "silver",
                         "silver": "complete",
                         ACTION: "complete",
                     }[layer]

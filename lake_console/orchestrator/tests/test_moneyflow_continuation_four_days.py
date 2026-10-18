@@ -1,227 +1,133 @@
-"""Four tiny actual Raw/Silver jobs, SQLite parent/child and restart/replay.
+"""Four tiny actual Raw/Silver jobs with lost response and durable reconnect.
 
-Formal GraphQL/remote origin/legacy parent evidence are replaced explicitly.
-The original failure validator and 5574-row candidate have independent tests.
-The 45 accepted dates are references, not regenerated lake files in this test.
+The source, clock and HTTP adapter are replaced. SQLite events/checks and
+Parquet are real. No formal queue, remote source or old recovery is executed.
 """
 
 import json
-from types import SimpleNamespace as NS
 
-import dagster as dg
 import pytest
-from dagster._core.definitions.job_base import InMemoryJob
-from dagster._core.execution.api import execute_run
 
-from orchestrator.moneyflow_continuation import recovery
-from orchestrator.moneyflow_continuation.contract import digest, file_hash
+from orchestrator.defs.paths import raw_moneyflow_path, silver_moneyflow_path
+from orchestrator.moneyflow_continuation.contract import file_hash
 from orchestrator.moneyflow_continuation.execution import apply
-from orchestrator.moneyflow_continuation.plan import make_plan
-from orchestrator.moneyflow_continuation.recovery import REEXECUTE
-from orchestrator.moneyflow_continuation.state import NativeBackend, next_action
+from orchestrator.moneyflow_continuation.plan import LAUNCH
+from orchestrator.moneyflow_continuation.state import next_action
 from orchestrator.moneyflow_continuation.submission import Journal, submit_once
 from tests import test_moneyflow_definitions as support
 from tests.moneyflow_baseline_support import seed_moneyflow_baseline
-from tests.test_moneyflow_collection_recovery import DAYS, PARENT, full_parent, setup
 from tests.test_moneyflow_continuation_integration import LocalJobsBackend
-from tests.test_moneyflow_continuation_plan import AT
+from tests.test_moneyflow_continuation_plan import AT, plan_for
 
 pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
+DAYS = ("2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16")
 
 
-class ReexecutionJobsBackend(LocalJobsBackend):
-    def validate_run(self, run, unit, layer, body=None):
-        if run.asset_selection is not None:
-            return super().validate_run(run, unit, layer, body)
-        values = run._asdict()
-        values["remote_job_origin"] = NS(
-            job_name=unit[layer]["job"],
-            repository_origin=NS(
-                repository_name="__repository__",
-                code_location_origin=NS(location_name="orchestrator"),
-            ),
-        )
-        return NativeBackend.validate_run(self, NS(**values), unit, layer, body)
+class FourDayJobsBackend(LocalJobsBackend):
+    drop_raw_response = False
 
     def guard(self, plan, at):
         super().guard(plan, at)
-        # Current state.guard: 2 runtime HTTP + 2 calendar + 4 pool + 14 active-job
-        # reads. Charge these too, rather than making the isolated budget free.
+        # Same formal guard accounting as the original four-day test.
         for _ in range(22):
             self.meter.tick()
 
     def mutate(self, body):
-        if body["query"] != REEXECUTE:
-            return super().mutate(body)
-        self.posts.append(body)
-        parent = self.env.instance.get_run_by_id(body["variables"]["parentRunId"])
-        job = self.env.defs.resolve_job_def(parent.job_name).with_executor_def(
-            dg.in_process_executor
-        )
-        child = self.env.instance.create_run_for_job(
-            job,
-            tags=parent.tags,
-            root_run_id=parent.run_id,
-            parent_run_id=parent.run_id,
-        )
-        assert execute_run(InMemoryJob(job), child, self.env.instance).success
-        if self.lose_response:
-            raise OSError("isolated response lost after real child committed")
-        return {
-            "data": {
-                "launchRun": {
-                    "__typename": "LaunchRunSuccess",
-                    "run": {"runId": child.run_id},
-                }
-            }
-        }
+        result = super().mutate(body)
+        if (
+            self.drop_raw_response
+            and body["query"] == LAUNCH
+            and body["variables"]["executionParams"]["selector"]["jobName"]
+            == "raw_tushare_moneyflow_update_job"
+        ):
+            self.drop_raw_response = False
+            raise OSError("isolated response lost after actual Raw committed")
+        return result
 
 
 def test_four_day_native_files_lost_response_restart_and_zero_repeat(
     tmp_path, monkeypatch, record_property
 ):
-    case, runtime = tmp_path / "case", tmp_path / "runtime"
-    case.mkdir()
+    runtime = tmp_path / "runtime"
     runtime.mkdir()
-    child, unit, journal, *_ = setup(case, monkeypatch)
-    parent = full_parent()
-    full = make_plan(
-        [
-            {"dataset": u["dataset"], "trade_date": u["trade_date"]}
-            for u in parent["units"]
-        ],
-        set(DAYS),
-        AT,
-        parent["verification"],
-        {},
-        [],
-        parent,
-        digest(parent),
-        collection_recovery=child["collection_recovery"],
-    )
-    entries = [{"dataset": "moneyflow", "trade_date": day} for day in DAYS[3:]]
-    plan = make_plan(
-        entries, set(DAYS), AT, full["verification"], {}, [], full, digest(full)
-    )
     generator = support.env.__wrapped__(runtime, monkeypatch)
     env = next(generator)
     try:
-        backend = ReexecutionJobsBackend(env)
-        backend.lose_response = True
-        for day in DAYS[:3]:
+        for day in ("2026-10-08", "2026-10-09", "2026-10-12"):
             seed_moneyflow_baseline(
-                instance=env.instance,
-                lake=env.lake,
-                staging=env.staging,
-                dataset="moneyflow",
-                rows=support.sample(),
-                day=day,
+                instance=env.instance, lake=env.lake, staging=env.staging,
+                dataset="moneyflow", rows=support.sample(), day=day,
             )
-        env.instance.add_dynamic_partitions(unit["partition_set"], ["2026-10-13"])
-        original = journal.read(unit, "raw")["request"]["body"]["variables"][
-            "executionParams"
-        ]
-        tags = {t["key"]: t["value"] for t in original["executionMetadata"]["tags"]}
-        old = env.instance.create_run_for_job(
-            env.defs.resolve_job_def(unit["raw"]["job"]), run_id=PARENT, tags=tags
+        # Literal dates/counts and samples come from the existing source-contract fixture.
+        plan = plan_for(("moneyflow",), DAYS)
+        unit = plan["units"][0]
+        journal = Journal(plan, tmp_path / "control")
+        backend = FourDayJobsBackend(env)
+        env.source.responses = iter(
+            page for day in DAYS for page in support.pages(support.sample(day=day)) * 2
         )
-        env.instance.report_run_failed(old)
-        # Legacy parent audit is tested separately; this test exercises new jobs/files.
-        monkeypatch.setattr(recovery, "validate_collection_failure", lambda *_: [])
-        old_dir = env.staging / "moneyflow" / PARENT
-        old_dir.mkdir(parents=True)
-        marker = old_dir / "retained-first-round"
-        marker.write_bytes(b"retained original candidate reference")
-        old_hash = file_hash(marker)
-        source_rows = [support.pages(support.sample(day=day)) * 2 for day in DAYS[3:]]
-        env.source.responses = iter([page for pages in source_rows for page in pages])
-        backend.snapshots([unit], journal)
-        with pytest.raises(OSError):
-            submit_once(backend, journal, unit, recovery.RAW_ACTION, AT)
-        assert len(backend.posts) == 1
-        backend.lose_response = False
-        for _ in range(2):
-            code, result = apply(
-                backend,
-                plan,
-                root=journal.root,
-                output=lambda _: None,
-                clock=lambda: AT,
-            )
-            assert code == 0, result
-            assert result["completed"] == 4
+        submit_once(backend, journal, unit, "register", AT)
+        backend.drop_raw_response = True
+        with pytest.raises(OSError, match="response lost"):
+            submit_once(backend, journal, unit, "raw", AT)
+        files = journal.read(unit, "raw")
+        assert "send_intent" in files and "response" not in files
+        assert len(backend.posts) == 2
+        code, result = apply(
+            backend, plan, root=journal.root, output=lambda _: None, clock=lambda: AT
+        )
+        assert code == 0 and result["completed"] == 4, result
         snapshots = backend.snapshots(plan["units"], Journal(plan, journal.root))
         assert all(next_action(s) == "complete" for s in snapshots)
-        assert all(
-            s["raw"]["proof"]["rows"] == s["silver"]["proof"]["rows"] == 3
-            for s in snapshots
-        )
-        assert len(env.source.calls) == 8 and len(backend.posts) == 11
+        assert all(s[layer]["proof"]["rows"] == 3 for s in snapshots for layer in ("raw", "silver"))
         runs = env.instance.get_runs()
-        assert len(runs) == 9 and sum(r.status.value == "SUCCESS" for r in runs) == 8
-        assert env.instance.get_run_by_id(PARENT).status.value == "FAILURE"
-        children = [r for r in runs if r.parent_run_id == PARENT]
-        assert len(children) == 1 and children[0].root_run_id == PARENT
-        assert file_hash(marker) == old_hash
-        from pathlib import Path
-
-        from orchestrator.defs.paths import raw_moneyflow_path, silver_moneyflow_path
-        from orchestrator.moneyflow_continuation import acceptance
-
-        original_path = Path
-        mapping = {
-            u[layer]["target"]: (
-                raw_moneyflow_path if layer == "raw" else silver_moneyflow_path
-            )(env.lake, "moneyflow", u["trade_date"])
-            for u in plan["units"]
-            for layer in ("raw", "silver")
+        assert len(runs) == 8 and all(r.status.value == "SUCCESS" for r in runs)
+        assert all(r.parent_run_id is None and r.root_run_id is None for r in runs)
+        assert set(env.instance.get_dynamic_partitions(unit["partition_set"])) == {
+            "2026-09-29", "2026-09-30", "2026-10-08", "2026-10-09", "2026-10-12", *DAYS
         }
-        monkeypatch.setattr(
-            acceptance, "Path", lambda p: mapping.get(str(p), original_path(p))
-        )
-        events, native = {}, {}
-        for u, s in zip(plan["units"], snapshots, strict=True):
+        import dagster as dg
+        from dagster._core.event_api import PartitionKeyFilter
+
+        check_ids = set()
+        for u, snapshot in zip(plan["units"], snapshots, strict=True):
             for layer in ("raw", "silver"):
-                proof = s[layer]["proof"]
-                key = ("moneyflow", u["trade_date"], layer)
-                events[key] = {
-                    "mat_id": proof["materialization_id"],
-                    "run_id": proof["run_id"],
-                }
-                native[key] = env.instance.get_run_by_id(proof["run_id"])
-        records = acceptance.accepted_records(
-            backend,
-            plan,
-            plan["units"],
-            snapshots,
-            events,
-            native,
-            Journal(plan, journal.root),
+                checks = env.instance.event_log_storage.get_asset_check_execution_history(
+                    dg.AssetCheckKey(dg.AssetKey(u[layer]["asset"]), u[layer]["check"]),
+                    limit=1, partition_filter=PartitionKeyFilter(key=u["trade_date"]),
+                )
+                assert len(checks) == 1
+                check = checks[0]
+                evaluation = check.event.dagster_event.event_specific_data
+                assert check.status.value == "SUCCEEDED" and evaluation.passed and evaluation.blocking
+                assert evaluation.target_materialization_data.storage_id == snapshot[layer]["proof"]["materialization_id"]
+                assert evaluation.target_materialization_data.run_id == snapshot[layer]["proof"]["run_id"]
+                check_ids.add(check.id)
+        assert len(check_ids) == 8
+        assert len(env.source.calls) == 8 and len(backend.posts) == 12
+        paths = [
+            helper(env.lake, "moneyflow", day)
+            for day in DAYS for helper in (raw_moneyflow_path, silver_moneyflow_path)
+        ]
+        before = {str(p): (file_hash(p), p.stat().st_mtime_ns) for p in paths}
+        # A new backend reconnects to the same real instance and unchanged journal.
+        old_posts = len(backend.posts)
+        backend = FourDayJobsBackend(env)
+        code, repeated = apply(
+            backend, plan, root=journal.root, output=lambda _: None, clock=lambda: AT
         )
-        assert (
-            len(records) == 4
-            and records[0]["layers"]["raw"]["submission_evidence"]
-            == "native_readback_after_uncertain_response"
-        )
+        assert code == 0 and repeated["completed"] == 4, repeated
+        assert old_posts == 12 and backend.posts == [] and len(env.source.calls) == 8
+        assert {str(p): (file_hash(p), p.stat().st_mtime_ns) for p in paths} == before
+        assert len(env.instance.get_runs()) == 8
         budgets = json.loads((journal.directory / "budgets.json").read_text())
         action_reads = [v for k, v in budgets.items() if not k.startswith("poll:")]
         assert max(action_reads) <= 40
-        record_property(
-            "four_day_evidence",
-            json.dumps(
-                {
-                    "days": 4,
-                    "rows_per_day_per_layer": 3,
-                    "successful_native_jobs": 8,
-                    "preserved_native_failures": 1,
-                    "fake_source_requests": 8,
-                    "mutation_posts_including_registration": 11,
-                    "new_posts_on_repeat": 0,
-                    "max_action_reads_with_22_guard_reads_charged": max(action_reads),
-                    "total_meter_reads": backend.meter.count,
-                    "legacy_parent_evidence_and_remote_origin_replaced": True,
-                }
-            ),
-        )
+        record_property("four_day_evidence", json.dumps({
+            "days": 4, "rows_per_day_per_layer": 3, "successful_native_jobs": 8,
+            "fake_source_requests": 8, "mutation_posts_including_registration": 12,
+            "new_posts_on_repeat": 0, "max_action_reads_with_22_guard_reads_charged": max(action_reads),
+            "source_clock_http_adapter_replaced": True,
+        }))
     finally:
         generator.close()

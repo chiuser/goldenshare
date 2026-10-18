@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 当前状态（2026-10-18）：P0～P4开发、历史登记和49项接续完成，12类异常证据已整理，原7项补缺已验收并提交`cd89b4b04`。尚待P5至少3个不同真实交易日的自动采集验收（已验收0/3）及最终交付。本机后台DG已按管理员要求停止，等待管理员手动启动；持久化sensor开关未改变。当前说明与辅助代码审计见§72；代码清退设计见§73（待审阅，未实施）。
+> 当前状态（2026-10-18）：P0～P4开发、历史登记和49项接续完成，12类异常证据已整理，原7项补缺已验收并提交`cd89b4b04`。尚待P5至少3个不同真实交易日的自动采集验收（已验收0/3）及最终交付。本机后台DG已按管理员要求停止，等待管理员手动启动；持久化sensor开关未改变。当前说明与辅助代码审计见§72；代码清退已按§73.19完成，DG保持停止，等待管理员手动启动。
 
 日期：2026-10-06；最近整理：2026-10-18。§1的影响面描述和§2～71的设计、实现与执行结果保留各阶段记录；其中“未实现”“待后续”“尚未提交”等均有当时的时间边界，不能越过后续验收当作当前状态。P4最终结果见§70.27.7/70.28，异常证据见§70.29.6，7项补缺结果见§71.16，当前收尾见§72。
 
@@ -4983,7 +4983,9 @@ apply须在任何正式写入前确认原父目录已有候选且其摘要与审
 仓库文档检查`python3 scripts/check_docs_integrity.py`通过；它只扫描根docs，不能代替本次lake_console文档核验，故另外核对这三份资金流文档的全部本地链接（识别已有`:行号`写法），目标文件均存在。三文件`git diff --check`通过。没有修改业务代码，未重复运行数据/网络或完整回归测试，未把本地AST审计当成运行验收。仅三份文档有本轮差异，其他任务工作区保持；本轮未提交或推送。管理员手动启动后继续§70.29.6的真实交易日验收；辅助代码删除只作为审计建议，尚未实施。
 
 
-## 73. 已完成历史操作的专用代码清退LLD（2026-10-18，待审阅，未实施）
+## 73. 已完成历史操作的专用代码清退LLD（2026-10-18，已实施并完成本节验收）
+
+> §73.1～14保留设计交付时范围和状态；实施授权、命令纠正与实际结果见§73.15～19。当前入口已清退，不能从设计段中的旧路径恢复执行。
 
 ### 73.1 目标、依据及权限
 
@@ -5153,8 +5155,10 @@ apply须在任何正式写入前确认原父目录已有候选且其摘要与审
 **第二组：最小真实临时文件与任务。**
 
 ```bash
-.venv/bin/python3 -B -m pytest -q tests/test_moneyflow_continuation_integration.py tests/test_moneyflow_continuation_four_days.py tests/test_moneyflow_history_candidates.py::test_multiple_explicit_dates_generated_without_spool tests/test_moneyflow_mkt_dc_events.py::test_native_registration_readiness_and_idempotent_replay
+.venv/bin/python3 -B -m pytest -q tests/test_moneyflow_continuation_integration.py tests/test_moneyflow_continuation_four_days.py tests/test_moneyflow_history_candidates.py::test_multiple_explicit_dates_generated_without_spool tests/test_moneyflow_mkt_dc_events.py::test_native_registration_readiness_and_idempotent_replay --basetemp=/private/tmp/moneyflow-retirement-integration-full-20261018
 ```
+
+上述文件还包含本地HTTP断响应等合同测试；必须使用支持本机回环的工具权限运行，HTTP只在127.0.0.1随机端口、真实来源请求0。历史事件SQLite只能放在上述/private/tmp临时根。首次命令遗漏的实际纠正与结果见§73.17。
 
 七表integration合计7个日期/数据集单元，四日演练4个；这两组共26次假源调用（18+8），对真实源请求0，新增临时文件/任务只按小样本运行；四日最大每层12条，七表integration的moneyflow_mkt_dc/ind_ths/cnt_ths各1、ind_dc/dc/ths/moneyflow各3行，每层共15条。候选与历史登记用既有有界小夹具，不拉历史或全市场；日志只写/private/tmp。fixture先从真实字段合同与现有来源定义样本独立核对，预期不要调用待测统计函数来生成。
 
@@ -5166,7 +5170,7 @@ apply须在任何正式写入前确认原父目录已有候选且其摘要与审
 .venv/bin/ruff check --no-cache --select E9,F63,F7,F82 src tests
 ```
 
-另外对§73.12所列5个改动源码、5个改动测试和1个新测试执行`.venv/bin/ruff check --no-cache <11个精确路径>`默认规则，不把删除路径传给Ruff。七表保留的资产和sensor测试使用已确认存在的以下14文件，不使用可能匹配待删测试的通配符：
+另外对§73.12所列5个改动源码、5个改动测试和1个新测试执行`.venv/bin/ruff check --no-cache <11个精确路径>`默认规则，不把删除路径传给Ruff。七表保留的资产和sensor测试使用已确认存在的以下14文件，不使用可能匹配待删测试的通配符。下方14文件清单是范围，不再作为同一进程完整执行命令；依§73.18逐文件执行、结果保存在临时根外，并及时清理本轮自建测试根，不能再次累计全部SQLite超过128MiB：
 
 ```bash
 .venv/bin/python3 -B -m pytest -q tests/test_moneyflow_mkt_dc_definitions.py tests/test_moneyflow_ind_ths_definitions.py tests/test_moneyflow_cnt_ths_definitions.py tests/test_moneyflow_ind_dc_definitions.py tests/test_moneyflow_dc_definitions.py tests/test_moneyflow_ths_definitions.py tests/test_moneyflow_definitions.py tests/test_moneyflow_mkt_dc_sensors.py tests/test_moneyflow_ind_ths_sensors.py tests/test_moneyflow_cnt_ths_sensors.py tests/test_moneyflow_ind_dc_sensors.py tests/test_moneyflow_dc_sensors.py tests/test_moneyflow_ths_sensors.py tests/test_moneyflow_sensors.py
@@ -5219,3 +5223,68 @@ P5的真实自动交易日证据与本次隔离证据分别记录。以上通过
 ### 73.14 本轮设计交付的实际核验
 
 本轮已核对21个现有待删/待改源码测试路径、14个保留definitions/sensor测试文件及3个精确测试函数；新增retirement测试只是设计路径，未创建。两个临时脚本只读记录摘要，未执行/删除。两文档的新章节编号无重复，312处本地链接目标存在；仓库`check_docs_integrity.py`及这两文档`git diff --check`通过。待改源码相对设计基线仍无差异。这里只证明设计依据、路径/命令和文档一致，未运行上述实现回归，未修改源码/测试、未连接正式服务、未操作数据、未提交或推送。下一步是审阅本节明确的清退范围与入口变化，获确认后再按§73.9实施。
+
+
+### 73.15 提交后实施前审计（2026-10-18 07:36）
+
+管理员已要求提交文档，并在条件满足后推进本设计。三份本需求文档（原方案、LLD、P0历史报告说明）已白名单提交`f06909310`，未推送；没有混入其他任务修改。原§73.1/13/14中的“待审阅、未获实施确认”保留为设计交付时状态，当前为有条件实施已授权，停机条件尚未满足。
+
+逐项只读审核结果：
+
+- 当前仍为dev-interface；7待删源码、5待改源码、4待删测试、5待改测试共21个现有路径相对HEAD无差异，新retirement测试尚不存在，没有本任务路径被他人修改的阻塞。
+- 原补缺state文件存在、≤1MiB、stage=complete，7个item全部accepted；只读该精确state，没有重新读取14份Parquet或写状态。
+- 原正式接续closeout.complete=true，根摘要与§73.9一致，49项零变化重放已归档；没有重新扫描573份控制记录。原executor及补缺锁未发现进程占用，未创建或改变锁文件。
+- 正式instance只读聚合查询当前全部活动状态：QUEUED/NOT_STARTED/STARTING/STARTED/CANCELING均0。此查询仅确认07:36时任务状态，不保证以后不会新增任务，不代替真正停止前复核。
+- **当前阻塞为DG已重新启动。** 新主进程52097，父62139；网页52249监听127.0.0.1:3000，调度52250。不能依据§72的旧退出记录认定现在仍停机。管理员前次要求自行手动启动，按§73.9.2须取得这次停止许可后才能在同一工作区删改可能被自动加载的源码；本轮未发送信号、未停sensor、未写运行状态。
+- 本地保留对比记录位于`/private/tmp/moneyflow-retirement-baseline-20261018.json`，包含21个目标和806个保留源码/报告/原state的摘要，不复制业务文件。保留摘要用于识别本次误改；若后续他人修改无关源码，应核清归属，不能把无关变化当作本任务需修复的代码或放宽实际依赖检查。
+
+已发出本次停机许可请求，等待管理员回复。当前审计结论为：源码与原操作完成条件已满足，服务运行条件未满足，因此尚未开始代码/测试删除或临时脚本清理。获准停止后，应先再次只读核对活动任务、确认实际PID及其子进程，再正常退出当前这一组DG，保留数据库/Lake/持久化sensor开关；确认原进程和3000监听退出后才按§73.9继续。不重启服务，仍由管理员手动启动。若管理员要求保持运行，则只保留本次审核结果，不以复制工程、改旁路入口或忽略DG加载来继续清退。
+
+
+### 73.16 获准停止并实施清退
+
+管理员已明确回复“允许停止，继续清退”，覆盖§73的代码/测试清退及此次维护停止。执行前再次核对主进程仍为52097、网页52249、调度52250；正式instance全部活动状态计数0。21个目标与§73.15记录摘要完全相同，原7项state仍complete/全部accepted，无新增本任务源码阻塞。先正常退出本组DG并核实原进程组和3000监听消失，再执行§73.4～12；不修改数据/事件/开关，不重新启动服务。原方案/LLD和实施结果继续在原文回填，历史报告原字节保留。
+
+
+### 73.17 隔离测试命令补充与首轮结果
+
+清退源码和测试已按§73.4～7改动。第一组168项通过（14.23秒），其中新Definitions加载在禁止网络/正式路径打开条件下完成，14资产/14任务/21sensor/14阻断检查保留；无正式操作。Ruff首次发现两个新测试的嵌套if/导入格式，已仅在允许的测试文件修正；5源码及6个新增/改动测试的默认Ruff、全src/tests致命Ruff通过。
+
+第二组首轮15 passed、1 failed、1 error/12.87秒，不能称全组通过：失败是既有`test_actual_http_response_loss_has_one_post_and_no_automatic_retry`需要在127.0.0.1随机端口启动本地假HTTP，工具沙箱拒绝bind；错误是共用历史事件样本只允许SQLite位于/private/tmp，默认pytest临时路径在/private/var。原§73.10只描述文件内七表样本，漏列其余现有合同用例和该本地回环访问/临时路径要求，这是测试命令设计遗漏，不是可以放宽实现或删除用例的理由。
+
+补充后的执行方式：保留已通过15项（含四日8任务/12提交/8假源调用以及日期候选），只补跑上述HTTP用例及历史事件用例两项，命令加`--basetemp=/private/tmp/moneyflow-retirement-targeted-20261018`；HTTP用例经工具权限升级启动其拥有的127.0.0.1随机端口，1次本地模拟POST、无正式3000/Tushare/DB访问，不改变源码、测试断言或受保护启动器。未来运行第二组完整命令也必须显式该临时根及支持本地回环的权限方式。预算中的真实源请求仍0，本地假HTTP另计1，不把它混为正式接口请求或掩盖首轮未通过情况。
+
+
+### 73.18 七表回归临时空间的纠正
+
+14个保留definitions/sensor模块在同一pytest进程执行时，每例SQLite/文件夹具一直保留到整轮结束。只读核对发现本任务自建`/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1855`累计381724KiB，超过§73.10的128MiB预算。已仅向本任务pytest进程74733发INT；原JUnit保存399项完成且无失败/错误/跳过，整轮因主动中断退出1，不能说原完整命令已通过。中断发生在pytest报告钩子时另有stash KeyError，不改生产代码或吞错误来消除它，未完整报告的用例归入待验证。
+
+修正执行方式，不扩大代码范围或提高空间上限：先用同14个精确测试文件`--collect-only -q`取得当前完整用例身份，与原399项XML逐项对账，只认有完整testcase且无failure/error/skipped的记录；然后按文件执行未覆盖用例，每批使用新建/private/tmp独立临时根，结果XML/log保存在该根之外，单批完成后清理本批新建测试目录。保留第一轮命令、日志/XML及超限数值，不能把新批次当成原命令一直在预算内。400项左右的数据集合同是同一原范围，不再重跑已完成用例。
+
+仅清理上述已确认由本次进程产生的pytest-1855目录（进程已结束、目录非symlink、XML及命令记录已在/private/tmp），以及本次新建分批测试临时根；不删除pytest-of-congming父目录、其他pytest编号目录、旧临时执行脚本的父目录或任何正式Lake/staging/DB。这是测试自建资源收尾，不是业务数据清理。清理前记录所有文件数/逻辑字节，剩余批次每批核对临时产物≤128MiB，预算保持。此次估算不足如实保留，后续同类验证应按文件估算峰值，不能把单例小数据量等同整轮小空间。
+
+
+### 73.19 清退实施完成及最终对账
+
+**实际代码。** §73.12的22个源码/测试路径全部按表处理：删除7源码及4专用测试，修改5源码及5测试，新增`test_moneyflow_code_retirement.py`；没有新增运行时模块或兼容入口。CLI仅保留plan/inspect/apply，audit在parser拒绝；清单format=2且拒绝旧collection_recovery字段/format1/旧父计划。Raw专用恢复函数、动作、耗时兜底及全部调用已移除；Silver受控恢复与submission、contract、日更和31个共用历史模块保留。unknown通用用例迁移、四日演练改写、runless补缺metadata及错误检查反例均已落地。
+
+**计划到代码及证据的逐项对账。**
+
+| 原硬要求 | 实际代码/测试落点 | 实际结果 |
+| --- | --- | --- |
+| 只退出原7项及固定49项专用代码 | §73.3七文件、四专用测试删除；retirement静态检查及反例 | 路径已消失，剩余src/tests可解析且无旧模块import/动态字面导入；新检查能抓住反例 |
+| 旧入口及清单不能继续执行 | CLI.parser/run、plan.make_plan/validate_plan、CLI/plan反例 | audit/旧字段含None/旧格式/旧父拒绝，apply摘要要求仍在；没有自动转换或替代空命令 |
+| Raw专用分支真正退出而非只删入口 | recovery、state、execution、Journal直调拒绝测试 | Raw request/effective_runs/action_layer及Journal旧动作被拒绝，后端/动作目录0写；坏耗时正常拒绝 |
+| Silver/普通接续不损坏 | 原recovery/submission/execution与七表integration、四日演练 | 丢响应/幂等/父子绑定/互斥/预算保留；四日8 SUCCESS任务、12提交、8假源请求，换后端后0新增，8文件各3行与准确检查齐全 |
+| 旧补缺数据仍能被日更识别 | state新增真实临时文件/SQLite/runless检查反例 | 正常附加metadata可ready，坏文件或错check仍拒绝；readiness源码未改 |
+| 不动运行时数据合同/保护文件 | 初始基线的806个保留源码、历史报告及原补缺state | 全部SHA256逐份一致；含原state及已关闭报告。非本任务catalog既有差异字节也保持 |
+| 没有遗漏保留测试 | 原14文件collect清单与399项XML、剩余两批35+12逐项并集 | 446个当前用例完全覆盖，无漏项、重复充数、失败或skip；原中断及超限记录保持 |
+| 临时脚本仅退精确两项 | §73.8两脚本SHA256及进程核对 | 字节与设计一致且无执行进程后精确删除，父目录和其他临时文件不删 |
+
+**实际测试。** 首组168项通过；后续22项针对复验包含21个已有用例及新增的“源码清单少文件也必须拒绝”反例，首组当前不同用例合计169。第二组17项中首轮15通过，HTTP和历史事件两项按§73.17修正命令后均通过，无源码/断言放宽。14保留模块446项按§73.18完成（399+35+12）；与前述用例身份合并为632个不同pytest用例。原受保护启动器113项静态方法及12项catalog治理方法均通过（不将subtests另加到用例数），共757项，不把针对复跑重复相加。默认Ruff、全src/tests致命Ruff、文档检查、链接及diff检查通过。CodeGraph已sync/status，索引为up to date；本次仅退出orchestrator内部专用入口，不改变主体业务分层、依赖矩阵或共享资产合同。
+
+**证据位置。** `/private/tmp/moneyflow-retirement-acceptance-summary-20261018.json`、`moneyflow-retirement-baseline-20261018.json`、`moneyflow-retirement-remaining-20261018.json`、`moneyflow-retirement-final-test-batches-20261018.json`及对应unit/integration/targeted/final-contracts/datasets/batch日志和XML记录实际命令、数量与阶段。静态及治理日志分别为`moneyflow-retirement-static-20261018.log`、`moneyflow-retirement-governance-20261018.log`。临时脚本删除记录为`moneyflow-retirement-temporary-script-deletions-20261018.json`。新临时测试调度脚本首次把collect返回的仓库相对node ID用于子工程cwd，退出4/0用例；路径已按实际cwd归一化，日志保持，不计作测试失败或通过。一次本地修改调度脚本的变量缺失在启动pytest之前退出，随后修正，不涉及业务源码或数据。原正式报告未改写为本轮报告。
+
+**成本偏差如实保留。** 原大组219.56秒、临时目录逻辑378203018字节/物理381724KiB，未达到原128MiB预算；停止后清理仅本任务自建目录。两批剩余用例分别20.66秒/89107634字节、10.66秒/49187673字节，均低于128MiB，且各批目录完成后已清理。不能声称整轮从未超预算，也不因超限丢弃已通过证据或跳过剩余用例。已将执行指导改为逐文件收尾，后续不再沿用一次累计全部数据库的命令。
+
+**正式环境及剩余边界。** 本轮仅获准正常停止DG，停止前全部活动任务0，原52097启动组及3000监听均已消失，未重新启动。除只读元数据/一个精确staging state外，无正式数据读取、源请求、业务job、事件/分区/文件写入、sensor开关/游标操作；正式数据库和Lake/staging保留原样。两个旧临时执行脚本已退出。本轮代码及收尾文档尚未提交或推送（原设计文档提交f06909310已完成）。本次代码清退范围没有剩余实现/验收项；P5仍需至少3个不同真实自动交易日及最终交付，不能用本轮隔离回归替代。管理员可自行手动启动DG，原持久化开关与22:00规则保持。

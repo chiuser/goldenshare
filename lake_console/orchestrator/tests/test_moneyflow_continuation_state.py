@@ -137,6 +137,7 @@ def test_native_identity_uses_real_sdk_contract(change):
         "loaded",
         "isolated",
         "new_module",
+        "removed_module",
         "unrelated",
     ],
 )
@@ -196,6 +197,8 @@ def test_verification_rechecks_each_real_file_binding(tmp_path, monkeypatch, cha
         isolated.write_text("{}")
     elif change == "new_module":
         inventory["src/orchestrator/defs/new_asset.py"] = "c" * 64
+    elif change == "removed_module":
+        del inventory["src/orchestrator/defs/jobs/stock_weekly.py"]
     elif change == "unrelated":
         inventory["src/orchestrator/defs/jobs/stock_weekly.py"] = "c" * 64
     if change in {"none", "unrelated"}:
@@ -499,3 +502,96 @@ def test_snapshot_reuses_one_native_read_per_layer_and_keeps_identity_checks(
         with pytest.raises(ContinuationError):
             value = backend.snapshots([unit], journal)[0]
             next_action(value)
+
+
+@pytest.mark.parametrize("elapsed", ["missing", None, "100", False, -1, 300000, 25])
+def test_raw_budget_no_longer_accepts_collecting_receipt_without_valid_time(
+    tmp_path, elapsed
+):
+    from orchestrator.moneyflow_continuation.submission import Journal, write_json
+    from tests.test_moneyflow_continuation_plan import AT
+
+    plan = plan_for(("moneyflow",), ("2026-10-13",))
+    unit = plan["units"][0]
+    backend = NativeBackend(None)
+    backend.lake, backend.staging, backend.control = (
+        tmp_path / "lake", tmp_path / "staging", tmp_path / "control"
+    )
+    backend.lake.mkdir()
+    backend.staging.mkdir()
+    run_id = "11111111-1111-4111-8111-111111111111"
+    journal = Journal(plan, backend.control)
+    journal.prepare(unit, "raw", AT, None, {})
+    journal.observe(unit, "raw", {"native": {"run_id": run_id}})
+    directory = backend.staging / "moneyflow" / run_id / "moneyflow" / "2026-10-13"
+    directory.mkdir(parents=True)
+    receipt = {"dataset": "moneyflow", "trade_date": "2026-10-13", "stage": "collecting"}
+    if elapsed != "missing":
+        receipt["elapsed_ms"] = elapsed
+    write_json(directory / "receipt.json", receipt)
+    if elapsed == 25:
+        backend.disk_budget(plan)
+    else:
+        with pytest.raises(ContinuationError, match="raw_activity_proof"):
+            backend.disk_budget(plan)
+
+
+@pytest.mark.usefixtures("isolated_moneyflow_transport")
+@pytest.mark.parametrize("damage", ["none", "file", "check_target"])
+def test_runless_supplement_metadata_keeps_real_readiness_contract(
+    tmp_path, monkeypatch, damage
+):
+    import dagster as dg
+    from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+        AssetCheckEvaluation,
+        AssetCheckEvaluationTargetMaterializationData,
+    )
+
+    from orchestrator.defs.asset_guards.moneyflow_delivery_readiness import (
+        batch_moneyflow_readiness,
+    )
+    from orchestrator.defs.paths import raw_moneyflow_path
+    from orchestrator.defs.run_contracts.moneyflow_automation import (
+        STOCK_MONEYFLOW_AUTOMATION,
+    )
+    from tests import test_moneyflow_definitions as support
+    from tests.moneyflow_baseline_support import seed_moneyflow_baseline
+
+    generator = support.env.__wrapped__(tmp_path, monkeypatch)
+    env = next(generator)
+    try:
+        day = "2026-10-09"
+        seed_moneyflow_baseline(
+            instance=env.instance, lake=env.lake, staging=env.staging,
+            dataset="moneyflow", rows=support.sample(), day=day,
+            metadata={"goldenshare/supplement_plan_sha256": "c" * 64},
+        )
+        contract = STOCK_MONEYFLOW_AUTOMATION
+        if damage == "file":
+            with raw_moneyflow_path(env.lake, "moneyflow", day).open("ab") as handle:
+                handle.write(b"changed")
+        mat = env.instance.fetch_materializations(
+            dg.AssetRecordsFilter(asset_key=dg.AssetKey(contract.raw_asset), asset_partitions=[day]),
+            limit=1,
+        ).records[0]
+        # Same native producer contract as the retired writer; no helper from it is reused.
+        env.instance.report_runless_asset_event(AssetCheckEvaluation(
+            asset_key=dg.AssetKey(contract.raw_asset), check_name=contract.raw_check,
+            passed=True, blocking=True, partition=day,
+            target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                storage_id=mat.storage_id + (10000 if damage == "check_target" else 0),
+                run_id=mat.event_log_entry.run_id, timestamp=mat.timestamp,
+            ),
+            metadata={"goldenshare/supplement_plan_sha256": "c" * 64},
+        ))
+        item = batch_moneyflow_readiness(
+            env.instance, env.lake, (day,), contract=contract, layers=("raw",)
+        )["raw"][day]
+        if damage == "none":
+            assert item.ready and item.reason == "ready"
+            assert item.metadata["supplement_plan_sha256"] == "c" * 64
+        else:
+            assert not item.ready
+            assert item.reason == ("file_changed" if damage == "file" else "check_failed_or_stale")
+    finally:
+        generator.close()

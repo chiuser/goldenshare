@@ -161,3 +161,27 @@ def test_49_units_bounded_and_sorted():
 def test_silver_placeholder_never_requested():
     with pytest.raises(ContinuationError, match="raw_hash_required"):
         request_for(plan_for()["units"][0], "silver", "2026-10-17")
+
+
+def test_current_plan_has_one_format_without_retired_field():
+    plan = plan_for()
+    assert plan["format"] == 2 and "collection_recovery" not in plan
+    validate_plan(plan)
+
+
+@pytest.mark.parametrize("damage", ["old_format", "old_null", "old_descriptor"])
+def test_retired_plan_contract_is_rejected(damage):
+    plan = plan_for()
+    if damage == "old_format":
+        plan["format"] = 1
+    else:
+        plan["collection_recovery"] = None if damage == "old_null" else {"layer": "raw"}
+    with pytest.raises(ContinuationError, match="plan_format|scope_fields"):
+        validate_plan(plan)
+
+
+def test_new_child_does_not_migrate_old_parent():
+    parent = plan_for()
+    parent["format"] = 1
+    with pytest.raises(ContinuationError, match="plan_format"):
+        plan_for(parent=parent)

@@ -71,3 +71,63 @@ def test_source_contains_no_alternate_native_write_paths():
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
         }
         assert not calls & forbidden
+
+
+def test_retired_audit_is_rejected_before_opening_instance(monkeypatch):
+    from orchestrator.defs.bootstrap import daily_basic_event_instance as native
+    from orchestrator.moneyflow_continuation_cli import main
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("retired command opened the instance")
+
+    monkeypatch.setattr(native, "daily_basic_event_instance", forbidden)
+    with pytest.raises(SystemExit) as result:
+        main(["audit", "--plan", "unused", "--expect-plan-sha256", "unused", "--output", "unused"])
+    assert result.value.code == 2
+    choices = next(a.choices for a in parser()._actions if a.dest == "mode")
+    assert set(choices) == {"plan", "inspect", "apply"}
+
+
+def test_retired_scope_is_rejected_before_backend_or_output(tmp_path):
+    import json
+    from types import SimpleNamespace
+
+    from orchestrator.moneyflow_continuation_cli import run
+
+    class UnusedBackend:
+        def __getattr__(self, name):
+            pytest.fail("backend reached for retired input: " + name)
+
+    path = tmp_path / "scope.json"
+    path.write_text(json.dumps({"units": [], "verification": {}, "collection_recovery": None}))
+    output = tmp_path / "unused.json"
+    args = SimpleNamespace(mode="plan", scope_file=str(path), output=str(output), parent_plan=None)
+    with pytest.raises(ContinuationError, match="scope_fields"):
+        run(args, UnusedBackend())
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("mode", ["inspect", "apply"])
+def test_old_plan_cannot_reach_backend(tmp_path, mode):
+    import json
+    from types import SimpleNamespace
+
+    from orchestrator.moneyflow_continuation_cli import run
+
+    class UnusedBackend:
+        def __getattr__(self, name):
+            pytest.fail("backend reached for old plan: " + name)
+
+    path = tmp_path / "old.json"
+    old = plan_for()
+    old["format"] = 1
+    path.write_text(json.dumps(old))
+    args = SimpleNamespace(mode=mode, plan=str(path), expect_plan_sha256=file_hash(path))
+    with pytest.raises(ContinuationError, match="plan_format"):
+        run(args, UnusedBackend())
+
+
+def test_apply_still_requires_exact_digest_argument():
+    with pytest.raises(SystemExit) as result:
+        parser().parse_args(["apply", "--plan", "unused"])
+    assert result.value.code == 2

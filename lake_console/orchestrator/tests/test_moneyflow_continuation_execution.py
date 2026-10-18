@@ -161,3 +161,13 @@ def test_49_units_controller_progress_metadata_only(tmp_path):
     )
     assert code == 0 and report["completed"] == 49 and len(native.posts) == 147
     assert Journal(plan, tmp_path).size() < 16 * 1024**2
+
+
+def test_unknown_unit_is_not_clean_absence_or_a_write_permission():
+    from orchestrator.moneyflow_continuation.execution import unit_decisions
+    from tests.test_moneyflow_continuation_state import snapshot
+
+    value = snapshot()
+    value.update(unknown=True, error="unread_storage")
+    result = unit_decisions([value])[0]
+    assert result["next"] == "unknown" and result["reason"] == "unread_storage"

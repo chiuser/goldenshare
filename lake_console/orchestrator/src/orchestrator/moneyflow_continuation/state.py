@@ -70,11 +70,9 @@ from orchestrator.moneyflow_continuation.contract import (
 from orchestrator.moneyflow_continuation.plan import LAUNCH, REGISTER
 from orchestrator.moneyflow_continuation.recovery import (
     ACTION,
-    RAW_ACTION,
     RECOVERY_ACTIONS,
     REEXECUTE,
     action_layer,
-    collection_evidence,
     descriptor,
     effective_runs,
     recovery_actions,
@@ -571,34 +569,12 @@ class NativeBackend:
                         if action_layer(layer) == "raw" and receipt.exists():
                             value = read_json(receipt, POLICY.action_bytes)
                             elapsed = value.get("elapsed_ms")
-                            recovery = descriptor(plan, unit, "raw")
-                            if (
-                                elapsed is None
-                                and layer == "raw"
-                                and recovery is not None
-                                and run_id == recovery["failed_run_id"]
-                            ):
-                                require(
-                                    value
-                                    == collection_evidence(recovery).get("receipt")
-                                    == {
-                                        "dataset": "moneyflow",
-                                        "stage": "collecting",
-                                        "trade_date": "2026-10-13",
-                                    },
-                                    "raw_activity_proof",
-                                )
-                                raw_ms += MONEYFLOW_MAX_ELAPSED_SECONDS * 1000
-                                elapsed = None
-                            else:
-                                require(
-                                    type(elapsed) in (int, float)
-                                    and 0
-                                    <= elapsed
-                                    < MONEYFLOW_MAX_ELAPSED_SECONDS * 1000,
-                                    "raw_activity_proof",
-                                )
-                                raw_ms += elapsed
+                            require(
+                                type(elapsed) in (int, float)
+                                and 0 <= elapsed < MONEYFLOW_MAX_ELAPSED_SECONDS * 1000,
+                                "raw_activity_proof",
+                            )
+                            raw_ms += elapsed
                     seen.add(run_id)
                 target = safe_path(
                     (
@@ -817,9 +793,7 @@ class NativeBackend:
             runs = self.runs(unit, layer)
             recovery = descriptor(journal.plan, unit, layer) if journal else None
             failed_launch = None
-            action = (
-                (ACTION if layer == "silver" else RAW_ACTION) if recovery else layer
-            )
+            action = ACTION if recovery else layer
             if recovery:
                 if layer == "silver":
                     require(

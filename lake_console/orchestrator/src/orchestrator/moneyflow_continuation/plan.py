@@ -121,7 +121,6 @@ def make_plan(
     parent=None,
     parent_sha=None,
     launch_recovery=None,
-    collection_recovery=None,
 ):
     keys = validate_scope(entries, open_days, at)
     units = [unit_identity(*key) for key in keys]
@@ -139,25 +138,9 @@ def make_plan(
             2,
         )
         launch_recovery = parent["launch_recovery"]
-    if parent and parent.get("collection_recovery") is not None:
-        require(
-            collection_recovery in (None, parent["collection_recovery"]),
-            "collection_recovery_parent_changed",
-            2,
-        )
-        collection_recovery = parent["collection_recovery"]
-    elif collection_recovery is not None:
-        require(
-            parent is not None
-            and parent["units"] == parent["root_units"]
-            and len(root_units) == 47,
-            "collection_recovery_full_parent_required",
-            2,
-        )
     plan = {
         "launch_recovery": launch_recovery,
-        "collection_recovery": collection_recovery,
-        "format": 1,
+        "format": 2,
         "mode": "plan",
         "complete": False,
         "created_at": at.isoformat(),
@@ -181,7 +164,7 @@ def make_plan(
 
 
 def validate_plan(plan):
-    require(plan.get("format") == 1 and plan.get("mode") == "plan", "plan_format", 2)
+    require(plan.get("format") == 2 and plan.get("mode") == "plan", "plan_format", 2)
     require(
         plan.get("policy") == policy_dict()
         and plan.get("endpoint") == ENDPOINT
@@ -189,6 +172,7 @@ def validate_plan(plan):
         "plan_policy",
         2,
     )
+    require("collection_recovery" not in plan, "scope_fields", 2)
     root, units = plan.get("root_units"), plan.get("units")
     require(
         isinstance(root, list)
@@ -234,12 +218,10 @@ def validate_plan(plan):
         2,
     )
     from orchestrator.moneyflow_continuation.recovery import (
-        validate_collection_descriptor,
         validate_descriptor,
     )
 
     validate_descriptor(plan.get("launch_recovery"), root)
-    validate_collection_descriptor(plan.get("collection_recovery"), root)
     require(isinstance(plan.get("verification"), dict), "verification_required", 2)
     try:
         created, expires = (
