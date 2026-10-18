@@ -1,8 +1,8 @@
-# 25股修复LLD v1：R3验收记录与R4正式修复设计
+# 25股修复LLD v1：R3/R4完成记录与R5登记设计
 
 更新：2026-10-18。R4正式文件修复及收尾已完成：31资产、11,425个COMMITTED、4,363个SKIPPED、失败0，最终状态FILES_COMPLETE_EVENTS_PENDING，completed=15,788。收尾漏载指标任务清单已补齐；本轮未重新下载、计算或改写正式文件，实测约79.99秒/5.17GiB，原plan/hash及报告保留。原方案、原实现下完成收尾后，再落地5行源码修正和直接回归，顺序与证据见§22.9。R5事件、Prod、serving、sensor及工具清退未执行；修正、对应测试及原两份文档按本轮明确白名单提交，不推送。
 
-§1—§13是已完成R3及历史证据；其中内存和worker设计不作为当前准备步骤的要求。当前准备步骤以§16.2及§22.6为准，候选计算与正式提交不在本次重写范围。
+§1—§13是已完成R3及历史证据；§14—§22保存R4设计和执行结果，R4收尾修正已提交b476f1bcc。管理员已授权按§24推进R5步骤1—6，当前先提交完整方案再进入实施；工具清退不在本轮范围。原准备/计算/提升记录不再作为R5待执行步骤。
 
 ## 1. 整改前实现、根因与消费者
 
@@ -757,13 +757,13 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 本工具仅为本次DG 25股修复服务，任务结束后不保留为日常CLI或通用修复平台。清退的必要条件是：R4正式文件修复及§20一次对账完成；后续必要DG登记和验收完成；本run没有未完成文件、待补登记或仍需使用工具的恢复动作。这些结论直接引用已有完成记录，不再请求源、算公式、扫正式Lake或重做完整性审计。
 
-R4代码退出/worker清理只说明进程已结束，不等于工具已清退；正式文件修好也不等于DG登记已完成。DG登记不在本次R4代码范围，开始前必须在原方案与LLD中补足具体登记合同和授权，不能先删除它仍需要的模块。本专项没有其他系统的数据修复或发布任务，清退条件不追加其他任务。
+R4代码退出/worker清理只说明进程已结束，不等于工具已清退；正式文件修好也不等于DG登记已完成。DG登记不在R4代码范围，当前具体设计见§24，尚待review和执行授权；不能先删除它仍需要的模块。本专项没有其他系统的数据修复或发布任务，清退条件不追加其他任务。
 
 清退只改专用源码、专用测试及原两份文档中的活动入口说明。没有配置中心、数据库schema、部署、服务重启、sensor操作或新清退命令；不建立保留天数、到期任务、自动清理状态表或权限登记。
 
 ### 23.2 专用模块、入口及直接消费者清单
 
-以下路径相对lake_console/orchestrator，生产实现删除候选精确为这8个文件，不使用前缀递归删除：
+以下路径相对lake_console/orchestrator，现有生产实现删除候选为8个文件，另列R5拟新增的1个登记模块；后者获准实现后，清退合计9个，不使用前缀递归删除：
 
 | 删除候选 | 清退前必须消除的直接依赖 |
 | --- | --- |
@@ -775,10 +775,11 @@ R4代码退出/worker清理只说明进程已结束，不等于工具已清退�
 | src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_indicators.py | 专项指标重放/片段/证明适配；不删除它调用的日常指标核 |
 | src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_planning.py | 专项有界准备及准备worker入口 |
 | src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_promotion.py | 专项提升、正式恢复定位器、清单汇总及能力锁实现 |
+| src/orchestrator/defs/bootstrap/stock_adj_factor_history_repair_events.py（R5拟新增，当前不存在） | §24的31资产完成登记；R5登记和恢复完成后退出，不下沉为日常服务 |
 
-本次源码检索中，生产引用只在这8个模块内部；CodeGraph和源码是当前依据，清退时仅补查它们的新增直接调用方、模块字符串和入口注册。若出现共享调用方，报告具体依赖，不按文件名猜“都是临时的”，也不顺手删除调用方或下沉成新的通用平台。
+此前源码检索中，生产引用只在现有8个模块内部；R5登记模块的拟议依赖见§24.5，不把待开发内容写成已经存在。清退时仅补查上述实际文件的新增直接调用方、模块字符串和入口注册。若出现共享调用方，报告具体依赖，不按文件名猜“都是临时的”，也不顺手删除调用方或下沉成新的通用平台。
 
-直接测试候选共9份：tests/test_stock_adj_factor_history_repair.py，以及同前缀_candidates.py、_execution.py、_runtime.py、_indicators.py、_replay.py、_full_chain.py、_planning.py、_promotion.py。只删除专用于该工具的夹具、协议和恢复测试；其中独立字面价格/公式断言按下一节处理后才可删除，不能整批按前缀先删。
+现有直接测试候选共9份：tests/test_stock_adj_factor_history_repair.py，以及同前缀_candidates.py、_execution.py、_runtime.py、_indicators.py、_replay.py、_full_chain.py、_planning.py、_promotion.py；R5拟新增_events.py测试，实现后合计10份。只删除专用于该工具的夹具、协议和恢复测试；其中独立字面价格/公式断言按下一节处理后才可删除，不能整批按前缀先删。
 
 repair_implementation_files的34文件是计算/校验指纹闭包，不是清退范围。stock_daily_qfq.py、stk_mins_qfq.py、stock_daily_trend_channel.py、stk_mins_qfq_macd_kdj.py、qfq_nineturn.py、nineturn_formula.py、stock_factor_price_checks.py，以及共享checks、paths、schemas、partitions、DuckDB和普通历史采集能力均保留。日常asset/job/sensor定义、保留数据集和sensor状态/水位不动。
 
@@ -800,7 +801,7 @@ repair_implementation_files的34文件是计算/校验指纹闭包，不是清�
 ### 23.4 清退顺序、读写范围和中断处理
 
 1. **引用既有完成事实。** 在原两文档记录R4实际完成、必要DG登记验收及无需恢复的证据引用；有未完成项就保留相关工具，不重复查行情或跑任务来“证明完成”。
-2. **做一轮直接引用核对。** CodeGraph callers/impact加源码检索，仅围绕§23.2的8模块、9测试、模块字符串和登记消费；不借机审计全仓或全部调度。引用是空还是未消除应写清楚，不能凭文档结论删除。
+2. **做一轮直接引用核对。** CodeGraph callers/impact加源码检索，仅围绕§23.2的现有8模块/9测试及R5实际新增的登记模块/测试、模块字符串和登记消费；不借机审计全仓或全部调度。引用是空还是未消除应写清楚，不能凭文档结论删除。
 3. **迁移必要金样本后清退专用代码。** 以当前dev-interface精确文件白名单删除/修改，检查动态import/worker模块字符串和测试收集引用同步清零。保留共享实现和无关未提交改动，不创建分支/worktree，不新增旧入口兼容壳。
 4. **执行有限的隔离验证。** 静态引用、测试收集和现有日常定义的隔离加载证明没有悬空import；只运行确实受迁移影响的独立金样本/直接回归。不加载正式code location，不访问正式instance/Lake，不请求Tushare，不运行已删除的修复命令。
 5. **更新关闭记录并按授权提交。** 原两文档保留目标、实际范围、实施版本、证据路径、清退文件及验证结果；活动步骤标记已完成/工具已退役，历史命令明确不可再执行，不增加新runbook。不推送、不部署、不清理执行目录。
@@ -813,9 +814,163 @@ repair_implementation_files的34文件是计算/校验指纹闭包，不是清�
 
 | 检查 | 正向结果 | 反向保护 |
 | --- | --- | --- |
-| 工具及引用退出 | 8个专用模块和命令入口退出，生产调用/动态模块路径及测试收集无悬空引用 | 尚有DG登记/恢复依赖则不提前删；不得留兼容入口或定时自动运行入口 |
+| 工具及引用退出 | §23.2的实际专用模块和命令入口退出，包含R5届时新增的登记模块；生产调用/动态模块路径及测试收集无悬空引用 | 尚有DG登记/恢复依赖则不提前删；不得留兼容入口或定时自动运行入口 |
 | 共享与公式保留 | 普通定义隔离加载正常；共享核/检查/分区/路径和独立金样本仍可用；必要迁移断言通过 | 不把34文件指纹闭包或所有含repair名称的实现当删除清单；不以删测试掩盖断言丢失 |
 | 正式数据及证据 | 变更白名单只有专用源码/测试和原两文档，原执行证据引用保留 | 测试拦截正式路径、instance写入和网络；任何清目录/改旧JSON/hash/事件/sensor操作均不得发生 |
 | 中断与范围 | 白名单内部分改动可继续收尾，无关任务差异保留 | 未知调用方停止并报告；不能为清退重跑bootstrap/修复或清空staging |
 
 本节是正式修复及必要DG登记完成后的退出设计；R4文件修复和收尾已完成，事实见§22.9。必要DG登记属于后续R5，尚未执行；本轮未实施专项工具清退，也未删除数据/执行证据。
+
+## 24. R5完成登记：当前审计、实现细节和验收（已确认，待实施）
+
+### 24.1 本轮审计依据与结论
+
+本节只设计如何把已经完成的25股修复记入DG，不设计第二次文件修复或历史分区补绿。本轮管理员明确“现有完成记录可信，可直接采用”。因此采用原完成记录中的数量、校验结论和文件身份，不为登记重读行情、重算公式、重新hash文件或逐份验证候选证明。
+
+| 当前事实 | 本轮实际核对的依据 | 对R5的直接约束 |
+| --- | --- | --- |
+| R4已经完成 | 原run的checkpoint.promotion及reports/promotion_manifest.csv；§22.9的finish-result.json/finish-report.md | 15,788目标=11,425 COMMITTED+4,363 SKIPPED，失败0；不再运行prepare/freeze/build/audit/promote |
+| 原结果和当前工作区代码版本不同 | 原plan绑定98b0817c的34份源码；收尾后5行修正已提交b476f1bcc；execution.load_repair_plan会验证当前源码 | R5直接读取可信完成材料；不调用旧loader，不修改原hash，也不把当前源码冒充当时计算版本 |
+| 31资产身份和布局仍在 | 当前LAKE_ASSET_CATALOG及其路径/分区定义；本轮按原CSV资产集合逐一匹配31项 | 只引用既有资产，不加asset/check/job或修改catalog |
+| 文件分区不等于DG分区 | 实际record中年度分钟文件partition_key=year=2025；catalog和assets/stk_mins.py、stk_mins_qfq_macd_kdj.py仍按交易日分区 | 不把year=2025、股票代码/年或unit.calendar_dates登记成交易日分区；原unit的calendar_dates共8,743日，包含非修复日期，不能直接展开 |
+| 已有校验是本次范围的证明 | _runtime.business_proof/restore_binding、_candidates.validate_repair_business_file、_indicators的实际business_validation，以及每类取1份的真实候选/提交记录 | checks.blocking=true是专项校验摘要，未列出逐个普通check的全市场结果，不能直接变成这些check的成功事件 |
+| 当前观察记录为空 | 沿现有_readonly_instance，设置只读事务，31资产各fetch_observations(limit=1)，返回0条，约0.7409秒 | 可规划31条新观察记录；不据此声称旧物化/check不存在。本轮不扫描这些历史 |
+| API和消费者均可明确 | 本机Dagster 1.13.26的report_runless_asset_event支持AssetObservation；stock_period_update.report_completion_events已有同类写法 | 直接采用API，不复用周/月特定字段和消费者，不为31条说明创建真实job或改Dagster库 |
+
+CodeGraph已使用explore、impact、status，覆盖promote→提交记录/报告、report_file_events、report_completion_events、周/月补事件调用与直接测试；当前源码补核catalog、proof、sensor和本机Dagster接口。当前读取观察记录的生产消费者是周/月Raw两资产的完成通知；本专项31资产不在其监听范围。相关因子/指标修复及Prod九转sensor监听既有指定job的成功，另有日常sensor读物化、检查和文件事实；本节不产生这些事件或run状态。没有业务API、前端或跨子系统依赖改动。
+
+本轮只读证据在/private/tmp/dg_r5_design_20261018/current-evidence.json，含31项catalog/check身份、实际分资产完成数及31次观察查询结果。官方依据：[外部资产事件API](https://docs.dagster.io/api/dagster/external-assets-instance-api)、[资产观察记录](https://docs.dagster.io/guides/build/assets/metadata-and-tags/asset-observations)。官方描述用于确定事件含义，本机源码和现行生产者用于确定实际可调用参数；不凭线上新版本猜测本机能力。
+
+### 24.2 目标范围和事件含义
+
+**本次选择31条AssetObservation，每资产1条，partition=None，记录“该资产在本次25股修复中的完成结果”。** 这是资产级说明，不声明整个资产刚被重新生成，也不改变其交易日分区定义。R5完成只表示本次修复已登记，不表示重新建立了所有历史分区的普通物化/check或全市场ready状态。
+
+管理员已确认可以采用这种供人查看的记录。DG能识别观察事件并保存、展示其内容；“25股修复完成”等新增内容由本专项定义，目前没有程序消费它们，不触发后续任务，也不改变数据行数、文件数、分区物化或检查状态。原生事件历史会增加31条记录，不能把观察事件数量与数据行数或物化次数混为一谈。
+
+查看位置已在当前DG页面核对：Catalog→选择资产→Events→Filter→Type选择Observation，点击对应事件查看说明和Metadata。例如gold_stock_daily_qfq的页面是http://127.0.0.1:3000/assets/gold_stock_daily_qfq?view=events。正式登记后只抽看1条代表记录，核对资产、修复数量、范围和证据引用是否可读；不逐资产点击31遍，不新建前端页面或自动化UI测试框架。
+
+原文件数量由现有CSV归并如下；R5事件数按资产数计算：
+
+| 既有资产（名称沿§2，频率逐项展开） | 资产/观察数 | 目标文件 | COMMITTED | SKIPPED |
+| --- | ---: | ---: | ---: | ---: |
+| Raw/Silver adj_factor | 2 | 702 | 702 | 0 |
+| gold_stock_daily_qfq | 1 | 1,383 | 1,372 | 11 |
+| 七频分钟QFQ | 7 | 266 | 266 | 0 |
+| 日趋势结果及state | 2 | 2,766 | 2,766 | 0 |
+| 日线QFQ九转 | 1 | 1,383 | 100 | 1,283 |
+| 七频分钟MACD/KDJ结果 | 7 | 301 | 301 | 0 |
+| 七频分钟MACD/KDJ state | 7 | 5,719 | 5,719 | 0 |
+| 30/60/90/120分钟九转 | 4 | 3,268 | 199 | 3,069 |
+| 合计 | 31 | 15,788 | 11,425 | 4,363 |
+
+R5不补普通绿色check，也不新建一个“修复check”绕过原检查。现有完成证明及其范围通过观察记录的metadata引用即可；SKIPPED数量明确表示无需改文件，不冒充新写入。本节不顺带修复旧物化/check的历史缺项。若以后另有建立历史分区ready的目标，应另行说明依据与必要性，不能混入本次31条完成登记。
+
+### 24.3 原材料读取、一次归并及记录内容
+
+固定来源：
+
+- run_root=/Volumes/datasource/data_lake_staging/stock_adj_factor_history_repair/run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8。
+- run_id=157bb543-51f1-43c1-9080-d2a9ee45d9e8，plan_hash=124b37e739fa490828428ed4038c96557eecaff89765fb7fac9d9312c172f1b8。
+- chain_hash=a5e9cdb7eb42f5149a934094bea24a44158513f66f4be4602246a10a099adf8a；原数值来源、计算身份及结果均不改。
+- 首次只读plan.json、checkpoint.json、reports/promotion_manifest.csv和reports/failures.csv。原plan约40.22MB，只解析一次；CSV逐行汇总的是文件元数据，不是行情明细。
+
+读取函数只完成消费这些材料所需的核对：根目录/文件无symlink且归属固定run；run/hash相同；R4已到FILES_COMPLETE_EVENTS_PENDING/completed=15,788；candidate_chain的资产/目标/替换/跳过数量与原CSV一致；failures无数据行。CSV只允许这31资产、COMMITTED或SKIPPED，目标路径与原plan的target_paths一一对应且无重复、无漏项，candidate_record_hash及输出hash保持非空且格式正确。原完成记录可信，不重新读取31,576份候选/提升JSON来证明它们曾经通过，也不校验26,586份输入或当前34份实现身份。
+
+原proof、readback和chain作为已完成的证据引用，不重新运行restore_binding、audit_repair_chain_for_promotion、RepairStorageLedger或任何业务check；不检查Lake目录、文件mtime/内容或重新比对全市场。若消费材料本身出现缺项、错run/hash或矛盾，报告具体材料并停止，不重修数据或重算“补证据”。
+
+每条AssetObservation仅使用一个本专项metadata键goldenshare/adj_factor_history_repair，值为小型JSON，字段如下；不借用周/月COMPLETION_METADATA_KEY：
+
+| 字段 | 来源和准确含义 |
+| --- | --- |
+| version | 登记内容格式1，仅供本专项记录和恢复，不是业务schema或配置版本 |
+| run_id、plan_hash、chain_hash、asset_key | 原run、原plan、已封存chain及当前归并项 |
+| target_files、committed_files、skipped_files、failed_files | 该资产的实际文件数量；failed_files=0，前三者相加关系明确 |
+| validation_scope | 固定文字“本次25股批准范围，范围外行未改；未重验全市场普通检查”，对应§15.2；原准确股票/日期/端点由scope_reference指向plan中的该asset unit |
+| scope_reference、manifest_reference、proof_reference | 原plan/asset、原CSV及checkpoints/candidates和checkpoints/promotions目录引用；不复制完整历史、文件列表或大proof进入事件 |
+| ordinary_checks_reported | false；不把专项checks.blocking=true解释成普通check通过 |
+| token | 对以上字段按既有repair_hash计算，再附入JSON；计算时不包含token自身。同一内容的恢复沿用同一token，不引入随机值或当次登记时间 |
+
+description使用“25股修复完成：本资产替换X个文件，无需修改Y个文件；范围和依据见附带记录”。不要把跨文件行数相加写成dagster/row_count，也不把CSV路径冒充数据文件的dagster/uri或在运行metadata重写column_schema。登记发生时间使用真实DG时间；R4完成时间及修复末端保留在原证据中，不伪造日更时间。
+
+登记内容由上述字段确定后，对内容计算一个token，用于同一run/资产的重复调用识别。token仅对这条小型JSON计算，不是行情hash、不改plan_hash。已经确定的31条内容保存在R5报告，续跑不重新读取/归并原CSV和plan。
+
+### 24.4 DG写入、取消、记录失败和恢复
+
+新建同run的reports/r5-registration.json，保存version、原run/hash/chain引用、31条确定的登记内容及token、各条实际storage_id、完成数和最后更新时间。这只是本次登记及恢复报告，不是新的日常状态表、资产或服务；不改原checkpoint的R4终态，不覆盖原CSV/failures或旧日志。R4的EVENTS_PENDING是R4当时的结束事实；R5是否完成以31条实际观察记录和这份报告说明。
+
+顺序固定：
+
+1. **只读预览。** 给出31个asset key及内容、各资产替换/跳过数、读写清单；默认dry_run=True，写DG事件为0，不创建正式R5报告、不打开写锁。预览输出可保存在本任务/private/tmp目录并供同次正式登记复用，不重复归并源材料。尚有R5报告则直接识别当前进度，不重建另一批内容。
+2. **一次登记只允许一个本任务程序。** 复用原repair_writer_lock，锁内读取/保存R5报告；正式入口不调用任何文件修复函数，也不扫描其他任务或全局job状态。只为避免本任务重复登记取得锁，不把其他任务是否RUNNING当成R5门槛。
+3. **逐资产写并立即读回。** 每条之前检查取消。先查该资产最新观察记录、保存其storage_id作为本次写入前的位置，再保存这条待登记内容；随后调用instance.report_runless_asset_event(dg.AssetObservation(...))，读回准确内容和实际storage_id，立即原子保存到R5报告。第一条就是正式清单第一项，不造“测试成功”事件；读回成功才继续其余30项。
+4. **DG已写、报告未保存时只补记录。** 恢复时，已保存storage_id的条目按ID批量读回复用；待登记条目仅查该资产在保存位置之后、恢复时最新位置之前的观察记录，匹配完整内容及token。找到一条即补保存ID，不再发事件；同token但内容不同或多条匹配均报告冲突，不删除旧事件或强行通过。
+5. **真实失败不盲试。** API明确失败或结果不确定都先保存能保存的进度并退出；不得立即重发。下次先查询前述窄范围确认是否已写，再决定补缺。取消后不领取下一资产；已经写入的事件和所有文件保留。报告保存失败不回滚DG已写事件，更不能回滚R4文件。
+6. **统一读回一次。** 31项登记/复用完成后，使用ASSET_OBSERVATION及31个storage_id的过滤一次取回，逐项比对asset、partition=None、完整内容/token和唯一性；匹配才把R5报告标记完成。再次调用完成入口只读这份报告及31个ID，写事件0、原材料归并0、行情操作0。
+
+本机AssetRecordsFilter和EventRecordsFilter没有tags过滤参数，不能设计一个本机不存在的“按token查询”API。恢复查询使用已有after_storage_id/before_storage_id及cursor分页（每页100只是取数大小，不是任务上限），只查本次待登记开始之后的观察记录；不扫物化/check历史、不扫描全库。其他用途的观察记录不改不删，不要求其metadata满足本专项合同。首次未有本专项报告时先核对该资产最新观察记录；若已是完全相同的本run内容，直接采用其ID。
+
+31条事件逐条持久化，不宣称整体事务原子。误写后DG历史也不删除或改数据库；停下来说明具体ID、错误及建议的追加说明方式，经确认后处理，不能用再发一个“通过”掩盖。锁通过上下文退出释放，TERM/取消不改业务文件；KILL后依靠上述DG实际记录恢复，不新增worker、父进程监护或0.1秒轮询。
+
+按ID读回一致表示31条登记完成；R5最终关闭还须完成§24.7的一条页面抽看。如果事件已保存而页面暂不可访问，明确报告“登记完成，页面验收未完成”，保留ID，不重发事件或重新运行数据任务。
+
+### 24.5 实现文件、依赖、配置和权限
+
+| 位置 | 拟落地内容 | 不允许的外溢 |
+| --- | --- | --- |
+| bootstrap/stock_adj_factor_history_repair_events.py（新增） | 只读完成材料、归并31条内容；注入instance执行预览/登记/恢复；返回实际事件ID和数量 | 不导入execution/planning/indicators或调用loader、promote、业务核、DuckDB和网络source |
+| tests/test_stock_adj_factor_history_repair_events.py（新增） | 真实字段的小型字面材料及临时instance，验证实际观察事件/恢复/禁止项 | 不使用正式instance/Lake，不以mock替代声称已验收的DG写入和读回 |
+| 原方案及本LLD | 当前依据、字段、顺序、恢复、预算、测试和实际执行结果；§23同步登记模块退出范围 | 不混入其他任务或另建一套运行手册 |
+
+模块内部只分三个职责：read_completed_repair_summary(run_root, expected_plan_hash)返回来源引用及31资产计数；repair_completion_observations(summary)形成确定的31条内容/token；register_repair_completion(instance, run_root, expected_plan_hash, summary=None, dry_run=True, cancel=None, progress=None)完成预览、登记和恢复，返回每资产storage_id、新增/复用数及完成状态。register先检查已有R5报告；报告已含确定内容时不再调用前两个函数，首次才使用调用方已取得的summary或读取原材料。只有后续获准的正式入口显式传dry_run=False才进入写入；instance由调用方显式传入，模块导入不能连接正式instance。
+
+可复用本专项现有repair_hash、check_repair_path、atomic_repair_json和repair_writer_lock的纯元数据/锁能力；不修改这些共享调用点或34文件实现指纹清单。临时执行入口只调用新登记函数，不增加现有CLI动作、参数、job或defs注册。正式操作无需重载，因此不会把其他任务未提交代码带入正式code location。
+
+无新增配置项。正式执行解释器固定为现有orchestrator/.venv/bin/python3 -B，工作目录/Users/congming/github/goldenshare/lake_console/orchestrator，DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home。现有dagster.yaml的Postgres配置是DG事件存储来源；不打印凭据、不修改配置、不初始化/升级/迁移instance。只读预览沿已有只读保护；正式登记另经批准后使用同一现有instance的写接口，不能把只读失败当成需要改数据库或重装依赖。
+
+正式登记的完整命令和临时入口实际文件身份在开发/隔离验收后补入本节，固定原run/hash及新登记代码版本，并在登记前向管理员展示准确预览和命令。管理员本轮已授权推进步骤1—6，正常后继续，不重复请求同一范围授权；本轮不编造一个尚不存在的命令就宣称可执行。原root/CLI/指纹均不改。
+
+读写边界：读当前run上述元数据和本次DG观察记录；写仅DG的31条观察记录、本run的r5-registration.json及其原子写临时文件、原能力锁、本任务日志。Lake行情、其他run、原R4材料、分区、sensor状态/水位、物化/check、run/job状态、serving均无写入。scope引用不会转成请求范围；不读取源站或正式行情，也不借R5运行普通更新/修复job。
+
+### 24.6 性能和不重复工作的验收
+
+| 工作 | 范围、次数及依据 |
+| --- | --- |
+| 原完成材料 | 初次解析一次plan/checkpoint和CSV，归并15,788条文件元数据为31项；之后复用R5报告的确定内容，不逐文件再开证明或行情 |
+| DG写入 | 首次最多31条观察记录；单条成功即持久化，续跑只补实际缺项；0物化、0check、0run、0分区/水位修改 |
+| DG读取 | 正常首次31次最新观察查询、31次写后读回、最后1次按ID集合读回，约63次轻查询；恢复按已保存ID批量读取，只为未确认项查询本次登记开始后的窄范围 |
+| 行情和计算 | 源请求、行情枚举/读取/hash、SQL、公式、COPY、候选/正式文件改写全部0；不做股票/日期×检查循环 |
+| 进程和内存 | 同一程序完成31条登记；常驻内容为原元数据及31项摘要，无worker/消息传输；不新增RSS检查或配置，不沿用候选4GiB门禁阻塞登记 |
+| 实测与估算 | 本轮31次只读查询约0.7409秒；这不是写入性能。正式写入/读回预计秒到分钟量级，开发隔离验证记录真实31条耗时及调用数后校准，不用旧数小时候选计算估算 |
+| 进度 | 每条确认后输出资产、已登记/31、当前动作和真实耗时；处理未确认项时如实说明“正在确认是否已写入”，不伪造业务进度或新增耗时拒绝门槛 |
+
+预览、第一条正式登记及剩余30条沿同一批内容，不在每个步骤重验来源。固定版本后只集中运行本节直接测试和规定静态检查；失败只重跑受影响小用例，不跑全仓或完整25股链。R4公式/文件范围的旧通过证据只说明R4，本次新增的DG登记必须有新隔离证据，不能拿旧结果冒充。
+
+### 24.7 正反测试和最终验收清单
+
+关键夹具以当前plan/checkpoint/CSV字段及真实proof/readback样本为依据，字段来源在测试中标明；数量和期望内容使用独立字面值。小场景至少有一个共享日期文件资产、一个年度文件资产和一个全SKIPPED资产；31资产集合和总数另用独立列明的清单验证，不由待测函数生成expected。
+
+| 要求 | 正向验证 | 反向/失败验证 |
+| --- | --- | --- |
+| 只登记可信完成结果 | 完成材料一次归并得到31项和准确替换/跳过数 | 错run/hash、非最终状态、failures非空、缺/重/越界目标、未知资产拒绝，事件0 |
+| 不把文件目录当DG日期 | 真实临时instance接受31资产级AssetObservation、partition=None，年度文件只作为原清单引用 | 不出现year=2025分区、虚构日期分区、全历史calendar_dates展开或新动态分区 |
+| 专项证明不冒充普通check | 事件明确scope及ordinary_checks_reported=false，原check/物化记录保持 | 拦截AssetCheckEvaluation/AssetMaterialization/run/job/defs写入，任何调用使测试失败 |
+| 单条持久化和DG真实读回 | 使用当前Dagster临时instance写入、取回并独立断言类型、资产、metadata、实际storage_id | 默认/显式dry-run不能写事件、报告或锁；错资产/内容/token/ID拒绝，不把API返回或报告自称成功当成真实写入 |
+| 页面可见性 | 正式登记后，按§24.2路径在原生DG页面抽看1条Observation，确认资产、修复数量、范围和证据引用可查看 | 不能仅凭本地报告声称页面已验收；页面暂不可访问时单独报告，不重发已写事件、不重跑数据，也不逐资产重复查看 |
+| 重复和完成重放 | 第二次调用新增事件0，已有ID复用；全完成不再读原plan/CSV | 只存在本地完成标志而DG记录缺失/不匹配时不能成功，不自动重写或删历史 |
+| 写入后报告失败 | DG事件已写但报告原子保存失败，恢复从本次位置找到实际事件，只补记ID | 禁止重复发事件、回滚事件或碰R4文件；结果不确定时先查再处理 |
+| 取消和退出 | 在第1条、处理中及第30条之后取消/退出，完成成果和锁状态正确，恢复只登记剩余项 | 取消后不得领下一条；TERM/KILL后不丢已有事件，也不启动计算worker |
+| 当前接口真实可用 | 临时instance实测fetch_observations的after/before/cursor及按ID集合读回，覆盖穿插其他用途观察记录 | 不构造本机不支持的tags过滤；同token内容冲突/重复匹配拒绝，外来记录不改不删 |
+| 读写及成本 | 统计31条写入和正常约63次读取；原材料只归并一次；0行情/公式/源请求 | 用失败替身拦截Lake文件打开、业务SQL、hash文件、source、loader/promote、sensor/分区操作 |
+| 路径、范围和退出 | 只写本run新R5报告/锁和DG观察；隔离允许临时根 | symlink、其他run报告路径、覆盖原plan/hash/CSV/checkpoint拒绝；不改其他任务文件 |
+
+临时instance及字面元数据证明登记边界，不声称又验证了R4价格或公式。开发交付运行本份直接测试、修改Python文件默认Ruff、全项目致命错误基线和文档/diff检查；只有实际改动共享行为才增加相应直接消费者回归。当前两份文档修订不运行上述尚不存在的测试，不访问正式资源试验API。
+
+### 24.8 分阶段授权与完成报告
+
+1. **先提交方案。** 管理员已确认方案及步骤1—6；先提交原两份文档，再开始开发，不能把授权写成已开发/已登记。
+2. **开发及隔离。** 只实施§24.5两份代码/测试及原文档，报告实际调用数、测试、限制与精确正式命令；测试不操作正式资源。现有R4完成事实直接复用。
+3. **按本轮授权登记及一次对账。** 先展示31条预览和实际命令，正常后登记；首条读回后完成其余，最后按31个实际ID一次对账并在DG页面抽看1条。R5报告完整且页面抽看通过才关闭R5；遇新冲突停下报告，不启动第7步或其他任务。
+
+最终报告逐项列出31资产及实际storage_id、新增/复用数量、15,788/11,425/4,363/0的来源引用、失败或取消的准确位置、真实耗时、0行情操作，以及DG页面入口和1条抽看结果。原plan/hash、R4 checkpoint/报告及其他任务改动均保留。必要材料不一致或DG新错误立即停下来说明，不新增门禁、扩大审计或带错误继续。
+
+R5完成后，按§23已落档的独立步骤清退专用代码，保留本次新登记模块/测试的退出清单及登记报告/事件；本轮不提前删除工具、执行产物或数据。
