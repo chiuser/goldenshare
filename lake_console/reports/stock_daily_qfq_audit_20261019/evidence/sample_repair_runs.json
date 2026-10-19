@@ -1,0 +1,42 @@
+[
+  {
+    "run_id": "578d63fd-c688-4150-9a79-c2a85880163b",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-07 09:02:36.352900",
+    "config": {
+      "upstream_batch_id": "gold_stock_daily_qfq_update:2026-07-06:c2d0bc35cdd2",
+      "qfq_factor_trade_date": "2026-07-06",
+      "repair_required_codes_hash": "11eedc8f1d550264aa623642245d48055e724c5529e07c423821502b0e710d16"
+    }
+  },
+  {
+    "run_id": "b6b9274b-5184-4bb9-bb36-13cedf731113",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-08 13:37:06.740554",
+    "config": {
+      "upstream_batch_id": "gold_stock_daily_qfq_update:2026-07-07:4ceac48a129a",
+      "qfq_factor_trade_date": "2026-07-07",
+      "repair_required_codes_hash": "9008876dcbe9a8060fd25e422edcbef639629368737ca4719d7da07ead3c3490"
+    }
+  },
+  {
+    "run_id": "3b496361-3334-4a6b-a694-df145c0ed17c",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-14 10:20:02.786183",
+    "config": {
+      "upstream_batch_id": "gold_stock_daily_qfq_update:2026-07-14:faff9caab08d",
+      "qfq_factor_trade_date": "2026-07-14",
+      "repair_required_codes_hash": "51ab5b2d75f093c874a1f0f7b98ec9826b04b225e5d30a7828fef31a56460959"
+    }
+  },
+  {
+    "run_id": "01bef4dc-b1e7-4d7f-b46d-6f14e52fbfcf",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-16 06:00:59.461894",
+    "config": {
+      "upstream_batch_id": "gold_stock_daily_qfq_update:2026-07-15:f19f4792e254",
+      "qfq_factor_trade_date": "2026-07-15",
+      "repair_required_codes_hash": "eb3fb9e9b5edcd58b5e7fa42c5d722d2a8d514e23b458e5b4d430c8ca1ead68b"
+    }
+  }
+]

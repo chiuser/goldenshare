@@ -1,0 +1,153 @@
+{
+  "saved_at": "2026-10-19",
+  "purpose": "保存此前已有审计证据；本次没有重新读取正式行情、数据库或源接口",
+  "scope": "5股2026-01-01至2026-10-16，源接口核验为5股各5日；不能证明全历史无其他错误",
+  "evidence": [
+    {
+      "file": "evidence/origin_comparison.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/origin_comparison.json",
+      "bytes": 6507,
+      "sha256": "2df1eef9b754e9e58d1c9723a4f2838b3994048f88b38d07b2794c9d63cbb6f4"
+    },
+    {
+      "file": "evidence/repair_checks_july.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/repair_checks_july.json",
+      "bytes": 26996,
+      "sha256": "a52c5ff495a7d5d849db9b1f2af2e5f9ce29258ec950f4032a0e12469abab0c9"
+    },
+    {
+      "file": "evidence/repair_runs.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/repair_runs.json",
+      "bytes": 35562,
+      "sha256": "ffb9d78350752ad51ff988d3a4f9f5deaae1dde3a6c58f9b755cdaf6ad74917e"
+    },
+    {
+      "file": "evidence/repair_ticks_july.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/repair_ticks_july.json",
+      "bytes": 12381,
+      "sha256": "1a41c933e8594ce436a9c695550dc462d521c087401e38c50ed659440282888e"
+    },
+    {
+      "file": "evidence/run_counts.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/run_counts.json",
+      "bytes": 617,
+      "sha256": "8a6ede358217aed9bf3f404e192fc16a047859dece6d21230e0200c06dfc15e0"
+    },
+    {
+      "file": "evidence/sample_checks_counts.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_checks_counts.json",
+      "bytes": 886,
+      "sha256": "a0864221c7c7b1d2f9aab56c054c6bcf599e968c1c1d9bbc676a0c9ac3c05084"
+    },
+    {
+      "file": "evidence/sample_daily_events.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_daily_events.json",
+      "bytes": 31431,
+      "sha256": "aafe8c9801504661e3aba121aa7b8b1e618d91096251fc22d663f5d2b403c4e3"
+    },
+    {
+      "file": "evidence/sample_materializations.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_materializations.json",
+      "bytes": 25233,
+      "sha256": "29d37599e8bc8b7441afd5bc2a91e2873fec7a42065bdc3c06aa6930255c7ea2"
+    },
+    {
+      "file": "evidence/sample_repair_runs.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_repair_runs.json",
+      "bytes": 1578,
+      "sha256": "6d32fca5e63d4ded5673342f18c24289feb8239b9387bc75d215f5965d8b68f2"
+    },
+    {
+      "file": "evidence/sample_rows.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_rows.json",
+      "bytes": 325072,
+      "sha256": "5cb6307f6e2b0eaee3211a64f8b7c042c665043ff686d5bdf83875f537453d98"
+    },
+    {
+      "file": "evidence/sample_runs.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_runs.json",
+      "bytes": 1412,
+      "sha256": "068cd1bdeddbb0715bc35879aab73fb62bca18e4d85977bef3070ab603ed418f"
+    },
+    {
+      "file": "evidence/sample_runs_origin.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sample_runs_origin.json",
+      "bytes": 1138,
+      "sha256": "02991087d9c0febf81f572467d78502aea47fec7a408336b409e4e3988e6546c"
+    },
+    {
+      "file": "evidence/sensor_state.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/sensor_state.json",
+      "bytes": 4545,
+      "sha256": "e265b027970d55985d1abe34f0f0866713f60a2a4941cac868e29ed59d852a95"
+    },
+    {
+      "file": "evidence/summary.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/summary.json",
+      "bytes": 3693,
+      "sha256": "2ba45c3b5832b61e494fdc5599969140931fb52d2e5a32d16d67ca9c94505b85"
+    },
+    {
+      "file": "evidence/tushare_live.json",
+      "original_file": "/private/tmp/qfq_cause_audit_5/tushare_live.json",
+      "bytes": 10808,
+      "sha256": "68a7afe80184ceb9c3194c432f2b9bd7712949d84daf3d207a9381d5c6525bc6"
+    },
+    {
+      "file": "evidence/screening_audit.json",
+      "original_file": "/private/tmp/narrow_range_20261018/audit.json",
+      "bytes": 903,
+      "sha256": "ed2d11630ed0ab904198a7e7cbba9f5cc0242574b551fc6892b7ee461fabcb4e"
+    },
+    {
+      "file": "evidence/screening_qfq_verification.csv",
+      "original_file": "/private/tmp/narrow_range_20261018/qfq_verification.csv",
+      "bytes": 7985,
+      "sha256": "b48104600a75d3d529a6d3fd80171f9ab3ff9992968bfb58283caab0ccaa39b9"
+    }
+  ],
+  "current_code": [
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py",
+      "sha256": "fc079cfa8197f681bcb97b8f738594753c9f4b89c720267336b4f024e28c6891"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py",
+      "sha256": "6aa35bef4f6acd26d84c13dde5f2928aefc37c9fedaaf764ceed3243fbb2b248"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py",
+      "sha256": "7f3b3a574b46f8434807d6815ec2830edb555546a5f6e50b7dcdca782601ec4d"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/ops/gold_stock_daily_qfq_factor_repair.py",
+      "sha256": "364d1282bd98d9af79ba4a801442a92df3cb40518fcd165591282d6fb7628084"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/stock_daily_qfq_factor_repair.py",
+      "sha256": "589857792c926b4ff8c89898d16161a217cf18243baf4dde5e78c8f1edf7e9a2"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/checks/stock_daily_qfq_checks.py",
+      "sha256": "16e2ff2a0c9b892dbcb28a4cd583a998499541ee41deb7fac16d4fdedd15870a"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/gold_stock_daily_qfq_history.py",
+      "sha256": "fe5b09c740c6af90b4cc3b911d7fe0fca0134e3d91f8e94b21cfa63eec35327d"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_trend_channel_sensor.py",
+      "sha256": "ffe8d45a59a5194dc7b828033002af1a46edfeaa1c0cf04513e349dac38f6a55"
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py",
+      "sha256": "1dad207daf10aec11e9041a56fadc240edcc2bd6cfb29fd0022b5042f0ab85f7"
+    },
+    {
+      "file": "lake_console/orchestrator/tests/test_stock_daily_qfq_factor_repair_sensor_contracts.py",
+      "sha256": "1b46a3b6bbcc683deeb030cd91e5e0eda0084cb5db175da6ee17a75e7f42d258"
+    }
+  ],
+  "contains_original_lake_file_hashes": false,
+  "reuse_limit": "历史原因结论可直接引用；当前文件是否仍相同不能由本索引证明。后续完整审计首次读取时记录源文件强身份，不因本次缺少旧文件hash而重做5股原因审计。"
+}

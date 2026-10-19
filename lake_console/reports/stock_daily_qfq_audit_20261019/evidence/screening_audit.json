@@ -1,0 +1,33 @@
+{
+  "asof": "2026-10-16",
+  "qfq_upstream_verified_stocks": 234,
+  "qfq_verified_matches": 8,
+  "half_requested_start": "2026-04-18",
+  "half_actual_first": "2026-04-20",
+  "half_trading_days": 120,
+  "year_trading_days": 188,
+  "listed_a_stocks": 5577,
+  "price_rows": 1033757,
+  "strict_matches": 72,
+  "normal_matches": 72,
+  "st_matches": 0,
+  "shape_candidates": 12,
+  "excluded_raw_matches": 2,
+  "half_chain_error_stocks": 0,
+  "year_chain_error_stocks": 0,
+  "elapsed_seconds": 0.8281845836900175,
+  "source_bytes": 63204586,
+  "independent_verification": {
+    "matched_stocks": 72,
+    "source_rows": 13536,
+    "fields": [
+      "half_range_pct",
+      "year_range_pct",
+      "range_high",
+      "range_low",
+      "last_close",
+      "recent_amount_yi"
+    ],
+    "method": "DG silver raw OHLC times daily adjustment factor divided by 2026-10-16 factor; independent Python arithmetic"
+  }
+}

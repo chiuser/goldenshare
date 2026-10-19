@@ -1,6 +1,8 @@
 # Dagster 股票日线前复权资产 Low-Level Design
 
-> 2026-10-12 历史因子修正专项提案：[修复方案](./dagster-stock-adj-factor-history-repair-plan-v1.md)、[专项 LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md)，最新范围已按管理员口径对齐、尚未实现。拟新增独立人工历史入口处理 25 只非舍入历史因子变化及其下游，保留纯精度历史值，不继续原 601198.SH 的 451 日修复；本文普通自动 repair 禁止人工股票池的合同保持不变。专项不重跑 P8，不删除历史文件/事件，不增加 ordinary 公式 check，也不添加日常历史对账或 reports 依赖。
+> 2026-10-19当前状态：管理员已认可先完善回刷能力、再修历史数据。第19节记录方向，第20节为[代码级开发说明](#qfq-code-design-20261019)，已按本轮代码复核补充函数、配置、文件格式、SQL步骤、恢复分支、消费者迁移及测试。仍未开发或正式执行。第1—18节保留原建设记录；本次实施细节以第20节为准，不把设计冒充当前实现。
+>
+> 另一个[25股历史因子专项](./dagster-stock-adj-factor-history-repair-plan-v1.md)已于2026-10-18完成文件修复和DG登记，专用工具已清退，详见[专项LLD](./dagster-stock-adj-factor-history-repair-low-level-design-v1.md) §22—24。原“尚未实现”状态已失效。本次复用其完成证据，不恢复入口、不重跑、不修改原计划/hash。P8删除文件/事件也不作为本次授权或执行步骤。
 
 ## 1. Summary
 
@@ -8,7 +10,7 @@
 
 本 LLD 只设计数据湖与 Dagster 资产能力，不纳入报告生成逻辑。报告改造后续单独推进。
 
-已确认的用户口径：
+原资产建设已确认的用户口径（本次拟改造项见第19节）：
 
 1. `gold_stock_daily_qfq` 保留 `pre_close`、`change_amount`、`pct_chg` 字段。
 2. 物理布局采用 `trade_date=...`：
@@ -1723,7 +1725,7 @@ P8 不允许通过逐日 replay repair 初始化历史，因为这会把初始�
 
 ## 17. Confirmed Decisions
 
-以下口径已拍板，不再作为待确认项：
+以下为原建设阶段已拍板口径；本次对自动触发和范围推导的修订见第19节，其余仍适用：
 
 1. 上市首日或无 previous source row 时，`pre_close/change_amount/pct_chg` 统一写 0，不写 NULL。
 2. repair 初版不开放手写 `stock_codes`；repair config、正式 CLI 参数和 sensor payload 都不得暴露股票池输入，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
@@ -1893,3 +1895,1133 @@ git diff --check
 ```
 
 结果：128 tests 通过；`git diff --check` 通过。
+
+<a id="qfq-repair-lld-20261019"></a>
+## 19. 历史回刷和遗漏发现：初版实现方案（2026-10-19）
+
+### 19.1 状态、依据和本轮边界
+
+管理员已认可总体方向，并追加三项要求：已有审计尽量只做一次、遗漏能够发现或报错、错误历史应修尽修。
+本节记录初版方向；代码实施细节已补入第20节。只修改方案、LLD并保存已有证据；不修改Python、配置、正式数据、事件或sensor状态。
+本节对应[原方案第10节](dagster-stock-daily-qfq-asset-design.md#qfq-history-repair-20261019)，不另建同主题方案。
+
+通用规则复用[性能治理规范](dagster-data-pipeline-performance-governance.md)、[编码规范](../../orchestrator/CODING_STANDARDS.md)、根与目录AGENTS。
+Dagster依据为[普通sensor与cursor](https://docs.dagster.io/guides/automate/sensors)、[并发控制](https://docs.dagster.io/guides/operate/managing-concurrency)，以及当前安装的run-status筛选实现；不安装或升级依赖。
+Tushare复权依据为[doc_id=146](https://tushare.pro/document/2?doc_id=146)，沿用已确认公式与此前实测，不重新请求五股样本。
+
+源接口、价格字段、分区和正式Lake根不变。无新增资产、数据库表或状态资产；普通结构check继续只证明结构。
+拟修改repair config、触发方式、完成metadata与对应消费者，实施前必须一起迁移并补齐测试，不保留两套活动合同。
+过去的事件保留为历史证据；新消费者不能把旧事件直接认作本次完整历史已经验收。
+
+### 19.2 已确认的事实和代码落点
+
+[审计报告及17份证据](../../reports/stock_daily_qfq_audit_20261019/report.md)已持久保存，包含样本、运行来源和源端核验。
+五股原因结论直接使用；缺少原Lake文件hash的限制也已写明，不能为弥补这一缺项重做原因审计。
+
+| 当前事实 | 已查代码 | 本次需要改变的地方 |
+| --- | --- | --- |
+| 四次日更成功，但没有正式运行来源，未匹配监听器 | `defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py`及Dagster run-status来源筛选 | 核对未完成事项，不以成功运行来源为唯一入口 |
+| 只比较某日与前一交易日因子，查不到旧遗漏 | `build_gold_stock_daily_qfq_factor_repair_plan` | 从已验收范围接续，合并待处理日期和发生更正的输入 |
+| 回刷截止日等于触发日 | `execute_gold_stock_daily_qfq_factor_repair` | 发生原因日期与统一修复截止日分开，防止旧任务改回旧口径 |
+| 日更writer默认按分区当天因子写 | `assets/stock_daily_qfq.py`、`write_gold_stock_daily_qfq_partition` | 新交易日正常生成；历史补跑必须显式遵守已有截止日 |
+| 循环重写历史文件，最后返回汇总，再写完成检查 | `defs/stock_daily_qfq.py`、`ops/gold_stock_daily_qfq_factor_repair.py` | 候选、逐文件证明、提交前后进度、可恢复完成登记 |
+| 完成身份以run、日期和股票hash为主 | `asset_guards/stock_daily_qfq_factor_repair.py` | 同时绑定输入版本、截止日、全部目标和已完成证明 |
+| 写目标旁固定`.tmp`再replace | `_replace_parquet_from_query` | 候选移到规定staging、校验一次、正式写入者互斥 |
+| 结构检查通过不代表历史回刷完成 | `checks/stock_daily_qfq_checks.py` | 保留结构合同，下游额外核对匹配的历史完成证据 |
+
+CodeGraph已使用`codegraph_explore`、`codegraph_impact`分析执行与完成判断。
+`gold_stock_daily_qfq_factor_repair_status`影响结果包括趋势通道日更sensor、回刷sensor与回刷op。
+路径函数的CodeGraph结果未完整解析动态/SQL消费者，不能据此判断只有一个调用方；已用定向文本和源码补核：
+
+- `assets/stock_daily_trend_channel.py`：直接读QFQ，生成结果和递推状态；其回刷op与sensor消费QFQ完成信息。
+- `qfq_nineturn.py`：读取QFQ上下文和历史，生成日九转；目前来源标识使用路径、大小、mtime，不能当作内容hash。
+- `assets/stock_daily_qfq_nineturn_prod_core.py`：日九转可进入Prod serving；本次不执行该发布，修复维护期间必须协调其自动消费。
+- `bootstrap/gold_stock_daily_qfq_history.py`：已有统一截止日和退市股票最后可用因子的历史生成办法，可复用其数学语义，不直接复用跳过已有文件作为验收。
+- `bootstrap/qfq_nineturn_history.py`、趋势历史入口、历史事件工具和研究直接读文件：实现阶段核对接续/读取边界，不恢复已清退的25股工具。
+
+相关调用与测试纳入迁移；没有证据证明日线还存在独立EMA/MACD正式资产，不按名称假设新增改造范围。
+本次不改变`src/foundation/ops/biz/app`或QTF依赖矩阵，不导入Prod Ops承载Lake状态；Web/API字段不改。
+直接绕过DG读Parquet的外部程序不能由sensor强制阻断，正式执行必须通过维护安排防止读到混合结果。
+
+### 19.3 已有审计怎样复用
+
+本次已保存的报告是审阅证据，不接入sensor。完整历史审计和正式执行各自在获批目录保存自己的计划与结果，不把仓库reports变成运行依赖。
+
+| 证据 | 复用方式 | 何时补查 |
+| --- | --- | --- |
+| 五股根因、源样本和运行来源 | 直接引用，制作回归夹具时注明出处 | 只在相关代码语义改变或发现具体反证时核对对应部分 |
+| 今年188日筛选证据 | 证明已覆盖日期与已有异常线索，不证明全历史总量 | 补全尚未覆盖日期、字段及股票，不重新跑筛选 |
+| 已完成25股专项 | 引用原范围、输入/输出证明和完成记录，不改原hash、不重新下载 | 新输入、目标变化或新错误落在原证明外时，只处理相应差异 |
+| 本次后续完整历史审计 | 每完成一批保存范围、源/目标内容标识、方法版本、通过/异常/未知清单 | 仅变化文件、增加范围或实质规则改变时局部失效 |
+| 候选验证和已提交文件 | 复用同计划下已保存证明和输出身份 | 真实不一致或证据损坏才重验，不因取消/重启重新计算 |
+
+不设置按小时/天自动过期，也不因换阶段、换进程重复验证稳定数据。
+保留原证据，补查形成追加结果并标明替代范围，不能覆盖旧报告或混用不同截止日的通过数量。
+证据索引不能访问、损坏或不含所需字段时，写清缺项和受影响范围，不默默全量重跑。
+
+### 19.4 一次完整历史审计的输入与结果
+
+读取范围以正式股票日线资产已有批准历史覆盖、SSE开市日历及`silver_stock_lifecycle`为依据，包含退市和北交所；
+不用当前上市快照、ST过滤、名称过滤或因子相邻INNER JOIN得到的集合代替全部历史股票。
+同时核对实际源行情键与目标键的差异，避免缺整个文件或缺某股被集合筛选掩盖。
+没有报价不自动解释为合法停牌；按现行生命周期/停牌合同区分合法空缺和输入问题。
+
+主要数据集为`silver_stock_daily`、`silver_adj_factor`、`gold_stock_daily_qfq`，日历和生命周期作为范围依据。
+Raw只在已有证据不能解释具体Silver缺项时定点读取；本版不安排再次下载全市场Tushare或重新审计所有Raw。
+需要扩大到Raw/源站的具体问题，先形成精确清单和读取预算。
+
+采用日期批次、列投影和DuckDB集合计算。输入身份在首次必要读取时取得并复用，禁止每股再扫一次全历史。
+对已有合格范围直接复用其证明，其余范围按以下事项完成一次检查：
+
+1. 交易日、源/目标文件、股票行情键是否齐全；不存在的分区也必须出现在结果中。
+2. 相同股票历史是否统一使用固定截止日的因子，旧/新因子是否混用；不能只靠K线跳空发现错误。
+3. 价格四字段、昨收/涨跌额/涨跌幅，以及量额保留是否符合既有合同。
+4. 上一行情取该股上一实际源行。历史批次使用已排序实际行和必要批前上下文，不能只取市场前一日。
+5. 缺因子、重复键、非有限数或无法确定的范围分别记录，不用0、删行或取第一条掩盖。
+
+离线比较实现独立于生产writer的expected生成，不调用生产helper计算expected后再比较自己；
+小型字面样本和五股真实样本用来检验比较方法，普通运行不新增公式复算check。
+浮点比较按现行DOUBLE运算误差设明确绝对/相对容差并写入方法版本；不得四舍五入到两位后掩盖基准差异。
+精确容差在开发前以既有独立样本核定，不直接拿K线显示精度当数据合同，也不自动推翻25股专项已确认的精度保留口径。
+
+每批输出：覆盖股票/日期/键数、源/目标文件标识、无需修改范围、错误字段与键、原因、缺输入/未知、推导的回刷范围和成本。
+明细逐批写入执行证据，Python仅取汇总和有界样本；不得把全部明细常驻内存或塞入cursor。
+总范围要能拆成已验证无需修改、需修复、尚未检查；这些集合不得重复计数。
+完整审计未结束时只能称部分完成，不得先根据已发现错误集合宣布覆盖全部。
+
+### 19.5 自动发现遗漏的入口
+
+拟将既有`gold_stock_daily_qfq_factor_repair_job_sensor`改为普通、有界核对sensor，仍提交原repair job。
+原run-status来源筛选不再承担必要触发；不新增第二个活动repair sensor，也不在daily job内写历史。
+这是现有definition类型和cursor合同的变化，切换前保存旧状态并核对全部消费者；启停/重载需对应正式授权。
+旧cursor只作历史证据，新cursor必须从本次已验收历史截止位置初始化，不能任取最近日期跳过更早事项。
+
+拟定单tick合同如下，数值是初版设计预算，非已测结果：
+
+| 项 | 初版选择 |
+| --- | --- |
+| 名称/目标 | 沿用现有sensor名称与`gold_stock_daily_qfq_factor_repair_job` |
+| 分类 | 沿用`QUOTE_DATA / GOLD / ASSET_UPDATE`，通过现有helper；不新增动态分类tag |
+| 最小间隔 | 600秒，与股票日线日更sensor对齐；不得据此承诺600秒内一定运行 |
+| 默认状态 | 保持definition默认STOPPED；正式instance启用状态不由本轮文档修改 |
+| 日期依据 | SSE expected dates与已验收范围；分区是否注册另行核对 |
+| 每次工作量 | 最多10个从最早未完成日期起的日期、最多1个RunRequest、自动受影响股票上限仍为500 |
+| 读取 | 同类materialization/check完成信息批量读；对应因子最多11个文件，一次集合比较，不逐日history深扫 |
+| cursor | 已完成位置、核对位置、当前计划引用/摘要、失败原因；正常不超2KiB、硬上限8KiB，不存完整股票/文件清单 |
+| 注册/写入 | 不注册分区，不写Parquet，不在sensor写完成check；由job完成无变化确认或实际回刷 |
+
+核对顺序：
+
+1. 检查正式根和时间条件，读取已验收范围与当前未完成计划的小型状态。
+2. 有未结束任务先跟踪/恢复，不因后续日更成功跳过它；已提交、运行中、失败都不是完成。
+3. 按日历挑选最早待核对范围，批量检查已批准上游/ordinary结构ready，不用文件存在冒充ready。
+4. 有因子变化则合并股票，固定最新完整截止日；没有变化也由原job记录本范围已经核对。
+5. 超限、缺输入、缺注册或证据不全时保留位置，cursor与UI显示具体原因、数量和下一步。
+6. 全部目标及完成登记通过后才推进已完成位置。位置丢失时按已保存验收/完成记录重建；无法重建就阻断，不默认跳到今天。
+
+每次最多10日是工作批次，不是只承认最近10日。超出日常预算的积压由离线任务分批处理，发现后持续显示未完成，不能进入成功状态。
+运行去重与失败恢复分开：相同工作范围只有一个活动任务；失败不能因原run_key已使用就永久无法重试。
+复用统一upstream-triggered/repair-attempt builder；工作身份由输入版本、截止日和范围确定，重试仍绑定同一工作计划。
+不使用event storage id构造身份。具体重试参数及run config迁移须与run-key治理原方案/LLD一起核定后才能编码。
+
+### 19.6 历史输入后来变化，怎样发现
+
+只把已完成日期往前推进不能发现旧输入更正。本次必须同时具备两条发现依据：
+
+1. 正式上游写入的materialization/发布记录改变，旧日期也重新加入核对；记录无变化不重复扫描行情。
+2. 上游文件已替换但事件登记失败时，通过有界的目录/文件属性巡检发现实际变化。按日期分批轮转所有已纳入范围的输入和目标，下一轮继续，不能每次只扫最近日期。
+
+巡检只列目录/路径、文件大小及更新时间等轻量属性；发现变化/新增/缺失才读取该文件内容并更新强标识。
+路径/大小/mtime仅用于筛选变化，不能称为内容hash，也不能单凭它们补发成功。
+首次完整审计或候选生成时取得的内容hash直接复用；同一次执行中稳定输入只建一次索引。
+巡检已在20.11固定为每tick至多500日、按日期记录和实际属性轮转；批量事件API及真实查询模型见20.10，不再留作开发时选择。
+轮转没有推进、完成状态损坏或文件变化来源不明时明确报错，保留受影响范围。
+缺输入超过自动预算也不能skip后遗忘；无需自动修时仍有持续待处理状态。
+
+对正常正式写入可通过发布与文件变化补漏；绕过所有正式入口、同时伪造原文件属性的修改不在轻量检查可证明范围内。
+发现这类实际异常时仅检查对应文件，不能宣称无需读内容就能发现任意篡改；尚未同步到本地的源站更正由源链路负责。
+
+### 19.7 修复计划、截止日和配置合同
+
+拟在原repair入口内区分“发现变化的日期范围”和“实际使用的复权截止日”。
+计划至少固定：来源证据、错误/待核对范围、受影响股票hash、输入版本、统一截止日、输出范围、原目标内容标识、实现版本、预计开销和逐文件清单。
+执行参数来自显式config与受控计划，不解析run_key，不接受任意路径或运营手写stock_codes。
+初稿中的三个字段扩展方式已由第20.3节替换：迁移为明确的action及计划引用，内部从计划推导股票、截止日和批次；不保留旧参数兜底。
+日常计划自动推导；历史修复计划采用完整审计所得清单。两者共用同一计算、候选验证和恢复能力。
+
+| 原因 | 价格范围 | 截止日规则 |
+| --- | --- | --- |
+| 因子变化遗漏、历史混用旧新基准 | 受影响股票全部有效历史至截止日，多个遗漏合并 | 固定最新完整截止日，逐股取不晚于它的最后可用因子 |
+| 已发布历史源行情或因子更正 | 源更正实际影响行；昨收等延伸到下一实际行情；若分母变化则全历史 | 维持或推进已确认截止日，禁止倒退 |
+| 历史补跑/缺分区 | 先纳入问题清单，按同一截止日补齐相应范围 | 不得重新默认按历史partition当天 |
+| 已有合格输出、输入与口径都未变 | 无需重写，复用既有证明 | 不以新run_id强迫再算 |
+
+退市/长停牌股票采用实际最后可用因子和上一实际行情。查找窗口不足时不能写合法0，须定点补上下文或报错。
+候选生成使用现有统一公式；历史计算按股票实际行情一次排序接续，批前seed只读，不能每日期重复扫全历史。
+源文件行被更正/删除/新增导致股票集合不变时，也要使旧计划失效；只用stock_codes hash或因子变化股票数作为身份不够。
+
+### 19.8 候选、提升和续跑
+
+正式输出仍为`/Volumes/datasource/data_lake/gold/quote/stock_daily_qfq/trade_date=.../part-000.parquet`。
+计划、候选、验证结果和checkpoint只在`/Volumes/datasource/data_lake_staging`下本次运行目录保存；复用正式paths约束，不在正式Lake旁写固定.tmp，不引入Kopia或备份。
+本初稿不新增跨数据集状态表/资产；这些文件只为获批历史执行与恢复服务。
+
+执行顺序：
+
+1. **准备一次。** 确认范围、挂载、权限、同文件系统、空间和唯一写入者，加载计划和已完成记录。固定输入/目标标识并建立批内索引；不每文件重验全计划。
+2. **先识别成果。** 已有合格候选/完成记录先核对并复用，不先算完再发现文件存在。已知稳定输入的hash在本次执行中复用。
+3. **生成候选。** DuckDB按日期批次计算受影响行，同一物理文件内合并所有本批股票。保留其他股票及量额，Python不处理行情明细。
+4. **校验一次。** 检查schema、日期、键、源覆盖、允许修改范围和其他行双向EXCEPT ALL等守恒事实。保存实际结果、候选hash、原目标hash；不再用同公式重算一遍候选作证明。
+5. **逐文件提升。** 先持久记录即将替换的文件及两种hash，再确认目标仍为原版本，执行os.replace，补记已完成。新候选内容已先验证；不声称跨文件整体原子。
+6. **完成登记。** 汇总所有文件和未解决项，写匹配计划的完成metadata。状态登记失败不撤销已提交数据，保持未完成，恢复时只补缺失登记。
+
+恢复只允许下列情况：目标仍是计划原文件，继续提升已验证候选；目标已是本计划输出，补记完成；目标是第三种内容，冲突停止。
+若候选或证明损坏只处理该单元；不删除其他已完成文件、不重新生成整个候选集合。
+mtime/大小只作便宜的变化提示；需要确认归属时读必要内容hash，不能用路径存在代替验证。
+每文件/批次边界检查取消；长SQL使用现有可中断连接能力，停止后不领取新单元。正式实现前用隔离测试证明取消和两次持久记录之间的恢复。
+
+同一日期文件包含多只股票，股票集合不同也会发生整文件覆盖冲突。
+日更、回刷、历史CLI及手动入口必须共用一个经批准的写入协调方式；优先Dagster正式并发机制，不增加锁文件。
+绕过队列的CLI不能假定受run并发限制保护，正式执行期间必须禁止其他QFQ写者；精确配置与入口约束在19.13补齐。
+
+### 19.9 完成记录与下游
+
+沿用`gold_stock_daily_qfq_factor_repair_plan_evaluated`作为protected完成说明，不新增同义check，不塞回ordinary readiness。
+保留原字段有明确语义的部分，新完成记录须能证明：
+
+- 本次计划/合同版本、输入版本、统一截止日、原因日期范围与工作身份匹配。
+- 选定文件数 = 实际替换数 + 已验证无需替换数；未完成数和失败数都为0。
+- 受影响股票/键范围可核对、逐文件证明完整；无变化也有核对范围与输入版本。
+- 不存在已知更早未完成事项；计划或输出变化时，旧成功不能继续作为新结果成功。
+
+完整文件清单只放执行证据，metadata保留计数、hash与受控引用；自动代码列表上限仍受500限制，cursor不携带明细。
+历史成功事件仍可查看，但不满足新合同就不作为新完成证据；本次完整历史验收形成明确起点，避免要求为所有旧日期重补ordinary checks。
+资产description、catalog写入/事件政策和metadata字段说明在开发时同步，价格schema不增加运行字段。
+
+下游必须同时核对普通结构状态和本次匹配的历史完成状态。价格文件被修复后：
+
+- 趋势通道结果与state从首个受影响处按真实seed接续至各自已有末端，不沿用受污染的递推状态。
+- 日九转核对实际上下文/来源变化与计数接续，不仅看同日文件存在；同一比例调整是否影响其结果由现行算法与独立测试判定，不能先假设无需处理。
+- DG下游未完成与价格未完成分别显示，不能用QFQ一次成功代表整条链成功。
+- Prod/serving未在本次写权限内，先列受影响交付和协调暂停，不能顺手运行其sensor或发布job；需要修复时另列精确步骤。
+- 全历史直读研究和报告在维护窗口结束前不消费本次混合结果；已导出报告由使用方按清单重算，不在本轮自动改写。
+
+### 19.10 性能预算和拒绝条件
+
+已有测量只证明2026年188个QFQ文件约63,204,586字节，筛选扫描约0.83秒；
+它不包含全历史Silver读取、文件hash、候选生成、替换、恢复和下游接续，不能用作正式修复ETA。
+五股/25条源核验、25股专项的耗时都只复用其自身范围，不重复测量或外推。
+
+| 路径 | 数量/读取模型 | 初版预算和拒绝方式 |
+| --- | --- | --- |
+| 常规待处理核对 | 最多10日，最多11个因子文件；按asset/check类批量取状态 | 每tick最多1个请求；API每类最多1个有界页，页未取全保留位置；预算目标10秒，超过则停止本tick、不推进完成位置 |
+| 旧文件变化巡检 | 只读文件属性，内容未变时不读行情 | 500日/≤1500个实际文件属性，执行记录≤8MiB，实际推进与容量验收见20.11、20.17 |
+| 一次完整历史检查 | 历史N日，至多约3N份行情/因子/QFQ文件，加日历/生命周期；按既有合格证据扣减已覆盖范围 | 精确N、行数、列字节、hash成本和批次上限先用已有库存/计数估算；全局读获准后每批读取一次并保存结果，不跑第二条完整审计 |
+| 修复 | K个受影响日期文件；计算只改受影响股票，整文件合并仍需读取保留行 | 一个文件只合并/验证一次；记录输入/输出字节、DuckDB内存和spill、候选峰值与剩余空间，未有上界不得正式执行 |
+| 中断恢复 | 未完成单元及必要输入/输出身份核对 | 已完成单元业务计算/COPY为0；必要文件识别不等同于行情重算；恢复成本单列，不拿正常耗时替代 |
+| 最后验收 | 汇总全部已保存覆盖/逐文件证明，补查不一致部分 | 完成集合无缺失；全历史业务重算/COPY为0，不逐分区扫描DG历史绿灯 |
+| 源请求/事件 | 方案阶段0；日常无新源请求，离线只对具体源疑点另批 | 保留完成事件有界；不批量清理旧事件，不按历史文件逐条补ordinary checks |
+
+正式执行单必须补实际规模、时间/空间预算、连接/SQL次数、事件数和上界；包括中断继续及最后验收。
+内存/线程/spill使用当前受控DuckDB配置，不借文档增加配置；新增批次/巡检/并发参数先完成配置项审计。
+进度报告当前阶段、实际文件/日期、已完成量、总量与最后更新时间，正常可见更新目标不超过30秒；未知ETA如实显示。
+超预算、源变更、第三方覆盖、缺输入、校验失败、证明缺失都停止对应执行，不绕过或静默截断。
+
+### 19.11 测试与真实验收
+
+先列测试输入的独立来源、预期及替代边界，再运行隔离测试。测试不用正式instance、Lake、数据库或token。
+
+| 必须证明的行为 | 正向与反向用例 | 现有落点/拟扩展 |
+| --- | --- | --- |
+| 本次真实遗漏能被补齐 | 正常来源成功被处理；无external origin成功、未进原回调也由新核对发现 | `test_stock_daily_qfq_factor_repair_sensor_contracts.py`，增加真实临时Dagster运行/事件夹具，不只调用内部函数 |
+| 旧日期不被窗口丢弃 | 停机超过10日仍从最早未完成推进；更早缺输入不能跳过 | 原sensor契约测试与状态判断测试 |
+| 无变化可完成，超限不能遗忘 | 无变化记录核对完成；>500、坏hash、空输入留待处理且说明原因 | 原repair/sensor契约测试 |
+| 同股多次变化只修一次且不倒退 | 合并旧原因、统一新截止日；旧任务不得覆盖更晚结果；同截止日源更正不能被跳过 | `test_stock_daily_qfq_repair_contracts.py`、history测试 |
+| 边界正确 | 退市最后因子、长停牌上一真实行、新上市合法0；有历史/缺因子不能伪造0 | `test_stock_daily_qfq_contracts.py`与独立字面金样本 |
+| 审计与完成结果可以复用 | 同版同输入重复调用不重新业务扫描/计算；真实变化只使对应范围失效 | 审计/修复计数测试，来源为保存报告和临时Parquet |
+| 中断不会漏文件或重复改写 | 候选完成后、rename前、rename后登记前、最终事件失败分别取消/恢复；第三种hash拒绝 | 原repair测试扩展；临时文件实际replace，不仅mock成功 |
+| 不互相覆盖或误改 | 同日期不同股票仍禁止并发写；无冲突合法重复可复用；其他行与量额保留 | writer/并发入口与范围保持测试 |
+| 历史更正能被发现 | 旧日期materialization变化；只有文件替换而无事件；巡检中断继续；来源未知报错 | 触发/巡检契约测试与读取次数门禁 |
+| 下游不吃旧结果 | 修复未结束阻断；完成后趋势/state和九转正确接续；Prod发布不得自动夹带 | 对应下游契约测试，按实际改动选择 |
+| 热路径与元数据有界 | SQL/文件/API次数、cursor上限、无历史深扫、无报告运行依赖 | `test_run_contract_static_gates.py`及针对性性能样本 |
+
+验收顺序：必要小样本与故障测试→一条含取消/恢复的隔离修复链→批准范围的真实候选/提交→汇总完成证明。
+同版完整链只跑一条，不另跑正常全链、续跑全链、audit全链各一遍。
+新改动只重跑真正受影响测试；不为凑测试数重复耗时计算。
+修复前用事故等价样本证明旧链路漏接/漏修，修复后证明同一问题被捕获；正常交易变化不能被误报成故障。
+文档本轮只跑完整性、链接、证据hash与差异检查，不运行上述开发测试或正式DG。
+
+### 19.12 分步交付和“没有遗漏”的判定
+
+1. **本轮初稿。** 原方案、原LLD、持久审计证据齐全，已确认事实与拟改造分开。完成文档校验后交管理员评审。
+2. **开发前补齐。** 只补19.13的代码/配置/成本依据，沿本节修改原文，不重复五股原因或25股专项审计。随后做方案与实现影响审查。
+3. **能力开发。** 先实现待处理核对、统一截止日、可靠候选与恢复、完成身份及下游判断；完成必要隔离验收，不先改正式数据。
+4. **完整历史审计。** 提交精确范围和成本，获准全局读取后按批检查一次。记录全部已覆盖、无需修改、需修改、未知和缺输入，形成完整修复清单。
+5. **正式修复。** 在相应写入授权内，用新链路准备候选、必要样本、逐批提交、接续DG下游。保留已完成成果，中断后继续，不重建整份计划。
+6. **汇总验收。** 应检查=无需修改+需修改+未检查；需修改=已修复验证+未解决。历史完成要求未检查/未解决均为0，所有文件证明齐全、下游状态分别明确。恢复日常接续时再核对下一日最小范围，不重审全历史。
+
+若源输入缺失、原覆盖有缺分区或发现上游错误，登记具体范围并进入相应修复步骤；
+不能为了只用现有回刷writer而把它们删出清单。超本次写入边界的事项需要精确补充步骤和授权，问题未解决时总体保持未完成。
+无需修改的股票不强制重写；“应修尽修”要求覆盖全部问题，不要求无差别覆盖所有文件。
+
+### 19.13 初版缺项的处理结果
+
+原四项缺口已分别细化为第20节的参数/身份、队列准入、输入变化核对、SQL范围及下游接续规则。
+后续开发必须按第20节的文件与函数清单执行，不能再用本节的流程描述代替代码设计。
+完整历史的实际文件数、字节和执行耗时仍属于正式读取前的执行单，不伪造为已经测量；代码先具备明确批次、资源上界和越界拒绝规则。
+
+<a id="qfq-code-design-20261019"></a>
+## 20. 代码级开发说明（2026-10-19复核后补充）
+
+### 20.1 实施依据和约束
+
+[代码复核记录](../../reports/stock_daily_qfq_audit_20261019/code-review.md)保存本轮核实的函数行为及27份源码索引。
+本节所有“新增/改为/删除”都是拟实施内容，当前Python未变。代码复核没有重新读取行情或正式DG数据库。
+
+本次实施同时满足：
+
+1. 数学公式只有一套；审计expected不调用这套生产公式。价格schema和Raw/Silver业务值不改。
+2. 任何正式QFQ写入都走受控Dagster运行；历史CLI不能再直接覆盖正式根。
+3. 先识别已完成成果，再计算；每个新完整候选只业务验证一次，最后汇总不重放。
+4. 文件范围按物理日期合并；同日多股只COPY一个完整候选，不按股反复改同一文件。
+5. 股票从源差异或审计结果推导；操作参数不接受stock_codes、任意SQL或任意文件路径。
+6. 未完成、输入缺失、审计范围未覆盖均保留并阻断完成，不把它们从总数中滤掉。
+7. Dagster事件失败不撤销已经提交的数据；提交前必要的执行记录不能省略。
+8. 不新增资产、状态资产、数据库表、锁文件或备用公式；不恢复25股专用模块。
+
+### 20.2 模块和函数归属
+
+下表路径相对`lake_console/orchestrator/src/orchestrator/`。开发不能另写平行入口绕过本表。
+
+| 文件 | 明确改动 |
+| --- | --- |
+| `defs/run_contracts/stock_daily_qfq_repair.py`（新增） | 仅放本节的数据类、枚举、校验与预算值；无instance、DuckDB或文件写入 |
+| `defs/stock_daily_qfq.py` | 保留列合同、纯价格SQL和输入覆盖；抽出relation级公式；移走repair编排、计划、结果类型和合并SQL，不留转发兼容层 |
+| `defs/stock_daily_qfq_repair.py`（新增） | 承接原相邻因子比较、范围规划及repair执行；增加按统一计划准备、提交、结束登记的编排 |
+| `defs/stock_daily_qfq_repair_records.py`（新增） | 本次执行记录的原子JSON、内容hash、路径安全、逐文件记录、恢复及进度；不包含价格公式 |
+| `defs/bootstrap/stock_daily_qfq_history_audit.py`（新增） | 一次历史检查、逐批结果、异常键与可复用证明；不得写正式Gold或DG事件 |
+| `defs/io/stock_daily_qfq_writer.py`（新增） | 候选生成、现行结构合同及范围验证、逐文件提升；复用执行记录，不自行生成计划 |
+| `defs/ops/gold_stock_daily_qfq_factor_repair.py` | 原dict config迁移为统一类型；按action分派上述helper；只在完成条件成立时写protected完成事件 |
+| `defs/run_contracts/configs.py` | 替换QFQ与趋势repair config及builder，禁止多余/旧字段；定义见20.3 |
+| `defs/run_contracts/run_keys.py` | 复用现有通用builder，不新增数据集专属builder；原run key治理文档同步此次payload变化 |
+| `defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py` | 替换run-status decorator与整段按触发run决策；读进度、变化提示、最早未完成范围，提交原job |
+| `defs/asset_guards/stock_daily_qfq_factor_repair.py` | 替换旧metadata判断；新增历史消费、输入变更和阶段完成读取；不计算价格 |
+| `defs/assets/stock_daily_qfq.py` | 使用同一候选writer；正式准入检查；先记录待核对日期，再写新分区，metadata记录实际来源/输出身份 |
+| `defs/sensors/stock_daily_qfq_sensor.py` | 有未完成正式提交/维护时阻断新写；普通新增日仍按原上游门禁，不能拿历史自as-of覆盖 |
+| `defs/bootstrap/gold_stock_daily_qfq_history.py` | 保留发现日期和有效分母计算；正式写入改用统一repair执行，不再用exists/skip证明正确 |
+| `defs/bootstrap/gold_stock_daily_qfq_history_cli.py` | 保留原只读阶段；增加生成audit/repair运行配置；正式根的旧`--apply`明确拒绝，见20.12 |
+| `defs/stock_daily_trend_channel.py` | 将现有repair拆成候选生成/校验与提升，接入同一逐文件恢复；不改递推核 |
+| `defs/ops/gold_stock_daily_trend_channel_repair.py` | 从价格计划取真实日期/股票，不再前一天或日期数减1；使用统一提交记录 |
+| `defs/sensors/gold_stock_daily_trend_channel_repair_job_sensor.py` | 改为有界普通sensor，查尚未完成的趋势事项，避免再次依赖run-status漏接 |
+| `defs/sensors/stock_daily_trend_channel_sensor.py` | `_qfq_reconciliation`只读新完成状态；删除自身按producer_run_id重拼批次、日期数减1的分支 |
+| `defs/qfq_nineturn.py` | 保留日九转纯SQL；新增只生成指定日候选的helper，交统一writer提交；不改分钟分支 |
+| `defs/assets/qfq_nineturn.py`、`defs/sensors/stock_daily_qfq_nineturn_sensor.py` | 仅日线新增历史消费门禁；旧结果受影响时不冒充ready |
+| `defs/assets/stock_daily_qfq_nineturn_prod_core.py`及对应sensor | 只加未完成/源版本门禁；修复中不自动发布，本轮不执行Prod写入 |
+| `defs/paths.py` | 新增本节固定staging/记录路径helper；复用既有根和安全校验 |
+| `defs/catalog/lake_assets.py`、资产metadata、运行合同/拓扑文档 | 描述新的写入、完成和sensor类型；资产key、分区、价格列不变 |
+
+原`stock_daily_qfq.py`移出的符号包括`GoldStockDailyQfqFactorRepairPlan/Result`、`GoldStockDailyQfqRepairPartitionWriteResult`、
+`build_stock_daily_qfq_factor_changed_codes_sql`、`build_gold_stock_daily_qfq_factor_repair_plan`、
+`execute_gold_stock_daily_qfq_factor_repair`、`write_gold_stock_daily_qfq_factor_repair_partition`、
+`build_gold_stock_daily_qfq_factor_repair_check_metadata`及它们专用的范围/合并helper。
+更新20.2表中的导入、`test_stock_daily_qfq_*`、趋势M4/M5和静态测试；旧模块不重新导出这些符号。
+`gold_stock_daily_qfq_factor_repair_codes_hash`保留纯函数，供计划和下游共用。
+旧GoldStockDailyQfqFactorRepairPlan/Result类型退出，由本节QfqRepairPlan/QfqExecutionResult替代；旧build-plan签名也退出，不能只改import后继续调用旧语义。
+原两个正式写函数从数学模块移到`io/stock_daily_qfq_writer.py`，该模块调用数学模块，数学模块不得再反向import writer；所有调用方改到新落点，不留转发函数。
+既有500股QFQ常量迁入纯合同模块，原值不变；趋势自己的自动限制继续参与自动准入，历史计划使用明确的历史模式，不凭代码数量猜模式。
+
+依赖固定为：纯合同→无项目运行依赖；记录→合同/paths；数学SQL→合同/SQL工具；writer→记录/数学；
+repair→writer/记录/审计；guard→记录/合同/Dagster读取；op和sensor负责装配。helper不得import op/sensor或Prod Ops。
+
+不直接复用以下完整入口：
+
+- `rebuild_qfq_nineturn_scope`：会重新做fresh_plan、先算全范围再判断已完成、复制backup并清理staging；本次只复用纯计算/合同，不能带入这些行为。
+- moneyflow提升入口：它绑定moneyflow计划且拒绝不同目标，不适用于覆盖错误QFQ；参考其提交意图顺序，不增加跨数据域导入。
+- 公告checkpoint：绑定公告状态及锁；不作为通用修复依赖。
+
+### 20.3 操作参数、身份和旧合同退出
+
+`configs.py`中的新`GoldStockDailyQfqFactorRepairConfig`使用`extra='forbid'`，字段固定如下：
+
+| 字段 | 类型/默认值 | 校验 |
+| --- | --- | --- |
+| `action` | `Literal['reconcile','audit_history','prepare_history','apply_history','finalize_history','repair_nineturn']`；无默认 | 必填，不允许未知操作 |
+| `start_trade_date`、`end_trade_date`、`as_of_trade_date` | `str | None = None` | reconcile/audit必填ISO日期，start≤end≤as_of；其他action必须为空，取计划 |
+| `patrol_start_trade_date`、`expected_progress_revision` | `str | None`、`int | None`，均默认None | 仅reconcile由sensor显式提供；前者是日历内巡检起点，后者非负且拒绝bool；其他action必须为空 |
+| `audit_id` | `str | None = None` | audit/prepare必填64位小写hex；由首次审计请求内容算出，不是股票池 |
+| `audit_sha256` | `str | None = None` | prepare必填；审计未封存/存在未解决项拒绝准备 |
+| `plan_id`、`plan_sha256` | `str | None = None` | apply/finalize/repair_nineturn必填64位hex；其他action为空，不能任意路径 |
+| `repair_attempt` | `int = 1` | 必须为正整数且拒绝bool；失败/取消后的人工恢复递增，不改变计划 |
+
+`build_gold_stock_daily_qfq_factor_repair_run_config(*, action, start_trade_date=None, end_trade_date=None, as_of_trade_date=None, patrol_start_trade_date=None, expected_progress_revision=None, audit_id=None, audit_sha256=None, plan_id=None, plan_sha256=None, repair_attempt=1)`
+只构造该类型并`model_dump(exclude_none=True)`到原op的config；op直接接收这个类型，删除原手写dict schema与重复日期/hash解析。
+原`qfq_factor_trade_date/repair_required_codes_hash/upstream_batch_id`不再是输入字段，出现即报`qfq_config_legacy_fields`。
+它们仍可作为输出说明字段，值只能从冻结计划推导，不从原config兜底。
+
+趋势config改为`source_plan_id: str`、`source_plan_sha256: str`、`repair_attempt: int=1`，同样extra=forbid。
+删除其可输入的stock_codes、原因日、start/end和旧source_upstream_batch_id；op从价格计划及当前完成记录取得，不允许手写范围。
+`build_gold_stock_daily_trend_channel_repair_run_config`同步只接收这三个字段。
+
+三个身份按以下顺序计算，均用canonical JSON（UTF-8、sort_keys、无空白、拒绝NaN），不含时间戳、run_id或event storage id：
+
+```text
+audit_id = SHA256({schema_version:2, scope_start, scope_end, as_of,
+                   comparison_version, source_inventory_sha256})
+plan_sha256 = SHA256(完整plan.json正文，排除自身id/hash和created_at)
+plan_id = plan_sha256
+upstream_batch_id = build_batch_id(producer='gold_stock_daily_qfq_factor_repair',
+                                  scope=as_of_trade_date,
+                                  payload={plan_id, source_revision, pricing_version},
+                                  digest_length=64)
+run_key = build_repair_attempt_run_key(subject='gold_stock_daily_qfq_factor_repair',
+                                     repair_scope_id=request_id, attempt=repair_attempt,
+                                     attempt_scope=action)
+```
+
+`request_id`是输入请求（action、日期/计划hash、已确认进度revision）的SHA256。请求尚未执行时无plan，用请求身份去重；
+op生成计划后保存request→plan引用，重复请求先读引用，不重新规划。
+重试只改attempt；已在QUEUED/STARTING/STARTED/CANCELING的同请求不重复提交。失败/取消保持阻断，明确显示人工恢复，不自行重启用户取消的任务。
+sensor使用标准`dagster/run_key`过滤`instance.get_runs(RunsFilter(job_name=..., tags={RUN_KEY_TAG:run_key}), limit=1)`，不能扫描全部runs。
+恢复已有plan时计算/COPY只发生于没有合格成果的单元。
+
+删除原sensor里的`build_gold_stock_daily_qfq_factor_repair_upstream_batch_id(producer_run_id=...)`；
+趋势日更不再调用它。旧事件保留供查阅，缺schema_version=2不能满足新完成合同，不保留生产双读分支。
+
+### 20.4 数据类和文件格式
+
+`run_contracts/stock_daily_qfq_repair.py`定义以下不可变数据类，日期内部用`date`，序列排序去重；JSON中日期用ISO字符串：
+
+```python
+QfqFileIdentity(relative_path: str, exists: bool, size: int,
+                mtime_ns: int, ctime_ns: int, device: int, inode: int,
+                sha256: str | None)
+QfqAffectedScope(ts_code: str, first_changed_date: date,
+                 last_changed_date: date, reason: str, repair_all_history: bool)
+QfqFileProof(asset_key: str, trade_date: date, target: str,
+             original: QfqFileIdentity, candidate_sha256: str | None,
+             input_revision: str, scope_sha256: str, row_count: int,
+             status: str, candidate_relative_path: str | None,
+             validation_ref: str | None, validation_sha256: str | None,
+             dependency_ref: str, dependency_sha256: str,
+             actual_target: QfqFileIdentity | None, last_error: str | None)
+QfqRepairPlan(schema_version: int, plan_id: str, as_of_trade_date: date,
+              reconcile_start: date, reconcile_end: date, source_revision: str,
+              affected_scope_ref: str, affected_scope_sha256: str,
+              target_index_ref: str, target_index_sha256: str,
+              audit_id: str | None, audit_sha256: str | None, pricing_version: str,
+              supersedes_plan_id: str | None,
+              expected_file_count: int, consumer_scopes: tuple)
+```
+
+`QfqAffectedScope`只允许reason=`factor_change/mixed_basis/source_correction/missing_gold/value_mismatch`；不接受未经解释的自由股票列表。
+`target`和所有ref都是本节指定根下的相对路径，由paths helper重建，拒绝`..`、绝对ref、符号链接和越界。
+`exists=false`时size=0、sha256=None；这是计划中明确的缺Gold文件，不是运行时任意缺失都允许创建。
+
+执行目录固定为：
+
+```text
+/Volumes/datasource/data_lake_staging/stock_daily_qfq_repair/
+  progress.json                         # 小型进行位置和活动计划
+  dates/YYYY-MM-DD.json                 # 已核对文件属性、内容hash及证明引用
+  requests/<request_id>.json            # 请求与生成的audit/plan对应关系
+  audits/<audit_id>/audit.json           # 审计总范围、口径、汇总；封存后不改
+  audits/<audit_id>/batches/000001.json   # 本批输入、覆盖、问题及成果引用
+  audits/<audit_id>/issues/000001.parquet
+  audits/<audit_id>/context/000001.parquet
+  plans/<plan_id>/plan.json              # 不可变计划
+  plans/<plan_id>/scope.parquet          # 受影响股票和实际键范围
+  plans/<plan_id>/targets.parquet        # 每个目标文件、原版本及动作
+  plans/<plan_id>/files/<asset>/<date>.json
+  plans/<plan_id>/candidates/<asset>/<date>/attempt-<generation>/part-000.parquet
+  plans/<plan_id>/segments/<consumer>/<segment>.json
+  plans/<plan_id>/completion.json
+```
+
+对应paths helper为`stock_daily_qfq_repair_root(staging_root)`、`stock_daily_qfq_repair_plan_path(staging_root, plan_id)`、
+`stock_daily_qfq_repair_file_record_path(staging_root, plan_id, asset_key, trade_date)`，均先严格校验组件。
+临时隔离根只允许测试注入的`/private/tmp`子目录；正式默认根不能被环境变量偷偷替换。
+
+这是原方案中“计划、checkpoint和逐文件证明”的具体格式，会被正式入口读取，并非纯审阅报告。
+新增这些文件的原因是：Dagster事件不能与文件rename组成一个事务，小cursor也无法保存逐文件提交前/后hash。
+不另建正式状态资产或数据库表；记录不能独立充当价格源，计算仍以绑定版本的Silver及本次候选为依据。
+旧审计及计划不覆盖；`dates`是当前文件证明索引，必须指向不可变audit/plan，不能只有一个可修改的“通过=true”。
+进度和文件记录不能随退出自动删除；仅在后继证明完整替代、无恢复需求且获清理指令后清理。
+
+`progress.json`字段固定：`schema_version=2`、`revision`、`baseline_audit_id/hash`、`baseline_as_of`、
+`reconciled_through`、`active_request_id`、`active_plan_id/hash`、`active_phase`、`attempt`、`run_id`、
+`unverified_from`、`unresolved_count`、`pending_consumers`、`patrol_next_date`、`last_error`、`updated_at`。
+文件上限64KiB，不存所有日期或股票；`pending_consumers`仅允许当前计划的trend/nineturn两个引用。
+每个消费者引用的字段为consumer、source_plan_id/hash、status、request_id、attempt、run_id、scope_ref/hash、output_revision、last_error；
+status只允许PENDING/RUNNING/COMPLETE/NOT_REQUIRED/NOT_APPLICABLE，失败保留所在阶段并附last_error，不能移出pending后伪装完成。
+缺失baseline时返回`qfq_history_baseline_missing`并阻断；不得以日期最小值或今天自动初始化成功。
+
+`dates/<D>.json`包括`trade_date`、各实际输入/输出`QfqFileIdentity`、`proof_ref/proof_sha256`、
+`as_of_trade_date`、`input_revision`、`checked_scope_sha256`、`unverified`、`last_source_dates_ref`。
+同股前序日期索引仅作查找位置，writer必须读对应正式Silver行并核对输入；不能把staging索引当作源价格。
+初始化完整历史审计批次会建立这些记录，日常新文件沿同一格式追加，不重新枚举历史业务行。
+
+上文函数返回类型的字段也必须具体实现，不能留给调用方自行拼dict：
+
+| 类型 | 必须字段 |
+| --- | --- |
+| `QfqHistoryProgress` | 与progress.json逐字段相同，revision非负；active字段全空或成组齐全；reconciled_through≤已验收覆盖末端 |
+| `QfqAuditPlan` | audit_id、start/end/as_of、comparison_version、inventory_ref/hash、batch_count、budget、reused_evidence_refs |
+| `QfqAuditBatchResult` | batch_id、covered_start/end、covered_key_count、pass_key_count、repair_key_count、unknown_key_count、issue_ref/hash、context_ref/hash、input_revision、complete |
+| `QfqAuditSummary` | audit_id、audit_sha256、上述各批计数总和、expected_batch_count、completed_batch_count、source_revision、sealed；缺批/unknown>0时sealed=false |
+| `QfqCandidateValidation` | passed、schema/date/key/coverage/preserved_row/preserved_field规则计数、expected/output_row_count、failure_samples最多20条；任一失败则passed=false |
+| `QfqPrepareResult` | plan_id/hash、selected_file_count、validated_file_count、unchanged_file_count、pending_file_count、candidate_bytes |
+| `QfqApplyResult` | plan_id/hash、selected_file_count、committed_file_count、unchanged_file_count、pending_file_count、failed_file_count |
+| `QfqCompletion` | QfqApplyResult全部字段，另有covered_key_count、unresolved_count、completion_sha256、event_recorded、consumer_status；仅pending/failed/unresolved全0可发价格完成 |
+| `QfqExecutionResult` | action、request_id、plan_id/hash可空、stage、reason_code、summary计数、completion_ref可空；没有完成对象就不能写完成check |
+| `QfqEventReadiness` | trade_date、ready、missing_check_count、failed_check_count、stale_check_count、reason_code；不含storage id身份字段 |
+| `QfqWorkDecision` | action可空、request_id、start/end/as_of可空、plan_id/hash可空、attempt、reason_code、summary、next_action；不放股票列表 |
+| `QfqFileChangeHint` | checked_start/end、next_date、checked_date_count、changed_file_count、missing_record_count、最多5个路径样本；op重新按同一起点核实，不依赖样本完整性 |
+| `QfqSourceChangeResult` | verified_input_revision、changed_scope_ref/hash、unknown_count、next_patrol_date、content_changed；unknown>0不能no-op |
+| `QfqConsumerScope` | consumer、source_plan_id/hash、affected_scope_ref、result_dates_ref/hash、state_dates_ref/hash可空、seed_ref/hash可空、existing_tail、not_applicable_reason可空 |
+| `QfqConsumerPrepareResult/ApplyResult` | consumer/source_plan_id、selected/validated或committed/unchanged/pending/failed文件计数、segment_refs、output_revision；所有目标键须等于scope |
+| `QfqHistoryConsumptionStatus` | ready、reason_code、as_of_trade_date、source_plan_id、source_revision、unresolved_count、pending_consumer_count |
+
+所有`record_store`参数统一为`QfqRepairRecordStore`数据类，字段为lake_root、staging_root、run_id、identity_cache、
+loaded_plan_cache、已加载文件记录索引和budget累计值；不保存行情明细。实际读写只通过20.5的函数，没有另一套同名转发方法。
+op每run只构造一次record_store，阶段和worker复用；新进程可重建索引但不能重算已封存业务成果。
+
+JSON加载与dataclass构造使用同一validate方法，禁止调用方补默认成功计数。
+plan文件包含所引用Parquet的hash；`load_qfq_repair_plan`验证其正文hash及这些引用，不接受只改路径不改内容hash。
+初始inventory hash只绑定路径/属性/范围，不能冒充内容校验；内容强依据是audit各批实际取得的source_revision和audit_sha256。
+同audit_id的范围/口径一旦保存便不可修改；计划或比较方法实际改变需新id，已完成证明仍保留供可复用部分使用。
+`expected_file_count`及QFQ完成metadata仅计算价格文件；消费者在各自scope内单独计数，不再用减1等推导。
+`targets.parquet`逐行保存asset_key、trade_date、CREATE_MISSING/REPLACE/KEEP、原身份、允许修改范围ref/hash；
+`scope.parquet`逐行保存ts_code、影响起止、reason、repair_all_history，局部改键/字段另存有hash的允许范围表。
+`QfqEvidenceRef`字段为id、path、sha256、covered_dates、covered_codes_ref/hash、covered_fields、input_revision、conclusion_type；无强输入身份只能复用原因结论。
+`QfqRepairControl`字段为check_cancelled回调、emit_progress回调、monotonic时钟、当前连接及预算累计值；
+提供before_unit/after_unit、hash_progress和run_sql方法，25秒定时器只调用该连接interrupt，finally取消定时器，不创建第二个业务线程/任务。
+KeyboardInterrupt和Dagster中断异常先保存当前已完成状态再原样抛出，不能转成功或自动重试用户取消。
+
+### 20.5 执行记录的写入函数和状态
+
+`stock_daily_qfq_repair_records.py`新增以下接口；所有写路径只由op/正式writer调用，sensor只读：
+
+```python
+load_qfq_progress(*, staging_root: Path) -> QfqHistoryProgress
+save_qfq_progress(*, staging_root: Path, expected_revision: int,
+                  progress: QfqHistoryProgress) -> None
+read_qfq_file_identity(path: Path, *, with_hash: bool,
+                       cache: dict, check_cancelled: Callable) -> QfqFileIdentity
+load_qfq_repair_plan(*, staging_root: Path, plan_id: str,
+                     expected_sha256: str) -> QfqRepairPlan
+save_qfq_file_proof(*, record_path: Path, proof: QfqFileProof) -> None
+recover_qfq_file(*, proof: QfqFileProof, lake_root: Path,
+                 staging_root: Path, control: QfqRepairControl) -> str
+summarize_qfq_completion(*, plan: QfqRepairPlan, records: Iterable) -> QfqCompletion
+```
+
+`save_qfq_progress`执行：读当前revision→必须等于expected_revision→写同目录唯一临时JSON→flush/fsync→os.replace→fsync目录。
+新revision严格加1；意外并发不覆盖，报`qfq_progress_conflict`。这不是用JSON文件当锁，正式写者串行前提见20.12。
+JSON序列化拒绝NaN、额外字段及负数计数，读取设置单文件大小上限，错误不能返回空进度。
+文件身份另保存`st_dev/st_ino/st_ctime_ns`，连同size/mtime构成进程内复用hash的key；hash以1MiB块读取，前后fstat不同则`qfq_file_changed_during_read`。
+同一次稳定执行每个身份只算一次hash。重启后先看记录和文件属性；属性变更、提交归属不明确时才补读必要hash，不重新跑业务SQL。
+计划source_revision用于整次身份；文件/计算段的dependency_sha256只覆盖该单元实际使用的Source行、factor键、分母向量和seed。
+dependency表保存源路径、实际键范围、相关列、文件hash及相关行hash；相关行hash由DuckDB对固定列struct_pack→to_json，按键排序string_agg后sha256取得，不能把全部行拉到Python逐行hash。
+序列化字段顺序与类型固定，并包含规则版本、列合同及行数；空关系显式用空串计算摘要且另核预期行数，不能让string_agg的NULL掩盖缺输入。
+函数依据见DuckDB的[JSON创建](https://duckdb.org/docs/current/data/json/creating_json)、[有序聚合](https://duckdb.org/docs/current/sql/functions/aggregates#order-by-clause-in-aggregate-functions)与[SHA-256](https://duckdb.org/docs/current/sql/functions/text#sha256value)；本轮只查资料，未在正式环境执行SQL实验。
+同一as-of分母向量只计算一次并复用。源文件实际变化但只改了其他股票时，重读该文件所需投影、相关行hash不变即可复用该单元，不重新跑价格或指标。
+新计划可通过supersedes_plan_id引用旧计划的合格成果，但必须逐单元验证允许范围、pricing_version、dependency和原目标/实际输出身份相同。
+输入真正影响到的单元/后续递推段才重算，不能因为整个source_revision或plan_id改变就把所有已完成成果清零。
+
+逐文件状态只能按以下路径前进，错误另记`last_error`，不把已有合格成果退回初始状态：
+
+```text
+PLANNED → CANDIDATE_VALIDATED → REPLACE_INTENT → COMMITTED
+PLANNED → UNCHANGED
+```
+
+`UNCHANGED`必须有完整比较/范围证明和正式文件hash，不能因为exists就进入此状态。
+`COMMITTED`前已经封存候选证明；`REPLACE_INTENT`同时保存原目标和候选两个hash、候选字节数与输入版本。
+checkpoint写失败发生在rename前则不rename；发生在rename后则保留新目标，后续凭意图恢复，禁止回换旧文件。
+
+恢复判定固定为：
+
+| 实际目标 | 候选/证明 | 动作 |
+| --- | --- | --- |
+| 等于原目标，或计划明确原本不存在且仍不存在 | 候选与封存hash相符 | 完成原定rename，不重新COPY |
+| 等于本计划候选hash | 即使候选已被rename移走，意图/证明完整 | 补COMMITTED记录，不再rename |
+| 等于第三种hash，或计划已有目标突然消失 | 任意 | `qfq_target_conflict`停止，不覆盖 |
+| 目标仍旧，候选/证明损坏 | 未动正式数据 | 仅该文件/所属未完成计算段重新生成；保留损坏证据供诊断 |
+| 目标已新但缺少可证明的候选意图 | 无法确认归属 | `qfq_output_proof_missing`，不能猜测成功 |
+
+阶段状态为`AUDITING/AUDIT_COMPLETE/PREPARING/PREPARED/APPLYING/FILES_COMPLETE/COMPLETION_PENDING/PRICE_COMPLETE/COMPLETE`。
+`PRICE_COMPLETE`只表示价格和匹配完成事件成立；`COMPLETE`还要求本计划已有DG下游接续完成。
+`FAILED/INTERRUPTED`通过last_error和run终态表达，阶段保留最后已完成事实；不能清空进度后从头再来。
+
+### 20.6 一次历史检查的函数与SQL步骤
+
+`bootstrap/stock_daily_qfq_history_audit.py`接口固定：
+
+```python
+plan_stock_daily_qfq_history_audit(*, lake_root, staging_root,
+    start_trade_date, end_trade_date, as_of_trade_date,
+    reused_evidence: Sequence[QfqEvidenceRef], connection) -> QfqAuditPlan
+audit_stock_daily_qfq_history_batch(*, audit_plan, batch_id: int,
+    connection, control: QfqRepairControl) -> QfqAuditBatchResult
+seal_stock_daily_qfq_history_audit(*, audit_plan, control) -> QfqAuditSummary
+```
+
+`plan_...`枚举日历范围及实际正式文件集合，只规划一次。检查范围取应有历史与实际Source/Gold的并集，不能只遍历Gold已存在分区。
+范围外多出的日期/键单列，不删除。SSE日历覆盖、开市标志、生命周期/停牌来源合同先核对；缺事实记UNKNOWN，不假设停牌。
+已有五股和25股证据逐条登记可复用的字段、日期和源/目标标识；没有全文件hash的证据可证明原因，不能冒充全文件已检查。
+原证明只覆盖部分股票时，只扣除该范围，不能把整个共享文件设成通过。
+
+每批默认20个交易日。一次处理全部股票，用`COPY`保存异常和上下文；Python最多取20条错误样本与计数。
+先执行一次因子列投影，形成本次运行的临时因子关系和逐股不晚于as-of的最后因子；分批计算复用它，不为每个日期再次扫描因子全史。
+临时关系可落本次staging，绑定正式输入hash，仅供本次计算；不能成为独立正式因子事实源。
+
+批内SQL关系与顺序固定：
+
+```sql
+-- 1. 读取本批实际Source及批前最后实际行；保留来源日期，不凭市场前一天推断。
+WITH ordered_source AS (
+  SELECT ts_code, trade_date, open, high, low, close, vol, amount,
+         lag(trade_date) OVER w AS previous_trade_date,
+         lag(close) OVER w AS previous_close
+  FROM source_with_verified_prefix
+  WINDOW w AS (PARTITION BY ts_code ORDER BY trade_date)
+), priced_source AS (
+  SELECT s.*, f.adj_factor AS row_factor, pf.adj_factor AS previous_factor,
+         a.adj_factor AS as_of_factor
+  FROM ordered_source s
+  LEFT JOIN trade_factors f USING (ts_code, trade_date)
+  LEFT JOIN trade_factors pf
+    ON s.ts_code=pf.ts_code AND s.previous_trade_date=pf.trade_date
+  LEFT JOIN effective_as_of_factors a ON s.ts_code=a.ts_code
+)
+-- 2. 先记录缺因子/重复/非有限数，不能用INNER JOIN把缺项过滤掉。
+-- 3. 独立审计SQL给出四价、昨收、涨跌额/幅；仅比较本批，不输出批前上下文。
+-- 4. FULL OUTER JOIN到Gold键，分别标出missing_gold/extra_gold/value_mismatch。
+-- 5. 按日/股票汇总问题和首次影响日，同时COPY异常键及下一批必要上下文。
+```
+
+四价参考=`source_price*row_factor/as_of_factor`；昨收参考=`previous_close*previous_factor/as_of_factor`。
+无前序且已确认是本股第一条实际行才参考0；否则缺前序/因子进入UNKNOWN。涨跌额和幅按既有零值合同处理。
+比较条件固定为`abs(actual-expected) <= greatest(1e-10, 1e-12*abs(expected))`；NULL/NaN/Inf先按错误处理，不参与近似比较。
+量额使用源值的`IS NOT DISTINCT FROM`，不复权，不四舍五入。容差是DOUBLE运算误差，不能用于接受另一复权基准。
+量额不一致先记UNKNOWN并查明原因，不能把复权回刷变成未经说明的量额改写；它未解决时总体仍未完成。
+纯精度因子保留合同不变；若出现源合同与结果矛盾，记录明确键并停止该范围，不自动改源。
+审计SQL不import生产价格SQL builder；用独立字面/Decimal样本检验审计方法本身。
+
+批前上下文从前一已完成批的保存结果接续，包含每股最后实际日线定位及相应因子来源；不每批重新向前扫历史。
+完成批落盘后立即写批记录，封存结果hash。恢复读取已有批记录及其输入身份，无变化就接下一批，不再次计算该批。
+`seal_...`只汇总批记录及集合：每个应检查键只能落在PASS/REPAIR/UNKNOWN之一，缺批、重复计数、UNKNOWN>0拒绝封存。
+Gold缺文件/缺键属于REPAIR，源缺失属于UNKNOWN；能够修的目标不会因不存在而漏出清单。
+extra_gold先核对权威源覆盖；无法解释时属于UNKNOWN，不能直接删行让它消失。需要删除的错误键必须有独立依据和明确批准范围后才可进入变更计划。
+
+### 20.7 受影响范围和统一公式的代码修改
+
+`stock_daily_qfq.py`新增纯函数：
+
+```python
+build_stock_daily_qfq_price_relation_sql(*, source_relation_sql: str,
+    factor_relation_sql: str, as_of_relation_sql: str,
+    previous_relation_sql: str) -> str
+build_stock_daily_qfq_effective_asof_sql(*, factor_relation_sql: str,
+    as_of_trade_date: date) -> str
+```
+
+只接收内部SQL关系，不接受运营SQL。将现有`_stock_daily_qfq_base_ctes_sql`中的四价/昨收表达抽到此函数；
+现有单日`build_stock_daily_qfq_select_sql`和新批次writer都调用它，禁止复制两套生产数学表达。
+effective-asof函数从既有bootstrap的ranked_factors SQL抽取，逐股取<=as-of最后可用因子，输出ts_code、trade_date=as-of、source_trade_date、adj_factor。
+bootstrap、审计准备分母与repair共用这个来源选择；审计数值比较仍独立于价格公式builder。
+调用前统一核对源键唯一、因子覆盖且>0、前序存在时因子不能缺失；不能让WHERE条件把缺因子行静默丢掉。
+候选行数必须与计划Source键相等，不为通过校验删行。
+
+`stock_daily_qfq_repair.py`接口：
+
+```python
+detect_stock_daily_qfq_factor_changes(*, connection, factor_paths,
+    expected_trade_dates, start_date, end_date) -> tuple[QfqAffectedScope, ...]
+build_stock_daily_qfq_repair_plan(*, connection, lake_root, staging_root,
+    source_audit: QfqAuditSummary | None, reconcile_dates,
+    as_of_trade_date, progress, control) -> QfqRepairPlan
+prepare_stock_daily_qfq_repair(*, connection, plan, control) -> QfqPrepareResult
+apply_stock_daily_qfq_repair(*, plan, control) -> QfqApplyResult
+execute_gold_stock_daily_qfq_factor_repair(*, connection, lake_root, staging_root,
+    config: GoldStockDailyQfqFactorRepairConfig, record_store,
+    control: QfqRepairControl) -> QfqExecutionResult
+```
+
+`detect_...`一次比较最多10个待处理日及其前一日因子，union受影响股票；用完整键检查后比较，不用INNER JOIN隐去缺因子。
+仅新上市、没有任何更早历史Source/Gold且上市事实相符时，前日无因子可免历史回刷；有更早历史却缺前日因子必须报错。
+同股多个原因合并，分母变化/混基准设`repair_all_history=true`；仅Source局部更正按实际键及下一实际报价昨收扩展。
+范围推导具体为：日线close更正影响当日及下一实际报价的昨收/涨跌额/幅；open/high/low仅影响当日相应字段；
+某历史factor更正影响当日四价及下一实际报价昨收。若该factor恰为该股截至as-of最后可用的那条，则分母改变，改为全历史。
+不能只用“更正日期等于as-of日期”判断分母变化，否则会漏掉退市股票最后因子的更正。
+审计保存的Gold/独立期望close比值在同股历史出现多个口径时归mixed_basis；整体同一非1比例归factor_change；
+仅个别字段错误且无法证明是源更正时归value_mismatch，按明确错误键修，不编造源端原因。归类只处理已保存审计结果，不再扫描Gold。
+源文件身份改变但差异仍未核清时不得直接no-op，先对这个文件做局部审计。
+
+全历史扩展起点取该股源/目标有效历史的并集，不能只从已存在Gold取最小日。需要创建Gold的日期必须在计划中标`CREATE_MISSING`并有完整Source证明。
+无法产生价格的源缺口不得生成候选，返回待处理问题。计划内已存在的目标为`REPLACE`；经完整比较没有变化则`KEEP`。
+计划保存每个日期所有受影响股票和字段范围；局部源更正仍保留未受影响字段，四价回刷不得改量额。
+as-of固定不晚于本次上游完整末端且不早于当前已确认as-of；更早的请求报`qfq_as_of_regression`。
+退市股票的分母取截至该日最后可用因子，不要求当日仍有记录。
+
+日更保留20日快速前序查询，但没有查到某股时调用：
+`resolve_stock_daily_qfq_previous_rows(connection, source_codes, trade_date, history_records)`。
+它先从已验收日期索引定位上一实际日，读取对应正式Silver行和factor；定位记录不一致/缺输入报错。
+没有索引时不能直接写0，交离线检查补齐；仅生命周期与完整覆盖证明首次实际行时允许0。
+这里的首次实际行包括已经确认的正式Lake覆盖起点第一条可计算行，不要求其等于上市日；不能因上市早于湖覆盖而误拦合法首行。
+原默认`as_of_trade_date=None`退出正式writer签名；所有调用显式传as-of，日更新D才允许D。
+
+### 20.8 候选准备和范围验证
+
+`io/stock_daily_qfq_writer.py`接口固定：
+
+```python
+prepare_stock_daily_qfq_partition_candidate(*, connection, plan,
+    trade_date: date, source_relations, record_store, control) -> QfqFileProof
+validate_stock_daily_qfq_candidate(*, connection, candidate_path, original_path,
+    trade_date, allowed_scope_relation, expected_source_keys) -> QfqCandidateValidation
+promote_stock_daily_qfq_candidate(*, proof, record_store, control) -> QfqFileProof
+```
+
+准备顺序：先查文件记录；COMMITTED/UNCHANGED直接复用；CANDIDATE_VALIDATED读取必要hash确认，不重新COPY；其余才计算。
+每次实际重新生成分配新的generation并在COPY前记入文件记录；未封存的失败候选不覆盖、不unlink，保留原attempt目录。
+本批Source和批前上下文先形成有界临时关系；同日所有变化行合并成一个replacement关系。
+输出SQL为原文件中不允许修改的行/字段，加本计划replacement；CREATE_MISSING输出完整合法Source键。
+缺原目标却未标CREATE_MISSING、或已有目标却标CREATE_MISSING，立即冲突停止。
+
+候选校验一次，返回各规则计数和至多20个失败样本：
+
+1. 对照`GOLD_STOCK_DAILY_QFQ_SCHEMA`核对列顺序和物理类型；复用`stock_factor_price_checks.py`的日期/键非空/唯一规则。
+2. Source实际应输出键与候选受影响键双向EXCEPT ALL为0；不以总行数相同代替键集合正确。
+3. 未受影响行对原文件做一次双向EXCEPT ALL；受影响行的量额、未批准修改字段逐项相等。
+4. 全部输入缺项已在准备前解决，输出计数与计划相等；不再次调用价格公式生成另一份expected。
+5. 结构/范围校验、候选hash和输入版本一起落入CANDIDATE_VALIDATED；失败候选保留，正式目标未动。
+
+整计划正式提升前要求所有价格候选均已通过，不能一边才发现后半段缺源、一边先改前半段。
+默认20日计算段，段末保存候选/上下文；下次先复用已封存段，不按股票重复跑整段Source。
+临时查询有25秒取消预算；超时中断后把未完成日期批减半，最小1日仍超时则明确失败，不能无限重试或偷偷扩大资源。
+
+### 20.9 提交与完成登记的严格顺序
+
+op根据action只执行对应阶段，`reconcile`是同一受控run内依次规划→准备→价格提交→价格完成登记；
+history将audit/prepare/apply分开，以便管理员审阅真实候选和范围。
+价格apply入口伪代码如下，函数调用和异常路径是开发约束：
+
+```python
+assert_formal_qfq_run(context)                 # 正式根；临时隔离root走测试合同
+plan = load_qfq_repair_plan(plan_id, plan_sha256)
+progress = load_qfq_progress()
+assert_no_other_active_plan(progress, plan)
+assert_all_candidates_validated(plan, asset_key='gold_stock_daily_qfq')
+assert_plan_source_identities(plan)            # 首次rename前一次核对全部实际依赖
+save_progress(active_phase='APPLYING', active_plan=plan)
+for proof in iter_target_proofs(plan, asset_key='gold_stock_daily_qfq'):
+    control.check_cancelled()
+    outcome = recover_qfq_file(proof)           # 先识别成果；不能先算
+    if outcome == 'needs_replace':
+        assert_input_and_target_identity(proof) # 稳定记录复用；实际变化才补查hash
+        save_file_proof(status='REPLACE_INTENT')
+        fsync(candidate)
+        assert_same_device(candidate, target_parent)
+        os.replace(candidate, target)
+        fsync(target_parent)
+        save_file_proof(status='COMMITTED', actual_target_identity=...)
+save_completion(stage='FILES_COMPLETE')
+save_progress(active_phase='COMPLETION_PENDING')
+emit_qfq_completion_check(plan, summarize_qfq_completion(plan))
+save_completion(stage='PRICE_COMPLETE')
+save_progress(active_phase='PRICE_COMPLETE', pending_consumers=...)
+```
+
+`iter_target_proofs`按asset/date稳定顺序流式读，不把全部行情或完整文件清单复制到每个worker。
+同文件系统rename保证单个文件不是半截内容；不保证全历史同时切换。
+rename后checkpoint失败：run失败，目标保留，恢复见20.5；完成事件失败：FILES_COMPLETE保留，恢复只补事件。
+prepare与apply之间发生源更正时，先核全部依赖再开始rename；变化按上述dependency局部失效，不能等改到半途才首次检查那份已变输入。
+正常正式运行受同一全局队列串行保护；中断期间实际输入改变则按已保存的范围形成后继计划，沿用未受影响成果，不能带着已失效的旧输入硬续跑。
+事件已写但后续记录失败：先按plan/batch读取现有protected完成事件，匹配则补文件记录，不重复写事件。
+不匹配/旧合同事件不能当成成功；只追加更正，不删除历史事件。
+
+`summarize_qfq_completion`必须逐项断言：target_index与文件记录键集合完全一致、无多余记录、
+`selected=COMMITTED+UNCHANGED`、pending/failed=0、全部证明引用/hash成立、审计未知和缺批均为0。
+无变化时selected=0但必须记录实际已核对日期范围和输入版本，不能省略整个完成记录。
+这里不运行生产公式、COPY或全历史ordinary readiness；仅核对执行成果及必要的文件归属。
+
+### 20.10 sensor的实际读取与决策代码
+
+原QFQ repair sensor改为`@dg.sensor(job=原repair_job, minimum_interval_seconds=600, default_status=STOPPED, resource_defs沿用现有装配)`。
+分类仍由`build_sensor_tags(QUOTE_DATA, GOLD, ASSET_UPDATE)`生成。函数参数改`SensorEvaluationContext`，返回`SensorResult`。
+删掉`context.dagster_run`、`monitored_jobs`、`_trade_date_from_dagster_run`及只判断触发日的决策函数。
+新增纯决策函数`select_stock_daily_qfq_repair_work(progress, expected_dates, current_sources, run_status, consumer_status) -> QfqWorkDecision`。
+
+有界批量事件核对新增：
+
+```python
+batch_stock_daily_qfq_event_readiness(instance, trade_dates: Sequence[str])
+    -> Mapping[str, QfqEventReadiness]
+```
+
+输入最多10日。check keys从现行`STOCK_DAILY_READINESS_SPECS`、`ADJ_FACTOR_READINESS_SPECS`、`GOLD_STOCK_DAILY_QFQ_READINESS_SPECS`展开并去重。
+调用当前安装版本真实支持的：
+
+```python
+infos = instance.event_log_storage.get_asset_check_partition_info(
+    keys=check_keys, partition_keys=list(trade_dates))
+# 按(check_key, partition_key)映射；不得逐日期再调用scalar readiness。
+ready = (每个所需info都存在
+         and info.latest_execution_status == SUCCEEDED
+         and info.latest_materialization_storage_id is not None
+         and info.is_current)
+```
+
+源码已核实SUCCEEDED来源于evaluation.passed；`is_current`本身允许无materialization，所以非空条件不可删。
+该API内部按check key发查询，读取模型为`1+C`条左右（C为check key数），不是一条SQL，也不是`10*C`；隔离假客户端与SQL计数都要验证。
+接口是当前Dagster内部API，集中在这个adapter；升级时由契约测试阻断不兼容。关联storage id不进入业务身份。
+历史baseline范围不要求重补全史ordinary事件；它使用已保存的文件合同证明。这里的事件核对只用于新增日常日期。
+
+每tick按以下顺序，只读取一次progress并构造一个结果：
+
+1. 根不可用/时间未到，立即skip；不扫描文件或事件。
+2. progress不存在/坏JSON/无已验收baseline，返回`qfq_history_baseline_missing`，不自动从最近10日初始化。
+3. 当前活动run还在排队/运行则只显示等待。失败或取消显示对应原因，保留未完成位置，等待人工按同计划递增attempt恢复。
+4. 有FILES_COMPLETE/COMPLETION_PENDING，则提交同计划finalize，不重新算价格；有pending nineturn则提交`repair_nineturn`；只有pending trend时等待其sensor；PRICE_COMPLETE且消费者均完成时提交finalize推进COMPLETE，不新建价格计划。
+5. 读取至多3个上游最新materialization（每个asset limit=1），仅作为变化提示；不能据此证明期间每个旧日期都未变。
+6. 对20.11规定的500日期文件属性核对；变化提示/缺项不写进cursor明细，提交一个受控reconcile核对任务持久处理。
+7. 按日历从`unverified_from`或`reconciled_through`之后取最早连续未完成日期，批量核对ready。积压超过10日返回`qfq_history_backlog_requires_plan`，留给一次合并的历史任务，不重复逐日回刷同股。
+8. ≤10日且完整时提交一个reconcile请求。sensor不写JSON执行记录或Parquet，op接到请求后先持久登记才处理。
+9. 无工作时skip，不重复生成no-op任务；无因子变化但日期尚未核对过时仍必须生成一次有完成记录的reconcile。
+
+变化核对请求可先不提供新增日期：此时reconcile使用`start=end=当前已验收末端`，再由op核实旧文件变化。
+巡检起点必须来自显式`patrol_start_trade_date`，不能在op重新猜测为progress中更早位置。
+op先比较`expected_progress_revision`；排队期间位置已变化则返回`reason_code=qfq_request_superseded`，不写完成check，由下一tick重新选择。
+真实受影响范围从核实结果推导，不能仅因config这一天的因子不变就no-op，必须处理本次发现的旧文件变化。
+sensor里的轻量核对结果只决定“需要核实”，真正日期/范围在op内重新按固定progress revision确认，避免提交后输入变化使用旧判断。
+
+cursor继续使用`build_sensor_cursor/load_sensor_cursor`，details只保存`summary/next_action/reason_code`、
+`progress_revision`、`reconciled_through`、`active_plan_id`、`selected_date`、计数和至多5个错误代码。
+cursor不是完成事实；重置不导致跳过历史。旧run-status cursor无法解析时只读progress恢复；progress也不能恢复就报错。
+巡检未发现属性变化时，cursor还保存`patrol_next_date/patrol_progress_revision`供下一tick继续；这只表示巡检位置，不改变业务完成日期，不为保存无变化位置创建一次job。
+正常cursor目标2KiB、硬上限8KiB。提交RunRequest后不推进`reconciled_through`，该字段只能由完成op更新。
+
+### 20.11 输入变化、巡检和局部失效
+
+`stock_daily_qfq_repair_records.py`新增：
+
+```python
+inspect_stock_daily_qfq_file_changes(*, lake_root, staging_root,
+    expected_dates, next_date: date, date_limit: int = 500) -> QfqFileChangeHint
+verify_stock_daily_qfq_changed_files(*, connection, hints,
+    progress, control) -> QfqSourceChangeResult
+```
+
+`inspect_...`只按日历构造500日以内的3类已知路径（Silver日线、Silver因子、Gold QFQ），每类最多一次stat；
+读取对应500份日期记录。禁止glob后再读全部行情，也不运行价格SQL。读记录总字节预算8MiB，超过则减小本次日期数，不能丢日期。
+mtime/size/ctime/inode有变、缺文件、新文件或没有证明记录均返回变化提示；属性未变则复用已保存内容hash。
+有变化时核实op保存巡检位置；没有属性变化时只推进cursor的巡检位置，不创建无意义的no-op job。
+cursor丢失最多重复属性核对，从progress内最近保存的位置重新轮转，不重复行情审计；业务完成位置仍只认progress和不可变证明。
+按起点到当前覆盖末端再回起点轮转，不把更早历史永久留在范围外。
+满批且无中断时一轮需要`ceil(N/500)`个tick；实际若因字节/时间预算缩小批次，按已完成日期继续，不能把500上限当成保证吞吐。
+最小间隔600秒只用于估算；UI记录实际最后推进时间，不伪造固定完成时刻。
+
+核实op对变化文件计算必要hash：内容相同则仅更新属性记录，不重算；内容不同则只对该日期实际Source/Gold做局部检查。
+只有巡检属性变化而内容未变时，不生成新价格计划或重复protected完成check，返回该请求已核实即可；
+新增业务日期没有因子变化时仍生成一次no-op完成计划，两种情况不得混用。
+Source更正需要检查该股下一实际报价的昨收和下游后续范围；as-of因子变化/混基准则扩该股全历史。
+如果只是同日期某股新增/删除，键差异也必须记录；不能因为受影响股票数量或codes hash未变就忽略。
+日期记录找不到对应不可变证明时返回`qfq_history_proof_missing`，不能重新标绿。
+
+成功提交价格后及时更新相关dates记录的目标身份，因此巡检不会把自己刚完成的修复再次认成外部错误。
+源发布记录只作加速提示，遗漏事件仍能由轮转发现；一次tick/一次触发遗漏不影响下一次继续。
+进程停机期间没有运行时不承诺主动发现；恢复时从保存位置继续；巡检操作失败/损坏在UI明确报错。
+同文件内容被改变但所有文件属性被恶意伪造不由轻量巡检保证；正式入口禁止这种写法，出现具体证据才定点内容检查，不安排周期性全史重算。
+
+### 20.12 正式并发、历史CLI和初始化
+
+本轮只读本机配置确认：`~/.goldenshare/dagster_home/dagster.yaml`使用QueuedRunCoordinator，
+`concurrency.runs.max_concurrent_runs=1`，`pools.granularity=run`。不新增pool、锁或并发配置。
+不能把“当前配置是1”当永久假设，正式写入口统一调用：
+
+```python
+assert_formal_qfq_run(context, *, lake_root) -> None
+```
+
+在正式根时要求：`context.instance.is_persistent`、run_coordinator为QueuedRunCoordinator、
+`context.instance.get_concurrency_config().run_queue_config.max_concurrent_runs == 1`、
+`context.dagster_run.remote_job_origin`存在且location/repository为本正式orchestrator来源。
+另用`get_runs(RunsFilter(statuses=[STARTED]), limit=2)`检查实际运行；在全局1的合同下应只有本run，返回另一个实际STARTED run就报`qfq_concurrent_writer`。
+过滤条件不包含QUEUED，其他排队任务不会被误报并发；不通过逐job无界查询证明互斥。
+正式直接`execute_in_process`通常无remote origin，必须拒绝，不接受传一个bool声称已经排队。
+此检查用于生产写入保护，不是用run来源判断历史是否已经处理；历史遗漏发现仍独立于来源。
+
+新写入`gold_stock_daily_qfq`时，先把本日`unverified=true`和`unverified_from`持久记录，再生成候选/提升；
+普通checks通过后也要等reconcile确认历史。已有目标只允许与同输入证明完全相同的复用，不允许日更入口覆盖旧历史。
+`progress`处于历史audit/prepare/apply/下游恢复期间，QFQ日更sensor和asset都报`qfq_history_maintenance`，防止手工绕过sensor。
+源Silver的新日期可以由既有队列正常生成，固定截止日外的新增不使本次旧范围过期；计划输入范围内的真实变化才局部失效。
+
+历史CLI的行为改动要在开发交付中明确：
+
+- `profile-history`及不带`--apply`的原阶段继续只读规划；不改成隐式生产执行。
+- 原`write-sample/build-history --apply --lake-root=<正式根>`在任何扫描/写入前报`qfq_formal_write_requires_queued_job`，输出应提交原repair job的配置说明。
+- 新增`plan-audit`和`plan-repair`两个stage，只生成本节config JSON和预计范围；没有自动启动job或安装依赖。
+- 正式执行由Dagster UI/获准队列提交原job，action依次audit_history、prepare_history、apply_history、finalize_history；不能仍直接调用原generate写正式根。
+- 现有`generate_gold_stock_daily_qfq_history`的正式写分支迁移到统一执行器并要求context；仅测试临时根可直接调用候选路径。去掉未授权正式写绕路。
+
+第一次建立baseline时，只有`audit_history`允许创建初始progress（AUDITING、baseline未验收）；sensor/日更不能自建通过状态。
+审计封存可包含REPAIR，但UNKNOWN必须0；准备/提交后实际错误集合清零，finalize才设置baseline_as_of/reconciled_through。
+若没有错误也必须保存全覆盖证明，再设置baseline；不是一个空计划就宣告全历史正确。
+新日常进度初始化使用这次完整历史的实际截止日，不能补齐几天事件后直接跳到最新。
+历史缺Gold文件可由明确CREATE_MISSING计划补齐；缺动态分区先列出注册范围，正式注册单独按既有入口和授权执行，不在repair里顺手注册。
+
+### 20.13 趋势结果/state的准确迁移
+
+趋势repair保留原job名称。其sensor改为普通600秒轮询，读取progress中当前计划的`pending_consumers.trend`，
+不再从触发run_config解析原因日；无pending直接skip，每tick最多一个请求，失败/取消保留并显示。
+首次run key复用`build_upstream_triggered_run_key(consumer=趋势消费者, upstream_batch_id=价格完成记录提供的值)`；
+人工恢复复用`build_repair_attempt_run_key(subject=趋势消费者, repair_scope_id=同一opaque upstream_batch_id, attempt_scope='resume', attempt=N)`。
+下游不从plan字段重拼上游batch；plan_id/hash只作为准确读取执行参数的引用，attempt取该消费者恢复次数。
+
+`ops/gold_stock_daily_trend_channel_repair.py`修改点：
+
+1. `_validated_qfq_repair_status`改为按source_plan_id/hash核对PRICE_COMPLETE及实际文件证明，取得内部股票集合；不接受输入股票池。
+2. `_trend_repair_trade_dates`改签名为`(expected_trade_dates, affected_start, result_existing_dates, state_existing_dates) -> QfqConsumerScope`。
+3. 起点为首个受影响价格在趋势覆盖内对应日期，终点分别取结果/state已有末端；不能继续固定原因日前一日，也不能把QFQ日期数减1。
+4. 结果/state覆盖原本应配对却缺一边时记未解决；不得取两者交集后假装完整。没有该股/资产历史覆盖时记录NOT_APPLICABLE及依据，不新增覆盖。
+5. seed取起点前一个expected日的有效state，仅当未被本次价格变化污染且证明匹配时复用；否则从现行已确认初始化起点重算必要前缀，前缀只作上下文不扩输出。
+6. 若现有初始化合同无法提供可靠seed，报`qfq_consumer_seed_unverified`保留未解决；不能随意取更早任意state或补0。
+
+原`write_stock_daily_trend_channel_factor_repair`拆为：
+
+```python
+prepare_stock_daily_trend_channel_repair(*, connection, source_plan,
+    consumer_scope, record_store, control) -> QfqConsumerPrepareResult
+apply_stock_daily_trend_channel_repair(*, source_plan,
+    record_store, control) -> QfqConsumerApplyResult
+```
+
+复用`_compute_trend_repair_segment`、现行递推核和结构/覆盖/修改范围校验；保持原SEGMENT_TRADE_DAY_LIMIT，
+原`_normalize_trend_repair_codes`中的500上限改由计划模式决定：自动模式仍500，已封存历史模式按10000单计划资源上界，不能让自动上限漏掉批准对象。
+每段候选及末端seed保存后封存。恢复从第一个未完成段开始，前段仅核成果，不重新递推。
+`_prepare_trend_repair_candidates`不得unlink合格候选。结果/state分别按20.5提交，段/日期只有两者都COMMITTED才完成。
+替换顺序沿用state→result，但中间异常由两份REPLACE_INTENT恢复，消费门禁在成对完成前不放行。
+移除原writer“提升后再全量业务校验”的循环；候选验证证明+rename输出归属证明用于最后汇总。
+现有趋势两个protected completion名称保留，metadata加入source_plan_id/hash与真实结果/state文件计数。
+
+`stock_daily_trend_channel_sensor._qfq_reconciliation`改为调用历史状态helper，删除最新materialization run_id重拼批次、相邻因子重算和数量减1。
+日更asset本身也在读价格前检查history状态，避免手工调用绕过；历史repair凭匹配source_plan读取PRICE_COMPLETE结果，不被自身pending标记死锁。
+
+### 20.14 日九转、发布及消费门禁
+
+日九转历史接续由原QFQ repair job的`action=repair_nineturn`执行，不新增每日数千个run或新job。
+原QFQ sensor看到pending nineturn时提交一次该action；它只能消费已PRICE_COMPLETE计划，不能重新修价格。
+`qfq_nineturn.py`新增：
+
+```python
+prepare_stock_daily_qfq_nineturn_repair(*, connection, source_plan,
+    existing_target_dates, record_store, control) -> QfqConsumerPrepareResult
+```
+
+对计划受影响股票，使用现有`build_gold_stock_daily_qfq_nineturn_select_sql`和同一公式核，
+按实际行情顺序计算至九转已有末端。计数可能延续超过20日，不能只改close或只处理固定20日窗口。
+首次受影响之前的有效上下文必须覆盖比较lag=4及连续计数的正确seed；不能直接沿用受污染旧九转计数。
+候选仅输出计划覆盖内已有目标日期，其他股票原样保留。close类展示字段也要随新价格更新，不能以计数碰巧没变就跳过价格字段。
+同一计算段一次计算并分日期输出，候选/提交使用20.5—20.9的记录；完成后pending nineturn清零，追加一条日九转观察说明引用真实计划和数量，不伪造全市场ordinary checks通过。
+不调用`rebuild_qfq_nineturn_scope`完整入口，不复制backup、失败回换或finally清理成果；不改分钟九转逻辑。
+
+`asset_guards/stock_daily_qfq_factor_repair.py`新增统一消费接口：
+
+```python
+stock_daily_qfq_history_consumption_status(*, lake_root, staging_root,
+    consumer: str, target_trade_date: str, source_plan_id: str | None = None)
+    -> QfqHistoryConsumptionStatus
+```
+
+daily模式要求baseline已验收、无maintenance/未解决、目标日已reconcile、对应消费者没有更早pending；
+repair模式要求明确source_plan_id/hash、价格PRICE_COMPLETE且输入输出证明匹配，只允许对应计划读取，不能传bool绕过。
+返回`ready/reason_code/as_of_trade_date/source_plan_id/source_revision`及计数，不返回行情明细。
+调用位置固定在趋势日更asset/sensor、日九转日线asset/sensor、Prod日九转发布asset/sensor的源读取之前。
+Prod发布还需九转当前输出记录与价格计划一致；本轮仅实施阻断合同，不执行Prod重发或改旧serving数据。
+研究直接读文件不受函数强制控制，正式历史修复维护期对这些读者明确暂停安排，不宣称仅改sensor就能隔离所有外部读者。
+
+### 20.15 完成metadata、状态函数和错误码
+
+原protected名称`gold_stock_daily_qfq_factor_repair_plan_evaluated`保留，partition取计划as_of，blocking=True。
+`build_gold_stock_daily_qfq_factor_repair_check_metadata(plan, completion, producer_run_id)`必须先调用20.9的完整断言，
+再用现有`build_check_metadata`生成，不裸写另一套顶层metadata。
+
+必填extra_metadata为：`schema_version=2`、`plan_id/plan_sha256`、`source_revision`、`pricing_version`、
+`as_of_trade_date`、`reconcile_start_trade_date/reconcile_end_trade_date`、`repair_start_trade_date/repair_end_trade_date`、
+`selected_partition_count`、`rewritten_partition_count`、`unchanged_partition_count`、`pending_partition_count=0`、`failed_partition_count=0`、
+`repair_required`、`repair_required_code_count`、`repair_required_codes_hash`、`repair_required_codes`、`repair_required_codes_truncated`、
+`completion_ref/completion_sha256`、`upstream_batch_id`、`producer_run_id`、`covered_key_count`、`unresolved_count=0`。
+其中repair_start/end是实际价格输出范围，不等同于原因日范围；无修改时为空且selected/rewrite/unchanged都为0。
+≤500股写完整有序代码；更多只写前20样本及truncated=true，完整范围从同hash计划读取，不能因此跳过其余股票。
+新下游从计划取全范围，不继续使用“truncated就永远不能修”的旧自动合同。
+
+状态函数替换为：
+
+```python
+gold_stock_daily_qfq_factor_repair_status(instance, *, staging_root,
+    plan_id: str, plan_sha256: str) -> GoldStockDailyQfqFactorRepairStatus
+```
+
+它读取计划、completion.json，再用已知as-of精确读取这个protected check，
+要求passed、blocking、partition、schema、plan/hash、input revision、全部计数与完成文件一致。
+latest check属于别的计划时不得误用；完成记录表明已写事件但查询不到时`qfq_completion_event_missing`，可在队列内finalize补齐，不假装已绿。
+数据/日期记录不匹配、缺文件证明、计数不等式失败分别返回明确not-ready，不回退旧合同。
+`GoldStockDailyQfqFactorRepairStatus`增加plan/as-of/input revision、unchanged/pending/failed计数；由计划内部加载股票，cursor只取摘要。
+
+`finalize_stock_daily_qfq_repair(context, plan)`分两步：
+
+1. FILES_COMPLETE后只补匹配价格完成事件与PRICE_COMPLETE；已有事件匹配则直接补状态，价格计算/COPY为0。
+2. PRICE_COMPLETE后只检查当前计划trend/nineturn完成记录和未解决项；齐全才COMPLETE，并更新reconciled_through、baseline和巡检日期索引。
+
+普通reconcile没有价格变化时消费者明确记`NOT_REQUIRED`，有范围但该下游从未有覆盖则记`NOT_APPLICABLE`并附范围依据；
+两者都不能掩盖已有覆盖缺文件。完整历史baseline首次验收必须审计集合无未知、全部REPAIR已提交，才允许reconciled_through跨过历史。
+pending trend存在时QFQ sensor只等其独立repair sensor，不再创建新价格计划，避免覆盖尚未消费的完成身份。
+
+错误码集中在本数据集合同，异常对象同时带中文说明和有界样本；下表锁定不可静默继续的分支：
+
+| 错误码 | 触发条件/动作 |
+| --- | --- |
+| `qfq_history_baseline_missing` | baseline/执行记录不能证明已有历史；只允许人工历史audit初始化 |
+| `qfq_config_legacy_fields` | 旧配置或手写stock_codes；解析即拒绝，无读写 |
+| `qfq_source_missing` / `qfq_previous_source_unverified` | 源/前序事实不足；记UNKNOWN，不填0 |
+| `qfq_source_changed` | 计划范围内源身份实际变化；局部重新审计/规划，旧候选不提升 |
+| `qfq_as_of_regression` | 旧截止日试图覆盖新结果；拒绝 |
+| `qfq_history_backlog_requires_plan` | 自动积压>10日或受影响>500股；保持位置、显示离线处理范围 |
+| `qfq_candidate_invalid` / `qfq_scope_mismatch` | 结构、键、保留字段或允许范围不符；留候选和具体规则，不写正式文件 |
+| `qfq_target_conflict` / `qfq_output_proof_missing` | 第三方改写、意外缺目标或提交归属不明；停止，不回换旧文件 |
+| `qfq_progress_conflict` / `qfq_checkpoint_io_error` | revision冲突或进度保存失败；提交前不动文件，提交后留现场等待恢复 |
+| `qfq_formal_write_requires_queued_job` / `qfq_concurrent_writer` | 绕过正式队列/并发条件失效；正式写入前拒绝 |
+| `qfq_consumer_seed_unverified` | 递推seed无法证明；保持下游未完成，不随意初始化 |
+| `qfq_budget_exceeded` / `qfq_sql_timeout` | 批次、空间、内存/SQL预算不满足；按预定边界缩小未完成批次或停止，不截断对象 |
+| `qfq_completion_event_missing` / `qfq_completion_event_write_failed` | 事件未登记；已有文件保留，finalize只补登记 |
+
+UI通过已有run日志、check metadata和sensor cursor显示阶段、当前对象、完成/总量、最后更新时间和下一步。
+进度只报真实已完成文件/读取字节/已封存批次；心跳不增加业务完成量，未知ETA显示暂无法估算。
+无需新页面、报警服务或消息发送权限。
+
+### 20.16 配置来源和预算的唯一位置
+
+不新增env、Settings项或数据库配置。运行意图只来自20.3的Dagster run config，保存在run与不可变计划；
+所有规模预算由`run_contracts/stock_daily_qfq_repair.py`的`QfqRepairBudget`和一个`DEFAULT_QFQ_REPAIR_BUDGET`提供，
+生成计划时记录其完整值和hash，writer/sensor不得各自手写不同数字。
+日常500股限制引用既有常量而非重复定义；历史模式不把自动限制当作修复对象过滤条件。
+
+| 名称 | 默认/来源 | 消费者、生效与运维可见性 |
+| --- | --- | --- |
+| `sensor_interval_seconds` | 600，合同常量 | 两个改造sensor定义；Definitions重载生效，Automation可见 |
+| `automatic_trade_date_limit` | 10，合同常量 | QFQ sensor/自动计划；超限持续阻断 |
+| `automatic_code_limit` | 原500常量 | QFQ自动计划和趋势自动准入；不限制批准历史计划 |
+| `patrol_date_limit` | 500，合同常量 | 属性巡检/op；单次读取约1500个文件属性和≤8MiB记录 |
+| `audit_batch_trade_dates` | 20，合同默认，写入计划 | 审计/价格准备；只对未完成批次减半，不改已封存批次 |
+| `maximum_scope_trade_dates` | 4000，合同默认，写入计划 | 单次历史执行范围保护；不是历史截断起点，超过须分计划覆盖，不遗漏剩余日期 |
+| `maximum_stock_count` | 10000，合同默认，写入计划 | 单次临时关系/集合上限；超限给出全部对象分批方案，不能过滤多出的股票 |
+| `maximum_batch_rows` | 200000，20日×10000股上界 | Source/价格临时关系；超过先按日期减半；Python不fetch全部行 |
+| `maximum_candidate_bytes` | 32GiB，合同默认，写入计划 | 单计划候选/中间结果预算；准备前估算、运行累计；不包含既有正式文件 |
+| `sql_timeout_seconds` | 25，合同常量 | 有界SQL包装器；超时interrupt并停止/减小未完成批次 |
+| `hash_chunk_bytes` | 1MiB，合同常量 | 文件hash；可检查取消并报告真实读取量 |
+| `maximum_progress_bytes` / `maximum_patrol_record_bytes` | 64KiB / 8MiB | JSON读写/巡检；超过明确报错或减小单批，不能悄悄截断 |
+| 正式Lake/staging根 | 既有DEFAULT_LAKE_ROOT/DEFAULT_LAKE_STAGING_ROOT | paths与正式准入；不增加别名或新目录层级 |
+| DuckDB内存/线程/spill | 既有受控DuckDBResource配置 | 不在QFQ脚本覆盖；执行单记录实际配置和累计spill |
+| 正式并发 | 现有dagster.yaml：QueuedRunCoordinator、全局1 | 所有正式写者执行前核实；本轮不改变全局配置 |
+
+预算不是另一份“已完成”状态；运行完成位置只在20.4记录。
+变更预算必须修改唯一合同、相应测试和原LLD，旧冻结计划不原地改hash。
+如果现有正式范围超过单计划上界，完整审计结果仍保留；后续按原清单分段生成有覆盖关系的计划，全部完成前总体未完成。
+这些是代码设计值，不声称是已获正式执行规模或测量通过。
+
+### 20.17 读取、计算、恢复与最后验收的成本
+
+设N为纳入的交易日、C为事件check key数、K为受影响日期文件、T为候选字节。
+只读范围和预计开销必须先获得对应全局读取授权；以下模型供执行单按真实库存填值，不重新做五股原因审计。
+
+| 路径 | 明确次数模型 | 允许保存/复用的成果 |
+| --- | --- | --- |
+| 日常repair tick | 1份progress；最多500日期记录和1500次stat；至多3个最新mat查询各limit1；1次C项批量check API；1次run查询limit1 | 不读历史OHLC；因子比较放到已选job。C项API内部约1+C条查询，不宣称只有1条 |
+| 新增≤10日reconcile job | 相邻因子最多11份，1次集合diff；变化文件才局部核实；无变化无需重写历史 | 一份无变化/修复完成证明，重复tick不再建同任务 |
+| 完整历史audit | 一次库存；因子必要列一次正式扫描并保存本次临时关系；Source/Gold按20日批各一次业务扫描 | 每批覆盖/异常/上下文和全部必要文件hash；不按股重扫 |
+| hash成本 | 首次实际使用的每个源/目标身份一次顺序内容读取；与SQL读取是不同I/O，计入预算 | 同运行稳定身份复用；不是“整个任务只读文件一次”的虚假承诺 |
+| 价格准备 | 有影响股票Source按段计算，已有目标保留行只读；每个实际目标至多1次完整COPY和1次范围校验 | 合格候选、输入版本、目标原版本、校验结果；不在正式提交时再算 |
+| 趋势/九转 | 仅实际受影响对象及必要前缀至各自已有末端；段间保存seed/context | 每段候选/校验/末端状态；恢复从未完成段开始 |
+| 正式apply | K条文件记录、每文件至多1次replace与对应持久记录；必要属性/归属hash | rename前后结果，已COMMITTED文件不再COPY/replace |
+| 中断恢复 | 只识别既有记录及未完成单元；必要hash和未完成后缀 | 已封存批/段的业务SQL=0、COPY=0；明确不包括必要的小文件/身份核对 |
+| 最后验收 | 汇总审计覆盖与完整文件记录，核对已提交归属；无变化输入不重读行情 | 全历史价格重算=0、指标重算=0、COPY=0；不逐日期扫DG绿灯 |
+
+准备前空间估算至少包含T、临时因子/上下文、段间状态及现有DuckDB spill配额；
+按当前目标字节和CREATE_MISSING行数估算，生成阶段预留，完成后累计结算，结束一次汇总。
+不每秒递归目录，也不每文件重算全部空间。预算不足停止并保留已有成果，不引入备份或自动清理。
+任一单元SQL超过25秒由同连接interrupt；未完成日期批减半后重新请求，最小1日仍超时停止并报告，不无限重试。
+hash按块检查取消；文件COPY/校验/replace前后也检查取消，取消不领取新文件。
+阶段与真实文件进度至少每30秒可见；SQL超时比该上界短，不通过假计数制造进度。
+
+本轮没有运行容量实验或生产性能测量。开发的第一批隔离验收必须验证最大单批、500日期属性查询、调用计数和中断；
+正式执行前只补缺少的真实库存/字节与必要最小样本，不重跑已保存完整审计。
+
+### 20.18 测试文件、独立夹具和断言
+
+表内新增测试名是实施要求，不代表本轮已经运行。测试数据来自已保存五股样本、独立字面数据和真实临时Parquet；
+Dagster相关测试用临时instance和真实event/运行来源字段，不用正式库或token。
+
+| 文件/用例 | 必须断言，含正常对照 |
+| --- | --- |
+| `test_stock_daily_qfq_factor_repair_sensor_contracts.py::test_success_without_remote_origin_remains_actionable` | 建正常来源与remote_job_origin=None的成功run；旧run-status路径漏接可复现，新sensor不读触发来源仍选相同未完成日期 |
+| 同文件`test_progress_not_advanced_on_submission_or_failure` | QUEUED/STARTED不重复提交；FAILURE/CANCELED持续阻断；attempt2同计划恢复；不能因用过run_key永久丢项 |
+| 同文件`test_gap_older_than_window_is_not_discarded` | 长停机、最早缺项、>10日积压、>500股分别保留；正常≤10日可推进；无变化仅确认一次 |
+| 新`test_stock_daily_qfq_history_records.py` | JSON损坏/revision冲突/越界路径/symlink拒绝；合法临时路径可用；进度/文件记录有限大小；缺baseline不默认为成功 |
+| 新`test_stock_daily_qfq_history_audit.py::test_full_union_finds_missing_and_extra_keys` | Gold整分区缺失、缺一股、额外键、重复源、缺因子都被分类；正常退市/停牌不误报；不能只比行数 |
+| 同文件`test_completed_audit_batch_is_not_scanned_twice` | 两批中完成第一批后停止；续跑第一批业务查询=0；原输入真变只重审相应批，重启本身不失效 |
+| 同文件`test_changed_source_invalidates_only_actual_dependencies` | 同一源文件改另一股票时已封存目标复用；改本股close使当日和下一实际报价范围失效；后继计划引用合格旧成果，不因全局plan/source hash变化重算所有单元 |
+| 同文件`test_audit_reference_is_independent` | 生产builder替身直接抛错，审计仍能按独立预期工作；四价、昨收、量额及容差边界有字面expected |
+| `test_stock_daily_qfq_contracts.py::test_price_relation_golden_values` | source close=10、row factor=1.5、as-of=2得7.5；前close=8、factor=1得昨收4、涨跌3.5和87.5%；expected为字面，不调用被测函数生成 |
+| 同文件`test_long_suspend_is_not_first_source_row` | >20交易日无报价但有历史源时取真实前序；缺factor失败；真实第一条及已验证Lake覆盖首条可为0；合法正常前日不误拦 |
+| `test_stock_daily_qfq_repair_contracts.py::test_merge_missed_dates_and_reject_asof_regression` | 同股多次变化合并、新统一截止日；旧任务拒绝；同as-of源值更正仍重新规划；退市取最后因子；更正其较早最后因子仍触发全历史分母更新 |
+| 新`test_stock_daily_qfq_candidate_writer.py` | 正常REPLACE/KEEP/明确CREATE_MISSING；范围外行/量额/未改字段守恒；第三方改目标、缺原目标、错键/类型拒绝 |
+| 同文件`test_rename_before_checkpoint_recovers_without_copy` | 真实临时os.replace后故障；恢复补COMMITTED，COPY=0、replace=0；目标是第三种内容失败；目标仍旧则只继续原rename |
+| 同文件`test_event_failure_does_not_undo_files` | 文件已提交但事件失败不回换；finalize仅补事件；事件已写而记录失败时不重复写事件 |
+| 新`test_stock_daily_qfq_history_patrol.py` | 旧Source改写无事件也能被发现；只改属性但内容同值只更新属性；新增/缺失文件、索引缺证明有明确结果；末端轮转回起点；自己刚修复文件不再触发 |
+| 新`test_stock_daily_qfq_formal_write_admission.py` | 队列1+正常来源可写；队列>1、无队列、本地直接运行拒绝；其他QUEUED不误报并发；另一个STARTED写者拒绝；dry-run正式根不写 |
+| `test_stock_daily_trend_channel_m4.py`、`test_stock_daily_trend_channel_m5.py` | 删除“日期数减1/自己拼producer批次”预期，改为source_plan；任意历史起止、首影响前seed污染、结果/state缺一边、state提交后result前中断；正常范围成对完成 |
+| 新`test_stock_daily_qfq_nineturn_repair.py` | lag4与连续计数超20日接续；前段封存后恢复不重算；显示价格一起改；其他股票不变；不调用旧scope rebuild/backup/清理函数 |
+| 日九转/趋势/Prod sensor和asset契约测试 | 日常未完成阻断，匹配repair计划可读不死锁；旧绿灯/旧source版本不通过；完整结果可恢复正常日更；不改变分钟分支 |
+| `test_run_contract_static_gates.py` | 旧QFQ批次builder与旧config入参引用清零；无新增状态asset/DB/锁/旧工具导入；QFQ正式writer不再旁写固定.tmp；无逐日期event深扫或Python行情行循环 |
+| 新`test_stock_daily_qfq_repair_costs.py` | 500日期巡检无OHLC SQL；batch API按C项/10日期有界，materialization为None即使is_current也拒绝；已完成恢复/最后验收业务SQL和COPY=0 |
+
+五股回归至少固定保存报告中的一条原Source/因子/旧Gold及独立正确值，证明旧数据确实失败、新候选正确。
+具体夹具拟保存为`tests/fixtures/stock_daily_qfq/missed_repair_202607.json`，只摘取已有证据，不请求源站：
+600020.SH、2026-07-10，原close=3.76、当日factor=4.6443、截至2026-10-16最后factor=4.7974，旧Gold.close=3.76；
+正确close字面值为3.6400066702797353。必须断言旧值失败、候选在既定容差内通过，不从被测SQL反推expected。
+用两次合理因子变化的正常样本证明门禁不会把正常更新当作错误。
+最大单批测试使用明确生成规则的临时数据验证资源和读取模型，不把它当真实源端验收。
+
+固定实现只运行一条包含audit、prepare、取消/恢复、提交及消费者的完整隔离链，不另跑三份全链做正常/续跑/audit对比。
+隔离实例中实际事件与文件分别读回；mock只替代未声称验收的远程发布，不用mock替代rename和schema。
+正式最小样本和全量执行仍按对应读写授权，不把本轮文档修改当作运行许可。
+
+### 20.19 开发顺序、迁移对账与实施前检查
+
+按下面顺序在当前dev-interface实施，每一步有明确可交付内容；不先修数据再补机制：
+
+1. **合同与记录。** 新类型/config、记录/路径、身份、队列准入和恢复；完成20.18对应文件/状态正反测试。旧调用方同时迁移，不能保留一段旧参数兼容。
+2. **公式抽取与候选。** 纯relation价格SQL、真实前序定位、完整候选验证；字面/真实样本回归；日更及history writer统一入口，关闭正式CLI直写绕路。
+3. **审计与计划。** 一次检查/局部失效/作用范围，完整文件/键集合和缓存上下文；证明已完成批次不重审。此步只用隔离数据，不提前扫正式全史。
+4. **触发与完成。** 新普通sensor、真实batch状态adapter、文件巡检、no-op和完成事件；旧run来源不再影响遗漏发现，提交不推进完成位置。
+5. **下游迁移。** 趋势候选与成对恢复、日九转分段接续、日常/发布门禁；准确起止由计划提供，清除旧批次拼接和日期数减1。
+6. **集中验收。** 必要定向回归与一条隔离取消/恢复全链；统计调用/COPY/replace与已完成复用；逐条对照20.1硬要求。
+7. **正式数据阶段。** 填精确执行单、确认全局读和写入范围后，一次完整历史审计→冻结范围→准备真实候选→受控提交→DG下游→汇总证明；不重做五股或25股已完成专项。
+
+具体实施文件以20.2和20.18为白名单；新增Python不允许阶段编号或宽泛utils名称。
+本次改变的正式名称仅类型/函数/config合同；asset/job/check名称保持，两个repair sensor名称保持但类型改为普通sensor。
+部署切换时先按获准维护步骤停止相关QFQ/趋势/日九转及发布自动消费，保存原sensor状态/cursor；
+只对这些job的非终态runs做有界清点，已有旧config任务先结束或经明确授权取消，不能让新代码接旧config运行。
+核对新Definitions和队列合同后，用受控历史动作建立完整baseline、完成下游，再按保存状态恢复日常接续。
+新代码缺baseline时会明确阻断，这一切换顺序不能省略；本轮不执行启停、重载或运行清点。
+实施时同步以下原文档，不把当前拓扑直接写成新代码已经上线：
+
+- 本方案与LLD。
+- `dagster-run-key-governance-optimization-plan.md`、`dagster-run-key-governance-low-level-design.md`：QFQ按请求/计划+attempt，取消producer_run_id身份。
+- `dagster-run-contract-governance.html`、`dagster-asset-job-topology.html`：sensor类型、目标job和分类。
+- 趋势通道及日九转原专项的实际输入完成合同、范围和恢复说明；不复制第二套规则，以本节为QFQ计划定义。
+
+配置审计已在20.3/20.16给出唯一来源与消费者；生产启用前必须验证实际队列合同未变，不能在文档阶段改全局并发。
+真实全史规模、文件字节和执行时间留给经批准执行单；这是正式执行事实，不能在无读取授权时伪造数字。
+所有代码路径已有范围上界、失败/恢复分支和验收方法；未满足隔离成本/正确性门禁时停止推进，不靠增加内存或删对象凑通过。

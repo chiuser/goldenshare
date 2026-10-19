@@ -1,0 +1,175 @@
+[
+  {
+    "run_id": "65334ef4-183f-4e87-9c58-6d117a84ef2c",
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-08 13:36:47.044597",
+    "external_pipeline_origin": {
+      "__class__": "ExternalPipelineOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "external_repository_origin": {
+        "__class__": "ExternalRepositoryOrigin",
+        "repository_name": "__repository__",
+        "repository_location_origin": {
+          "host": "localhost",
+          "port": null,
+          "socket": "/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpwlrbdxkl",
+          "__class__": "GrpcServerRepositoryLocationOrigin",
+          "location_name": "orchestrator",
+          "additional_metadata": {
+            "module_name": "orchestrator.definitions",
+            "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator/src"
+          }
+        }
+      }
+    },
+    "pipeline_code_origin": {
+      "__class__": "PipelinePythonOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "repository_origin": {
+        "__class__": "RepositoryPythonOrigin",
+        "entry_point": [
+          "dagster"
+        ],
+        "code_pointer": {
+          "module": "orchestrator.definitions",
+          "fn_name": "defs",
+          "__class__": "ModuleCodePointer",
+          "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator/src"
+        },
+        "container_image": null,
+        "executable_path": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+        "container_context": {}
+      }
+    },
+    "tags": {
+      "dagster/tick": "170821",
+      "dagster/run_key": "gold_stock_daily_qfq_update:2026-07-07",
+      "dagster/partition": "2026-07-07",
+      ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpwlrbdxkl\"}",
+      "dagster/sensor_name": "gold_stock_daily_qfq_update_job_sensor",
+      "dagster/code_location": "orchestrator",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    }
+  },
+  {
+    "run_id": "05ad10e4-5d57-412b-a708-67ffb1e905e5",
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-10 02:10:52.734850",
+    "external_pipeline_origin": null,
+    "pipeline_code_origin": {
+      "__class__": "PipelinePythonOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "repository_origin": {
+        "__class__": "RepositoryPythonOrigin",
+        "entry_point": [
+          "dagster"
+        ],
+        "code_pointer": {
+          "module": "orchestrator.definitions",
+          "fn_name": "defs",
+          "__class__": "ModuleCodePointer",
+          "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator"
+        },
+        "container_image": null,
+        "executable_path": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+        "container_context": null
+      }
+    },
+    "tags": {
+      "dagster/partition": "2026-07-08",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    }
+  },
+  {
+    "run_id": "422d61ca-ad6c-4c42-8fb0-162f457099da",
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-10 02:10:59.864341",
+    "external_pipeline_origin": null,
+    "pipeline_code_origin": {
+      "__class__": "PipelinePythonOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "repository_origin": {
+        "__class__": "RepositoryPythonOrigin",
+        "entry_point": [
+          "dagster"
+        ],
+        "code_pointer": {
+          "module": "orchestrator.definitions",
+          "fn_name": "defs",
+          "__class__": "ModuleCodePointer",
+          "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator"
+        },
+        "container_image": null,
+        "executable_path": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+        "container_context": null
+      }
+    },
+    "tags": {
+      "dagster/partition": "2026-07-09",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    }
+  },
+  {
+    "run_id": "4749e345-2a28-489f-9861-3e2ab0991409",
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-14 04:39:28.557551",
+    "external_pipeline_origin": null,
+    "pipeline_code_origin": {
+      "__class__": "PipelinePythonOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "repository_origin": {
+        "__class__": "RepositoryPythonOrigin",
+        "entry_point": [
+          "dagster"
+        ],
+        "code_pointer": {
+          "module": "orchestrator.definitions",
+          "fn_name": "defs",
+          "__class__": "ModuleCodePointer",
+          "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator"
+        },
+        "container_image": null,
+        "executable_path": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+        "container_context": null
+      }
+    },
+    "tags": {
+      "dagster/partition": "2026-07-10",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    }
+  },
+  {
+    "run_id": "9f2cab89-bf09-4d2d-a2e9-5a045093ef7e",
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "create_timestamp": "2026-07-14 04:43:37.864945",
+    "external_pipeline_origin": null,
+    "pipeline_code_origin": {
+      "__class__": "PipelinePythonOrigin",
+      "pipeline_name": "gold_stock_daily_qfq_update_job",
+      "repository_origin": {
+        "__class__": "RepositoryPythonOrigin",
+        "entry_point": [
+          "dagster"
+        ],
+        "code_pointer": {
+          "module": "orchestrator.definitions",
+          "fn_name": "defs",
+          "__class__": "ModuleCodePointer",
+          "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator"
+        },
+        "container_image": null,
+        "executable_path": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+        "container_context": null
+      }
+    },
+    "tags": {
+      "dagster/partition": "2026-07-13",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    }
+  }
+]

@@ -13,6 +13,14 @@
 
 更新时间：2026-10-11（DC 恢复设计增量；原 M1-M9 状态不变）
 
+2026-10-19日线QFQ代码设计增量，未落Python：合同以[原QFQ LLD第20.3、20.13节](dagster-stock-daily-qfq-asset-low-level-design.md#qfq-code-design-20261019)为准。
+`build_gold_stock_daily_qfq_factor_repair_run_config`迁移到action及不可变计划引用；
+原sensor中依赖producer_run_id的批次builder及趋势日更对它的调用一起退出，不保留旧合同兼容分支。
+QFQ请求用通用repair-attempt builder；上游完成batch用通用`build_batch_id(..., digest_length=64)`绑定plan/source revision。
+趋势首次用consumer+opaque upstream batch；恢复用同batch的repair-attempt，不以plan字段自行重造上游batch。
+修改落点为QFQ/趋势两个sensor、configs、完成metadata/status及对应契约/静态测试；通用run_keys.py不新增数据集专属函数。
+本段只同步拟实施的身份规则，不表示已改运行状态、事件或正式数据。
+
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
 
 ## 1. 本文目标

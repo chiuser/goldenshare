@@ -1,0 +1,11 @@
+{
+  "reviewed_code_files": 27,
+  "implementation_subsections": 19,
+  "local_links_verified": 22,
+  "code_fences": "balanced",
+  "diff_whitespace": "passed",
+  "formal_market_data_reread": false,
+  "formal_runtime_queries": false,
+  "production_code_changed": false,
+  "note": "只验证文档结构/链接与此前静态复核记录，不代表新设计已实现或正式修复通过"
+}

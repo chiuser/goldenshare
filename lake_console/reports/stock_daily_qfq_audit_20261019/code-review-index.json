@@ -1,0 +1,3416 @@
+{
+  "reviewed_at": "2026-10-19",
+  "scope": "当前代码的定向审计；完整文件hash仅用于追溯，具体已核实事项见code-review.md",
+  "data_reads": 0,
+  "formal_runtime_queries": 0,
+  "config_read": "仅本机dagster.yaml中的队列与并发配置，不含连接信息",
+  "files": [
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py",
+      "sha256": "fc079cfa8197f681bcb97b8f738594753c9f4b89c720267336b4f024e28c6891",
+      "symbols": [
+        {
+          "name": "GoldStockDailyQfqPartitionWriteResult",
+          "line": 49,
+          "end_line": 60,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqTradeFactorCoverage",
+          "line": 64,
+          "end_line": 94,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqFactorRepairPlan",
+          "line": 98,
+          "end_line": 109,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqFactorRepairResult",
+          "line": 113,
+          "end_line": 122,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqRepairPartitionWriteResult",
+          "line": 126,
+          "end_line": 129,
+          "signature": null
+        },
+        {
+          "name": "gold_stock_daily_qfq_factor_repair_codes_hash",
+          "line": 132,
+          "end_line": 144,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "load_stock_daily_qfq_previous_lookup_trade_dates",
+          "line": 147,
+          "end_line": 172,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, trade_date: str, limit: int=STOCK_DAILY_QFQ_PREVIOUS_LOOKUP_LIMIT"
+        },
+        {
+          "name": "build_stock_daily_qfq_factor_changed_codes_sql",
+          "line": 175,
+          "end_line": 201,
+          "signature": "*, current_adj_factor_path: Path, previous_adj_factor_path: Path"
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_factor_repair_plan",
+          "line": 204,
+          "end_line": 252,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, current_adj_factor_path: Path, previous_adj_factor_path: Path | None, qfq_factor_trade_date: str, previous_trade_date: str | None"
+        },
+        {
+          "name": "build_stock_daily_qfq_select_sql",
+          "line": 255,
+          "end_line": 318,
+          "signature": "*, stock_daily_path: Path, trade_adj_factor_path: Path, previous_stock_daily_paths: Sequence[Path], previous_adj_factor_paths: Sequence[Path], as_of_adj_factor_path: Path, trade_date: str, as_of_trade_date: str"
+        },
+        {
+          "name": "build_stock_daily_qfq_coverage_sql",
+          "line": 321,
+          "end_line": 358,
+          "signature": "*, stock_daily_path: Path, trade_adj_factor_path: Path, previous_stock_daily_paths: Sequence[Path], previous_adj_factor_paths: Sequence[Path], as_of_adj_factor_path: Path, trade_date: str, as_of_trade_date: str"
+        },
+        {
+          "name": "build_stock_daily_qfq_trade_factor_coverage_sql",
+          "line": 361,
+          "end_line": 398,
+          "signature": "*, stock_daily_path: Path, trade_adj_factor_path: Path, trade_date: str"
+        },
+        {
+          "name": "build_stock_daily_qfq_missing_trade_factor_samples_sql",
+          "line": 401,
+          "end_line": 434,
+          "signature": "*, stock_daily_path: Path, trade_adj_factor_path: Path, trade_date: str, sample_limit: int"
+        },
+        {
+          "name": "assess_stock_daily_qfq_trade_factor_coverage",
+          "line": 437,
+          "end_line": 494,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, trade_date: str, sample_limit: int=STOCK_DAILY_QFQ_TRADE_FACTOR_COVERAGE_SAMPLE_LIMIT"
+        },
+        {
+          "name": "write_gold_stock_daily_qfq_partition",
+          "line": 497,
+          "end_line": 618,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, trade_date: str, previous_lookup_trade_dates: Sequence[str], as_of_trade_date: str | None=None, as_of_adj_factor_path: Path | None=None"
+        },
+        {
+          "name": "execute_gold_stock_daily_qfq_factor_repair",
+          "line": 621,
+          "end_line": 716,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, qfq_factor_trade_date: str, expected_trade_dates: Sequence[str], repair_required_codes_hash: str, upstream_batch_id: str"
+        },
+        {
+          "name": "write_gold_stock_daily_qfq_factor_repair_partition",
+          "line": 719,
+          "end_line": 798,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, trade_date: str, as_of_trade_date: str, previous_lookup_trade_dates: Sequence[str], repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_factor_repair_check_metadata",
+          "line": 801,
+          "end_line": 868,
+          "signature": "result: GoldStockDailyQfqFactorRepairResult, *, producer_run_id: str"
+        },
+        {
+          "name": "_normalize_expected_trade_dates",
+          "line": 871,
+          "end_line": 880,
+          "signature": "expected_trade_dates: Sequence[str]"
+        },
+        {
+          "name": "_previous_expected_trade_date",
+          "line": 883,
+          "end_line": 893,
+          "signature": "expected_trade_dates: Sequence[str], trade_date: str"
+        },
+        {
+          "name": "_expected_trade_dates_between",
+          "line": 896,
+          "end_line": 914,
+          "signature": "expected_trade_dates: Sequence[str], *, start_trade_date: str, end_trade_date: str"
+        },
+        {
+          "name": "_effective_repair_start_trade_date",
+          "line": 917,
+          "end_line": 959,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, expected_trade_dates: Sequence[str], end_trade_date: str, repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "_require_repair_input_files",
+          "line": 962,
+          "end_line": 985,
+          "signature": "*, lake_root: Path, selected_trade_dates: Sequence[str], as_of_trade_date: str"
+        },
+        {
+          "name": "_normalize_repair_required_codes",
+          "line": 988,
+          "end_line": 1000,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "_repair_codes_values_sql",
+          "line": 1003,
+          "end_line": 1011,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "_repair_required_source_row_count",
+          "line": 1014,
+          "end_line": 1039,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, stock_daily_path: Path, trade_date: str, repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "_repair_required_replacement_row_count",
+          "line": 1042,
+          "end_line": 1062,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, replacement_sql: str, repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "_build_repair_partition_output_sql",
+          "line": 1065,
+          "end_line": 1094,
+          "signature": "*, target_path: Path, replacement_sql: str, repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "_stock_daily_qfq_base_ctes_sql",
+          "line": 1097,
+          "end_line": 1221,
+          "signature": "*, stock_daily_path: Path, trade_adj_factor_path: Path, previous_stock_daily_paths: Sequence[Path], previous_adj_factor_paths: Sequence[Path], as_of_adj_factor_path: Path, trade_date: str, as_of_trade_date: str"
+        },
+        {
+          "name": "_previous_stock_daily_source",
+          "line": 1224,
+          "end_line": 1235,
+          "signature": "paths: Sequence[Path]"
+        },
+        {
+          "name": "_previous_adj_factor_source",
+          "line": 1238,
+          "end_line": 1249,
+          "signature": "paths: Sequence[Path]"
+        },
+        {
+          "name": "_read_parquet_paths",
+          "line": 1252,
+          "end_line": 1258,
+          "signature": "paths: Sequence[Path]"
+        },
+        {
+          "name": "_replace_parquet_from_query",
+          "line": 1261,
+          "end_line": 1271,
+          "signature": "connection: duckdb.DuckDBPyConnection, select_sql: str, target_path: Path"
+        },
+        {
+          "name": "_column_names",
+          "line": 1274,
+          "end_line": 1283,
+          "signature": "connection: duckdb.DuckDBPyConnection, path: Path, *, hive_partitioning: bool=False"
+        },
+        {
+          "name": "_row_count",
+          "line": 1286,
+          "end_line": 1296,
+          "signature": "connection: duckdb.DuckDBPyConnection, path: Path, *, hive_partitioning: bool=False"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py",
+      "sha256": "7f3b3a574b46f8434807d6815ec2830edb555546a5f6e50b7dcdca782601ec4d",
+      "symbols": [
+        {
+          "name": "GoldStockDailyQfqFactorRepairRunStatusDecision",
+          "line": 63,
+          "end_line": 71,
+          "signature": null
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_factor_repair_run_status_decision",
+          "line": 74,
+          "end_line": 157,
+          "signature": "*, target_trade_date: str | None, gold_stock_daily_qfq_ready: bool, repair_plan: GoldStockDailyQfqFactorRepairPlan | None, repair_status: GoldStockDailyQfqFactorRepairStatus | None, upstream_batch_id: str | None"
+        },
+        {
+          "name": "_normalize_trade_date",
+          "line": 160,
+          "end_line": 167,
+          "signature": "value: object"
+        },
+        {
+          "name": "_trade_date_from_dagster_run",
+          "line": 170,
+          "end_line": 171,
+          "signature": "dagster_run: dg.DagsterRun"
+        },
+        {
+          "name": "_previous_trade_date_from_expected_dates",
+          "line": 174,
+          "end_line": 183,
+          "signature": "expected_trade_dates: tuple[str, ...], target_trade_date: str"
+        },
+        {
+          "name": "_load_expected_stock_trade_dates",
+          "line": 186,
+          "end_line": 205,
+          "signature": ""
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_factor_repair_upstream_batch_id",
+          "line": 208,
+          "end_line": 222,
+          "signature": "*, producer_run_id: str, target_trade_date: str, repair_required_codes_hash: str"
+        },
+        {
+          "name": "_run_request_for_repair_decision",
+          "line": 225,
+          "end_line": 244,
+          "signature": "decision: GoldStockDailyQfqFactorRepairRunStatusDecision"
+        },
+        {
+          "name": "_skip_reason",
+          "line": 247,
+          "end_line": 252,
+          "signature": "decision: GoldStockDailyQfqFactorRepairRunStatusDecision"
+        },
+        {
+          "name": "_evaluate_gold_stock_daily_qfq_factor_repair_job_sensor",
+          "line": 255,
+          "end_line": 314,
+          "signature": "context: dg.RunStatusSensorContext"
+        },
+        {
+          "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+          "line": 332,
+          "end_line": 335,
+          "signature": "context: dg.RunStatusSensorContext"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/ops/gold_stock_daily_qfq_factor_repair.py",
+      "sha256": "364d1282bd98d9af79ba4a801442a92df3cb40518fcd165591282d6fb7628084",
+      "symbols": [
+        {
+          "name": "_qfq_factor_trade_date_from_config",
+          "line": 35,
+          "end_line": 40,
+          "signature": "context: OpExecutionContext"
+        },
+        {
+          "name": "_required_hash_from_config",
+          "line": 43,
+          "end_line": 47,
+          "signature": "context: OpExecutionContext"
+        },
+        {
+          "name": "_upstream_batch_id_from_config",
+          "line": 50,
+          "end_line": 54,
+          "signature": "context: OpExecutionContext"
+        },
+        {
+          "name": "_load_stock_daily_qfq_expected_trade_dates",
+          "line": 57,
+          "end_line": 78,
+          "signature": "*, lake_root: Path, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "gold_stock_daily_qfq_factor_repair_op",
+          "line": 85,
+          "end_line": 132,
+          "signature": "context"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/stock_daily_qfq_factor_repair.py",
+      "sha256": "589857792c926b4ff8c89898d16161a217cf18243baf4dde5e78c8f1edf7e9a2",
+      "symbols": [
+        {
+          "name": "GoldStockDailyQfqFactorRepairStatus",
+          "line": 46,
+          "end_line": 89,
+          "signature": null
+        },
+        {
+          "name": "gold_stock_daily_qfq_factor_repair_status",
+          "line": 92,
+          "end_line": 139,
+          "signature": "instance: dg.DagsterInstance, trade_date: str, *, upstream_batch_id: str | None=None"
+        },
+        {
+          "name": "_status_from_metadata",
+          "line": 142,
+          "end_line": 246,
+          "signature": "trade_date: str, metadata: Mapping[str, object]"
+        },
+        {
+          "name": "_code_scope_is_consistent",
+          "line": 249,
+          "end_line": 281,
+          "signature": "*, repair_required: bool, repair_required_code_count: int, repair_required_codes: Sequence[str], repair_required_code_samples: Sequence[str], repair_required_codes_hash: str, repair_required_codes_truncated: bool"
+        },
+        {
+          "name": "_metadata_ordered_str_tuple",
+          "line": 284,
+          "end_line": 296,
+          "signature": "metadata: Mapping[str, object], key: str"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py",
+      "sha256": "6aa35bef4f6acd26d84c13dde5f2928aefc37c9fedaaf764ceed3243fbb2b248",
+      "symbols": [
+        {
+          "name": "gold_stock_daily_qfq",
+          "line": 66,
+          "end_line": 114,
+          "signature": "context: dg.AssetExecutionContext, lake_root: LakeRootResource, duckdb: DuckDBResource"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/jobs/gold_stock_daily_qfq_factor_repair.py",
+      "sha256": "e2f31904ca54c101dd95cfb4212e4017d46376c8c2ab3c8818d900984f7dd228",
+      "symbols": [
+        {
+          "name": "gold_stock_daily_qfq_factor_repair_job",
+          "line": 19,
+          "end_line": 20,
+          "signature": ""
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/jobs/stock_daily_qfq_update.py",
+      "sha256": "58cf7143121388070eb568d057cf3ce24b67598e36d38b9bc85ced0cbd18ee95",
+      "symbols": []
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/gold_stock_daily_qfq_history.py",
+      "sha256": "fe5b09c740c6af90b4cc3b911d7fe0fca0134e3d91f8e94b21cfa63eec35327d",
+      "symbols": [
+        {
+          "name": "GoldStockDailyQfqHistoryPlan",
+          "line": 33,
+          "end_line": 49,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqHistoryWriteReport",
+          "line": 53,
+          "end_line": 96,
+          "signature": null
+        },
+        {
+          "name": "discover_gold_stock_daily_qfq_partitions",
+          "line": 99,
+          "end_line": 103,
+          "signature": "lake_root: Path=Path(DEFAULT_LAKE_ROOT)"
+        },
+        {
+          "name": "discover_silver_stock_daily_partitions_for_qfq",
+          "line": 106,
+          "end_line": 110,
+          "signature": "lake_root: Path=Path(DEFAULT_LAKE_ROOT)"
+        },
+        {
+          "name": "discover_silver_adj_factor_partitions_for_stock_daily_qfq",
+          "line": 113,
+          "end_line": 117,
+          "signature": "lake_root: Path=Path(DEFAULT_LAKE_ROOT)"
+        },
+        {
+          "name": "load_gold_stock_daily_qfq_expected_trade_dates",
+          "line": 120,
+          "end_line": 155,
+          "signature": "*, lake_root: Path=Path(DEFAULT_LAKE_ROOT), duckdb_resource: DuckDBResource, start_date: str, end_date: str | None=None"
+        },
+        {
+          "name": "plan_gold_stock_daily_qfq_history",
+          "line": 158,
+          "end_line": 227,
+          "signature": "*, lake_root: Path=Path(DEFAULT_LAKE_ROOT), duckdb_resource: DuckDBResource, as_of_trade_date: str, partition_keys: Sequence[str] | None=None, start_date: str='2014-01-01', end_date: str | None=None, skip_existing: bool=True"
+        },
+        {
+          "name": "generate_gold_stock_daily_qfq_history",
+          "line": 230,
+          "end_line": 311,
+          "signature": "*, lake_root: Path=Path(DEFAULT_LAKE_ROOT), duckdb_resource: DuckDBResource, partition_keys: Sequence[str], as_of_trade_date: str, skip_existing: bool=True, overwrite: bool=False"
+        },
+        {
+          "name": "_write_effective_as_of_adj_factor_snapshot",
+          "line": 314,
+          "end_line": 357,
+          "signature": "*, connection, lake_root: Path, as_of_trade_date: str, temp_dir: Path"
+        },
+        {
+          "name": "_discover_trade_date_partitions",
+          "line": 360,
+          "end_line": 373,
+          "signature": "root: Path"
+        },
+        {
+          "name": "_select_partition_keys",
+          "line": 376,
+          "end_line": 413,
+          "signature": "complete_input_partitions: Sequence[str], *, partition_keys: Sequence[str] | None, start_date: str, end_date: str | None"
+        },
+        {
+          "name": "_missing_input_samples",
+          "line": 416,
+          "end_line": 428,
+          "signature": "lake_root: Path, partition_keys: Sequence[str]"
+        },
+        {
+          "name": "_sample_partition_keys",
+          "line": 431,
+          "end_line": 440,
+          "signature": "partition_keys: Sequence[str]"
+        },
+        {
+          "name": "_normalize_trade_date",
+          "line": 443,
+          "end_line": 452,
+          "signature": "value: str | None, *, field_name: str"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/gold_stock_daily_qfq_history_cli.py",
+      "sha256": "c1898994ce4e1aa0428eaa6fef53d2f9e265cca1fe84d3c1d7e00ab3c62dcd35",
+      "symbols": [
+        {
+          "name": "main",
+          "line": 16,
+          "end_line": 107,
+          "signature": "argv: list[str] | None=None"
+        },
+        {
+          "name": "_csv_values",
+          "line": 110,
+          "end_line": 113,
+          "signature": "value: str | None"
+        },
+        {
+          "name": "_require_as_of_trade_date",
+          "line": 116,
+          "end_line": 122,
+          "signature": "parser: argparse.ArgumentParser, value: str | None"
+        },
+        {
+          "name": "_write_report",
+          "line": 125,
+          "end_line": 135,
+          "signature": "report_dir: str, stage: str, payload: dict[str, object]"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/configs.py",
+      "sha256": "aae4f8f4a0b82bb5b8d44676aebe858cfc3f4588bb4ebc9d5042f32a9e010b13",
+      "symbols": [
+        {
+          "name": "DailyBasicRawConfig",
+          "line": 28,
+          "end_line": 29,
+          "signature": null
+        },
+        {
+          "name": "build_raw_daily_basic_update_job_run_config",
+          "line": 32,
+          "end_line": 35,
+          "signature": "partition_key: str, write_mode: str='write_new'"
+        },
+        {
+          "name": "IndexDailyRawConfig",
+          "line": 38,
+          "end_line": 42,
+          "signature": null
+        },
+        {
+          "name": "DcBoardSourceFreezeConfig",
+          "line": 45,
+          "end_line": 61,
+          "signature": null
+        },
+        {
+          "name": "DcBoardRecoveryIdentityConfig",
+          "line": 64,
+          "end_line": 93,
+          "signature": null
+        },
+        {
+          "name": "DcBoardRawRunConfig",
+          "line": 96,
+          "end_line": 98,
+          "signature": null
+        },
+        {
+          "name": "DcIndustryHierarchyConfig",
+          "line": 101,
+          "end_line": 104,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyQfqFactorRepairConfig",
+          "line": 107,
+          "end_line": 116,
+          "signature": null
+        },
+        {
+          "name": "GoldStockDailyTrendChannelRepairConfig",
+          "line": 119,
+          "end_line": 137,
+          "signature": null
+        },
+        {
+          "name": "StockMinsMergeRepairConfig",
+          "line": 148,
+          "end_line": 151,
+          "signature": null
+        },
+        {
+          "name": "ParsedStockMinsRawConfig",
+          "line": 155,
+          "end_line": 184,
+          "signature": null
+        },
+        {
+          "name": "ParsedStockMinsSilverConfig",
+          "line": 188,
+          "end_line": 189,
+          "signature": null
+        },
+        {
+          "name": "StockDailyMissingCodeRepairConfig",
+          "line": 193,
+          "end_line": 196,
+          "signature": null
+        },
+        {
+          "name": "ParsedStockDailyRawConfig",
+          "line": 200,
+          "end_line": 202,
+          "signature": null
+        },
+        {
+          "name": "normalize_iso_trade_date",
+          "line": 380,
+          "end_line": 388,
+          "signature": "value: str, *, field_name: str='trade_date'"
+        },
+        {
+          "name": "build_raw_index_daily_update_job_run_config",
+          "line": 391,
+          "end_line": 405,
+          "signature": "*, partition_key: str, write_mode: Literal['replace']='replace'"
+        },
+        {
+          "name": "build_silver_dc_industry_hierarchy_update_job_run_config",
+          "line": 408,
+          "end_line": 424,
+          "signature": "*, reference_trade_date: str"
+        },
+        {
+          "name": "validate_dc_board_source_freeze_config",
+          "line": 427,
+          "end_line": 484,
+          "signature": "config: DcBoardSourceFreezeConfig, *, partition_key: str, asset_name: str, now: datetime | None=None"
+        },
+        {
+          "name": "build_raw_dc_board_update_job_run_config",
+          "line": 487,
+          "end_line": 496,
+          "signature": "*, asset_name: str, partition_key: str, proof: DcBoardSourceFreezeConfig, recovery_identity: DcBoardRecoveryIdentityConfig | None=None"
+        },
+        {
+          "name": "build_stock_daily_raw_repair_run_config",
+          "line": 499,
+          "end_line": 524,
+          "signature": "*, ts_codes: Sequence[str], missing_codes_hash: str, repair_attempt: int"
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_factor_repair_run_config",
+          "line": 527,
+          "end_line": 559,
+          "signature": "*, qfq_factor_trade_date: str, repair_required_codes_hash: str, upstream_batch_id: str"
+        },
+        {
+          "name": "build_gold_stock_daily_trend_channel_repair_run_config",
+          "line": 562,
+          "end_line": 622,
+          "signature": "*, qfq_factor_repair_trade_date: str, repair_start_trade_date: str, repair_end_trade_date: str, stock_codes: Sequence[str], repair_required_codes_hash: str, source_upstream_batch_id: str"
+        },
+        {
+          "name": "build_stock_mins_raw_update_job_run_config",
+          "line": 625,
+          "end_line": 653,
+          "signature": "*, source: StockMinsRawSource, prod_completion_reference: ProdStkMinsCompletionReference | None=None"
+        },
+        {
+          "name": "build_stock_mins_silver_reuse_existing_run_config",
+          "line": 656,
+          "end_line": 664,
+          "signature": ""
+        },
+        {
+          "name": "parse_stock_daily_raw_config",
+          "line": 667,
+          "end_line": 704,
+          "signature": "raw_config: Mapping[str, object] | None"
+        },
+        {
+          "name": "parse_stock_mins_raw_config",
+          "line": 707,
+          "end_line": 758,
+          "signature": "raw_config: Mapping[str, object] | None"
+        },
+        {
+          "name": "parse_stock_mins_silver_config",
+          "line": 761,
+          "end_line": 774,
+          "signature": "raw_config: Mapping[str, object] | None"
+        },
+        {
+          "name": "_normalize_stock_mins_raw_source",
+          "line": 777,
+          "end_line": 781,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_repair_stock_codes",
+          "line": 784,
+          "end_line": 797,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_stock_daily_repair_ts_codes",
+          "line": 800,
+          "end_line": 819,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_missing_codes_hash",
+          "line": 822,
+          "end_line": 826,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_reference_observed_at",
+          "line": 829,
+          "end_line": 843,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_sha256_hex",
+          "line": 846,
+          "end_line": 854,
+          "signature": "value: object, *, field_name: str"
+        },
+        {
+          "name": "_normalize_required_text",
+          "line": 857,
+          "end_line": 861,
+          "signature": "value: object, *, field_name: str"
+        },
+        {
+          "name": "_normalize_repair_attempt",
+          "line": 864,
+          "end_line": 873,
+          "signature": "value: object"
+        },
+        {
+          "name": "_normalize_hms_time",
+          "line": 876,
+          "end_line": 882,
+          "signature": "value: object, *, field_name: str"
+        },
+        {
+          "name": "_parse_hms_time",
+          "line": 885,
+          "end_line": 886,
+          "signature": "value: str"
+        },
+        {
+          "name": "StockPeriodRawConfig",
+          "line": 889,
+          "end_line": 920,
+          "signature": null
+        },
+        {
+          "name": "StockWeeklyBootstrapEventChecksConfig",
+          "line": 923,
+          "end_line": 936,
+          "signature": null
+        },
+        {
+          "name": "build_stock_period_run_config",
+          "line": 939,
+          "end_line": 948,
+          "signature": "freq, intent_date"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/run_keys.py",
+      "sha256": "78d568f8e7b2e5c87b8ac10cf5f581ecf970688b640b6d88243742230889876f",
+      "symbols": [
+        {
+          "name": "build_asset_update_run_key",
+          "line": 21,
+          "end_line": 26,
+          "signature": "*, subject: str, unit_id: str"
+        },
+        {
+          "name": "build_repair_attempt_run_key",
+          "line": 29,
+          "end_line": 52,
+          "signature": "*, subject: str, repair_scope_id: str, attempt: int, attempt_scope: str | None=None"
+        },
+        {
+          "name": "build_upstream_triggered_run_key",
+          "line": 55,
+          "end_line": 67,
+          "signature": "*, consumer: str, upstream_batch_id: str"
+        },
+        {
+          "name": "build_batch_id",
+          "line": 70,
+          "end_line": 91,
+          "signature": "*, producer: str, scope: str, payload: Mapping[str, Any], digest_length: int=12"
+        },
+        {
+          "name": "_require_segment",
+          "line": 94,
+          "end_line": 99,
+          "signature": "value: str, *, field_name: str"
+        },
+        {
+          "name": "_require_positive_attempt",
+          "line": 102,
+          "end_line": 106,
+          "signature": "attempt: int"
+        },
+        {
+          "name": "_require_digest_length",
+          "line": 109,
+          "end_line": 113,
+          "signature": "digest_length: int"
+        },
+        {
+          "name": "_canonical_payload",
+          "line": 116,
+          "end_line": 123,
+          "signature": "payload: Mapping[str, Any]"
+        },
+        {
+          "name": "_canonical_mapping",
+          "line": 126,
+          "end_line": 136,
+          "signature": "value: Mapping[str, Any], *, path: str"
+        },
+        {
+          "name": "_canonical_json_value",
+          "line": 139,
+          "end_line": 148,
+          "signature": "value: Any, *, path: str"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/cursors.py",
+      "sha256": "aa76ecc74c3da56c15d89601da32e3f2e7a6fb8a5e826c2551789dc450b591d3",
+      "symbols": [
+        {
+          "name": "SensorCursorDecision",
+          "line": 32,
+          "end_line": 36,
+          "signature": null
+        },
+        {
+          "name": "_coerce_cursor_decision",
+          "line": 39,
+          "end_line": 42,
+          "signature": "decision: SensorCursorDecision | str"
+        },
+        {
+          "name": "_require_non_negative",
+          "line": 45,
+          "end_line": 48,
+          "signature": "value: int, field_name: str"
+        },
+        {
+          "name": "_assert_reason_values_are_ascii",
+          "line": 51,
+          "end_line": 68,
+          "signature": "value: Any, *, path: str"
+        },
+        {
+          "name": "_assert_details_contract",
+          "line": 71,
+          "end_line": 81,
+          "signature": "details: Mapping[str, Any]"
+        },
+        {
+          "name": "_assert_no_report_fields",
+          "line": 84,
+          "end_line": 103,
+          "signature": "value: Any, *, path: str"
+        },
+        {
+          "name": "build_sensor_cursor",
+          "line": 106,
+          "end_line": 140,
+          "signature": "*, evaluated_at: datetime, decision: SensorCursorDecision | str, target_date: str | None=None, selected_count: int=0, blocked_count: int=0, sample_keys: Sequence[str]=(), details: Mapping[str, Any] | None=None"
+        },
+        {
+          "name": "load_sensor_cursor",
+          "line": 143,
+          "end_line": 159,
+          "signature": "cursor: str | None"
+        },
+        {
+          "name": "sensor_cursor_details",
+          "line": 162,
+          "end_line": 166,
+          "signature": "cursor_payload: Mapping[str, Any]"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/requests.py",
+      "sha256": "4174e791780c7d47f34d5ce6f615deb5f9fe0780a8d24d1682dcbd518186522b",
+      "symbols": [
+        {
+          "name": "build_run_request",
+          "line": 9,
+          "end_line": 23,
+          "signature": "*, run_key: str, partition_key: str | None=None, run_config: Mapping[str, Any] | None=None, job_name: str | None=None"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_trend_channel_sensor.py",
+      "sha256": "ffe8d45a59a5194dc7b828033002af1a46edfeaa1c0cf04513e349dac38f6a55",
+      "symbols": [
+        {
+          "name": "_load_expected_window",
+          "line": 92,
+          "end_line": 112,
+          "signature": "context: dg.SensorEvaluationContext, *, evaluated_at: datetime"
+        },
+        {
+          "name": "_load_target_readiness",
+          "line": 115,
+          "end_line": 138,
+          "signature": "context: dg.SensorEvaluationContext, *, actionable_trade_dates: tuple[str, ...]"
+        },
+        {
+          "name": "_load_previous_expected_trade_date",
+          "line": 141,
+          "end_line": 158,
+          "signature": "*, connection, calendar_path: Path, trade_date: str | None"
+        },
+        {
+          "name": "_previous_state_status",
+          "line": 161,
+          "end_line": 198,
+          "signature": "context: dg.SensorEvaluationContext, *, target_trade_date: str, previous_trade_date: str | None"
+        },
+        {
+          "name": "_latest_qfq_materialization_run_id",
+          "line": 201,
+          "end_line": 215,
+          "signature": "instance: dg.DagsterInstance, trade_date: str"
+        },
+        {
+          "name": "_qfq_reconciliation",
+          "line": 218,
+          "end_line": 298,
+          "signature": "context: dg.SensorEvaluationContext, *, target_trade_date: str, previous_trade_date: str | None"
+        },
+        {
+          "name": "_run_request",
+          "line": 301,
+          "end_line": 308,
+          "signature": "trade_date: str"
+        },
+        {
+          "name": "_summary_and_next_action",
+          "line": 311,
+          "end_line": 369,
+          "signature": "*, reason_code: str, target_trade_date: str | None"
+        },
+        {
+          "name": "_cursor",
+          "line": 372,
+          "end_line": 446,
+          "signature": "*, evaluated_at: datetime, reason_code: str, target_trade_date: str | None, selected_trade_date: str | None, expected_window: ContinuityExpectedDateWindow, gap_status: ContinuityRegisteredGapStatus, batch_status: StockDailyTrendChannelBatchReadiness | None=None, gate_statuses: Mapping[str, Any] | None=None, repair_plan: GoldStockDailyQfqFactorRepairPlan | None=None, repair_status: GoldStockDailyQfqFactorRepairStatus | None=None"
+        },
+        {
+          "name": "_skip",
+          "line": 449,
+          "end_line": 481,
+          "signature": "*, context: dg.SensorEvaluationContext, evaluated_at: datetime, reason_code: str, target_trade_date: str | None, expected_window: ContinuityExpectedDateWindow, gap_status: ContinuityRegisteredGapStatus, batch_status: StockDailyTrendChannelBatchReadiness | None=None, gate_statuses: Mapping[str, Any] | None=None, repair_plan: GoldStockDailyQfqFactorRepairPlan | None=None, repair_status: GoldStockDailyQfqFactorRepairStatus | None=None"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_update_job_sensor",
+          "line": 500,
+          "end_line": 694,
+          "signature": "context: dg.SensorEvaluationContext"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_trend_channel_repair_job_sensor.py",
+      "sha256": "db45d0e42bb70c6edbed0594d1e86c24624cdfa1b41392a7829a36d1ab350dd4",
+      "symbols": [
+        {
+          "name": "StockDailyTrendChannelRepairRunStatusDecision",
+          "line": 43,
+          "end_line": 56,
+          "signature": null
+        },
+        {
+          "name": "build_stock_daily_trend_channel_repair_run_status_decision",
+          "line": 59,
+          "end_line": 133,
+          "signature": "*, qfq_factor_repair_trade_date: str | None, repair_end_trade_date: str | None, qfq_factor_repair_status: GoldStockDailyQfqFactorRepairStatus | None"
+        },
+        {
+          "name": "_qfq_config_from_run",
+          "line": 136,
+          "end_line": 153,
+          "signature": "dagster_run: dg.DagsterRun"
+        },
+        {
+          "name": "_previous_expected_trade_date",
+          "line": 156,
+          "end_line": 171,
+          "signature": "trade_date: str"
+        },
+        {
+          "name": "_run_request",
+          "line": 174,
+          "end_line": 198,
+          "signature": "decision: StockDailyTrendChannelRepairRunStatusDecision"
+        },
+        {
+          "name": "_evaluate_sensor",
+          "line": 201,
+          "end_line": 259,
+          "signature": "context: dg.RunStatusSensorContext"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_repair_job_sensor",
+          "line": 277,
+          "end_line": 280,
+          "signature": "context: dg.RunStatusSensorContext"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/ops/gold_stock_daily_trend_channel_repair.py",
+      "sha256": "4029d75d9eeccab2e92bcc9017f241e71a8dc5cf96376edcbebd1c5bb43a5ad1",
+      "symbols": [
+        {
+          "name": "_load_expected_trade_dates",
+          "line": 43,
+          "end_line": 63,
+          "signature": "*, connection, calendar_path: Path, end_trade_date: str"
+        },
+        {
+          "name": "_trend_repair_trade_dates",
+          "line": 66,
+          "end_line": 91,
+          "signature": "*, expected_trade_dates: tuple[str, ...], repair_start_trade_date: str, qfq_factor_repair_trade_date: str"
+        },
+        {
+          "name": "_validated_qfq_repair_status",
+          "line": 94,
+          "end_line": 125,
+          "signature": "*, instance: dg.DagsterInstance, config: GoldStockDailyTrendChannelRepairConfig"
+        },
+        {
+          "name": "_trend_history_start_trade_date",
+          "line": 128,
+          "end_line": 166,
+          "signature": "*, lake_root: Path, reference_trade_date: str"
+        },
+        {
+          "name": "_repair_partitions",
+          "line": 169,
+          "end_line": 244,
+          "signature": "*, lake_root: Path, staging_root: Path, run_id: str, target_dates: tuple[str, ...], expected_trade_dates: tuple[str, ...]"
+        },
+        {
+          "name": "_completion_metadata",
+          "line": 247,
+          "end_line": 296,
+          "signature": "*, result: StockDailyTrendChannelRepairResult, qfq_factor_repair_trade_date: str, repair_required_codes_hash: str, source_upstream_batch_id: str, producer_run_id: str"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_repair_op",
+          "line": 300,
+          "end_line": 375,
+          "signature": "context: dg.OpExecutionContext, config: GoldStockDailyTrendChannelRepairConfig"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/stock_daily_trend_channel.py",
+      "sha256": "1df68716f7f45274e0c5e5adb38c15c5b4305ed66023792cd23cfedd314ed1ff",
+      "symbols": [
+        {
+          "name": "StockDailyTrendChannelAudit",
+          "line": 54,
+          "end_line": 64,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelCoverageAudit",
+          "line": 68,
+          "end_line": 84,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelResultRuleMetrics",
+          "line": 88,
+          "end_line": 101,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelStateRuleMetrics",
+          "line": 105,
+          "end_line": 116,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelCoverageRuleMetrics",
+          "line": 120,
+          "end_line": 130,
+          "signature": null
+        },
+        {
+          "name": "evaluate_stock_daily_trend_channel_result_rules",
+          "line": 133,
+          "end_line": 152,
+          "signature": "metrics: StockDailyTrendChannelResultRuleMetrics"
+        },
+        {
+          "name": "evaluate_stock_daily_trend_channel_state_rules",
+          "line": 155,
+          "end_line": 174,
+          "signature": "metrics: StockDailyTrendChannelStateRuleMetrics"
+        },
+        {
+          "name": "evaluate_stock_daily_trend_channel_coverage_rules",
+          "line": 177,
+          "end_line": 199,
+          "signature": "metrics: StockDailyTrendChannelCoverageRuleMetrics"
+        },
+        {
+          "name": "StockDailyTrendChannelWriteResult",
+          "line": 203,
+          "end_line": 230,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelRepairPartition",
+          "line": 234,
+          "end_line": 243,
+          "signature": null
+        },
+        {
+          "name": "StockDailyTrendChannelRepairResult",
+          "line": 247,
+          "end_line": 259,
+          "signature": null
+        },
+        {
+          "name": "build_stock_daily_trend_channel_daily_sql",
+          "line": 262,
+          "end_line": 273,
+          "signature": "source_relation: str, *, previous_state_relation: str | None=None"
+        },
+        {
+          "name": "build_stock_daily_trend_channel_history_segment_sql",
+          "line": 276,
+          "end_line": 288,
+          "signature": "source_relation: str, *, segment_trade_day_count: int, previous_state_relation: str | None=None"
+        },
+        {
+          "name": "build_stock_daily_trend_channel_repair_segment_sql",
+          "line": 291,
+          "end_line": 303,
+          "signature": "source_relation: str, *, segment_trade_day_count: int, previous_state_relation: str | None=None"
+        },
+        {
+          "name": "_build_stock_daily_trend_channel_sql",
+          "line": 306,
+          "end_line": 562,
+          "signature": "source_relation: str, *, previous_state_relation: str | None, segment_trade_day_count: int"
+        },
+        {
+          "name": "_quote_relation",
+          "line": 565,
+          "end_line": 574,
+          "signature": "relation: str"
+        },
+        {
+          "name": "_validate_segment_trade_day_count",
+          "line": 577,
+          "end_line": 586,
+          "signature": "segment_trade_day_count: int"
+        },
+        {
+          "name": "_empty_seed_relation_sql",
+          "line": 589,
+          "end_line": 600,
+          "signature": ""
+        },
+        {
+          "name": "audit_stock_daily_trend_channel_result",
+          "line": 603,
+          "end_line": 681,
+          "signature": "*, connection: Any, result_path: Path, qfq_source_path: Path, trade_date: str"
+        },
+        {
+          "name": "audit_stock_daily_trend_channel_state",
+          "line": 684,
+          "end_line": 772,
+          "signature": "*, connection: Any, state_path: Path, stock_lifecycle_path: Path, trade_date: str"
+        },
+        {
+          "name": "audit_stock_daily_trend_channel_state_coverage",
+          "line": 775,
+          "end_line": 874,
+          "signature": "*, connection: Any, state_path: Path, qfq_source_path: Path, stock_lifecycle_path: Path, previous_state_path: Path | None, trade_date: str"
+        },
+        {
+          "name": "_result_failure_samples",
+          "line": 877,
+          "end_line": 984,
+          "signature": "*, connection: Any, result_sql: str, qfq_sql: str, trade_date: str"
+        },
+        {
+          "name": "_state_failure_samples",
+          "line": 987,
+          "end_line": 1090,
+          "signature": "*, connection: Any, state_sql: str, lifecycle_sql: str, trade_date: str"
+        },
+        {
+          "name": "_coverage_failure_samples",
+          "line": 1093,
+          "end_line": 1169,
+          "signature": "*, connection: Any, state_sql: str, qfq_sql: str, lifecycle_sql: str, previous_sql: str, trade_date: str"
+        },
+        {
+          "name": "_failure_sample_mapping",
+          "line": 1172,
+          "end_line": 1183,
+          "signature": "rows: list[tuple[Any, ...]]"
+        },
+        {
+          "name": "_missing_file_audit",
+          "line": 1186,
+          "end_line": 1205,
+          "signature": "*, rule_name: str, missing_paths: tuple[Path, ...]"
+        },
+        {
+          "name": "_schema_failure_audit",
+          "line": 1208,
+          "end_line": 1232,
+          "signature": "*, observed_schema: tuple[tuple[str, str], ...], output_row_count: int, source_row_count: int"
+        },
+        {
+          "name": "_partition_file_path_audit",
+          "line": 1235,
+          "end_line": 1269,
+          "signature": "*, connection: Any, output_path: Path, source_path: Path, trade_date: str"
+        },
+        {
+          "name": "_parquet_schema",
+          "line": 1272,
+          "end_line": 1276,
+          "signature": "connection: Any, path: Path"
+        },
+        {
+          "name": "_parquet_row_count",
+          "line": 1279,
+          "end_line": 1284,
+          "signature": "connection: Any, path: Path"
+        },
+        {
+          "name": "_normalize_trade_date",
+          "line": 1287,
+          "end_line": 1292,
+          "signature": "value: str"
+        },
+        {
+          "name": "_empty_previous_state_rows_sql",
+          "line": 1295,
+          "end_line": 1311,
+          "signature": ""
+        },
+        {
+          "name": "write_stock_daily_trend_channel_daily_partition",
+          "line": 1314,
+          "end_line": 1479,
+          "signature": "*, connection: Any, trade_date: str, qfq_source_path: Path, stock_basic_path: Path, stock_lifecycle_path: Path, previous_trade_date: str | None, previous_state_path: Path | None, result_candidate_path: Path, state_candidate_path: Path, result_target_path: Path, state_target_path: Path, replace_file: Callable[[Path, Path], None]=os.replace"
+        },
+        {
+          "name": "write_stock_daily_trend_channel_factor_repair",
+          "line": 1482,
+          "end_line": 1633,
+          "signature": "*, connection: Any, repair_start_trade_date: str, repair_end_trade_date: str, repair_required_codes: Sequence[str], stock_lifecycle_path: Path, partitions: Sequence[StockDailyTrendChannelRepairPartition], replace_file: Callable[[Path, Path], None]=os.replace"
+        },
+        {
+          "name": "_normalize_trend_repair_codes",
+          "line": 1636,
+          "end_line": 1650,
+          "signature": "values: Sequence[str]"
+        },
+        {
+          "name": "_validate_trend_repair_partitions",
+          "line": 1653,
+          "end_line": 1689,
+          "signature": "partitions: Sequence[StockDailyTrendChannelRepairPartition], *, repair_start_trade_date: str, repair_end_trade_date: str"
+        },
+        {
+          "name": "_prepare_trend_repair_candidates",
+          "line": 1692,
+          "end_line": 1703,
+          "signature": "partitions: Sequence[StockDailyTrendChannelRepairPartition]"
+        },
+        {
+          "name": "_assert_trend_repair_disk_capacity",
+          "line": 1706,
+          "end_line": 1721,
+          "signature": "partitions: Sequence[StockDailyTrendChannelRepairPartition]"
+        },
+        {
+          "name": "_create_trend_repair_scope_relations",
+          "line": 1724,
+          "end_line": 1750,
+          "signature": "*, connection: Any, stock_lifecycle_path: Path, repair_required_codes: Sequence[str]"
+        },
+        {
+          "name": "_compute_trend_repair_segment",
+          "line": 1753,
+          "end_line": 1791,
+          "signature": "*, connection: Any, segment: Sequence[StockDailyTrendChannelRepairPartition], has_seed: bool"
+        },
+        {
+          "name": "prepare_stock_daily_trend_channel_repair_tables",
+          "line": 1794,
+          "end_line": 1870,
+          "signature": "*, connection, source_relation, dates_relation, codes_relation, lifecycle_relation, segment_trade_day_count, previous_state_relation=None"
+        },
+        {
+          "name": "_read_parquet_paths_sql",
+          "line": 1873,
+          "end_line": 1877,
+          "signature": "paths: Sequence[Path]"
+        },
+        {
+          "name": "_empty_trend_repair_seed_sql",
+          "line": 1880,
+          "end_line": 1894,
+          "signature": ""
+        },
+        {
+          "name": "_write_trend_repair_partition_candidates",
+          "line": 1897,
+          "end_line": 1953,
+          "signature": "*, connection: Any, partition: StockDailyTrendChannelRepairPartition"
+        },
+        {
+          "name": "_audit_trend_repair_partition",
+          "line": 1956,
+          "end_line": 1990,
+          "signature": "*, connection: Any, partition: StockDailyTrendChannelRepairPartition, stock_lifecycle_path: Path, result_path: Path, state_path: Path, previous_state_path: Path | None"
+        },
+        {
+          "name": "_assert_trend_repair_audits",
+          "line": 1993,
+          "end_line": 2008,
+          "signature": "*, trade_date: str, result_audit: StockDailyTrendChannelAudit, state_audit: StockDailyTrendChannelAudit, coverage_audit: StockDailyTrendChannelCoverageAudit"
+        },
+        {
+          "name": "_assert_trend_repair_candidate_scope",
+          "line": 2011,
+          "end_line": 2125,
+          "signature": "*, connection: Any, partition: StockDailyTrendChannelRepairPartition"
+        },
+        {
+          "name": "_replace_trend_repair_seed",
+          "line": 2128,
+          "end_line": 2146,
+          "signature": "*, connection: Any, trade_date: str"
+        },
+        {
+          "name": "_trend_repair_temp_spill_bytes",
+          "line": 2149,
+          "end_line": 2154,
+          "signature": "connection: Any"
+        },
+        {
+          "name": "_assert_daily_path_contracts",
+          "line": 2157,
+          "end_line": 2192,
+          "signature": "*, qfq_source_path: Path, stock_basic_path: Path, stock_lifecycle_path: Path, previous_state_path: Path | None, result_candidate_path: Path, state_candidate_path: Path, result_target_path: Path, state_target_path: Path"
+        },
+        {
+          "name": "_prepare_daily_output_directories",
+          "line": 2195,
+          "end_line": 2205,
+          "signature": "*, result_candidate_path: Path, state_candidate_path: Path, result_target_path: Path, state_target_path: Path"
+        },
+        {
+          "name": "_assert_same_filesystem",
+          "line": 2208,
+          "end_line": 2213,
+          "signature": "*, candidate_path: Path, target_path: Path"
+        },
+        {
+          "name": "_assert_daily_disk_capacity",
+          "line": 2216,
+          "end_line": 2236,
+          "signature": "*, staging_path: Path, qfq_source_path: Path, stock_lifecycle_path: Path, previous_state_path: Path | None"
+        },
+        {
+          "name": "_validate_daily_source_inputs",
+          "line": 2239,
+          "end_line": 2337,
+          "signature": "*, connection: Any, trade_date: str, qfq_source_path: Path, stock_basic_path: Path, stock_lifecycle_path: Path, previous_trade_date: str | None, previous_state_path: Path | None"
+        },
+        {
+          "name": "_create_daily_work_relations",
+          "line": 2340,
+          "end_line": 2382,
+          "signature": "*, connection: Any, trade_date: str, qfq_source_path: Path, stock_lifecycle_path: Path, previous_state_path: Path | None"
+        },
+        {
+          "name": "_build_daily_state_output_sql",
+          "line": 2385,
+          "end_line": 2421,
+          "signature": "trade_date: str"
+        },
+        {
+          "name": "_daily_result_output_sql",
+          "line": 2424,
+          "end_line": 2445,
+          "signature": ""
+        },
+        {
+          "name": "_daily_state_output_sql",
+          "line": 2448,
+          "end_line": 2465,
+          "signature": ""
+        },
+        {
+          "name": "_promote_paired_candidates",
+          "line": 2468,
+          "end_line": 2489,
+          "signature": "*, result_candidate_path: Path, state_candidate_path: Path, result_target_path: Path, state_target_path: Path, replace_file: Callable[[Path, Path], None]"
+        },
+        {
+          "name": "trend_channel_result_counts_sql",
+          "line": 2492,
+          "end_line": 2569,
+          "signature": "*, result_sql, qfq_sql, date_expression"
+        },
+        {
+          "name": "trend_channel_state_counts_sql",
+          "line": 2572,
+          "end_line": 2645,
+          "signature": "*, state_sql, lifecycle_sql, date_expression"
+        },
+        {
+          "name": "trend_channel_coverage_counts_sql",
+          "line": 2648,
+          "end_line": 2713,
+          "signature": "*, state_sql, qfq_sql, lifecycle_sql, previous_sql, date_expression"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py",
+      "sha256": "1dad207daf10aec11e9041a56fadc240edcc2bd6cfb29fd0022b5042f0ab85f7",
+      "symbols": [
+        {
+          "name": "build_gold_stock_daily_qfq_nineturn_select_sql",
+          "line": 50,
+          "end_line": 73,
+          "signature": "*, source_paths: Sequence[Path], stock_codes: Sequence[str]=()"
+        },
+        {
+          "name": "build_gold_stk_mins_qfq_nineturn_select_sql",
+          "line": 76,
+          "end_line": 113,
+          "signature": "*, source_paths: Sequence[Path], freq: int | str, stock_codes: Sequence[str]=()"
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_nineturn_history_batch_select_sql",
+          "line": 116,
+          "end_line": 148,
+          "signature": "*, source_paths: Sequence[Path], start_date: str, end_date: str, context_path: Path | None=None, seed_path: Path | None=None"
+        },
+        {
+          "name": "build_gold_stk_mins_qfq_nineturn_history_batch_select_sql",
+          "line": 151,
+          "end_line": 186,
+          "signature": "*, source_paths: Sequence[Path], freq: int | str, start_date: str, end_date: str, context_path: Path | None=None, seed_path: Path | None=None"
+        },
+        {
+          "name": "build_gold_stock_daily_qfq_nineturn_partition_select_sql",
+          "line": 189,
+          "end_line": 218,
+          "signature": "*, source_paths: Sequence[Path], target_trade_date: str, previous_partition_path: Path | None=None, fallback_source_paths: Sequence[Path]=(), fallback_codes: Sequence[str]=()"
+        },
+        {
+          "name": "build_gold_stk_mins_qfq_nineturn_partition_select_sql",
+          "line": 221,
+          "end_line": 255,
+          "signature": "*, source_paths: Sequence[Path], freq: int | str, target_trade_date: str, previous_partition_path: Path | None=None, fallback_source_paths: Sequence[Path]=(), fallback_codes: Sequence[str]=()"
+        },
+        {
+          "name": "build_qfq_nineturn_source_fingerprint",
+          "line": 258,
+          "end_line": 282,
+          "signature": "*, lake_root: Path, source_paths: Sequence[Path]"
+        },
+        {
+          "name": "plan_gold_stock_daily_qfq_nineturn_source",
+          "line": 285,
+          "end_line": 324,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, lake_root: Path, partition_key: str, previous_trade_date: str | None"
+        },
+        {
+          "name": "plan_gold_stk_mins_qfq_nineturn_source",
+          "line": 327,
+          "end_line": 394,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, lake_root: Path, freq: int | str, partition_key: str, previous_trade_date: str | None"
+        },
+        {
+          "name": "write_gold_stock_daily_qfq_nineturn_partition",
+          "line": 397,
+          "end_line": 426,
+          "signature": "*, duckdb_resource: DuckDBResource, lake_root: Path, partition_key: str, run_id: str, select_sql: str, source_paths: Sequence[Path], fingerprint_source_paths: Sequence[Path] | None=None, source_row_count: int, fallback_recomputed_code_count: int=0"
+        },
+        {
+          "name": "write_gold_stk_mins_qfq_nineturn_partition",
+          "line": 429,
+          "end_line": 465,
+          "signature": "*, duckdb_resource: DuckDBResource, lake_root: Path, freq: int | str, partition_key: str, run_id: str, select_sql: str, source_paths: Sequence[Path], fingerprint_source_paths: Sequence[Path] | None=None, source_row_count: int, fallback_recomputed_code_count: int=0"
+        },
+        {
+          "name": "_build_qfq_nineturn_select_sql",
+          "line": 468,
+          "end_line": 483,
+          "signature": "*, source_sql: str, freq: int | None, output_columns: Sequence[str], order_by: str"
+        },
+        {
+          "name": "_build_qfq_nineturn_partition_select_sql",
+          "line": 486,
+          "end_line": 547,
+          "signature": "*, source_sql: str, seed_sql: str, target_trade_date: str, freq: int | None, fallback_source_paths: Sequence[Path], fallback_codes: Sequence[str], output_columns: Sequence[str], order_by: str"
+        },
+        {
+          "name": "_fallback_partition_select_sql",
+          "line": 550,
+          "end_line": 575,
+          "signature": "*, fallback_source_paths: Sequence[Path], fallback_codes: Sequence[str], target_trade_date: str, freq: int | None"
+        },
+        {
+          "name": "_build_qfq_nineturn_history_batch_select_sql",
+          "line": 578,
+          "end_line": 603,
+          "signature": "*, source_sql: str, context_sql: str, seed_sql: str, start_date: str, end_date: str, freq: int | None, output_columns: Sequence[str], order_by: str"
+        },
+        {
+          "name": "_normalized_qfq_source_sql",
+          "line": 606,
+          "end_line": 614,
+          "signature": "source_sql: str"
+        },
+        {
+          "name": "_normalized_qfq_seed_sql",
+          "line": 617,
+          "end_line": 624,
+          "signature": "seed_sql: str"
+        },
+        {
+          "name": "_qfq_formula_projection_sql",
+          "line": 627,
+          "end_line": 646,
+          "signature": "*, freq: int | None"
+        },
+        {
+          "name": "_project_qfq_formula_sql",
+          "line": 649,
+          "end_line": 675,
+          "signature": "*, formula_sql: str, freq: int | None, output_columns: Sequence[str], order_by: str"
+        },
+        {
+          "name": "_daily_seed_sql",
+          "line": 678,
+          "end_line": 688,
+          "signature": "previous_partition_path: Path | None"
+        },
+        {
+          "name": "_history_context_sql",
+          "line": 691,
+          "end_line": 714,
+          "signature": "context_path: Path | None, *, freq: int | None"
+        },
+        {
+          "name": "_history_seed_sql",
+          "line": 717,
+          "end_line": 726,
+          "signature": "seed_path: Path | None"
+        },
+        {
+          "name": "_minute_seed_sql",
+          "line": 729,
+          "end_line": 744,
+          "signature": "previous_partition_path: Path | None, freq: int"
+        },
+        {
+          "name": "_empty_seed_select",
+          "line": 747,
+          "end_line": 754,
+          "signature": ""
+        },
+        {
+          "name": "_empty_nineturn_select",
+          "line": 757,
+          "end_line": 766,
+          "signature": "*, freq: int | None"
+        },
+        {
+          "name": "_normalize_fallback_codes",
+          "line": 769,
+          "end_line": 778,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "_fallback_codes_sql",
+          "line": 781,
+          "end_line": 787,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "_stock_code_filter_sql",
+          "line": 790,
+          "end_line": 800,
+          "signature": "stock_codes: Sequence[str], *, has_where: bool=False"
+        },
+        {
+          "name": "_partition_date_from_path",
+          "line": 803,
+          "end_line": 804,
+          "signature": "path: Path"
+        },
+        {
+          "name": "_existing_previous_nineturn_path",
+          "line": 807,
+          "end_line": 812,
+          "signature": "path: Path | None"
+        },
+        {
+          "name": "_minute_paths_by_code",
+          "line": 815,
+          "end_line": 820,
+          "signature": "source_root: Path"
+        },
+        {
+          "name": "_plan_fallback_codes",
+          "line": 823,
+          "end_line": 845,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, source_paths: Sequence[Path], history_paths: Sequence[Path], partition_key: str, previous_partition_path: Path | None, freq: int | None"
+        },
+        {
+          "name": "_bounded_candidate_codes",
+          "line": 848,
+          "end_line": 909,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, source_paths: Sequence[Path], partition_key: str, previous_partition_path: Path | None, freq: int | None"
+        },
+        {
+          "name": "_fallback_codes_with_history",
+          "line": 912,
+          "end_line": 938,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, history_paths: Sequence[Path], candidate_codes: Sequence[str], partition_key: str, freq: int | None"
+        },
+        {
+          "name": "_source_identity_rows_sql",
+          "line": 941,
+          "end_line": 960,
+          "signature": "source_paths: Sequence[Path], *, freq: int | None"
+        },
+        {
+          "name": "_write_qfq_nineturn_partition",
+          "line": 963,
+          "end_line": 1046,
+          "signature": "*, duckdb_resource: DuckDBResource, lake_root: Path, partition_key: str, freq: int | None, select_sql: str, source_paths: Sequence[Path], fingerprint_source_paths: Sequence[Path] | None, source_row_count: int, fallback_recomputed_code_count: int, target_path: Path, staging_path: Path, schema: Sequence[ColumnContract]"
+        },
+        {
+          "name": "_validate_qfq_nineturn_partition",
+          "line": 1049,
+          "end_line": 1123,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, path: Path, schema: Sequence[ColumnContract], partition_key: str, freq: int | None, expected_row_count: int"
+        },
+        {
+          "name": "_read_parquet_paths",
+          "line": 1126,
+          "end_line": 1133,
+          "signature": "paths: Sequence[Path]"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/qfq_nineturn_history.py",
+      "sha256": "e533d3d9a1b4771885ffe637935e1bf2c174a4da200d4edf29aeea0de8360aad",
+      "symbols": [
+        {
+          "name": "QfqNineturnHistoryError",
+          "line": 80,
+          "end_line": 81,
+          "signature": null
+        },
+        {
+          "name": "_process_peak_rss_bytes",
+          "line": 84,
+          "end_line": 86,
+          "signature": ""
+        },
+        {
+          "name": "_canonical_rss_gate",
+          "line": 89,
+          "end_line": 91,
+          "signature": ""
+        },
+        {
+          "name": "_CanonicalDuckDBResource",
+          "line": 94,
+          "end_line": 107,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnHistoryBatch",
+          "line": 111,
+          "end_line": 178,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnHistoryPlan",
+          "line": 182,
+          "end_line": 193,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnHistoryBatchResult",
+          "line": 197,
+          "end_line": 213,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnHistoryBuildReport",
+          "line": 217,
+          "end_line": 236,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnScopedRebuildReport",
+          "line": 240,
+          "end_line": 265,
+          "signature": null
+        },
+        {
+          "name": "QfqNineturnScopedRebuildPlan",
+          "line": 269,
+          "end_line": 289,
+          "signature": null
+        },
+        {
+          "name": "_AssetSpec",
+          "line": 293,
+          "end_line": 296,
+          "signature": null
+        },
+        {
+          "name": "plan_qfq_nineturn_history",
+          "line": 299,
+          "end_line": 409,
+          "signature": "*, lake_root: Path=Path(DEFAULT_LAKE_ROOT), duckdb_resource: DuckDBResource | None=None, asset_keys: Sequence[str] | None=None, output_dir: Path=Path('/private/tmp')"
+        },
+        {
+          "name": "load_qfq_nineturn_history_plan",
+          "line": 412,
+          "end_line": 446,
+          "signature": "plan_report_path: Path"
+        },
+        {
+          "name": "_write_history_progress",
+          "line": 449,
+          "end_line": 466,
+          "signature": "*, output_dir: Path, run_id: str, plan: QfqNineturnHistoryPlan, index: int, result: QfqNineturnHistoryBatchResult"
+        },
+        {
+          "name": "build_qfq_nineturn_history",
+          "line": 469,
+          "end_line": 586,
+          "signature": "*, plan: QfqNineturnHistoryPlan, expected_plan_fingerprint: str, duckdb_resource: DuckDBResource, staging_root: Path=Path(DEFAULT_LAKE_STAGING_ROOT), target_lake_root: Path | None=None, output_dir: Path=Path('/private/tmp'), release_connection_per_batch: bool=False"
+        },
+        {
+          "name": "audit_qfq_nineturn_history",
+          "line": 589,
+          "end_line": 687,
+          "signature": "*, plan: QfqNineturnHistoryPlan, duckdb_resource: DuckDBResource, target_lake_root: Path | None=None, output_dir: Path=Path('/private/tmp')"
+        },
+        {
+          "name": "plan_qfq_nineturn_canonical_rebuild",
+          "line": 690,
+          "end_line": 821,
+          "signature": "*, lake_root: Path=Path(DEFAULT_LAKE_ROOT), staging_root: Path=CANONICAL_REBUILD_STAGING_ROOT, report_root: Path=CANONICAL_REBUILD_REPORT_ROOT, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "build_qfq_nineturn_canonical_candidates",
+          "line": 824,
+          "end_line": 901,
+          "signature": "*, plan_path: Path, expected_plan_hash: str, freq: int, duckdb_resource: DuckDBResource, confirm_build: bool"
+        },
+        {
+          "name": "audit_qfq_nineturn_canonical_candidates",
+          "line": 904,
+          "end_line": 1008,
+          "signature": "*, plan_path: Path, expected_plan_hash: str, freq: int, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "promote_qfq_nineturn_canonical_candidates",
+          "line": 1011,
+          "end_line": 1095,
+          "signature": "*, plan_path: Path, expected_plan_hash: str, freq: int, confirm_promote: bool"
+        },
+        {
+          "name": "audit_qfq_nineturn_canonical_formal",
+          "line": 1098,
+          "end_line": 1165,
+          "signature": "*, plan_path: Path, expected_plan_hash: str, freq: int, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "plan_qfq_nineturn_scoped_rebuild",
+          "line": 1168,
+          "end_line": 1294,
+          "signature": "*, lake_root: Path, staging_root: Path=Path(DEFAULT_LAKE_STAGING_ROOT), duckdb_resource: DuckDBResource, asset_family: str, freqs: Sequence[int]=(), stock_codes: Sequence[str], start_date: str, end_date: str, batch_partition_limit: int=MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT, output_dir: Path=Path('/private/tmp')"
+        },
+        {
+          "name": "load_qfq_nineturn_scoped_rebuild_plan",
+          "line": 1297,
+          "end_line": 1337,
+          "signature": "plan_report_path: Path"
+        },
+        {
+          "name": "rebuild_qfq_nineturn_scope",
+          "line": 1340,
+          "end_line": 1607,
+          "signature": "*, plan: QfqNineturnScopedRebuildPlan, expected_plan_fingerprint: str, duckdb_resource: DuckDBResource, checkpoint_path: Path, mode: str='batch', sample_partition_keys: Sequence[str]=(), batch_count_limit: int=1, progress_callback: Callable[[Mapping[str, object]], None] | None=None, output_dir: Path=Path('/private/tmp')"
+        },
+        {
+          "name": "_build_history_batch",
+          "line": 1610,
+          "end_line": 1728,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, target_lake_root: Path, staging_root: Path, batch: QfqNineturnHistoryBatch, context_path: Path | None, seed_path: Path | None"
+        },
+        {
+          "name": "_profile_batch",
+          "line": 1731,
+          "end_line": 1786,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, lake_root: Path, spec: _AssetSpec, year: int, source_paths: tuple[Path, ...]"
+        },
+        {
+          "name": "_asset_specs",
+          "line": 1789,
+          "end_line": 1804,
+          "signature": ""
+        },
+        {
+          "name": "_selected_asset_specs",
+          "line": 1807,
+          "end_line": 1819,
+          "signature": "asset_keys: Sequence[str] | None"
+        },
+        {
+          "name": "_spec_for_asset",
+          "line": 1822,
+          "end_line": 1826,
+          "signature": "asset_key: str"
+        },
+        {
+          "name": "_scoped_specs",
+          "line": 1829,
+          "end_line": 1843,
+          "signature": "*, asset_family: str, freqs: Sequence[int]"
+        },
+        {
+          "name": "_source_paths_by_year",
+          "line": 1846,
+          "end_line": 1867,
+          "signature": "lake_root: Path, spec: _AssetSpec"
+        },
+        {
+          "name": "_source_rows_sql",
+          "line": 1870,
+          "end_line": 1893,
+          "signature": "source_paths: Sequence[Path], spec: _AssetSpec"
+        },
+        {
+          "name": "_history_context_rows_sql",
+          "line": 1896,
+          "end_line": 1914,
+          "signature": "*, source_paths: Sequence[Path], context_path: Path | None, freq: int | None"
+        },
+        {
+          "name": "_write_compact_history_state",
+          "line": 1917,
+          "end_line": 2042,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, table_name: str, source_paths: Sequence[Path], context_path: Path | None, seed_path: Path | None, spec: _AssetSpec, state_root: Path, year: int"
+        },
+        {
+          "name": "_target_path",
+          "line": 2045,
+          "end_line": 2048,
+          "signature": "lake_root: Path, spec: _AssetSpec, trade_date: str"
+        },
+        {
+          "name": "_assert_batch_key_equality",
+          "line": 2051,
+          "end_line": 2080,
+          "signature": "connection: duckdb.DuckDBPyConnection, *, table_name: str, batch: QfqNineturnHistoryBatch, spec: _AssetSpec"
+        },
+        {
+          "name": "_normalize_partitioned_batch",
+          "line": 2083,
+          "end_line": 2129,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, partitioned_root: Path, normalized_root: Path, expected_dates: Sequence[str], spec: _AssetSpec"
+        },
+        {
+          "name": "_assert_partition_contract",
+          "line": 2132,
+          "end_line": 2161,
+          "signature": "connection: duckdb.DuckDBPyConnection, path: Path, spec: _AssetSpec, trade_date: str"
+        },
+        {
+          "name": "_assert_scoped_rebuild_partition_ready",
+          "line": 2164,
+          "end_line": 2192,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, lake_root: Path, spec: _AssetSpec, target: Path, trade_date: str"
+        },
+        {
+          "name": "_target_contract_counts",
+          "line": 2195,
+          "end_line": 2262,
+          "signature": "connection: duckdb.DuckDBPyConnection, paths: Sequence[Path], spec: _AssetSpec, *, expected_date: str | None=None"
+        },
+        {
+          "name": "_schema_matches",
+          "line": 2265,
+          "end_line": 2277,
+          "signature": "connection: duckdb.DuckDBPyConnection, path: Path, schema: Sequence[ColumnContract]"
+        },
+        {
+          "name": "_parquet_rows_equal",
+          "line": 2280,
+          "end_line": 2300,
+          "signature": "connection: duckdb.DuckDBPyConnection, left: Path, right: Path"
+        },
+        {
+          "name": "_read_paths",
+          "line": 2303,
+          "end_line": 2310,
+          "signature": "paths: Sequence[Path]"
+        },
+        {
+          "name": "_source_fingerprint",
+          "line": 2313,
+          "end_line": 2326,
+          "signature": "lake_root: Path, paths: Sequence[Path]"
+        },
+        {
+          "name": "_plan_payload",
+          "line": 2329,
+          "end_line": 2345,
+          "signature": "*, lake_root: Path, batches: Sequence[QfqNineturnHistoryBatch], latest_dates: Mapping[str, Sequence[str]], stop_reasons: Sequence[str]"
+        },
+        {
+          "name": "_plan_fingerprint",
+          "line": 2348,
+          "end_line": 2356,
+          "signature": "plan: QfqNineturnHistoryPlan"
+        },
+        {
+          "name": "_scoped_plan_fingerprint",
+          "line": 2359,
+          "end_line": 2379,
+          "signature": "plan: QfqNineturnScopedRebuildPlan"
+        },
+        {
+          "name": "_batch_from_payload",
+          "line": 2382,
+          "end_line": 2406,
+          "signature": "payload: Mapping[str, object], *, lake_root: Path"
+        },
+        {
+          "name": "_batch_sort_key",
+          "line": 2409,
+          "end_line": 2411,
+          "signature": "batch: QfqNineturnHistoryBatch"
+        },
+        {
+          "name": "_safe_table_name",
+          "line": 2414,
+          "end_line": 2415,
+          "signature": "value: str"
+        },
+        {
+          "name": "_normalize_stock_codes",
+          "line": 2418,
+          "end_line": 2421,
+          "signature": "stock_codes: Sequence[str]"
+        },
+        {
+          "name": "_hash_payload",
+          "line": 2424,
+          "end_line": 2431,
+          "signature": "payload: object"
+        },
+        {
+          "name": "_sha256_path",
+          "line": 2434,
+          "end_line": 2439,
+          "signature": "path: Path"
+        },
+        {
+          "name": "_count_rows",
+          "line": 2442,
+          "end_line": 2450,
+          "signature": "connection: duckdb.DuckDBPyConnection, paths: Sequence[Path]"
+        },
+        {
+          "name": "_validate_date_range",
+          "line": 2453,
+          "end_line": 2460,
+          "signature": "start_date: str, end_date: str"
+        },
+        {
+          "name": "_validate_scoped_rebuild_batch_partition_limit",
+          "line": 2463,
+          "end_line": 2472,
+          "signature": "value: int"
+        },
+        {
+          "name": "_validate_scoped_rebuild_batch_count_limit",
+          "line": 2475,
+          "end_line": 2484,
+          "signature": "value: int"
+        },
+        {
+          "name": "_scoped_rebuild_partition_key",
+          "line": 2487,
+          "end_line": 2488,
+          "signature": "asset_key: str, trade_date: str"
+        },
+        {
+          "name": "_split_scoped_rebuild_partition_key",
+          "line": 2491,
+          "end_line": 2496,
+          "signature": "value: str"
+        },
+        {
+          "name": "_scoped_rebuild_partition_keys",
+          "line": 2499,
+          "end_line": 2506,
+          "signature": "plan: QfqNineturnScopedRebuildPlan"
+        },
+        {
+          "name": "_scoped_rebuild_selection",
+          "line": 2509,
+          "end_line": 2537,
+          "signature": "*, plan: QfqNineturnScopedRebuildPlan, completed: Mapping[str, object], mode: str, sample_partition_keys: Sequence[str], batch_count_limit: int"
+        },
+        {
+          "name": "_selected_scoped_rebuild_bytes",
+          "line": 2540,
+          "end_line": 2554,
+          "signature": "*, plan: QfqNineturnScopedRebuildPlan, selected_partition_keys: Sequence[str]"
+        },
+        {
+          "name": "_pending_scoped_rebuild_targets_match",
+          "line": 2557,
+          "end_line": 2579,
+          "signature": "*, plan: QfqNineturnScopedRebuildPlan, fresh_plan: QfqNineturnScopedRebuildPlan, completed: Mapping[str, object]"
+        },
+        {
+          "name": "_validated_scoped_rebuild_checkpoint_path",
+          "line": 2582,
+          "end_line": 2594,
+          "signature": "*, checkpoint_path: Path, staging_root: Path"
+        },
+        {
+          "name": "_load_scoped_rebuild_checkpoint",
+          "line": 2597,
+          "end_line": 2616,
+          "signature": "path: Path, *, plan_fingerprint: str"
+        },
+        {
+          "name": "_write_scoped_rebuild_checkpoint",
+          "line": 2619,
+          "end_line": 2635,
+          "signature": "path: Path, *, plan_fingerprint: str, completed: Mapping[str, object]"
+        },
+        {
+          "name": "_normalize_canonical_rebuild_freq",
+          "line": 2638,
+          "end_line": 2644,
+          "signature": "freq: int"
+        },
+        {
+          "name": "_assert_canonical_rebuild_roots",
+          "line": 2647,
+          "end_line": 2664,
+          "signature": "*, lake_root: Path, staging_root: Path"
+        },
+        {
+          "name": "_canonical_target_preimage",
+          "line": 2667,
+          "end_line": 2694,
+          "signature": "lake_root: Path, *, spec: _AssetSpec, trade_date: str"
+        },
+        {
+          "name": "_canonical_code_contract_paths",
+          "line": 2697,
+          "end_line": 2723,
+          "signature": ""
+        },
+        {
+          "name": "_canonical_code_manifest_entry",
+          "line": 2726,
+          "end_line": 2734,
+          "signature": "path: Path"
+        },
+        {
+          "name": "_load_canonical_rebuild_plan",
+          "line": 2737,
+          "end_line": 2751,
+          "signature": "plan_path: Path, expected_plan_hash: str"
+        },
+        {
+          "name": "_canonical_source_batch_payload",
+          "line": 2754,
+          "end_line": 2757,
+          "signature": "batch: QfqNineturnHistoryBatch"
+        },
+        {
+          "name": "_assert_canonical_plan_unchanged",
+          "line": 2760,
+          "end_line": 2790,
+          "signature": "plan: Mapping[str, Any], *, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "_audit_canonical_minute_batch",
+          "line": 2793,
+          "end_line": 2910,
+          "signature": "*, batch: QfqNineturnHistoryBatch, candidate_root: Path, duckdb_resource: DuckDBResource"
+        },
+        {
+          "name": "_canonical_candidate_manifest_entry",
+          "line": 2913,
+          "end_line": 2946,
+          "signature": "*, plan: Mapping[str, Any], asset_key: str, freq: int, trade_date: str, candidate_path: Path"
+        },
+        {
+          "name": "_assert_canonical_formal_preimage",
+          "line": 2949,
+          "end_line": 2966,
+          "signature": "entry: Mapping[str, Any]"
+        },
+        {
+          "name": "_assert_path_sha256",
+          "line": 2969,
+          "end_line": 2971,
+          "signature": "path: Path, expected: str, *, label: str"
+        },
+        {
+          "name": "_assert_canonical_frequency_order",
+          "line": 2974,
+          "end_line": 2985,
+          "signature": "plan: Mapping[str, Any], freq: int"
+        },
+        {
+          "name": "_load_canonical_checkpoint",
+          "line": 2988,
+          "end_line": 3006,
+          "signature": "path: Path, *, plan_hash: str, freq: int"
+        },
+        {
+          "name": "_load_json_mapping",
+          "line": 3009,
+          "end_line": 3013,
+          "signature": "path: Path"
+        },
+        {
+          "name": "_write_canonical_report",
+          "line": 3016,
+          "end_line": 3026,
+          "signature": "plan: Mapping[str, Any], label: str, report: Mapping[str, Any]"
+        },
+        {
+          "name": "_validated_staging_root",
+          "line": 3029,
+          "end_line": 3048,
+          "signature": "*, lake_root: Path, staging_root: Path"
+        },
+        {
+          "name": "_write_json",
+          "line": 3051,
+          "end_line": 3056,
+          "signature": "path: Path, payload: Mapping[str, object]"
+        },
+        {
+          "name": "_write_json_atomic",
+          "line": 3059,
+          "end_line": 3066,
+          "signature": "path: Path, payload: Mapping[str, object]"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py",
+      "sha256": "bedda8437e50f5881d8a8d54d1b2716174dc33aad18a7bdf80dde3daf0f422b6",
+      "symbols": [
+        {
+          "name": "_previous_registered_trade_date",
+          "line": 57,
+          "end_line": 68,
+          "signature": "context: dg.AssetExecutionContext, *, partition_set_name: str"
+        },
+        {
+          "name": "_materialization_metadata",
+          "line": 71,
+          "end_line": 101,
+          "signature": "result, *, partition_key: str, freq: int | None"
+        },
+        {
+          "name": "gold_stock_daily_qfq_nineturn",
+          "line": 136,
+          "end_line": 220,
+          "signature": "context: dg.AssetExecutionContext, lake_root: LakeRootResource, duckdb: DuckDBResource"
+        },
+        {
+          "name": "_build_minute_asset",
+          "line": 223,
+          "end_line": 356,
+          "signature": "*, freq: int, source_asset"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_qfq_nineturn_sensor.py",
+      "sha256": "1b0add0ee85d9c87c197249687f135098ad6db56ba0e5c485b9c090b0b905bd7",
+      "symbols": [
+        {
+          "name": "_compact_date_status",
+          "line": 54,
+          "end_line": 68,
+          "signature": "status: StkMinsDateReadiness | None"
+        },
+        {
+          "name": "_compact_dataset_status",
+          "line": 71,
+          "end_line": 91,
+          "signature": "status: DatasetReadinessStatus | None"
+        },
+        {
+          "name": "_load_expected_window",
+          "line": 94,
+          "end_line": 110,
+          "signature": "context: dg.SensorEvaluationContext, evaluated_at: datetime"
+        },
+        {
+          "name": "_first_not_ready",
+          "line": 113,
+          "end_line": 121,
+          "signature": "batch_status: StkMinsBatchReadiness, trade_dates: tuple[str, ...]"
+        },
+        {
+          "name": "_previous_trade_date",
+          "line": 124,
+          "end_line": 133,
+          "signature": "registered_trade_dates: tuple[str, ...], target_trade_date: str"
+        },
+        {
+          "name": "_previous_partition_status",
+          "line": 136,
+          "end_line": 156,
+          "signature": "context: dg.SensorEvaluationContext, *, previous_trade_date: str | None, target_batch_status: StkMinsBatchReadiness, target_window_dates: tuple[str, ...], registered_trade_dates: tuple[str, ...]"
+        },
+        {
+          "name": "_cursor",
+          "line": 159,
+          "end_line": 224,
+          "signature": "*, evaluated_at: datetime, target_date: str | None, selected_date: str | None, reason_code: str, blocked_component: str, summary: str, next_action: str, registered_count: int, target_batch_status: StkMinsBatchReadiness | None=None, target_status: StkMinsDateReadiness | None=None, upstream_status: DatasetReadinessStatus | None=None, previous_status: StkMinsDateReadiness | None=None"
+        },
+        {
+          "name": "_result",
+          "line": 227,
+          "end_line": 269,
+          "signature": "*, evaluated_at: datetime, target_date: str | None, selected_date: str | None, reason_code: str, blocked_component: str, summary: str, next_action: str, registered_count: int, target_batch_status: StkMinsBatchReadiness | None=None, target_status: StkMinsDateReadiness | None=None, upstream_status: DatasetReadinessStatus | None=None, previous_status: StkMinsDateReadiness | None=None"
+        },
+        {
+          "name": "gold_stock_daily_qfq_nineturn_update_job_sensor",
+          "line": 287,
+          "end_line": 446,
+          "signature": "context: dg.SensorEvaluationContext"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq_nineturn_prod_core.py",
+      "sha256": "aff94de6080a61653132cd7a5f04cfa5766c33e7fc3a7f42a14043e607b73401",
+      "symbols": [
+        {
+          "name": "prod_core_stock_daily_qfq_nineturn",
+          "line": 87,
+          "end_line": 142,
+          "signature": "context: dg.AssetExecutionContext, lake_root: LakeRootResource, duckdb: DuckDBResource, prod_postgres_write: ProdPostgresWriteResource"
+        },
+        {
+          "name": "load_gold_stock_daily_qfq_nineturn_rows_for_prod_sync",
+          "line": 145,
+          "end_line": 158,
+          "signature": "*, duckdb_resource: DuckDBResource, source_path: Path, qfq_source_path: Path, partition_key: str"
+        },
+        {
+          "name": "load_gold_stock_daily_qfq_nineturn_rows_with_connection",
+          "line": 161,
+          "end_line": 187,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, source_path: Path, qfq_source_path: Path, partition_key: str"
+        },
+        {
+          "name": "audit_gold_stock_daily_qfq_nineturn_for_prod_sync",
+          "line": 190,
+          "end_line": 211,
+          "signature": "*, connection: duckdb.DuckDBPyConnection, source_path: Path, qfq_source_path: Path, partition_key: str"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/stock_factor_price_checks.py",
+      "sha256": "194b0e05220a7abb22180dd7419f1cd0b745edcd92b12da715589d377af41a03",
+      "symbols": [
+        {
+          "name": "adj_factor_duplicate_keys_sql",
+          "line": 26,
+          "end_line": 29,
+          "signature": "path: Path"
+        },
+        {
+          "name": "adj_factor_invalid_lifecycle_sql",
+          "line": 32,
+          "end_line": 41,
+          "signature": "path: Path, lifecycle_path: Path"
+        },
+        {
+          "name": "adj_factor_coverage_relations_sql",
+          "line": 44,
+          "end_line": 53,
+          "signature": "path: Path, lifecycle_path: Path, partition_key: str"
+        },
+        {
+          "name": "adj_factor_partition_mismatch_predicate",
+          "line": 56,
+          "end_line": 63,
+          "signature": "partition_key: str, *, raw: bool"
+        },
+        {
+          "name": "audit_adj_factor_candidate_rules",
+          "line": 66,
+          "end_line": 91,
+          "signature": "connection, path: Path, partition_key: str, *, raw: bool, lifecycle_path: Path"
+        },
+        {
+          "name": "daily_qfq_sample_dicts",
+          "line": 94,
+          "end_line": 104,
+          "signature": "columns: Sequence[str], rows: Sequence[Sequence[Any]]"
+        },
+        {
+          "name": "daily_qfq_column_names",
+          "line": 107,
+          "end_line": 111,
+          "signature": "connection, path: Path"
+        },
+        {
+          "name": "daily_qfq_row_count",
+          "line": 114,
+          "end_line": 119,
+          "signature": "connection, path: Path"
+        },
+        {
+          "name": "daily_qfq_contract_rule_counts",
+          "line": 122,
+          "end_line": 154,
+          "signature": "connection, path: Path, partition_key: str"
+        },
+        {
+          "name": "daily_qfq_contract_failure_samples",
+          "line": 157,
+          "end_line": 190,
+          "signature": "connection, path: Path, partition_key: str"
+        },
+        {
+          "name": "minute_qfq_counts_sql",
+          "line": 193,
+          "end_line": 256,
+          "signature": "*, gold_source: str, partition_key: str | Sequence[str], freq: int"
+        },
+        {
+          "name": "minute_qfq_identity_coverage_counts_sql",
+          "line": 259,
+          "end_line": 307,
+          "signature": "*, gold_source: str, expected_identity_sql: str, partition_key: str | Sequence[str]"
+        },
+        {
+          "name": "adj_factor_partition_allowed_status",
+          "line": 311,
+          "end_line": 329,
+          "signature": "*, partition_key: str, registered_keys: set[str], today: str"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py",
+      "sha256": "736a30e8ba10743c9b775e5bc1d1e4ad49b26758adc16fbe73cdc12e9cfd2f96",
+      "symbols": [
+        {
+          "name": "GoldStkMinsQfqFactorRepairStatus",
+          "line": 42,
+          "end_line": 110,
+          "signature": null
+        },
+        {
+          "name": "gold_stk_mins_qfq_factor_repair_status",
+          "line": 113,
+          "end_line": 133,
+          "signature": "instance: dg.DagsterInstance, trade_date: str, *, include_event_storage_ids: bool=True"
+        },
+        {
+          "name": "gold_stk_mins_qfq_factor_repair_event_storage_ids_identity",
+          "line": 136,
+          "end_line": 139,
+          "signature": "event_storage_ids: Sequence[int]"
+        },
+        {
+          "name": "gold_stk_mins_qfq_factor_repair_asset_keys",
+          "line": 142,
+          "end_line": 143,
+          "signature": ""
+        },
+        {
+          "name": "latest_partition_check_records",
+          "line": 146,
+          "end_line": 159,
+          "signature": "instance: dg.DagsterInstance, asset_keys: Sequence[dg.AssetKey], check_name: str, *, partition_key: str"
+        },
+        {
+          "name": "asset_check_record_succeeded",
+          "line": 162,
+          "end_line": 164,
+          "signature": "record: object"
+        },
+        {
+          "name": "asset_check_record_event",
+          "line": 167,
+          "end_line": 168,
+          "signature": "record: object"
+        },
+        {
+          "name": "asset_check_record_evaluation",
+          "line": 171,
+          "end_line": 175,
+          "signature": "record: object"
+        },
+        {
+          "name": "asset_check_record_partition",
+          "line": 178,
+          "end_line": 180,
+          "signature": "record: object, evaluation: object"
+        },
+        {
+          "name": "asset_check_record_storage_id",
+          "line": 183,
+          "end_line": 193,
+          "signature": "record: object"
+        },
+        {
+          "name": "asset_check_record_event_storage_id",
+          "line": 196,
+          "end_line": 234,
+          "signature": "instance: dg.DagsterInstance, check_key: dg.AssetCheckKey, record: object, *, partition_key: str"
+        },
+        {
+          "name": "asset_check_record_metadata",
+          "line": 237,
+          "end_line": 244,
+          "signature": "evaluation: object"
+        },
+        {
+          "name": "unwrap_metadata_value",
+          "line": 247,
+          "end_line": 255,
+          "signature": "value: object"
+        },
+        {
+          "name": "metadata_value",
+          "line": 258,
+          "end_line": 259,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "metadata_has_keys",
+          "line": 262,
+          "end_line": 263,
+          "signature": "metadata: Mapping[str, object], keys: Sequence[str]"
+        },
+        {
+          "name": "metadata_bool",
+          "line": 266,
+          "end_line": 268,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "metadata_int",
+          "line": 271,
+          "end_line": 275,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "metadata_str",
+          "line": 278,
+          "end_line": 280,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "metadata_int_tuple",
+          "line": 283,
+          "end_line": 292,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "metadata_str_tuple",
+          "line": 295,
+          "end_line": 304,
+          "signature": "metadata: Mapping[str, object], key: str"
+        },
+        {
+          "name": "_evaluate_qfq_factor_repair_records",
+          "line": 307,
+          "end_line": 447,
+          "signature": "instance: dg.DagsterInstance, asset_keys: Sequence[dg.AssetKey], records_by_key: Mapping[dg.AssetCheckKey, object], *, trade_date: str, include_event_storage_ids: bool=True"
+        },
+        {
+          "name": "_build_qfq_factor_repair_rewrite_metadata",
+          "line": 450,
+          "end_line": 480,
+          "signature": "metadata_rows: Sequence[Mapping[str, object]]"
+        },
+        {
+          "name": "_qfq_repair_scope_metadata_is_consistent",
+          "line": 483,
+          "end_line": 519,
+          "signature": "metadata_rows: Sequence[Mapping[str, object]], *, producer_run_id: str, upstream_batch_id: str, repair_required_code_count: int, repair_required_codes: tuple[str, ...], repair_required_codes_hash: str, repair_required_codes_truncated: bool"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/bootstrap/moneyflow_history_promote.py",
+      "sha256": "4e34b99f641f20361b0aee4f847678caf670c146757cbef1ca145b2b30971ab5",
+      "symbols": [
+        {
+          "name": "_check_path",
+          "line": 35,
+          "end_line": 41,
+          "signature": "path"
+        },
+        {
+          "name": "_validate_roots",
+          "line": 44,
+          "end_line": 67,
+          "signature": "lake_root, staging_root"
+        },
+        {
+          "name": "_target",
+          "line": 70,
+          "end_line": 80,
+          "signature": "lake_root, plan, day, layer"
+        },
+        {
+          "name": "_existing_parent",
+          "line": 83,
+          "end_line": 87,
+          "signature": "path"
+        },
+        {
+          "name": "_same_device",
+          "line": 90,
+          "end_line": 91,
+          "signature": "source, target_parent"
+        },
+        {
+          "name": "_frozen",
+          "line": 94,
+          "end_line": 123,
+          "signature": "root, cutoff, selected_dates=None"
+        },
+        {
+          "name": "_promotion_contract",
+          "line": 126,
+          "end_line": 136,
+          "signature": "manifest, closed, lake_root"
+        },
+        {
+          "name": "_unit_paths",
+          "line": 139,
+          "end_line": 143,
+          "signature": "root, plan, unit_id"
+        },
+        {
+          "name": "_promotion_state",
+          "line": 146,
+          "end_line": 187,
+          "signature": "root, plan, unit_id, closed_entry, contract"
+        },
+        {
+          "name": "_receipt_files",
+          "line": 190,
+          "end_line": 205,
+          "signature": "root, plan, unit_id"
+        },
+        {
+          "name": "_moved_bytes",
+          "line": 208,
+          "end_line": 223,
+          "signature": "root, units, closed, contract, lake_root, check=lambda: None"
+        },
+        {
+          "name": "_file_location",
+          "line": 226,
+          "end_line": 241,
+          "signature": "lake_root, plan, day, layer, source, item, expected_hash, check"
+        },
+        {
+          "name": "_preflight",
+          "line": 244,
+          "end_line": 295,
+          "signature": "root, manifest, units, closed, plans, contract, lake_root, control"
+        },
+        {
+          "name": "_promote_file",
+          "line": 298,
+          "end_line": 349,
+          "signature": "source, target, digest, item, state, state_path, key, control, store, row_count"
+        },
+        {
+          "name": "promote_moneyflow_history_cohort",
+          "line": 352,
+          "end_line": 482,
+          "signature": "*, staging_root: Path, operation_id: str, cutoff: str, selected_dates: tuple[str, ...] | None=None, lake_root: Path=Path(DEFAULT_LAKE_ROOT), apply: bool=False, cancel=lambda: False, clock=time.monotonic"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_writer.py",
+      "sha256": "6716c63daf1a84d3d9d51100e3c31bf047724b24bf7d8644029456ea7680bc9b",
+      "symbols": [
+        {
+          "name": "CanonicalGoldMinuteWriteResult",
+          "line": 26,
+          "end_line": 52,
+          "signature": null
+        },
+        {
+          "name": "_normalized_expected_codes",
+          "line": 55,
+          "end_line": 61,
+          "signature": "values: Sequence[object]"
+        },
+        {
+          "name": "load_minute_source_codes",
+          "line": 64,
+          "end_line": 76,
+          "signature": "connection, source_path: Path"
+        },
+        {
+          "name": "_assert_same_filesystem",
+          "line": 79,
+          "end_line": 85,
+          "signature": "staging_path: Path, target_path: Path"
+        },
+        {
+          "name": "_assert_ready",
+          "line": 88,
+          "end_line": 95,
+          "signature": "audit: CanonicalGoldMinuteAudit"
+        },
+        {
+          "name": "write_canonical_gold_minute_partition",
+          "line": 98,
+          "end_line": 176,
+          "signature": "*, duckdb_resource: DuckDBResource, source_path: Path, target_path: Path, staging_path: Path, target_freq: int | str, partition_key: str, expected_codes: Sequence[object] | None=None"
+        }
+      ]
+    },
+    {
+      "file": "lake_console/orchestrator/src/orchestrator/defs/paths.py",
+      "sha256": "7431d064325c130eb60a21ebba1c2e9c79c03ceed99a5e2eeac580f07663ae62",
+      "symbols": [
+        {
+          "name": "stk_mins_raw_recovery_run_root",
+          "line": 71,
+          "end_line": 82,
+          "signature": "staging_root: Path, trade_date: str, recovery_run_id: str"
+        },
+        {
+          "name": "lake_path",
+          "line": 85,
+          "end_line": 94,
+          "signature": "root: Path, layer: str, *parts: str"
+        },
+        {
+          "name": "lake_path_template",
+          "line": 97,
+          "end_line": 98,
+          "signature": "path: Path"
+        },
+        {
+          "name": "raw_moneyflow_path",
+          "line": 101,
+          "end_line": 105,
+          "signature": "root: Path, dataset: str, partition_key: str"
+        },
+        {
+          "name": "silver_moneyflow_path",
+          "line": 108,
+          "end_line": 112,
+          "signature": "root: Path, dataset: str, partition_key: str"
+        },
+        {
+          "name": "raw_trade_calendar_path",
+          "line": 115,
+          "end_line": 116,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_stock_monthly_path",
+          "line": 119,
+          "end_line": 126,
+          "signature": "root: Path, source, month: str"
+        },
+        {
+          "name": "_raw_stock_weekly_path",
+          "line": 129,
+          "end_line": 132,
+          "signature": "root: Path, dataset_id: str, week_key: str"
+        },
+        {
+          "name": "raw_stk_period_bar_adj_week_path",
+          "line": 135,
+          "end_line": 136,
+          "signature": "root: Path, week_key: str"
+        },
+        {
+          "name": "silver_trade_calendar_path",
+          "line": 139,
+          "end_line": 140,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_stock_basic_path",
+          "line": 143,
+          "end_line": 144,
+          "signature": "root: Path"
+        },
+        {
+          "name": "silver_stock_basic_path",
+          "line": 147,
+          "end_line": 148,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_etf_basic_snapshot_path",
+          "line": 151,
+          "end_line": 159,
+          "signature": "root: Path, snapshot_id: str"
+        },
+        {
+          "name": "silver_etf_basic_snapshot_path",
+          "line": 162,
+          "end_line": 170,
+          "signature": "root: Path, snapshot_id: str"
+        },
+        {
+          "name": "etf_basic_staging_path",
+          "line": 173,
+          "end_line": 180,
+          "signature": "staging_root: Path, run_id: str, layer: str"
+        },
+        {
+          "name": "silver_stock_lifecycle_path",
+          "line": 183,
+          "end_line": 191,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_namechange_path",
+          "line": 194,
+          "end_line": 195,
+          "signature": "root: Path"
+        },
+        {
+          "name": "silver_namechange_path",
+          "line": 198,
+          "end_line": 199,
+          "signature": "root: Path"
+        },
+        {
+          "name": "silver_stock_identity_map_path",
+          "line": 202,
+          "end_line": 203,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_stock_daily_path",
+          "line": 206,
+          "end_line": 214,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_anns_d_path",
+          "line": 217,
+          "end_line": 222,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_daily_basic_path",
+          "line": 225,
+          "end_line": 230,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_daily_basic_staging_path",
+          "line": 233,
+          "end_line": 239,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "raw_stk_nineturn_path",
+          "line": 242,
+          "end_line": 250,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_stock_nineturn_daily_path",
+          "line": 253,
+          "end_line": 261,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_stk_mins_path",
+          "line": 264,
+          "end_line": 273,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "silver_stk_mins_path",
+          "line": 276,
+          "end_line": 285,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "raw_etf_mins_path",
+          "line": 288,
+          "end_line": 297,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "silver_etf_mins_path",
+          "line": 300,
+          "end_line": 309,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "etf_mins_staging_path",
+          "line": 312,
+          "end_line": 327,
+          "signature": "staging_root: Path, operation_id: str, layer: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "raw_fund_daily_path",
+          "line": 330,
+          "end_line": 338,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_fund_daily_staging_path",
+          "line": 341,
+          "end_line": 351,
+          "signature": "staging_root: Path, operation_id: str, partition_key: str"
+        },
+        {
+          "name": "silver_etf_daily_path",
+          "line": 354,
+          "end_line": 362,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_etf_daily_staging_path",
+          "line": 365,
+          "end_line": 375,
+          "signature": "staging_root: Path, operation_id: str, partition_key: str"
+        },
+        {
+          "name": "raw_fund_adj_path",
+          "line": 378,
+          "end_line": 386,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_fund_adj_staging_path",
+          "line": 389,
+          "end_line": 399,
+          "signature": "staging_root: Path, operation_id: str, partition_key: str"
+        },
+        {
+          "name": "silver_etf_adj_factor_path",
+          "line": 402,
+          "end_line": 410,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_etf_adj_factor_staging_path",
+          "line": 413,
+          "end_line": 423,
+          "signature": "staging_root: Path, operation_id: str, partition_key: str"
+        },
+        {
+          "name": "_etf_daily_staging_path",
+          "line": 426,
+          "end_line": 440,
+          "signature": "staging_root: Path, *, operation_id: str, asset_key: str, partition_key: str"
+        },
+        {
+          "name": "_normalize_etf_basic_snapshot_id",
+          "line": 443,
+          "end_line": 451,
+          "signature": "value: str"
+        },
+        {
+          "name": "_normalize_etf_mins_partition_key",
+          "line": 454,
+          "end_line": 457,
+          "signature": "value: str"
+        },
+        {
+          "name": "_etf_daily_partition_component",
+          "line": 460,
+          "end_line": 463,
+          "signature": "partition_key: str"
+        },
+        {
+          "name": "_normalize_etf_staging_id",
+          "line": 466,
+          "end_line": 475,
+          "signature": "value: str, *, name: str"
+        },
+        {
+          "name": "_normalize_etf_staging_layer",
+          "line": 478,
+          "end_line": 482,
+          "signature": "value: str"
+        },
+        {
+          "name": "_gold_stk_mins_qfq_ts_code_part",
+          "line": 485,
+          "end_line": 489,
+          "signature": "ts_code: str"
+        },
+        {
+          "name": "_gold_stk_mins_qfq_year_part",
+          "line": 492,
+          "end_line": 499,
+          "signature": "year: int | str"
+        },
+        {
+          "name": "gold_stk_mins_qfq_path",
+          "line": 502,
+          "end_line": 512,
+          "signature": "root: Path, freq: int | str, ts_code: str, year: int | str"
+        },
+        {
+          "name": "gold_stk_mins_qfq_nineturn_path",
+          "line": 515,
+          "end_line": 528,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_stk_mins_qfq_nineturn_staging_path",
+          "line": 531,
+          "end_line": 547,
+          "signature": "root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_stk_mins_qfq_macd_kdj_path",
+          "line": 550,
+          "end_line": 565,
+          "signature": "root: Path, freq: int | str, ts_code: str, year: int | str"
+        },
+        {
+          "name": "gold_stk_mins_qfq_macd_kdj_state_path",
+          "line": 568,
+          "end_line": 581,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "raw_adj_factor_path",
+          "line": 584,
+          "end_line": 592,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_suspend_d_path",
+          "line": 595,
+          "end_line": 603,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_stock_daily_path",
+          "line": 606,
+          "end_line": 614,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_wealth_market_turnover_staging_path",
+          "line": 617,
+          "end_line": 629,
+          "signature": "staging_root: Path, *, operation_id: str, partition_key: str"
+        },
+        {
+          "name": "silver_adj_factor_path",
+          "line": 632,
+          "end_line": 640,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_qfq_path",
+          "line": 643,
+          "end_line": 651,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_path",
+          "line": 654,
+          "end_line": 662,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_state_path",
+          "line": 665,
+          "end_line": 673,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_staging_path",
+          "line": 676,
+          "end_line": 690,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_trend_channel_state_staging_path",
+          "line": 693,
+          "end_line": 707,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "_stock_daily_trend_channel_partition_component",
+          "line": 710,
+          "end_line": 722,
+          "signature": "partition_key: str"
+        },
+        {
+          "name": "_validate_stock_daily_trend_channel_staging_root",
+          "line": 725,
+          "end_line": 735,
+          "signature": "staging_root: Path"
+        },
+        {
+          "name": "gold_stock_daily_qfq_nineturn_path",
+          "line": 738,
+          "end_line": 746,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_daily_qfq_nineturn_staging_path",
+          "line": 749,
+          "end_line": 763,
+          "signature": "root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "_qfq_nineturn_run_id_part",
+          "line": 766,
+          "end_line": 772,
+          "signature": "run_id: str"
+        },
+        {
+          "name": "gold_dc_daily_technical_path",
+          "line": 775,
+          "end_line": 783,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_stock_suspend_daily_path",
+          "line": 786,
+          "end_line": 794,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_stock_suspend_confirmed_path",
+          "line": 797,
+          "end_line": 798,
+          "signature": "root: Path"
+        },
+        {
+          "name": "_validate_suspend_operation_id",
+          "line": 801,
+          "end_line": 804,
+          "signature": "operation_id: str"
+        },
+        {
+          "name": "stock_suspend_confirmed_staging_dir",
+          "line": 807,
+          "end_line": 808,
+          "signature": "staging_root: Path, operation_id: str"
+        },
+        {
+          "name": "silver_stock_suspend_daily_staging_path",
+          "line": 811,
+          "end_line": 819,
+          "signature": "staging_root: Path, run_id: str, trade_date: str"
+        },
+        {
+          "name": "gold_market_breadth_daily_path",
+          "line": 822,
+          "end_line": 830,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_stock_return_distribution_path",
+          "line": 833,
+          "end_line": 841,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_wealth_market_turnover_path",
+          "line": 844,
+          "end_line": 852,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_index_basic_path",
+          "line": 855,
+          "end_line": 856,
+          "signature": "root: Path"
+        },
+        {
+          "name": "silver_index_basic_path",
+          "line": 859,
+          "end_line": 860,
+          "signature": "root: Path"
+        },
+        {
+          "name": "raw_index_daily_path",
+          "line": 863,
+          "end_line": 870,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_index_daily_staging_path",
+          "line": 873,
+          "end_line": 886,
+          "signature": "root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "_safe_run_id_part",
+          "line": 889,
+          "end_line": 898,
+          "signature": "run_id: str, *, asset_family: str"
+        },
+        {
+          "name": "_safe_operation_id_part",
+          "line": 901,
+          "end_line": 912,
+          "signature": "operation_id: str"
+        },
+        {
+          "name": "_idx_factor_pro_partition_component",
+          "line": 915,
+          "end_line": 918,
+          "signature": "partition_key: str"
+        },
+        {
+          "name": "raw_idx_factor_pro_path",
+          "line": 921,
+          "end_line": 929,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_idx_factor_pro_staging_path",
+          "line": 932,
+          "end_line": 946,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "silver_index_factor_pro_path",
+          "line": 949,
+          "end_line": 957,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_index_factor_pro_staging_path",
+          "line": 960,
+          "end_line": 974,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_technical_path",
+          "line": 977,
+          "end_line": 990,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_technical_staging_path",
+          "line": 993,
+          "end_line": 1009,
+          "signature": "root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_technical_state_path",
+          "line": 1012,
+          "end_line": 1025,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_technical_state_staging_path",
+          "line": 1028,
+          "end_line": 1044,
+          "signature": "root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "raw_index_mins_path",
+          "line": 1047,
+          "end_line": 1056,
+          "signature": "root: Path, source_freq: str, partition_key: str"
+        },
+        {
+          "name": "raw_major_index_mins_path",
+          "line": 1059,
+          "end_line": 1072,
+          "signature": "root: Path, source_freq: str, partition_key: str"
+        },
+        {
+          "name": "raw_major_index_mins_staging_path",
+          "line": 1075,
+          "end_line": 1099,
+          "signature": "root: Path, run_id: str, source_freq: str, partition_key: str"
+        },
+        {
+          "name": "silver_major_index_mins_path",
+          "line": 1102,
+          "end_line": 1115,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "silver_major_index_mins_staging_path",
+          "line": 1118,
+          "end_line": 1142,
+          "signature": "root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_path",
+          "line": 1145,
+          "end_line": 1158,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_staging_path",
+          "line": 1161,
+          "end_line": 1177,
+          "signature": "staging_root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "_major_index_mins_partition_component",
+          "line": 1180,
+          "end_line": 1183,
+          "signature": "partition_key: str"
+        },
+        {
+          "name": "silver_index_mins_path",
+          "line": 1186,
+          "end_line": 1195,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_index_mins_path",
+          "line": 1198,
+          "end_line": 1207,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "gold_index_mins_staging_path",
+          "line": 1210,
+          "end_line": 1226,
+          "signature": "staging_root: Path, run_id: str, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "_validate_staging_component",
+          "line": 1229,
+          "end_line": 1232,
+          "signature": "value: str, *, name: str"
+        },
+        {
+          "name": "raw_index_global_path",
+          "line": 1235,
+          "end_line": 1242,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "raw_index_global_staging_path",
+          "line": 1245,
+          "end_line": 1262,
+          "signature": "root: Path, run_id: str, trade_date: str, probe_phase: str"
+        },
+        {
+          "name": "silver_index_global_path",
+          "line": 1265,
+          "end_line": 1272,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "silver_index_global_staging_path",
+          "line": 1275,
+          "end_line": 1289,
+          "signature": "root: Path, run_id: str, trade_date: str"
+        },
+        {
+          "name": "silver_index_daily_path",
+          "line": 1292,
+          "end_line": 1299,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "raw_dc_index_path",
+          "line": 1302,
+          "end_line": 1310,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "raw_dc_member_path",
+          "line": 1313,
+          "end_line": 1321,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "raw_dc_daily_path",
+          "line": 1324,
+          "end_line": 1332,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "silver_dc_index_path",
+          "line": 1335,
+          "end_line": 1343,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "silver_dc_industry_hierarchy_path",
+          "line": 1346,
+          "end_line": 1354,
+          "signature": "root: Path"
+        },
+        {
+          "name": "silver_dc_member_path",
+          "line": 1357,
+          "end_line": 1365,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "silver_dc_daily_path",
+          "line": 1368,
+          "end_line": 1376,
+          "signature": "root: Path, trade_date: str"
+        },
+        {
+          "name": "gold_market_major_indices_daily_path",
+          "line": 1379,
+          "end_line": 1387,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_daily_nineturn_path",
+          "line": 1390,
+          "end_line": 1398,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_daily_nineturn_staging_path",
+          "line": 1401,
+          "end_line": 1415,
+          "signature": "staging_root: Path, run_id: str, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_nineturn_path",
+          "line": 1418,
+          "end_line": 1431,
+          "signature": "root: Path, freq: int | str, partition_key: str"
+        },
+        {
+          "name": "silver_stock_weekly_path",
+          "line": 1434,
+          "end_line": 1435,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "silver_stock_monthly_path",
+          "line": 1438,
+          "end_line": 1439,
+          "signature": "root: Path, partition_key: str"
+        },
+        {
+          "name": "gold_major_index_mins_nineturn_staging_path",
+          "line": 1442,
+          "end_line": 1458,
+          "signature": "staging_root: Path, run_id: str, freq: int | str, partition_key: str"
+        }
+      ]
+    }
+  ]
+}

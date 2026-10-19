@@ -1,0 +1,38 @@
+[
+  {
+    "partition": "2026-07-07",
+    "check_name": "gold_stock_daily_qfq_contract_check",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  },
+  {
+    "partition": "2026-07-07",
+    "check_name": "gold_stock_daily_qfq_factor_repair_plan_evaluated",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  },
+  {
+    "partition": "2026-07-08",
+    "check_name": "gold_stock_daily_qfq_contract_check",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  },
+  {
+    "partition": "2026-07-09",
+    "check_name": "gold_stock_daily_qfq_contract_check",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  },
+  {
+    "partition": "2026-07-10",
+    "check_name": "gold_stock_daily_qfq_contract_check",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  },
+  {
+    "partition": "2026-07-13",
+    "check_name": "gold_stock_daily_qfq_contract_check",
+    "execution_status": "SUCCEEDED",
+    "n": 1
+  }
+]

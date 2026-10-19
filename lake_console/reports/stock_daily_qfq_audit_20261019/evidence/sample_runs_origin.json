@@ -1,0 +1,42 @@
+[
+  {
+    "run_id": "05ad10e4-5d57-412b-a708-67ffb1e905e5",
+    "tags": {
+      "dagster/partition": "2026-07-08",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    },
+    "ops": null,
+    "asset_selection": null,
+    "asset_check_selection": null
+  },
+  {
+    "run_id": "422d61ca-ad6c-4c42-8fb0-162f457099da",
+    "tags": {
+      "dagster/partition": "2026-07-09",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    },
+    "ops": null,
+    "asset_selection": null,
+    "asset_check_selection": null
+  },
+  {
+    "run_id": "4749e345-2a28-489f-9861-3e2ab0991409",
+    "tags": {
+      "dagster/partition": "2026-07-10",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    },
+    "ops": null,
+    "asset_selection": null,
+    "asset_check_selection": null
+  },
+  {
+    "run_id": "9f2cab89-bf09-4d2d-a2e9-5a045093ef7e",
+    "tags": {
+      "dagster/partition": "2026-07-13",
+      "dagster/partition_set": "gold_stock_daily_qfq_update_job_partition_set"
+    },
+    "ops": null,
+    "asset_selection": null,
+    "asset_check_selection": null
+  }
+]

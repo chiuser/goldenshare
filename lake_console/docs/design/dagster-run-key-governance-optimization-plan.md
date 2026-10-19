@@ -4,6 +4,14 @@
 
 更新时间：2026-10-11（DC 恢复设计增量；原 M1-M9 状态不变）
 
+2026-10-19日线QFQ设计增量（尚未实施）：[日线前复权LLD第20节](dagster-stock-daily-qfq-asset-low-level-design.md#qfq-code-design-20261019)
+已明确遗漏恢复的身份合同。QFQ工作请求使用现有`build_repair_attempt_run_key`，输入为固定请求/计划、action和attempt；
+价格完成后由上游生成包含plan/source revision的opaque `upstream_batch_id`，不再以producer_run_id代表数据版本。
+趋势下游首次仍使用`build_upstream_triggered_run_key(consumer, upstream_batch_id)`；
+人工恢复使用通用repair-attempt builder，scope仍为同一上游opaque batch，attempt递增，不由下游重拼batch。
+计划引用/hash是明确执行参数，不能从run_key反解析。没有新增专属builder，也不使用event storage id。
+此增量只对应日线QFQ及其趋势修复，其他既有链路和M1-M9历史验收不变；当前Python尚未迁移，具体字段及消费者退出按该LLD执行。
+
 ## 0. 实施状态
 
 截至 2026-06-17，本文的核心治理口径已完成以下落地：

@@ -1,0 +1,23 @@
+[
+  {
+    "pipeline_name": "gold_stock_daily_qfq_factor_repair_job",
+    "status": "SUCCESS",
+    "n": 70,
+    "first_created": "2026-06-29 14:13:06.459201",
+    "last_created": "2026-10-16 09:37:49.167176"
+  },
+  {
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "FAILURE",
+    "n": 5,
+    "first_created": "2026-06-29 13:28:38.885320",
+    "last_created": "2026-07-16 09:41:15.947710"
+  },
+  {
+    "pipeline_name": "gold_stock_daily_qfq_update_job",
+    "status": "SUCCESS",
+    "n": 75,
+    "first_created": "2026-06-26 23:48:39.788655",
+    "last_created": "2026-10-16 09:37:36.149453"
+  }
+]

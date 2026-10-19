@@ -1,0 +1,130 @@
+{
+  "samples": [
+    {
+      "code": "600020.SH",
+      "name": "中原高速",
+      "factor_change_date": "2026-07-13",
+      "previous_date": "2026-07-10",
+      "stored_previous_close": 3.76,
+      "correct_previous_close": 3.6400066702797353,
+      "factor_before": 4.6443,
+      "factor_after": 4.7974,
+      "stale_price_overstatement_pct": 3.29651400641644,
+      "stale_rows": 124,
+      "current_factor": 4.7974
+    },
+    {
+      "code": "603167.SH",
+      "name": "渤海轮渡",
+      "factor_change_date": "2026-07-10",
+      "previous_date": "2026-07-09",
+      "stored_previous_close": 8.95,
+      "correct_previous_close": 8.449854473485068,
+      "factor_before": 1.6219,
+      "factor_after": 1.7179,
+      "stale_price_overstatement_pct": 5.9189839077625095,
+      "stale_rows": 123,
+      "current_factor": 1.7179
+    },
+    {
+      "code": "000623.SZ",
+      "name": "吉林敖东",
+      "factor_change_date": "2026-07-08",
+      "previous_date": "2026-07-07",
+      "stored_previous_close": 18.06,
+      "correct_previous_close": 17.76996898050901,
+      "factor_before": 24.1707,
+      "factor_after": 24.5652,
+      "stale_price_overstatement_pct": 1.632141394332809,
+      "stale_rows": 121,
+      "current_factor": 24.5652
+    },
+    {
+      "code": "600919.SH",
+      "name": "江苏银行",
+      "factor_change_date": "2026-07-10",
+      "previous_date": "2026-07-09",
+      "stored_previous_close": 11.37,
+      "correct_previous_close": 11.140242488139165,
+      "factor_before": 1.6728,
+      "factor_after": 1.7073,
+      "stale_price_overstatement_pct": 2.0624103299856644,
+      "stale_rows": 123,
+      "current_factor": 1.7073
+    },
+    {
+      "code": "000750.SZ",
+      "name": "国海证券",
+      "factor_change_date": "2026-07-10",
+      "previous_date": "2026-07-09",
+      "stored_previous_close": 3.77,
+      "correct_previous_close": 3.7400057982076933,
+      "factor_before": 13.5165,
+      "factor_after": 13.6249,
+      "stale_price_overstatement_pct": 0.8019827618096498,
+      "stale_rows": 123,
+      "current_factor": 13.6249
+    }
+  ],
+  "live_source_checks": {
+    "raw/stock_daily": {
+      "rows": 25,
+      "numeric_fields_compared": 175,
+      "passed": true
+    },
+    "raw/adj_factor": {
+      "rows": 25,
+      "numeric_fields_compared": 25,
+      "passed": true
+    },
+    "silver/stock_daily": {
+      "rows": 25,
+      "numeric_fields_compared": 175,
+      "passed": true
+    },
+    "silver/adj_factor": {
+      "rows": 25,
+      "numeric_fields_compared": 25,
+      "passed": true
+    }
+  },
+  "run_origin_match": [
+    {
+      "run_id": "65334ef4-183f-4e87-9c58-6d117a84ef2c",
+      "trade_date": "2026-07-07",
+      "source_location": "orchestrator",
+      "source_repository": "__repository__",
+      "matches_sensor_source": true
+    },
+    {
+      "run_id": "05ad10e4-5d57-412b-a708-67ffb1e905e5",
+      "trade_date": "2026-07-08",
+      "source_location": null,
+      "source_repository": null,
+      "matches_sensor_source": false
+    },
+    {
+      "run_id": "422d61ca-ad6c-4c42-8fb0-162f457099da",
+      "trade_date": "2026-07-09",
+      "source_location": null,
+      "source_repository": null,
+      "matches_sensor_source": false
+    },
+    {
+      "run_id": "4749e345-2a28-489f-9861-3e2ab0991409",
+      "trade_date": "2026-07-10",
+      "source_location": null,
+      "source_repository": null,
+      "matches_sensor_source": false
+    },
+    {
+      "run_id": "9f2cab89-bf09-4d2d-a2e9-5a045093ef7e",
+      "trade_date": "2026-07-13",
+      "source_location": null,
+      "source_repository": null,
+      "matches_sensor_source": false
+    }
+  ],
+  "formal_data_writes": false,
+  "repository_changes": false
+}
