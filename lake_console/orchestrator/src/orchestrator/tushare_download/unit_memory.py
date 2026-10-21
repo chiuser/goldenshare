@@ -76,33 +76,54 @@ class UnitMemory:
         raise TypeError("unsupported unit memory object")
 
     def _add(self, value, *, shallow=False):
-        key = id(value)
-        if key in self._nodes:
-            self._nodes[key].references += 1
-            return key
-        children = () if shallow else tuple(self._add(x) for x in self._children(value))
-        size = sys.getsizeof(value)
-        node = _Node(value, size, 1, children)
-        self._nodes[key] = node
-        self._size += (
-            size + sys.getsizeof(node) + sys.getsizeof(children) + sys.getsizeof(key)
-        )
-        return key
+        root = id(value)
+        pending = [(value, shallow)]
+        current = children_values = None
+        try:
+            while pending:
+                current, shallow = pending.pop()
+                key = id(current)
+                if key in self._nodes:
+                    self._nodes[key].references += 1
+                    continue
+                children_values = () if shallow else self._children(current)
+                children = tuple(id(child) for child in children_values)
+                size = sys.getsizeof(current)
+                node = _Node(current, size, 1, children)
+                self._nodes[key] = node
+                self._size += (
+                    size
+                    + sys.getsizeof(node)
+                    + sys.getsizeof(children)
+                    + sys.getsizeof(key)
+                )
+                pending.extend((child, False) for child in children_values)
+            return root
+        finally:
+            pending.clear()
+            value = current = children_values = node = None
 
     def _drop(self, key):
-        node = self._nodes[key]
-        node.references -= 1
-        if node.references:
-            return
-        del self._nodes[key]
-        self._size -= (
-            node.size
-            + sys.getsizeof(node)
-            + sys.getsizeof(node.children)
-            + sys.getsizeof(key)
-        )
-        for child in node.children:
-            self._drop(child)
+        pending = [key]
+        node = None
+        try:
+            while pending:
+                key = pending.pop()
+                node = self._nodes[key]
+                node.references -= 1
+                if node.references:
+                    continue
+                del self._nodes[key]
+                self._size -= (
+                    node.size
+                    + sys.getsizeof(node)
+                    + sys.getsizeof(node.children)
+                    + sys.getsizeof(key)
+                )
+                pending.extend(node.children)
+        finally:
+            pending.clear()
+            node = None
 
     def attach(self, label, value, *, shallow=False):
         self.release(label)

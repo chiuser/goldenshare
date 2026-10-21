@@ -3,14 +3,14 @@ from decimal import Decimal
 
 import pytest
 
-from orchestrator.tushare_download import DownloadError
+from orchestrator.tushare_download import DownloadError, DownloadErrorCode
 from orchestrator.tushare_download.contract_registry import (
     ContractRegistry,
     canonical_content,
 )
 from orchestrator.tushare_download.source_contract import ParameterRule, SourceKind
 
-from .fixtures import DAILY_NAMES, contract
+from .fixtures import DAILY_NAMES, build, contract
 
 
 def test_complete_source_fields_and_same_version_different_content():
@@ -52,3 +52,43 @@ def test_contract_registry_rejects_duplicate_fields_names_and_reserved_parameter
         ContractRegistry((c, c))
     with pytest.raises(DownloadError):
         ContractRegistry((c,)).resolve("fixture.daily@2")
+
+
+def test_next_offset_alone_is_rejected_before_source_creation():
+    definition = contract()
+    definition = replace(
+        definition,
+        pagination=replace(
+            definition.pagination,
+            short_page_ends=False,
+            empty_page_ends=False,
+            reliable_next_offset_path=("next_offset",),
+        ),
+    )
+    created = []
+
+    def factory(binding, clock):
+        created.append(True)
+        raise AssertionError("invalid contract must not reach transport construction")
+
+    with pytest.raises(DownloadError) as caught:
+        build(definition=definition, factory=factory)
+    assert caught.value.code == DownloadErrorCode.CONTRACT and created == []
+
+
+@pytest.mark.parametrize("ending", ["short", "empty", "total"])
+def test_implemented_end_conditions_allow_next_offset_as_auxiliary(ending):
+    definition = contract()
+    definition = replace(
+        definition,
+        pagination=replace(
+            definition.pagination,
+            short_page_ends=ending == "short",
+            empty_page_ends=ending == "empty",
+            reliable_total_path=("total",) if ending == "total" else None,
+            reliable_next_offset_path=("next_offset",),
+        ),
+    )
+    assert (
+        ContractRegistry((definition,)).resolve(definition.contract_name) is definition
+    )

@@ -97,3 +97,37 @@ def test_local_memory_error_is_not_misclassified_as_source_protocol():
     request = PageRequest("daily", definition.field_names, (), PagePosition(0), 2)
     with pytest.raises(TypeError, match="local 429 timeout"):
         parse_http(b'{"code":0}', request, definition, BrokenMemory())
+
+
+@pytest.mark.parametrize("depth", [10, 550, 700])
+def test_nested_source_cell_is_standard_protocol_failure(depth):
+    # A deliberately malformed scalar cell; literal nesting is independent of
+    # the parser and memory-accounting implementation, and under 2KiB.
+    body = (
+        b'{"code":0,"data":{"fields":["a"],"items":[['
+        + b"[" * depth
+        + b"0"
+        + b"]" * depth
+        + b"]]}}"
+    )
+    assert parse(body).code == C.SOURCE_PROTOCOL
+
+
+def test_deep_unused_source_attachment_does_not_change_valid_rows():
+    body = (
+        b'{"code":0,"data":{"fields":["a"],"items":[[7]]},"attachment":'
+        + b"[" * 700
+        + b"0"
+        + b"]" * 700
+        + b"}"
+    )
+    page = parse(body)
+    assert isinstance(page, SourcePage) and page.records[0].values == (7,)
+
+
+def test_deep_attachment_does_not_mask_source_rate_error():
+    body = (
+        b'{"code":9,"msg":"rate limit","data":' + b"[" * 700 + b"0" + b"]" * 700 + b"}"
+    )
+    result = parse(body)
+    assert isinstance(result, AttemptFailure) and result.code == C.RATE_LIMIT

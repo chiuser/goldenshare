@@ -82,9 +82,15 @@ class PageDownloader:
             )
             terminal = True
         else:
+            invalid = (
+                not policy.short_page_ends
+                and not policy.empty_page_ends
+                and page.total is None
+            )
             if page.next_offset is not None:
                 invalid = (
-                    page.next_offset != request.position.offset + policy.offset_step
+                    invalid
+                    or page.next_offset != request.position.offset + policy.offset_step
                 )
             if page.total is not None:
                 invalid = (

@@ -257,10 +257,7 @@ def validate_contract(contract: SourceDatasetContract) -> None:
             and not ({p.limit_param, p.offset_param} & (params.keys() | forbidden))
         )
         require(
-            p.short_page_ends
-            or p.empty_page_ends
-            or p.reliable_total_path is not None
-            or p.reliable_next_offset_path is not None
+            p.short_page_ends or p.empty_page_ends or p.reliable_total_path is not None
         )
     require(type(p.short_page_ends) is bool and type(p.empty_page_ends) is bool)
     require(

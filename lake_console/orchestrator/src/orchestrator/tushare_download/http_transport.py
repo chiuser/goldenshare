@@ -172,7 +172,7 @@ class HttpProTransport:
             page = failure = None
 
     def _perform(self, request, config, memory, control, counters, attempt_number):
-        connection = response = body = chunk = buffer = None
+        connection = response = read_socket = body = chunk = buffer = None
 
         def io(operation):
             started = self.clock.monotonic()
@@ -229,6 +229,10 @@ class HttpProTransport:
             )
             if failure:
                 return failure
+            # getresponse() can detach the connection's socket for a closing
+            # response. Keep the same socket reference to update the live reader;
+            # ownership and closing still belong to response/connection.
+            read_socket = connection.sock
 
             def before_read():
                 control.raise_if_cancelled()
@@ -237,8 +241,10 @@ class HttpProTransport:
                     return AttemptFailure(
                         Code.TRANSIENT_SOURCE, cause_type="TimeoutError"
                     )
-                if connection.sock is not None:
-                    connection.sock.settimeout(remaining)
+                if read_socket is not None and (
+                    response is None or not response.isclosed()
+                ):
+                    read_socket.settimeout(remaining)
                 return None
 
             failure = before_read()
@@ -310,4 +316,5 @@ class HttpProTransport:
             return result
         finally:
             memory.release("request_encoding")
-            payload = body = chunk = buffer = response = connection = result = None
+            payload = body = chunk = buffer = None
+            response = read_socket = connection = result = None

@@ -45,3 +45,33 @@ def test_estimated_shortage_and_actual_shortage_are_local_and_never_retry():
         next(session)
     assert caught.value.code == C.CAPACITY and len(calls) == 1
     assert session.summary.delivered_units == session.summary.retry_count == 0
+
+
+def test_deep_owned_object_and_shared_reference_release_without_recursion():
+    memory = UnitMemory(small_config())
+    value = 7
+    for _ in range(700):
+        value = [value]
+    memory.attach("first", value)
+    memory.attach("second", value)
+    assert len(memory._nodes) == 701
+    memory.release("first")
+    assert len(memory._nodes) == 701
+    memory.release("second")
+    assert memory._nodes == {}
+
+
+def test_deep_release_is_independent_of_registration_order():
+    memory = UnitMemory(small_config())
+    label, value = "leaf", 7
+    memory.attach(label, value)
+    # Each parent references an already registered child. This isolates release
+    # from traversal during registration; the old release alone fails here.
+    for i in range(1500):
+        value = [value]
+        memory.attach(i, value)
+        memory.release(label)
+        label = i
+    assert len(memory._nodes) == 1501
+    memory.release(label)
+    assert memory._nodes == {} and memory._size == 0

@@ -35,7 +35,7 @@ from orchestrator.tushare_download.source_transport import (
     transport_factory,
 )
 
-from .fixtures import contract, small_config
+from .fixtures import FakeClock, contract, small_config
 
 
 @dataclass(frozen=True)
@@ -107,7 +107,7 @@ def localhost_source(responder):
         assert not thread.is_alive()
 
 
-def downloader_at(url, *, definition=None, **changes):
+def downloader_at(url, *, definition=None, clock=None, **changes):
     config = replace(
         small_config(),
         base_url=url,
@@ -124,7 +124,12 @@ def downloader_at(url, *, definition=None, **changes):
         (TransportBinding(definition.dataset_id, definition.source_api_name),)
     )
     return _build_downloader(
-        config, registry, bindings, transport_factory, SystemClock(), time.sleep
+        config,
+        registry,
+        bindings,
+        transport_factory,
+        clock or SystemClock(),
+        time.sleep,
     )
 
 
@@ -429,3 +434,118 @@ def test_public_load_extraction_values_reach_real_http_request_without_business_
         assert reads == [True] and len(requests) == 1
         assert requests[0][1]["token"] == "only-test-credential"
         assert requests[0][1]["fields"].split(",") == list(definition.field_names)
+
+
+@pytest.mark.parametrize("keep_alive", [False, True])
+def test_real_response_reads_use_remaining_deadline_after_headers(
+    monkeypatch, keep_alive
+):
+    clock, observed = FakeClock(), []
+    body = json.dumps(
+        {
+            "code": 0,
+            "data": {"fields": ["ts_code", "trade_date"], "items": [["A", "20180718"]]},
+            "attachment": "x" * 70000,
+        }
+    ).encode()
+
+    def read_block(response, size):
+        if response.fp is not None:
+            # Test-only inspection of the actual receiving socket provides an
+            # independent check: a local copy of the timeout number is not enough.
+            observed.append(response.fp.raw._sock.gettimeout())
+        block = response.read(size)
+        if block:
+            clock.seconds += 20
+        return block
+
+    # Use real socket reads of a known size to avoid OS packet splitting changing
+    # the fake-clock steps. No actual 20-second waits or memory measurements.
+    monkeypatch.setattr(http.client.HTTPResponse, "read1", read_block)
+    with localhost_source(
+        lambda payload, number: Reply(200, body, keep_alive=keep_alive)
+    ) as (url, requests):
+        downloader = downloader_at(
+            url,
+            clock=clock,
+            unit_memory_limit_bytes=12 * 1024 * 1024,
+            max_response_bytes=100000,
+            connect_timeout_seconds=5,
+            read_timeout_seconds=30,
+            request_timeout_seconds=45,
+        )
+        with downloader.download(
+            DownloadTask("fixture.daily@1", M.SNAPSHOT)
+        ) as session:
+            results = list(session)
+        assert len(requests) == 1 and len(results) == 1
+        assert results[0].records[0].values == ("A", "20180718")
+        assert observed == [30.0, 25.0]
+        assert session.summary.status == S.SUCCEEDED
+
+
+def test_nested_cell_is_protocol_failure_without_retry_or_partial_delivery():
+    body = (
+        b'{"code":0,"data":{"fields":["a"],"items":[['
+        + b"[" * 550
+        + b"0"
+        + b"]" * 550
+        + b"]]}}"
+    )
+    with localhost_source(lambda payload, number: Reply(200, body)) as (url, requests):
+        events = []
+        with (
+            pytest.raises(DownloadError) as caught,
+            downloader_at(url).download(
+                DownloadTask("fixture.daily@1", M.SNAPSHOT), on_progress=events.append
+            ) as session,
+        ):
+            next(session)
+        assert caught.value.code == C.SOURCE_PROTOCOL
+        assert caught.value.__context__ is caught.value.__cause__ is None
+        assert len(requests) == 1 and session.summary.retry_count == 0
+        assert session.summary.delivered_units == 0 and events == []
+
+
+@pytest.mark.parametrize("total_field", [b"", b',"total":null'])
+@pytest.mark.parametrize("missing_offset", [0, 2])
+def test_total_only_ending_requires_metadata_before_requesting_another_page(
+    total_field,
+    missing_offset,
+):
+    definition = contract()
+    definition = replace(
+        definition,
+        pagination=replace(
+            definition.pagination,
+            short_page_ends=False,
+            empty_page_ends=False,
+            reliable_total_path=("total",),
+        ),
+    )
+    body = b'{"code":0,"data":{"fields":["ts_code"],"items":[]}' + total_field + b"}"
+
+    def source(payload, number):
+        if payload["params"]["offset"] < missing_offset:
+            return Reply(
+                200,
+                b'{"code":0,"data":{"fields":["ts_code"],"items":[["A"],["B"]]},"total":3}',
+            )
+        return Reply(200, body)
+
+    with localhost_source(source) as (url, requests):
+        # The bounded test guard stops a broken implementation after four sends.
+        # Correct behavior fails on the first missing total, without the guard.
+        downloader = downloader_at(url, definition=definition)
+        with (
+            pytest.raises(DownloadError) as caught,
+            downloader.download(
+                DownloadTask(definition.contract_name, M.SNAPSHOT),
+                control=DownloadControl(lambda: len(requests) >= 4),
+            ) as session,
+        ):
+            next(session)
+        assert caught.value.code == C.SOURCE_PROTOCOL
+        assert len(requests) == (1 if missing_offset == 0 else 2)
+        assert session.summary.retry_count == 0
+        assert session.summary.delivered_units == 0
