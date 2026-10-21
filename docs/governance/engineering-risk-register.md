@@ -1,8 +1,8 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-09-11（文档分类与退役边界校准，未重做历史生产验收）
-适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
+更新时间：2026-10-20（登记namechange暂缓验证TODO，既有风险关闭证据保持，未重做历史生产验收）
+适用范围：代码改动前评估、提交前检查、P0/P1 风险收口及后续待办记录。
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 3. 当前风险状态
 
-本登记簿现有 12 项均登记为 Closed，当前没有已登记的未关闭项；这不等于全仓没有风险，也不替其他专题的待验收项结案。
+本登记簿现有 12 项风险均登记为 Closed，当前没有已登记的未关闭风险；这不等于全仓没有风险，也不替其他专题的待验收项结案。另有[§16的namechange分页验证TODO](#todo-tushare-namechange-pagination)按管理员决定暂缓，单独记录，不代表已经确认发生数据丢失。
 
 ### 已关闭风险索引
 
@@ -615,3 +615,20 @@
 3. 专项测试覆盖合法 seed、路径漂移、哈希漂移、行数漂移和 writer 不得调用：`17 passed`。
 4. 主要指数 seed、input readiness、lake readiness、checks 与 batch readiness 回归：`30 passed, 7 subtests passed`。
 5. 相关 Python 文件 Ruff 静态检查通过。
+
+---
+
+<a id="todo-tushare-namechange-pagination"></a>
+
+## 16. TODO：namechange不可再分时间范围的分页验证
+
+- 记录日期：2026-10-20。
+- 状态：暂缓，暂不排期。管理员明确本项不急于处理，当前LLD不展开该专项验证的取样、步骤或排期；不作为LLD编写、评审或本轮下载组件推进的前置条件。
+- 待核对的问题：`namechange`按公告日期查询，时间范围已不能再拆、首次恰好返回`limit`条时，继续使用相同过滤条件和完整字段、推进`offset`，实际是否返回后续记录，并能按正常短页或空页确认终点。
+- 已确定的组件处理原则：保留第一页，转正常分页继续请求，不因满页报错，原unit全部完成后交付一次。通用分页能力及其代码逻辑验证仍按原方案建设；暂缓本专项源验证不撤回该原则。
+- 目前的证据边界：现有reader在单日满页时仍抛错；尚无已核验的真实单日满页样本，不能把讨论中的假设数量写成已发生事故。此前单代码、单公告日期的1行样本不能证明满页后的分页行为；本次未新增源请求。
+- 后续处理时机：有合适真实样本，或后续明确安排`namechange`专项接入、迁移时再处理。届时限定对象、日期、完整字段和请求范围，记录实际请求参数、各页行数及终点依据；不为寻找满页而扫描全市场或全历史，不用模拟结果冒充真实源验证。
+- 关闭依据：实际验证得出结论后，更新本条状态、证据及原方案；没有完成真实验证时不标为完成。
+- 当前代码依据：[namechange日期拆分实现](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/tushare_api_io.py)第498行；本轮通过CodeGraph `codegraph_node`与当前源码复核，未修改旧reader或消费者。
+- 源资料：[Tushare本地文档100](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/基础数据/0100_股票曾用名.md)列有`limit/offset`，资料本身不代替真实行为验证。
+- 对应方案：[下载组件§8](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-tushare-request-common-module-comparison-v1.html#window-splitting)。
