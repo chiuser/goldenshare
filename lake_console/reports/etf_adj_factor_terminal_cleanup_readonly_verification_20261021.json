@@ -1,0 +1,1273 @@
+{
+  "readonly": true,
+  "formal_writes": 0,
+  "history": [
+    {
+      "date": "2026-09-15",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-15",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-16",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-16",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-17",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-17",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-18",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-18",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-21",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-21",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-22",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-22",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-23",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-23",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-24",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-24",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-28",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-28",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-29",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-29",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-09-30",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-09-30",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-08",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-08",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-09",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-09",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-12",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-12",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-13",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-13",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-14",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-14",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-15",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-15",
+          1.3094,
+          null
+        ]
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "original_checks_valid": true,
+      "raw_hash_matches_original": true,
+      "raw_latest_record_unchanged": true,
+      "silver_hash_matches_original": true,
+      "raw_errors": [],
+      "silver_errors": [],
+      "domain_errors": [],
+      "basic_reference_valid": true,
+      "basic_snapshot": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "approved_code_metadata": [
+        "512390.SH"
+      ],
+      "approved_row_metadata": 1,
+      "physical_approved_row": [
+        [
+          "512390.SH",
+          "2026-10-16",
+          1.3094,
+          null
+        ]
+      ]
+    }
+  ],
+  "basic_full_content_check": {
+    "raw": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_basic/snapshot_id=1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44/part-000.parquet",
+      "row_count": 1829,
+      "expected_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "actual_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "matches": true
+    },
+    "silver": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/etf_basic/snapshot_id=1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44/part-000.parquet",
+      "row_count": 1826,
+      "expected_hash": "256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166",
+      "actual_hash": "256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166",
+      "matches": true
+    }
+  },
+  "158011": {
+    "basic": [
+      {
+        "ts_code": "158011.SZ",
+        "csname": "国泰创业板软件ETF",
+        "list_status": "L",
+        "list_date": "20260904",
+        "exchange": "SZ"
+      }
+    ],
+    "source_date_range": [
+      "2026-08-20",
+      "2026-10-20"
+    ],
+    "source_rows": 27,
+    "first_source_date": "2026-09-04",
+    "last_source_date": "2026-10-20",
+    "expected_trading_days": 27,
+    "source_missing_dates": [],
+    "source_extra_dates": [],
+    "source_duplicate_count": 0,
+    "raw_missing_dates": [],
+    "silver_missing_dates": [
+      "2026-09-04",
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16"
+    ],
+    "physical_rows": [
+      {
+        "date": "2026-09-04",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-04",
+            1.0,
+            -0.6549
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-07",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-07",
+            1.0,
+            0.2601
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-08",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-08",
+            1.0,
+            1.1605
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-09",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-09",
+            1.0,
+            1.2832
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-10",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-10",
+            1.0,
+            1.299
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-11",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-11",
+            1.0,
+            2.4643
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-14",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-14",
+            1.0,
+            -0.1271
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-15",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-15",
+            1.0,
+            0.6349
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-16",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-16",
+            1.0,
+            -0.8511
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-17",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-17",
+            1.0,
+            0.1475
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-18",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-18",
+            1.0,
+            -1.974
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-21",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-21",
+            1.0,
+            -1.0864
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-22",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-22",
+            1.0,
+            -2.1494
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-23",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-23",
+            1.0,
+            1.8215
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-24",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-24",
+            1.0,
+            1.5507
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-28",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-28",
+            1.0,
+            2.7128
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-29",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-29",
+            1.0,
+            -1.2293
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-09-30",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-09-30",
+            1.0,
+            1.5856
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-08",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-08",
+            1.0,
+            3.2639
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-09",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-09",
+            1.0,
+            -3.1122
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-12",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-12",
+            1.0,
+            0.3008
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-13",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-13",
+            1.0,
+            -0.3553
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-14",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-14",
+            1.0,
+            1.1484
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-15",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-15",
+            1.0,
+            1.9204
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-16",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-16",
+            1.0,
+            1.2442
+          ]
+        ],
+        "silver": []
+      },
+      {
+        "date": "2026-10-19",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-19",
+            1.0,
+            -0.619
+          ]
+        ],
+        "silver": [
+          [
+            "158011.SZ",
+            "2026-10-19",
+            1.0,
+            -0.619
+          ]
+        ]
+      },
+      {
+        "date": "2026-10-20",
+        "raw": [
+          [
+            "158011.SZ",
+            "2026-10-20",
+            1.0,
+            -2.1048
+          ]
+        ],
+        "silver": [
+          [
+            "158011.SZ",
+            "2026-10-20",
+            1.0,
+            -2.1048
+          ]
+        ]
+      }
+    ],
+    "raw_present_days": 27,
+    "silver_present_days": 2,
+    "raw_adj_factor_mismatch_dates": [],
+    "raw_discount_rate_mismatch_dates": [
+      "2026-09-04",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-19",
+      "2026-10-20"
+    ],
+    "silver_adj_factor_mismatch_dates": [],
+    "silver_discount_rate_mismatch_dates": [
+      "2026-10-19",
+      "2026-10-20"
+    ],
+    "scope_note": "Dates and adj_factor checked independently. Discount-rate differences versus current source query are recorded separately, do not establish a cause, and do not authorize rewriting."
+  },
+  "elapsed_seconds": 0.461,
+  "summary": {
+    "historical_dates": 18,
+    "original_checks_passed": 108,
+    "raw_unchanged": 18,
+    "silver_unchanged": 18,
+    "contract_or_domain_failures": 0,
+    "basic_raw_unchanged": true,
+    "basic_silver_unchanged": true,
+    "history_readonly_verification": "18/18 original checks, Raw/Silver content, and shared Basic content match; no formal writes."
+  },
+  "basic_global_read_approval": "User approved only the two shared old Raw/Silver Basic snapshots, about224KiB; each read once for canonical content hash; no detail export.",
+  "report_role": "Read-only audit evidence, never a runtime exception registry or replacement source of historical expected values.",
+  "approved_scope": "Stop new injections from2026-10-19; preserve historical files/records; verify old acceptance; no history rebuild or644-row repair.",
+  "implementation_acceptance": {
+    "scope": "512390 cleanup only; no 644-record changes",
+    "status": "code_and_isolated_acceptance_complete_formal_reload_pending",
+    "etf_regression": {
+      "tests": 207,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "specialized_cases_included": 29,
+    "protected_asset_governance_passed": 12,
+    "protected_incremental_governance_passed": 6,
+    "unique_passing_cases": 225,
+    "real_six_checks_isolated_job": {
+      "passed": true,
+      "target": "original historical materialization",
+      "factor_rematerialization": false,
+      "helper_asset": "test-only partition context, no data I/O"
+    },
+    "static_checks": {
+      "ruff_fatal_baseline": "passed",
+      "ruff_changed_python": "passed",
+      "docs_integrity": "passed",
+      "diff_whitespace": "passed",
+      "isolated_definitions_load": "passed"
+    },
+    "deleted": [
+      "defs/corrections/etf_adj_factor_terminal_exceptions.py",
+      "defs/corrections/etf_adj_factor_terminal_exceptions.yaml",
+      "tests/test_etf_adj_factor_terminal_exceptions.py"
+    ],
+    "implementation": [
+      "defs/io/etf_daily_silver_writer.py",
+      "defs/checks/etf_daily_checks.py",
+      "defs/asset_guards/etf_daily_lake_readiness.py",
+      "defs/asset_guards/etf_adj_factor_history.py",
+      "tests/test_etf_adj_factor_history.py"
+    ],
+    "code_location_readonly_status": {
+      "name": "orchestrator",
+      "loadStatus": "LOADED",
+      "reload_executed": false
+    },
+    "final_readonly_acceptance": {
+      "scope": "512390 cleanup; 18 historic partitions only",
+      "readonly": true,
+      "source_requests": 0,
+      "formal_writes": 0,
+      "basic_evidence": "Reused prior explicitly approved once-only Raw/Silver Basic content verification; no Basic file reread in this acceptance.",
+      "partitions": [
+        {
+          "date": "2026-09-15",
+          "materialization_id": 7375188,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2154,
+              "content_hash": "473192dcb65042728aeb528b96a8214326afcd9fee6f72c729ffaeb0ff116243"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "0a8bf151685344273cdc8ee7801aa52aedb79b08066b2b43ed8269511dc2c9f1"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-16",
+          "materialization_id": 7375234,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2158,
+              "content_hash": "73f02ddfe76ef88739cddc3390f189ef33cd287add4d8bd79070fb06550ff2d0"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "d6d66b0f4c942172e06cee6636ca8f65ed848dc49a1e117bab6767905b778ab9"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-17",
+          "materialization_id": 7375280,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2161,
+              "content_hash": "630615193f225ff08cbc373b30b4756f47479d0c7798c131ce4874e334c13559"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "e0e99dc6c47d16fb6438c6c4b820018360824e67f8f57f4f84c8fb2fbc8a9cf0"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-18",
+          "materialization_id": 7375326,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2164,
+              "content_hash": "5adf354ef3e3d4f2888fbadacb5f2c606ccdce964b4feea6ac285e1c783edc72"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "5a9a5e2a8a97e164cdb33753719e7bac5e46d1ab238502fa851af122417db381"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-21",
+          "materialization_id": 7383080,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2164,
+              "content_hash": "a8f1dedc306fc9274a0732de64298d7639ad57b6e0830e24d135622d9bd5d3f5"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "6b371a18624b844d2c07a00f63892939987f6cf380b957980c2f0d91f389b72f"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-22",
+          "materialization_id": 7383126,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2166,
+              "content_hash": "ff871e7c17d4defad381ad0982466fce70970f495646d8019d81a23bf2dcce02"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "69d133018fc8d1acf35d6d4776ab648888f63cd9460a52c30f8e7bb02450890a"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-23",
+          "materialization_id": 7391670,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2169,
+              "content_hash": "2ffe91c5117081e7832e27e68ca79c405a15a2e9ff695de495a32710b458f65d"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "42d518ed047ed4a03e20c3d1eedfb8eca132d7186f8e7aff4dab762419cca4cb"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-24",
+          "materialization_id": 7391907,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2175,
+              "content_hash": "041a4df660eb1862424b5e84a63710dd2bd8bd07c3fbdbffe359a89441c5a483"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "cdac4445ba27b050915f4688519a5cf20925c8ea6990258069e0aff6163cac9d"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-28",
+          "materialization_id": 7397274,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2177,
+              "content_hash": "b4220c149aeab7f99a6804a5310e7f00f759f8e38945048f4d3919a46675a697"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "2311dce6db7b581f14349a1f1a0b7d51633e1545328cd2f7e51e7b853b73029d"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-29",
+          "materialization_id": 7399227,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2178,
+              "content_hash": "0d73314dd5f98cf47ef6b5e9076fbe4eeb7f88563aeb3d437f85237eebf32915"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "569f6ff290abfbfe816452d01a061c5ace34d2c5671f4082699d4a182cd8b919"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-30",
+          "materialization_id": 7406221,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2183,
+              "content_hash": "399330b6e05f9f1aef48609e82e1cf86c1f782011944bff708f52f8f4a391713"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "a9e415220f7db9de9b5ee86a08113c15a8bcd41aa55de820329620b88f1658ec"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-08",
+          "materialization_id": 7431619,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2183,
+              "content_hash": "22193365f1fa956e015c33573354cd3553da3600d6fae8cd5de28fb9e2db51b2"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "a52b3bda48ce589044eca7e894b06b1178533f6ec5b15e0c64955175977279c1"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-09",
+          "materialization_id": 7437571,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2184,
+              "content_hash": "d60e4d2c1b8b5743aa32d860a349466dd3ff540ed0afd1370089a02075970b43"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "55dbd87ad0af2006844075a3c14fd1d14fed30b96937f60fbd8c1029c16e42d0"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "materialization_id": 7458128,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2185,
+              "content_hash": "45edf830d3396f388516e111f11639de52796c33a29b6f8d069cdfbfcdca05fb"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "ac7deb33a747560c014b6a16f259bdfd30b516d970f20232e79466452604e20b"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "materialization_id": 7594536,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2186,
+              "content_hash": "5cdc21aa99c9711cfc241a6afb7733e54b0603d28b44ba3668e744db5e574d9e"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "bec6a98507476a0c602109c45e449e40b5d2a5cdc0f39ba7660203bff66932a5"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "materialization_id": 7599226,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2189,
+              "content_hash": "b8ca22f0ea42bce90c23c566b256f10394c99deae4a95510814179f9fdb94adf"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "68b76fa61639e902aad82fc6a024a2d046622a2d1543c179b6a0482e7cb9d6a7"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-15",
+          "materialization_id": 7604057,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2192,
+              "content_hash": "ad4483b706f8e0b2fed144ce39f32098dbbfeed96a13f542e58f422c12646fc8"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "f83863f17984af7813f69827fa74fae3b1bc8442f48d8a900aa171e64e761e93"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "materialization_id": 7609052,
+          "original_and_latest_checks_valid": true,
+          "files": [
+            {
+              "asset": "raw_tushare_fund_adj",
+              "rows": 2196,
+              "content_hash": "3000f8d4a5004cd8edb4a9d0da353db30a185b7863e6e84b2020c5853033edbc"
+            },
+            {
+              "asset": "silver_etf_adj_factor",
+              "rows": 1650,
+              "content_hash": "ac84ad17019ddfe17a13f606fa95cacbb96f0b94ab5a5d129e0117c28134a405"
+            }
+          ]
+        }
+      ],
+      "duckdb_settings": {
+        "memory_limit": "244.1 MiB",
+        "threads": 1
+      },
+      "elapsed_seconds": 4.22
+    },
+    "formal_operations": {
+      "lake_writes": 0,
+      "event_writes": 0,
+      "source_requests": 0,
+      "prod_access": 0,
+      "jobs_executed": 0,
+      "sensors_changed": 0,
+      "code_location_reload": 0
+    },
+    "limitations": [
+      "Basic verification reuses the two prior expressly approved whole-file content checks; no repeat whole Basic read in final audit.",
+      "Formal checks and code-location reload not executed.",
+      "Code-location reload includes other worktree changes; separate publication confirmation required."
+    ]
+  }
+}

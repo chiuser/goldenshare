@@ -8,10 +8,6 @@ from pathlib import Path
 from time import perf_counter
 
 from orchestrator.defs.assets.etf_basic import audit_etf_basic_silver_snapshot
-from orchestrator.defs.corrections.etf_adj_factor_terminal_exceptions import (
-    EtfAdjFactorTerminalExceptionResolution,
-    resolve_etf_adj_factor_terminal_exceptions,
-)
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -135,19 +131,13 @@ class EtfDailySourceParityAudit:
     expected_minus_silver_count: int
     silver_minus_expected_count: int
     failure_samples: tuple[dict[str, object], ...]
-    approved_exception_row_count: int = 0
-    exception_registry_hash: str | None = None
-    exception_source_resumption_count: int = 0
-    exception_sample_codes: tuple[str, ...] = ()
 
     @property
     def error_codes(self) -> tuple[str, ...]:
         errors: list[str] = []
         if self.selected_row_count + self.rejected_row_count != self.raw_row_count:
             errors.append("row_conservation")
-        if self.silver_row_count != (
-            self.selected_row_count + self.approved_exception_row_count
-        ):
+        if self.silver_row_count != self.selected_row_count:
             errors.append("selected_row_count")
         if self.expected_minus_silver_count:
             errors.append("expected_rows_missing")
@@ -210,10 +200,6 @@ class EtfDailySilverWriteResult:
     content_hash: str
     output_bytes: int
     elapsed_ms: float
-    approved_exception_row_count: int = 0
-    exception_registry_hash: str | None = None
-    exception_source_resumption_count: int = 0
-    exception_sample_codes: tuple[str, ...] = ()
 
     def to_details(self) -> dict[str, object]:
         reference = self.basic_reference
@@ -239,10 +225,6 @@ class EtfDailySilverWriteResult:
             "content_hash": self.content_hash,
             "output_bytes": self.output_bytes,
             "elapsed_ms": round(self.elapsed_ms, 3),
-            "approved_exception_row_count": self.approved_exception_row_count,
-            "exception_registry_hash": self.exception_registry_hash,
-            "exception_source_resumption_count": self.exception_source_resumption_count,
-            "exception_sample_codes": list(self.exception_sample_codes),
         }
 
 
@@ -320,28 +302,6 @@ def _silver_projection(
     FROM ({classified_sql}) classified
     WHERE classified.rejection_reason IS NULL
     ORDER BY classified.ts_code, classified.trade_date
-    """
-
-
-def _etf_adj_factor_expected_select(
-    *,
-    classified_sql: str,
-    resolution: EtfAdjFactorTerminalExceptionResolution,
-    partition_key: str,
-) -> str:
-    source_select = _silver_projection(
-        classified_sql=classified_sql,
-        spec=FUND_ADJ_SILVER_SPEC,
-    )
-    injection_select = resolution.injection_rows_sql(partition_key)
-    return f"""
-    SELECT ts_code, trade_date, adj_factor, discount_rate
-    FROM (
-      SELECT ts_code, trade_date, adj_factor, discount_rate FROM ({source_select}) source_rows
-      UNION ALL
-      SELECT ts_code, trade_date, adj_factor, discount_rate FROM ({injection_select}) exception_rows
-    ) rows
-    ORDER BY ts_code, trade_date
     """
 
 
@@ -600,7 +560,6 @@ def audit_etf_daily_source_parity(
     silver_relation_sql: str,
     basic_relation_sql: str,
     spec: EtfDailySilverSpec,
-    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None = None,
 ) -> EtfDailySourceParityAudit:
     """Reconcile Silver bidirectionally against Raw plus frozen Basic."""
 
@@ -609,15 +568,7 @@ def audit_etf_daily_source_parity(
         raw_relation_sql=raw_relation_sql,
         basic_relation_sql=basic_relation_sql,
     )
-    expected_sql = (
-        _etf_adj_factor_expected_select(
-            classified_sql=classified_sql,
-            resolution=exception_resolution,
-            partition_key=exception_resolution.partition_key,
-        )
-        if spec is FUND_ADJ_SILVER_SPEC and exception_resolution is not None
-        else _silver_projection(classified_sql=classified_sql, spec=spec)
-    )
+    expected_sql = _silver_projection(classified_sql=classified_sql, spec=spec)
     silver_sql = _relation_select(silver_relation_sql)
     counts = connection.execute(
         f"""
@@ -700,24 +651,6 @@ def audit_etf_daily_source_parity(
                 "trade_date": str(row[2]),
             }
             for row in sample_rows
-        ),
-        approved_exception_row_count=(
-            exception_resolution.approved_exception_row_count
-            if exception_resolution is not None
-            else 0
-        ),
-        exception_registry_hash=(
-            exception_resolution.registry_hash
-            if exception_resolution is not None
-            else None
-        ),
-        exception_source_resumption_count=(
-            exception_resolution.source_resumption_count
-            if exception_resolution is not None
-            else 0
-        ),
-        exception_sample_codes=(
-            exception_resolution.sample_codes if exception_resolution is not None else ()
         ),
     )
 
@@ -989,47 +922,6 @@ def _require_preflight_roots(lake_root_path: Path, staging_root_path: Path) -> N
         )
 
 
-def _is_approved_terminal_exception_delta(
-    connection,
-    *,
-    candidate_sql: str,
-    existing_sql: str,
-    spec: EtfDailySilverSpec,
-    resolution: EtfAdjFactorTerminalExceptionResolution,
-) -> bool:
-    """Permit only an additive, registry-approved terminal factor repair."""
-
-    if spec is not FUND_ADJ_SILVER_SPEC or not resolution.eligible_entries:
-        return False
-    columns_sql = _quoted_columns(spec)
-    candidate_relation_sql = _relation_select(candidate_sql)
-    existing_relation_sql = _relation_select(existing_sql)
-    candidate_only_sql = f"""
-    SELECT {columns_sql} FROM ({candidate_relation_sql}) candidate_rows
-    EXCEPT ALL
-    SELECT {columns_sql} FROM ({existing_relation_sql}) existing_rows
-    """
-    existing_only_sql = f"""
-    SELECT {columns_sql} FROM ({existing_relation_sql}) existing_rows
-    EXCEPT ALL
-    SELECT {columns_sql} FROM ({candidate_relation_sql}) candidate_rows
-    """
-    approved_rows_sql = resolution.eligible_rows_sql(resolution.partition_key)
-    counts = connection.execute(
-        f"""
-        SELECT
-          (SELECT count(*) FROM ({candidate_only_sql}) rows),
-          (SELECT count(*) FROM ({existing_only_sql}) rows),
-          (SELECT count(*) FROM (
-            SELECT {columns_sql} FROM ({candidate_only_sql}) candidate_rows
-            EXCEPT ALL
-            SELECT {columns_sql} FROM ({approved_rows_sql}) approved_rows
-          ) rows)
-        """
-    ).fetchone()
-    return int(counts[0] or 0) > 0 and not int(counts[1] or 0) and not int(counts[2] or 0)
-
-
 def _write_etf_daily_silver_partition(
     *,
     spec: EtfDailySilverSpec,
@@ -1073,7 +965,6 @@ def _write_etf_daily_silver_partition(
     write_mode = ""
     candidate_audit: EtfDailySilverAudit | None = None
     parity: EtfDailySourceParityAudit | None = None
-    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None = None
     rejection_samples: tuple[dict[str, object], ...] = ()
     try:
         with duckdb_resource.connect() as connection:
@@ -1096,20 +987,7 @@ def _write_etf_daily_silver_partition(
                 raw_relation_sql=raw_sql,
                 basic_relation_sql=basic_sql,
             )
-            if spec is FUND_ADJ_SILVER_SPEC:
-                exception_resolution = resolve_etf_adj_factor_terminal_exceptions(
-                    connection,
-                    partition_key=normalized_partition,
-                    raw_relation_sql=raw_sql,
-                    basic_relation_sql=basic_sql,
-                )
-                selected_sql = _etf_adj_factor_expected_select(
-                    classified_sql=classified_sql,
-                    resolution=exception_resolution,
-                    partition_key=normalized_partition,
-                )
-            else:
-                selected_sql = _silver_projection(classified_sql=classified_sql, spec=spec)
+            selected_sql = _silver_projection(classified_sql=classified_sql, spec=spec)
             connection.execute(
                 f"COPY ({selected_sql}) TO {duckdb_string(staging_path)} "
                 "(FORMAT PARQUET, COMPRESSION ZSTD)"
@@ -1127,7 +1005,6 @@ def _write_etf_daily_silver_partition(
                 silver_relation_sql=candidate_sql,
                 basic_relation_sql=basic_sql,
                 spec=spec,
-                exception_resolution=exception_resolution,
             )
             if candidate_audit.error_codes:
                 raise EtfDailySilverValidationError(
@@ -1181,15 +1058,6 @@ def _write_etf_daily_silver_partition(
                 ):
                     staging_path.unlink()
                     write_mode = "reuse_existing"
-                elif exception_resolution is not None and _is_approved_terminal_exception_delta(
-                    connection,
-                    candidate_sql=candidate_sql,
-                    existing_sql=existing_sql,
-                    spec=spec,
-                    resolution=exception_resolution,
-                ):
-                    os.replace(staging_path, target_path)
-                    write_mode = "promote_terminal_exception_delta"
                 else:
                     raise EtfDailySilverValidationError(
                         "existing Silver target conflicts with the frozen Basic result; "
@@ -1230,10 +1098,6 @@ def _write_etf_daily_silver_partition(
         content_hash=candidate_audit.content_hash,
         output_bytes=target_path.stat().st_size,
         elapsed_ms=(perf_counter() - started_at) * 1000,
-        approved_exception_row_count=parity.approved_exception_row_count,
-        exception_registry_hash=parity.exception_registry_hash,
-        exception_source_resumption_count=parity.exception_source_resumption_count,
-        exception_sample_codes=parity.exception_sample_codes,
     )
 
 

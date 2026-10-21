@@ -1,0 +1,950 @@
+{
+  "audit_kind": "etf_adj_factor_workaround_retirement_readonly",
+  "status": "withdrawn_full_history_rebuild_proposal",
+  "observed_at": "2026-10-21T14:09:51.713641+08:00",
+  "formal_writes": 0,
+  "code_changes": 0,
+  "current_source_status": "D",
+  "current_dg_basic_snapshot": "/Volumes/datasource/data_lake/silver/basic/etf_basic/snapshot_id=de45a988b82cac62afa88a64c530075a17cf2bf0b8d26c57cb96a30431a3b86a/part-000.parquet",
+  "affected_dates": [
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18",
+    "2026-09-21",
+    "2026-09-22",
+    "2026-09-23",
+    "2026-09-24",
+    "2026-09-28",
+    "2026-09-29",
+    "2026-09-30",
+    "2026-10-08",
+    "2026-10-09",
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14",
+    "2026-10-15",
+    "2026-10-16"
+  ],
+  "summary": {
+    "affected_files": 18,
+    "old_rows": 29700,
+    "proposed_rows": 30326,
+    "remove_approved_frozen_rows": 18,
+    "add_other_source_rows": 644,
+    "other_removed_rows": 0,
+    "missing_source_codes_under_current_basic": 0,
+    "target_file_bytes": 238967,
+    "audit_elapsed_seconds": 0.679
+  },
+  "source_evidence": [
+    "/private/tmp/etf_512390_status_readonly_20261021.json",
+    "/private/tmp/etf_workaround_history_audit_20261021.json",
+    "/private/tmp/etf_workaround_physical_audit_20261021.json"
+  ],
+  "method": "bounded metadata (latest one per date); predicate by code for 512390; aggregate-only Raw/current-Basic/Silver comparison using current classifier and projection; no candidate/file/event writes",
+  "partitions": [
+    {
+      "date": "2026-09-15",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1663,
+        "old_count": 1650,
+        "add_count": 14,
+        "remove_count": 1,
+        "other_add_count": 14,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-15",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17243,
+      "silver_bytes": 13045
+    },
+    {
+      "date": "2026-09-16",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1667,
+        "old_count": 1650,
+        "add_count": 18,
+        "remove_count": 1,
+        "other_add_count": 18,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-16",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17761,
+      "silver_bytes": 13461
+    },
+    {
+      "date": "2026-09-17",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1670,
+        "old_count": 1650,
+        "add_count": 21,
+        "remove_count": 1,
+        "other_add_count": 21,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-17",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17215,
+      "silver_bytes": 13016
+    },
+    {
+      "date": "2026-09-18",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1673,
+        "old_count": 1650,
+        "add_count": 24,
+        "remove_count": 1,
+        "other_add_count": 24,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-18",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17709,
+      "silver_bytes": 13302
+    },
+    {
+      "date": "2026-09-21",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1673,
+        "old_count": 1650,
+        "add_count": 24,
+        "remove_count": 1,
+        "other_add_count": 24,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-21",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17471,
+      "silver_bytes": 13119
+    },
+    {
+      "date": "2026-09-22",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1675,
+        "old_count": 1650,
+        "add_count": 26,
+        "remove_count": 1,
+        "other_add_count": 26,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-22",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17310,
+      "silver_bytes": 13041
+    },
+    {
+      "date": "2026-09-23",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1678,
+        "old_count": 1650,
+        "add_count": 29,
+        "remove_count": 1,
+        "other_add_count": 29,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-23",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17259,
+      "silver_bytes": 12932
+    },
+    {
+      "date": "2026-09-24",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1684,
+        "old_count": 1650,
+        "add_count": 35,
+        "remove_count": 1,
+        "other_add_count": 35,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-24",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17921,
+      "silver_bytes": 13391
+    },
+    {
+      "date": "2026-09-28",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1686,
+        "old_count": 1650,
+        "add_count": 37,
+        "remove_count": 1,
+        "other_add_count": 37,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-28",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 18244,
+      "silver_bytes": 13632
+    },
+    {
+      "date": "2026-09-29",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1687,
+        "old_count": 1650,
+        "add_count": 38,
+        "remove_count": 1,
+        "other_add_count": 38,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-29",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17346,
+      "silver_bytes": 12951
+    },
+    {
+      "date": "2026-09-30",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1692,
+        "old_count": 1650,
+        "add_count": 43,
+        "remove_count": 1,
+        "other_add_count": 43,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-09-30",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17697,
+      "silver_bytes": 13283
+    },
+    {
+      "date": "2026-10-08",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1692,
+        "old_count": 1650,
+        "add_count": 43,
+        "remove_count": 1,
+        "other_add_count": 43,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-08",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 18327,
+      "silver_bytes": 13678
+    },
+    {
+      "date": "2026-10-09",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1693,
+        "old_count": 1650,
+        "add_count": 44,
+        "remove_count": 1,
+        "other_add_count": 44,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-09",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17700,
+      "silver_bytes": 13234
+    },
+    {
+      "date": "2026-10-12",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1694,
+        "old_count": 1650,
+        "add_count": 45,
+        "remove_count": 1,
+        "other_add_count": 45,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-12",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17993,
+      "silver_bytes": 13490
+    },
+    {
+      "date": "2026-10-13",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1695,
+        "old_count": 1650,
+        "add_count": 46,
+        "remove_count": 1,
+        "other_add_count": 46,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-13",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17590,
+      "silver_bytes": 13147
+    },
+    {
+      "date": "2026-10-14",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1698,
+        "old_count": 1650,
+        "add_count": 49,
+        "remove_count": 1,
+        "other_add_count": 49,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-14",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 18110,
+      "silver_bytes": 13531
+    },
+    {
+      "date": "2026-10-15",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1701,
+        "old_count": 1650,
+        "add_count": 52,
+        "remove_count": 1,
+        "other_add_count": 52,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-15",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 18123,
+      "silver_bytes": 13552
+    },
+    {
+      "date": "2026-10-16",
+      "old_basic_hash": "1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44",
+      "counts": {
+        "new_count": 1705,
+        "old_count": 1650,
+        "add_count": 56,
+        "remove_count": 1,
+        "other_add_count": 56,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [
+          [
+            "512390.SH",
+            "2026-10-16",
+            1.3094,
+            null
+          ]
+        ],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            "707918.MI",
+            "MSCI中国A股国际低波动",
+            "2018-06-07",
+            "2018-07-13",
+            "L",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            "0.500000",
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17567,
+      "silver_bytes": 13162
+    },
+    {
+      "date": "2026-10-19",
+      "old_basic_hash": "c304c60de84e2c65bf30552cceeabcaa770e1aa53486cb6a74aa1e31d38db91d",
+      "counts": {
+        "new_count": 1708,
+        "old_count": 1708,
+        "add_count": 0,
+        "remove_count": 0,
+        "other_add_count": 0,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            null,
+            null,
+            "2018-06-07",
+            "2018-07-13",
+            "D",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            null,
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17618,
+      "silver_bytes": 13302
+    },
+    {
+      "date": "2026-10-20",
+      "old_basic_hash": "de45a988b82cac62afa88a64c530075a17cf2bf0b8d26c57cb96a30431a3b86a",
+      "counts": {
+        "new_count": 1709,
+        "old_count": 1709,
+        "add_count": 0,
+        "remove_count": 0,
+        "other_add_count": 0,
+        "other_remove_count": 0
+      },
+      "current_basic_missing_source_count": 0,
+      "512390": {
+        "raw": [],
+        "silver": [],
+        "frozen_basic": [
+          [
+            "512390.SH",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动ETF",
+            "平安MSCI中国A股低波动交易型开放式指数证券投资基金",
+            null,
+            null,
+            "2018-06-07",
+            "2018-07-13",
+            "D",
+            "SH",
+            "平安基金",
+            "平安银行股份有限公司",
+            null,
+            "纯境内"
+          ]
+        ]
+      },
+      "raw_bytes": 17727,
+      "silver_bytes": 13332
+    }
+  ],
+  "limitations": [
+    "Counts prove projected membership and full-row differences, not all production checks or candidate admission.",
+    "Current Basic is the Oct20 snapshot; live execution must re-freeze and repeat counts if it changes.",
+    "Earlier administrator-approved Raw corrections (Sep10/11/14) and their historical records are outside this migration and remain preserved.",
+    "No source re-fetch, downstream computation or formal readiness/check execution."
+  ],
+  "codegraph": {
+    "tools": [
+      "codegraph_explore",
+      "codegraph_impact"
+    ],
+    "direct_consumers": [
+      "defs/io/etf_daily_silver_writer.py",
+      "defs/checks/etf_daily_checks.py",
+      "defs/asset_guards/etf_daily_lake_readiness.py"
+    ],
+    "indirect_consumers": [
+      "defs/assets/etf_daily.py",
+      "defs/sensors/etf_daily_sensor.py",
+      "defs/bootstrap/etf_daily_bootstrap_apply.py",
+      "defs/bootstrap/etf_daily_bootstrap_plan.py",
+      "defs/bootstrap/etf_daily_bootstrap_events.py"
+    ],
+    "tests": [
+      "test_etf_adj_factor_terminal_exceptions.py",
+      "test_etf_daily_silver_writer.py",
+      "test_etf_daily_silver_checks.py",
+      "test_etf_daily_lake_readiness.py",
+      "test_etf_daily_bootstrap.py",
+      "test_etf_daily_contracts.py"
+    ]
+  },
+  "status_note": "Original measurements retained. Full historical rebuild proposal was withdrawn by the approved business decision. The644-row projected addition is not an audited error count and is not an authorized repair list.",
+  "current_approved_scope": "Stop new injections from2026-10-19; preserve historical files/records; verify old acceptance; no history rebuild or644-row repair.",
+  "current_design": "lake_console/docs/design/dagster-etf-daily-data-onboarding-plan-v1.md#85-2026-10-21停止补值保留历史解除检查依赖",
+  "new_readonly_evidence": "lake_console/reports/etf_adj_factor_terminal_cleanup_readonly_verification_20261021.json"
+}

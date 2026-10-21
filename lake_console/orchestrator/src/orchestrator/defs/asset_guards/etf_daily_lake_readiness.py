@@ -11,8 +11,12 @@ from typing import Any, cast
 
 import dagster as dg
 
-from orchestrator.defs.corrections.etf_adj_factor_terminal_exceptions import (
-    resolve_etf_adj_factor_terminal_exceptions,
+from orchestrator.defs.asset_guards.etf_adj_factor_history import (
+    FactorHistoryEvidence,
+    FactorMaterializationEvidence,
+    audit_factor_history,
+    load_factor_history_evidence,
+    needs_factor_history,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
@@ -120,6 +124,8 @@ class EtfDailyBatchReadiness:
 @dataclass(frozen=True, slots=True)
 class _MaterializationEvidence:
     metadata: Mapping[str, Any]
+    storage_id: int | None = None
+    run_id: str | None = None
 
 
 class _BorrowedDuckDBResource:
@@ -186,6 +192,8 @@ def _latest_materializations(
             metadata = {}
         latest[partition_key] = _MaterializationEvidence(
             metadata=metadata,
+            storage_id=getattr(record, "storage_id", None),
+            run_id=getattr(getattr(record, "event_log_entry", None), "run_id", None),
         )
     missing = tuple(date for date in trade_dates if date not in latest)
     if missing and len(records) >= _MATERIALIZATION_QUERY_LIMIT:
@@ -360,6 +368,7 @@ def _silver_status(
     trade_date: str,
     evidence: _MaterializationEvidence | None,
     validated_basic_references: dict[str, EtfBasicSilverSnapshotReference],
+    history_evidence: FactorHistoryEvidence | None = None,
 ) -> EtfDailyPartitionReadiness:
     path = spec.target_path_builder(lake_root, trade_date)
     file_exists = path.is_file()
@@ -374,6 +383,26 @@ def _silver_status(
             asset_key=spec.asset_key,
             trade_date=trade_date,
             file_exists=False,
+        )
+    if history_evidence is not None:
+        audit = audit_factor_history(
+            connection=connection,
+            lake_root=lake_root,
+            trade_date=trade_date,
+            evidence=history_evidence,
+            validated_basic_references=validated_basic_references,
+        )
+        relation = audit.relation
+        return EtfDailyPartitionReadiness(
+            asset_key=spec.asset_key,
+            trade_date=trade_date,
+            materialized=True,
+            file_exists=True,
+            ready=not audit.errors,
+            checks_passed=not audit.errors,
+            reason_code=audit.errors[0] if audit.errors else "ready",
+            row_count=relation.row_count if relation else None,
+            content_hash=relation.content_hash if relation else None,
         )
     metadata = evidence.metadata
     row_count: int | None = None
@@ -422,16 +451,6 @@ def _silver_status(
             silver_relation_sql=silver_sql,
             basic_relation_sql=basic_sql,
             spec=spec,
-            exception_resolution=(
-                resolve_etf_adj_factor_terminal_exceptions(
-                    connection,
-                    partition_key=trade_date,
-                    raw_relation_sql=raw_sql,
-                    basic_relation_sql=basic_sql,
-                )
-                if spec is FUND_ADJ_SILVER_SPEC
-                else None
-            ),
         )
         domain = audit_etf_daily_domain(
             connection,
@@ -531,6 +550,12 @@ def _batch_readiness(
         asset_key=spec.asset_key,
         trade_dates=dates,
     )
+    history_targets = {
+        day: FactorMaterializationEvidence(item.storage_id, item.run_id, item.metadata)
+        for day, item in evidences.items()
+        if needs_factor_history(spec.asset_key, item.metadata)
+    }
+    history_evidences = load_factor_history_evidence(instance, history_targets)
     validated_basic_references: dict[str, EtfBasicSilverSnapshotReference] = {}
     statuses: list[EtfDailyPartitionReadiness] = []
     for trade_date in dates:
@@ -554,6 +579,7 @@ def _batch_readiness(
                     trade_date=trade_date,
                     evidence=evidence,
                     validated_basic_references=validated_basic_references,
+                    history_evidence=history_evidences.get(trade_date),
                 )
             )
         else:

@@ -7,15 +7,18 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.etf_adj_factor_history import (
+    FactorHistoryAudit,
+    FactorMaterializationEvidence,
+    audit_factor_history,
+    load_factor_history_evidence,
+    needs_factor_history,
+)
 from orchestrator.defs.assets.etf_daily import (
     raw_tushare_fund_adj,
     raw_tushare_fund_daily,
     silver_etf_adj_factor,
     silver_etf_daily,
-)
-from orchestrator.defs.corrections.etf_adj_factor_terminal_exceptions import (
-    EtfAdjFactorTerminalExceptionResolution,
-    resolve_etf_adj_factor_terminal_exceptions,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
@@ -82,12 +85,12 @@ class EtfDailySilverFileAudit:
     source_parity: EtfDailySourceParityAudit | None
     domain: EtfDailyDomainAudit | None
     coverage: EtfDailyCoverageAudit | None
-    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None
     materialization_metadata: dict[str, Any] | None
     materialization_errors: tuple[str, ...]
     basic_reference_errors: tuple[str, ...]
     raw_errors: tuple[str, ...]
     error_type: str | None
+    history: FactorHistoryAudit | None = None
 
 
 def _metadata_scalar(value: Any) -> Any:
@@ -301,6 +304,7 @@ def audit_etf_daily_silver_partition(
     spec: EtfDailySilverSpec,
     partition_key: str,
     check_kind: str | None = None,
+    current_run_id: str | None = None,
 ) -> EtfDailySilverFileAudit:
     """Build one shared audit used by all six checks for a Silver asset."""
 
@@ -320,11 +324,46 @@ def audit_etf_daily_silver_partition(
     needs_domain = check_kind in {None, "domain"}
     raw_file_path = spec.raw_spec.target_path_builder(lake_root_path, partition_key)
     silver_file_path = spec.target_path_builder(lake_root_path, partition_key)
-    metadata = _latest_materialization_metadata(
-        instance=instance,
-        asset_key=spec.asset_key,
-        partition_key=partition_key,
-    )
+    records = instance.fetch_materializations(
+        dg.AssetRecordsFilter(
+            asset_key=dg.AssetKey(spec.asset_key), asset_partitions=[partition_key]
+        ),
+        limit=1,
+    ).records
+    target = FactorMaterializationEvidence.from_record(records[0]) if records else None
+    metadata = dict(target.metadata) if target else None
+    if target is not None and needs_factor_history(spec.asset_key, target.metadata):
+        evidence = load_factor_history_evidence(
+            instance,
+            {partition_key: target},
+            current_run_id=current_run_id,
+        )[partition_key]
+        with duckdb_resource.connect() as connection:
+            history = audit_factor_history(
+                connection=connection,
+                lake_root=lake_root_path,
+                trade_date=partition_key,
+                evidence=evidence,
+                validated_basic_references={},
+            )
+        return EtfDailySilverFileAudit(
+            spec=spec,
+            partition_key=partition_key,
+            raw_file_path=raw_file_path,
+            silver_file_path=silver_file_path,
+            basic_reference=history.basic_reference,
+            relation=history.relation,
+            source_filter=None,
+            source_parity=None,
+            domain=None,
+            coverage=None,
+            materialization_metadata=metadata,
+            materialization_errors=(),
+            basic_reference_errors=(),
+            raw_errors=(),
+            error_type=None,
+            history=history,
+        )
     reference, reference_errors = _basic_reference_from_metadata(metadata)
     required_paths = (
         (raw_file_path, silver_file_path) if needs_raw else (silver_file_path,)
@@ -342,7 +381,6 @@ def audit_etf_daily_silver_partition(
             source_parity=None,
             domain=None,
             coverage=None,
-            exception_resolution=None,
             materialization_metadata=metadata,
             materialization_errors=_silver_materialization_errors(
                 metadata=metadata,
@@ -375,7 +413,6 @@ def audit_etf_daily_silver_partition(
     source_parity: EtfDailySourceParityAudit | None = None
     domain: EtfDailyDomainAudit | None = None
     coverage: EtfDailyCoverageAudit | None = None
-    exception_resolution: EtfAdjFactorTerminalExceptionResolution | None = None
     raw_errors: tuple[str, ...] = ()
     error_type: str | None = None
     try:
@@ -407,18 +444,6 @@ def audit_etf_daily_silver_partition(
                     Path(reference.silver_uri),
                     hive_partitioning=False,
                 )
-                if (
-                    spec is FUND_ADJ_SILVER_SPEC
-                    and raw_sql is not None
-                    and check_kind in {None, "source_parity", "coverage"}
-                    and not raw_errors
-                ):
-                    exception_resolution = resolve_etf_adj_factor_terminal_exceptions(
-                        connection,
-                        partition_key=partition_key,
-                        raw_relation_sql=raw_sql,
-                        basic_relation_sql=basic_sql,
-                    )
                 if check_kind in {None, "source_filter"}:
                     source_filter = audit_etf_daily_source_filter(
                         connection,
@@ -437,7 +462,6 @@ def audit_etf_daily_silver_partition(
                         silver_relation_sql=silver_sql,
                         basic_relation_sql=basic_sql,
                         spec=spec,
-                        exception_resolution=exception_resolution,
                     )
                 if (
                     check_kind in {None, "coverage"}
@@ -471,7 +495,6 @@ def audit_etf_daily_silver_partition(
         source_parity=source_parity,
         domain=domain,
         coverage=coverage,
-        exception_resolution=exception_resolution,
         materialization_metadata=metadata,
         materialization_errors=_silver_materialization_errors(
             metadata=metadata,
@@ -687,6 +710,8 @@ def _silver_failed_rules(
     *,
     check_kind: str,
 ) -> tuple[str, ...]:
+    if audit.history is not None:
+        return audit.history.errors
     relation = audit.relation
     if relation is None:
         return (audit.error_type or "silver_parquet_unreadable",)
@@ -793,6 +818,7 @@ def evaluate_etf_daily_silver_check(
         spec=spec,
         partition_key=partition_key,
         check_kind=check_kind,
+        current_run_id=getattr(getattr(context, "run", None), "run_id", None),
     )
     failed_rules = _silver_failed_rules(audit, check_kind=check_kind)
     relation = audit.relation
@@ -889,34 +915,8 @@ def evaluate_etf_daily_silver_check(
                 "reject_reason_counts": (
                     dict(parity.reason_counts) if parity is not None else {}
                 ),
-                "approved_exception_row_count": (
-                    parity.approved_exception_row_count
-                    if parity is not None
-                    else audit.exception_resolution.approved_exception_row_count
-                    if audit.exception_resolution is not None
-                    else 0
-                ),
-                "exception_registry_hash": (
-                    parity.exception_registry_hash
-                    if parity is not None
-                    else audit.exception_resolution.registry_hash
-                    if audit.exception_resolution is not None
-                    else None
-                ),
-                "exception_source_resumption_count": (
-                    parity.exception_source_resumption_count
-                    if parity is not None
-                    else audit.exception_resolution.source_resumption_count
-                    if audit.exception_resolution is not None
-                    else 0
-                ),
-                "exception_sample_codes": (
-                    list(parity.exception_sample_codes)
-                    if parity is not None
-                    else list(audit.exception_resolution.sample_codes)
-                    if audit.exception_resolution is not None
-                    else []
-                ),
+                "historical_acceptance_verified": audit.history is not None
+                and not audit.history.errors,
                 "domain_failure_counts": (
                     dict(domain.failure_counts) if domain is not None else {}
                 ),
@@ -953,7 +953,9 @@ def evaluate_etf_daily_silver_check(
                 "failure_samples": list(failure_samples),
                 "error_type": audit.error_type,
                 "conclusion": (
-                    "Silver 分区通过当前检查。"
+                    "已核对原历史验收及实际文件，内容未变；未重新补值。"
+                    if passed and audit.history is not None
+                    else "Silver 分区通过当前检查。"
                     if passed
                     else "Silver 分区存在覆盖差异；本检查只告警，不阻断。"
                     if coverage_warn_only and coverage is not None

@@ -506,7 +506,7 @@ metadata 不写 token、完整代码清单、完整行样本、未命名空间 k
 
 ### 11.1 共享审计结果
 
-checks 不重新实现 writer 逻辑。Raw checks 调用 `audit_etf_daily_raw_relation`；Silver checks 调用 `audit_etf_daily_silver_relation` 和 `audit_etf_daily_source_parity`。所有 check metadata 使用 `build_check_metadata(...)`，包含 scope、路径、检查行数、失败数、最多 20 个样本、结论和下一步。
+以下为普通文件规则；§11.8 已批准且验收过的旧补值文件按该节核对原验收和实际内容未变，checks/readiness 共用判断。不得将这一历史核验扩大到其他文件。checks 不重新实现 writer 逻辑。Raw checks 调用 `audit_etf_daily_raw_relation`；Silver checks 调用 `audit_etf_daily_silver_relation` 和 `audit_etf_daily_source_parity`。所有 check metadata 使用 `build_check_metadata(...)`，包含 scope、路径、检查行数、失败数、最多 20 个样本、结论和下一步。
 
 ### 11.2 Raw checks
 
@@ -524,7 +524,7 @@ Raw check 不读取 ETF Basic，不按代码后缀判污染，也不比较两个
 | --- | --- | --- |
 | `*_contract_check` | 是 | 文件可读、字段/类型/顺序精确，日期等于分区 |
 | `*_source_filter_check` | 是 | Basic reference 可复算；输出每行符合 suffix/exchange/status/list_date |
-| `*_source_parity_check` | 是 | 输出与 Raw + frozen Basic + DATE cast 双向等价；selected+rejected=raw |
+| `*_source_parity_check` | 是 | 普通文件与 Raw + frozen Basic + DATE cast 双向等价；selected+rejected=raw。§11.8 指定旧补值结果只核对原验收与输入输出未变，不重造补值行 |
 | `*_key_integrity_check` | 是 | `ts_code/trade_date` 非空唯一 |
 
 check 必须读取当前 Silver materialization metadata 中的 Basic reference，不能再次选择“此刻最新”的另一版 Basic，否则 check 与产出会错绑。
@@ -571,89 +571,146 @@ discount_rate_nonfinite_count  # null 不计失败
 
 - `silver_etf_daily_basic_coverage_check(blocking=False)` 固定为 WARN。
 - `silver_etf_adj_factor_basic_coverage_check(blocking=True)`：2026-09-04 已批准升级，失败级别为 ERROR。`missing_expected_code_count > 0` 或 `silver_extra_code_count > 0` 失败；不能计算 coverage 时也失败。`raw_extra_code_count` 不参与失败。
-- `ETF_DAILY_COVERAGE_POLICY_REVISION = "fund_daily_warn__fund_adj_blocking_v2"`；因子 coverage 加入 `SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS`，Catalog 引用同一名单。check factory 直接使用该名单，禁止再追加 coverage 导致重复注册。
+- 现行代码的 `ETF_DAILY_COVERAGE_POLICY_REVISION = "fund_daily_warn__fund_adj_blocking_v3"`（v2 仅为 2026-09-04 历史标记；本次不改代码标记或管理员确认的规则）；因子 coverage 加入 `SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS`，Catalog 引用同一名单。check factory 直接使用该名单，禁止再追加 coverage 导致重复注册。
 - `EtfDailyCoverageAudit.error_codes` 统一缺码/多余 Silver 代码的失败事实，日常 check、因子 readiness、Bootstrap 物理验收共用。日线仍只告警。事件补录只有通过当前因子 coverage 验收后才能记录成功。
 - 不改 Raw/Silver 字段、写入原子性或 source filter，不在 writer 内补值/删行/回滚；阻断的是可用性和验收。
 
-### 11.7 已实现、待正式数据恢复：`fund_adj` 终止交易例外登记
+### 11.7 历史补值与批准记录（实现已清理）
 
-> 状态：**代码与隔离验证已完成，尚未执行正式数据恢复。** 本节是对 §11.6 因子 blocking 口径的窄例外，不新增或改名 asset、job、sensor、partition、check、Catalog 条目、Dagster event 或 Lake 路径。
+2026-09-21按当时批准恢复9月15日至18日的因子 Silver：各新增唯一人工行 `512390.SH / 对应日期 / 1.3094 / NULL`，从1649行增至1650行，各六项 blocking checks 均通过且绑定原物化。Raw、历史失败记录和sensor状态未改变。此后累计18个日期曾有批准补值；本次全部保留原文件和旧事件。
 
-#### 11.7.1 问题边界与权威事实
-
-2026-09-21 只读核验表明，`512390.SH` 在当前 content-addressed ETF Basic Raw/Silver 快照中仍为 `list_status=L`、`exchange=SH`；当前 ETF Basic schema 不含停牌、清算或退市生效字段。`classify_etf_basic_requestability(...)` 因而按既有合同把它作为 Silver 期望代码。Tushare `fund_adj` 在 2026-09-15、2026-09-18 均没有该代码，导致 2026-09-15 的 `silver_etf_adj_factor_basic_coverage_check` 唯一缺码失败。该分区已有文件及失败 check，`_evaluate_silver(...)` 会按最早日期的 `existing_file_check_failed` 停止，不越过它提交后续分区。
-
-这不是 Basic 已改为非上市但消费者未更新；真实冲突是“业务已确认终止交易”尚未被 Tushare Basic 的有限字段表达。根目录 `DG_DATA_EXCEPTIONS.md` 中此前人工补值只覆盖至 2026-09-14，不能作为运行时代码输入。
-
-#### 11.7.2 新的受控输入与解析合同
-
-实现已新增 version-controlled、schema-validated 的登记文件：`src/orchestrator/defs/corrections/etf_adj_factor_terminal_exceptions.yaml`，并由唯一解析 helper 加载。该文件不是 Lake 数据集、不会被 Dagster 定义发现，也不允许在运行时写入。仅 `fund_adj` Silver 的受控 helper 导入它；Raw writer、source publication probe、sensor 和 ETF 日线 (`fund_daily`) 均不得读取它。
-
-每一行使用如下固定字段：
-
-| 字段 | 类型/规则 | 含义 |
-| --- | --- | --- |
-| `ts_code` | 非空、唯一、`.SH`/`.SZ` 后缀 | 唯一 ETF 代码 |
-| `effective_from` | ISO 日期 | 首个允许由冻结值补入 Silver 的交易日 |
-| `effective_to` | ISO 日期或 `null` | 最后适用日；`null` 不等于永久免审计 |
-| `frozen_adj_factor` | 有限正数 | 经批准的冻结复权因子 |
-| `frozen_discount_rate` | 有限数或 `null` | 保持 `NULL`，不填零 |
-| `status` | `active` / `retired` | 只有 `active` 可被运行时使用 |
-| `reason_code` | ASCII、稳定枚举 | 终止交易例外的机器可读原因 |
-| `approval_ref` | 非空文本 | 指向人工批准与审计依据 |
-
-解析器拒绝未知字段、重复代码、无效日期范围、非正 `frozen_adj_factor`、非有限数或非 ETF 交易所后缀。`retired` 是合法退出状态，但不会出现在 active resolution 中。解析结果按 `ts_code` 排序并生成内容 hash；不得由 asset、sensor 或 check 自行解析 YAML。
-
-#### 11.7.3 分类、写入与退出语义
-
-`write_etf_adj_factor_silver_partition(...)` 及其共享分类 SQL/候选层必须在 Raw 与 Basic 分类后合并例外候选，严格遵守：
-
-1. Raw 有同键 `(ts_code, trade_date)` 时一律采用 Raw；若它与 active 例外的冻结数值不同，写入前抛出 `terminal_exception_source_value_changed`，不 promote。
-2. Raw 缺同键时，只有 active、日期命中、Basic 仍为 `L` 且交易所匹配的登记行可生成一条 Silver 候选；生成值精确使用登记值，`discount_rate=null` 保持 null。
-3. Basic 不再为 `L` 或记录为 `retired` / 日期过期时，例外不生成候选；coverage 恢复为通常语义。
-4. 退出不自动改文件：维护者通过一次代码审计后，把记录改为 `retired` 或填写 `effective_to`。之后日常分区不再补值；若 Raw 仍缺码，blocking coverage 重新失败。这保证退出可通过单行版本化变更完成，且不会静默丢失问题。
-
-Raw 的 `fund_adj` Parquet、字段 schema、Tushare source-row count、分页证据和 Raw checks 完全不变。Silver 的文件 schema 与路径也不变；只是允许一个有批准依据的 Silver-only 补充候选。`EtfDailySilverWriteResult` 增加聚合字段：`approved_exception_row_count`、`exception_registry_hash`、`exception_source_resumption_count` 及最多 20 个样本。它们进入 materialization/check metadata，不进入 cursor、run key 或 run config。
-
-若目标 Silver 文件已存在，默认仍只允许内容完全相等的 `reuse_existing`。实现额外允许一种受控修复：候选与现有目标的差异必须是“候选仅新增零到多个当前有效登记的冻结因子行”，现有目标不能含候选没有的行，且其它候选差异为零；只有差异非空时才用同卷 `os.replace()` 提升，写模式记为 `promote_terminal_exception_delta`。这不是一般 `replace`，不能用于 Basic、Raw、公式或其它来源变化。
-
-#### 11.7.4 全消费者同步范围
-
-以下实现方与消费者必须使用同一 helper，禁止 writer 单独补值、check 再次误判：
-
-| 范围 | 现有代码锚点 | 实施要求 |
-| --- | --- | --- |
-| 日常 Silver writer / asset | `defs/io/etf_daily_silver_writer.py:write_etf_adj_factor_silver_partition`、`defs/assets/etf_daily.py:silver_etf_adj_factor` | 生成受控候选并记录聚合 metadata；不改 Raw。 |
-| Silver checks | `defs/checks/etf_daily_checks.py`、`audit_etf_daily_source_parity`、`audit_etf_daily_basic_coverage` | coverage、parity 和 source filter 识别批准例外；未批准的缺码仍 ERROR。 |
-| readiness / sensor | `defs/asset_guards/etf_daily_lake_readiness.py`、`defs/sensors/etf_daily_sensor.py` | 仅复用检查后的 readiness；不读取登记、不改变最近 10 日、最早缺口或 fail-closed 行为。 |
-| 历史物理审计 / bootstrap writer 消费者 | `defs/bootstrap/etf_daily_bootstrap_apply.py`、`etf_daily_physical_batch_audit.py` | 共享 writer/audit 语义；既有 2025 至 2026-09-03 历史范围在例外起始日前，验收结果应保持不变。未来覆盖例外日期的受控历史动作才读取登记。 |
-| 测试 | `test_etf_daily_silver_writer.py`、`test_etf_daily_silver_checks.py`、`test_etf_daily_lake_readiness.py`、`test_etf_daily_bootstrap.py`、`test_etf_daily_physical_batch_audit.py` | 覆盖命中、退出、源端恢复一致/不一致、Basic 变更、无登记缺码仍失败、Raw 原样及历史范围不受影响。 |
-
-`SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS` 的名称和数量不变；实现完成后 `ETF_DAILY_COVERAGE_POLICY_REVISION` 已更新为 `fund_daily_warn__fund_adj_blocking_v3`。Catalog 的 schema、path、source system 与 blocking check 清单不变。
-
-#### 11.7.5 性能、验证与正式执行边界
-
-登记预期为个位数，运行时每分区仅一次本地解析/校验和一个内存内按代码索引；不新增网络、Dagster event 查询、额外 Lake 文件扫描或独立 sensor 查询。只在既有 writer/check/readiness 已读取 Raw 与 Basic 的上下文中，对最多登记条目执行一次有界 `VALUES` join。正常没有命中时，DuckDB 分类与现有查询次数保持不变；命中时只增加至多登记行数的候选合并。
-
-开发验收必须至少证明：Raw 缺 `512390.SH` 时仅 Silver 注入一行；Raw 恢复同值时优先源端且不重复；Raw 恢复异值时不提升；`retired`、过期或 Basic 非 `L` 不注入；未登记缺码依旧使现有 blocking coverage 失败；metadata 有登记 hash/数量但 cursor 不膨胀；既有 bootstrap 日期范围与原物理审计结果不变。
-
-隔离验证已通过：264 个定向 ETF 测试覆盖登记解析、候选注入、源端同值恢复/异值拒绝、Basic 非 `L`、受控 delta 提升、check/readiness、bootstrap、sensor 和静态门禁。
-
-正式恢复已于 2026-09-21 受控完成：先按现有入口刷新 `raw_etf_basic_update_job` 与 `silver_etf_basic_update_job` 的 freshness 证据，两者内容 hash 均未变化、物理快照按 `reuse_existing` 处理；再依次运行 `silver_etf_adj_factor_update_job[2026-09-15]`、`[2026-09-16]`、`[2026-09-17]`、`[2026-09-18]`。四个分区各从 1,649 行提升为 1,650 行，唯一新增均为对应日期的 `512390.SH / 1.3094 / NULL`，materialization 写模式均为 `promote_terminal_exception_delta`。每个分区的六条既有 blocking checks 均通过并绑定新 materialization，readiness 均为 `ready`。随后 catalog 驱动的物理复审确认 2026-09-15 至 2026-09-18 每日 145/145 个已审计资产存在，零缺文件、零缺 serving 行。Raw 未被改写，未补 runless event、未清理历史失败记录、未启停 sensor。
-
-本次升级的性能与验收约束：
-
-| 环节 | 数量与读写边界 | 验收与拒绝策略 |
-| --- | --- | --- |
-| 日常 readiness | 最多 10 日；因子每日期复用现有 coverage evaluator 的 2 次 SQL，最多增加 20 次；日线不增加。Basic 仍按 reference 缓存校验，沿用统一 DuckDB 内存/spill 配置 | 每资产仍最多 1 次 materialization 查询；因子缺码或不能计算立即不 ready；2/10 日调用预算回归 |
-| 历史物理验收 | 已有 coverage 结果直接参与失败判断，新增扫描/源请求/文件写入为 0 | 缺码不能通过验收，不能据此补绿色事件；日线缺码仍 WARN |
-| 本轮真实复验与 Plan | 原范围 406 日、812 个 Raw 文件、约 30 MB；manifest 仍按 4 组批量重验。Tushare 请求 0、正式 Lake/事件写入 0；仅允许输出 Plan/审计报告 | 已有基线批量 Raw 审计约 1.3 秒；按秒级轻量只读操作执行。Basic 按 §16.2.1 更新窗口判断，失败不回退、不手动刷新；保留原日期范围，空间与冲突继续使用既有 Plan 门禁 |
-
-定向反例必须覆盖：因子缺一个代码失败、完整通过、Raw 额外代码不失败、缺覆盖证据 fail-closed、日线同类缺码仍仅告警，以及事件名单不重复和旧 WARN policy Plan 被拒绝。
+原模块、登记YAML、自动补行、源恢复冻结值限制和特许覆盖实现已删除，旧开发与退出操作说明撤下。历史批准和内容依据保留，详见方案 §8.4、§8.5及本节之后的真实核验；本段不能用于恢复运行依赖。当前覆盖合同标记继续使用代码既有v3，本次不调整合同标记或管理员规则。
 
 2026-09-04 coverage 升级验收记录：ETF 日线定向与静态门禁共 279 项通过；`dg check defs`、Ruff、文档完整性检查通过。2/10 日因子 readiness 分别执行 4/20 次新增 coverage SQL，每资产仍只有一次 materialization 查询；缺码时不 ready，检查前后文件内容不变。07:10 正式只读复验 812 个 Raw 文件、1,460,629 行 manifest 未变，字段继承不变；当时因错误的“执行自然日必须更新”规则停止在 Silver Plan 之前。该历史阻断不代表 Basic 数据有问题，现行新鲜度口径以 §16.2.1 为准。
 
 ---
+
+### 11.8 2026-10-21：删除补值，历史不动，统一历史检查
+
+对应方案 §8.5，业务口径已由管理员确认。本节设计已完成代码清理与隔离验收，正式重载尚未执行；结果见 §11.8.7。此前重建 18 日历史的提案已经撤回，644 条其他 ETF 记录变化不属于本次范围；不再保留候选生成、原子替换、历史 job 重跑或历史事件补录的执行步骤。
+
+#### 11.8.1 开发约束与当前依据
+
+| 已确认约束 | 清理前代码位置及事实 | 设计落点 |
+| --- | --- | --- |
+| 2026-10-19 起不补 `512390.SH` | `assets/etf_daily.py:silver_etf_adj_factor` 使用最新 Basic；该代码已为 D，当前未注入 | 保留最新 Basic 分类和日期转换，删除所有自动补行；不设置未来重启补值的开关 |
+| 19 日之前的历史不动 | 已有 18 日物化记录包含批准补值，旧文件冻结了当时 Basic | 只读已有验收证据；Raw、Basic、Silver、物化、旧检查记录均不改；不重新以最新 Basic 生成历史候选 |
+| 历史检查不依赖补值 | `checks/etf_daily_checks.py` 与 `asset_guards/etf_daily_lake_readiness.py` 当前均调用例外解析器 | 共用一个历史检查实现，证明旧验收成立且文件未变；不重新构造冻结因子、不读取 YAML、不硬编码因子值 |
+| 正常规则继续有效 | source parity、coverage、schema/key/date/domain 和文件指纹核验 | 历史证据缺失、错绑、失败或文件变化仍阻断；当前应有代码缺行仍 ERROR，不降级为 WARN |
+| 不扩大到其他 ETF | 旧整份重建曾测算其他记录会变化 | 删除该重建提案；不补 644 条，不改 ETF 日线、分钟线、Prod 或其他历史文件 |
+
+CodeGraph 已使用 `codegraph_explore`、`codegraph_impact(depth=3)`；源码核对补齐 writer、checks、readiness、asset、sensor 和 bootstrap 的动态调用。只有因子补值机制及其历史检查进入清理，不改工程依赖，不引入 Prod/API/前端消费者迁移。此前[只读报告](../../reports/etf_adj_factor_workaround_retirement_audit_20261021.json)的重建数量仅为已撤回提案的历史计算，不是本次验收目标。
+
+#### 11.8.2 新写入与历史检查分别负责什么
+
+**新写入继续使用最新通过检查的 Basic。** 沿用现有 `classify_etf_basic_requestability` / `etf_daily_classified_select` 与常规投影，只从 Raw 筛选并转换日期。Basic 为 D 不进入新 Silver；L 且符合日期口径的代码仍要求因子覆盖。删除补值后，不再把相同冻结值作为源端数值限制；已有目标仅允许等价复用，冲突仍拒绝覆盖。本次不调用历史写入 job，不能把一次旧日期写入请求解释为重建授权。
+
+**历史检查认可已批准、已验收且未改变的旧结果，不重新生成它。** 此次调整仅用于 19 日之前已有的批准补值文件，不将所有旧文件改成不做源对账，也不将最新 Basic 叠加到历史检查中重新定义其覆盖范围。旧 Basic 引用仅用于核对当时依据是否改变，不调用旧补值解析器或生成值的函数。
+
+开发时的具体关联规则如下，全部从既有正式记录读取，不增加运行时名单或补值配置：
+
+- 先保留目标 Silver 记录的编号、run_id、日期和 metadata，扩展当前只保存 metadata 的 `_MaterializationEvidence`，不能先丢弃记录身份再按日期猜测。
+- 范围识别同时要求：因子资产、日期早于2026-10-19、原物化 `approved_exception_row_count=1`、`exception_sample_codes` 恰为512390.SH；原 source_parity/coverage 检查中的补值数量、代码及登记内容 hash 须与该原物化一致。登记 hash 只作为已有记录之间的身份比较，不加载已删除 YAML、不按它生成值；缺失或不匹配即拒绝。原18日批准范围的身份必须保持，不能只凭旧日期、旧成功或任意非零数量放行。
+- 六项原检查按“目标物化编号 + 原 run_id + 资产 + 检查名 + 日期”匹配并检查实际 target；不得以全资产最近六条或其他日期的成功替代。原验收与清理后重查分开；后续失败或记录不明不能自动回退到某次成功，须阻断并说明。
+- Raw 原依据按同资产、同业务日期，在该 Silver 原写入之前最近一次 Raw 物化取得；核对原 Raw 路径、行数、内容 hash 和现存文件。不得把 Basic 的 raw_snapshot_hash 当成 fund_adj Raw hash，不得用当前 Raw 的新版本作为历史基准。原日期批量取得这些记录；查询截断、缺项或时间顺序不明均拒绝。
+- 原 Basic 直接使用 Silver 已冻结的 Raw/Silver URI 与 hash，只核对原内容；不选择此刻最新 Basic 去重算历史。比较内容指纹而不是修改时间，内容相同的文件时间变化不应误拦。
+
+历史检查与 readiness 共用以下条件，缺一不可：
+
+1. 目标资产、分区、物化与实际文件对应，存在当时批准补值及正式验收的可追溯事实。只读取现有记录，不新增配置/YAML/名单、历史结果表或补值数据资产；日期早于 19 日不是单独放行条件。
+2. 原六项 blocking checks 已通过，且都绑定该目标物化；不能拿其他日期、其他物化或这次复查新产生的结果替代原验收依据。仅有历史 SUCCESS、物化或一条绿色检查不足以认定通过。
+3. 实际 Silver 的 schema、主键、分区日期、行数、数值合同和已有内容指纹匹配原物化/验收。不能仅检查文件存在、行数或更新时间；更不能从当前输出反向生成“历史 expected”。
+4. 原 Basic 引用、内容 hash、路径与历史依据相符；Raw 能对应到原验收使用的版本且内容未变。`build_check_metadata` 现有 `input_file_paths` 只记路径，不包含内容 hash；不能据此声称输入未变。必须从已有 Raw/Basic 物化、源对账和目标验收记录中追到原内容依据，再与物理文件比较；若关联或 hash 证据缺失，先停止并报告，不能现场生成新基准来补齐。
+5. 原验收中存在的人工补值仍按当时批准事实保留，检查结果必须表明核验的是既有历史文件，没有声称人工行来自 Tushare、没有重新请求源或进行补值。
+
+这明确采用“原验收记录 + 实际输入输出未变”的历史检查依据，不把旧检查通过等同于文件事实，不继续按已删除的生成逻辑重算 parity。正式 check 与日常 readiness 必须共用这些条件，符合性能治理 §5.1 的事件和文件证据边界；不能让二者各自认定通过。开发前先核验这些历史证据是否确实可读且足够；本轮18日只读核验已验证原记录和内容依据可用，见 §11.8.6；新读取实现及隔离预算验证见 §11.8.7；正式重载尚未执行。
+
+实现位置固定为 `defs/asset_guards/etf_adj_factor_history.py`，由正式 checks 和 readiness 共用；该模块只读取证据和文件，不提供写入或补值函数。保留原物化编号和 run_id 后，使用当前 `SqlEventLogStorage.index_connection()` 与 Dagster 表定义做两次有界集合查询：一次取窗口内每项原检查及最新检查，一次取每日期原 Silver 写入之前最近的 Raw。原检查最多60项，最新检查最多60项，原 Raw 最多10项；不按日期逐条查询。仓库 `stock_period_silver_readiness.py` 已使用相同存储入口，但其“只看最新检查”不能直接替代本次“原验收 + 最新状态”的要求，因此只借鉴读取方式，不复用其业务判断。存储不支持或证据不明则明确失败，不回退到生成补值。
+
+当前 Dagster 的检查上下文通过 `context.run.run_id` 提供本次 run 编号（不是 `context.run_id`）；以安装版本的 `AssetCheckExecutionContext.run` 实现和真实隔离检查 job 验证该交接。正式检查正在执行时，仅排除当前检查 run 自己正在产生的记录，防止把自己尚未完成的检查误当成历史失败；当前 run 的新成功也不能作为原验收。日常 readiness 不排除任何 run，后续失败、错绑或未完成记录均不自动回退。隔离测试必须覆盖当前复查与后续失败，证明没有跳过真正失败。10日窗口中原 Basic 通过现有校验后复用；不新增配置、资产、版本迁移或运行入口。
+
+#### 11.8.3 删除、保留与实现范围
+
+| 位置 | 删除内容 | 保留或调整内容 |
+| --- | --- | --- |
+| `defs/corrections/etf_adj_factor_terminal_exceptions.py` / `.yaml` | 整个补值模块、登记、缓存、有效期和冻结值 | 不用 retired 继续保留运行依赖，不另建历史补值实现；其他 corrections 不动 |
+| `defs/io/etf_daily_silver_writer.py` | 例外 import/类型/入参、`_etf_adj_factor_expected_select`、`_is_approved_terminal_exception_delta`、例外生成和特许覆盖；新结果不再输出补值 metadata | 使用普通 Raw+Basic 投影；`selected + rejected = raw`，新生成文件 `written = selected`；等价复用或新建，拒绝冲突覆盖 |
+| `defs/checks/etf_daily_checks.py` | 调用补值解析器、重新构造补值候选、以生成候选验证旧人工行的逻辑 | 上述历史检查与现有正常 checks；旧 metadata 只作原验收证据，不再作为生成补值的参数；不改写旧 metadata |
+| `defs/asset_guards/etf_daily_lake_readiness.py` | 例外 import、解析和生成值的传参 | 与 checks 共用历史核验；最近 10 日、最早缺口和禁止越过失败保持；按窗口批量读取证据 |
+| `tests/test_etf_adj_factor_terminal_exceptions.py` 及既有 ETF 回归 | 专属补值生成、登记解析、特许覆盖的测试 | 改由正常写入和历史检查回归证明停止补值、历史不变、缺证据不放行；保留正常覆盖及冲突拒绝测试 |
+| 方案 §8.4、LLD §11.7 和人工批准记录 | 开发清理完成后删除旧运行操作说明，不再作为维护入口 | 保留短历史说明、管理员批准和原始审计证据；不删除正式文件和旧事件 |
+
+唯一删除的配置是仓库本地 YAML：原来由带缓存的 `default_etf_adj_factor_terminal_exception_registry()` 加载，消费者为因子 writer/check/readiness；代码 location 重新加载后删除生效。无替代 env、运营开关、数据库配置或新例外名单。10 月 19 日是本次明确确认的业务边界，不做可调整配置；实现时仅在现有合同处维护一份，不能散落在 writer、check、sensor 中各写一遍。
+
+现有 bootstrap `_write_silver_pair` 会同时调用 ETF 日线和因子 writer，现有日常 writer 会拒绝不等价历史目标，均不是本次历史处理入口。本次不新增迁移脚本、CLI、job、asset 或历史重建能力。共享 writer 删除补值后的变化须回归其调用方，不能因此扩大到重新执行 bootstrap。若实现审计发现合同版本或其他消费者必须改动，先说明具体依赖与范围，不能借清理自动迁移其他数据集或使历史验收失效。
+
+#### 11.8.4 顺序、失败、中断与性能预算
+
+1. **先核验证据。** 仅对已知 18 日批准补值记录和最多 3 个正常对照做有界只读核验，列清原物化、六项原验收和输入/输出指纹是否能对应。不做全历史扫描，不补写证据。本轮已完成18日原六项检查、Raw/Silver及共同旧Basic内容核验；开发前只重核同一有界范围是否发生新变化，不扩成全历史。
+2. **再同步改检查和清退生成逻辑。** 证据足够才进入开发；checks 与 readiness 共用同一实现，之后删除生成模块、YAML、writer 分支和专属测试。不能先删除导致窗口内历史检查失败，再用重建数据补救。
+3. **隔离验证后做只读验收。** 不触发历史 Silver 写入、正式 check、runless event 或历史补录；先用隔离 instance、真实合同的小样本证明规则，再以正式已有记录和文件做只读核对。上线及正式任务执行仍按独立门禁列命令，不在本轮文档修改时执行。
+4. **失败只报原因。** 缺原检查、检查错绑、原验收失败、Raw 版本无法对应、文件变化都必须阻断，并指出日期、文件或缺失证据。不重建、不补值、不补绿色事件，不因历史文件难处理而重新引入例外分支。
+5. **中断与续查没有历史写入状态。** 只保留临时只读报告，续查仍限定原日期/批次；不创建 Lake staging 候选或提升 checkpoint。代码尚未重载时正式运行保持现状；后续上线若验证失败，停止该次上线处理，不通过修改历史数据来推进。
+
+| 路径 | 数量、读取及预算 | 明确不做 |
+| --- | --- | --- |
+| 开发前证据核验 | 18 个日期 + 最多 3 个对照，每批最多 10 日；物化和六项检查按日期集合查询；1 thread / 256 MiB，30 秒预算 | 全局读取、按日深扫 event log、下载或补数据 |
+| 日常检查 | 保持 10 日窗口；每资产至多 1 次批量物化查询；历史六项检查按窗口批量读取，最多 60 个目标检查；共享 Basic 引用只校验一次 | 逐日查询检查、重新生成补值、用最新 Basic 重算旧 Silver |
+| 最后只读验收 / 中断后续查 | 日期范围同开发前核验，各 30 秒预算；复用批量记录和内容 hash 核验，输入漂移立即拒绝 | 新候选、原子替换、历史 job、历史事件登记、644 条记录处理 |
+| 正式数据边界 | Tushare 新请求 0；Prod 读写 0；历史 Raw/Basic/Silver 写入 0；旧物化/检查记录写入 0 | 用补数或历史事件写入替代证据门禁 |
+
+若现有存储 API 无法按预算批量取得证据，先调整读取方案并复核，不以“历史数量少”为由逐日查询或取消检查。预算是待测门禁，不是本轮性能实测通过结论。
+
+#### 11.8.5 测试与口径对账
+
+| 硬口径 | 必须验证的正向和反向情况 |
+| --- | --- |
+| 19 日起不补值 | Basic=D 且 Raw 无记录时，Silver 不生成512390；Raw 即使返回该代码，也按正常 D 过滤；没有上一日因子复制、固定值注入或特许覆盖 |
+| 当前应有代码缺失仍阻断 | L 且符合上市日期的其他代码缺因子仍 ERROR；完整源数据正常通过；合法源因子改变不再被旧冻结值拒绝 |
+| 历史数据不动 | 旧 Silver 中保留已批准人工行，Raw/Basic/Silver 文件与旧记录修改前后指纹相同；不调用写入入口或产生候选/历史事件；不要求新增其他 ETF 历史行 |
+| 历史不依赖生成逻辑 | 移除模块/YAML 后，原验收齐全且文件未变的旧结果可核验；输入/输出改变、缺一项原检查、错绑、失败、仅有SUCCESS或仅有行数都不能通过；不得由本次新检查自证原验收 |
+| 不扩大历史放行 | 未批准或未验收的旧额外行不能因日期早于19日就被认可；旧正常文件保持原检查，历史核验不足不触发补数 |
+| 日常不被旧依赖卡住 | 最近10日同时含旧补值文件和19日之后正常文件，checks/readiness 结论一致；当前真正缺数和文件改变仍阻断最早日期 |
+
+夹具字段、日期类型、原检查绑定与 hash 的依据来自当前真实生产者和现行合同，关键 expected 使用独立字面样本，不由待测函数生成。验证范围包括 ETF writer/checks/readiness、sensor、contract、bootstrap 的定向回归和静态护栏；不以隔离测试代替原证据可用性的真实只读核验。
+
+本轮已完成上述代码调整与隔离验收，对账见 §11.8.7；正式重载尚未执行。后续如发现无法在“历史不动”范围内满足的条件，仍须报告，不回到整份历史重建方案。
+
+#### 11.8.6 本轮真实只读核验结果
+
+[核验报告](../../reports/etf_adj_factor_terminal_cleanup_readonly_verification_20261021.json)：18/18 个原 Silver 写入各有原 run 的六项成功且正确绑定的 blocking checks，共108项；各日原 Raw 物化与当前最新 Raw 物化编号相同，18份 Raw 内容 hash 及18份 Silver 内容 hash 均与原记录相同，字段/键/日期/数值合同无失败。共同旧 Basic 两份快照经管理员明确批准后各完整读取一次（Raw1829行、Silver1826行），规范化内容 hash 分别与原引用匹配。只读文件计算0.461秒不含该两份Basic复核及数据库查询；不是新生产读取实现的全程性能验收。
+
+这证明本次保留的原数据未改变，不需要重建或改旧事件。报告不是运行时名单，开发仍从正式已有记录取依据。158011的源端、Raw和Silver覆盖差异及贴水率差异仅作单对象审计记录；不能转成本次补数任务，也不能据源日期齐全就断言旧Silver齐全。
+
+
+#### 11.8.7 本轮实施与验收结果
+
+| 已确认要求 | 实现与验收 |
+| --- | --- |
+| 停止补值，删除workaround | 模块/YAML/原生成测试已删除；writer 删除合并补行、冻结值限制、特许覆盖和新补值metadata。D 有/无源行均排除；L 缺因子仍由正式 coverage 阻断；合法源值变化正常接受 |
+| 旧历史不动 | 历史检查仅核验原六项验收、原Raw、冻结Basic和实际Silver；新模块没有写入方法、冻结因子值或外部配置。文件内容、修改时间变化、缺检查、失败、错绑、未完成、未批准及19日之后错误声称补值均有正反测试 |
+| 检查和日常判断一致 | checks/readiness 共用历史核验；旧文件与19日正常文件混合窗口通过；坏文件两端均失败。真实六项检查在隔离job运行并绑定原目标，未重新物化因子文件；测试辅助资产仅提供本版本所需的分区执行上下文，无数据I/O，不进入正式Definitions |
+| 小窗口和共享Basic | 10日期隔离样本的原/最新检查与原Raw读取固定2条集合SQL，无逐日查库；共享Basic按引用只校验一次；原有最多10日窗口、最早失败不越过保持 |
+| 真实只读核验 | 新证据读取实现核验18日原验收及最新检查均通过，36份Raw/Silver内容hash与原记录一致；1线程、内存上限配置256MB、无spill，合计4.22秒。两份旧Basic复用本轮此前经单独批准的完整核验，不重复完整读取；这里没有声称重新运行正式六项check |
+
+测试按现行真实字段、日期类型和事件绑定构造字面历史样本，29项专项测试包括真实检查上下文的 `context.run.run_id`。ETF定向回归207项通过（含上述29项专项），受保护资产治理12项及增量治理6项通过，共225项、无跳过；数量和结果记入[核验报告](../../reports/etf_adj_factor_terminal_cleanup_readonly_verification_20261021.json)。资产治理/增量治理分别通过仓库既有受保护启动器运行，未过滤或弱化失败项；普通pytest的启动方式缺少该套件隔离上下文，相关单项最初失败不作为通过证据。Ruff致命基线、本次Python完整规则、隔离 `dg check defs --use-active-venv --no-check-yaml` 及文档检查通过。
+
+CodeGraph已使用explore/impact(depth=3)及最终status，覆盖writer→checks/readiness、asset/sensor、bootstrap和对应测试；本次没有Prod/API/前端消费者、没有跨工程合同迁移。正式instance、Lake、任务和sensor均未被用作测试资源；正式读取只执行有界SELECT与文件审计，没有任何正式写入。
+
+#### 11.8.8 剩余正式操作（待独立批准，未执行）
+
+正式DG只读确认 `http://127.0.0.1:3000/graphql` 的location为 `orchestrator`、状态 `LOADED`。重载会重新加载整个location；工作区另有其他任务的未提交改动，因此不能把本次512390验收扩大解释为其他改动的发布批准。执行前须确认这些改动已具备发布条件；不自行切分支、另建worktree或覆盖他人文件。
+
+获准后的唯一变更是重载该location，工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式instance为 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。使用已安装版本的 `reloadRepositoryLocation(repositoryLocationName: "orchestrator")`；不使用 `reloadWorkspace`，不执行job/check/sensor评价，不改cursor、分区、历史事件或Lake文件。完整待执行命令如下，仅作待批准操作清单：
+
+```bash
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS --max-time 30 \
+  -H 'Content-Type: application/json' \
+  --data-binary '{"query":"mutation { reloadRepositoryLocation(repositoryLocationName: \"orchestrator\") { __typename } }"}' \
+  http://127.0.0.1:3000/graphql
+```
+
+执行后仅只读确认location重新加载成功及因子定义可见；若返回错误或加载失败，立即停止并报告，不重启服务、不重跑历史、不恢复补值、不改其他任务。重载影响和失败原因须按当前工作区重新核验，不能用回写历史数据解决。未获此独立阶段批准前，本次结论仅为“代码清理、隔离验收及正式只读核验完成”，不是“已正式发布”。
 
 ## 12. Readiness
 
@@ -684,7 +741,7 @@ class EtfDailyBatchReadiness:
 
 ### 12.2 批量算法
 
-输入最多 10 个日期，一次完成：
+输入最多 10 个日期，一次完成。普通文件使用以下物理审计；符合 §11.8 的既有补值文件另按同节批量取得原验收并核对实际内容，不能继续调用补值解析器：
 
 1. 对目标 asset 一次批量读取这些 partition 的最新 materialization evidence；禁止每日期一次 event 查询。
 2. 用一个 DuckDB 连接检查目标文件存在性、schema、日期、主键和数据集 blocking 规则。
