@@ -21,6 +21,7 @@
 ## 开发与维护入口
 
 - [目录规则](AGENTS.md)、[编排工程规则](orchestrator/AGENTS.md)
+- [tushare数据下载组件业务使用文档](docs/architecture/tushare-download-component-usage-v1.html)（接口、完整例子、回调、取消、错误码及排障；真实数据集待登记）
 - [正式数据集接入模板](docs/templates/dagster-dataset-onboarding-template.html)
 - [数据管道性能治理](docs/design/dagster-data-pipeline-performance-governance.md)
 - [初始化与修复总账](docs/design/dagster-bootstrap-legacy-links.md)

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tushare数据下载组件 · 业务调用使用文档 v1</title>
+<style>
+:root{color-scheme:light;--ink:#18283a;--muted:#536477;--line:#dce4ed;--blue:#1254a1;--paper:#fff;--bg:#f4f7fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.8 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}header,main,footer{max-width:1120px;margin:auto;padding:28px 36px}header{padding-top:52px}header p{margin:6px 0}h1{font-size:34px;line-height:1.35;margin:10px 0}h2{font-size:25px;margin:0 0 18px}h3{font-size:19px;margin:26px 0 10px}a{color:var(--blue);text-underline-offset:3px}nav{max-width:1048px;margin:0 auto 24px;padding:20px 24px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}nav ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 28px;margin:0;padding-left:23px}section{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:28px;margin-bottom:24px;scroll-margin-top:16px}p{margin:10px 0}.meta,.muted{color:var(--muted);font-size:14px}.note{border-left:4px solid var(--blue);background:#edf5ff;padding:14px 18px;margin:18px 0}.notice{border-left-color:#a76600;background:#fff6e5}.table-wrap{overflow-x:auto;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:11px 13px;border:1px solid var(--line)}th{background:#edf2f8}code{font:14px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}p code,li code,td code{background:#f0f3f7;padding:1px 4px;border-radius:3px}pre{background:#132235;color:#e6eef8;padding:20px;border-radius:9px;overflow:auto;line-height:1.65}pre code{overflow-wrap:normal}details{margin:18px 0}summary{cursor:pointer;font-weight:650}ul,ol{padding-left:24px}li{margin:5px 0}footer{padding-top:0;color:var(--muted);font-size:14px}@media(max-width:760px){header,main,footer{padding:20px 16px}header{padding-top:30px}h1{font-size:28px}nav{margin:0 16px 16px}nav ol{grid-template-columns:1fr}section{padding:20px}pre{padding:14px}th,td{padding:8px}}
+@media print{body{background:white}nav{display:none}section{break-inside:auto;border:0;border-top:1px solid #aaa;border-radius:0}pre{white-space:pre-wrap;color:black;background:#eee}header,main,footer{max-width:none;padding:15px}a{color:inherit}}
+</style>
+</head>
+<body>
+<header>
+<p class="meta">业务开发接入 / 使用与排障 / v1 · 2026-10-22</p>
+<h1>tushare数据下载组件<br>业务调用使用文档</h1>
+<p>业务提供完整契约名和下载范围；组件完成请求、分页、有限重试和进度通知，逐个返回完整 unit。业务决定如何校验、保存到哪里、怎样保存。</p>
+<p class="meta">依据：组件初版 <code>64f8db2ab</code>、修正 <code>0fb10442a</code>、开发收尾 <code>c50327f87</code>，以及本文编写时的当前源码。本文说明已实现接口，不新增功能或请求参数。</p>
+<div class="note notice"><strong>先确认能否调用：</strong>组件开发已完成；正式 <code>CONTRACTS</code>、<code>BINDINGS</code>、<code>SDK_ADAPTERS</code> 当前为空，尚没有可直接下载的真实数据集。本文示例的 <code>contract_name</code> 必须由后续数据集接入交付提供，不能直接填 Tushare 接口名或测试契约名就开始下载。真实数据集接入与最小真实验证属于后续 T15，见<a href="../design/dagster-tushare-download-component-low-level-design-v1.html#component-closeout">收尾范围</a>。</div>
+</header>
+<nav aria-label="使用文档目录"><ol>
+<li><a href="#start">接入前与快速使用</a></li><li><a href="#configuration">配置怎么读取</a></li><li><a href="#task">调用接口与任务输入</a></li>
+<li><a href="#modes">六种模式与 unit</a></li><li><a href="#result">返回数据怎么读取</a></li><li><a href="#progress">进度回调契约</a></li>
+<li><a href="#thread">线程、进程与通知</a></li><li><a href="#cancel">取消、提前停止与关闭</a></li><li><a href="#summary">最终结果与保存状态</a></li>
+<li><a href="#errors">错误码与异常处理</a></li><li><a href="#troubleshooting">常见问题排查</a></li><li><a href="#evidence">接口依据与接入检查</a></li>
+</ol></nav>
+<main>
+<section id="start">
+<h2>1. 接入前与快速使用</h2>
+<p>当前实现位于 DG 的 Python 工程，公开导入入口是 <code>orchestrator.tushare_download</code>。使用该工程现有运行环境；不要从其他独立工程跨目录导入 DG 源码，也不要为了调用组件自行修改 Python 搜索路径。财势乾坤等其他工程的接入需要单独装配，本文不表示它们已经接通。</p>
+<ol>
+<li>向数据集接入交付确认：<strong>已登记的完整契约名、支持的模式、时间输入格式、允许的过滤与分类参数、完整业务字段</strong>。没有登记时先完成数据集接入。</li>
+<li>确认进程启动环境已提供 token 和请求地址。下载器创建时自行读取，业务调用不传 token、地址、fields、limit 或 offset。</li>
+<li>确定在哪个线程执行、如何接收进度，以及每个完整 unit 怎样校验和保存。需要持续响应页面的业务必须另开下载线程；已在独立任务执行进程中的业务可直接调用。</li>
+</ol>
+<h3>完整例子：按业务给出的日期清单下载并逐个处理</h3>
+<p>下面是可放入业务代码的完整函数。<code>save_unit</code> 是业务自己提供的同步函数：接收一个 <code>UnitResult</code>，完成自己的字段检查、日期归一化和保存后再返回；失败直接抛出异常。业务提交成功的记录由业务自己维护。</p>
+<p>本例的前提是所登记契约支持 <code>BY_POINT</code>，并规定日期输入为 <code>YYYY-MM-DD</code>。例如传入 <code>("2026-10-19", "2026-10-20")</code>，没有分类展开时共两个 unit，分别处理这两天；组件不会自己补入其他日期。</p>
+<pre><code class="language-python" data-example="download_by_date">import logging
+
+from orchestrator.tushare_download import (
+    DownloadCancelled,
+    DownloadControl,
+    DownloadError,
+    DownloadMode,
+    DownloadTask,
+    TushareDownloader,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def download_by_date(contract_name, dates, save_unit, *,
+                     on_progress=None, is_cancelled=None):
+    task = DownloadTask(
+        contract_name=contract_name,
+        mode=DownloadMode.BY_POINT,
+        points=tuple(dates),
+    )
+    session = None
+    try:
+        downloader = TushareDownloader.load()
+        session = downloader.download(
+            task,
+            control=DownloadControl(is_cancelled=is_cancelled),
+            on_progress=on_progress,
+        )
+        with session:
+            for result in session:
+                save_unit(result)  # 业务保存；不要放进进度回调
+                del result        # 业务不再持有这一批时及时释放引用
+        return session.summary
+    except DownloadCancelled:
+        logger.info("下载已取消")
+        raise                     # 由业务上层决定如何呈现取消
+    except DownloadError as error:
+        details = error.details
+        if session is not None and session.summary.failure is not None:
+            details = session.summary.failure
+        logger.error(
+            "下载失败 code=%s task=%s unit=%s stage=%s "
+            "position=%s attempt=%s exhausted=%s cleanup=%s",
+            int(error.code), details.task_id, details.unit_id,
+            details.stage, details.source_position,
+            details.attempt_number, details.retry_exhausted,
+            details.cleanup_errors,
+        )
+        raise
+    finally:
+        if session is not None:
+            summary = session.summary
+            logger.info(
+                "下载会话 status=%s delivered=%s/%s rows=%s "
+                "requests=%s retries=%s progress_errors=%s",
+                summary.status.name, summary.delivered_units,
+                summary.total_units, summary.row_count,
+                summary.request_count, summary.retry_count,
+                summary.progress_error_count,
+            )</code></pre>
+<p><code>download()</code> 返回下载会话；进入 <code>with</code> 时校验输入、解析契约并准备资源，开始迭代时才发数据请求。每次循环得到一个完整 unit，处理完再领取下一个。<code>with</code> 负责正常完成、提前退出和业务异常时的收尾；不要省略。</p>
+<div class="note">下载器没有数据库或文件保存接口。<code>save_unit</code> 不属于组件；保存失败会原样抛给业务上层，下载器停止后续 unit 并关闭自身资源，不会重试业务写入，也不会撤销已经保存的 unit。</div>
+</section>
+
+<section id="configuration">
+<h2>2. 配置怎么读取</h2>
+<p><code>TushareDownloader.load()</code> 与 <code>TushareDownloader()</code> 等价：均在创建对象时通过组件配置单元读取并校验连接配置。配置读取能力从 DG 周月线现有实现中抽取；没有替换或收敛其他旧配置入口。</p>
+<div class="table-wrap"><table><thead><tr><th>配置名</th><th>来源与默认值</th><th>业务需要知道什么</th></tr></thead><tbody>
+<tr><td><code>TUSHARE_TOKEN</code></td><td>当前进程环境；无默认 token。</td><td>缺少或去掉首尾空格后为空，创建下载器时报 <code>1001</code>。</td></tr>
+<tr><td><code>TUSHARE_BASE_URL</code></td><td>当前进程环境；未设置时默认 <code>https://api.tushare.pro</code>。</td><td>显式设置为空不使用默认值；地址须为合法 HTTP(S) 地址，不含用户名和密码，否则 <code>1001</code>。</td></tr>
+</tbody></table></div>
+<p>组件<strong>不会自行加载 .env 文件</strong>，也不读取其他工程的 Settings 或数据库配置。由现有业务启动流程把配置放入进程环境；业务无需再次读取并传给下载器。修改环境后创建新对象才会读取新值，已有对象继续使用创建时的配置。</p>
+<h3>当前技术默认值</h3>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>当前值</th><th>含义</th></tr></thead><tbody>
+<tr><td>单个 unit 工作内存上限</td><td>2 GiB</td><td>下载、解析、累积和排序的计数及预估上限；不预先分配，不等于整个进程实际内存上限。超限报 <code>1302</code>，不改成文件交付。</td></tr>
+<tr><td>输入及请求大小上限</td><td>1 MiB</td><td>过大的代码、日期、分类清单或请求会被拒绝，不自动分批改变任务含义。</td></tr>
+<tr><td>HTTP 响应体上限</td><td>64 MiB</td><td>还受解析工作空间预估限制，可能在达到该响应体大小前触发 <code>1302</code>。</td></tr>
+<tr><td>连接 / 读取 / 单请求时间</td><td>5 / 30 / 45 秒</td><td>用于 HTTP 连接、读取及可检查处的单请求时间控制；不是任意阻塞都能被强制结束的保证，见<a href="#cancel">取消说明</a>。</td></tr>
+<tr><td>同一页有限重试</td><td>最多重试 3 次</td><td>含首次最多 4 次；默认等待 1、2、4 秒，并遵守可解析的 <code>Retry-After</code> 较晚时间。</td></tr>
+</tbody></table></div>
+<p>这些技术值当前不是 <code>download()</code> 的公开参数，也没有对应的业务环境变量。不要给下载器传自造配置参数。主动限频、账号额度及并发数量由业务调度保证；组件没有跨线程或跨进程的限频、额度及锁管理，也没有“最多两个 unit / 两个进程”的限制。</p>
+</section>
+
+<section id="task">
+<h2>3. 调用接口与任务输入</h2>
+<pre><code class="language-python" data-example="public_imports">from orchestrator.tushare_download import (
+    DownloadTask, DownloadMode, TimeRange, ObjectTimeRange,
+    DownloadControl, DownloadProgress, DownloadProgressEvent,
+    DownloadStatus, DownloadStage, DownloadSummary, DownloadScope,
+    PagePosition, DownloadUnit, UnitResult, SourceRecord,
+    DownloadError, DownloadCancelled, DownloadErrorCode, ErrorDetails,
+    ProgressCallback, TushareDownloader,
+)</code></pre>
+<div class="table-wrap"><table><thead><tr><th>公开调用</th><th>约定</th></tr></thead><tbody>
+<tr><td><code>TushareDownloader.load()</code></td><td>无参数，创建独立下载器。配置错误在这里就可能抛出。</td></tr>
+<tr><td><code>downloader.download(task, *, control=None, on_progress=None)</code></td><td>返回会话。<code>task</code> 为 <code>DownloadTask</code>；后两项须用关键字传入。</td></tr>
+<tr><td><code>with session: ...</code> / <code>for result in session</code></td><td>会话只能进入一次；迭代返回 <code>UnitResult</code>。进入前不能迭代。同一下载器可依次建立多个会话，但只能有一个活动会话。</td></tr>
+<tr><td><code>session.cancel()</code></td><td>设置取消意图；在下载调用线程中使用，包括回调内。不是跨线程强制停止接口。</td></tr>
+<tr><td><code>session.close()</code></td><td>显式关闭，重复调用无副作用。不能在请求或回调执行中重入关闭；通常交给 <code>with</code>。</td></tr>
+<tr><td><code>session.poll_progress()</code></td><td>返回最后一份 <code>DownloadProgress</code> 或 <code>None</code>；不发请求、不生成新进度，不作跨线程通信。</td></tr>
+<tr><td><code>session.summary</code> / <code>session.download_complete</code></td><td>读取当前或关闭后的摘要 / 是否已交付全部计划 unit。最终摘要应在退出 <code>with</code> 后读取。</td></tr>
+</tbody></table></div>
+<h3>DownloadTask 的全部输入字段</h3>
+<div class="table-wrap"><table><thead><tr><th>字段</th><th>类型 / 默认</th><th>用途与限制</th></tr></thead><tbody>
+<tr><td><code>contract_name</code></td><td><code>str</code>，必填</td><td>接入方登记的固定完整契约名；不是字段清单，也不是可任意填写的 Tushare api_name。</td></tr>
+<tr><td><code>mode</code></td><td><code>DownloadMode</code>，必填</td><td>使用枚举成员；须在该数据集契约中声明支持。</td></tr>
+<tr><td><code>objects</code></td><td><code>tuple[str, ...] | None</code>，默认 <code>None</code></td><td>明确代码清单，保留输入顺序；不去查股票池，不自动扩大为全市场。</td></tr>
+<tr><td><code>points</code></td><td><code>tuple[str, ...] | None</code>，默认 <code>None</code></td><td>明确时间点清单，按契约解析并从早到晚规划；不会生成交易日历。</td></tr>
+<tr><td><code>time_range</code></td><td><code>TimeRange | None</code>，默认 <code>None</code></td><td><code>TimeRange(start, end)</code>；边界及格式由契约定义。点模式中仅约束已给出的 points，不生成日期。</td></tr>
+<tr><td><code>object_ranges</code></td><td><code>tuple[ObjectTimeRange, ...] | None</code></td><td>每个代码自己的范围；元素为 <code>ObjectTimeRange(object_code, time_range)</code>，仅用于对应模式。</td></tr>
+<tr><td><code>filters</code></td><td><code>Mapping[str, SourceScalar] | None</code></td><td>只能传契约在该模式下允许的过滤参数；不能塞入 fields、分页、连接信息或存储目标。</td></tr>
+<tr><td><code>enum_values</code></td><td><code>Mapping[str, tuple[SourceScalar, ...]] | None</code></td><td>选择契约允许的分类值；默认值、顺序、是否展开为独立 unit 均由契约决定。</td></tr>
+</tbody></table></div>
+<p><code>SourceScalar</code> 表示 <code>bool | int | Decimal | str | None</code>，没有 <code>float</code>；它是类型说明，不在包的公开导出列表中。构造 <code>Decimal</code> 时使用文本等准确输入。每个过滤参数还要符合契约自己的源类型与可空规则。</p>
+<p>输入会在进入会话时复制、校验并固定；使用期间不要修改原来的字典或清单。<code>None</code> 表示没有提供，<code>()</code> 表示明确给出空清单：是否允许为空由契约决定。合法空任务为 0 个 unit，无数据请求、无进度事件；非法空任务报 <code>1102</code>。</p>
+<p>重复代码、时间点或重复对象范围会被拒绝；对象代码不能是空白、带首尾空格、<code>__ALL__</code>、含 <code>*</code> 或用逗号拼接的多代码字符串。日期格式、范围顺序和点是否在范围内也会校验。组件不静默修剪、去重或补默认对象。</p>
+<div class="note">完整契约规定全部源业务字段、输入、模式及分页规则；调用时不传字段子集。HTTP 或 SDK 调用方式由已登记的代码 mapping 决定，业务无需选择。契约不包含本地创建时间等非 Tushare 辅助字段，也不替代业务表的存储定义。</div>
+</section>
+
+<section id="modes">
+<h2>4. 六种模式与 unit</h2>
+<p><strong>unit 是一次完整交付的范围，由所选模式和契约共同确定。</strong>它不等于一页，也不固定等于一天。下面是不含分类展开的基础数量；某个分类被契约定义为独立 unit 时，数量再乘以该分类的选中值数量。</p>
+<div class="table-wrap"><table><thead><tr><th>模式（固定值）</th><th>必须提供</th><th>一个 unit 是什么</th><th>交付顺序</th></tr></thead><tbody>
+<tr><td><code>SNAPSHOT = 1</code></td><td>不传对象或时间</td><td>一次该接口范围内的快照，共 1 个。</td><td>契约规定的分类顺序。</td></tr>
+<tr><td><code>BY_POINT = 2</code></td><td><code>points</code></td><td>一个给出的时间点；给 3 个日期就是 3 个。</td><td>时间从早到晚。</td></tr>
+<tr><td><code>BY_OBJECT = 3</code></td><td><code>objects</code></td><td>一个代码的完整本次下载范围。</td><td>业务给出的代码顺序。</td></tr>
+<tr><td><code>BY_OBJECT_POINT = 4</code></td><td><code>objects</code> 和 <code>points</code></td><td>一个代码 × 一个时间点；2 个代码 × 3 天为 6 个。</td><td>日期从早到晚，同一天按代码输入顺序。</td></tr>
+<tr><td><code>BY_OBJECT_RANGE = 5</code></td><td><code>objects + time_range</code>，或 <code>object_ranges</code>，二选一</td><td>一个代码的整个给定范围；一个股票 3 天仍是 1 个。</td><td>代码或对象范围的输入顺序。</td></tr>
+<tr><td><code>BY_RANGE = 6</code></td><td>仅 <code>time_range</code></td><td>整个给定范围；一个月也是 1 个，全部完成才交付。</td><td>本 unit 内按契约时间字段排序。</td></tr>
+</tbody></table></div>
+<p>组件具备六种模式，不表示每个数据集都支持六种。点模式可选 <code>time_range</code> 仅作边界检查；其余模式不能混填不适用字段。若希望每天交付一次，应使用支持的 <code>BY_POINT</code>，自行提供日期清单；不能把一个月的 <code>BY_RANGE</code> 理解成每天交付。</p>
+<pre><code class="language-python" data-example="six_modes">from orchestrator.tushare_download import (
+    DownloadMode, DownloadTask, ObjectTimeRange, TimeRange,
+)
+
+
+def task_examples(contract_name):
+    # 用来说明输入形式；同一真实契约未必同时支持这些模式。
+    dates = ("2026-10-19", "2026-10-20")
+    codes = ("000001.SZ", "600000.SH")
+    span = TimeRange("2026-10-19", "2026-10-20")
+    return {
+        "snapshot": DownloadTask(contract_name, DownloadMode.SNAPSHOT),
+        "point": DownloadTask(contract_name, DownloadMode.BY_POINT,
+                              points=dates),
+        "object": DownloadTask(contract_name, DownloadMode.BY_OBJECT,
+                               objects=codes),
+        "object_point": DownloadTask(
+            contract_name, DownloadMode.BY_OBJECT_POINT,
+            objects=codes, points=dates,
+        ),
+        "object_range": DownloadTask(
+            contract_name, DownloadMode.BY_OBJECT_RANGE,
+            objects=codes, time_range=span,
+        ),
+        "range": DownloadTask(contract_name, DownloadMode.BY_RANGE,
+                              time_range=span),
+        "separate_ranges": DownloadTask(
+            contract_name, DownloadMode.BY_OBJECT_RANGE,
+            object_ranges=(
+                ObjectTimeRange("000001.SZ", span),
+                ObjectTimeRange(
+                    "600000.SH", TimeRange("2026-10-20", "2026-10-20"),
+                ),
+            ),
+        ),
+    }</code></pre>
+<h3>分类与分页不会改变字段契约</h3>
+<p>例如同一接口按板块类型区分概念、地域、行业，字段契约仍是同一份。契约可规定各分类独立交付，也可规定同一个 unit 内分组请求后完整交付；业务不能自行混合不同字段契约。每行的 <code>request_input_index</code> 可以追到本次哪组逻辑请求，组件不往源记录中补一个自造的分类字段。</p>
+<p>分页大小、offset 递增、结束依据和是否内部拆小日期范围由契约定义。采用时间拆分的接口在不能再拆、首批恰好满页时继续正常分页；业务仍只收到原来的完整 unit。没有可靠源依据时，不以“相邻页内容一样”自行判错。上述是组件行为，不代表 <code>namechange</code> 专项真实验证已完成。</p>
+</section>
+
+<section id="result">
+<h2>5. 返回数据怎么读取</h2>
+<p>每次迭代返回一个不可变 <code>UnitResult</code>，数据在内存中，不返回文件路径或 DataFrame。单个 unit 的所有分页、分类分组及内部日期拆分完成并排序后才交付一次；失败或取消时不交付半个 unit。</p>
+<div class="table-wrap"><table><thead><tr><th>UnitResult 字段</th><th>读取方式与含义</th></tr></thead><tbody>
+<tr><td><code>unit</code></td><td><code>DownloadUnit</code>：本批的对象、时间、模式、契约版本及 unit_id。</td></tr>
+<tr><td><code>records</code></td><td><code>tuple[SourceRecord, ...]</code>：完整记录。空元组也可能是合法成功结果。</td></tr>
+<tr><td><code>observed_field_sets</code></td><td>实际见到的字段名元组集合，按首次出现顺序保存；不是“契约字段已全部满足”的认证。</td></tr>
+<tr><td><code>request_inputs</code></td><td>各组逻辑源请求参数，以不可变键值对保存；不含分页位置，不等于每页实际参数。内部拆分的具体时间见进度中的 <code>page_position</code>。</td></tr>
+<tr><td><code>statistics</code></td><td>本 unit 请求、重试、接收及排序统计，见下表。</td></tr>
+<tr><td><code>ordering</code></td><td><code>time_field</code>、<code>rule_version</code>、<code>comparable_count</code>、<code>uncomparable_count</code>：排序依据和可比较 / 不可比较记录数。</td></tr>
+<tr><td><code>termination</code></td><td><code>strategy</code>（1 单次、2 offset、3 时间拆分后 offset）、<code>all_scopes_complete</code>、<code>accepted_scope_count</code>、<code>last_position</code>。描述按契约完成请求，不证明业务数据完整或已经入库。</td></tr>
+</tbody></table></div>
+<pre><code class="language-python" data-example="read_result">def inspect_unit(result):
+    print(result.unit.ordinal, result.unit.unit_id,
+          result.unit.object_code, result.unit.point,
+          result.unit.time_range, result.statistics.row_count)
+    for record in result.records:
+        row = record.as_mapping()  # 单行新字典；缺少的源字段不会被补出来
+        request_params = dict(result.request_inputs[record.request_input_index])
+        # 这里可接业务校验、归一化及写入；本例只展示读取。
+        print(row, request_params)</code></pre>
+<p><code>SourceRecord</code> 固定有 <code>fields</code>、<code>values</code>、<code>request_input_index</code> 三个字段。前两个元组一一对应；<code>as_mapping()</code> 返回一个新字典。源数字按组件类型约定用 <code>int / Decimal</code> 等表达，业务需要 DataFrame 或 JSON 时自行按目标类型转换；不要默认 <code>Decimal</code> 能直接被普通 JSON 序列化。</p>
+<p>组件只检查能否正确解析源响应，例如字段数和值数是否对应。源成功返回但缺少业务需要的列、业务值为 NULL、日期文本不合法等，由业务按完整契约判断；下载器不补列、补值、删行或去重，也不做业务日期归一化。</p>
+<p>契约声明时间排序字段时，记录按时间从早到晚稳定排序；相同时间保持原先接收次序。缺少时间或无法比较的记录保留原内容，放在本 unit 末尾。未声明时间排序字段时保留接收顺序。<strong>跨对象的交付顺序仍服从模式</strong>，例如按股票范围下载时，先交第一只股票的完整范围，再交第二只；不把所有股票重新合成一张总表排序。</p>
+<details><summary>展开：DownloadUnit 与 statistics 的完整字段</summary>
+<div class="table-wrap"><table><thead><tr><th>字段组</th><th>字段及含义</th></tr></thead><tbody>
+<tr><td><code>DownloadUnit</code> 身份</td><td><code>ordinal</code> 从 1 起；<code>unit_id</code> 标识本次范围和契约内容；<code>contract_name</code>、<code>contract_version</code>、<code>content_digest</code> 标识契约。unit_id 不是保存成功证明或内置续跑记录。</td></tr>
+<tr><td><code>DownloadUnit</code> 范围</td><td><code>mode</code>、<code>object_code</code>、<code>point</code>、<code>time_range</code>；不适用值为 <code>None</code>。<code>filters</code> 为键值对元组，<code>enum_values</code> 为分类名及取值元组。</td></tr>
+<tr><td><code>statistics</code> 请求</td><td><code>request_count</code> 含失败尝试；<code>retry_count</code> 为实际发出的重试次数；<code>successful_response_count</code> 为成功解析的响应数，含随后不采纳的父范围探测页。</td></tr>
+<tr><td><code>statistics</code> 数据</td><td><code>accepted_page_count</code>、<code>empty_page_count</code>、<code>row_count</code>、<code>split_count</code>：采纳页数、其中空页数、最终行数、拆分次数。</td></tr>
+<tr><td><code>statistics</code> 时间</td><td><code>elapsed_seconds</code>、<code>waiting_seconds</code>、<code>receive_seconds</code>、<code>sort_seconds</code>，单位秒。unit 时间不含后续业务保存及 unit 完成回调；整个会话的时间范围见摘要说明。</td></tr>
+</tbody></table></div>
+</details>
+<div class="note">逐个处理并释放结果。组件交付后不保留结果数据的额外引用，但业务保存的引用仍占内存；不要用 <code>list(session)</code> 把全历史长期积在内存，也不要让进度回调缓存所有完整结果。已返回的结果在会话关闭后仍可使用。</div>
+</section>
+
+<section id="progress">
+<h2>6. 进度回调契约</h2>
+<p>通过 <code>on_progress=callback</code> 注册可选同步函数，格式为 <code>callback(progress: DownloadProgress) -&gt; None</code>。没有注册表示业务不接收通知。组件不支持 async 回调，不创建通知线程，也没有每秒心跳、开始、失败或结束事件；结束情况由正常返回、异常及最终摘要判断。</p>
+<pre><code class="language-python" data-example="progress_callback">from orchestrator.tushare_download import DownloadProgressEvent
+
+
+def on_progress(progress):
+    if progress.event == DownloadProgressEvent.RETRY_SCHEDULED:
+        print("准备重试", progress.page_position,
+              progress.next_attempt_number,
+              progress.retry_delay_seconds, int(progress.error_code))
+    elif progress.event == DownloadProgressEvent.PAGE_COMPLETED:
+        print("收到一页", progress.page_position,
+              progress.page_row_count, progress.page_accepted)
+    else:  # UNIT_COMPLETED；这里只接收摘要，不处理或保存数据
+        print("完整批次已下载", progress.completed_units,
+              progress.total_units, progress.progress_percent,
+              progress.unit_row_count, progress.completed_row_count)</code></pre>
+<div class="table-wrap"><table><thead><tr><th>事件（固定值）</th><th>通知时点</th><th>专属字段</th></tr></thead><tbody>
+<tr><td><code>PAGE_COMPLETED = 1</code></td><td>成功取得并处理一页后。时间拆分前的父范围探测页也会通知。</td><td><code>page_position</code>、<code>attempt_number</code>、<code>page_row_count</code>、<code>page_accepted</code> 有值；最后一项为 false 时该页没有计入最终数据。</td></tr>
+<tr><td><code>RETRY_SCHEDULED = 2</code></td><td>一次失败后，决定重试、等待前。不是“重试已发出”的证明。</td><td><code>page_position</code>、<code>attempt_number</code>、<code>next_attempt_number</code>、<code>retry_delay_seconds</code>、<code>error_code</code> 有值。</td></tr>
+<tr><td><code>UNIT_COMPLETED = 3</code></td><td>整个 unit 已下载并完成排序，返回给业务前通知一次，合法空结果也通知。</td><td>页位置、页行数、页采纳、尝试次数、下次重试信息及错误码均为 <code>None</code>。</td></tr>
+</tbody></table></div>
+<p>内部时间拆分没有单独事件；分页与重试只传摘要，不传数据。失败的尝试没有 <code>PAGE_COMPLETED</code>。回调收到的对象不可变，每份摘要不超过 4 KiB，不包含源记录、token 或完整请求清单。</p>
+<h3>DownloadProgress 全部字段</h3>
+<div class="table-wrap"><table><thead><tr><th>字段</th><th>含义与类型</th></tr></thead><tbody>
+<tr><td><code>notification_version</code></td><td><code>int</code>，当前为 1。</td></tr>
+<tr><td><code>event / sequence</code></td><td><code>DownloadProgressEvent / int</code>；sequence 为本会话从 1 起的通知顺序，不是可用于续跑的持久记录。</td></tr>
+<tr><td><code>task_id / contract_name / current_unit_id</code></td><td><code>str</code>；定位会话、契约和当前 unit。</td></tr>
+<tr><td><code>unit_ordinal / stage</code></td><td><code>int / DownloadStage</code>；unit 从 1 起。三事件的 stage 分别是 SOURCE、BACKOFF、UNIT_READY。</td></tr>
+<tr><td><code>current_scope</code></td><td><code>DownloadScope</code>：<code>object_code</code>、<code>point</code>、<code>time_range</code>、<code>request_input_index</code>；不适用项为 <code>None</code>。</td></tr>
+<tr><td><code>page_position</code></td><td><code>PagePosition | None</code>：<code>request_input_index</code> 从 0 起、当前内部 <code>time_range</code>、<code>offset</code>；后两项可为 <code>None</code>。</td></tr>
+<tr><td><code>total_units / completed_units / delivered_units</code></td><td><code>int</code>；计划总数、已下载并排序完成数、已返回给迭代调用方的数量。</td></tr>
+<tr><td><code>progress_percent</code></td><td><code>float | None</code>；按 completed_units / total_units × 100，分页中不估算剩余行数。</td></tr>
+<tr><td><code>unit_row_count / completed_row_count</code></td><td><code>int</code>；当前 unit 已采纳行数 / 已完成 unit 累计行数，未完成 unit 的数据不计入后者。</td></tr>
+<tr><td><code>page_row_count / page_accepted</code></td><td><code>int | None / bool | None</code>；仅成功页事件有值，0 行与“没有此字段”不同。</td></tr>
+<tr><td><code>request_count / retry_count</code></td><td><code>int</code>；本会话累计实际请求 / 实际重试数。重试通知发出后若立即取消，不会凭空增加实际重试数。</td></tr>
+<tr><td><code>attempt_number / next_attempt_number</code></td><td><code>int | None</code>；当前页尝试从 1 起，最多 4；下次尝试只在重试通知中有值。</td></tr>
+<tr><td><code>retry_delay_seconds / error_code</code></td><td><code>float | None / DownloadErrorCode | None</code>；仅重试通知有值，表示计划等待和触发原因。</td></tr>
+<tr><td><code>elapsed_seconds / updated_at</code></td><td><code>float / str</code>；会话已用秒数 / UTC ISO 时间文本。</td></tr>
+<tr><td><code>cancel_requested</code></td><td><code>bool</code>；生成本摘要时已知的取消意图，不表示当前数据已保存。</td></tr>
+</tbody></table></div>
+<h3>如何理解“完成”和“已交付”</h3>
+<p>假设总共两个日期 unit：第一个下载完成的回调里，<code>completed_units=1</code>、<code>delivered_units=0</code>、进度 50%；回调返回后，循环才收到第一个结果。最后一个完成回调里是 <code>completed_units=2</code>、<code>delivered_units=1</code>、进度 100%。正常退出 <code>with</code> 后，最终摘要才是 <code>delivered_units=2</code>。进度 100% 不代表业务已保存，更不代表会话已经关闭。</p>
+<p>回调必须快速返回。普通 <code>Exception</code> 只记入 <code>progress_error_count</code> 和 <code>last_progress_error_type</code>，不中断下载、不重试源、不补发回调；因此<strong>不能把必须成功的保存或校验放进回调</strong>。<code>DownloadCancelled</code> 是明确的取消信号，不会按普通通知错误吞掉；<code>KeyboardInterrupt / SystemExit</code> 等中断也继续向上传播。</p>
+</section>
+
+<section id="thread">
+<h2>7. 线程、进程与通知</h2>
+<p>下载器是同步工具。一次调用从创建对象、进入会话、请求、迭代、执行回调到关闭，都必须在<strong>同一进程的同一个调用线程</strong>中完成；同一实例不供多个线程或进程并用。组件不负责创建线程、进程、通信连接或队列。</p>
+<div class="table-wrap"><table><thead><tr><th>业务运行位置</th><th>怎样调用及通知</th></tr></thead><tbody>
+<tr><td>需要持续刷新页面的业务</td><td>业务必须创建下载线程，并在该线程内创建和使用下载器。回调也在下载线程执行；业务用自己的安全队列等方式通知负责页面或状态的线程。</td></tr>
+<tr><td>DG 等已在独立任务执行进程中运行的业务</td><td>业务执行代码可在该进程的执行线程直接同步调用，回调也在这里执行。不要理解成回调自动跳到 DG 页面或服务进程。</td></tr>
+<tr><td>接收状态的业务代码在另一个进程</td><td>下载进程内的业务注册同一种标准回调，由这个回调通过业务已有的进程间通信或状态接口转发摘要。下载器不直接向其他进程调用 Python 函数。</td></tr>
+</tbody></table></div>
+<h3>业务另开线程的例子</h3>
+<p>下面复用第 1 节的 <code>download_by_date</code>。线程、队列和取消标志均是业务创建的；<code>save_unit</code> 也在下载线程里执行，须在该线程中使用适合的数据库连接等资源，不能直接拿页面线程的连接对象来用。</p>
+<pre><code class="language-python" data-example="business_thread">from queue import Full, Queue
+from threading import Event, Thread
+
+from orchestrator.tushare_download import DownloadCancelled
+
+
+def start_download(contract_name, dates, save_unit):
+    cancel_event = Event()
+    notifications = Queue(maxsize=128)
+    finished = Queue(maxsize=1)
+
+    def notify(progress):
+        try:
+            notifications.put_nowait(progress)
+        except Full:
+            pass  # 本例业务选择丢弃拥堵时的进度显示，不能阻塞下载
+
+    def worker():
+        try:
+            summary = download_by_date(
+                contract_name, dates, save_unit,
+                on_progress=notify, is_cancelled=cancel_event.is_set,
+            )
+            outcome = ("completed", summary)
+        except DownloadCancelled as error:
+            outcome = ("cancelled", error)
+        except Exception as error:
+            outcome = ("failed", error)
+        finished.put_nowait(outcome)  # 独立队列保证普通完成/失败消息不被进度挤掉
+
+    thread = Thread(target=worker, daemon=False)
+    thread.start()
+    return thread, cancel_event, notifications, finished</code></pre>
+<p>业务发起方定期用自己的页面机制读取 <code>notifications</code> 和 <code>finished</code>，需要取消时调用 <code>cancel_event.set()</code>。这是同进程线程通信例子，不是进程间通信实现；不得直接用于跨进程转发异常对象。页面线程不要立即 <code>join()</code> 等待下载，否则仍会阻塞刷新；业务退出时负责取消并等待线程结束。此示例不吞掉进程级中断，也不是通用线程管理库。</p>
+<p>回调或其他线程不能重入 <code>next(session)</code>、<code>close()</code>、重新进入当前会话或启动同一下载器的第二个活动会话。需要其他线程或进程提出取消时，使用业务自己的安全标志，通过 <code>DownloadControl</code> 读取；不要从外部线程直接关闭活动会话，也不要把 <code>poll_progress()</code> 当作线程通信接口。</p>
+</section>
+
+<section id="cancel">
+<h2>8. 取消、提前停止与关闭</h2>
+<p><code>DownloadControl(is_cancelled=checker)</code> 可选传入无参数同步函数，每次返回严格的 <code>bool</code>。返回 True 表示取消；返回 None、0/1 等非 bool 值会报 <code>1102</code>。检查函数自身抛错会向上传播，不能按进度显示失败忽略。</p>
+<div class="table-wrap"><table><thead><tr><th>发生在哪一步</th><th>行为</th></tr></thead><tbody>
+<tr><td>请求分页、等待重试、排序等尚未完成 unit 时取消</td><td>停止后续请求；丢弃本 unit 未完成数据；抛出 <code>DownloadCancelled</code>（1401），关闭后状态 CANCELLED。</td></tr>
+<tr><td>在 PAGE_COMPLETED 或 RETRY_SCHEDULED 回调中取消</td><td>同上；不再领取下一页或发出原计划的重试。</td></tr>
+<tr><td>在 UNIT_COMPLETED 回调中调用 <code>session.cancel()</code> 或抛出 <code>DownloadCancelled</code></td><td>当前完整 unit 仍交付一次，然后停止后续 unit。若还有 unit，继续迭代会抛取消；直接退出会话也记录 CANCELLED。若当前已是最后一个 unit，按正常下载完成 SUCCEEDED 结束。</td></tr>
+<tr><td>业务已经收到结果后，自己的处理代码抛出 DownloadCancelled</td><td>原样向上传播，状态 CANCELLED；不适用“最后一个完成回调按成功结束”的特殊规则。</td></tr>
+<tr><td>业务用 <code>break</code> 提前退出结果循环</td><td><code>with</code> 关闭资源。未交付全部且没有取消意图时为 STOPPED；如果已经交付全部则为 SUCCEEDED。</td></tr>
+<tr><td>业务校验或保存抛普通异常</td><td>保留原异常，关闭资源，状态 FAILED；不重试业务保存，也不再请求下一个 unit。</td></tr>
+<tr><td>关闭资源又发生错误</td><td>继续尝试关闭其余资源。已有原异常则保留它，清理问题记入摘要；没有原异常时抛 <code>1304</code>。</td></tr>
+</tbody></table></div>
+<h3>取消为什么可能需要等待</h3>
+<p>例如下载线程已向源发出请求，正在等返回；另一个业务线程设置取消标志时，当前网络调用可能还没返回，下载器要等它返回、读到可检查的位置或超时后才能响应。HTTP 读取和重试等待中有检查点，但 DNS、特殊 SDK 内部阻塞、慢回调、业务保存都不是下载器能随时强制打断的步骤。45 秒也不是所有这些情况的强制终止上限。</p>
+<p>组件不创建额外下载子进程，不能通过杀一个内部进程来取消。业务如结束整个运行进程，下载器随进程结束；这不等于执行了正常关闭，也不保证正在进行的业务保存已完成。</p>
+<h3>失败或重启后怎样继续</h3>
+<p>运行中的临时源错误只重试当前页；进程重启后，未完成的 unit 从第一页开始。组件不持久化分页位置或业务提交状态。业务根据自己的保存记录重新构造未完成范围，并保证写入幂等。已经保存的 unit 保留；收到完成回调或 unit_id 相同，都不能作为该 unit 已正式保存的依据。</p>
+</section>
+
+<section id="summary">
+<h2>9. 最终结果与保存状态</h2>
+<p>正常退出、失败或取消后读取 <code>session.summary</code>，得到不可变 <code>DownloadSummary</code>。如果在创建下载器时就失败，还没有会话可读；如果进入会话失败，已有会话仍有失败摘要。实际抛出异常应一起保留，不能只看百分比。</p>
+<div class="table-wrap"><table><thead><tr><th>状态（固定值）</th><th>含义</th></tr></thead><tbody>
+<tr><td><code>CREATED=1 / READY=2 / RUNNING=3</code></td><td>已创建但未进入 / 已准备好或交付后等待下一次迭代 / 正在下载当前 unit。</td></tr>
+<tr><td><code>SUCCEEDED=4</code></td><td>全部计划 unit 已交付，会话正常结束；不是数据库提交证明。合法 0 unit 任务也可成功。</td></tr>
+<tr><td><code>STOPPED=5</code></td><td>业务主动提前结束，且尚未全部交付；没有源失败或取消意图。</td></tr>
+<tr><td><code>CANCELLED=6</code></td><td>已按取消结束，见第 8 节完成回调的边界。</td></tr>
+<tr><td><code>FAILED=7</code></td><td>源错误、输入错误、业务处理异常或关闭失败等导致结束，结合异常和 failure 判断。</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>DownloadSummary 全部字段</th><th>含义</th></tr></thead><tbody>
+<tr><td><code>task_id / status</code></td><td>本会话标识 / <code>DownloadStatus</code>。</td></tr>
+<tr><td><code>total_units</code></td><td><code>int | None</code>；完成准备后才有总数，早期失败可为 None。</td></tr>
+<tr><td><code>completed_units / delivered_units</code></td><td>已下载并排序完成数 / 已返回给业务的数量。</td></tr>
+<tr><td><code>completed_row_count / row_count</code></td><td>已完成 unit 累计行数 / 已交付累计行数；均不是业务已入库行数。</td></tr>
+<tr><td><code>request_count / retry_count / successful_response_count</code></td><td>累计实际请求、实际重试、成功解析响应数。</td></tr>
+<tr><td><code>download_complete</code></td><td><code>bool</code>；全部 unit 已交付。最后一个结果已交付后业务保存失败，可能为 True，同时 status 为 FAILED。</td></tr>
+<tr><td><code>elapsed_seconds</code></td><td>从创建会话到当前或关闭的秒数，包含业务在两次迭代之间的处理时间和回调时间，不是纯网络时间。</td></tr>
+<tr><td><code>failure / cleanup_errors</code></td><td><code>ErrorDetails | None</code> / 关闭问题元组。只有取消标志、未抛异常就退出时，failure 也可能为 None，需结合 status。</td></tr>
+<tr><td><code>progress_error_count / last_progress_error_type</code></td><td>通知构造或回调的普通错误累计数 / 最后错误类型，可为 None；不包含源响应内容。</td></tr>
+<tr><td><code>callback_elapsed_seconds</code></td><td>所有回调执行累计秒数；过大时先检查业务回调是否阻塞。</td></tr>
+</tbody></table></div>
+<p><code>poll_progress()</code> 保留的是最后一份事件发生时的摘要：最后一个 UNIT_COMPLETED 通知的 delivered_units 仍未包含当前 unit，关闭不会补发更新事件。最终状态与交付数以 <code>session.summary</code> 为准。业务另行记录“校验通过、保存成功、提交完成”等自己的事实。</p>
+</section>
+
+<section id="errors">
+<h2>10. 错误码与异常处理</h2>
+<p>组件错误使用固定整数枚举 <code>DownloadErrorCode</code>，抛出 <code>DownloadError</code>。<code>DownloadCancelled</code> 是其子类，所以应<strong>先捕获取消，再捕获下载错误</strong>，完整处理例子见第 1 节。业务自己的保存、校验和取消检查函数等抛出的原异常不保证属于 DownloadError，应由业务外层按自己的规则处理。</p>
+<div class="table-wrap"><table><thead><tr><th>码 / 枚举名</th><th>问题发生在哪里</th><th>自动重试</th><th>业务怎样处理</th></tr></thead><tbody>
+<tr><td><code>1001 CONFIGURATION</code></td><td>创建或校验连接配置失败，例如 token 缺失、URL 空白或不合法。</td><td>否</td><td>检查实际运行进程的启动配置，修正后创建新下载器；不要把 token 写入排障日志。</td></tr>
+<tr><td><code>1101 CONTRACT</code></td><td>完整契约、固定调用方式、支持模式或适配器定义不满足要求。</td><td>否</td><td>核对契约名及数据集登记状态；由组件 / 数据集维护方处理，不能靠业务补 fields 或分页参数绕过。</td></tr>
+<tr><td><code>1102 INPUT</code></td><td>对象、时间、过滤、分类、回调签名或会话调用方式不合法。</td><td>否</td><td>按模式检查参数及 None / 空清单，检查重复项、格式和重入调用。</td></tr>
+<tr><td><code>1201 PERMISSION_OR_PARAMETER</code></td><td>源明确拒绝权限、认证、积分或参数等；含已识别的相应 HTTP / 源错误。</td><td>否</td><td>核对 token 权限及对应源接口参数；组件收到的积分不足不是本地额度管理。</td></tr>
+<tr><td><code>1202 RATE_LIMIT</code></td><td>源明确限频，例如 HTTP 429。</td><td>最多 3 次</td><td>业务检查同 token 的总请求频率和并发调度；重试耗尽后保留失败范围，不无限重跑。</td></tr>
+<tr><td><code>1203 TRANSIENT_SOURCE</code></td><td>已识别的临时网络、连接、读取或源端服务故障。</td><td>最多 3 次</td><td>查看失败页、尝试次数及网络 / 源端状态；业务恢复从未保存 unit 开始。</td></tr>
+<tr><td><code>1204 NO_VALID_RESPONSE</code></td><td>没有能确认有效的响应，例如没有任何有效字段。</td><td>最多 3 次</td><td>与“有合法字段且 0 行”分开；核对源端或适配器，不能直接当作空数据成功。</td></tr>
+<tr><td><code>1205 SOURCE_PROTOCOL</code></td><td>响应无法按协议正确解析，例如 JSON 不合法、字段和值数量不符、可靠分页依据矛盾。</td><td>否</td><td>保留定位摘要，交组件 / 数据集维护方核对响应格式及契约；业务缺列校验不属于此码。</td></tr>
+<tr><td><code>1302 CAPACITY</code></td><td>任务输入、请求、响应或 unit 工作空间超过上限，或运行时内存不足。</td><td>否</td><td>确认在哪一步超限。若业务范围允许，可按契约选择较小任务分次下载；不能删字段、漏日期、返回半个 unit。技术上限调整由组件维护方评估。</td></tr>
+<tr><td><code>1304 CLEANUP</code></td><td>没有其他原异常时，组件关闭自身资源失败。</td><td>否</td><td>查看 cleanup_errors；已经交付的数据不能当作全部未发生，业务仍按提交记录核对。</td></tr>
+<tr><td><code>1401 CANCELLED</code></td><td>业务取消，异常类型为 DownloadCancelled。</td><td>否</td><td>呈现取消而非源故障；保留已提交 unit，下次从业务确认未完成范围重来。</td></tr>
+<tr><td><code>1501 UNCLASSIFIED_SOURCE</code></td><td>尚未识别的源错误，不能可靠归为权限、限频或临时故障。</td><td>否</td><td>带定位信息交维护方分析；不凭错误文本猜测后无限重试或当空结果。</td></tr>
+</tbody></table></div>
+<p>自动重试只针对 <strong>1202、1203、1204 的同一页</strong>，且不能带有关闭失败。默认总尝试最多 4 次；第 4 次仍失败，抛出原对应类别并设置 <code>retry_exhausted=True</code>。业务不要无差别再套一层无限重试，也不要因显示进度失败重新下载或写入。</p>
+<h3>排障时保留哪些信息</h3>
+<p><code>error.code</code> 为错误枚举；<code>error.details</code> 为 <code>ErrorDetails</code>，字段也可通过异常的同名属性读取。进入会话后失败时优先读取 <code>session.summary.failure</code>，它会合并当时的执行位置；单独的异常详情并不保证带齐所有位置字段，尤其创建 / 准备阶段。</p>
+<div class="table-wrap"><table><thead><tr><th>ErrorDetails 全部字段</th><th>用途</th></tr></thead><tbody>
+<tr><td><code>code / stage</code></td><td><code>DownloadErrorCode | None / DownloadStage | None</code>。业务原异常的 failure.code 可为 None。</td></tr>
+<tr><td><code>contract_name / contract_version / task_id / unit_id</code></td><td>定位契约与下载范围，未确定时可为 None。</td></tr>
+<tr><td><code>current_scope / source_position</code></td><td><code>DownloadScope | None / PagePosition | None</code>，追到对象、时间、分组、offset。</td></tr>
+<tr><td><code>attempt_number / source_status / source_code</code></td><td><code>int | None</code>；失败尝试、HTTP 状态、源返回整数错误码，不保证三者都有。</td></tr>
+<tr><td><code>retry_exhausted</code></td><td><code>bool</code>；表示可重试错误确实耗尽次数，不表示所有失败都重试过。</td></tr>
+<tr><td><code>cleanup_errors</code></td><td>关闭问题元组；每项只有 <code>owner</code> 与 <code>cause_type</code>，最多保留 8 项。</td></tr>
+<tr><td><code>cause_type</code></td><td><code>str | None</code>，原错误类型名；不保存源异常对象或原始响应文本。</td></tr>
+</tbody></table></div>
+<p>完整阶段枚举为 <code>PREPARE=1</code>、<code>SOURCE=2</code>、<code>BACKOFF=3</code>、<code>ORDERING=4</code>、<code>UNIT_READY=5</code>、<code>CLOSE=6</code>。错误位置描述失败发生在哪里；关闭不会把原先源失败伪装成关闭阶段失败。</p>
+<p>组件错误和标准进度不携带 token、完整响应体或任意源错误文本。排障通常只需要上述位置、计数、状态及安全类型信息。业务自有异常和自有日志仍由业务管理，不能把环境变量、连接配置对象或含 token 的请求内容整体打印。</p>
+</section>
+
+<section id="troubleshooting">
+<h2>11. 常见问题排查</h2>
+<div class="table-wrap"><table><thead><tr><th>看到什么</th><th>先查什么</th></tr></thead><tbody>
+<tr><td>刚创建下载器就失败</td><td>看是否 1001；检查当前运行进程是否真正拿到了启动配置，不要只确认磁盘有一份 .env。</td></tr>
+<tr><td>填了 daily 等接口名，进入 with 就 1101</td><td>业务填写的是完整契约名还是 api_name？该契约及请求 mapping 是否已登记？当前交付尚无真实登记。</td></tr>
+<tr><td>传了一个时间区间，迟迟没有完整结果</td><td>BY_RANGE 是整个范围一个 unit，BY_OBJECT_RANGE 是每个对象整个范围一个 unit。需要逐日交付时选契约支持的点模式并提供日期清单。</td></tr>
+<tr><td>有分页进度但累计完成行数不涨</td><td>completed_row_count 只累计完整 unit；看 unit_row_count。父范围探测 page_accepted=false 的行不会计入最终数据。</td></tr>
+<tr><td>100% 后业务保存失败</td><td>100% 是下载并排序完成，不是提交成功；查看原业务异常及最终 summary，按业务保存记录恢复。</td></tr>
+<tr><td>没有收到开始、失败或最终结束回调</td><td>接口只有页完成、准备重试、unit 完成三类；业务在退出 with 或捕获异常后自行转发最终摘要。</td></tr>
+<tr><td>回调抛错了，下载仍继续</td><td>这是通知隔离约定。查 progress_error_count 和 last_progress_error_type；把必须成功的逻辑移回结果处理循环。</td></tr>
+<tr><td>取消后没有立刻结束，或页面卡住</td><td>检查当前网络 / SDK、回调、业务保存是否仍阻塞；确认页面业务确实另开线程，并且没有在页面线程等待 join。</td></tr>
+<tr><td>返回 0 行</td><td>有合法字段的空结果可以成功。业务核对过滤、交易日、发布状态及应有数据范围；组件不保证每一天都有数据。</td></tr>
+<tr><td>返回记录缺少业务需要的字段</td><td>对照完整契约由业务检查并报告；不能默认缺列补 NULL，也不要误认为组件应该为业务补齐。</td></tr>
+<tr><td>内存持续增加或报 1302</td><td>区分当前 unit 超限和业务持有历史结果：检查 list(session)、结果缓存、DataFrame / 字典副本，及时释放；2 GiB 不是业务进程总内存保障。</td></tr>
+<tr><td>数据缺少能比较的时间，排在最后</td><td>查看 ordering.uncomparable_count，原行未被删除或改值；由业务判断缺失 / 错误日期怎样处理。</td></tr>
+<tr><td>重启后又下载了上一批，或重复保存</td><td>组件不存提交记录；业务按已提交 unit 或业务幂等键决定剩余范围，不能用回调或 unit_id 代替持久化事实。</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="evidence">
+<h2>12. 接口依据与接入检查</h2>
+<p>本文直接依据公开导出、调用实现、配置读取、输入校验、模式规划、进度与错误定义编写；通过 CodeGraph 查询组件入口与调用方，再核对当前源文件和隔离测试。没有修改公开接口、登记真实数据集或迁移旧调用。</p>
+<ul>
+<li><a href="../../orchestrator/src/orchestrator/tushare_download/__init__.py">公开导出</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/download_api.py">创建与 download 接口</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/download_session.py">会话、取消与关闭</a>。</li>
+<li><a href="../../orchestrator/src/orchestrator/tushare_download/download_models.py">输入、结果、回调与摘要字段</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/download_errors.py">错误码和详情</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/configuration.py">配置读取和技术默认值</a>。</li>
+<li><a href="../../orchestrator/src/orchestrator/tushare_download/task_input.py">输入限制</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/unit_planner.py">六模式规划</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/download_progress.py">回调通知</a>、<a href="../../orchestrator/src/orchestrator/tushare_download/retry_policy.py">有限重试</a>。</li>
+<li><a href="../design/dagster-tushare-request-common-module-comparison-v1.html">技术方案</a>、<a href="../design/dagster-tushare-download-component-low-level-design-v1.html">LLD 与开发验收记录</a>；本文用于业务使用，设计文档保留内部实现与历史审计依据。</li>
+</ul>
+<p><strong>业务接入完成前：</strong>确认真实契约已登记且经过相应真实核验；任务模式和输入范围符合契约；完整字段检查和日级日期归一化在业务侧完成；完整 unit 保存成功才更新业务提交记录；需要响应页面时有业务下载线程；回调快速且可失败；取消、保存失败、重试耗尽、空结果和提前退出均有明确处理。</p>
+<p class="muted" id="doc-validation">本文验证范围：公开字段、枚举及默认值与当前代码对账；6 段 Python 示例完成语法检查，主要调用、六模式、回调、线程、取消和异常处理使用组件既有隔离夹具验证；链接、锚点和文档完整性检查通过。这些验证不使用真实 token、不请求 Tushare，不代表真实数据集接入或正式写入已验收。</p>
+</section>
+</main>
+<footer>本文只描述组件与业务的调用边界。数据集具体字段、参数及源请求能力仍以该数据集登记的完整契约和真实核验为准。</footer>
+</body>
+</html>
