@@ -64,6 +64,63 @@ class Settings(BaseSettings):
         alias="WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED",
     )
     goldenshare_lake_root: str = Field(default="", alias="GOLDENSHARE_LAKE_ROOT")
+    technical_indicator_max_concurrent_requests: int = Field(
+        default=2, alias="TECHNICAL_INDICATOR_MAX_CONCURRENT_REQUESTS",
+    )
+    technical_indicator_max_waiting_requests: int = Field(
+        default=2, alias="TECHNICAL_INDICATOR_MAX_WAITING_REQUESTS",
+    )
+    technical_indicator_max_wait_ms: int = Field(
+        default=2000, alias="TECHNICAL_INDICATOR_MAX_WAIT_MS",
+    )
+    technical_indicator_sql_threads: int = Field(
+        default=1, alias="TECHNICAL_INDICATOR_SQL_THREADS",
+    )
+    technical_indicator_batch_rows: int = Field(
+        default=8192, alias="TECHNICAL_INDICATOR_BATCH_ROWS",
+    )
+    technical_indicator_query_memory_bytes: int = Field(
+        default=134217728, alias="TECHNICAL_INDICATOR_QUERY_MEMORY_BYTES",
+    )
+    technical_indicator_request_memory_bytes: int = Field(
+        default=268435456, alias="TECHNICAL_INDICATOR_REQUEST_MEMORY_BYTES",
+    )
+    technical_indicator_deployment_reserve_bytes: int = Field(
+        default=1073741824, alias="TECHNICAL_INDICATOR_DEPLOYMENT_RESERVE_BYTES",
+    )
+    technical_indicator_total_target_ms: int = Field(
+        default=8000, alias="TECHNICAL_INDICATOR_TOTAL_TARGET_MS",
+    )
+    technical_indicator_cleanup_reserve_ms: int = Field(
+        default=2000, alias="TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS",
+    )
+    technical_indicator_frontend_expire_ms: int = Field(
+        default=10000, alias="TECHNICAL_INDICATOR_FRONTEND_EXPIRE_MS",
+    )
+    technical_indicator_max_input_rows: int = Field(
+        default=1500000, alias="TECHNICAL_INDICATOR_MAX_INPUT_ROWS",
+    )
+    technical_indicator_max_source_files: int = Field(
+        default=5000, alias="TECHNICAL_INDICATOR_MAX_SOURCE_FILES",
+    )
+    technical_indicator_max_output_rows: int = Field(
+        default=10000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS",
+    )
+    technical_indicator_max_output_bytes: int = Field(
+        default=5000000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_BYTES",
+    )
+    technical_indicator_max_indicator_instances: int = Field(
+        default=16, alias="TECHNICAL_INDICATOR_MAX_INDICATOR_INSTANCES",
+    )
+    technical_indicator_max_projected_row_group_bytes: int = Field(
+        default=33554432, alias="TECHNICAL_INDICATOR_MAX_PROJECTED_ROW_GROUP_BYTES",
+    )
+    technical_indicator_control_poll_ms: int = Field(
+        default=20, alias="TECHNICAL_INDICATOR_CONTROL_POLL_MS",
+    )
+    technical_indicator_monitor_join_target_ms: int = Field(
+        default=200, alias="TECHNICAL_INDICATOR_MONITOR_JOIN_TARGET_MS",
+    )
     redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
     wealth_clickhouse_url: str = Field(default="http://127.0.0.1:8123", alias="WEALTH_CLICKHOUSE_URL")
     wealth_clickhouse_database: str = Field(

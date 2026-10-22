@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>技术指标计算内核 · 代码级LLD v1</title><style>
 :root{--ink:#152d3b;--muted:#58717d;--line:#dce5e9;--blue:#315f80;--bg:#eff4f5;--paper:white}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}a{color:#266787;text-underline-offset:4px}aside{position:fixed;top:0;left:0;bottom:0;width:255px;padding:25px 18px;overflow:auto;background:#132e3c;color:white}aside strong{font-size:18px;display:block;margin-bottom:18px}aside a{display:flex;gap:9px;color:#d5e7ec;text-decoration:none;font-size:12px;line-height:1.5;padding:8px 3px;border-bottom:1px solid #ffffff12}aside span{color:#88b8c7;min-width:21px}main{max-width:1500px;margin-left:255px;padding:40px 45px 80px;min-width:0}.hero{background:linear-gradient(120deg,#193a4c,#315f75);color:white;border-radius:18px;padding:32px;margin-bottom:28px}.hero a{color:#bce5f1}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:8px 0}.badge{display:inline-block;font-size:13px;padding:4px 10px;border-radius:7px;background:#ffffff18;margin:5px 5px 0 0}section{padding:30px 34px;background:var(--paper);border:1px solid var(--line);border-radius:14px;margin-bottom:24px;min-width:0;overflow:hidden}h2{font-size:25px;line-height:1.5;margin:0 0 22px}h2 small{font-size:15px;color:#a47836;margin-right:12px}h3{font-size:19px;margin:28px 0 12px}p{margin:12px 0}strong{font-weight:650}.table-wrap{overflow:auto;max-width:100%;margin:20px 0;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;min-width:780px;font-size:13px}th{background:#eaf1f4;text-align:left}th,td{vertical-align:top;border-bottom:1px solid var(--line);padding:12px 14px;min-width:120px}tbody tr:last-child td{border-bottom:0}td:first-child{font-weight:600;min-width:130px}pre{padding:20px;background:#102b3a;color:#e2f0f3;border-radius:10px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto;max-width:100%}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}p code,li code,td code{background:#eaf1f4;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.diagram{overflow:auto;background:#fbfcfd;border:1px solid var(--line);border-radius:10px;margin:15px 0 24px}.diagram svg{width:100%;min-width:760px;height:auto;display:block;font-family:inherit;color:var(--ink)}.diagram text{fill:currentColor}.diagram text[fill="white"]{fill:white}ul,ol{padding-left:24px}li{margin:8px 0}footer{color:var(--muted);font-size:13px}.toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}.toolbar button{border:1px solid var(--line);background:white;border-radius:7px;padding:7px 14px;color:var(--ink);cursor:pointer}@media(max-width:1050px){aside{width:210px}main{margin-left:210px;padding:24px}section{padding:25px}}@media(max-width:760px){aside{position:static;width:auto;max-height:175px;padding:15px 18px}aside strong{margin-bottom:7px}aside nav{display:flex;gap:12px;overflow:auto}aside a{min-width:150px;max-width:150px;border:0}main{margin:0;padding:16px}section{padding:20px 16px}.hero{padding:24px 20px}.hero h1{font-size:27px}h2{font-size:22px}pre{font-size:12px}table{min-width:800px}}@media print{aside,.toolbar{display:none}main{margin:0;padding:0;max-width:none}body{background:white}section{border:0;break-before:page;padding:10px 0;overflow:visible}pre{white-space:pre-wrap;color:#152d3b;background:#f1f5f6}.table-wrap{overflow:visible}table{min-width:0;font-size:10px}th,td{min-width:0;padding:5px}.hero{background:#eaf1f4;color:#152d3b}}
-</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>本轮设计核验范围</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-23 · v1.0.0</p><span class="badge">设计已冻结 · 开发前审计通过</span><span class="badge">未开发 / 未迁移 / 未停DG</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>本轮设计核验范围</h2><p>编码前先核对当前生产者、读取合同和消费者。允许的本轮设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
+</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>本轮设计核验范围</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-23 · v1.0.0</p><span class="badge">设计已冻结 · 开发前审计通过</span><span class="badge">D1已完成并验收 / D2—D4未启动</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>本轮设计核验范围</h2><p>编码前先核对当前生产者、读取合同和消费者。允许的本轮设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -183,7 +183,7 @@
 </tbody>
 </table></div>
 <p>CodeGraph已使用explore、node与impact核对入口、读取和消费者。索引的同名 <code>Reader</code>、研究脚本与ingestion误匹配不作依据；未穷尽的私有脚本不视为已迁移。当前方案是未来实现合同，不改变上表现行行为。</p>
-</section><section id="s03"><h2><small>03</small>文件组织：每个文件负责什么</h2><div class="diagram"><svg viewBox="0 0 1000 290" role="img" aria-label="组件职责及同次连接共用"><defs><marker id="ar-modules" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="20" y="65" width="225" height="88" rx="12" fill="#deebf4"/><text x="132" y="101" text-anchor="middle" font-size="19">统一服务</text><text x="132" y="130" text-anchor="middle" font-size="14">创建、组织、最终关闭</text><rect x="265" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="377" y="101" text-anchor="middle" font-size="19">读取模块</text><text x="377" y="130" text-anchor="middle" font-size="14">读取、复权、共享价格</text><rect x="510" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="622" y="101" text-anchor="middle" font-size="19">指标模块</text><text x="622" y="130" text-anchor="middle" font-size="14">SQL步骤、指标状态</text><rect x="755" y="65" width="225" height="88" rx="12" fill="#f4eddf"/><text x="867" y="101" text-anchor="middle" font-size="19">输出模块</text><text x="867" y="130" text-anchor="middle" font-size="14">保留尾部、独立结果</text><path d="M245,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M490,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M735,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><rect x="265" y="194" width="470" height="60" rx="10" fill="#152d3b"/><text x="500" y="231" text-anchor="middle" font-size="18" fill="white">本请求唯一 DuckDB 连接 · 全部数值运算</text><path d="M377 153 V194 M622 153 V194" stroke="#315f80" fill="none"/><text x="500" y="30" text-anchor="middle" font-size="15">连接由服务创建并关闭；读取和指标模块分别管理自己的表</text></svg></div><p>所有下列“新建”位置都是后续编码目标，本轮不创建运行模块。小型枚举、不可变请求/结果放同一合同文件；SQL模板和计算对象一同版本管理。不同职责不堆到一个大service中。</p>
+</section><section id="s03"><h2><small>03</small>文件组织：每个文件负责什么</h2><div class="diagram"><svg viewBox="0 0 1000 290" role="img" aria-label="组件职责及同次连接共用"><defs><marker id="ar-modules" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="20" y="65" width="225" height="88" rx="12" fill="#deebf4"/><text x="132" y="101" text-anchor="middle" font-size="19">统一服务</text><text x="132" y="130" text-anchor="middle" font-size="14">创建、组织、最终关闭</text><rect x="265" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="377" y="101" text-anchor="middle" font-size="19">读取模块</text><text x="377" y="130" text-anchor="middle" font-size="14">读取、复权、共享价格</text><rect x="510" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="622" y="101" text-anchor="middle" font-size="19">指标模块</text><text x="622" y="130" text-anchor="middle" font-size="14">SQL步骤、指标状态</text><rect x="755" y="65" width="225" height="88" rx="12" fill="#f4eddf"/><text x="867" y="101" text-anchor="middle" font-size="19">输出模块</text><text x="867" y="130" text-anchor="middle" font-size="14">保留尾部、独立结果</text><path d="M245,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M490,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M735,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><rect x="265" y="194" width="470" height="60" rx="10" fill="#152d3b"/><text x="500" y="231" text-anchor="middle" font-size="18" fill="white">本请求唯一 DuckDB 连接 · 全部数值运算</text><path d="M377 153 V194 M622 153 V194" stroke="#315f80" fill="none"/><text x="500" y="30" text-anchor="middle" font-size="15">连接由服务创建并关闭；读取和指标模块分别管理自己的表</text></svg></div><p>下列目录为完整内核的目标组织；当前D1合同、定义、配置、注册及发现已实现，其余运行模块仍按D2—D4开发。小型枚举、不可变请求/结果放同一合同文件；SQL模板和计算对象一同版本管理。不同职责不堆到一个大service中。</p>
 <pre><code class="language-text">src/foundation/technical_indicators/
   __init__.py                         # 只导出3个业务能力及合同，不建立连接
   contracts.py                        # 请求、结果、标准表说明、枚举
@@ -1639,7 +1639,7 @@ finally:
 </tr>
 <tr>
 <td>D2读取/复权/共享</td>
-<td>local_lake新来源、sources全部、executor</td>
+<td>local_lake新来源、sources全部、executor、ExecutionControl与统一清理</td>
 <td>不改旧Reader/Gold schema，不合成周期，不审计质量</td>
 <td>真实生产者schema夹具、有限最小实样、一次遍历及同请求数据复用；依赖获准后才安装</td>
 </tr>
@@ -1651,7 +1651,7 @@ finally:
 </tr>
 <tr>
 <td>D4停止/资源/隔离接入</td>
-<td>ExecutionControl、App runtime/admission/response及测试诊断入口</td>
+<td>App runtime/admission/response及测试诊断入口，完整停止/资源验收</td>
 <td>不新增正式路由或切页面，不改全局线程池/进程数</td>
 <td>三最小资源/72控制/有限ASGI与取消清理；真实数据性能未过不称可切换</td>
 </tr>
@@ -1670,6 +1670,108 @@ finally:
 </tbody>
 </table></div>
 <p>现有消费者审计清单：股票minutes/minute-indicators API与DTO、股票分钟ViewModelAdapter和Workspace；指数对应API/DTO及indexDetailApiClient/转换；XXM source、结构识别/预测、研究脚本完整历史读取；旧Gold参数/版本约束；page-init与前端10秒配置交付。现有调用在本轮无变化，不能在LLD结案中宣称迁移完成。</p>
+<h3>19.1 已确认的四阶段、八步骤安排</h3>
+<p>管理员已确认以下安排，并授权本轮只推进第一阶段。每阶段内部两步连续开发，完成后独立验收并汇报；不自动进入下一阶段。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>开发阶段</th>
+<th>两个连续步骤</th>
+<th>关键点与完成条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一阶段 D1：接口、对象和配置</td>
+<td>1 请求/结果/计算对象定义；2 注册、能力发现及配置</td>
+<td>明确默认单目标前复权、参数/依赖/历史/来源说明；发现与执行共用定义。只交付定义和通用对象，不提供占位计算入口。合同/配置/注册正反测试通过。</td>
+</tr>
+<tr>
+<td>第二阶段 D2：读取、复权和共享</td>
+<td>3 执行与资源管理；4 读取/复权/批次共享</td>
+<td>同一服务创建关闭连接；ExecutionControl真实截止检查、interrupt监控及统一清理在此落实，describe读取前也可取消。一次遍历、无预取、必要历史与共享复权；按真实合同及限定小样本验收。</td>
+</tr>
+<tr>
+<td>第三阶段 D3：指标与完整库服务</td>
+<td>5 SQL计算对象及依赖执行；6 完整calculate与独立输出</td>
+<td>price/MA/BOLL/MACD/KDJ全部数值由SQL完成；安全分段、跨批/分页、初始NULL、严格字节上限与完整清理均在本阶段闭合，按26组有限数值等既定验证验收。</td>
+</tr>
+<tr>
+<td>第四阶段 D4：业务进程装配与运行验收</td>
+<td>7 有限并发等待及请求结束处理；8 资源和取消验收</td>
+<td>App装配、真实工作结束才归还名额、隔离HTTP生命周期、既定资源/控制场景。不是到此才补Foundation执行控制，不切正式路由/页面、不接XXM、不停DG。</td>
+</tr>
+</tbody>
+</table></div>
+<p>不跨阶段合并开发；后续正式API/页面/XXM迁移与DG退出仍分别另行批准。上述安排把§04/11/13已有执行控制依赖分配到D2，不改变停止、预算或资源归属合同。</p>
+<h3>19.2 第一阶段开工约束、文件和验收</h3>
+<p>本轮目标仅为D1步骤1—2。当前基础代码为src/foundation/config/settings.py的Settings/get_settings，沿用既有GOLDENSHARE_ENV_FILE优先级；只增加§16列出的19个字段，不修改现有字段/加载方式、环境文件或默认页面请求。CodeGraph explore/impact已核对get_settings的调用方、股票分钟客户端及页面调用；新增模块无运行消费者，本轮不改这些入口。现有工作区其它改动不纳入本轮。</p>
+<p>D1文件限定为technical_indicators的contracts.py、errors.py、configuration/settings.py、calculation/calculation.py、history.py、registry.py、dependencies.py、discovery/catalog.py及必要__init__.py；五个indicators文件本轮仅放各自真实Definition，不放算法占位实现。sources/contracts.py只定义读取交接对象/协议，不读取文件、不实现session或source。Settings只新增§16字段；tests限定合同、配置、注册依赖、定义/发现和本模块依赖方向。D2的executor/control/service/真实来源、D3 SQL/engine/collector、D4 App装配均不在本轮。</p>
+<p>CalculationDefinition及ParameterSpec按§04/09声明字段、参数、初始化、历史、周期及单位。ParameterSpec保存名称、整数或有限非负数、默认值；Definition校验未知参数、补齐默认并按声明顺序归一。MACD额外校验fast&lt;slow。Parameters、请求/结果及嵌套结果全部为不可变数据；结果各层字段与§14示例一一对应。HistoryRequirement只描述所需字段、前置根数、递推起点、状态及初始NULL，不产生价格或指标数值。</p>
+<p>五个Definition各放原指标文件；D1可说明它们的实际默认参数和公式合同，但只有D3提供真实Calculation factory后才能装配为内置可执行注册表。D1不新增calculate、service占位、虚假consume、假结果或自动内置装配。通用registry.register仍要求真实factory；测试目录中最小Calculation按§04接口验证依赖顺序、循环、同参复用/不同参隔离及输出身份，不冒充生产算法。发现函数只读取其传入注册表中真实注册的Definition及显式来源支持声明，不扫湖、查依赖安装情况或把未接入来源标成已就绪；无来源装配时source_supported=false。参数校验、依赖展开和发现均不创建连接。注册表完成装配后只读；本轮只支持一个ID的确定版本，重复ID/版本冲突拒绝，不增加业务版本选择功能。</p>
+<p>KernelConfig为无默认、已解析不可变对象，由from_settings只读取§16列出的字段及既有Lake根；不自行读env或检查挂载。Settings维护唯一初始值。KernelConfig检查非bool整数、正值，max_waiting_requests允许0；只检查0&lt;cleanup_reserve&lt;total、control_poll&lt;cleanup_reserve这些已明确直接关系，不把内存估算组成穷举规则。配置错误在解析时抛ValueError，不新增用户错误码；get_settings优先级及缓存生效方式不变。路径的正式根、staging及符号链接核验仍由D2 source执行，不在D1触碰文件系统。</p>
+<p>失败不写任何持久状态；不建连接/线程/文件，不做重试或续跑，修正后重新构造对象。测试只用字面请求/定义/配置及临时env文件，不读正式DB/Lake，不安装依赖。单轮D1定向测试及必要架构/既有Settings回归目标60秒内完成，失败保留错误，不反复扩跑；该预算包含最后复核与必要重跑，不借用§17长历史预算。既有Foundation最小门禁另执行并如实报告既有阻塞，不为通过改无关代码。</p>
+<p>D1硬口径逐项对应contracts→test_contracts、Definition/registry/dependencies/discovery→test_registry_dependencies、Settings/KernelConfig→test_configuration、分层禁止项→test_technical_indicator_dependencies；正反样本覆盖默认/显式复权、日期类型/时区、合法短历史参数、未知参数、16/17实例及10000/10001返回位置、循环、同参复用、不同请求状态隔离、配置直接关系两侧和env优先级。D1不声称已通过读取、SQL精度、性能或取消运行验收。</p>
+<h3>19.3 此前D1暂停记录（历史）</h3>
+<p>当前状态：D1部分实现，尚未完成综合验收；D2—D4未启动。四阶段与D1实施约束已同步两文。已实现请求/结果、来源交接协议、五个静态Definition、通用注册/依赖/发现、19项Settings字段及不可变KernelConfig；没有calculate占位入口或任何指标SQL，未安装、未访问正式数据、未改变现行API/页面、未提交本轮代码。</p>
+<p>已完成验证：合同与配置定向187项通过；注册/依赖/发现定向27项通过（子任务在收到暂停指令前完成）；ingestion-lint-definitions通过；两文结构/链接/既有确认口径检查通过。架构与既有回归组合运行201项通过、29项测试准备错误，不能写作整组通过。未运行完整D1合并验收，新增分层检查尚未验收。</p>
+<p>暂停原因：主任务错误选入tests/test_announcement_pg_migration.py整组，部分测试需启动临时PostgreSQL，当前沙箱在fixture绑定127.0.0.1端口时PermissionError，29项在准备阶段失败。这不是D1指标或配置断言失败；不能作为内核不正确的证据，也不能改成通过。该整组不是本步必要范围；不提权、不改公告代码、不重新启动数据库，按管理员遇异常先停下要求暂停。已停止各子任务；保留当前文件等待后续安排。</p>
+<p>暂停前独立审计另发现一处待修复实现细节：Dependency.parameters、SqlStep.bindings等内部冻结对象若收到列表，未复制其容器输入，外部修改原列表仍能改变对象。该问题违反已有不可变合同，不需要新增业务拍板；恢复后先对相关容器复制为tuple并补独立反例，再完成D1合并测试和审计。registry/discovery独立审计未完成，不宣称D1整体通过。</p>
+<p>后续建议：恢复时仅修复上述本步问题，执行D1定向测试、Foundation规定的最小门禁，以及既有Settings无数据库的定向回归；不再运行公告迁移整组、不安装、不扩展D2。测试范围先核对是否启动服务，符合本步边界后执行；失败继续如实记录与汇报。</p>
+<h3>19.4 D1恢复：不可变容器和测试执行范围</h3>
+<p>管理员已恢复执行。本轮继续只完成D1，不进入D2—D4；§19.3保留为此前暂停的历史记录，当前进展由本节及后续验收记录更新。没有新的业务待拍板项。</p>
+<p>不可变要求落到构造过程：Parameters的外层序列和每个名称/数值对都复制为tuple，名称为str、值仅int/float且不接受bool；非法结构拒绝。该结构整理只处理少量算法参数，不扫描K线或结果数值。Dependency.parameters、CalculationNode.parameters及CalculationValues.parameters共用同一内部转换，保留参数声明顺序，重复名称仍由原参数/依赖规则拒绝，不新增参数上限。</p>
+<p>SqlStep.bindings固定为不可变标量序列，所需标量为int/float/bool/str/date/datetime/None；构造时复制外层tuple，列表/字典等可变绑定值直接拒绝，不实现通用递归对象冻结器，不增加SQL数组等能力。input_tables/output_tables复制为tuple且元素为字符串。CalculationOutput.fields复制为OutputField的tuple；BatchCalculationOutputs.instances复制外层及每个实例/输出对，输出须为既有CalculationOutput。CalculationDescription.source_capabilities同样固定为SourceCapability的tuple。CalculationSession是明确的请求内可变状态，SourceBatch.columns是外部列批次引用，不套用不可变结果的规则、不复制行情数值。</p>
+<p>测试先用传入列表后修改原列表的反例证明缺陷，再修实现，使Dependency/SqlStep/输出说明/计划参数不受外部列表修改影响；已合法的tuple和正常参数继续可用。测试落入原test_contracts和test_registry_dependencies；不新增长历史、正式读取或新配置。错误结构的反例独立构造，不以待测转换器生成预期。</p>
+<p>测试执行是硬边界：执行前必须读所选测试函数、其fixtures、conftest和相关辅助调用，列清实际是否创建进程/服务、网络或数据库连接，以及文件写入目标。影响面只用于找候选，不等于执行授权；找到一个函数不得默认运行其整文件。未核清实际行为或超出本阶段读写范围时不得执行，先报告，不依赖沙箱替代检查。本轮允许的独立子进程仅为分层测试中已核的只导入组件的Python解释器，不启动数据库服务。</p>
+<p>本轮执行清单限定：本模块3个测试文件和新增不可变反例、本模块分层测试；FoundationAGENTS规定的四项最小门禁；原Settings回归仅用tests/test_announcement_pg_migration.py::test_settings_default_priority_and_no_main_fallback精确节点。公告迁移整文件及其pg/pg_cluster fixtures明确排除，不提升权限、不安装、不修改无关测试。本次D1专用验证计划及副作用依据在实际执行前按审计结果补记；最终以实际执行结果列示，不删除此前29个准备错误记录或将其改成通过。</p>
+<p>执行前只读审计已完成：三个D1文件只创建内存对象及临时env；本模块分层测试仅读源码，唯一子进程为5秒内的Python导入检查；Foundation门禁使用静态定义、源码和Mock session，不建立数据库连接；CLI只校验静态定义。精确公告配置函数仅tmp_path/monkeypatch、Settings/cache及纯URL解析，其pg/pg_cluster不是autouse且不被该函数请求；tests/web/conftest.py不适用于本轮目录。该清单无需网络、数据库、端口、提权或依赖安装。</p>
+<h3>19.5 D1完成与本轮逐项对账</h3>
+<p>当前结论：第一阶段D1已完成并通过本阶段验收，无待管理员拍板项、无已知D1开发阻塞；D2—D4未启动。本结论仅覆盖基础合同、静态能力定义、配置、注册/依赖/发现，不表示指标SQL、来源读取、完整calculate、性能或页面已经可用。本轮代码未提交。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>D1硬口径</th>
+<th>实际文件</th>
+<th>独立验证与结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一证券/周期/目标、默认qfq、请求与输出合同</td>
+<td>contracts.py、errors.py、sources/contracts.py</td>
+<td>test_contracts：默认/显式复权、合法日期及分钟时区、16/17实例、10000/10001位置、未知字段/参数/预算覆盖拒绝；结果结构与不可变性，已通过</td>
+</tr>
+<tr>
+<td>五项真实定义、参数/字段/单位及初始语义</td>
+<td>calculation/calculation.py、indicators五文件、history.py</td>
+<td>五组独立字面id/默认/字段/输入列/nullable/单位/版本/周期；大周期与BOLL倍率0/11合法，未知/非法参数拒绝；无生产算法占位，已通过</td>
+</tr>
+<tr>
+<td>注册、依赖及发现使用同一定义</td>
+<td>calculation/registry.py、dependencies.py、discovery/catalog.py</td>
+<td>test_registry_dependencies：全实例校验先于factory、精确内部版本、循环与重复role、同参复用、不同参/跨请求隔离、隐藏内部能力、来源未声明为false，已通过</td>
+</tr>
+<tr>
+<td>不可变交接容器修复</td>
+<td>contracts._freeze_parameters、Dependency/SqlStep/CalculationOutput/BatchCalculationOutputs/CalculationNode/CalculationDescription</td>
+<td>新增4个修改原列表的反例在修复前全部失败；修复后通过，另有非法可变绑定/参数和合法tuple/普通标量对照。只复制合同容器，不复制或扫描行情数值</td>
+</tr>
+<tr>
+<td>19项配置唯一来源与有限直接检查</td>
+<td>src/foundation/config/settings.py、configuration/settings.py</td>
+<td>test_configuration：19项字面初值/别名、可调值、不可变、类型/正值、waiting=0、两条直接关系、原env文件优先及还原/缓存；原Settings精确函数回归通过</td>
+</tr>
+<tr>
+<td>Foundation边界、无来源/算法副作用</td>
+<td>本模块及test_technical_indicator_dependencies.py</td>
+<td>新分层检查、Foundation四项最小门禁均通过；无App/Biz/QTF/DG反向依赖，无DuckDB/Arrow运行导入、无数据库/网络/正式湖访问</td>
+</tr>
+</tbody>
+</table></div>
+<p>本次最终执行证据：D1合同/配置/注册及新架构测试合计228 passed，0.43秒；已核实副作用的Foundation现有最小pytest与原Settings精确函数合计188 passed，2.35秒；ingestion-lint-definitions passed。最终合计416项通过，无跳过。此前4项有意用于证明原缺陷的失败与§19.3的29项无关公告测试准备错误分别保留，不冒充本次失败或抹掉历史。测试原始JUnit位于/private/tmp/ti_d1_final_local_20261023.xml与/private/tmp/ti_d1_final_existing_20261023.xml；临时文件仅为本机证据，持久结论和命令清单保存在本节及§19.4。</p>
+<p>CodeGraph本轮使用explore核对实际交接对象与定义、impact确认SqlStep当前没有运行消费者；独立审计核对registry/dependencies/discovery、参数与来源声明语义及测试独立预期。所有原现行API、前端、XXM与DG调用保持，不声称它们已接入；唯一旧代码改动为Settings新增19个字段，既有加载行为不变。新注册表未自动装配五项SQL factory，符合D1与D3分界。</p>
+<p>下一步为第二阶段D2：按§19.1先实现真实执行控制/连接/清理，再读取、复权与共享批次；依赖安装仍遵守既定授权要求。本轮停止在D1完成处，不自动开始D2，不将未测的读取、精度、内存、并发或取消记为通过。</p>
 </section><section id="s20"><h2><small>20</small>设计确认、最终审计与开发条件</h2><p>本节按原方案25项逐行审计，记录全部已确认决定及最终复核。“设计覆盖”与实现/性能验收分开；当前范围内无待管理员review的设计、依赖选型或初始配置。后续若发现真实来源/运行行为与设计冲突，仍须按既定变更流程处理，不能擅自换方案。</p>
 <h3>20.0 本轮管理员已确认的五项决定</h3>
 <div class="table-wrap"><table>
@@ -1766,7 +1868,7 @@ finally:
 <h3>20.1 全部初始值确认及本轮边界</h3>
 <p>管理员已确认最后一项历史输入容量：max_input_rows初始值1500000；按每请求新交付目标K线累计，前置历史计入，多个指标共享及窗口重复使用不重复计数；超过整次失败，不截断历史、不改变指标参数。</p>
 <p>150万输入、5000唯一文件、16实例、10000返回位置、5000000输出UTF-8字节和32MiB读取初始保护均已确认；原有并发/等待/内存/时限、PyArrow选型、周期参数及三类配置检查决定保持。BOLL有限非负与精度门槛已确认，来源文件合计1GiB限制已撤销。当前范围内无待拍板项；这些数值不是指标周期上限，也不是性能已验收结论。</p>
-<p>本轮只完成两份设计更新与静态审计，不开发、不安装、不迁移页面或XXM、不改变现行API或启停DG。D1—D4是内核开发顺序；来源集成、SQL数值、资源/取消及隔离ASGI验证属于已定义的开发后验收，不是尚未决定的设计。页面/XXM正式接入与DG退出仍是范围外后续阶段。</p>
+<p>设计冻结当次只完成两份设计更新与静态审计，不开发、不安装、不迁移页面或XXM、不改变现行API或启停DG；当前D1实现与验收状态见§19.5。D1—D4是内核开发顺序；来源集成、SQL数值、资源/取消及隔离ASGI验证属于已定义的开发后验收，不是尚未决定的设计。页面/XXM正式接入与DG退出仍是范围外后续阶段。</p>
 <p>本轮不再把PyArrow是否采用、DuckDB是否升级、统一周期上限或是否穷举配置组合列为待拍板。控制线程/20ms重试/200ms join目标已写入具体方案，实测范围仍按§21说明，不把设计取值当完整验收。此前已确认默认qfq、唯一空成功、外部数据质量、周月直读、连接归属、业务进程和有限等待等均保持。</p>
 <h3>20.2 关键问题及处理</h3>
 <div class="table-wrap"><table>
@@ -1903,7 +2005,7 @@ finally:
 <li>原25项逐一对应文件与方法、字段/SQL合同、配置来源/默认/生效、读取/复权/依赖复用、跨批状态、停止与资源清理、错误与输出以及有限验收；各初始容量/单位、BOLL参数、精度、周/月和质量边界与原方案一致。</li>
 <li>本版可作为§19 D1—D4编码依据，按合同/定义/配置→读取复权→原生SQL指标→停止/资源及隔离接入顺序推进，不需要实现者自行决定本轮业务口径或补一个未review的设计分支。</li>
 <li>SQL数值、Arrow真实交接、RSS/并发、取消/清理和隔离ASGI等为开发后按已写定方法执行的验收，未测项目不得标通过；它们不是尚未决定的设计，也不阻止开始D1。失败先定位并按本设计修正；确需改变已确认语义、预算或来源范围时，先同步两文并按既定规则review，不得擅自扩大。</li>
-<li>当前现行API/页面、XXM迁移和DG退出未纳入本轮开发；冻结不是部署、切换消费者、停任务或删除数据的授权。本轮仅更新文档并做静态核验，未开发、安装、运行新性能实验或读写正式数据。</li>
+<li>当前现行API/页面、XXM迁移和DG退出未纳入本轮开发；冻结不是部署、切换消费者、停任务或删除数据的授权。设计冻结当次仅更新文档并做静态核验；当前D1实现与本地验收见§19.5，仍未安装、运行新性能实验或读写正式数据。</li>
 </ul>
 <p>此结论基于本轮完整设计审计与三项专项复核，表示当前已知设计已闭合，不冒充运行实现或生产验收已经通过。</p>
 </section><section id="s21"><h2><small>21</small>SQL模板的编码定义与本轮设计实验记录</h2><h3>21.1 MACD单段完整数据流</h3>

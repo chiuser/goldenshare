@@ -10,9 +10,9 @@
 <main>
 <div class="toolbar"><button type="button" onclick="window.print()">打印 / 保存PDF</button><button type="button" id="expand">展开补充说明</button></div><header class="hero">
 <div class="eyebrow">Goldenshare / architecture / component design</div>
-<h1>技术指标计算内核<br>组件设计</h1>
+<h1>技术指标计算内核<br>组件设计</h1><p><strong>当前实施状态：D1已完成并通过本阶段验收；D2—D4未启动。此前暂停记录保留，验收对账见第17节。</strong></p>
 <p>分钟、日、周、月使用同一套指标定义。<br>Python组织对象与调用，DuckDB SQL执行复权和指标运算。</p>
-<div class="meta"><span class="pill green">总体方案已确认 · 未开发</span><span class="pill">v1 · 2026-10-23</span><span class="pill">多周期 · DuckDB SQL计算</span><span class="pill">对象化 · 组件化 · 模块化</span></div></header>
+<div class="meta"><span class="pill green">总体方案已确认 · D1已验收</span><span class="pill">v1 · 2026-10-23</span><span class="pill">多周期 · DuckDB SQL计算</span><span class="pill">对象化 · 组件化 · 模块化</span></div></header>
 <div class="principles">
 <div class="principle"><b>算法内聚</b><span>业务不上传算法。指标对象声明参数、依赖、SQL步骤和输出说明。</span></div>
 <div class="principle"><b>计算与读取分开</b><span>算法面对可信输入。数值质量和完整性由外部负责。</span></div>
@@ -20,8 +20,8 @@
 <section id="scope">
 <div class="section-head"><span>01</span>
 <h2>设计目标与已确认边界</h2></div>
-<div class="decision"><strong>2026-10-23当前交付状态：</strong>组件设计的已确认方向保持；管理员已要求据此编写代码级LLD，现已形成<a href="technical-indicator-kernel-low-level-design-v1.html">技术指标计算内核LLD v1</a>，包含代码组织、文件/对象/合同、SQL模板、来源映射、资源生命周期、量化预算、有限测试及逐项审计。原25项要求的对应位置见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD第22节</a>。此前五项及本次容量、BOLL、精度确认已同步；来源文件合计1GiB限制已撤销，5000000输出字节、32MiB读取初始保护、BOLL有限非负及精度门槛不再待拍板；150万输入、5000文件、16实例、10000返回位置均已确认为初始值，当前范围内无未review设计或已知编码阻塞；方案与LLD已冻结，满足内核开发条件。尚未开发内核、改变API/配置、迁移消费者或停止DG，也未完成完整性能验收。第11节既有初始值、默认前复权/单目标、外部负责数据质量、周月直接读取和唯一空结果规则不变。</div><p class="intro">历史过程记录（当时尚在方案阶段，当前以本版冻结结论为准）：2026-10-20对账此前讨论、全部17节及9幅图，补齐已确认决定、待拍板项和LLD核对清单。总体方案及分段接续方向已确认，仍未开发；本次审计不等于LLD已完成或正式验收已通过。</p>
-<div class="note"><strong>本轮LLD交付状态：</strong><a href="technical-indicator-kernel-low-level-design-v1.html">LLD已成稿并按25项清单逐项对账</a>，全部设计与初始值已确认，开发前审计通过、设计已冻结，结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20节</a>。<a href="#empty-series-review">成功空结果的唯一条件</a>已确认，不再列待拍板。历史段落中的“尚未编写LLD”仅记录此前设计阶段，不覆盖本次交付状态；运行代码仍未开发。</div>
+<div class="decision"><strong>2026-10-23当前交付状态：</strong>组件设计的已确认方向保持；管理员已要求据此编写代码级LLD，现已形成<a href="technical-indicator-kernel-low-level-design-v1.html">技术指标计算内核LLD v1</a>，包含代码组织、文件/对象/合同、SQL模板、来源映射、资源生命周期、量化预算、有限测试及逐项审计。原25项要求的对应位置见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD第22节</a>。此前五项及本次容量、BOLL、精度确认已同步；来源文件合计1GiB限制已撤销，5000000输出字节、32MiB读取初始保护、BOLL有限非负及精度门槛不再待拍板；150万输入、5000文件、16实例、10000返回位置均已确认为初始值，当前范围内无未review设计或已知编码阻塞；方案与LLD已冻结，满足内核开发条件。D1合同、静态能力定义、配置及注册发现已实现并完成本阶段验收；Settings只新增已确认字段，既有加载行为与本机环境文件不变。读取/SQL/并发实现、API和页面迁移、DG退出及完整性能验收尚未实施。第11节既有初始值、默认前复权/单目标、外部负责数据质量、周月直接读取和唯一空结果规则不变。</div><p class="intro">历史过程记录（当时尚在方案阶段，当前以本版冻结结论为准）：2026-10-20对账此前讨论、全部17节及9幅图，补齐已确认决定、待拍板项和LLD核对清单。总体方案及分段接续方向已确认，仍未开发；本次审计不等于LLD已完成或正式验收已通过。</p>
+<div class="note"><strong>本轮LLD交付状态：</strong><a href="technical-indicator-kernel-low-level-design-v1.html">LLD已成稿并按25项清单逐项对账</a>，全部设计与初始值已确认，开发前审计通过、设计已冻结，结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20节</a>。<a href="#empty-series-review">成功空结果的唯一条件</a>已确认，不再列待拍板。历史段落中的“尚未编写LLD”仅记录此前设计阶段，不覆盖本次交付状态；D1基础对象已实现并验收；D2—D4运行模块尚未开发。</div>
 <div class="decision"><strong>管理员已确认：</strong>数值质量、数据缺口、首尾与中间完整性，以及停牌、退市等相关判断，全部交给外部负责。计算内核不逐根复查，不生成预期时间点，不请求业务传递日历、停牌、退市或质量证明。外部审计单元由管理员后续规划，本版不设计或实现该单元。</div>
 <div class="table-wrap">
 <table>
@@ -42,7 +42,7 @@
 <tr><td>页面与DG退出</td><td>先设计内核，再做页面接入与真实链路性能验收；DG股票、指数技术指标任务分别迁移与退出，本轮均未执行。</td>
 </tr></tbody></table></div>
 <h3>本轮交付范围</h3>
-<p>此前方案阶段仅修订本HTML；本次按管理员新要求编写独立HTML代码级LLD，并同步本文与索引。原25项检查继续作为唯一核对入口。未开发内核、修改现行API、迁移页面或启停DG任务，未读写正式数据。组件职责已按管理员决定收口，具体类方法、配置字段与消费者、参数边界及实施顺序现已写入新LLD，全部设计与初始值已确认，开发后实际验证按LLD执行。请求时计算指对来源已有K线进行计算。计算定义支持分钟、日、周、月；各周期读取合同逐项接入，不表示现有Reader已经覆盖所有周期。</p>
+<p>此前方案阶段仅修订本HTML；本次按管理员新要求编写独立HTML代码级LLD，并同步本文与索引。原25项检查继续作为唯一核对入口。该次设计记录时未开发内核；现已完成D1，未修改现行API、迁移页面或启停DG任务，未读写正式数据。组件职责已按管理员决定收口，具体类方法、配置字段与消费者、参数边界及实施顺序现已写入新LLD，全部设计与初始值已确认，开发后实际验证按LLD执行。请求时计算指对来源已有K线进行计算。计算定义支持分钟、日、周、月；各周期读取合同逐项接入，不表示现有Reader已经覆盖所有周期。</p>
 <div class="table-wrap"><table><thead><tr><th>本轮新增硬要求</th><th>设计约束</th></tr></thead><tbody><tr><td>不限定K线周期</td><td>核心按有序K线计算。分钟、日、周、月共用指标对象、公式和参数；周期决定输入K线含义，不复制四套算法。</td></tr><tr><td>DuckDB承担指标运算</td><td>复权、系数、窗口统计、平滑与指标数值均在SQL中计算。Python只做定义、参数检查、执行组织、资源控制和结果包装。</td></tr><tr><td>Python例外必须先证实</td><td>只有证明DuckDB不支持所需计算时才讨论例外；没有同名内置指标函数、SQL写法复杂或现有SQL慢，都不能直接作为不支持的结论。禁止静默转用Python、NumPy、Pandas或Python UDF执行指标公式。</td></tr><tr><td>本轮仍是设计研究</td><td>文档改名与索引更新已完成；本轮仅继续修订本文，复核隔离SQL实验和遗漏项，不开发正式模块，不改变生产者、消费者、配置或DG任务。</td></tr></tbody></table></div><div class="decision"><strong>本轮已确认：</strong>采用分段SQL计算，并把上一段末状态交给下一段；不丢历史，不在段首重新初始化。数值安全与实际资源占用两方面均须写入后续LLD。数学安全分段长度与具体SQL已在LLD第09/21节明确，资源初始配置已按第11节确认，不能把方案确认写成实现已经验收。</div><div class="decision"><strong>本轮新增确认：</strong>本周/本月尚未结束的最新一根K线要参与技术指标计算，结果代表截至来源当前数据时刻的指标，并随该根K线更新。输入实际复权类型必须由来源如实说明；目标复权参数由业务选择，不传默认前复权，传入合法类型则按指定类型处理。内核根据实际输入与目标类型、基准和因子说明决定是否加入独立复权流程。</div><div class="decision"><strong>本轮边界已确认：</strong>读取模块内部保留独立读取与复权对象，统一管理共享价格数据；指标计算模块只使用目标价格并持有指标状态。具体生命周期、连接归属和异常细节见<a href="#data-lifecycle-proposal">第12节生命周期细化要求</a>，尚未编码。</div><p>本次完整审计的已确认决定和初始配置，以及<a href="#review-decisions">工程细节</a>与<a href="#lld-audit-checklist">25项LLD交付清单</a>见第17节；具体方法、SQL与配置已见代码级LLD，已确认输入容量和开发后验证分别记录；第13节资源测试方案已记录，尚未执行。</p></section>
 <section id="current">
 <div class="section-head"><span>02</span>
@@ -774,7 +774,109 @@ FROM calculated c JOIN expected USING(i) ORDER BY i</code></pre></details></sect
 <p>修订属于既定范围内的编码细化，不新增公开入口、数据审计、缓存、预取、计算线程池或进程。正反测试合并既有小夹具和72次控制预算；未运行新增数值/性能实验、未安装、未改API/配置或正式数据。本轮修订后已完成独立复核：原25项映射保留、八项新确认两文逐字一致、表格列数/本地链接/锚点及设计示例语法检查通过，仓库文档完整性检查通过；这只证明静态设计对账，不是SQL/Arrow/ASGI或真实来源验收。实际集成、内存、取消与页面验收留待实现。</p>
 <h3 id="lld-final-handoffs-20261023">最终编码交接检查</h3>
 <p>LLD已补齐三个不能留给实现者猜的交接：连接创建前的describe显式接收本请求control并按文件检查截止/取消；输入prepare取得真实复权基准后，通过请求独立的resolved_description交给结果；纯库calculate返回前严格流式计量库格式字节、超过5000000整次失败，计量块立即丢弃。后续Biz最终格式独立检查并只形成一份HTTP body，不能重复编码同一HTTP内容；两种格式的必要遍历均纳入同一第6秒工作截止和资源报告。具体签名、位置、异常及小夹具见LLD第04/06/11/14/18/20.4节，不增加公开入口、缓存或新配置。</p>
-<h3 id="lld-freeze-conclusion-20261023">最终结论：满足内核开发条件，方案与LLD设计冻结</h3>
+<div id="development-stages-d1-20261023"><h3>19.1 已确认的四阶段、八步骤安排</h3>
+<p>管理员已确认以下安排，并授权本轮只推进第一阶段。每阶段内部两步连续开发，完成后独立验收并汇报；不自动进入下一阶段。</p>
+<table>
+<thead>
+<tr>
+<th>开发阶段</th>
+<th>两个连续步骤</th>
+<th>关键点与完成条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一阶段 D1：接口、对象和配置</td>
+<td>1 请求/结果/计算对象定义；2 注册、能力发现及配置</td>
+<td>明确默认单目标前复权、参数/依赖/历史/来源说明；发现与执行共用定义。只交付定义和通用对象，不提供占位计算入口。合同/配置/注册正反测试通过。</td>
+</tr>
+<tr>
+<td>第二阶段 D2：读取、复权和共享</td>
+<td>3 执行与资源管理；4 读取/复权/批次共享</td>
+<td>同一服务创建关闭连接；ExecutionControl真实截止检查、interrupt监控及统一清理在此落实，describe读取前也可取消。一次遍历、无预取、必要历史与共享复权；按真实合同及限定小样本验收。</td>
+</tr>
+<tr>
+<td>第三阶段 D3：指标与完整库服务</td>
+<td>5 SQL计算对象及依赖执行；6 完整calculate与独立输出</td>
+<td>price/MA/BOLL/MACD/KDJ全部数值由SQL完成；安全分段、跨批/分页、初始NULL、严格字节上限与完整清理均在本阶段闭合，按26组有限数值等既定验证验收。</td>
+</tr>
+<tr>
+<td>第四阶段 D4：业务进程装配与运行验收</td>
+<td>7 有限并发等待及请求结束处理；8 资源和取消验收</td>
+<td>App装配、真实工作结束才归还名额、隔离HTTP生命周期、既定资源/控制场景。不是到此才补Foundation执行控制，不切正式路由/页面、不接XXM、不停DG。</td>
+</tr>
+</tbody>
+</table>
+<p>不跨阶段合并开发；后续正式API/页面/XXM迁移与DG退出仍分别另行批准。上述安排把§04/11/13已有执行控制依赖分配到D2，不改变停止、预算或资源归属合同。</p>
+<h3>19.2 第一阶段开工约束、文件和验收</h3>
+<p>本轮目标仅为D1步骤1—2。当前基础代码为src/foundation/config/settings.py的Settings/get_settings，沿用既有GOLDENSHARE_ENV_FILE优先级；只增加§16列出的19个字段，不修改现有字段/加载方式、环境文件或默认页面请求。CodeGraph explore/impact已核对get_settings的调用方、股票分钟客户端及页面调用；新增模块无运行消费者，本轮不改这些入口。现有工作区其它改动不纳入本轮。</p>
+<p>D1文件限定为technical_indicators的contracts.py、errors.py、configuration/settings.py、calculation/calculation.py、history.py、registry.py、dependencies.py、discovery/catalog.py及必要__init__.py；五个indicators文件本轮仅放各自真实Definition，不放算法占位实现。sources/contracts.py只定义读取交接对象/协议，不读取文件、不实现session或source。Settings只新增§16字段；tests限定合同、配置、注册依赖、定义/发现和本模块依赖方向。D2的executor/control/service/真实来源、D3 SQL/engine/collector、D4 App装配均不在本轮。</p>
+<p>CalculationDefinition及ParameterSpec按§04/09声明字段、参数、初始化、历史、周期及单位。ParameterSpec保存名称、整数或有限非负数、默认值；Definition校验未知参数、补齐默认并按声明顺序归一。MACD额外校验fast&lt;slow。Parameters、请求/结果及嵌套结果全部为不可变数据；结果各层字段与§14示例一一对应。HistoryRequirement只描述所需字段、前置根数、递推起点、状态及初始NULL，不产生价格或指标数值。</p>
+<p>五个Definition各放原指标文件；D1可说明它们的实际默认参数和公式合同，但只有D3提供真实Calculation factory后才能装配为内置可执行注册表。D1不新增calculate、service占位、虚假consume、假结果或自动内置装配。通用registry.register仍要求真实factory；测试目录中最小Calculation按§04接口验证依赖顺序、循环、同参复用/不同参隔离及输出身份，不冒充生产算法。发现函数只读取其传入注册表中真实注册的Definition及显式来源支持声明，不扫湖、查依赖安装情况或把未接入来源标成已就绪；无来源装配时source_supported=false。参数校验、依赖展开和发现均不创建连接。注册表完成装配后只读；本轮只支持一个ID的确定版本，重复ID/版本冲突拒绝，不增加业务版本选择功能。</p>
+<p>KernelConfig为无默认、已解析不可变对象，由from_settings只读取§16列出的字段及既有Lake根；不自行读env或检查挂载。Settings维护唯一初始值。KernelConfig检查非bool整数、正值，max_waiting_requests允许0；只检查0&lt;cleanup_reserve&lt;total、control_poll&lt;cleanup_reserve这些已明确直接关系，不把内存估算组成穷举规则。配置错误在解析时抛ValueError，不新增用户错误码；get_settings优先级及缓存生效方式不变。路径的正式根、staging及符号链接核验仍由D2 source执行，不在D1触碰文件系统。</p>
+<p>失败不写任何持久状态；不建连接/线程/文件，不做重试或续跑，修正后重新构造对象。测试只用字面请求/定义/配置及临时env文件，不读正式DB/Lake，不安装依赖。单轮D1定向测试及必要架构/既有Settings回归目标60秒内完成，失败保留错误，不反复扩跑；该预算包含最后复核与必要重跑，不借用§17长历史预算。既有Foundation最小门禁另执行并如实报告既有阻塞，不为通过改无关代码。</p>
+<p>D1硬口径逐项对应contracts→test_contracts、Definition/registry/dependencies/discovery→test_registry_dependencies、Settings/KernelConfig→test_configuration、分层禁止项→test_technical_indicator_dependencies；正反样本覆盖默认/显式复权、日期类型/时区、合法短历史参数、未知参数、16/17实例及10000/10001返回位置、循环、同参复用、不同请求状态隔离、配置直接关系两侧和env优先级。D1不声称已通过读取、SQL精度、性能或取消运行验收。</p>
+</div><div id="d1-pause-20261023"><h3>19.3 此前D1暂停记录（历史）</h3>
+<p>当前状态：D1部分实现，尚未完成综合验收；D2—D4未启动。四阶段与D1实施约束已同步两文。已实现请求/结果、来源交接协议、五个静态Definition、通用注册/依赖/发现、19项Settings字段及不可变KernelConfig；没有calculate占位入口或任何指标SQL，未安装、未访问正式数据、未改变现行API/页面、未提交本轮代码。</p>
+<p>已完成验证：合同与配置定向187项通过；注册/依赖/发现定向27项通过（子任务在收到暂停指令前完成）；ingestion-lint-definitions通过；两文结构/链接/既有确认口径检查通过。架构与既有回归组合运行201项通过、29项测试准备错误，不能写作整组通过。未运行完整D1合并验收，新增分层检查尚未验收。</p>
+<p>暂停原因：主任务错误选入tests/test_announcement_pg_migration.py整组，部分测试需启动临时PostgreSQL，当前沙箱在fixture绑定127.0.0.1端口时PermissionError，29项在准备阶段失败。这不是D1指标或配置断言失败；不能作为内核不正确的证据，也不能改成通过。该整组不是本步必要范围；不提权、不改公告代码、不重新启动数据库，按管理员遇异常先停下要求暂停。已停止各子任务；保留当前文件等待后续安排。</p>
+<p>暂停前独立审计另发现一处待修复实现细节：Dependency.parameters、SqlStep.bindings等内部冻结对象若收到列表，未复制其容器输入，外部修改原列表仍能改变对象。该问题违反已有不可变合同，不需要新增业务拍板；恢复后先对相关容器复制为tuple并补独立反例，再完成D1合并测试和审计。registry/discovery独立审计未完成，不宣称D1整体通过。</p>
+<p>后续建议：恢复时仅修复上述本步问题，执行D1定向测试、Foundation规定的最小门禁，以及既有Settings无数据库的定向回归；不再运行公告迁移整组、不安装、不扩展D2。测试范围先核对是否启动服务，符合本步边界后执行；失败继续如实记录与汇报。</p>
+</div><div id="d1-resume-20261023"><h3>19.4 D1恢复：不可变容器和测试执行范围</h3>
+<p>管理员已恢复执行。本轮继续只完成D1，不进入D2—D4；§19.3保留为此前暂停的历史记录，当前进展由本节及后续验收记录更新。没有新的业务待拍板项。</p>
+<p>不可变要求落到构造过程：Parameters的外层序列和每个名称/数值对都复制为tuple，名称为str、值仅int/float且不接受bool；非法结构拒绝。该结构整理只处理少量算法参数，不扫描K线或结果数值。Dependency.parameters、CalculationNode.parameters及CalculationValues.parameters共用同一内部转换，保留参数声明顺序，重复名称仍由原参数/依赖规则拒绝，不新增参数上限。</p>
+<p>SqlStep.bindings固定为不可变标量序列，所需标量为int/float/bool/str/date/datetime/None；构造时复制外层tuple，列表/字典等可变绑定值直接拒绝，不实现通用递归对象冻结器，不增加SQL数组等能力。input_tables/output_tables复制为tuple且元素为字符串。CalculationOutput.fields复制为OutputField的tuple；BatchCalculationOutputs.instances复制外层及每个实例/输出对，输出须为既有CalculationOutput。CalculationDescription.source_capabilities同样固定为SourceCapability的tuple。CalculationSession是明确的请求内可变状态，SourceBatch.columns是外部列批次引用，不套用不可变结果的规则、不复制行情数值。</p>
+<p>测试先用传入列表后修改原列表的反例证明缺陷，再修实现，使Dependency/SqlStep/输出说明/计划参数不受外部列表修改影响；已合法的tuple和正常参数继续可用。测试落入原test_contracts和test_registry_dependencies；不新增长历史、正式读取或新配置。错误结构的反例独立构造，不以待测转换器生成预期。</p>
+<p>测试执行是硬边界：执行前必须读所选测试函数、其fixtures、conftest和相关辅助调用，列清实际是否创建进程/服务、网络或数据库连接，以及文件写入目标。影响面只用于找候选，不等于执行授权；找到一个函数不得默认运行其整文件。未核清实际行为或超出本阶段读写范围时不得执行，先报告，不依赖沙箱替代检查。本轮允许的独立子进程仅为分层测试中已核的只导入组件的Python解释器，不启动数据库服务。</p>
+<p>本轮执行清单限定：本模块3个测试文件和新增不可变反例、本模块分层测试；FoundationAGENTS规定的四项最小门禁；原Settings回归仅用tests/test_announcement_pg_migration.py::test_settings_default_priority_and_no_main_fallback精确节点。公告迁移整文件及其pg/pg_cluster fixtures明确排除，不提升权限、不安装、不修改无关测试。本次D1专用验证计划及副作用依据在实际执行前按审计结果补记；最终以实际执行结果列示，不删除此前29个准备错误记录或将其改成通过。</p>
+<p>执行前只读审计已完成：三个D1文件只创建内存对象及临时env；本模块分层测试仅读源码，唯一子进程为5秒内的Python导入检查；Foundation门禁使用静态定义、源码和Mock session，不建立数据库连接；CLI只校验静态定义。精确公告配置函数仅tmp_path/monkeypatch、Settings/cache及纯URL解析，其pg/pg_cluster不是autouse且不被该函数请求；tests/web/conftest.py不适用于本轮目录。该清单无需网络、数据库、端口、提权或依赖安装。</p>
+</div><div id="d1-complete-20261023"><h3>19.5 D1完成与本轮逐项对账</h3>
+<p>当前结论：第一阶段D1已完成并通过本阶段验收，无待管理员拍板项、无已知D1开发阻塞；D2—D4未启动。本结论仅覆盖基础合同、静态能力定义、配置、注册/依赖/发现，不表示指标SQL、来源读取、完整calculate、性能或页面已经可用。本轮代码未提交。</p>
+<table>
+<thead>
+<tr>
+<th>D1硬口径</th>
+<th>实际文件</th>
+<th>独立验证与结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一证券/周期/目标、默认qfq、请求与输出合同</td>
+<td>contracts.py、errors.py、sources/contracts.py</td>
+<td>test_contracts：默认/显式复权、合法日期及分钟时区、16/17实例、10000/10001位置、未知字段/参数/预算覆盖拒绝；结果结构与不可变性，已通过</td>
+</tr>
+<tr>
+<td>五项真实定义、参数/字段/单位及初始语义</td>
+<td>calculation/calculation.py、indicators五文件、history.py</td>
+<td>五组独立字面id/默认/字段/输入列/nullable/单位/版本/周期；大周期与BOLL倍率0/11合法，未知/非法参数拒绝；无生产算法占位，已通过</td>
+</tr>
+<tr>
+<td>注册、依赖及发现使用同一定义</td>
+<td>calculation/registry.py、dependencies.py、discovery/catalog.py</td>
+<td>test_registry_dependencies：全实例校验先于factory、精确内部版本、循环与重复role、同参复用、不同参/跨请求隔离、隐藏内部能力、来源未声明为false，已通过</td>
+</tr>
+<tr>
+<td>不可变交接容器修复</td>
+<td>contracts._freeze_parameters、Dependency/SqlStep/CalculationOutput/BatchCalculationOutputs/CalculationNode/CalculationDescription</td>
+<td>新增4个修改原列表的反例在修复前全部失败；修复后通过，另有非法可变绑定/参数和合法tuple/普通标量对照。只复制合同容器，不复制或扫描行情数值</td>
+</tr>
+<tr>
+<td>19项配置唯一来源与有限直接检查</td>
+<td>src/foundation/config/settings.py、configuration/settings.py</td>
+<td>test_configuration：19项字面初值/别名、可调值、不可变、类型/正值、waiting=0、两条直接关系、原env文件优先及还原/缓存；原Settings精确函数回归通过</td>
+</tr>
+<tr>
+<td>Foundation边界、无来源/算法副作用</td>
+<td>本模块及test_technical_indicator_dependencies.py</td>
+<td>新分层检查、Foundation四项最小门禁均通过；无App/Biz/QTF/DG反向依赖，无DuckDB/Arrow运行导入、无数据库/网络/正式湖访问</td>
+</tr>
+</tbody>
+</table>
+<p>本次最终执行证据：D1合同/配置/注册及新架构测试合计228 passed，0.43秒；已核实副作用的Foundation现有最小pytest与原Settings精确函数合计188 passed，2.35秒；ingestion-lint-definitions passed。最终合计416项通过，无跳过。此前4项有意用于证明原缺陷的失败与§19.3的29项无关公告测试准备错误分别保留，不冒充本次失败或抹掉历史。测试原始JUnit位于/private/tmp/ti_d1_final_local_20261023.xml与/private/tmp/ti_d1_final_existing_20261023.xml；临时文件仅为本机证据，持久结论和命令清单保存在本节及§19.4。</p>
+<p>CodeGraph本轮使用explore核对实际交接对象与定义、impact确认SqlStep当前没有运行消费者；独立审计核对registry/dependencies/discovery、参数与来源声明语义及测试独立预期。所有原现行API、前端、XXM与DG调用保持，不声称它们已接入；唯一旧代码改动为Settings新增19个字段，既有加载行为不变。新注册表未自动装配五项SQL factory，符合D1与D3分界。</p>
+<p>下一步为第二阶段D2：按§19.1先实现真实执行控制/连接/清理，再读取、复权与共享批次；依赖安装仍遵守既定授权要求。本轮停止在D1完成处，不自动开始D2，不将未测的读取、精度、内存、并发或取消记为通过。</p>
+</div><h3 id="lld-freeze-conclusion-20261023">最终结论：满足内核开发条件，方案与LLD设计冻结</h3>
 <p><strong>2026-10-23开发前审计通过：当前范围内待管理员review项0、已知未决设计或编码阻塞0。</strong>最后一项150万输入已确认，全部初值及参数、接口、读取/复权/历史、SQL状态、资源生命周期、取消、输出/编码和有限验收已在LLD写定；原25项逐条对应见LLD第22节。最终三项交接经独立复核闭合，具体修订与结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20.3—20.5节</a>。</p>
 <p>本版可作为LLD第19节D1—D4编码依据：合同/定义/配置、读取复权、SQL指标、停止/资源与隔离接入。运行正确性、真实来源交接、内存/并发、取消及隔离ASGI按已定方法在开发后验收；未测不标通过，这些不是设计未决项。本轮仅文档更新与静态审计，不执行开发、安装、正式数据操作或迁移；现行页面/API、XXM及DG退出仍属后续独立范围。开发中若发现真实代码或来源与设计冲突，按现有变更规则修订和复核，不自行增加分支或扩大需求。</p>
 <h3 id="lld-writing-status">LLD怎样区分已定规则、待细化内容和开发后验证</h3>
@@ -816,5 +918,5 @@ FROM calculated c JOIN expected USING(i) ORDER BY i</code></pre></details></sect
 <tr><td>精度指标</td><td>按输出字段列出最大允许绝对误差、相对误差及其适用范围；接近0的数值范围和符号/下游判断差异的验收条件。</td><td>容差来自误差分析和真实消费者用途。保留独立预期、实际最大误差及差异数量；不能用某次观测值反向定义验收标准。</td></tr>
 <tr><td>有限验证规模</td><td>测试参数组合清单、组数、每组K线根数、总计算量及耗时预算；包括默认参数、实际自定义参数、公式必要边界与窗口/段长前后边界；已有10000样本仅保留错误回归，不作为产品周期上限。</td><td>LLD先列清单，再按清单执行；不遍历全部参数，不做参数组合全覆盖，不读取全市场来验证公式。</td></tr>
 </tbody></table></div>
-<p>上述量化设计的数值、依据、实现位置和已有有限实验记录已落入LLD；未执行的完整内核测试仍保留为开发后验收，不能只凭方法说明或“通过”字样认定实测完成。此前方案阶段只整理LLD指引；当前代码级LLD已成稿，量化定义、预算与有限SQL证据见LLD第09/10/16/17/21节，完整实现后的实测仍待完成，尚未进入内核开发。</p><h3>参数范围与精度：先推导边界，再验证有限样本，禁止穷举</h3><p>管理员明确不允许把所有数值或所有参数组合逐一计算。本设计采用以下方法；LLD先列公式依据、样本表、每项根数和总开销，不执行全参数、全市场或全历史组合扫描。</p><div class="table-wrap"><table><thead><tr><th>步骤</th><th>LLD具体交付</th><th>为什么不用把所有参数算一遍</th></tr></thead><tbody><tr><td>1. 从公式确定允许的参数</td><td>逐指标写清整数/正数、参数关系、周期1及初始化；SQL整数类型、浮点系数不可表示时正常失败，窗口只保留实际已有历史并服从资源限制。不再推导或配置一个任意业务周期上限。</td><td>参数类型与公式条件可一次表达整个范围；不是靠每个值跑过一遍才知道合法。</td></tr><tr><td>2. 推导安全分段</td><td>EMA的α=2/(N+1)、β=1−α。N=1单独处理，不能进入β的负指数幂。N大于1时，根据β、受支持数值尺度、乘积/累计和及DOUBLE范围推导安全段长；K/D按自身系数分别推导。段长还要服从资源限制。</td><td>负指数幂β的−S次方随S增长，可用对数推导边界，无须从1遍历所有N和S。不能只证明幂有限，却漏掉乘输入和累计求和的范围。</td></tr><tr><td>3. 用有界样本验证推导与实现</td><td>包含默认12/26/9、已有实际自定义9/65/9和10/69/10，以及公式必要边界、周期1/2、窗口N−1/N/N+1、段长S−1/S/S+1；用常数、涨跌、平区间和接近0的独立样本。LLD固定组数及每组根数，不做参数笛卡尔积。</td><td>样本针对不同的出错原因和边界；中间参数靠同一数学条件覆盖，不声称有限测试证明所有浮点结果逐位相同。</td></tr><tr><td>4. 确定精度验收值</td><td>按受支持数值尺度、递推/求和误差及消费者实际使用方式，给出有依据的绝对误差和适用时的相对误差。接近0另记符号及下游判断是否变化；不通过四舍五入掩盖差异。独立预期来自手算字面值或另行核准的小样本核算。</td><td>精度标准来自误差分析和实际用途，不取某次测试碰巧观测到的最大值作为全部保证。</td></tr></tbody></table></div><p>例如EMA每一步是上一值与本次输入按权重相加；权重非负且合计为1时，精确数学结果不会超出两者范围。但SQL负幂展开的中间数仍可能超出DOUBLE，所以LLD必须分别约束最终值、负幂乘积及累计和。数值尺度属于受支持计算范围的设计依据，不因此增加逐根输入质量扫描。若无法证明所承诺范围内安全，就缩小支持范围或先调整SQL方案，不能用穷举或Python公式兜底。</p><h3>证据、实际完成范围与后续顺序</h3><p>2026-10-22本轮按管理员确认，仅补清正常读取但输出范围无K线这一种成功空结果的条件、排除项、返回内容及LLD03/06/13/22正反例；复核CodeGraph node中的StockMinsLakeReader._empty_page作为旧0行表示的代码依据。未修改任何运行实现或配置，未执行数据读取及内核验收。</p><p>本轮以CodeGraph node读取StockMinsLakeReader._read/_empty_page、StockMinuteQueryService._enforce_response_size及股票分钟API：旧Reader取回页内行后关闭连接，旧字节限制在model_dump_json和编码后取得，旧API仍是同步读取预计算指标。它们用于定位移交及检查时点；新内核成功空结果的唯一口径由管理员本次确认，不由旧Reader推断，也不声称已经有共享分批计算。仅修改本HTML，未改运行代码、API、配置或正式数据。</p><p>本轮用CodeGraph explore核对StockDetailPage.handlePeriodChange及分钟客户端，确认当前同一图表的controller与Promise.all关系，避免将未来多个独立区域错误地接到同一取消控制。只修订本HTML与既有LLD检查项，没有改变当前页面、API、配置、数据或执行状态；未将当前图表的合法共用行为报告为现存缺陷。</p><p>本轮按管理员最新意见，仅纠正请求组合的业务边界；用CodeGraph explore复核现有股票页面/分钟请求客户端调用关系，将页面与内核约束、并发计数和验收样本同步修回本文。没有修改API、实现、配置或正式数据，不引入区域字段、跨请求复用或新的计算能力。</p><p>2026-10-22本轮使用CodeGraph explore核对股票分钟API → StockMinuteQueryService → Reader调用，及StockDetailPage.handlePeriodChange → fetchStockMinuteBars / fetchStockMinuteIndicators → parseMinuteResponse和wealthFetch。复核现有两个HTTP请求、默认500根、已有指标合并响应及输出包装事实；只修订本HTML并做文档核验，未修改代码/配置/API或正式数据，未运行性能测试。初始值来自管理员确认，载荷计算只为估算，不能当测量证据。</p><p>2026-10-22本轮使用CodeGraph explore核对前端fetchStockMinuteIndicators/parseMinuteResponse，用node核对股票分钟API的_service；另读现有指数分钟字段合同。只据所读当前代码补LLD要求，未修改API、前端、配置、数据或运行并发测试；CodeGraph误匹配的ingestion结果不作本次依据。</p><p>2026-10-21本次再审计覆盖17节及9幅图，使用CodeGraph node核对StockMinuteQueryService及其_enforce_response_size，并读取指标响应返回步骤。只补回原HTML与原25项LLD清单，不新增开发、配置、数据读取或迁移范围。静态源代码表明DTO与JSON可能重叠，不把该推断当作已测峰值。</p><p>2026-10-21本轮使用CodeGraph explore核对页面、图表及后端分钟接口，并读取客户端、分钟字段转换与股票日线查询。前端与后端的具体职责按当前代码说明，业务进程执行决定由管理员确认；只修订本文，未改前端/API、运行配置或任何计算实现。</p><p>2026-10-20页面场景补充使用CodeGraph node核对StockMinuteQueryService和StockMinuteChartWorkspace，并读取StockDetailPage.handlePeriodChange、客户端及当前SQL依赖设计；本次只更新方案，未改任何消费者。此前完整审计使用CodeGraph的explore、node及impact，覆盖股票/指数分钟查询、Foundation读取、XXM来源和相关测试；精确读取指数writer并核对股票系数代码，阅读当前独立字面公式测试与前端参数/版本/来源处理。CodeGraph的影响列表不代替源代码核对，也不等于所有隐藏脚本消费者均已穷尽。</p><p>既有实验JSON仍可读取，确认3根小样本、EMA常数分段反例和局部MA/BOLL耗时的记录；本次未重跑。新通用模块src/foundation/technical_indicators尚未实现。正式来源各周期的字段、数据单位、历史起点和本次到数情况，完整API/页面性能、峰值内存与取消均未验收，必须按LLD补证据。</p><p>执行位置及一次一种目标复权及默认前复权已确认；全部初始值已确认且设计冻结审计通过，下一步按D1—D4及既定最小验证安排分步开发；临时落盘已确认禁止。可按已确认的业务进程执行方式，以及已写定的合同、对象、来源、SQL与资源规则实施内核；初始等待数量/时间已经定案，实际表现未验证，两者分别记录。LLD逐条给出实现、推导和开发后验证位置，审计通过后再开发；不能以初值已确认跳过LLD，也不要求用尚未实现的完整内核先交出实测。开发、页面试用、消费者迁移和DG退出仍分别推进，不因本次审计扩展执行授权。</p></section>
+<p>上述量化设计的数值、依据、实现位置和已有有限实验记录已落入LLD；未执行的完整内核测试仍保留为开发后验收，不能只凭方法说明或“通过”字样认定实测完成。此前方案阶段只整理LLD指引；当前代码级LLD已成稿，量化定义、预算与有限SQL证据见LLD第09/10/16/17/21节，完整实现后的实测仍待完成，尚未进入内核开发。</p><h3>参数范围与精度：先推导边界，再验证有限样本，禁止穷举</h3><p>管理员明确不允许把所有数值或所有参数组合逐一计算。本设计采用以下方法；LLD先列公式依据、样本表、每项根数和总开销，不执行全参数、全市场或全历史组合扫描。</p><div class="table-wrap"><table><thead><tr><th>步骤</th><th>LLD具体交付</th><th>为什么不用把所有参数算一遍</th></tr></thead><tbody><tr><td>1. 从公式确定允许的参数</td><td>逐指标写清整数/正数、参数关系、周期1及初始化；SQL整数类型、浮点系数不可表示时正常失败，窗口只保留实际已有历史并服从资源限制。不再推导或配置一个任意业务周期上限。</td><td>参数类型与公式条件可一次表达整个范围；不是靠每个值跑过一遍才知道合法。</td></tr><tr><td>2. 推导安全分段</td><td>EMA的α=2/(N+1)、β=1−α。N=1单独处理，不能进入β的负指数幂。N大于1时，根据β、受支持数值尺度、乘积/累计和及DOUBLE范围推导安全段长；K/D按自身系数分别推导。段长还要服从资源限制。</td><td>负指数幂β的−S次方随S增长，可用对数推导边界，无须从1遍历所有N和S。不能只证明幂有限，却漏掉乘输入和累计求和的范围。</td></tr><tr><td>3. 用有界样本验证推导与实现</td><td>包含默认12/26/9、已有实际自定义9/65/9和10/69/10，以及公式必要边界、周期1/2、窗口N−1/N/N+1、段长S−1/S/S+1；用常数、涨跌、平区间和接近0的独立样本。LLD固定组数及每组根数，不做参数笛卡尔积。</td><td>样本针对不同的出错原因和边界；中间参数靠同一数学条件覆盖，不声称有限测试证明所有浮点结果逐位相同。</td></tr><tr><td>4. 确定精度验收值</td><td>按受支持数值尺度、递推/求和误差及消费者实际使用方式，给出有依据的绝对误差和适用时的相对误差。接近0另记符号及下游判断是否变化；不通过四舍五入掩盖差异。独立预期来自手算字面值或另行核准的小样本核算。</td><td>精度标准来自误差分析和实际用途，不取某次测试碰巧观测到的最大值作为全部保证。</td></tr></tbody></table></div><p>例如EMA每一步是上一值与本次输入按权重相加；权重非负且合计为1时，精确数学结果不会超出两者范围。但SQL负幂展开的中间数仍可能超出DOUBLE，所以LLD必须分别约束最终值、负幂乘积及累计和。数值尺度属于受支持计算范围的设计依据，不因此增加逐根输入质量扫描。若无法证明所承诺范围内安全，就缩小支持范围或先调整SQL方案，不能用穷举或Python公式兜底。</p><h3>证据、实际完成范围与后续顺序</h3><p>2026-10-22本轮按管理员确认，仅补清正常读取但输出范围无K线这一种成功空结果的条件、排除项、返回内容及LLD03/06/13/22正反例；复核CodeGraph node中的StockMinsLakeReader._empty_page作为旧0行表示的代码依据。未修改任何运行实现或配置，未执行数据读取及内核验收。</p><p>本轮以CodeGraph node读取StockMinsLakeReader._read/_empty_page、StockMinuteQueryService._enforce_response_size及股票分钟API：旧Reader取回页内行后关闭连接，旧字节限制在model_dump_json和编码后取得，旧API仍是同步读取预计算指标。它们用于定位移交及检查时点；新内核成功空结果的唯一口径由管理员本次确认，不由旧Reader推断，也不声称已经有共享分批计算。仅修改本HTML，未改运行代码、API、配置或正式数据。</p><p>本轮用CodeGraph explore核对StockDetailPage.handlePeriodChange及分钟客户端，确认当前同一图表的controller与Promise.all关系，避免将未来多个独立区域错误地接到同一取消控制。只修订本HTML与既有LLD检查项，没有改变当前页面、API、配置、数据或执行状态；未将当前图表的合法共用行为报告为现存缺陷。</p><p>本轮按管理员最新意见，仅纠正请求组合的业务边界；用CodeGraph explore复核现有股票页面/分钟请求客户端调用关系，将页面与内核约束、并发计数和验收样本同步修回本文。没有修改API、实现、配置或正式数据，不引入区域字段、跨请求复用或新的计算能力。</p><p>2026-10-22本轮使用CodeGraph explore核对股票分钟API → StockMinuteQueryService → Reader调用，及StockDetailPage.handlePeriodChange → fetchStockMinuteBars / fetchStockMinuteIndicators → parseMinuteResponse和wealthFetch。复核现有两个HTTP请求、默认500根、已有指标合并响应及输出包装事实；只修订本HTML并做文档核验，未修改代码/配置/API或正式数据，未运行性能测试。初始值来自管理员确认，载荷计算只为估算，不能当测量证据。</p><p>2026-10-22本轮使用CodeGraph explore核对前端fetchStockMinuteIndicators/parseMinuteResponse，用node核对股票分钟API的_service；另读现有指数分钟字段合同。只据所读当前代码补LLD要求，未修改API、前端、配置、数据或运行并发测试；CodeGraph误匹配的ingestion结果不作本次依据。</p><p>2026-10-21本次再审计覆盖17节及9幅图，使用CodeGraph node核对StockMinuteQueryService及其_enforce_response_size，并读取指标响应返回步骤。只补回原HTML与原25项LLD清单，不新增开发、配置、数据读取或迁移范围。静态源代码表明DTO与JSON可能重叠，不把该推断当作已测峰值。</p><p>2026-10-21本轮使用CodeGraph explore核对页面、图表及后端分钟接口，并读取客户端、分钟字段转换与股票日线查询。前端与后端的具体职责按当前代码说明，业务进程执行决定由管理员确认；只修订本文，未改前端/API、运行配置或任何计算实现。</p><p>2026-10-20页面场景补充使用CodeGraph node核对StockMinuteQueryService和StockMinuteChartWorkspace，并读取StockDetailPage.handlePeriodChange、客户端及当前SQL依赖设计；本次只更新方案，未改任何消费者。此前完整审计使用CodeGraph的explore、node及impact，覆盖股票/指数分钟查询、Foundation读取、XXM来源和相关测试；精确读取指数writer并核对股票系数代码，阅读当前独立字面公式测试与前端参数/版本/来源处理。CodeGraph的影响列表不代替源代码核对，也不等于所有隐藏脚本消费者均已穷尽。</p><p>既有实验JSON仍可读取，确认3根小样本、EMA常数分段反例和局部MA/BOLL耗时的记录；本次未重跑。初版设计核验时新通用模块尚未实现；当前src/foundation/technical_indicators的D1部分已完成，范围见D1验收记录。正式来源各周期的字段、数据单位、历史起点和本次到数情况，完整API/页面性能、峰值内存与取消均未验收，必须按LLD补证据。</p><p>执行位置及一次一种目标复权及默认前复权已确认；全部初始值已确认且设计冻结审计通过，下一步按D1—D4及既定最小验证安排分步开发；临时落盘已确认禁止。可按已确认的业务进程执行方式，以及已写定的合同、对象、来源、SQL与资源规则实施内核；初始等待数量/时间已经定案，实际表现未验证，两者分别记录。LLD逐条给出实现、推导和开发后验证位置，审计通过后再开发；不能以初值已确认跳过LLD，也不要求用尚未实现的完整内核先交出实测。开发、页面试用、消费者迁移和DG退出仍分别推进，不因本次审计扩展执行授权。</p></section>
 <footer>技术指标计算内核 · 组件设计 v1 · 职责边界已确认，方案与代码级LLD已冻结并通过开发前设计审计，开发范围及验收见第17节；当前运行行为仍以代码为准。</footer></main><script>document.getElementById('expand').addEventListener('click',function(){const all=[...document.querySelectorAll('details')];const open=all.some(d=>!d.open);all.forEach(d=>d.open=open);this.textContent=open?'收起补充说明':'展开补充说明';});if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{for(const e of entries){if(e.isIntersecting){document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));}}},{rootMargin:'-10% 0px -70% 0px'});document.querySelectorAll('section[id]').forEach(s=>observer.observe(s));}</script></body></html>
