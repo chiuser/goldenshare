@@ -122,6 +122,7 @@ def download_by_date(contract_name, dates, save_unit, *,
 
 <section id="task">
 <h2>3. 调用接口与任务输入</h2>
+<div class="note notice"><strong>2026-10-22命名规则更新：</strong>后续业务契约名直接使用源数据集名，例如<code>stk_factor_pro</code>；版本单独维护，不放在名称中。当前实现仍有版本后缀校验，须在数据集接入开发中同步调整后才能按新名称登记和调用；本说明不是已完成该调整的声明。具体要求见<a href="../design/dagster-stock-technical-factor-onboarding-plan-v1.md#download-contract-registration">股票技术因子接入方案第6节</a>。</div>
 <pre><code class="language-python" data-example="public_imports">from orchestrator.tushare_download import (
     DownloadTask, DownloadMode, TimeRange, ObjectTimeRange,
     DownloadControl, DownloadProgress, DownloadProgressEvent,

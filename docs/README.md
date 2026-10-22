@@ -197,7 +197,7 @@ docs/
 - [Dagster 股票分钟线连续性治理 LLD（HTML，M1-M8 已落地 / 后续 M9-M10 待收口）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-continuity-governance-low-level-design.html)
 - [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（表结构已实施；P0 安全复审完成，备份门禁 No-Go，生产迁移待单独授权）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子维护说明（已合并 Raw 直出与历史重刷方案；区分存在性门禁、规划顺序和恢复限制）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
-- [股票技术因子 DG 接入技术方案 v1（组件完成后再推进；保留 Prod bootstrap、Tushare 日更与复权历史更新设计；旧数据集迁移暂缓，不含 LLD）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-technical-factor-onboarding-plan-v1.md)
+- [股票技术因子 DG 接入技术方案 v1（组件已完成；源名契约定义与登记、暂定分页、Prod bootstrap、日更及复权历史更新；本数据集待LLD）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-technical-factor-onboarding-plan-v1.md)
 - [tushare数据下载组件业务使用文档 v1（HTML；调用示例、六模式、回调、取消、错误码与排障；真实数据集待登记）](/Users/congming/github/goldenshare/lake_console/docs/architecture/tushare-download-component-usage-v1.html)
 - [tushare数据下载组件技术方案（HTML；组件开发已收尾，四单元/六模式及26项对账；真实数据集接入另行验证）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-tushare-request-common-module-comparison-v1.html)
 - [tushare数据下载组件 LLD v1（HTML；组件开发已收尾，167项隔离验证通过；真实数据集接入另按T15推进）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-tushare-download-component-low-level-design-v1.html)
