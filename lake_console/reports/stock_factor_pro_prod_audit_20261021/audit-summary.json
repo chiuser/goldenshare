@@ -1,0 +1,599 @@
+{
+  "audited_at": "2026-10-22T18:55:26.723358+08:00",
+  "target_date": "2026-10-21",
+  "previous_trade_date": "2026-10-20",
+  "listed_a_shares": 5576,
+  "prod_factor_rows": 5567,
+  "source_factor_rows": 5568,
+  "missing_listed": [
+    {
+      "section": "missing_factor",
+      "code": "000016.SZ",
+      "name": "*ST康佳A",
+      "exchange": "SZSE",
+      "list_date": "1992-03-27",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "002388.SZ",
+      "name": "新亚制程",
+      "exchange": "SZSE",
+      "list_date": "2010-04-13",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "002717.SZ",
+      "name": "*ST岭南",
+      "exchange": "SZSE",
+      "list_date": "2014-02-19",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "002731.SZ",
+      "name": "*ST萃华",
+      "exchange": "SZSE",
+      "list_date": "2014-11-04",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "301314.SZ",
+      "name": "科瑞思",
+      "exchange": "SZSE",
+      "list_date": "2023-03-28",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "301468.SZ",
+      "name": "博盈特焊",
+      "exchange": "SZSE",
+      "list_date": "2023-07-24",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "601326.SH",
+      "name": "秦港股份",
+      "exchange": "SSE",
+      "list_date": "2017-08-16",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "688496.SH",
+      "name": "*ST清越",
+      "exchange": "SSE",
+      "list_date": "2022-12-28",
+      "daily_present": false,
+      "suspensions": [
+        {
+          "type": "S",
+          "timing": null
+        }
+      ]
+    },
+    {
+      "section": "missing_factor",
+      "code": "920296.BJ",
+      "name": "N文峰",
+      "exchange": "BSE",
+      "list_date": "2026-10-21",
+      "daily_present": true,
+      "suspensions": null
+    }
+  ],
+  "source_only": [
+    "920296.BJ"
+  ],
+  "prod_only": [],
+  "changed_count": 17,
+  "history_rows": 29991,
+  "old_history_rows": 29974,
+  "old_history_rows_not_refreshed_on_target": 0,
+  "source_adjustment": {
+    "api": "adj_factor",
+    "dates": [
+      "20261020",
+      "20261021"
+    ],
+    "row_counts": [
+      5577,
+      5578
+    ],
+    "unique_codes": [
+      5577,
+      5578
+    ],
+    "changed": [
+      {
+        "code": "000425.SZ",
+        "previous_factor": "44.9878",
+        "new_factor": "45.2384"
+      },
+      {
+        "code": "000554.SZ",
+        "previous_factor": "5.1229",
+        "new_factor": "5.1731"
+      },
+      {
+        "code": "002422.SZ",
+        "previous_factor": "7.3324",
+        "new_factor": "7.3545"
+      },
+      {
+        "code": "002960.SZ",
+        "previous_factor": "4.045",
+        "new_factor": "4.0645"
+      },
+      {
+        "code": "300003.SZ",
+        "previous_factor": "4.8151",
+        "new_factor": "4.8825"
+      },
+      {
+        "code": "300037.SZ",
+        "previous_factor": "6.6656",
+        "new_factor": "6.7016"
+      },
+      {
+        "code": "300918.SZ",
+        "previous_factor": "1.0641",
+        "new_factor": "1.068"
+      },
+      {
+        "code": "301232.SZ",
+        "previous_factor": "1.9973",
+        "new_factor": "2.0002"
+      },
+      {
+        "code": "301499.SZ",
+        "previous_factor": "1.0148",
+        "new_factor": "1.017"
+      },
+      {
+        "code": "600720.SH",
+        "previous_factor": "13.8192",
+        "new_factor": "13.9006"
+      },
+      {
+        "code": "601199.SH",
+        "previous_factor": "5.0551",
+        "new_factor": "5.0799"
+      },
+      {
+        "code": "601288.SH",
+        "previous_factor": "2.2866",
+        "new_factor": "2.3274"
+      },
+      {
+        "code": "601369.SH",
+        "previous_factor": "2.5948",
+        "new_factor": "2.6276"
+      },
+      {
+        "code": "601398.SH",
+        "previous_factor": "2.5546",
+        "new_factor": "2.6001"
+      },
+      {
+        "code": "603271.SH",
+        "previous_factor": "1.0227",
+        "new_factor": "1.0376"
+      },
+      {
+        "code": "688231.SH",
+        "previous_factor": "1.3566",
+        "new_factor": "1.3709"
+      },
+      {
+        "code": "688813.SH",
+        "previous_factor": "1.0055",
+        "new_factor": "1.0064"
+      }
+    ],
+    "missing_previous": [
+      "920296.BJ"
+    ]
+  },
+  "source_sample_comparison": {
+    "sample_rows": 34,
+    "fields_per_row": 261,
+    "compared_cells": 8874,
+    "exact_matches": 8874,
+    "different_cells": 0
+  },
+  "sample_digests": [
+    {
+      "code": "000425.SZ",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "54c8627fc2bced5c81b45c1da9172b4992c5579eccefe5fa69e145b45aab2448",
+      "prod_sha256": "54c8627fc2bced5c81b45c1da9172b4992c5579eccefe5fa69e145b45aab2448"
+    },
+    {
+      "code": "000425.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "4f1817346fd7a31aaf8c4e0752de17329dc56bbe7634928598489917bf70b77e",
+      "prod_sha256": "4f1817346fd7a31aaf8c4e0752de17329dc56bbe7634928598489917bf70b77e"
+    },
+    {
+      "code": "000554.SZ",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "6955b7e00a3e4ffac6d763dff4aa74ae19d7fdd331e481c95ddf2ca3f292ed47",
+      "prod_sha256": "6955b7e00a3e4ffac6d763dff4aa74ae19d7fdd331e481c95ddf2ca3f292ed47"
+    },
+    {
+      "code": "000554.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "87fd4af1de9c1aeb00fbfd5270e4adb5972b460accd32f494e54c88adb969b0a",
+      "prod_sha256": "87fd4af1de9c1aeb00fbfd5270e4adb5972b460accd32f494e54c88adb969b0a"
+    },
+    {
+      "code": "002422.SZ",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "73f5e0655e7603b02bf308711eed7814cb1e881e555a2656f311c1e856b05521",
+      "prod_sha256": "73f5e0655e7603b02bf308711eed7814cb1e881e555a2656f311c1e856b05521"
+    },
+    {
+      "code": "002422.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "824ac1880437d122cd785fc9a065725b34ca83cadd25c3c287d241446f4a80d8",
+      "prod_sha256": "824ac1880437d122cd785fc9a065725b34ca83cadd25c3c287d241446f4a80d8"
+    },
+    {
+      "code": "002960.SZ",
+      "trade_date": "20190809",
+      "field_count": 261,
+      "source_sha256": "97913f0f5de771934ee96435b400c187d3d446e14a6776f98a24dc321f0f0215",
+      "prod_sha256": "97913f0f5de771934ee96435b400c187d3d446e14a6776f98a24dc321f0f0215"
+    },
+    {
+      "code": "002960.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "3ad7e75d6e129b8146b0f060c9d40b343b8ecbd71878a80fa51aab8727292180",
+      "prod_sha256": "3ad7e75d6e129b8146b0f060c9d40b343b8ecbd71878a80fa51aab8727292180"
+    },
+    {
+      "code": "300003.SZ",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "0f137475c1826b2d135e9c628a187bad617ebbd2c04d5d9a49b63b29c0d5ee5c",
+      "prod_sha256": "0f137475c1826b2d135e9c628a187bad617ebbd2c04d5d9a49b63b29c0d5ee5c"
+    },
+    {
+      "code": "300003.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "71a61ba3a7d16e34e91a8b477ce93c17b937c31f386bf65f35f76ab20df92c02",
+      "prod_sha256": "71a61ba3a7d16e34e91a8b477ce93c17b937c31f386bf65f35f76ab20df92c02"
+    },
+    {
+      "code": "300037.SZ",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "e8099aad2df697146bd236e870ead56684106f247b96477de2f71db9ca1ad442",
+      "prod_sha256": "e8099aad2df697146bd236e870ead56684106f247b96477de2f71db9ca1ad442"
+    },
+    {
+      "code": "300037.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "b9985b83223e0a8793980c4d65d2352956d65e8d70c81b4693d0c2435100333c",
+      "prod_sha256": "b9985b83223e0a8793980c4d65d2352956d65e8d70c81b4693d0c2435100333c"
+    },
+    {
+      "code": "300918.SZ",
+      "trade_date": "20201222",
+      "field_count": 261,
+      "source_sha256": "46839658a669e452173538ecc261388f6daa6a2e3332aa520d2fe2ffdaa891d0",
+      "prod_sha256": "46839658a669e452173538ecc261388f6daa6a2e3332aa520d2fe2ffdaa891d0"
+    },
+    {
+      "code": "300918.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "36075201971b1a31498ddcd76a8cfea02b872ec2be976f5c86995deb95a6e1f5",
+      "prod_sha256": "36075201971b1a31498ddcd76a8cfea02b872ec2be976f5c86995deb95a6e1f5"
+    },
+    {
+      "code": "301232.SZ",
+      "trade_date": "20230615",
+      "field_count": 261,
+      "source_sha256": "fb099336f048ff02bee079d36e4b845e15b2e7f25c7e9ec894ada38f9d5b0ec1",
+      "prod_sha256": "fb099336f048ff02bee079d36e4b845e15b2e7f25c7e9ec894ada38f9d5b0ec1"
+    },
+    {
+      "code": "301232.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "60451c95e45b4b86abdde8ea85117d0632c2f35a3299a9cb6213cfe12d962fd1",
+      "prod_sha256": "60451c95e45b4b86abdde8ea85117d0632c2f35a3299a9cb6213cfe12d962fd1"
+    },
+    {
+      "code": "301499.SZ",
+      "trade_date": "20230721",
+      "field_count": 261,
+      "source_sha256": "b9f61be125236ea104388aaa7cb4301200fc6b52c1c7a976092e9286807e3f98",
+      "prod_sha256": "b9f61be125236ea104388aaa7cb4301200fc6b52c1c7a976092e9286807e3f98"
+    },
+    {
+      "code": "301499.SZ",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "b442a8fedd2f51c544c8038feb96e08ec05ecdcc447fedf0b0a927b0276aee23",
+      "prod_sha256": "b442a8fedd2f51c544c8038feb96e08ec05ecdcc447fedf0b0a927b0276aee23"
+    },
+    {
+      "code": "600720.SH",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "6fb9feb48860682e59806fe02570a41c07d9877ba028733ebf257b8d10a94ea1",
+      "prod_sha256": "6fb9feb48860682e59806fe02570a41c07d9877ba028733ebf257b8d10a94ea1"
+    },
+    {
+      "code": "600720.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "e68d9dcab636e5f625b0564cdb8ade3ab8d77c0a6fa9c51eca090b2703a7ddbe",
+      "prod_sha256": "e68d9dcab636e5f625b0564cdb8ade3ab8d77c0a6fa9c51eca090b2703a7ddbe"
+    },
+    {
+      "code": "601199.SH",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "e68a42f98dfefaa961d07e4e75fc16fcc4bca7ea011846a44dd50c6ef302e7a2",
+      "prod_sha256": "e68a42f98dfefaa961d07e4e75fc16fcc4bca7ea011846a44dd50c6ef302e7a2"
+    },
+    {
+      "code": "601199.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "e8c253c9e4277b2e94e3ad493a53a9d45b33190dae798cd516adf91aa5f1d878",
+      "prod_sha256": "e8c253c9e4277b2e94e3ad493a53a9d45b33190dae798cd516adf91aa5f1d878"
+    },
+    {
+      "code": "601288.SH",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "5e21a823eb428645d4fe0b659539041e2f1008d44419d4f544ee0736cfbeb327",
+      "prod_sha256": "5e21a823eb428645d4fe0b659539041e2f1008d44419d4f544ee0736cfbeb327"
+    },
+    {
+      "code": "601288.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "64cea9075bbceaf867bb4b5b1b03a321c8c8661461553c44bc32fd0aabac8032",
+      "prod_sha256": "64cea9075bbceaf867bb4b5b1b03a321c8c8661461553c44bc32fd0aabac8032"
+    },
+    {
+      "code": "601369.SH",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "1c4b5bbfbba1f8a9d87ace4e82a062e5100387445f4eece18226c2a6cab2dd72",
+      "prod_sha256": "1c4b5bbfbba1f8a9d87ace4e82a062e5100387445f4eece18226c2a6cab2dd72"
+    },
+    {
+      "code": "601369.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "d30454d02b49068a933dde276169dd713d94418703f3587af60016e37736d50d",
+      "prod_sha256": "d30454d02b49068a933dde276169dd713d94418703f3587af60016e37736d50d"
+    },
+    {
+      "code": "601398.SH",
+      "trade_date": "20170103",
+      "field_count": 261,
+      "source_sha256": "07856ed39ee7aa717fa2706ee286e5faefeb12aa6c3c26da9b9bdfb1ee0de1ed",
+      "prod_sha256": "07856ed39ee7aa717fa2706ee286e5faefeb12aa6c3c26da9b9bdfb1ee0de1ed"
+    },
+    {
+      "code": "601398.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "565082259fffaabeba64ae5932d991faca662d6b591dd91223d691de405fa8d2",
+      "prod_sha256": "565082259fffaabeba64ae5932d991faca662d6b591dd91223d691de405fa8d2"
+    },
+    {
+      "code": "603271.SH",
+      "trade_date": "20250311",
+      "field_count": 261,
+      "source_sha256": "3d794b6dc99ae38806207ffcfe01d1a67644f930bf5e15dd4447fa27939f6b08",
+      "prod_sha256": "3d794b6dc99ae38806207ffcfe01d1a67644f930bf5e15dd4447fa27939f6b08"
+    },
+    {
+      "code": "603271.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "d2bfcb4d2b4d887cabe69de8582f4c571ca1a234880be760462e239a614e9dc0",
+      "prod_sha256": "d2bfcb4d2b4d887cabe69de8582f4c571ca1a234880be760462e239a614e9dc0"
+    },
+    {
+      "code": "688231.SH",
+      "trade_date": "20220722",
+      "field_count": 261,
+      "source_sha256": "08a79e0b7aadea9309f6766388bb3b22fd2b111f598b3727ed60bf54d24ae39d",
+      "prod_sha256": "08a79e0b7aadea9309f6766388bb3b22fd2b111f598b3727ed60bf54d24ae39d"
+    },
+    {
+      "code": "688231.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "9b3dead04176abf9341dfdf7645edbbdc895655d2daf45a079aa7df55f02a56d",
+      "prod_sha256": "9b3dead04176abf9341dfdf7645edbbdc895655d2daf45a079aa7df55f02a56d"
+    },
+    {
+      "code": "688813.SH",
+      "trade_date": "20260331",
+      "field_count": 261,
+      "source_sha256": "36f7f43a8c0ccce37bca97af6af5612894f3a0135d60d9098979154ffa69c9d0",
+      "prod_sha256": "36f7f43a8c0ccce37bca97af6af5612894f3a0135d60d9098979154ffa69c9d0"
+    },
+    {
+      "code": "688813.SH",
+      "trade_date": "20261020",
+      "field_count": 261,
+      "source_sha256": "cc2fb43df4eaf133d33ebf9ccade4855c3352f399475ecb50ae57ef450cb372e",
+      "prod_sha256": "cc2fb43df4eaf133d33ebf9ccade4855c3352f399475ecb50ae57ef450cb372e"
+    }
+  ],
+  "factor_nodes": [
+    {
+      "section": "prod_factor_node",
+      "id": 25572,
+      "task_run_id": 16682,
+      "resource_key": "stk_factor_pro",
+      "status": "success",
+      "time_input": {
+        "mode": "point",
+        "trade_date": "2026-10-21"
+      },
+      "started_at": "2026-10-21T21:02:48.266493+08:00",
+      "ended_at": "2026-10-21T21:08:00.809837+08:00",
+      "rows_fetched": 35558,
+      "rows_saved": 35558,
+      "rows_rejected": 0
+    },
+    {
+      "section": "prod_factor_node",
+      "id": 25501,
+      "task_run_id": 16653,
+      "resource_key": "stk_factor_pro",
+      "status": "success",
+      "time_input": {
+        "mode": "point",
+        "trade_date": "2026-10-21"
+      },
+      "started_at": "2026-10-21T18:31:02.107617+08:00",
+      "ended_at": "2026-10-21T18:40:30.548018+08:00",
+      "rows_fetched": 30010,
+      "rows_saved": 30010,
+      "rows_rejected": 0
+    }
+  ],
+  "parent_tasks": [
+    {
+      "section": "parent_task",
+      "id": 16653,
+      "task_type": "workflow",
+      "resource_key": null,
+      "title": "每日收盘后维护",
+      "trigger_source": "scheduled",
+      "schedule_id": 24,
+      "status": "success",
+      "started_at": "2026-10-21T18:30:37.639472+08:00",
+      "ended_at": "2026-10-21T18:45:02.027938+08:00",
+      "unit_total": 28,
+      "unit_done": 28,
+      "unit_failed": 0,
+      "rows_fetched": 137350,
+      "rows_saved": 136894,
+      "rows_rejected": 0
+    },
+    {
+      "section": "parent_task",
+      "id": 16682,
+      "task_type": "workflow",
+      "resource_key": null,
+      "title": "每日收盘后维护",
+      "trigger_source": "scheduled",
+      "schedule_id": 2,
+      "status": "success",
+      "started_at": "2026-10-21T21:02:13.757083+08:00",
+      "ended_at": "2026-10-21T21:13:35.874233+08:00",
+      "unit_total": 28,
+      "unit_done": 28,
+      "unit_failed": 0,
+      "rows_fetched": 201524,
+      "rows_saved": 201068,
+      "rows_rejected": 0
+    },
+    {
+      "section": "closeout",
+      "audited_at": "2026-10-22T18:55:26.723358+08:00",
+      "read_only": "on",
+      "target_factor_rows": 5567,
+      "ipo_factor_rows": 0
+    }
+  ],
+  "source_requests": 38,
+  "raw_evidence_directory": "/private/tmp/stk_factor_pro_prod_audit_20261021",
+  "ordinary_sync_scope_verification": {
+    "target_date": "2026-10-21",
+    "ordinary_source_scope": "one_requested_trade_date",
+    "rolling_full_market_multi_day_refresh": false,
+    "changed_stock_history_is_separate": true,
+    "node_ids": [
+      25501,
+      25572
+    ],
+    "node_time_input": {
+      "mode": "point",
+      "trade_date": "2026-10-21"
+    },
+    "code_evidence": [
+      "src/foundation/ingestion/unit_planner.py:_resolve_anchors",
+      "src/foundation/ingestion/unit_planner.py:_build_stk_factor_pro_units",
+      "src/foundation/ingestion/unit_planner.py:_build_stk_factor_pro_adj_factor_refresh_units",
+      "src/foundation/ingestion/request_builders.py:_stk_factor_pro_params"
+    ],
+    "runtime_evidence": [
+      "05_task_summary.txt",
+      "09_plan_keys.txt"
+    ],
+    "additional_business_detail_reads": 0,
+    "additional_source_requests": 0,
+    "limitations": "Based on current repository code and the two explicit runtime node inputs. Parent plan_snapshot is empty; no original HTTP request logs were obtained."
+  }
+}
