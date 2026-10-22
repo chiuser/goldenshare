@@ -1,6 +1,6 @@
 """Raw and Silver checks for ETF daily source datasets."""
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +13,12 @@ from orchestrator.defs.asset_guards.etf_adj_factor_history import (
     audit_factor_history,
     load_factor_history_evidence,
     needs_factor_history,
+)
+from orchestrator.defs.asset_guards.etf_adj_factor_history_completion import (
+    CompletionBasicCache,
+    PreparedCompletionBasic,
+    audit_completed_target,
+    require_prepared_basic,
 )
 from orchestrator.defs.assets.etf_daily import (
     raw_tushare_fund_adj,
@@ -50,11 +56,13 @@ from orchestrator.defs.run_contracts.etf_basic import (
     EtfBasicSilverSnapshotReference,
 )
 from orchestrator.defs.run_contracts.etf_daily import (
+    ETF_FACTOR_COMPLETION_METADATA_KEY,
     RAW_FUND_ADJ_CHECKS,
     RAW_FUND_DAILY_CHECKS,
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
     SILVER_ETF_DAILY_BLOCKING_CHECKS,
     SILVER_ETF_DAILY_COVERAGE_CHECK,
+    EtfFactorCompletionPlan,
 )
 from orchestrator.defs.run_contracts.metadata import (
     CheckScope,
@@ -91,6 +99,7 @@ class EtfDailySilverFileAudit:
     raw_errors: tuple[str, ...]
     error_type: str | None
     history: FactorHistoryAudit | None = None
+    missing_file_paths: tuple[Path, ...] = ()
 
 
 def _metadata_scalar(value: Any) -> Any:
@@ -305,6 +314,9 @@ def audit_etf_daily_silver_partition(
     partition_key: str,
     check_kind: str | None = None,
     current_run_id: str | None = None,
+    check_kinds: frozenset[str] | None = None,
+    prepared_basic: PreparedCompletionBasic | None = None,
+    maintenance_plan_hash: str | None = None,
 ) -> EtfDailySilverFileAudit:
     """Build one shared audit used by all six checks for a Silver asset."""
 
@@ -319,9 +331,18 @@ def audit_etf_daily_silver_partition(
     }
     if check_kind not in supported_kinds:
         raise ValueError(f"unsupported ETF daily Silver check kind: {check_kind!r}")
-    needs_raw = check_kind in {None, "source_parity", "coverage"}
-    needs_basic = check_kind in {None, "source_filter", "source_parity", "coverage"}
-    needs_domain = check_kind in {None, "domain"}
+    selected_kinds = (
+        check_kinds
+        if check_kinds is not None
+        else frozenset(supported_kinds - {None})
+        if check_kind is None
+        else frozenset({check_kind})
+    )
+    if not selected_kinds or not selected_kinds <= supported_kinds - {None}:
+        raise ValueError("unsupported ETF daily Silver check selection")
+    needs_raw = bool(selected_kinds & {"source_parity", "coverage"})
+    needs_basic = bool(selected_kinds & {"source_filter", "source_parity", "coverage"})
+    needs_domain = "domain" in selected_kinds
     raw_file_path = spec.raw_spec.target_path_builder(lake_root_path, partition_key)
     silver_file_path = spec.target_path_builder(lake_root_path, partition_key)
     records = instance.fetch_materializations(
@@ -332,6 +353,68 @@ def audit_etf_daily_silver_partition(
     ).records
     target = FactorMaterializationEvidence.from_record(records[0]) if records else None
     metadata = dict(target.metadata) if target else None
+    if maintenance_plan_hash is not None:
+        prepared_basic = require_prepared_basic(prepared_basic)
+        if target is None or ETF_FACTOR_COMPLETION_METADATA_KEY not in target.metadata:
+            raise ValueError("completion_maintenance_target_missing")
+        completion_plan = EtfFactorCompletionPlan.from_dict(
+            target.metadata[ETF_FACTOR_COMPLETION_METADATA_KEY]
+        )
+        if completion_plan.plan_hash != maintenance_plan_hash:
+            raise ValueError("completion_maintenance_plan_mismatch")
+    if target is not None and ETF_FACTOR_COMPLETION_METADATA_KEY in target.metadata:
+        with duckdb_resource.connect() as connection:
+            basic_cache = CompletionBasicCache(connection, lake_root_path)
+            if prepared_basic is not None:
+                completion_plan = EtfFactorCompletionPlan.from_dict(
+                    target.metadata[ETF_FACTOR_COMPLETION_METADATA_KEY]
+                )
+                item = completion_plan.file(partition_key)
+                references = (
+                    EtfBasicSilverSnapshotReference.model_validate(
+                        completion_plan.basic_reference
+                    ),
+                    EtfBasicSilverSnapshotReference.model_validate(
+                        item.original_metadata["goldenshare/basic_reference"]
+                    ),
+                )
+                basic_cache = prepared_basic.seed_cache(
+                    connection, lake_root_path, references
+                )
+            history = (
+                audit_completed_target(
+                    connection=connection,
+                    lake_root=lake_root_path,
+                    storage=instance.event_log_storage,
+                    trade_date=partition_key,
+                    target=target,
+                    basic_cache=basic_cache,
+                    require_current_checks=False,
+                )
+                if spec is FUND_ADJ_SILVER_SPEC
+                else FactorHistoryAudit(None, None, ("completion_wrong_asset",))
+            )
+        return EtfDailySilverFileAudit(
+            spec=spec,
+            partition_key=partition_key,
+            raw_file_path=raw_file_path,
+            silver_file_path=silver_file_path,
+            basic_reference=history.basic_reference,
+            relation=history.relation,
+            source_filter=None,
+            source_parity=None,
+            domain=None,
+            coverage=None,
+            materialization_metadata=metadata,
+            materialization_errors=(),
+            basic_reference_errors=(),
+            raw_errors=(),
+            error_type=None,
+            history=history,
+            missing_file_paths=tuple(
+                path for path in (raw_file_path, silver_file_path) if not path.is_file()
+            ),
+        )
     if target is not None and needs_factor_history(spec.asset_key, target.metadata):
         evidence = load_factor_history_evidence(
             instance,
@@ -363,13 +446,22 @@ def audit_etf_daily_silver_partition(
             raw_errors=(),
             error_type=None,
             history=history,
+            missing_file_paths=tuple(
+                path for path in (raw_file_path, silver_file_path) if not path.is_file()
+            ),
         )
     reference, reference_errors = _basic_reference_from_metadata(metadata)
-    required_paths = (
-        (raw_file_path, silver_file_path) if needs_raw else (silver_file_path,)
+    silver_missing = not silver_file_path.is_file()
+    raw_missing = needs_raw and not raw_file_path.is_file()
+    missing_paths = tuple(
+        path
+        for path, missing in (
+            (silver_file_path, silver_missing),
+            (raw_file_path, raw_missing),
+        )
+        if missing
     )
-    missing_paths = tuple(path for path in required_paths if not path.is_file())
-    if missing_paths:
+    if silver_missing:
         return EtfDailySilverFileAudit(
             spec=spec,
             partition_key=partition_key,
@@ -389,12 +481,9 @@ def audit_etf_daily_silver_partition(
                 reference=reference,
             ),
             basic_reference_errors=reference_errors,
-            raw_errors=("raw_file_missing",) if raw_file_path in missing_paths else (),
-            error_type=(
-                "silver_file_missing"
-                if silver_file_path in missing_paths
-                else "raw_file_missing"
-            ),
+            raw_errors=("raw_file_missing",) if raw_missing else (),
+            error_type="silver_file_missing",
+            missing_file_paths=missing_paths,
         )
     if needs_basic and reference is not None:
         try:
@@ -413,11 +502,16 @@ def audit_etf_daily_silver_partition(
     source_parity: EtfDailySourceParityAudit | None = None
     domain: EtfDailyDomainAudit | None = None
     coverage: EtfDailyCoverageAudit | None = None
-    raw_errors: tuple[str, ...] = ()
+    raw_errors: tuple[str, ...] = ("raw_file_missing",) if raw_missing else ()
     error_type: str | None = None
     try:
         with duckdb_resource.connect() as connection:
             silver_sql = read_parquet(silver_file_path, hive_partitioning=False)
+            if spec is FUND_ADJ_SILVER_SPEC:
+                connection.execute(
+                    f"CREATE OR REPLACE TEMP TABLE etf_factor_check_silver AS SELECT * FROM {silver_sql}"
+                )
+                silver_sql = "etf_factor_check_silver"
             relation = audit_etf_daily_silver_relation(
                 connection,
                 relation_sql=silver_sql,
@@ -425,15 +519,30 @@ def audit_etf_daily_silver_partition(
                 partition_key=partition_key,
             )
             raw_sql: str | None = None
-            if needs_raw:
-                raw_sql = read_parquet(raw_file_path, hive_partitioning=False)
-                raw_relation = audit_etf_daily_raw_relation(
+            if needs_raw and not raw_missing:
+                try:
+                    raw_sql = read_parquet(raw_file_path, hive_partitioning=False)
+                    if spec is FUND_ADJ_SILVER_SPEC:
+                        connection.execute(
+                            f"CREATE OR REPLACE TEMP TABLE etf_factor_check_raw AS SELECT * FROM {raw_sql}"
+                        )
+                        raw_sql = "etf_factor_check_raw"
+                    raw_relation = audit_etf_daily_raw_relation(
+                        connection,
+                        relation_sql=raw_sql,
+                        spec=spec.raw_spec,
+                        partition_key=partition_key,
+                    )
+                    raw_errors = raw_relation.error_codes
+                except Exception as error:  # noqa: BLE001 - independent input failure.
+                    raw_errors = (f"raw_file_{type(error).__name__}",)
+                    raw_sql = None
+            if needs_domain and not relation.schema_errors:
+                domain = audit_etf_daily_domain(
                     connection,
-                    relation_sql=raw_sql,
-                    spec=spec.raw_spec,
-                    partition_key=partition_key,
+                    silver_relation_sql=silver_sql,
+                    spec=spec,
                 )
-                raw_errors = raw_relation.error_codes
             if (
                 needs_basic
                 and not relation.schema_errors
@@ -444,14 +553,19 @@ def audit_etf_daily_silver_partition(
                     Path(reference.silver_uri),
                     hive_partitioning=False,
                 )
-                if check_kind in {None, "source_filter"}:
+                if spec is FUND_ADJ_SILVER_SPEC:
+                    connection.execute(
+                        f"CREATE OR REPLACE TEMP TABLE etf_factor_check_basic AS SELECT * FROM {basic_sql}"
+                    )
+                    basic_sql = "etf_factor_check_basic"
+                if "source_filter" in selected_kinds:
                     source_filter = audit_etf_daily_source_filter(
                         connection,
                         silver_relation_sql=silver_sql,
                         basic_relation_sql=basic_sql,
                     )
                 if (
-                    check_kind in {None, "source_parity"}
+                    "source_parity" in selected_kinds
                     and raw_sql is not None
                     and not raw_errors
                     and not relation.error_codes
@@ -464,7 +578,7 @@ def audit_etf_daily_silver_partition(
                         spec=spec,
                     )
                 if (
-                    check_kind in {None, "coverage"}
+                    "coverage" in selected_kinds
                     and raw_sql is not None
                     and not raw_errors
                     and not relation.error_codes
@@ -476,12 +590,6 @@ def audit_etf_daily_silver_partition(
                         basic_relation_sql=basic_sql,
                         partition_key=partition_key,
                     )
-            if needs_domain and not relation.schema_errors:
-                domain = audit_etf_daily_domain(
-                    connection,
-                    silver_relation_sql=silver_sql,
-                    spec=spec,
-                )
     except Exception as error:  # noqa: BLE001 - checks report corrupt files.
         error_type = type(error).__name__
     return EtfDailySilverFileAudit(
@@ -505,6 +613,16 @@ def audit_etf_daily_silver_partition(
         basic_reference_errors=tuple(dict.fromkeys(reference_errors)),
         raw_errors=raw_errors,
         error_type=error_type,
+        missing_file_paths=(
+            *missing_paths,
+            *(
+                (Path(reference.silver_uri),)
+                if needs_basic
+                and reference is not None
+                and not Path(reference.silver_uri).is_file()
+                else ()
+            ),
+        ),
     )
 
 
@@ -723,6 +841,14 @@ def _silver_failed_rules(
                     error
                     for error in audit.materialization_errors
                     if not error.startswith("basic_")
+                    # Raw-derived comparisons from the shared audit are not
+                    # dependencies of the original Silver-only contract check.
+                    and error
+                    not in {
+                        "raw_row_count_mismatch",
+                        "selected_row_count_mismatch",
+                        "rejected_row_count_mismatch",
+                    }
                 )
             )
         )
@@ -820,6 +946,27 @@ def evaluate_etf_daily_silver_check(
         check_kind=check_kind,
         current_run_id=getattr(getattr(context, "run", None), "run_id", None),
     )
+    return build_etf_daily_silver_check_result(audit, check_kind=check_kind)
+
+
+def build_etf_daily_silver_check_result(
+    audit: EtfDailySilverFileAudit,
+    *,
+    check_kind: str,
+    check_name: str | None = None,
+) -> dg.AssetCheckResult:
+    """Construct one result from shared facts without reading files or storage."""
+    spec = audit.spec
+    partition_key = audit.partition_key
+    is_coverage = check_kind == "coverage"
+    coverage_warn_only = (
+        is_coverage and spec.asset_key == FUND_DAILY_SILVER_SPEC.asset_key
+    )
+    severity = (
+        dg.AssetCheckSeverity.WARN
+        if coverage_warn_only
+        else dg.AssetCheckSeverity.ERROR
+    )
     failed_rules = _silver_failed_rules(audit, check_kind=check_kind)
     relation = audit.relation
     parity = audit.source_parity
@@ -854,6 +1001,8 @@ def evaluate_etf_daily_silver_check(
             ),
             "domain": domain.failed_row_count if domain is not None else 0,
         }[check_kind]
+    if passed:
+        failed_row_count = 0
     failure_samples: tuple[dict[str, object], ...] = ()
     if check_kind == "contract" and relation is not None:
         failure_samples = relation.failure_samples
@@ -876,6 +1025,8 @@ def evaluate_etf_daily_silver_check(
     required_file_paths = [audit.silver_file_path, *input_file_paths]
     return dg.AssetCheckResult(
         passed=passed,
+        asset_key=spec.asset_key,
+        check_name=check_name,
         severity=severity,
         metadata=build_check_metadata(
             check_scope={
@@ -889,7 +1040,7 @@ def evaluate_etf_daily_silver_check(
             file_path=audit.silver_file_path,
             input_file_paths=tuple(input_file_paths),
             missing_file_paths=tuple(
-                path for path in required_file_paths if not path.is_file()
+                path for path in required_file_paths if path in audit.missing_file_paths
             ),
             checked_row_count=relation.row_count if relation is not None else 0,
             failed_row_count=failed_row_count,
@@ -914,6 +1065,15 @@ def evaluate_etf_daily_silver_check(
                 "silver_row_count": relation.row_count if relation is not None else 0,
                 "reject_reason_counts": (
                     dict(parity.reason_counts) if parity is not None else {}
+                ),
+                **(
+                    {"historical_added_row_count": audit.history.added_row_count}
+                    if audit.history is not None
+                    and audit.history.added_row_count > 0
+                    and audit.materialization_metadata is not None
+                    and ETF_FACTOR_COMPLETION_METADATA_KEY
+                    in audit.materialization_metadata
+                    else {}
                 ),
                 "historical_acceptance_verified": audit.history is not None
                 and not audit.history.errors,
@@ -953,7 +1113,11 @@ def evaluate_etf_daily_silver_check(
                 "failure_samples": list(failure_samples),
                 "error_type": audit.error_type,
                 "conclusion": (
-                    "已核对原历史验收及实际文件，内容未变；未重新补值。"
+                    f"已核对原有行未变，另有{audit.history.added_row_count}条指定Raw记录追加；未生成因子。"
+                    if passed
+                    and audit.history is not None
+                    and audit.history.added_row_count
+                    else "已核对原历史验收及实际文件，内容未变；未重新补值。"
                     if passed and audit.history is not None
                     else "Silver 分区通过当前检查。"
                     if passed
@@ -1035,35 +1199,82 @@ def _build_silver_check(
     )
 )
 
-(
-    silver_etf_adj_factor_contract_check,
-    silver_etf_adj_factor_source_filter_check,
-    silver_etf_adj_factor_source_parity_check,
-    silver_etf_adj_factor_key_integrity_check,
-    silver_etf_adj_factor_domain_check,
-    silver_etf_adj_factor_basic_coverage_check,
-) = tuple(
-    _build_silver_check(
-        asset=silver_etf_adj_factor,
-        spec=FUND_ADJ_SILVER_SPEC,
-        name=name,
-        check_kind=kind,
-        blocking=blocking,
-    )
-    for name, kind, blocking in zip(
-        SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
-        (
-            "contract",
-            "source_filter",
-            "source_parity",
-            "key_integrity",
-            "domain",
-            "coverage",
-        ),
-        (True, True, True, True, True, True),
-        strict=True,
-    )
+_FACTOR_CHECK_KINDS = (
+    "contract",
+    "source_filter",
+    "source_parity",
+    "key_integrity",
+    "domain",
+    "coverage",
 )
+
+
+@dg.multi_asset_check(
+    name="silver_etf_adj_factor_checks",
+    specs=[
+        dg.AssetCheckSpec(
+            name=name,
+            asset=silver_etf_adj_factor,
+            blocking=True,
+            partitions_def=cn_a_etf_mins_trade_days,
+        )
+        for name in SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS
+    ],
+    can_subset=True,
+    required_resource_keys={"lake_root", "duckdb", "prepared_basic"},
+    resource_defs={"prepared_basic": dg.ResourceDefinition.hardcoded_resource(None)},
+)
+def silver_etf_adj_factor_checks(
+    context: dg.AssetCheckExecutionContext,
+) -> Iterator[dg.AssetCheckResult]:
+    """Read one selected partition once and emit the original six check results."""
+    selected_names = {key.name for key in context.selected_asset_check_keys}
+    selected_checks = tuple(
+        (name, kind)
+        for name, kind in zip(
+            SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS, _FACTOR_CHECK_KINDS, strict=True
+        )
+        if name in selected_names
+    )
+    partition_key = _partition_key(context)
+    if partition_key is None:
+        for name, _ in selected_checks:
+            yield dg.AssetCheckResult(
+                passed=False,
+                asset_key=FUND_ADJ_SILVER_SPEC.asset_key,
+                check_name=name,
+                severity=dg.AssetCheckSeverity.ERROR,
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.PARTITION_ALIGNMENT,
+                    checked_row_count=0,
+                    failed_row_count=0,
+                    extra_metadata={
+                        "reason_code": "single_partition_required",
+                        "failed_rule_names": ["single_partition_execution"],
+                        "next_action": "请只选择一个交易日重新执行检查。",
+                    },
+                ),
+            )
+        return
+    plan_hash = context.run.tags.get(ETF_FACTOR_COMPLETION_METADATA_KEY)
+    prepared_basic = context.resources.prepared_basic
+    if plan_hash is not None:
+        prepared_basic = require_prepared_basic(prepared_basic)
+    audit = audit_etf_daily_silver_partition(
+        instance=context.instance,
+        lake_root_path=context.resources.lake_root.root(),
+        duckdb_resource=context.resources.duckdb,
+        spec=FUND_ADJ_SILVER_SPEC,
+        partition_key=partition_key,
+        check_kinds=frozenset(kind for _, kind in selected_checks),
+        current_run_id=context.run.run_id,
+        prepared_basic=prepared_basic,
+        maintenance_plan_hash=plan_hash,
+    )
+    for name, kind in selected_checks:
+        yield build_etf_daily_silver_check_result(
+            audit, check_kind=kind, check_name=name
+        )
 
 
 __all__ = [
@@ -1071,6 +1282,7 @@ __all__ = [
     "EtfDailySilverFileAudit",
     "audit_etf_daily_raw_partition",
     "audit_etf_daily_silver_partition",
+    "build_etf_daily_silver_check_result",
     "evaluate_etf_daily_raw_check",
     "evaluate_etf_daily_silver_check",
     "raw_tushare_fund_adj_key_integrity_check",
@@ -1079,12 +1291,7 @@ __all__ = [
     "raw_tushare_fund_daily_key_integrity_check",
     "raw_tushare_fund_daily_partition_scope_check",
     "raw_tushare_fund_daily_source_contract_check",
-    "silver_etf_adj_factor_basic_coverage_check",
-    "silver_etf_adj_factor_contract_check",
-    "silver_etf_adj_factor_domain_check",
-    "silver_etf_adj_factor_key_integrity_check",
-    "silver_etf_adj_factor_source_filter_check",
-    "silver_etf_adj_factor_source_parity_check",
+    "silver_etf_adj_factor_checks",
     "silver_etf_daily_bar_domain_check",
     "silver_etf_daily_basic_coverage_check",
     "silver_etf_daily_contract_check",

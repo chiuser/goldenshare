@@ -645,7 +645,7 @@ def test_real_checks_only_job_accepts_old_file_and_binds_all_six_to_original(
 
     f = history_factory()
     original = latest(f.instance)
-    selected = [getattr(checks, name) for name in SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS]
+    selected = [checks.silver_etf_adj_factor_checks]
 
     # Installed Dagster validates partition_key through selected materializable assets.
     # A no-I/O test asset supplies that execution context; the six real checks still

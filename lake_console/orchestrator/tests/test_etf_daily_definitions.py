@@ -18,12 +18,7 @@ from orchestrator.defs.checks.etf_daily_checks import (
     raw_tushare_fund_daily_key_integrity_check,
     raw_tushare_fund_daily_partition_scope_check,
     raw_tushare_fund_daily_source_contract_check,
-    silver_etf_adj_factor_basic_coverage_check,
-    silver_etf_adj_factor_contract_check,
-    silver_etf_adj_factor_domain_check,
-    silver_etf_adj_factor_key_integrity_check,
-    silver_etf_adj_factor_source_filter_check,
-    silver_etf_adj_factor_source_parity_check,
+    silver_etf_adj_factor_checks,
     silver_etf_daily_bar_domain_check,
     silver_etf_daily_basic_coverage_check,
     silver_etf_daily_contract_check,
@@ -87,14 +82,7 @@ SILVER_DAILY_CHECKS = (
     silver_etf_daily_bar_domain_check,
     silver_etf_daily_basic_coverage_check,
 )
-SILVER_ADJ_CHECKS = (
-    silver_etf_adj_factor_contract_check,
-    silver_etf_adj_factor_source_filter_check,
-    silver_etf_adj_factor_source_parity_check,
-    silver_etf_adj_factor_key_integrity_check,
-    silver_etf_adj_factor_domain_check,
-    silver_etf_adj_factor_basic_coverage_check,
-)
+SILVER_ADJ_CHECKS = (silver_etf_adj_factor_checks,)
 
 
 def test_raw_assets_and_checks_match_the_frozen_p2_contract() -> None:
@@ -111,7 +99,7 @@ def test_raw_assets_and_checks_match_the_frozen_p2_contract() -> None:
         (raw_tushare_fund_daily, DAILY_CHECKS, RAW_FUND_DAILY_CHECKS),
         (raw_tushare_fund_adj, ADJ_CHECKS, RAW_FUND_ADJ_CHECKS),
     ):
-        specs = tuple(next(iter(check.check_specs)) for check in checks)
+        specs = tuple(spec for check in checks for spec in check.check_specs)
         assert tuple(spec.name for spec in specs) == expected_names
         assert all(spec.asset_key == asset.key for spec in specs)
         assert all(spec.blocking is True for spec in specs)
@@ -203,7 +191,7 @@ def test_silver_assets_checks_and_jobs_match_the_frozen_p3_contract() -> None:
         assert asset.key.to_user_string() == asset_key
         assert raw_asset.key in asset.dependency_keys
         assert asset.partitions_def is cn_a_etf_mins_trade_days
-        specs = tuple(next(iter(check.check_specs)) for check in checks)
+        specs = tuple(spec for check in checks for spec in check.check_specs)
         assert tuple(spec.name for spec in specs) == (*blocking_names, *warning_names)
         assert all(spec.asset_key == asset.key for spec in specs)
         assert all(spec.blocking is (spec.name in blocking_names) for spec in specs)

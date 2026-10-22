@@ -76,6 +76,7 @@ class FactorHistoryAudit:
     relation: EtfDailySilverAudit | None
     basic_reference: EtfBasicSilverSnapshotReference | None
     errors: tuple[str, ...]
+    added_row_count: int = 0
 
 
 class _BorrowedConnection:

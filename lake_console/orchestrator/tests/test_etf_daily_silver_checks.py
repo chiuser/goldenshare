@@ -8,12 +8,7 @@ import pytest
 
 from orchestrator.defs.checks.etf_daily_checks import (
     evaluate_etf_daily_silver_check,
-    silver_etf_adj_factor_basic_coverage_check,
-    silver_etf_adj_factor_contract_check,
-    silver_etf_adj_factor_domain_check,
-    silver_etf_adj_factor_key_integrity_check,
-    silver_etf_adj_factor_source_filter_check,
-    silver_etf_adj_factor_source_parity_check,
+    silver_etf_adj_factor_checks,
     silver_etf_daily_bar_domain_check,
     silver_etf_daily_basic_coverage_check,
     silver_etf_daily_contract_check,
@@ -38,6 +33,7 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.etf_daily import (
     FUND_ADJ_SOURCE_COLUMNS,
     FUND_DAILY_SOURCE_COLUMNS,
+    SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK,
     SILVER_ETF_DAILY_ASSET_KEY,
 )
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
@@ -203,17 +199,12 @@ def test_silver_check_definitions_have_exact_blocking_policy() -> None:
         silver_etf_daily_key_integrity_check,
         silver_etf_daily_bar_domain_check,
         silver_etf_daily_basic_coverage_check,
-        silver_etf_adj_factor_contract_check,
-        silver_etf_adj_factor_source_filter_check,
-        silver_etf_adj_factor_source_parity_check,
-        silver_etf_adj_factor_key_integrity_check,
-        silver_etf_adj_factor_domain_check,
-        silver_etf_adj_factor_basic_coverage_check,
+        silver_etf_adj_factor_checks,
     )
     for index, check in enumerate(checks):
-        spec = next(iter(check.check_specs))
-        assert spec.partitions_def is not None
-        assert spec.blocking is (index != 5)
+        for spec in check.check_specs:
+            assert spec.partitions_def is not None
+            assert spec.blocking is (index != 5)
 
 
 @pytest.mark.parametrize(
@@ -243,6 +234,7 @@ def test_daily_checks_pass_on_one_fully_aligned_partition(
     )
 
     assert check_result.passed is True
+    assert "goldenshare/historical_added_row_count" not in check_result.metadata
     assert (
         len(check_result.metadata["goldenshare/input_file_paths"].value)
         == {
@@ -360,7 +352,11 @@ def test_adj_coverage_is_error_and_never_repairs_data(
         )
     assert check_result.passed is (case in {"complete", "raw_extra"})
     assert check_result.severity is dg.AssetCheckSeverity.ERROR
-    assert next(iter(silver_etf_adj_factor_basic_coverage_check.check_specs)).blocking
+    assert next(
+        spec
+        for spec in silver_etf_adj_factor_checks.check_specs
+        if spec.name == SILVER_ETF_ADJ_FACTOR_COVERAGE_CHECK
+    ).blocking
     if case == "missing":
         assert check_result.metadata["goldenshare/failed_rule_names"].value == [
             "missing_expected_codes"

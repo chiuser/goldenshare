@@ -274,3 +274,174 @@ def build_fund_adj_request(
         partition_key=partition_key,
         offset=offset,
     )
+
+
+# Only the reviewed business scope is fixed here; the actual keys live in the Plan.
+ETF_FACTOR_COMPLETION_SCOPE_HASH = (
+    "b42c991cbe1711316c48ad0782e9cb21d4b3944967013aa01c5288481400f76b"
+)
+ETF_FACTOR_COMPLETION_METADATA_KEY = "goldenshare/history_completion"
+
+
+def etf_factor_completion_hash(payload: object) -> str:
+    """Canonical business hash; callers explicitly choose fields, never event ids."""
+    import hashlib
+    import json
+
+    return hashlib.sha256(
+        json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+
+
+def validate_etf_factor_completion_scope(scope: Mapping[str, object]) -> None:
+    """Reject every scope other than the 56-code/701-key table reviewed in LLD11.9."""
+    if etf_factor_completion_hash(scope) != ETF_FACTOR_COMPLETION_SCOPE_HASH:
+        raise EtfDailyContractError("etf_factor_completion_scope_not_approved")
+
+
+@dataclass(frozen=True, slots=True)
+class EtfFactorCompletionFile:
+    trade_date: str
+    original_storage_id: int
+    original_run_id: str | None
+    original_metadata: Mapping[str, object]
+    original_check_ids: Mapping[str, int]
+    raw_storage_id: int
+    raw_metadata: Mapping[str, object]
+    expected_row_count: int
+    expected_content_hash: str
+
+    def validate(self, added_count: int) -> None:
+        import re
+
+        normalize_etf_daily_trade_date(self.trade_date)
+        if (
+            type(self.original_storage_id) is not int
+            or self.original_storage_id <= 0
+            or type(self.raw_storage_id) is not int
+            or self.raw_storage_id <= 0
+            or set(self.original_check_ids)
+            != set(SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS)
+            or any(
+                type(x) is not int or x <= 0 for x in self.original_check_ids.values()
+            )
+            or type(self.expected_row_count) is not int
+            or type(self.original_metadata.get("dagster/row_count")) is not int
+            or self.expected_row_count
+            != self.original_metadata["dagster/row_count"] + added_count
+            or self.expected_row_count > 5000
+            or not re.fullmatch(r"[0-9a-f]{64}", self.expected_content_hash)
+            or ETF_FACTOR_COMPLETION_METADATA_KEY in self.original_metadata
+        ):
+            raise EtfDailyContractError(
+                "etf_factor_completion_original_or_output_invalid"
+            )
+
+    def to_dict(self) -> dict[str, object]:
+        from dataclasses import asdict
+
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class EtfFactorCompletionPlan:
+    scope: Mapping[str, object]
+    basic_reference: Mapping[str, object]
+    basic_evidence: Mapping[str, object]
+    files: tuple[EtfFactorCompletionFile, ...]
+
+    def validate(self) -> "EtfFactorCompletionPlan":
+        from orchestrator.defs.run_contracts.etf_basic import (
+            EtfBasicSilverSnapshotReference,
+        )
+
+        validate_etf_factor_completion_scope(self.scope)
+        EtfBasicSilverSnapshotReference.model_validate(
+            self.basic_reference
+        ).validate_contract()
+        if (
+            set(self.basic_evidence) != {"storage_id", "metadata", "check_ids"}
+            or type(self.basic_evidence["storage_id"]) is not int
+            or self.basic_evidence["storage_id"] <= 0
+            or len(self.basic_evidence["check_ids"]) != 3
+            or self.basic_evidence["metadata"].get("goldenshare/raw_snapshot_hash")
+            != self.basic_reference["raw_snapshot_hash"]
+            or self.basic_evidence["metadata"].get("goldenshare/silver_content_hash")
+            != self.basic_reference["silver_content_hash"]
+        ):
+            raise EtfDailyContractError("etf_factor_completion_basic_evidence_invalid")
+        additions = self.scope["additions"]
+        if not isinstance(additions, dict) or tuple(
+            f.trade_date for f in self.files
+        ) != tuple(sorted(additions)):
+            raise EtfDailyContractError("etf_factor_completion_dates_invalid")
+        for item in self.files:
+            item.validate(len(additions[item.trade_date]))
+        return self
+
+    def file(self, trade_date: str) -> EtfFactorCompletionFile:
+        return next(f for f in self.files if f.trade_date == trade_date)
+
+    @property
+    def plan_hash(self) -> str:
+        # Record identity and observation times are traceability, not business identity.
+        return etf_factor_completion_hash(
+            {
+                "scope": self.scope,
+                "basic_content": {
+                    key: self.basic_reference[key]
+                    for key in ("raw_snapshot_hash", "silver_content_hash")
+                },
+                "files": [
+                    {
+                        "trade_date": f.trade_date,
+                        "original_count": f.original_metadata["dagster/row_count"],
+                        "original_hash": f.original_metadata[
+                            "goldenshare/content_hash"
+                        ],
+                        "original_basic_raw_hash": f.original_metadata[
+                            "goldenshare/basic_raw_snapshot_hash"
+                        ],
+                        "original_basic_silver_hash": f.original_metadata[
+                            "goldenshare/basic_silver_content_hash"
+                        ],
+                        "raw_count": f.raw_metadata["dagster/row_count"],
+                        "raw_hash": f.raw_metadata["goldenshare/content_hash"],
+                        "expected_row_count": f.expected_row_count,
+                        "expected_content_hash": f.expected_content_hash,
+                    }
+                    for f in self.files
+                ],
+            }
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "scope": dict(self.scope),
+            "basic_reference": dict(self.basic_reference),
+            "basic_evidence": dict(self.basic_evidence),
+            "files": [f.to_dict() for f in self.files],
+            "plan_hash": self.plan_hash,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> "EtfFactorCompletionPlan":
+        import json
+
+        if (
+            set(payload)
+            != {"scope", "basic_reference", "basic_evidence", "files", "plan_hash"}
+            or len(json.dumps(payload).encode()) > 256 * 1024
+        ):
+            raise EtfDailyContractError("etf_factor_completion_payload_invalid")
+        result = cls(
+            scope=payload["scope"],
+            basic_reference=payload["basic_reference"],
+            basic_evidence=payload["basic_evidence"],
+            files=tuple(EtfFactorCompletionFile(**item) for item in payload["files"]),
+        ).validate()
+        if result.plan_hash != payload["plan_hash"]:
+            raise EtfDailyContractError("etf_factor_completion_plan_hash_invalid")
+        return result

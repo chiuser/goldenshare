@@ -6,12 +6,7 @@ from orchestrator.defs.assets.etf_daily import (
     silver_etf_daily,
 )
 from orchestrator.defs.checks.etf_daily_checks import (
-    silver_etf_adj_factor_basic_coverage_check,
-    silver_etf_adj_factor_contract_check,
-    silver_etf_adj_factor_domain_check,
-    silver_etf_adj_factor_key_integrity_check,
-    silver_etf_adj_factor_source_filter_check,
-    silver_etf_adj_factor_source_parity_check,
+    silver_etf_adj_factor_checks,
     silver_etf_daily_bar_domain_check,
     silver_etf_daily_basic_coverage_check,
     silver_etf_daily_contract_check,
@@ -65,26 +60,21 @@ def test_silver_checks_are_bound_to_the_exact_assets_and_names() -> None:
         silver_etf_daily_bar_domain_check,
         silver_etf_daily_basic_coverage_check,
     )
-    adj_checks = (
-        silver_etf_adj_factor_contract_check,
-        silver_etf_adj_factor_source_filter_check,
-        silver_etf_adj_factor_source_parity_check,
-        silver_etf_adj_factor_key_integrity_check,
-        silver_etf_adj_factor_domain_check,
-        silver_etf_adj_factor_basic_coverage_check,
-    )
+    adj_checks = (silver_etf_adj_factor_checks,)
     assert tuple(next(iter(check.check_specs)).name for check in daily_checks) == (
         *SILVER_ETF_DAILY_BLOCKING_CHECKS,
         SILVER_ETF_DAILY_COVERAGE_CHECK,
     )
     assert (
-        tuple(next(iter(check.check_specs)).name for check in adj_checks)
+        tuple(spec.name for check in adj_checks for spec in check.check_specs)
         == SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS
     )
     for check in daily_checks:
         assert next(iter(check.check_specs)).asset_key == silver_etf_daily.key
     for check in adj_checks:
-        assert next(iter(check.check_specs)).asset_key == silver_etf_adj_factor.key
+        assert all(
+            spec.asset_key == silver_etf_adj_factor.key for spec in check.check_specs
+        )
 
 
 def test_four_jobs_are_layer_isolated_and_share_one_partition_definition() -> None:

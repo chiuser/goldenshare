@@ -12,11 +12,19 @@ from typing import Any, cast
 import dagster as dg
 
 from orchestrator.defs.asset_guards.etf_adj_factor_history import (
+    FactorHistoryAudit,
     FactorHistoryEvidence,
     FactorMaterializationEvidence,
     audit_factor_history,
     load_factor_history_evidence,
     needs_factor_history,
+)
+from orchestrator.defs.asset_guards.etf_adj_factor_history_completion import (
+    CompletionBasicCache,
+    PreparedCompletionBasic,
+    audit_completed_target,
+    load_completion_evidence,
+    require_prepared_basic,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
@@ -42,6 +50,8 @@ from orchestrator.defs.run_contracts.etf_basic import (
 )
 from orchestrator.defs.run_contracts.etf_daily import (
     ETF_DAILY_SENSOR_WINDOW_LIMIT,
+    ETF_FACTOR_COMPLETION_METADATA_KEY,
+    EtfFactorCompletionPlan,
     normalize_etf_daily_trade_date,
 )
 
@@ -369,6 +379,8 @@ def _silver_status(
     evidence: _MaterializationEvidence | None,
     validated_basic_references: dict[str, EtfBasicSilverSnapshotReference],
     history_evidence: FactorHistoryEvidence | None = None,
+    completion_errors: tuple[str, ...] | None = None,
+    completion_cache: CompletionBasicCache | None = None,
 ) -> EtfDailyPartitionReadiness:
     path = spec.target_path_builder(lake_root, trade_date)
     file_exists = path.is_file()
@@ -383,6 +395,40 @@ def _silver_status(
             asset_key=spec.asset_key,
             trade_date=trade_date,
             file_exists=False,
+        )
+    if ETF_FACTOR_COMPLETION_METADATA_KEY in evidence.metadata:
+        audit = (
+            audit_completed_target(
+                connection=connection,
+                lake_root=lake_root,
+                storage=None,
+                trade_date=trade_date,
+                target=FactorMaterializationEvidence(
+                    evidence.storage_id, evidence.run_id, evidence.metadata
+                ),
+                basic_cache=completion_cache,
+                evidence_errors=completion_errors or (),
+            )
+            if spec is FUND_ADJ_SILVER_SPEC
+            else FactorHistoryAudit(None, None, ("completion_wrong_asset",))
+        )
+        relation = audit.relation
+        return EtfDailyPartitionReadiness(
+            asset_key=spec.asset_key,
+            trade_date=trade_date,
+            materialized=True,
+            file_exists=True,
+            ready=not audit.errors,
+            checks_passed=not audit.errors,
+            reason_code=audit.errors[0] if audit.errors else "ready",
+            row_count=relation.row_count if relation else None,
+            content_hash=relation.content_hash if relation else None,
+        )
+    if completion_cache is not None and not completion_cache.allow_full_read:
+        # A maintenance caller must not turn missing completion evidence into an
+        # ordinary daily path, which would validate Basic by reading its files.
+        return _failed_status(
+            asset_key=spec.asset_key, trade_date=trade_date, file_exists=True
         )
     if history_evidence is not None:
         audit = audit_factor_history(
@@ -542,8 +588,13 @@ def _batch_readiness(
     lake_root: Path,
     spec: EtfDailyRawSpec | EtfDailySilverSpec,
     trade_dates: Sequence[str],
+    prepared_basic: PreparedCompletionBasic | None = None,
 ) -> EtfDailyBatchReadiness:
     started_at = perf_counter()
+    if prepared_basic is not None:
+        prepared_basic = require_prepared_basic(prepared_basic)
+        if spec is not FUND_ADJ_SILVER_SPEC:
+            raise ValueError("completion_prepared_basic_wrong_asset")
     dates = _normalized_dates(trade_dates)
     evidences, query_count = _latest_materializations(
         instance=instance,
@@ -553,9 +604,71 @@ def _batch_readiness(
     history_targets = {
         day: FactorMaterializationEvidence(item.storage_id, item.run_id, item.metadata)
         for day, item in evidences.items()
-        if needs_factor_history(spec.asset_key, item.metadata)
+        if ETF_FACTOR_COMPLETION_METADATA_KEY not in item.metadata
+        and needs_factor_history(spec.asset_key, item.metadata)
     }
     history_evidences = load_factor_history_evidence(instance, history_targets)
+    completion_cache = CompletionBasicCache(
+        connection, lake_root, allow_full_read=prepared_basic is None
+    )
+    completion_errors: dict[str, tuple[str, ...]] = {}
+    grouped_completions: dict[
+        str, tuple[EtfFactorCompletionPlan, dict[str, FactorMaterializationEvidence]]
+    ] = {}
+    for day, item in evidences.items():
+        if ETF_FACTOR_COMPLETION_METADATA_KEY not in item.metadata:
+            continue
+        try:
+            plan = EtfFactorCompletionPlan.from_dict(
+                item.metadata[ETF_FACTOR_COMPLETION_METADATA_KEY]
+            )
+            if plan.plan_hash not in grouped_completions:
+                grouped_completions[plan.plan_hash] = (plan, {})
+            grouped_completions[plan.plan_hash][1][day] = FactorMaterializationEvidence(
+                item.storage_id, item.run_id, item.metadata
+            )
+        except (KeyError, TypeError, ValueError):
+            completion_errors[day] = ("completion_metadata_invalid",)
+    if len(grouped_completions) > 1:
+        for _, targets in grouped_completions.values():
+            completion_errors.update(
+                {day: ("completion_multiple_plans_in_window",) for day in targets}
+            )
+    else:
+        for plan, targets in grouped_completions.values():
+            try:
+                if prepared_basic is not None:
+                    references = [
+                        EtfBasicSilverSnapshotReference.model_validate(
+                            plan.basic_reference
+                        ),
+                        *(
+                            EtfBasicSilverSnapshotReference.model_validate(
+                                plan.file(day).original_metadata[
+                                    "goldenshare/basic_reference"
+                                ]
+                            )
+                            for day in targets
+                        ),
+                    ]
+                    completion_cache = prepared_basic.seed_cache(
+                        connection, lake_root, references
+                    )
+                completion_errors.update(
+                    load_completion_evidence(
+                        storage=instance.event_log_storage,
+                        plan=plan,
+                        days=list(targets),
+                        current_targets=targets,
+                    ).errors
+                )
+            except Exception as error:  # noqa: BLE001 - incomplete evidence blocks readiness.
+                completion_errors.update(
+                    {
+                        day: (f"completion_evidence_{type(error).__name__}",)
+                        for day in targets
+                    }
+                )
     validated_basic_references: dict[str, EtfBasicSilverSnapshotReference] = {}
     statuses: list[EtfDailyPartitionReadiness] = []
     for trade_date in dates:
@@ -580,6 +693,8 @@ def _batch_readiness(
                     evidence=evidence,
                     validated_basic_references=validated_basic_references,
                     history_evidence=history_evidences.get(trade_date),
+                    completion_errors=completion_errors.get(trade_date),
+                    completion_cache=completion_cache,
                 )
             )
         else:
