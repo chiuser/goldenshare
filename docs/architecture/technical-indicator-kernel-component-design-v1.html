@@ -1,0 +1,820 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="技术指标计算内核组件设计：多周期、DuckDB SQL计算、复合计算、独立读取、信任外部数据；对象化接口、UML与资源边界。"><title>技术指标计算内核 · 组件设计 v1</title><style>
+:root{--ink:#152d3b;--muted:#57707e;--blue:#315f80;--green:#24705c;--line:#dce5e9;--paper:#fff;--bg:#f0f4f5;--gold:#b5873b}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:26px}body{margin:0;color:var(--ink);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.85}a{color:#266787;text-decoration-thickness:1px;text-underline-offset:4px}a:hover{color:var(--green)}nav{position:fixed;inset:0 auto 0 0;width:236px;background:#152c3a;color:#d7e7ed;padding:30px 22px;overflow-y:auto;z-index:2}.brand{font-weight:700;letter-spacing:.05em;color:#fff;font-size:17px}.nav-sub{font-size:12px;color:#a5beca;margin:4px 0 25px}.nav-list{display:grid;gap:2px}nav a{display:block;color:#b9ccd5;text-decoration:none;font-size:12px;padding:7px 10px;border-left:2px solid transparent;border-radius:0 5px 5px 0;line-height:1.6}nav a:hover,nav a.active{color:#fff;background:#254553;border-color:#74c7ad}.nav-bottom{border-top:1px solid #3c5260;margin-top:25px;padding-top:16px;font-size:11px;color:#91aeba}main{margin-left:236px;max-width:1480px;padding:38px 44px 80px}.hero{background:#173746;color:#fff;border-radius:14px;padding:40px 46px 34px;position:relative;overflow:hidden}.hero:after{content:"";width:320px;height:320px;position:absolute;right:-130px;top:-160px;border:48px solid #35616a;border-radius:50%;opacity:.4}.eyebrow{font-size:11px;letter-spacing:.15em;color:#9fcec3;text-transform:uppercase;font-weight:700}h1{font-size:36px;letter-spacing:-.03em;line-height:1.3;margin:17px 0 16px;max-width:780px}.hero p{color:#d2e2e8;max-width:800px;margin:0;font-size:16px}.meta{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}.pill{border:1px solid #486d79;border-radius:5px;padding:4px 10px;font-size:11px;color:#d1e3e9}.pill.green{background:#285d51;border-color:#4b907b;color:#dcf7ea}.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:20px 0 28px}.principle{background:#fff;border:1px solid var(--line);border-radius:9px;padding:20px 22px}.principle b{display:block;font-size:16px;margin-bottom:5px}.principle span{font-size:13px;color:var(--muted)}section{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-top:22px;padding:30px 36px;scroll-margin-top:26px}.section-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:15px}.section-head>span{font-size:12px;font-weight:700;color:var(--green);letter-spacing:.08em}h2{font-size:24px;margin:0;line-height:1.4;letter-spacing:-.025em}h3{font-size:17px;line-height:1.6;margin:26px 0 8px}p{margin:12px 0}.intro{color:var(--muted);font-size:15px;margin-top:0}.note,.decision{background:#f0f6fa;border-left:3px solid #4d7b9e;padding:15px 18px;margin:18px 0;font-size:14px;border-radius:0 7px 7px 0}.decision{background:#eef7f1;border-color:#3b8c70}.table-wrap{width:100%;overflow:auto;margin:18px 0}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.8}th{text-align:left;font-weight:650;color:#45616f;background:#f2f6f8;border-bottom:1px solid #bacdd7;padding:12px 13px;white-space:nowrap}td{padding:13px;vertical-align:top;border-bottom:1px solid #e3ebef;min-width:130px}td:first-child{color:#203f50;font-weight:550;min-width:155px}td code{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.87em;background:#eef3f5;padding:2px 4px;border-radius:3px}pre{padding:20px 23px;background:#122d3c;color:#d8e8ee;border-radius:8px;overflow:auto;font-size:12px;line-height:1.95}pre code{padding:0;background:none;font-size:inherit}.diagram{background:#fbfdfe;border:1px solid #e2ebef;border-radius:8px;overflow:auto;margin:20px 0;padding:14px 9px}.diagram svg{display:block;width:100%;min-width:840px;height:auto}.diagram text{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;fill:#263f50}.sh{font-size:16px;font-weight:650}.st{font-size:13px}.sk{font-size:11px;fill:#6b8290!important;letter-spacing:.02em}.sl{font-size:11px;fill:#526c7b!important}details{border:1px solid var(--line);padding:14px 18px;border-radius:7px;font-size:13px;margin:16px 0}summary{cursor:pointer;font-weight:600}footer{text-align:center;font-size:12px;color:#7b929e;margin:32px 0 0}.toolbar{display:flex;gap:12px;justify-content:flex-end;margin:0 0 14px}.toolbar button{border:1px solid #c7d6dd;background:white;color:#355c70;border-radius:6px;padding:8px 13px;cursor:pointer;font:inherit;font-size:12px}.toolbar button:hover{background:#e6f0f3}strong{font-weight:650}
+@media(min-width:1700px){main{margin-left:260px;padding-left:65px;padding-right:65px}}@media(max-width:1100px){nav{width:192px;padding:25px 12px}main{margin-left:192px;padding:25px 22px}section{padding:25px 24px}.hero{padding:32px}.hero h1{font-size:30px}.principles{gap:10px}.principle{padding:16px}}@media(max-width:760px){nav{position:relative;width:100%;padding:16px 20px}.nav-sub,.nav-bottom{display:none}.nav-list{display:flex;overflow-x:auto;margin-top:12px;gap:5px}.nav-list a{white-space:nowrap;padding:5px 9px;border:0}.brand{font-size:15px}main{margin-left:0;padding:18px 12px 40px}.hero{padding:25px}.hero h1{font-size:27px}.hero p{font-size:14px}section{padding:22px 17px}.section-head{gap:9px}h2{font-size:21px}.principles{grid-template-columns:1fr;gap:8px}.principle{padding:14px 18px}.principle b{font-size:14px}.diagram svg{min-width:880px}.toolbar{margin-top:3px}}@media print{nav,.toolbar{display:none}body{background:#fff;font-size:11pt}main{margin:0;padding:0;max-width:none}.hero{background:#fff;color:#173746;border:1px solid #a8bdc8;padding:24px}.hero p,.eyebrow{color:#446676}.hero:after{display:none}.pill{color:#315d6c;border-color:#acc0c8}section{break-before:auto;padding:20px 14px;margin-top:18px;box-shadow:none}.section-head{break-after:avoid}h2,h3{break-after:avoid}.diagram{break-inside:avoid;padding:4px}.diagram svg{min-width:0;width:100%}table{font-size:9pt}td{min-width:0;padding:8px}.principles{gap:8px}.principle{padding:12px}.note,.decision{break-inside:avoid}a{color:inherit}pre{white-space:pre-wrap;font-size:9pt}details>p{display:block}}
+</style></head><body>
+<nav aria-label="文档目录">
+<div class="brand">技术指标计算内核</div>
+<div class="nav-sub">组件设计 v1 · 2026-10-23修订</div>
+<div class="nav-list"><a href="#scope">01 目标与范围</a><a href="#current">02 当前代码审计</a><a href="#components">03 组件与外部职责</a><a href="#boundary">04 模块与依赖</a><a href="#objects">05 UML对象设计</a><a href="#input">06 输入与历史范围</a><a href="#validation">07 校验职责边界</a><a href="#calculation">08 计算与扩展</a><a href="#output">09 输出与服务发现</a><a href="#sequence">10 UML请求时序</a><a href="#config">11 配置与资源</a><a href="#state">12 数据生命周期与失败处理</a><a href="#performance">13 性能与验收</a><a href="#rollout">14 页面切换与DG退出</a><a href="#acceptance">15 编码前核对</a><a href="#evidence">16 依据与审计范围</a><a href="#review">17 本轮审计与LLD清单</a></div>
+<div class="nav-bottom">Foundation 通用计算组件<br>方案与LLD设计已冻结 · 开发前审计通过<br>图示、样式均可离线阅读</div></nav>
+<main>
+<div class="toolbar"><button type="button" onclick="window.print()">打印 / 保存PDF</button><button type="button" id="expand">展开补充说明</button></div><header class="hero">
+<div class="eyebrow">Goldenshare / architecture / component design</div>
+<h1>技术指标计算内核<br>组件设计</h1>
+<p>分钟、日、周、月使用同一套指标定义。<br>Python组织对象与调用，DuckDB SQL执行复权和指标运算。</p>
+<div class="meta"><span class="pill green">总体方案已确认 · 未开发</span><span class="pill">v1 · 2026-10-23</span><span class="pill">多周期 · DuckDB SQL计算</span><span class="pill">对象化 · 组件化 · 模块化</span></div></header>
+<div class="principles">
+<div class="principle"><b>算法内聚</b><span>业务不上传算法。指标对象声明参数、依赖、SQL步骤和输出说明。</span></div>
+<div class="principle"><b>计算与读取分开</b><span>算法面对可信输入。数值质量和完整性由外部负责。</span></div>
+<div class="principle"><b>先正确，再体验，再退出</b><span>内核开发、页面切换、DG停任务分别评审与验收。</span></div></div>
+<section id="scope">
+<div class="section-head"><span>01</span>
+<h2>设计目标与已确认边界</h2></div>
+<div class="decision"><strong>2026-10-23当前交付状态：</strong>组件设计的已确认方向保持；管理员已要求据此编写代码级LLD，现已形成<a href="technical-indicator-kernel-low-level-design-v1.html">技术指标计算内核LLD v1</a>，包含代码组织、文件/对象/合同、SQL模板、来源映射、资源生命周期、量化预算、有限测试及逐项审计。原25项要求的对应位置见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD第22节</a>。此前五项及本次容量、BOLL、精度确认已同步；来源文件合计1GiB限制已撤销，5000000输出字节、32MiB读取初始保护、BOLL有限非负及精度门槛不再待拍板；150万输入、5000文件、16实例、10000返回位置均已确认为初始值，当前范围内无未review设计或已知编码阻塞；方案与LLD已冻结，满足内核开发条件。尚未开发内核、改变API/配置、迁移消费者或停止DG，也未完成完整性能验收。第11节既有初始值、默认前复权/单目标、外部负责数据质量、周月直接读取和唯一空结果规则不变。</div><p class="intro">历史过程记录（当时尚在方案阶段，当前以本版冻结结论为准）：2026-10-20对账此前讨论、全部17节及9幅图，补齐已确认决定、待拍板项和LLD核对清单。总体方案及分段接续方向已确认，仍未开发；本次审计不等于LLD已完成或正式验收已通过。</p>
+<div class="note"><strong>本轮LLD交付状态：</strong><a href="technical-indicator-kernel-low-level-design-v1.html">LLD已成稿并按25项清单逐项对账</a>，全部设计与初始值已确认，开发前审计通过、设计已冻结，结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20节</a>。<a href="#empty-series-review">成功空结果的唯一条件</a>已确认，不再列待拍板。历史段落中的“尚未编写LLD”仅记录此前设计阶段，不覆盖本次交付状态；运行代码仍未开发。</div>
+<div class="decision"><strong>管理员已确认：</strong>数值质量、数据缺口、首尾与中间完整性，以及停牌、退市等相关判断，全部交给外部负责。计算内核不逐根复查，不生成预期时间点，不请求业务传递日历、停牌、退市或质量证明。外部审计单元由管理员后续规划，本版不设计或实现该单元。</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>要求</th><th>本版收口</th>
+</tr></thead>
+<tbody>
+<tr><td>计算内核的职责</td><td>根据计算对象定义与请求参数，执行基础计算、技术指标及复合计算；控制资源并组织结果。</td>
+</tr>
+<tr><td>读取与计算分开</td><td>计算服务通过数据读取接口取数；当前只实现数据湖读取，未来Prod和网络接口通过其他实现接入。纯计算核心不创建来源连接。</td>
+</tr>
+<tr><td>复合计算</td><td>复权是读取模块内部的独立计算对象；读取模块提供并管理目标价格，指标声明所需字段与历史，同请求共用数据。</td>
+</tr>
+<tr><td>算法内聚、对象化</td><td>业务只选择计算能力与参数，算法随代码注册。对象声明输入、参数约束、算法、输出和基本信息；不接受业务上传算法。</td>
+</tr>
+<tr><td>校验职责收窄</td><td>只保留请求参数、指标依赖、基础配置及资源限制等执行所必需的检查；不扫描输入价格、因子或时间点来验证数据质量。</td>
+</tr>
+<tr><td>页面与DG退出</td><td>先设计内核，再做页面接入与真实链路性能验收；DG股票、指数技术指标任务分别迁移与退出，本轮均未执行。</td>
+</tr></tbody></table></div>
+<h3>本轮交付范围</h3>
+<p>此前方案阶段仅修订本HTML；本次按管理员新要求编写独立HTML代码级LLD，并同步本文与索引。原25项检查继续作为唯一核对入口。未开发内核、修改现行API、迁移页面或启停DG任务，未读写正式数据。组件职责已按管理员决定收口，具体类方法、配置字段与消费者、参数边界及实施顺序现已写入新LLD，全部设计与初始值已确认，开发后实际验证按LLD执行。请求时计算指对来源已有K线进行计算。计算定义支持分钟、日、周、月；各周期读取合同逐项接入，不表示现有Reader已经覆盖所有周期。</p>
+<div class="table-wrap"><table><thead><tr><th>本轮新增硬要求</th><th>设计约束</th></tr></thead><tbody><tr><td>不限定K线周期</td><td>核心按有序K线计算。分钟、日、周、月共用指标对象、公式和参数；周期决定输入K线含义，不复制四套算法。</td></tr><tr><td>DuckDB承担指标运算</td><td>复权、系数、窗口统计、平滑与指标数值均在SQL中计算。Python只做定义、参数检查、执行组织、资源控制和结果包装。</td></tr><tr><td>Python例外必须先证实</td><td>只有证明DuckDB不支持所需计算时才讨论例外；没有同名内置指标函数、SQL写法复杂或现有SQL慢，都不能直接作为不支持的结论。禁止静默转用Python、NumPy、Pandas或Python UDF执行指标公式。</td></tr><tr><td>本轮仍是设计研究</td><td>文档改名与索引更新已完成；本轮仅继续修订本文，复核隔离SQL实验和遗漏项，不开发正式模块，不改变生产者、消费者、配置或DG任务。</td></tr></tbody></table></div><div class="decision"><strong>本轮已确认：</strong>采用分段SQL计算，并把上一段末状态交给下一段；不丢历史，不在段首重新初始化。数值安全与实际资源占用两方面均须写入后续LLD。数学安全分段长度与具体SQL已在LLD第09/21节明确，资源初始配置已按第11节确认，不能把方案确认写成实现已经验收。</div><div class="decision"><strong>本轮新增确认：</strong>本周/本月尚未结束的最新一根K线要参与技术指标计算，结果代表截至来源当前数据时刻的指标，并随该根K线更新。输入实际复权类型必须由来源如实说明；目标复权参数由业务选择，不传默认前复权，传入合法类型则按指定类型处理。内核根据实际输入与目标类型、基准和因子说明决定是否加入独立复权流程。</div><div class="decision"><strong>本轮边界已确认：</strong>读取模块内部保留独立读取与复权对象，统一管理共享价格数据；指标计算模块只使用目标价格并持有指标状态。具体生命周期、连接归属和异常细节见<a href="#data-lifecycle-proposal">第12节生命周期细化要求</a>，尚未编码。</div><p>本次完整审计的已确认决定和初始配置，以及<a href="#review-decisions">工程细节</a>与<a href="#lld-audit-checklist">25项LLD交付清单</a>见第17节；具体方法、SQL与配置已见代码级LLD，已确认输入容量和开发后验证分别记录；第13节资源测试方案已记录，尚未执行。</p></section>
+<section id="current">
+<div class="section-head"><span>02</span>
+<h2>当前代码说明了什么</h2></div>
+<p class="intro">以下为工作区静态事实，2026-10-20复核关键入口、读取、公式与消费者。既有实验的日期及范围另列；没有查询正式DG启用状态或扫描正式数据。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>当前入口</th><th>已核对的事实</th><th>对新设计的影响</th>
+</tr></thead>
+<tbody>
+<tr><td>股票分钟页面 → StockMinuteQueryService → StockMinsLakeReader</td><td>StockDetailPage.handlePeriodChange并行请求K线与指标两个接口；一次指标响应已有MACD和KDJ，并非每项指标单发请求。K线读取Gold前复权价格；现有读取最多3个年份文件、每页最多10000根。</td><td>当前仍读预计算结果，不能据此证明现算性能。页面合并调用与价格/指标共同返回须在接入LLD审计合同；本轮不改接口。现有分页读取不能直接当作完整历史输入。</td>
+</tr>
+<tr><td>指数分钟页面 → IndexDetailMinutesQueryService → MajorIndexMinsLakeReader</td><td>指标字段包含MA、BOLL、MACD、KDJ。页面默认请求500根；现有完整历史读取上限20000根。</td><td>不能把返回根数当计算根数；不能将2万根上限直接沿用到1分钟多年历史。</td>
+</tr>
+<tr><td>指数分钟前端数据转换</td><td>按时间键对齐K线与指标；核对paramsKey、indicatorVersion，当前indicatorSource使用gold。</td><td>切换时必须同步核对来源、参数、版本与分页含义，不能只替换一个函数。</td>
+</tr>
+<tr><td>徐小明分钟识别 source.read_minutes</td><td>读取完整价格和已存MACD后，交给结构计算。</td><td>指数DG指标任务还存在页面以外的消费者；通用内核不代替结构计算。</td>
+</tr>
+<tr><td>DG股票、指数技术指标写入</td><td>两条链路都使用上一期递推状态；股票侧还涉及前复权修复联动。</td><td>现有任务不是每天盲目重算全历史。停止指标任务不等于停止行情、复权及其修复。</td>
+</tr>
+<tr><td>QTF现有计算模块</td><td>已读sector/factor_kernel与公式合同；它们服务板块研究，且Biz不能依赖QTF。</td><td>通用技术指标放Foundation，供Biz和QTF单向使用；不把QTF板块公式当成通用内核。</td>
+</tr></tbody></table></div>
+<div class="note">现有DG方案仍是当前运行口径。本文提出的是未来替代设计，<strong>没有修改或撤销</strong>原股票分钟MACD/KDJ方案和主要指数技术指标方案。退出阶段须将经确认的变更写回原方案与对应LLD。</div>
+<div class="table-wrap"><table><thead><tr><th>本次补充核验</th><th>当前代码事实</th><th>设计采用方式</th></tr></thead><tbody><tr><td>股票指标 _insert_macd_kdj_segment_rows</td><td>现有实现用DuckDB SQL窗口累计和分段指数幂计算EMA、DEA、K、D及输出；Python循环组织分段。当前平滑系数仍在Python求值。</td><td>借鉴已核对公式和分段方法；新设计将系数也放入SQL，不导入DG writer或沿用写湖行为。</td></tr><tr><td>指数指标 _create_calculation_tables</td><td>现有SQL使用avg、stddev_pop、最高/最低窗口及RSV表达式；平滑运算在SQL中，但系数同样仍在Python求值。</td><td>MA、BOLL及KDJ窗口可直接由原生SQL表达；独立样本和跨段精度验证仍必需。</td></tr><tr><td>本机实验环境</td><td>既有DuckDB 1.5.2；单线程，查询内存128MB，不允许落盘，不安装或加载扩展。</td><td>本轮只验证SQL能力和局部耗时；未读取真实行情，也未证明完整API性能。</td></tr></tbody></table></div></section>
+<section id="components">
+<div class="section-head"><span>03</span>
+<h2>读取独立，计算内核信任外部数据</h2></div>
+<p class="intro">校验不再作为独立的主要模块。外部负责数据质量；读取、计算和输出仅承担各自完成调用所需的工作。</p>
+<div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1018 520" role="img" aria-label="外部数据质量责任与计算组件职责图"><title>外部数据质量责任与计算组件职责图</title><defs><marker id="revision-1-arrow-101" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="revision-1-triangle-101" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="15" width="282" height="132" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="32" y="38" class="sk" text-anchor="start">«计算内核之外»</text><text x="32" y="63" class="sh" text-anchor="start">外部审计单元</text><text x="32" y="88" class="st" text-anchor="start">数值质量、完整性、缺口</text><text x="32" y="110" class="st" text-anchor="start">停牌、退市等共识由外部负责</text><text x="32" y="132" class="st" text-anchor="start">后续规划；不在每次请求调用</text><rect x="370" y="15" width="290" height="105" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="384" y="38" class="sk" text-anchor="start">«服务»</text><text x="384" y="63" class="sh" text-anchor="start">技术指标计算服务</text><text x="384" y="88" class="st" text-anchor="start">唯一业务计算入口 calculate(request)</text><text x="384" y="110" class="st" text-anchor="start">组织读取、复合计算与资源限制</text><rect x="730" y="15" width="270" height="105" rx="10" fill="#fff" stroke="#4d6577" stroke-width="1.2"/><text x="744" y="38" class="sk" text-anchor="start">«业务»</text><text x="744" y="63" class="sh" text-anchor="start">财势乾坤 / 其他调用方</text><text x="744" y="88" class="st" text-anchor="start">只选择对象、范围、指标和参数</text><text x="744" y="110" class="st" text-anchor="start">不传日历或数据质量证明</text><path d="M730 70 L660 70" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)"/><text x="695.0" y="61.0" class="sl" text-anchor="middle">调用</text><rect x="18" y="202" width="282" height="133" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="225" class="sk" text-anchor="start">«读取»</text><text x="32" y="250" class="sh" text-anchor="start">独立数据读取组件</text><text x="32" y="275" class="st" text-anchor="start">当前从数据湖读取；未来替换实现</text><text x="32" y="297" class="st" text-anchor="start">按需复权并管理共享价格数据</text><text x="32" y="319" class="st" text-anchor="start">不额外逐根复查可信输入</text><rect x="370" y="202" width="290" height="133" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="384" y="225" class="sk" text-anchor="start">«纯计算»</text><text x="384" y="250" class="sh" text-anchor="start">计算内核</text><text x="384" y="275" class="st" text-anchor="start">参数与依赖检查；组织SQL执行</text><text x="384" y="297" class="st" text-anchor="start">DuckDB计算指标公式与状态</text><text x="384" y="319" class="st" text-anchor="start">信任数值与完整性，不做质量扫描</text><rect x="730" y="202" width="270" height="133" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="744" y="225" class="sk" text-anchor="start">«输出»</text><text x="744" y="250" class="sh" text-anchor="start">输出组织</text><text x="744" y="275" class="st" text-anchor="start">截取最近1000根并返回计算说明</text><text x="744" y="297" class="st" text-anchor="start">不逐点重算或检查数值质量</text><text x="744" y="319" class="st" text-anchor="start">算法正确性由开发测试验证</text><path d="M300 267 L370 267" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)"/><text x="335.0" y="258.0" class="sl" text-anchor="middle">标准数据</text><path d="M660 267 L730 267" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)"/><text x="695.0" y="258.0" class="sl" text-anchor="middle">结果</text><path d="M515 120 V162 H159 V202" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)"/><rect x="18" y="398" width="477" height="104" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="32" y="421" class="sk" text-anchor="start">«辅助组件»</text><text x="32" y="446" class="sh" text-anchor="start">配置</text><text x="32" y="471" class="st" text-anchor="start">读取配置、内存、并发、时间与输出限制</text><text x="32" y="493" class="st" text-anchor="start">App统一注入；不包含数据质量审计开关</text><rect x="522" y="398" width="478" height="104" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="536" y="421" class="sk" text-anchor="start">«辅助组件»</text><text x="536" y="446" class="sh" text-anchor="start">服务能力发现及说明</text><text x="536" y="471" class="st" text-anchor="start">基础计算、技术指标、输入输出与依赖说明</text><text x="536" y="493" class="st" text-anchor="start">说明和执行共用定义；不要求提供审计凭证</text><path d="M254 398 L254 352" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)" stroke-dasharray="6 4"/><text x="254.0" y="366.0" class="sl" text-anchor="middle">基础配置</text><path d="M759 398 L759 352" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-1-arrow-101)" stroke-dasharray="6 4"/><text x="759.0" y="366.0" class="sl" text-anchor="middle">计算对象定义</text></svg></div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>位置</th><th>负责</th><th>不再承担</th>
+</tr></thead>
+<tbody>
+<tr><td>外部审计单元</td><td>数据数值合法、日期和分钟覆盖完整、因子完整、停牌与退市等共识；具体实现后续另行规划。</td><td>本设计不新增每请求审计、审计凭证、审计状态查询或计算阻塞流程。</td>
+</tr>
+<tr><td>读取组件</td><td>读取K线与必要因子，按要求执行复权；提供标准共享价格，负责输入与复权数据的保留、推进和释放。内部读取与复权保持独立对象，不做质量审计。</td><td>不在新服务中复制质量审计，不逐根查缺口、去重或核对OHLC关系。</td>
+</tr>
+<tr><td>计算内核</td><td>声明指标所需字段和历史窗口，使用读取模块提供的共享价格，按依赖执行SQL并管理EMA/K/D等指标状态；不再次读取或复权输入。</td><td>不查询日历、生命周期或停牌，不遍历检查数值和时间完整性，不修复或补齐数据。</td>
+</tr>
+<tr><td>输出组织</td><td>形成时间序列与字段结果，按请求数量截取并序列化，记录实际参数和计算范围。</td><td>不重新遍历结果做数值审计；不为补数据而读取来源或回退旧DG指标。</td>
+</tr>
+<tr><td>配置与能力说明</td><td>统一基础配置，说明本部署真正可提供的计算服务及其输入合同。</td><td>不在基础配置中增加允许缺口、跳过坏值、填补行情等选项。</td>
+</tr></tbody></table></div>
+</section>
+<section id="boundary"><div class="section-head"><span>04</span><h2>模块边界与代码组织</h2></div><p class="intro">对象化负责把算法组织清楚，DuckDB负责执行计算；读取来源和输入质量责任继续独立。</p><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 390" role="img" aria-label="应用装配、独立来源与Foundation SQL计算模块图"><title>应用装配、独立来源与Foundation SQL计算模块图</title><defs><marker id="arrow-401" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="triangle-401" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="18" width="280" height="118" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="32" y="41" class="sk" text-anchor="start">«现有组合根»</text><text x="32" y="66" class="sh" text-anchor="start">App应用装配</text><text x="32" y="91" class="st" text-anchor="start">注入读取实现、服务与基础配置</text><text x="32" y="113" class="st" text-anchor="start">不把配置读取放进指标对象</text><rect x="385" y="18" width="280" height="118" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="399" y="41" class="sk" text-anchor="start">«调用方»</text><text x="399" y="66" class="sh" text-anchor="start">Biz / QTF</text><text x="399" y="91" class="st" text-anchor="start">调用calculate(request)</text><text x="399" y="113" class="st" text-anchor="start">不传算法、SQL或数据质量证明</text><rect x="750" y="18" width="280" height="118" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="764" y="41" class="sk" text-anchor="start">«独立职责»</text><text x="764" y="66" class="sh" text-anchor="start">外部审计单元</text><text x="764" y="91" class="st" text-anchor="start">负责数值质量与完整性</text><text x="764" y="113" class="st" text-anchor="start">本轮不设计其运行方式</text><rect x="18" y="230" width="280" height="140" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="253" class="sk" text-anchor="start">«读取»</text><text x="32" y="278" class="sh" text-anchor="start">Foundation读取实现</text><text x="32" y="303" class="st" text-anchor="start">当前Lake；未来Prod / 网络接口</text><text x="32" y="325" class="st" text-anchor="start">读取、复权并管理共享价格</text><text x="32" y="347" class="st" text-anchor="start">不把来源路径写进指标公式</text><rect x="385" y="230" width="280" height="140" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="399" y="253" class="sk" text-anchor="start">«计算»</text><text x="399" y="278" class="sh" text-anchor="start">Foundation计算内核</text><text x="399" y="303" class="st" text-anchor="start">计算对象 → 依赖 → SQL步骤</text><text x="399" y="325" class="st" text-anchor="start">DuckDB执行公式、窗口和分段</text><text x="399" y="347" class="st" text-anchor="start">不反向导入DG、Biz或QTF</text><rect x="750" y="230" width="280" height="140" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="764" y="253" class="sk" text-anchor="start">«内部数据»</text><text x="764" y="278" class="sh" text-anchor="start">DuckDB临时结果</text><text x="764" y="303" class="st" text-anchor="start">输入与指标状态由各自模块管理</text><text x="764" y="325" class="st" text-anchor="start">限定在本次请求内使用</text><text x="764" y="347" class="st" text-anchor="start">不写正式指标数据集</text><path d="M298 78 L385 78" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-401)"/><text x="341.5" y="69.0" class="sl" text-anchor="middle">装配</text><path d="M525 136 L525 230" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-401)"/><text x="525.0" y="174.0" class="sl" text-anchor="middle">调用</text><path d="M298 300 L385 300" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-401)"/><text x="341.5" y="291.0" class="sl" text-anchor="middle">标准输入</text><path d="M665 300 L750 300" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-401)"/><text x="707.5" y="291.0" class="sl" text-anchor="middle">执行SQL</text><path d="M158 136 V230" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-401)" stroke-dasharray="6 4"/></svg></div><div class="table-wrap"><table><thead><tr><th>位置</th><th>职责与依赖</th></tr></thead><tbody><tr><td>Foundation技术指标模块</td><td>通用定义、注册、依赖解析、SQL计算对象、DuckDB执行及结果。只依赖Foundation和既有第三方运行库，不导入Biz、QTF、App、Dagster或DG writer。</td></tr><tr><td>Foundation读取实现</td><td>模块内部将来源读取和复权对象分开；负责Lake路径、字段映射、必要因子及目标价格生成，管理共享数据生命周期。纯指标对象只看到标准价格表及口径，不解析来源或因子。</td></tr><tr><td>Biz / QTF / App</td><td>Biz与QTF分别调用通用服务；App注入读取实现和基础配置。公开计算入口仍只有calculate(request)，业务不提供SQL、bars或质量证明。</td></tr></tbody></table></div><pre><code>src/foundation/technical_indicators/     # 建议模块；本轮不创建运行代码
+  contracts.py                          # 请求、输入表、定义、结果与错误
+  service.py                            # 唯一业务计算入口 calculate(request)
+  sources/                              # 读取模块：来源读取、复权、共享输入的生命周期
+    price_adjustment.py                 # 独立复权对象；归读取模块，使用原生SQL
+    sql/                                # 复权SQL模板
+  executor.py                           # 本次共用SQL执行能力；读取/复权和指标均可使用
+  calculation/
+    calculation.py                      # 对象定义、参数与依赖、SQL步骤接口
+    engine.py                           # 依赖顺序和同请求中间结果复用
+    indicators/                         # MACD、KDJ、MA、BOLL等对象
+    sql/                                # 与对象对应的SQL模板、分段及状态步骤
+  output/                               # 展示截取、字段与元信息包装
+  configuration/                        # 配置及参数检查
+  discovery/                            # 从注册定义生成能力说明
+
+src/foundation/clients/local_lake/       # 当前来源读取实现
+src/biz/...                             # 页面请求与DTO转换
+src/app/...                             # 服务、来源与配置的装配</code></pre><p>SQL模板与计算对象一起版本管理，不维护另一套Python公式。参数值绑定到SQL；内部表名和列名由受控代码生成，业务不能传入任意SQL、文件路径或可执行表达式。目录展示组件职责；正式文件与方法签名、生命周期及测试以现已成稿LLD第03/04/11/18节为准，不以本图中的早期方法示意另建一套接口。</p><p>本轮Lake价格来源采用PyArrow逐文件取批，在唯一DuckDB连接注册并物化当前批次；未来接口来源按同一输入合同交付列数据。核心不解析文件路径、不发起网络请求；不要先把全历史转成Python逐行对象，再交回DuckDB重复搬运。读取模块统一管理按批注册、原始/目标价格及必要历史的持有和释放；SQL连接、输入与指标状态的唯一管理方及关闭顺序按第12节落实，由LLD给出具体方法和SQL，不能多个模块各自重复关闭。</p><div class="note">不创建统一的数据质量validation目录，不重复检查可信数据。既有Reader与XXM入口的检查本轮不删除；接入LLD须审计其真实执行路径，避免将旧扫描带入新服务。Foundation的连接配置不能反向导入orchestrator资源，也不能照搬DG批量任务的16GB内存配置。</div><h3 id="execution-process-thread-audit">2026-10-21补充审计：计算在哪个进程、哪个线程执行</h3>
+<p><strong>当前代码事实：</strong>DuckDB嵌入调用它的Python进程，不因使用SQL就另起数据库服务进程。Web工作线程、DuckDB的SQL线程和独立业务进程要分别说明。以下是源码、本机依赖和配置核验，不是远程部署进程数或生产峰值测量。</p>
+<div class="table-wrap"><table><thead><tr><th>现有路径</th><th>实际安排</th><th>依据与边界</th></tr></thead><tbody>
+<tr><td>股票/指数普通分钟页面</td><td>两个API均为同步def，框架在线程池中执行；服务直接调用Reader，在同一Web业务进程内创建内存DuckDB连接读取Gold数据。不启动每请求计算子进程，也未在普通分页Reader显式设置DuckDB线程数。</td><td><a href="../../src/biz/api/wealth/market/stock_detail_minutes.py">股票API</a>、<a href="../../src/biz/api/wealth/market/index_detail_minutes.py">指数API</a>及Reader。本机FastAPI routing和Starlette concurrency源码确认run_in_threadpool→anyio.to_thread.run_sync。当前读预计算值，不代表新内核已现算。</td></tr>
+<tr><td>XXM完整分钟历史读取</td><td>MajorIndexMinsLakeReader.read_complete_history_pair在Web进程内额外开2个线程并行读取K线/指标；每个连接配置256MB、DuckDB threads=1。完整单路读取配置512MB、threads=2；另有Timer调用interrupt。</td><td><a href="../../src/foundation/clients/local_lake/major_index_mins_reader.py">当前Reader</a>与XXM source已核对。该配对读取为现有预计算输入服务，不是新核默认模型；不能把整段Reader及其线程、质量检查和预算直接搬入。</td></tr>
+<tr><td>DG股票分钟指标预计算</td><td>在DG任务执行进程中调用DuckDB；日更/修复job使用in_process_executor，指job内部步骤不另外拆成多进程，并非运行在Web进程。当前通用连接默认threads=4、memory_limit=16GB。</td><td><a href="../../lake_console/orchestrator/src/orchestrator/defs/jobs/gold_stk_mins_qfq_macd_kdj_daily_update.py">日更job</a>、<a href="../../lake_console/orchestrator/src/orchestrator/defs/duckdb_connection.py">连接设置</a>。DG现有临时磁盘策略不迁入新核，DG代码/配置不改。</td></tr>
+<tr><td>Web启动及其他已有线程能力</td><td>src/app/web/run.py调用uvicorn.run但不显式传workers；本机Uvicorn缺省为1，WEB_CONCURRENCY可覆盖，reload也影响行为。交易助手另有App专属线程执行资源，但含其业务、数据库与状态语义。</td><td>不能据此声称线上一定只有一个worker。新核不导入App交易助手资源；Foundation不因复用线程池而反向依赖App/Biz，也不另建第二套通用任务调度。</td></tr>
+</tbody></table></div>
+<div class="note"><strong>业务进程指服务器后端，不是浏览器：</strong>财势乾坤有独立的wealth前端工程，页面通过HTTP请求Python后端API。当前股票分钟图分别请求K线和指标，后端读取已有Gold结果再返回；前端按时间对应并绘图，不在浏览器重算这条真实数据路径的MACD/KDJ。把页面与API放在同一域名，不能理解成没有后端，也不代表浏览器直接读数据湖。新内核接入后，变化是后端从读取预计算结果改为调用内核现算，结果仍由API返回浏览器。<a href="../../wealth/src/features/stock-detail/api/stockMinuteApiClient.ts">前端请求</a>、<a href="../../wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts">分钟字段转换</a>和<a href="../../src/biz/api/wealth/market/stock_detail_minutes.py">后端接口</a>已按当前代码核对；不据此推断线上部署在几台机器。</div>
+<p><strong>管理员2026-10-21已确认：</strong>首版放在业务进程内，保留同步calculate(request)库调用，内核不自行创建Python线程池、进程池或独立服务；页面接入层使用现有框架工作线程执行整次调用。一次调用的连接创建、分批读取/复权、指标SQL、输出和清理在同一工作线程内顺序完成。以后在CLI或DG任务调用时，仍在该调用方进程中执行，不把Web框架依赖写入Foundation。</p>
+<pre><code>已确认的页面执行位置（尚未实现）
+Web业务进程
+  ├─ 接收请求、等待和取消的处理
+  └─ 本次请求的工作线程：calculate(request)
+       ├─ 服务创建本次独立DuckDB内存实例/连接
+       ├─ 读取模块：读取 → 必要复权 → 共享价格
+       ├─ 指标模块：按依赖执行SQL、保存状态
+       └─ 独立输出 → 各模块清理 → 服务关闭连接
+            DuckDB内部可以使用其配置允许的SQL线程
+            这不等于每项指标再开一个Python线程或进程</code></pre>
+<p>该安排减少进程间搬运和部署维护，但线程与Web共用进程内存：不能保证计算发生原生崩溃或进程内存耗尽时其他接口完全不受影响，也不能通过强杀一个Python线程保证硬性截止。若管理员要求计算故障必须与Web隔离，应改为独立进程，并先设计启动/关闭、数据交接、取消与内存总预算；这不是本轮默认增加的能力。</p>
+<h3>本轮发现的执行细节遗漏：必须补入LLD</h3>
+<ul><li><strong>请求并发、框架线程池、SQL线程分开计量。</strong>一个请求可含10项指标，仍只占一次同步调用；DuckDB可能在内部用多个线程。框架线程池还服务其他接口，不能把其默认容量当允许40个大计算同时运行，也不能每个Web worker各限2个就声称整个部署只限2个。</li>
+<li><strong>连接与实例不能混淆。</strong>DuckDB threads和memory_limit是数据库实例范围的设置，不能描述为某条SQL或某个普通cursor的私有配额。无名称的:memory:连接用于本请求独立实例；cursor()仍指向同一实例，不用于冒充请求隔离。首版已确认threads=1；LLD明确配置归属、独立实例与部署预算，实际表现仍须验证，不依赖机器默认CPU核数。</li>
+<li><strong>等待也要计入截止。</strong>不能进入工作线程才开始计时，漏掉框架线程池已等待的时间。请求到达、获准计算、开始SQL、完成与清理均记录；允许有数量与时间上限的等待已获确认；同时处理2个、等待最多2个且最长2秒的初始值已确认；LLD验证实际执行与超时清理，满载检查不能只放在已经可能排队的工作线程最深处。</li>
+<li><strong>取消等待不代表计算停止。</strong>AnyIO取消等待或Future.cancel不能替代DuckDB真实中断；页面断开也不自动保证SQL停止。接口侧与本次调用的取消/截止如何交接、运行中的SQL如何interrupt、实际停止后再清理，必须明确。普通SQL仅在工作线程执行；必要取消控制只能针对本请求，连接关闭前撤销并结束监控，验证取消与关闭同时发生时不再操作旧连接。</li>
+<li><strong>部署版本要核对。</strong>本机Web .venv当前DuckDB=1.5.5，DG .venv=1.5.2；既有能力/数值实验记录是1.5.2，不改写其历史结论。新核LLD明确目标运行版本，按该版本补独立数值、线程/实例隔离、停止和资源样本；不以现有旧实验替代，也不在本轮升级套件。</li>
+<li><strong>对其他接口的影响也要测。</strong>在既定5项/10项和双请求有界场景中，另列轻量API响应、进程总内存、SQL线程数、等待/拒绝及取消停止；先补新增测试次数和总成本，不扩大成全市场压力测试，不擅自加池或调全局线程数。</li></ul>
+<p>官方依据：<a href="https://fastapi.tiangolo.com/async/#path-operation-functions">FastAPI同步接口</a>、<a href="https://starlette.dev/threadpool/">Starlette线程池</a>、<a href="https://duckdb.org/docs/current/clients/python/dbapi">DuckDB连接与内存实例</a>、<a href="https://duckdb.org/docs/current/configuration/overview">DuckDB配置作用范围</a>、<a href="https://anyio.readthedocs.io/en/stable/threads.html">AnyIO线程取消</a>。本次通过CodeGraph node/impact核对页面入口、Reader及XXM消费者；读取本机框架源码、包版本、DG job和连接配置，只改本文，没有运行SQL测试、重启服务或启动任务。</p>
+</section>
+<section id="objects"><div class="section-head"><span>05</span><h2>UML：指标对象组织SQL，DuckDB执行运算</h2></div><p class="intro">把“如何管理算法”和“由谁执行数学运算”分开。对象化、组件化、模块化不等于用Python逐根求值。</p><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1044 668" role="img" aria-label="计算定义、SQL计算对象与DuckDB执行UML"><title>计算定义、SQL计算对象与DuckDB执行UML</title><defs><marker id="arrow-301" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="triangle-301" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="18" width="290" height="190" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="41" class="sk" text-anchor="start">«只读定义»</text><text x="32" y="66" class="sh" text-anchor="start">CalculationDefinition</text><text x="32" y="91" class="st" text-anchor="start">ID、版本、输入 / 输出</text><text x="32" y="113" class="st" text-anchor="start">参数、依赖、初始化与历史要求</text><text x="32" y="135" class="st" text-anchor="start">适用K线周期；SQL实现说明</text><text x="32" y="157" class="st" text-anchor="start">不承载每请求数据质量审计</text><rect x="365" y="18" width="315" height="190" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="379" y="41" class="sk" text-anchor="start">«抽象计算对象»</text><text x="379" y="66" class="sh" text-anchor="start">Calculation</text><text x="379" y="91" class="st" text-anchor="start">input_requirement() / dependencies()</text><text x="379" y="113" class="st" text-anchor="start">参数由Definition检查</text><text x="379" y="135" class="st" text-anchor="start">consume(...) → 执行受控SQL步骤</text><text x="379" y="157" class="st" text-anchor="start">Python不计算指标数值</text><rect x="735" y="18" width="290" height="190" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="749" y="41" class="sk" text-anchor="start">«注册»</text><text x="749" y="66" class="sh" text-anchor="start">CalculationRegistry</text><text x="749" y="91" class="st" text-anchor="start">注册基础计算与技术指标</text><text x="749" y="113" class="st" text-anchor="start">说明与执行共用对象定义</text><text x="749" y="135" class="st" text-anchor="start">不接收业务上传的算法</text><path d="M365 102 L308 102" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><text x="336.5" y="93.0" class="sl" text-anchor="middle">持有</text><path d="M735 102 L680 102" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><text x="707.5" y="93.0" class="sl" text-anchor="middle">管理</text><rect x="18" y="285" width="290" height="108" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="308" class="sk" text-anchor="start">«读取模块内部»</text><text x="32" y="333" class="sh" text-anchor="start">PriceAdjustment</text><text x="32" y="358" class="st" text-anchor="start">独立复权对象；由读取模块调用</text><rect x="365" y="285" width="315" height="108" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="379" y="308" class="sk" text-anchor="start">«技术指标»</text><text x="379" y="333" class="sh" text-anchor="start">Indicator</text><text x="379" y="358" class="st" text-anchor="start">MACD / KDJ / MA / BOLL</text><text x="379" y="380" class="st" text-anchor="start">每个对象声明依赖和SQL步骤</text><path d="M163 285 V208" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><text x="177" y="245" class="sl">提供能力说明</text><path d="M522 285 L522 208" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#triangle-301)"/><rect x="735" y="285" width="290" height="130" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="749" y="308" class="sk" text-anchor="start">«输出»</text><text x="749" y="333" class="sh" text-anchor="start">CalculationResult</text><text x="749" y="358" class="st" text-anchor="start">时间、指标值、实际处理范围</text><text x="749" y="380" class="st" text-anchor="start">参数、复权基准与版本</text><text x="749" y="402" class="st" text-anchor="start">无审计凭证或质量证明</text><rect x="18" y="480" width="290" height="160" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="503" class="sk" text-anchor="start">«执行组织»</text><text x="32" y="528" class="sh" text-anchor="start">CalculationEngine</text><text x="32" y="553" class="st" text-anchor="start">解析依赖并组织SQL步骤</text><text x="32" y="575" class="st" text-anchor="start">相同前置计算在请求内复用</text><text x="32" y="597" class="st" text-anchor="start">不按指标名称拼业务分支</text><rect x="365" y="480" width="315" height="160" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="379" y="503" class="sk" text-anchor="start">«内部执行组件»</text><text x="379" y="528" class="sh" text-anchor="start">DuckDB执行</text><text x="379" y="553" class="st" text-anchor="start">执行SQL，控制内存与取消</text><text x="379" y="575" class="st" text-anchor="start">执行受控SQL，不决定输入释放</text><text x="379" y="597" class="st" text-anchor="start">原生SQL完成所有指标运算</text><rect x="735" y="480" width="290" height="160" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="749" y="503" class="sk" text-anchor="start">«本请求上下文»</text><text x="749" y="528" class="sh" text-anchor="start">CalculationSession</text><text x="749" y="553" class="st" text-anchor="start">借用本次连接，记录执行位置</text><text x="749" y="575" class="st" text-anchor="start">段末EMA、K/D等保留在表中</text><text x="749" y="597" class="st" text-anchor="start">不保存Python逐根运算状态</text><path d="M308 555 L365 555" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><text x="336.5" y="546.0" class="sl" text-anchor="middle">提交</text><path d="M735 555 L680 555" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><text x="707.5" y="546.0" class="sl" text-anchor="middle">提供</text><path d="M680 515 H708 V350 H735" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/><path d="M522 393 V480" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-301)"/></svg></div><div class="table-wrap"><table><thead><tr><th>对象 / 内部接口</th><th>职责</th></tr></thead><tbody><tr><td>CalculationDefinition</td><td>基本信息、参数、标准输入输出、依赖、初始化和历史要求；指标公式不按K线周期另写一份。</td></tr><tr><td>Calculation.consume(...)</td><td>使用factory绑定的已核验参数、内部输入与依赖表说明，通过executor执行受控SQL，返回CalculationOutput。正式签名见LLD04；不是另一套build_sql抽象接口，不向业务开放SQL。</td></tr><tr><td>CalculationEngine</td><td>声明输入要求、展开指标计算依赖、安排SQL及指标状态；共享价格交由读取模块管理，资源检查不扩展为数据审计。</td></tr><tr><td>DuckDB执行组件</td><td>在本次共用连接中执行读取/复权或指标的受控SQL，处理中断与真实错误；数据由读取模块释放，指标状态由计算模块释放，不重复决定资源归属。</td></tr><tr><td>CalculationSession</td><td>表示本次执行上下文，使用服务提供的连接并记录分段位置与SQL状态；不另建或关闭来源连接，不接管输入数据。最终签名与关闭顺序在LLD明确。</td></tr><tr><td>CalculationRegistry</td><td>同一注册定义服务于发现和执行。新增指标增加对象、SQL及独立样本，不在引擎增加指标名称分支。</td></tr></tbody></table></div><p>Python可以循环提交SQL分段、测量耗时、检查取消和包装结果，但包括平滑系数在内的指标加减乘除都在SQL内。Python UDF即使由SQL调用，仍是在Python中执行公式，不能用于绕过本要求。</p></section>
+<section id="input">
+<div class="section-head"><span>06</span>
+<h2>输入：来源负责交付可信数据，核心只计算</h2></div>
+<p class="intro">业务不直接提交bars，也不显式提交日历、停牌、退市和预期时间点。服务从配置的数据读取实现获得标准数据。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>内容</th><th>本版约定</th>
+</tr></thead>
+<tbody>
+<tr><td>K线和因子</td><td>输入字段、类型、排序、OHLC、成交量、成交额、因子覆盖与时间完整性由外部负责；内核不再次逐根验证。</td>
+</tr>
+<tr><td>业务请求</td><td>证券类型、代码、周期、时间范围、目标复权参数、计算能力及其参数、展示根数。目标复权不传默认前复权；实际输入复权类型由来源说明，不能把目标参数当作对输入价格的描述。基准按已有来源与计算规则确定并记录，不要求业务手填因子，不新增任意设置基准的功能。</td>
+</tr>
+<tr><td>来源说明</td><td>读取实现提供实际起止时间、价格单位、复权口径、基准与来源身份等计算所需说明。它们用于计算与解释结果，不是质量证明。</td>
+</tr>
+<tr><td>历史起点</td><td>递推指标所需起点与初始化规则仍需明确，否则同一参数无法定义可重现的结果。来源负责交付所需历史，内核不扫描是否缺失。</td>
+</tr>
+<tr><td>缺口与例外</td><td>外部负责判断首尾/中间缺口及停牌、退市、生命周期等；内核不生成应有时间点，不查询这些资料，不提供允许缺口开关。</td>
+</tr>
+<tr><td>来源配置</td><td>当前只接入数据湖。未来Prod和Tushare等来源通过独立读取实现接入，不修改纯计算核心，也不静默混用来源。</td>
+</tr></tbody></table></div>
+<h3>读取与计算服务的分工</h3>
+<p>读取模块负责来源读取、必要复权和共享价格生命周期；来源读取与复权对象内部解耦。服务汇总指标输入要求，纯计算核心只接收目标价格批次及说明，不处理因子与来源。它们不额外为新计算服务增加逐根数值、去重、时间覆盖或完整性审计。</p>
+<p>复合计算先确定输入价格口径与目标价格口径。两者一致且基准相同，直接使用输入。分钟/日线需要转换时，只执行已有资料可证明的路径，由读取模块内部独立复权对象处理；周/月线按本节已确认规则直接读取所需口径，不在本轮转换。当前页面读取Gold前复权价格的路径可作现状参考，不能把它当成未复权价格再次复权。不因本文增加网络访问、湖写入或行情重建。</p>
+<div class="note">外部审计单元尚待管理员规划。本文只确认“数据质量由外部负责”的职责，不声称外部审计已经实现，不新增审计状态依赖或要求每个请求先取得质量证明。</div>
+<h3 id="algorithm-input-output-history">算法需要多少输入、产生多少输出：先定义合同，再决定读取</h3>
+<p>2026-10-21澄清：算法输入/输出需求不是“每批读多少根”的资源配置。指标对象根据公式与参数声明所需字段、每个输出点所需历史、初始化/跨批状态、输出时间对齐及初始空值规则；统一计算服务据此把业务要求的输出范围转换为读取要求，读取模块按要求执行，不自行猜测多读一年或仅读显示区间。</p>
+<div class="table-wrap"><table><thead><tr><th>例子</th><th>算法与读取合同应明确</th></tr></thead><tbody>
+<tr><td>MA20单个有效输出</td><td>该点需本根及之前19根收盘价，共20根；输出对应本根时间。不能把该规则误写为任意批量调用都只能20根输入、1根输出。</td></tr>
+<tr><td>MA20连续M个有效输出</td><td>历史充足时需要覆盖这M根及首根之前19根，合计M+19根；请求最近1000个输出时需1019根。前19根是计算所需输入，不属于本次展示结果。若沿用对齐的整段计算接口，也可以每根对应一个位置，初始不足20根的位置为NULL；具体接口须统一说明，不能混淆有效值数量与序列位置数量。</td></tr>
+<tr><td>MA250输出最近一个月</td><td>读取需求为这个月的K线加上首根之前249根日K，而不是只读该月。必须按实际K线根数表达前置要求，不把249根直接改写为249个自然日或固定一年。</td></tr>
+<tr><td>MACD/KDJ递推输出最近一个月</td><td>本版没有跨请求持久状态，按已确认规则从来源约定历史起点递推到截止，再返回目标月份；不能统一声称读一年即可精确恢复全部递推历史。</td></tr>
+</tbody></table></div>
+<p>LLD必须在指标声明、服务给读取模块的内部合同和测试中一致写明：目标输出起止/根数、所需字段与价格口径、首个输出之前需要的K线根数或约定历史起点、截止含义、初始化/跨批状态和初始NULL规则。多个指标按同口径合并所需历史范围，读取模块按该合同读入；实际分成多大批次不改变算法结果和必需历史。</p><p>有效历史较短时继续返回实际可用序列并按公式保留初始NULL，不补造K线，不截断必需历史来满足资源预算；数据质量和完整性仍由外部负责，不新增逐根缺口审计。</p>
+<h3>周期是输入含义，不是四套指标内核</h3><div class="table-wrap"><table><thead><tr><th>约定</th><th>必须说明</th></tr></thead><tbody><tr><td>同一参数按K线根数解释</td><td>MA20用于日线就是20根日K，用于周线就是20根周K。SQL显式使用按行数的ROWS窗口，不把20根K线误写成20个自然日。</td></tr><tr><td>原始周期K线由来源提供</td><td>直接输入该周期的标准OHLC、成交量和成交额；不能把日线MACD求平均当作周线MACD。已确认包含尚未收盘的最新一根周期K线；来源说明其实际数据截止，结果随该根K线更新。</td></tr><tr><td>输入截止与历史初始化</td><td>周期时间标记、已收盘含义、历史起点和初始化属于来源与结果说明；核心不生成交易日历或检查缺口。</td></tr><tr><td>已确认：周/月直接读取已有口径</td><td>周/月线只读取已有、口径明确且符合目标要求的周期K线。需要前复权就读取已有前复权周/月线，需要后复权就读取已有后复权周/月线；本轮不做周/月价格复权、跨基准转换、反向还原，也不读取日线重新合成。没有对应来源就明确不支持。</td></tr></tbody></table></div><h3>LLD必须区分：展示区间、计算历史与周期时间</h3><div class="table-wrap"><table><thead><tr><th>事项</th><th>LLD要求</th></tr></thead><tbody><tr><td>展示区间与递推历史</td><td>start/end、最近N根、翻页只决定返回范围；MACD/KDJ按约定起点计算到本次截止，不能在展示起点或新页重新初始化。有限窗口需要向展示起点之前多取必要K线。SQL中展示下界和LIMIT放在完成所需计算之后。</td></tr><tr><td>日线日期与分钟时刻</td><td>只表达某天的归一化日期使用DATE，API为YYYY-MM-DD；分钟时刻保留时间及既有时区。核心不能把所有输入强制套入分钟TIMESTAMP，也不能把分钟时间截断成DATE。</td></tr><tr><td>周/月的日期含义</td><td>明确周期所属区间、来源时间标记和实际截止，避免把周一标记误作只包含周一，或按标记日期错误过滤整周。月份、区间与路径分区键按自身合同表达，不强行改成某一天。</td></tr><tr><td>尚未结束的周期K线</td><td>已确认正在形成的最新周期K线参与计算，来源说明本次实际可用截止。历史时点查询若没有当时的输入版本，不能拿后来完整周期K线冒充当时结果。该区别属于输入含义，不是内核检查日期完整性，也不扩展为本轮建设历史版本服务。</td></tr><tr><td>单位和因子对应</td><td>各来源明确价格、成交量和成交额单位，因子按证券与实际价格日期对应。核心按既定合同使用，不逐行审计；若需要单位转换，在读取实现中唯一处理。</td></tr></tbody></table></div><h3>已确认：当前这根周线参与计算并持续更新</h3><p>下面只是可手算的说明例子，不是市场实测数据。上一根已结束周线收盘为100，本周数据逐日更新：</p><div class="table-wrap"><table><thead><tr><th>时点（假设数据）</th><th>本周开盘</th><th>本周最高</th><th>本周最低</th><th>当前收盘</th><th>累计成交量</th><th>累计成交额</th><th>周线MA2：上周收盘100</th></tr></thead><tbody><tr><td>周一收盘</td><td>100</td><td>103</td><td>99</td><td>102</td><td>10万股</td><td>1020万元</td><td>(100+102)/2=101</td></tr><tr><td>周二收盘</td><td>100</td><td>109</td><td>98</td><td>108</td><td>25万股</td><td>2600万元</td><td>(100+108)/2=104</td></tr><tr><td>周五收盘</td><td>100</td><td>112</td><td>97</td><td>110</td><td>80万股</td><td>8500万元</td><td>(100+110)/2=105</td></tr></tbody></table></div><p>周一应返回截至周一的101，周二应返回截至周二的104，周五最终为105。错误情况是周二查询截至周二的指标，却读取周五才确定的收盘110而返回105。正常使用当天更新的本周K线完全正确。月线及其他尚未结束周期沿用相同原则。</p><p>周一、周二、周五是同一根周K线的不同更新，不得在周线序列中累计成三根。EMA/KDJ等递推指标更新这根K线时，应使用上周结束后的状态重算它；不能在“已处理周一”的状态后把周二更新再当成新周递推。首轮无跨请求状态缓存，每次从规定历史起点计算；若后续复用状态，必须覆盖同根更新的这个例子。</p><h3>输入实际复权必须明确；目标复权可省略，默认前复权</h3><div class="table-wrap"><table><thead><tr><th>声明内容</th><th>明确要求</th></tr></thead><tbody><tr><td>输入复权类型</td><td>来源必须明确实际输入是不复权、前复权还是后复权；如请求另有输入要求，须与来源说明对应。不能只根据列名、价格大小或文件名猜测，也不能因目标默认前复权就把输入视为已前复权。</td></tr><tr><td>输出复权类型</td><td>一次请求只能选择一种目标类型。不传复权参数时默认前复权；传入合法的不复权、前复权或后复权时，按指定类型计算并说明实际口径。明确传错值或传多个类型时拒绝，不能悄悄改用默认值。</td></tr><tr><td>基准与因子说明</td><td>已复权输入由来源如实说明实际基准；目标按已核对的既有规则确定并返回，不要求业务另填因子或选择基准日期。前复权沿用最新因子规则；不复权无须基准。来源说明用于正确选择输入，不构成任意基准转换能力。</td></tr><tr><td>谁提供数据</td><td>业务声明要求，配置的来源实现按标准合同提供K线及说明；不新增对业务公开的bars入口，也不要求每根K线重复携带这些说明。</td></tr><tr><td>内核检查范围</td><td>只检查请求和来源说明是否支持这次转换、必要声明是否具备；不扫描价格判断是否真的复过权，数值质量与完整性仍由外部负责。</td></tr></tbody></table></div><p>计算服务在调用入口按请求合同统一确定本次目标：参数省略时采用前复权，合法传入时采用指定类型。读取与计算使用这一已确定目标，不各自重新默认。输入实际类型仍从来源说明取得；来源不支持所选类型或没有已核实转换路径时明确失败，不能改成另一类型后成功返回。</p><p><strong>当前指数接入如何遵守默认规则：</strong>本次核对的<a href="../../src/foundation/clients/local_lake/major_index_mins_contract.py">现有指数分钟合同</a>提供标准OHLC、量额等字段，没有声明复权类型或提供复权因子。该来源接入新核时，读取实现按已核实合同说明输入类型，指数业务调用显式选择不复权；不能因省略参数会默认前复权，就在内核偷偷改默认或假造因子1。对该来源尚未核实支持的复权请求，按已有“来源不支持明确失败”规则处理，不据此宣称所有未来指数来源都不支持某种能力，也不在本轮修改现行指数API。</p><h3>前复权采用最新因子，不增加业务选择基准的功能</h3>
+<p><strong>2026-10-20纠正：</strong>前复权沿用既有最新因子规则。每只股票整段历史以同一个最新可用因子作分母，各根K线使用各自当日因子作分子；业务不传基准日期、不手填基准因子，也不新增任意换基准功能。前文曾把DG离线工具的日期参数扩大为通用业务问题，这没有业务依据，现撤回。后复权仍按既有已核实规则，不把“最新因子”错误套给后复权。</p>
+<p>公式：前复权价格(t)＝未复权价格(t)×当日因子(t)÷最新基准因子。来源负责提供符合既有规则的价格、因子及必要说明；已有目标口径价格直接使用，不能再次复权。展示区间、返回根数及翻页不能改变基准。周/月线仍只读已有所需口径，不在本轮重新复权或合成。</p>
+<p>假设最新因子为2，某根旧K线原价10、当日因子1，算得5；另一根原价6、当日因子2，算得6。两根都按同一套公式处理，后一根数值相同不等于未复权。不得在同一实例中混用复权类型或不同基准的价格。</p>
+<h3>代码核对：哪些取最新，哪些仍按任务日期执行</h3>
+<div class="table-wrap"><table><thead><tr><th>当前入口</th><th>2026-10-20静态核对结果</th><th>对本轮设计的含义</th></tr></thead><tbody>
+<tr><td>QuoteQueryService._load_stock_adjustment_anchor</td><td>前复权按股票因子日期倒序取第一条；不提供业务任选旧基准的参数。</td><td>当前页面查询已支持最新因子的正常用法，是本轮沿用的规则。</td></tr>
+<tr><td>DG日线日常生成</td><td>write_gold_stock_daily_qfq_partition默认基准日为目标分区日；它不是在函数内自动查询全库最新日期。</td><td>新交易日目标通常就是当时最新日；补旧分区不能据此默认已采用现在最新基准。本轮不修改DG生产者。</td></tr>
+<tr><td>DG日线和分钟线因子修复</td><td>分别使用qfq_factor_trade_date或trade_date选择因子。修复旧任务时，代码可能仍采用旧任务日，不是无条件采用当前全库最新因子。</td><td>这是现存生产实现的事实，不是新内核需要支持旧基准的业务理由；未核验实际运行或更晚结果保护，不据此声称补旧任务安全。</td></tr>
+<tr><td>DG日线历史生成CLI与planner</td><td>CLI要求--as-of-trade-date，planner按传入日期安排来源；已读入口没有强制该日期必须等于当前最新日期。</td><td>工具允许传旧日期，不等于正式业务需要任意旧基准。它的参数不复制到新计算服务。</td></tr>
+<tr><td>周线已有交付检查</td><td>源日期较早时会核对其基准因子与目标因子是否相同；因子不同则拒绝，并非给业务任选旧基准。</td><td>仍直接读取符合所需口径的已有周线，不增加内核逐行检查或周线重算。</td></tr>
+</tbody></table></div>
+<h3>为什么历史记录写2026-06-26</h3>
+<p>原日线LLD记录：2026-06-27发现历史初始化错误，旧K线分别使用各自当天因子作分母，导致历史价格没有正确前复权；2026-06-28完成重建，统一采用当时目标范围最新完整交易日2026-06-26。这个日期是当时的最新完整日，不是今天有意退回6月。不能把这一记录当成“正式业务需要任选旧基准”的证据。</p>
+<p>本次通过CodeGraph读取页面基准函数与历史planner，并静态读取日线/分钟修复、CLI和周线交付检查；没有读取正式行情、执行任务、修改现行API或DG代码。历史执行事实以原LLD当时的记录表述，不冒充当前正式文件核验。</p></section>
+<section id="validation">
+<div class="section-head"><span>07</span>
+<h2>校验边界：数据质量全部交给外部</h2></div>
+<p class="intro">本节集中说明职责；代码不设置统一数据质量校验模块。按管理员最后完整决定，计算内核连缺口校验也不保留。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>事项</th><th>负责人</th><th>计算请求中的处理</th>
+</tr></thead>
+<tbody>
+<tr><td>输入数值质量</td><td>外部</td><td>不遍历检查价格、因子、NaN/Inf、OHLC大小关系、负量等。</td>
+</tr>
+<tr><td>数据完整性</td><td>外部</td><td>不对照预期时间、不扫描首尾/中间缺口、不去重、不查停牌或退市；业务不传相应规则。</td>
+</tr>
+<tr><td>来源交付的一致性</td><td>外部及来源自身机制</td><td>移除原时序图“读取结束，复核来源未变”的额外请求步骤；不在计算核心复查文件或审计来源。</td>
+</tr>
+<tr><td>请求与算法参数</td><td>服务及计算对象</td><td>校验已注册能力、参数类型/范围、时间范围表达、返回根数等请求本身；例如拒绝不存在的指标或非法周期参数。</td>
+</tr>
+<tr><td>计算依赖</td><td>计算引擎</td><td>检查声明的依赖是否存在、是否能连接、是否循环；这些检查针对计算安排，不证明实际数据完整。</td>
+</tr>
+<tr><td>配置与资源</td><td>配置模型及执行服务</td><td>检查内存、行数、文件数、并发、截止时间等执行限制；批次长度计量不扩展成数据质量扫描。</td>
+</tr>
+<tr><td>计算异常</td><td>执行服务</td><td>正常捕获读取、缺少必要字段、除零或序列化等实际发生的异常并报错；不新增预扫描，也不吞异常、补值或偷偷丢行。</td>
+</tr>
+<tr><td>算法正确性与结果合同</td><td>开发测试与版本管理</td><td>用独立样本核对公式、分批一致性、输出与版本，不在每次请求逐点复算或审计输出。</td>
+</tr></tbody></table></div>
+<div class="decision"><strong>不新增任何变相的数据质量流程：</strong>不要求业务传日历或证明，不新增“已审计=true”标志，不查询审计状态，不因尚未设计外部审计单元而私自把质量检查放回计算服务、读取包装层或输出层。</div>
+<p>算法定义中的正常边界处理继续保留，例如KDJ最高价等于最低价时如何计算RSV、MA/BOLL不足窗口时返回什么。这是公式的一部分，不是逐根数据质量审计。外部输入有误时，内核可能产生错误结果或自然报错；它不承担识别该输入问题的保证。</p>
+</section>
+<section id="calculation"><div class="section-head"><span>08</span><h2>计算：采用DuckDB原生SQL，不另写Python公式</h2></div><p class="intro">官方资料、现有DG实现和本机隔离实验均支持这一路线。首批能力无须申请Python运算例外；数值稳定与性能仍需专项验收。</p><div class="table-wrap"><table><thead><tr><th>能力</th><th>DuckDB SQL做什么</th><th>须固定的公式与边界</th></tr></thead><tbody><tr><td>价格复权</td><td>标准价格表与因子/基准关联；在SELECT中完成OHLC比例运算。</td><td>复权OHLC(t)=未复权OHLC(t)×因子(t)/基准因子；不复权直接使用原价。基准不随显示窗口移动，量/额保持源口径。</td></tr><tr><td>MA</td><td>avg(close) OVER (... ROWS BETWEEN N−1 PRECEDING AND CURRENT ROW)。</td><td>首批覆盖5/10/20/30/60/90/250；不足N根输出NULL。同一输入多个窗口不重复读湖。</td></tr><tr><td>BOLL</td><td>avg(close)、stddev_pop(close)窗口；SQL求上下轨。</td><td>默认20、2倍；总体标准差，足20根才输出。stddev_samp不能代替stddev_pop。</td></tr><tr><td>MACD</td><td>SQL生成平滑系数；快慢EMA、DIF、DEA与柱值按分段窗口计算。</td><td>默认12/26/9，可自定义；EMA首值为首个close，DIF/DEA首值按初始化规则为0，柱值=2×(DIF−DEA)。首条初始化与后续展开须分清，不逐根四舍五入。</td></tr><tr><td>KDJ</td><td>max(high)、min(low)窗口计算RSV；分段SQL计算K/D与J。</td><td>默认9/3/3；不足9根使用已有窗口；递推前K=D=50，每根按本根RSV更新，默认平滑系数1/3，平区间RSV=50。自定义K/D周期在LLD固定对应系数，不能换成EMA系数。</td></tr><tr><td>后续指标</td><td>计算对象声明输入、参数和依赖，新增原生SQL实现。</td><td>先验证DuckDB能否表达和执行。仅在有具体“不支持”证据时讨论Python例外，不建立自动回退。</td></tr></tbody></table></div><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 390" role="img" aria-label="读取标准输入表、组织SQL与DuckDB分段计算流程"><title>读取标准输入表、组织SQL与DuckDB分段计算流程</title><defs><marker id="arrow-302" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="triangle-302" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="18" width="300" height="145" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="41" class="sk" text-anchor="start">«独立读取»</text><text x="32" y="66" class="sh" text-anchor="start">标准输入表 / 视图</text><text x="32" y="91" class="st" text-anchor="start">读取模块按需生成目标价格</text><text x="32" y="113" class="st" text-anchor="start">只读取所需列和约定历史</text><text x="32" y="135" class="st" text-anchor="start">核心不关心Lake或网络</text><rect x="380" y="18" width="300" height="145" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="394" y="41" class="sk" text-anchor="start">«内部计算»</text><text x="394" y="66" class="sh" text-anchor="start">计算对象组织SQL</text><text x="394" y="91" class="st" text-anchor="start">指标窗口 / 分段与状态</text><text x="394" y="113" class="st" text-anchor="start">参数值绑定；中间结果复用</text><text x="394" y="135" class="st" text-anchor="start">不传Python逐行数组</text><rect x="742" y="18" width="300" height="145" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="756" y="41" class="sk" text-anchor="start">«计算执行»</text><text x="756" y="66" class="sh" text-anchor="start">DuckDB原生执行</text><text x="756" y="91" class="st" text-anchor="start">执行公式、窗口及平滑运算</text><text x="756" y="113" class="st" text-anchor="start">保留本请求临时状态表</text><text x="756" y="135" class="st" text-anchor="start">处理取消、超时和资源限制</text><path d="M318 90 L380 90" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-302)"/><path d="M680 90 L742 90" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-302)"/><rect x="18" y="250" width="480" height="120" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="273" class="sk" text-anchor="start">«SQL状态»</text><text x="32" y="298" class="sh" text-anchor="start">跨段接续</text><text x="32" y="323" class="st" text-anchor="start">下一段从上一段末值继续；窗口携带必要前段K线</text><text x="32" y="345" class="st" text-anchor="start">不重置EMA / K / D，也不按自然日重置</text><rect x="560" y="250" width="482" height="120" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="574" y="273" class="sk" text-anchor="start">«输出»</text><text x="574" y="298" class="sh" text-anchor="start">输出最近1000根</text><text x="574" y="323" class="st" text-anchor="start">逐批只保留所需输出；Python组织响应</text><text x="574" y="345" class="st" text-anchor="start">不保留Python逐根指标副本；不逐点质量复核</text><path d="M892 163 V210 H800 V250" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-302)"/><path d="M380 163 V210 H255 V250" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-302)"/></svg></div><h3>MACD、KDJ如何在SQL中递推</h3><p>EMA公式仍是EMA(t)=β×EMA(t−1)+α×输入(t)，其中α=2/(N+1)，β=1−α。DG当前已把它改写为一段内的加权累计和，用SQL窗口完成，再把段末状态传给下一段。K/D按对应平滑系数采用同类分段处理。指标数学计算没有移出DuckDB，Python只安排先后执行。</p><pre><code>-- 单段内的表达式示意；不是完整可直接上线的实现
+-- alpha、beta、段内序号和段首状态均由SQL提供
+ema_i = power(beta, i) * (
+  seed_ema + alpha * sum(x * power(beta, -i)) OVER (
+    PARTITION BY 对象与计算实例 ORDER BY i
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  )
+)
+-- 每段末值在SQL状态表保留；下一段通过SQL关联接续</code></pre><div class="note"><strong>不能照搬固定1024根：</strong>本机实验已证明，12周期在整段20000根时负指数幂会溢出；2周期即使只算1024根也会溢出。LLD必须按合法参数确定安全分段，单独处理周期1等边界，并验收不同分段大小、极值与接近0处的误差。数学等价不保证浮点运算逐位相同。</div><p>不能因DuckDB没有名为MACD的内置函数就说它不支持MACD。原生SQL表达式和窗口可以组合实现指标。官方递归查询提供另一种表达能力，但不意味着逐根递归会更快；本版不把逐根递归查询作为正式主路径，也不使用Python UDF伪装成SQL计算。</p><h3>SQL的内存约束必须重新测量</h3><p>窗口计算会缓存输入，不能沿用“Python只保留几个递推值，所以总内存恒定”的假设。分段解决数值范围，不自动解决读湖、排序和窗口缓存占用。须分别限定实际读入量、每次SQL处理量、保留的中间表、输出量和总请求内存；滚动窗口跨段携带必要历史，递推指标只保留所需状态。读入分批大小与数学分段大小分别定义，不能混成一个值。</p><h3>复合计算：独立复权能力，多项指标共用</h3><p>下图展示不复权、前复权、后复权三种可选择的计算路径。管理员已确认一次请求只走其中一种目标类型，同一种目标价格供多指标使用；业务不传默认前复权，禁止一次请求同时返回三种目标复权结果。</p><div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1018 463" role="img" aria-label="复权基础能力与技术指标的复合计算图"><title>复权基础能力与技术指标的复合计算图</title><defs><marker id="revision-5-arrow-104" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="revision-5-triangle-104" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="170" width="210" height="100" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="32" y="193" class="sk" text-anchor="start">«输入»</text><text x="32" y="218" class="sh" text-anchor="start">未复权K线</text><text x="32" y="243" class="st" text-anchor="start">同一份只读输入</text><text x="32" y="265" class="st" text-anchor="start">不复权直接使用</text><rect x="18" y="20" width="210" height="100" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="32" y="43" class="sk" text-anchor="start">«输入»</text><text x="32" y="68" class="sh" text-anchor="start">复权因子与明确基准</text><text x="32" y="93" class="st" text-anchor="start">按已确认的周期价格合同关联</text><text x="32" y="115" class="st" text-anchor="start">输入覆盖由外部负责</text><rect x="338" y="20" width="282" height="100" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="352" y="43" class="sk" text-anchor="start">«读取模块内部»</text><text x="352" y="68" class="sh" text-anchor="start">前复权价格计算</text><text x="352" y="93" class="st" text-anchor="start">独立基础能力，可单独请求</text><text x="352" y="115" class="st" text-anchor="start">同一次请求相同基准只算一次</text><rect x="338" y="340" width="282" height="100" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="352" y="363" class="sk" text-anchor="start">«读取模块内部»</text><text x="352" y="388" class="sh" text-anchor="start">后复权价格计算</text><text x="352" y="413" class="st" text-anchor="start">独立基准，不随展示窗口移动</text><text x="352" y="435" class="st" text-anchor="start">按目标口径使用原始输入</text><rect x="760" y="20" width="240" height="100" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="774" y="43" class="sk" text-anchor="start">«技术指标»</text><text x="774" y="68" class="sh" text-anchor="start">前复权MACD / KDJ</text><text x="774" y="93" class="st" text-anchor="start">使用同一复权价格结果</text><text x="774" y="115" class="st" text-anchor="start">各指标使用独立SQL状态表</text><rect x="760" y="180" width="240" height="90" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="774" y="203" class="sk" text-anchor="start">«技术指标»</text><text x="774" y="228" class="sh" text-anchor="start">不复权MACD</text><text x="774" y="253" class="st" text-anchor="start">直接使用未复权收盘价</text><rect x="760" y="340" width="240" height="100" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="774" y="363" class="sk" text-anchor="start">«技术指标»</text><text x="774" y="388" class="sh" text-anchor="start">后复权MACD</text><text x="774" y="413" class="st" text-anchor="start">使用后复权价格结果</text><path d="M228 70 L338 70" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M228 220 H285 V92 H338" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M228 220 H285 V390 H338" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M228 70 H252 V390 H338" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M228 225 L760 225" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M620 70 L760 70" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/><path d="M620 390 L760 390" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-5-arrow-104)"/></svg></div><p>复权对象归读取模块管理；既可为指标准备价格，也支持统一服务单独返回价格，不再由指标计算引擎执行复权。同请求、同价格口径、同基准的中间表只计算一次；需要跨SQL语句复用时，明确建立本请求临时表。不能只写同名视图或多个CTE就声称必然复用，需核对执行安排。临时结果随请求释放，不写正式Lake或数据库指标资产。</p><p>全部输入质量和完整性由外部负责。原生SQL出现实际错误时正常返回，不预先扫坏值，不补因子，不换来源，不切Python公式。</p><h3 id="page-shared-calculation">按相关主要区域组合请求，共用读取和复权</h3>
+<p>管理员进一步修正规则：业务按相关主要区域组织请求，将该区域同次加载或刷新、同一证券/周期/截止/目标复权/展示范围的相关指标合并提交，包括同一指标的多套参数。不要求整页所有指标只能发一个请求；不同区域、按需加载或独立刷新的内容可以分别请求。区域如何划分由业务根据加载和刷新需要决定，内核不识别页面区域，也不要求业务传区域标识。同一请求内5项或10项指标只占一个名额，共用一轮输入和每批一次必要复权；内核不得把已提交的组合再拆成多个独立calculate调用、连接或来源遍历。不同实际请求各自计入并发，即使来自同一页面。</p>
+<pre><code>一个主要区域内同一股票、周期、截止、价格口径的一次组合计算
+  → 汇总全部指标所需的历史和字段
+  → 读取模块按批读取K线，必要时复权一次，并持有共享价格
+  → 当前批次交给全部依赖它的计算：MACD、KDJ、MA、BOLL……
+  → 各计算更新自己的跨段状态；共用步骤满足条件时只执行一次
+  → 读取模块保留必要历史并释放已用数据；计算模块保留指标状态
+  → 一次返回指标结果；页面需要的价格也可作为独立价格能力输出</code></pre>
+<div class="table-wrap"><table><thead><tr><th>发生在哪一步</th><th>安排与LLD必须证明的内容</th></tr></thead><tbody>
+<tr><td>业务提交</td><td>业务将相关主要区域内同次加载或刷新、价格条件一致的指标列表组合提交，避免机械地每项各发一次。不同区域或加载时机可以独立请求，不按整页统计成只能一次。内核复用已经提交的组合，不替业务等待或收集其他请求，也不把组合拆为多个独立调用或连接。多个顺序SQL步骤不等于多次业务请求。不新增区域标识、合并开关或最低指标数量要求；独立单指标及价格计算仍合法。这里约束未来接入方式，不修改当前两个HTTP接口。</td></tr>
+<tr><td>读取K线和因子</td><td>由读取模块按全部指标历史需求的并集读取所需列；包含递推指标时不能只读显示的1000根。相同股票、周期、来源版本与截止的历史只遍历一轮，不按指标重复读湖。多个文件及多个读取批次不叫重复读取；须计数证明不是10项指标各遍历一轮。</td></tr>
+<tr><td>复权与共享范围</td><td>相同输入/目标复权类型、因子口径与实际基准的当前批次只转换一次；输入已是正确目标口径时转换0次、不读取无用因子。不同MACD参数不应使价格转换重复。一次请求只允许一种目标复权类型，禁止同时建立并输出三组结果；不同周期、截止或来源不能混用。默认前复权与显式选择前复权使用同一条计算路径。</td></tr>
+<tr><td>多个SQL步骤共用</td><td>共用读取、排序后的输入及复权结果；例如MA20和BOLL20声明相同均值依赖时，可共用该步骤。只有输入、窗口、初始化、公式及版本均相同才复用；不得为了复用改变数值含义。依赖由计算对象声明，不能在引擎写MACD/MA等名称分支，也不要求把每个加减乘除都拆成对象。</td></tr>
+<tr><td>内存中的实际执行</td><td>读取模块持有跨SQL步骤共用的当前价格批次，计算模块不能自行释放输入；只建立相同视图名称不能当作已避免重复读湖。所有需要当前批次的分支完成后再释放，共用输入不复制成10份；跨批输入窗口由读取模块保留，计算模块保留必要指标状态，最终只积累需要返回的结果。LLD列实际表、先后、持有量和执行记录，不能整段历史全部常驻来换一次读取。</td></tr>
+<tr><td>页面价格与指标</td><td>页面绘图的价格和各指标若来自同一段、同口径输入，建议由同次计算输出独立价格能力与指标结果，避免K线展示再读一遍。当前页面的K线和指标分开请求；如何修改HTTP响应及全部消费者须另在接入LLD列清并取得既有合同变更授权，本轮不改API、不增加公开bars入口。</td></tr>
+<tr><td>计算与请求并发</td><td>同一请求内不默认一项指标一个线程；先共用输入，按依赖和资源安排SQL。耗时包括读取一次、必要复权一次、各不重复计算步骤和输出，不等于10倍完整请求，也不能假定等于最慢一项。并发上限限制整次请求，但还必须计入该请求的指标数量、窗口、字段和实际占用；不能只按“请求数小于2”判断安全。</td></tr>
+</tbody></table></div>
+<p>请求内共用数据是本轮必需设计，不依赖跨请求缓存。若业务确有多个独立区域请求，首版内核分别处理，不自动拼接或跨请求共享数据。相关主要区域内可一起计算的指标由页面接入与Biz调用组合提交，内核不临时等待其他请求。多个页面同时进入、快速切换股票/周期或自动刷新相互重叠时，按第11节已确认初始值执行有限等待与整次截止，LLD验证取消释放和实际体验；不能先以“直接繁忙”替代已确认的等待方式。</p>
+<h3 id="regional-request-lifecycle">同页多个区域：以实际请求划分取消、失效与失败范围</h3>
+<p>允许不同区域独立请求，不等于建立每页共享连接、共用一个计时器或按整页领取名额。每个实际请求独立确定截止，获准后才持有处理名额并创建连接，失败和清理也按各自请求处理；同页请求仍共用已有进程级容量限制，不新增按区域配额或配置。</p>
+<div class="table-wrap"><table><thead><tr><th>情况</th><th>明确处理</th><th>LLD核对</th></tr></thead><tbody>
+<tr><td>A区域在第0秒请求，B区域在第1秒请求</td><td>各自从发出起10秒失效，即A到第10秒、B到第11秒；B发出不能延长A的时间，A到期也不能自动取消B。后端各自从收到该请求起算，8秒目标与2秒等待不按整页共享或重新累计。</td><td>03/18/19/24；复用既有双请求与轻量控制场景，不增加长历史测试范围。</td></tr>
+<tr><td>仅B区域换参数，或整页切换证券</td><td>只改B参数时，取消B已失效的旧请求，不误停A仍有效的请求；切证券等共同条件改变时，取消所有受影响的旧请求。返回结果只能交给仍对应本请求的区域，旧结果不得覆盖其新选择。</td><td>19/24；当前股票分钟图用一个controller配合Promise.all等待K线及指标，这只对应现有同一图表链路，不能不核对就用作未来所有独立区域的共用取消控制。</td></tr>
+<tr><td>A请求已完成，B请求计算失败</td><td>组合整次失败只适用于B请求内部，B不返回指标半成品；内核不撤销A结果、不误取消其他独立请求。是否展示已有区域、怎样提示错误由业务页面接入设计说明，内核不规定整页必须一起成功或一起失败。</td><td>13/22/24；测试区分同请求任一指标失败与同页另一个独立请求失败。</td></tr>
+</tbody></table></div>
+<p><strong>不同请求的输入截止也分别说明。</strong>独立请求可能先后读取来源，不能仅因同页或同一证券就保证使用完全同一批价格。结果保留已有的实际数据截止、复权口径和参数说明；业务若需要这些指标严格共用一批输入，应在同一次组合中提交。首版不增加跨请求拼接、共享数据、文件版本复查或同步机制，也不把展示的一致性要求变成输入质量审计。</p>
+<h3>已确认：采用分段计算并正确接续</h3><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1062 185" role="img" aria-label="已确认的分段SQL计算与状态接续"><title>已确认的分段SQL计算与状态接续</title><defs><marker id="arrow-501" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="triangle-501" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="18" width="302" height="145" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="32" y="41" class="sk" text-anchor="start">«分段SQL»</text><text x="32" y="66" class="sh" text-anchor="start">第1段</text><text x="32" y="91" class="st" text-anchor="start">从约定初值开始</text><text x="32" y="113" class="st" text-anchor="start">SQL执行该段计算</text><text x="32" y="135" class="st" text-anchor="start">保留段末状态与必要窗口</text><rect x="380" y="18" width="302" height="145" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="394" y="41" class="sk" text-anchor="start">«分段SQL»</text><text x="394" y="66" class="sh" text-anchor="start">第2段</text><text x="394" y="91" class="st" text-anchor="start">接收上一段末状态</text><text x="394" y="113" class="st" text-anchor="start">段内序号重新从1开始</text><text x="394" y="135" class="st" text-anchor="start">EMA / K / D不重新初始化</text><rect x="742" y="18" width="302" height="145" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="756" y="41" class="sk" text-anchor="start">«分段SQL»</text><text x="756" y="66" class="sh" text-anchor="start">后续各段</text><text x="756" y="91" class="st" text-anchor="start">接着计算全部历史</text><text x="756" y="113" class="st" text-anchor="start">保留输出范围内的结果</text><text x="756" y="135" class="st" text-anchor="start">释放不再需要的中间结果</text><path d="M320 90 L380 90" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-501)"/><path d="M682 90 L742 90" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-501)"/></svg></div><p>每段计算后，EMA、DEA、K和D等递推值通过SQL状态表接续；MA/BOLL/KDJ的高低窗口携带后续需要的前段K线。跨段、跨日和跨年都不自行重置首批指标。后续若某指标本身规定按交易日重置，须在该指标对象的算法声明中明确，不能由引擎统一猜测。</p><p>“数据读取一批多少根”和“指数幂在一段内计算多少根”分别由输入资源和数值安全决定。读一批8192根不表示允许8192根指数幂直接展开。Python仅组织SQL执行，不计算指标值；分段也不授权引入Python公式。</p><h3>“会不会发生”的复现实验与适用范围</h3><div class="table-wrap"><table><thead><tr><th>复核项目</th><th>本机实际结果</th><th>说明</th></tr></thead><tbody><tr><td>输入与独立预期</td><td>20,000根合成K线，收盘价均为100；EMA周期12、初值100。每根EMA理论上均为100。</td><td>输入没有巨额价格。极大数由SQL的负指数幂展开自行产生；预期值可由恒定输入直接推导。</td></tr><tr><td>不分段，整段展开</td><td>第4211根开始出现非有限数；第5000根和第20000根为NaN，共15790根非有限结果。</td><td>DuckDB 1.5.2中已实际执行复现；不是假设会出错。首次失败位置包含乘价格、求和的影响，不等于单独幂函数开始溢出的位置。</td></tr><tr><td>1024根分段并接续</td><td>20,000根全部有限；与100相比最大绝对误差2.842170943040401×10⁻¹⁴。</td><td>证明这一固定样本分段后恢复正确；不证明1024适用于所有参数，也不是完整MACD/KDJ或真实源验收。</td></tr><tr><td>对当前DG的结论</td><td>当前股票实现SEGMENT_BAR_COUNT=1024，参数固定12/26/9、9/3/3；已有段末状态接续。指数实现按目标日处理递推行。</td><td>本轮没有发现或声称正式DG输出已损坏。风险是新通用内核若把全历史直接展开，或对任意参数照搬1024，会重复触发该问题。</td></tr></tbody></table></div><details><summary>本次复核的SQL和执行方法</summary><pre><code>CREATE TEMP TABLE whole_result AS
+WITH p AS (SELECT 2.0/13 AS a,1-2.0/13 AS b),
+bars AS (SELECT i,100.0 AS close FROM range(1,20001) t(i))
+SELECT i,pow(b,i)*(100.0+a*sum(close*pow(b,-i)) OVER (
+ ORDER BY i ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+)) AS ema
+FROM bars CROSS JOIN p;
+
+
+INSERT INTO segmented_result
+WITH p AS (SELECT 2.0/13 AS a,1-2.0/13 AS b),
+bars AS (
+ SELECT i,last_i,ema AS seed,100.0 AS close,i-last_i AS j
+ FROM segment_state CROSS JOIN range(1,20001) t(i)
+ WHERE i&gt;last_i AND i&lt;=least(last_i+1024,20000)
+)
+SELECT i,pow(b,j)*(seed+a*sum(close*pow(b,-j)) OVER (
+ ORDER BY j ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+)) AS ema
+FROM bars CROSS JOIN p;</code></pre><p>先执行whole_result，检查isfinite及第1/1024/5000/20000根结果；再以SQL状态表(last_i=0, ema=100)开始，重复分段INSERT，每段后用SQL将状态更新为已完成段的末行，直到20000根。Python只负责提交语句。isfinite检查仅用于这个开发实验，不进入正式每请求数据质量检查。</p></details><div class="note">本机实验与官方资料分开：上述溢出和修复结果来自本机执行；“窗口计算需要缓存输入”来自DuckDB维护方的官方文档。数值超出DOUBLE范围与内存用量过大是两个问题，增加内存不能解决前者。</div><h3>分钟/日线：输入到输出的复权流程必须显式决定</h3><p>下表只是有资料依据时的计算安排，不声明全部转换已支持。周/月线不适用这些转换，直接读取目标口径；业务不自由设置基准。</p><div class="table-wrap"><table><thead><tr><th>输入情况</th><th>目标输出</th><th>计算安排</th></tr></thead><tbody><tr><td>不复权</td><td>不复权</td><td>直接计算指标，不执行复权。</td></tr><tr><td>不复权</td><td>前复权 / 后复权</td><td>由读取模块调用独立复权对象生成目标价格，再交给指标对象。</td></tr><tr><td>前复权 / 后复权</td><td>同类型，且基准与因子口径相同</td><td>直接使用输入价格计算，不重复复权。</td></tr><tr><td>同为前复权，但来源不符合既定最新因子规则</td><td>按既有规则生成的前复权</td><td>不能直接混用；LLD核对正确来源或已有未复权到前复权步骤，资料不足明确不支持。不增加任意日期换基准能力。</td></tr><tr><td>前复权与后复权互换，或已复权转不复权</td><td>不同目标类型</td><td>需要明确转换路径及所需因子/基准或基础价格。LLD逐项列出直接转换或改读基础价格重算的依据；资料不足时明确不支持，不猜基准，也不声称所有路径已经实现。</td></tr></tbody></table></div><p>前面的复合计算图以分钟/日线未复权输入为例，不意味着只接受未复权输入。所有转换必须先确认既有规则和来源资料可用，不猜基准，不自动另找数据或改算。周/月线仅直接读取已有目标口径，不做复权、换基准或重新合成。无需转换的路径不读取无用因子，不增加质量扫描。</p></section>
+<section id="output">
+<div class="section-head"><span>09</span>
+<h2>一个业务计算入口，能力发现共用定义</h2></div>
+<p class="intro">对业务不区分从湖算、从Prod算或从接口算。读取来源由配置和应用装配决定，纯计算接口留在内部。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>建议接口</th><th>用途</th>
+</tr></thead>
+<tbody>
+<tr><td><code>calculate(request)</code></td><td>唯一业务计算入口：选择对象、区间、周期，根据来源明确实际输入类型，业务可选择一种目标复权，不传默认前复权；选择指标及参数。基准沿用已核对的来源与计算规则，服务记录实际基准；不要求业务手填因子、提供bars、日历或审计信息。</td>
+</tr>
+<tr><td><code>list_calculations()</code></td><td>发现当前部署已注册的基础计算和技术指标，包括独立复权能力；不读取审计状态。</td>
+</tr>
+<tr><td><code>describe_calculation(id)</code></td><td>说明输入、输出、参数、依赖、初始化和历史要求；输入质量属于外部提供的合同约定。</td>
+</tr>
+<tr><td>内部引擎执行接口</td><td>接受可信标准数据表与计算安排，供服务及隔离测试使用；不作为第二个公开业务接口。</td>
+</tr></tbody></table></div><pre><code>CalculationResult
+  series: 对象、周期、目标输出价格口径、时区、成交量/额单位
+  source: 实际处理起止与数据截止、来源身份、输入复权类型与基准
+  price_adjustment: 目标输出复权类型与基准、是否执行价格转换及对应版本
+  calculations[]: 实例ID、能力ID、算法版本、实际参数、输出字段及数值
+  times[]: 对应输出时间，按合同规定的时间键显式排序
+  statistics: 请求返回根数、实际读取/计算/返回根数、文件数与阶段耗时
+  # 不返回审计凭证、质量标志或“已验证完整”的证明</code></pre>
+<p>输出负责截取最近请求数量、组织字段并序列化，不再逐点检查数值或重新验证时间完整性。无法序列化等实际错误正常报错。公式规定的初始NULL与有效起点按算法定义输出；算法正确性和输出合同在开发测试中验证。</p>
+<p>旧页面DTO仍由Biz转换；来源、参数和版本含义在接入LLD中明确，不能把新算法或自定义参数冒充旧Gold指标身份。</p>
+<p><strong>多实例与能力说明仍需细化：</strong>同一目标价格可供两套不同参数的MACD使用，结果按计算实例区分字段，不能用相同DIF/DEA字段互相覆盖。管理员已确认一次请求只输出一种目标复权类型，CalculationResult.series记录这次实际目标；不设计三组结果分组或同次多目标分支。目标参数省略与显式前复权应得到相同结果；合法指定类型必须照做，不能静默回退前复权。依赖复用须同时匹配对象、周期、价格口径、基准、参数及版本；不同分段的同一请求应保持同一含义。算法定义支持哪些周期、部署的读取实现支持哪些请求，以及本次是否读到数据，必须分别说明；发现接口不扫描行情、不查审计状态，也不承诺今天的数据已经到齐。</p><p>已确认：有效历史少于请求根数，返回实际可用根数并说明数量。例如请求1000根而该对象有效历史仅300根，返回300根，不补零、不复制K线、不仅因此让请求失败；MA250的前249根为公式规定的NULL。这里不是允许缺口或省略递推所需历史，来源仍负责完整性。只有合法请求在支持的来源上正常读完、请求输出范围内确实没有K线，且输出及清理正常完成，才成功返回空结果，唯一边界见<a href="#empty-series-review">第17节已确认规则</a>。有10根K线计算MA20，仍返回10个时间点和对应NULL，不得过滤NULL后称为空结果。来源不支持和实际读取/计算失败按各自错误处理。NaN/Infinity不能默默转成初始NULL、0或成功结果；具体格式及失败处理在LLD确定；严格JSON序列化发生的错误属于正常输出处理，不另加预遍历数值扫描。</p></section>
+<section id="sequence"><div class="section-head"><span>10</span><h2>UML：从请求到DuckDB计算结果</h2></div><p class="intro">读取模块执行必要复权并提供共享价格；计算模块执行指标。共用本次DuckDB执行能力，数据归属分别明确；外部审计不进入时序。</p><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 610" role="img" aria-label="单一业务入口、来源绑定与DuckDB SQL计算时序"><title>单一业务入口、来源绑定与DuckDB SQL计算时序</title><defs><marker id="arrow-303" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="triangle-303" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="22" y="15" width="180" height="65" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="36" y="38" class="sh" text-anchor="start">业务调用方</text><path d="M112 80 V555" fill="none" stroke="#aac0cb" stroke-dasharray="5 5"/><rect x="240" y="15" width="180" height="65" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="254" y="38" class="sh" text-anchor="start">计算服务</text><path d="M330 80 V555" fill="none" stroke="#aac0cb" stroke-dasharray="5 5"/><rect x="465" y="15" width="180" height="65" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="479" y="38" class="sh" text-anchor="start">指标对象 / 依赖</text><path d="M555 80 V555" fill="none" stroke="#aac0cb" stroke-dasharray="5 5"/><rect x="695" y="15" width="180" height="65" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="709" y="38" class="sh" text-anchor="start">读取模块</text><path d="M785 80 V555" fill="none" stroke="#aac0cb" stroke-dasharray="5 5"/><rect x="920" y="15" width="180" height="65" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="934" y="38" class="sh" text-anchor="start">DuckDB执行</text><path d="M1010 80 V555" fill="none" stroke="#aac0cb" stroke-dasharray="5 5"/><path d="M112 120 L330 120" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)"/><text x="118" y="109" class="sl" text-anchor="start">1. calculate(request)：周期、范围、能力和参数</text><path d="M330 180 L555 180" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)"/><text x="336" y="169" class="sl" text-anchor="start">2. 参数与依赖检查，生成所需输入和SQL步骤</text><path d="M555 235 L330 235" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)" stroke-dasharray="6 4"/><text x="336" y="224" class="sl" text-anchor="start">3. 返回计算安排</text><path d="M330 290 L785 290" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)"/><text x="336" y="279" class="sl" text-anchor="start">4. 按输入要求读取，必要时复权并持有共享价格</text><path d="M785 345 L330 345" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)" stroke-dasharray="6 4"/><text x="336" y="334" class="sl" text-anchor="start">5. 交付共享价格批次、口径与来源说明</text><path d="M330 400 L1010 400" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)"/><text x="336" y="389" class="sl" text-anchor="start">6. 执行指标窗口/分段SQL；读取模块已完成复权</text><path d="M1010 460 L330 460" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)" stroke-dasharray="6 4"/><text x="336" y="449" class="sl" text-anchor="start">7. 指标完成并生成独立结果；确认本批使用结束</text><path d="M330 520 L112 520" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#arrow-303)" stroke-dasharray="6 4"/><text x="118" y="509" class="sl" text-anchor="start">8. 组织输出，按归属清理，最终关闭本次连接</text><text x="550" y="585" class="st" text-anchor="middle">执行期间只检查资源、截止与取消；数据质量和完整性由外部负责</text></svg></div><p>本图表达已确认的职责分工，实际读取和计算分批交替；具体创建/释放条件与异常顺序见第12节生命周期细化要求，不把它当作已验收实现。来源实现可以使用Lake视图或注册接口返回的列数据；核心只接收标准表说明。没有读取后逐根复核、缺口检查、质量证明或来源变化检查。取消需要中断正在运行的SQL，不能只停止Python后续循环。</p></section>
+<section id="config">
+<div class="section-head"><span>11</span>
+<h2>配置：基础设置集中管理，算法参数归指标定义</h2></div>
+<p class="intro">管理员2026-10-22已同意下列初始配置。它们是后续LLD和开发的起点，尚未写入运行配置，也不是实测性能保证。由App从既有Settings体系解析并注入不可变配置；指标和引擎不自行读env或另找本地配置。正式字段、单位、来源、消费者、生效与测试已在LLD第16节完成设计审计，实际运行值与测试仍待开发验证，不再以“未做完整实验”为由将已确认初始值列为待定。</p>
+<h3 id="initial-settings-20261022">已确认初始配置：每请求1000根、可组合5～10项指标</h3>
+<p>估算适用前提：一个业务进程、少量同时访问、常用指标参数；一次请求只处理一只证券、一个周期和一种目标复权。1000根是本次讨论的请求大小，不改变现行页面默认500根，也不把算法必需历史截成1000根。基础资源设置不能由业务请求覆盖。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>已确认初始值</th><th>作用范围与含义</th></tr></thead><tbody>
+<tr><td>同时处理的请求</td><td>2个</td><td>同一业务进程内所有相关入口共用；包括停止清理或仍持有响应结果的请求。一个请求中的10项指标只占1个名额；同页不同区域的独立请求分别计数。</td></tr>
+<tr><td>最多等待的请求</td><td>2个</td><td>没有计算名额时最多保留2个未开始的请求；等待不创建连接、不读数、不复权、不占工作线程。</td></tr>
+<tr><td>最长等待</td><td>2秒</td><td>从开始等候起计，且不超过总截止剩余时间；到期移除，不能后来又启动。</td></tr>
+<tr><td>每请求DuckDB SQL线程</td><td>1个</td><td>在本请求独立内存实例显式设置，不等于新增Python线程池。</td></tr>
+<tr><td>读取批次</td><td>8192根</td><td>单批新增输入的初始上限；末批可以更少。另有必要前置窗口，必须计入同请求预算；不等于SQL数学安全分段长度。</td></tr>
+<tr><td>DuckDB查询内存限制</td><td>128 MiB</td><td>用于本请求独立实例的查询设置；不代表整个请求或Web进程的全部内存上限。</td></tr>
+<tr><td>单请求整体内存估算</td><td>256 MiB</td><td>供容量规划与执行安排使用，包含输入、计算及结果等开销，不是已证明可强制执行的进程内存硬上限。</td></tr>
+<tr><td>计算能力预留内存</td><td>约1 GiB</td><td>两个请求按512 MiB估算，再预留约512 MiB余量；不含Web原有占用，不提前分配，也不是实测峰值或进程硬限制。</td></tr>
+<tr><td>后端整次处理目标</td><td>8秒</td><td>从后端收到请求起计；等候、鉴权、工作线程等待、读取、计算、输出及必要清理不重新计时。</td></tr>
+<tr><td>停止与清理预留</td><td>2秒</td><td>请求到达后第6秒仍未完成，停止正常处理并发起取消，目标第8秒前结束停止与清理；不是第8秒才取消后再另等2秒。</td></tr>
+<tr><td>前端整次失效</td><td>10秒</td><td>从页面发出请求起计，覆盖鉴权刷新重发、完整响应体接收及结果转换；到期结束加载、取消并忽略迟到结果。</td></tr>
+</tbody></table></div>
+<p><strong>估算依据与限度：</strong>8192根、6列8字节数值加1列8字节时间的基础载荷为448 KiB；1000根、每根40个8字节数值字段约0.31 MiB。它们不包含SQL缓冲、读取解压、对象和JSON。256 MiB与约1 GiB是保守规划值，不能从这些列宽推导出实际总峰值，也不以统一倍数冒充测量。前端10秒是独立失效安排；后端8秒、停止清理2秒是目标，不能承诺强杀工作线程。SQL或资源未真正结束时继续占原名额。</p>
+<p><strong>已确认设计与开发后验证的区分：</strong>本表数值已确认。下表按本次review同步输出字节和读取初始保护、撤销来源文件合计大小限制；5000文件、16实例、10000返回位置已确认为初始值，150万输入根数也已确认，所有初始值均已写定；不能将本表确认扩大为支持任意窗口、任意历史或任意10种算法。各配置按同一Settings体系管理，运营可见已生效值，业务不能改变上限；本轮不新增配置字段。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>配置项 / 已确认值与来源</th><th>当前依据与持久化位置</th><th>消费者 / 生效与检查</th>
+</tr></thead>
+<tbody>
+<tr><td><code>lake_root</code><br>/Volumes/datasource/data_lake</td><td>现有Settings.goldenshare_lake_root来自GOLDENSHARE_LAKE_ROOT；DG正式根由现行路径合同约束。继续复用该来源，不新增第二个根配置。</td><td>App装配→输入数据源。新服务只接受正式根的只读路径；启动核验挂载与权限，不自动创建目录。</td>
+</tr>
+<tr><td><code>source_contract</code>（已有读取定义引用）<br>按声明提供的价格口径、必要因子 / 指数标准K线</td><td>使用现有Foundation路径与列合同，不新增一个独立路径模板事实源；历史起点需有来源证据。</td><td>读取实现按对象类型取得约定输入；不得由页面传文件名。依据输入/输出类型与基准决定直接使用或执行独立价格转换；已复权输入不得当未复权再次处理。</td>
+</tr>
+<tr><td><code>max_input_rows</code> 1,500,000（已确认初始值）<br><code>batch_rows</code> 8192（已确认初始值）</td><td>拟纳入同一Settings配置组；配置模型仅接收已解析值，不读env。算法必需历史、批次和数学段长分别约束。</td><td>max_input_rows仅累计本请求新交付的来源K线位置一次；保留窗口再次使用、指标复用及多条SQL处理不重复计成新输入。另记各SQL实际处理量与中间结果占用，超限报错；不逐根检查质量。</td>
+</tr>
+<tr><td><code>max_source_files</code> 5000（已确认初始值）</td><td>建议纳入同一Settings配置组。来源文件合计1GiB限制已撤销，不新增max_source_bytes；物理大小只统计，不能与实际读取量或内存混淆。</td><td>来源实现按唯一文件计数，价格/因子/基准共用预算；同文件供多指标使用只计一次。文件数与时间预算分别限制；5000已确认为初始值。</td>
+</tr>
+<tr><td><code>request_memory_bytes</code> 256MiB（整体估算）<br><code>query_memory_bytes</code> 128MiB（查询限制）</td><td>已确认初始值，拟纳入同一Settings配置组。前者是规划及步骤估算依据，不宣称可强制限制整个进程；后者按本请求独立DuckDB实例生效。输入、窗口、结果与查询内存不能各拿一份256MiB。</td><td>服务、输入、计算和输出。DuckDB查询限制不能代表全部进程内存；还须计入读取器、列数据注册、结果包装与多请求占用。禁止保留一套Python指标数组。</td>
+</tr>
+<tr><td><code>max_concurrent_requests</code> 2<br><code>total_target_ms</code> 8000</td><td>已确认每进程初始并发2、总目标8秒；第6秒尚未完成即发起停止，预留2秒清理。配置拟纳入同一Settings组，LLD核对实际Web进程数与整个部署占用，不按每线程分别放行。</td><td>应用接入层负责共享名额及有上限等待，计算服务负责执行截止/取消；计入5项/10项指标和响应转换/发送的实际资源。超时后不得继续领取新批次或发布成功，只允许必要中断及清理；未实际结束的资源继续计数，不能先归还名额。前端总失效与SQL停止分别验证，不能承诺强杀Python线程。</td>
+</tr>
+<tr><td>最大等待2个、最长等待2秒<br>前端整次失效10秒、SQL线程1<br>停止清理预留2秒</td><td>初始值已确认；后续配置审计与既有并发/截止放在同一来源管理。正式字段名、单位、Settings/前端配置对应、生效方式和消费者已在LLD第16节列全；前端只取得其所需失效设置，不获得Lake路径等内部配置。第6秒由8秒总目标减2秒清理预留得到，不另设相互矛盾的计时常量。本轮不新增配置字段或另造配置文件。</td><td>应用接入层在进入工作线程前限制等待，前端接入使用明确总时限，直到响应体接收及转换完成；业务计算参数不能覆盖基础资源限制。包括鉴权刷新重发的累计时间，不按每次阶段或重发重新计时，也不能收到响应头就撤掉超时保护。</td></tr><tr><td><code>max_projected_row_group_bytes</code> 33554432B（32MiB，已确认初始保护）</td><td>读取前按Parquet元数据计算当前所选列每个row group未压缩字节估计，不按整个文件大小拒绝；不是数据质量检查或实际内存保证。</td><td>超过先整次报资源超限，不跳过数据块或自动放宽；记录来源合同、投影、估算值及当次配置。后续撞线须重新评估合理性，再review调整，不能把初始值变成永远不变的限制。</td></tr>
+<tr><td>首轮无跨请求缓存</td><td>本轮不新增cache_enabled或cache_max_bytes配置，也不实现缓存分支；请求内依赖复用及跨段SQL状态继续保留。</td><td>每次按约定历史计算；未来若要跨请求复用结果或状态，另行设计与评审，不通过打开一个开关扩大本轮范围。</td></tr>
+<tr><td><code>max_output_rows</code> 10000（已确认初始值）<br><code>max_output_bytes</code> 5000000个UTF-8字节（已确认初始值）<br><code>max_indicator_instances</code> 16（已确认初始值）</td><td>纳入同一Settings配置组；本行返回位置、字节、实例三个初始值均已确认。示例请求1000根，不改变现行页面默认值。</td><td>服务与输出。返回根数、指标实例数及参数等可提前判定的超限在读湖前拒绝；实际编码字节数在输出形成时计量，超限整次失败，不截断字段或行来伪装成功。库结果和Biz最终响应各自的格式、字节计量及检查位置须在LLD明确，不能把列宽或Python对象大小当JSON传输字节。</td>
+</tr></tbody></table></div>
+<p>上述建议配置的变更默认随应用重启生效，单个请求固定一份配置。运营可查看已生效预算与版本；计算日志记录实际使用量和错误原因，不把内部路径暴露给用户。每项须在编码LLD中对应真实Settings字段、全部消费者及正反测试；本轮没有新增正式配置项。</p>
+<h3>算法配置与基础配置的分工</h3>
+<p>MACD周期、BOLL窗口与倍数属于指标参数，默认值和合法范围在CalculationDefinition中唯一声明；调用方只选择合法值。内存、并发、路径和截止时间属于基础配置，业务请求不能覆盖。定义变化需要版本管理，不用配置文件偷偷改公式。</p>
+<div class="note">本版query_memory_bytes计划约束DuckDB连接的memory_limit；管理员已确认首版禁止计算临时落盘，LLD须固定禁用设置及超限行为，不开放自动开启的开关或目录配置。已确认SQL线程1，具体配置映射见LLD第12/16节，运行效果待开发后验证，不能直接采用DG的16GB/4线程/512GB临时空间。SQL内部数值分段规则属于算法实现，按合法参数确定并随算法版本发布；不让业务自行设置。既有实验使用128MB和单线程只说明当时条件，不作为新核实测；当前128 MiB、单线程的初始设置依据管理员2026-10-22确认。禁止计算临时落盘仍为首版决定。</div><p><strong>预算记录需细化：</strong>max_input_rows计量来源K线数量，不能因为一份价格被16个指标复用就重复算成16份来源数据；同时分别记录各SQL处理量和中间结果开销。多进程时须明确并发与内存限制的作用范围；一个请求可含5项或10项指标，不能将指标数当请求数，也不能漏算其占用。线程数及禁用临时落盘的具体设置已见LLD第12/16节，运行效果待验收，不新增散落配置。</p></section>
+<section id="state"><div class="section-head"><span>12</span><h2>数据生命周期与失败处理</h2></div>
+<div class="decision"><strong>已确认的边界：</strong>读取模块负责读取、必要复权、共享输入的保留与释放；指标计算模块负责算法及指标状态；统一计算服务组织完整调用。读取与复权内部仍为独立对象，全部数值运算使用DuckDB SQL；不增加跨请求缓存，不写计算临时文件。</div>
+<h3 id="data-lifecycle-proposal">已确认规则与待明确的生命周期细节</h3>
+<p>2026-10-21对账：管理员已确认资源各自管理和服务最终关闭连接的原则、首版固定顺序且不预取、不增加通用引用计数、正常路径清理失败不报告成功、返回结果独立于连接以及按返回根数保留结果。下文补充共用范围和跨批规则由谁定义；以下释放条件与异常处理先后属于LLD必须落实的工程要求；LLD负责具体接口、SQL与测试，不重新选择连接归属或把已有原则列为待拍板，也不冒充已实现。</p>
+<div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 245" role="img" aria-label="单次请求数据生命周期：细节按LLD落实"><title>单次请求数据生命周期：细节按LLD落实</title><defs><marker id="data-life-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker></defs>
+<rect x="15" y="22" width="230" height="135" rx="10" fill="#edf4fa" stroke="#35658b"/><text x="29" y="49" class="sh">请求开始</text><text x="29" y="78" class="st">固定输入要求、口径和基准</text><text x="29" y="104" class="st">服务建立本次共用连接</text><text x="29" y="130" class="st">读取模块准备第一批价格</text>
+<rect x="275" y="22" width="230" height="135" rx="10" fill="#ecf7f2" stroke="#276d59"/><text x="289" y="49" class="sh">批次使用</text><text x="289" y="78" class="st">全部指标使用共享价格</text><text x="289" y="104" class="st">保存指标状态和必要输出</text><text x="289" y="130" class="st">使用结束前不得释放输入</text>
+<rect x="535" y="22" width="230" height="135" rx="10" fill="#edf4fa" stroke="#35658b"/><text x="549" y="49" class="sh">批次完成</text><text x="549" y="78" class="st">独立保留后续窗口所需行</text><text x="549" y="104" class="st">读取模块释放本批输入</text><text x="549" y="130" class="st">再读取下一批，不预读</text>
+<rect x="795" y="22" width="230" height="135" rx="10" fill="#fff7e8" stroke="#9a702b"/><text x="809" y="49" class="sh">请求结束</text><text x="809" y="78" class="st">成功结果不再引用临时表</text><text x="809" y="104" class="st">失败或取消不返回半成品</text><text x="809" y="130" class="st">清理各自资源，服务关连接</text>
+<path d="M245 88 H275 M505 88 H535 M765 88 H795" stroke="#62798a" fill="none" marker-end="url(#data-life-arrow)"/><path d="M650 157 V200 H390 V157" stroke="#62798a" fill="none" marker-end="url(#data-life-arrow)"/><text x="510" y="224" class="sl" text-anchor="middle">还有下一批则继续；任一步失败或取消，先停止使用，再清理</text></svg></div>
+<h3>共用连接指谁共用</h3><p>只指同一次calculate(request)内部：读取模块通过PyArrow读取当前批，再用该连接注册和物化本批输入，读取模块内的复权对象在该连接执行复权SQL，指标计算模块继续使用该连接中的目标价格表，输出部分读取本次需要返回的结果。同一个统一计算服务负责创建，也负责最终关闭：calculate(request)内部取得本次连接，在同一调用的统一收尾位置关闭。读取、复权、指标与输出只是使用方，不转移连接管理权、不各自close；正常、异常和取消均由该服务保证收尾。</p><p>不是多个页面、不同用户或不同股票请求共用同一条可变连接，也不是与DG任务或正式数据库共用连接。首版普通读取/计算步骤在本次工作线程依次执行，不让多个指标线程同时操作它；取消控制可按LLD对本请求执行interrupt，但不得并发执行其他SQL或提前close。这样复权生成的内存表可直接交给指标SQL使用，无须先转成Python全历史行对象，再搬到另一连接；实际缓冲及SQL中间结果仍须计入预算，不能声称全过程没有任何内存复制。</p>
+<p>创建与关闭必须落实到同一管理方，不能只写“有人负责”。若改成读取模块创建、计算模块关闭，会出现读取后过早关闭、双方重复关闭或双方都以为对方会关闭的问题。本设计不采用这种交接；完整输出须在关闭前独立，运行中的SQL须先停止。</p><h3>1. 资源由谁持有</h3>
+<div class="table-wrap"><table><thead><tr><th>资源</th><th>创建与持有方</th><th>使用与释放条件</th></tr></thead><tbody>
+<tr><td>本次DuckDB连接</td><td>统一计算服务创建并最终关闭的原则已确认；共用范围限本次调用内的读取、复权、指标与必要结果读取。完整签名和异常关闭步骤在LLD明确。</td><td>读取模块只释放其数据，不关闭共用连接；计算模块只释放其状态。全部SQL停止且输出已独立后，服务在统一收尾位置关闭一次；不同请求不共享可变连接。</td></tr>
+<tr><td>来源游标、文件句柄、注册列数据</td><td>读取模块管理，并在创建后立即记录归属，覆盖部分初始化失败。</td><td>最后一次实际使用结束即释放；若DuckDB仍引用注册数据或游标缓冲则不能提前丢弃。正常、失败、取消都走同一清理出口。</td></tr>
+<tr><td>实际复权口径与基准</td><td>读取模块在本次请求准备阶段确定并保持不变。</td><td>整段历史各批次使用同一实际口径与基准。所需当日因子可按批读取，目标价格生成后无下游使用即可释放；不因此扫描历史或重查来源变化。</td></tr>
+<tr><td>原始K线与本批因子</td><td>读取模块按需读取，不额外形成Python逐行副本。</td><td>所选目标价格已生成，且本次已确认的指标和价格输出均不再使用原始数据后即可释放。不得因价格生成结束就忽略仍在运行的输入使用方；一次请求只允许一种目标类型，不建立多个目标复权分支。</td></tr>
+<tr><td>本批共享目标价格</td><td>读取模块创建和持有，指标只读使用。</td><td>全部依赖本批的指标及独立价格输出均完成，必要状态、历史窗口与输出已保存且不再指向本批表，所有引用该表的SQL均已结束，才由读取模块释放。</td></tr>
+<tr><td>下一批所需历史窗口</td><td>计算模块声明需要的历史行数和字段，读取模块按同口径所需最大值保留一份。</td><td>保留的是独立的小表或列数据，不能只是指向整批原表的视图。下一批使用后更新；没有后续批次则释放。预算包含更新时旧、新保留表短暂同时存在的占用。</td></tr>
+<tr><td>EMA、DEA、K/D等指标状态和指标中间表</td><td>计算模块持有；读取模块不理解或更新指标算法。</td><td>跨批保存必要状态；同一批内部用完的中间表尽早释放。请求结束、失败或取消后，由计算模块清理。窗口前置行不得再次推进递推状态。</td></tr>
+<tr><td>需要返回的价格与指标结果</td><td>输出组织持有；仅保存展示范围内的结果。最近N根请求每完成一批后只保留最近N根，不全历史INSERT后等最后截取；此结果仍计入同一请求内存预算。</td><td>关闭连接前转成独立结果对象，不返回仍依赖输入表/连接的视图、游标或未执行查询。读取模块释放不能使返回结果失效；响应交付后的结果不归读取模块继续保管。</td></tr>
+</tbody></table></div>
+<h3>2. 一个批次允许释放的明确条件</h3>
+<ol><li>服务事先汇总本次固定的指标/价格输出清单、字段及历史要求；首版按固定顺序完成本批使用，不为每个指标另开线程或连接，也不预读下一批。</li>
+<li>读取模块提供本批只读目标价格。输入已经是正确目标口径时直接使用，不重复复权、不读取无用因子。</li>
+<li>全部使用本批的指标和价格输出均已实际完成SQL；不能仅创建一个以后才执行、仍指向输入的查询对象就算完成。</li>
+<li>计算模块保存下一批所需的递推状态，读取模块独立保存必要历史窗口，输出组织保存仍需返回的结果；三者均不得依赖即将释放的输入表或底层注册缓冲。</li>
+<li>服务确认上述条件满足后通知读取模块结束本批。读取模块删除本批表、注销已不用的输入、关闭已不用的来源句柄并移除引用；完成后才推进下一批。</li>
+<li>记录“已释放”指资源不再被本请求使用，可以回收或复用，不承诺进程RSS马上下降或DuckDB立即把全部内存还给操作系统。实际峰值和清理后占用仍须测量。</li></ol>
+<h3>跨批规则由谁定义，谁执行</h3><div class="table-wrap"><table><thead><tr><th>事情</th><th>定义与执行方</th><th>当前指标的具体依据</th></tr></thead><tbody>
+<tr><td>一个指标需要多少输入、产生多少输出及跨批状态</td><td>指标开发者按公式写入该指标对象和CalculationDefinition的输入/输出、历史、初始化及状态说明；声明随参数确定，不交给页面或读取模块猜测。</td><td>MA(N)/BOLL(N)跨批窗口需前N−1根；KDJ(N,K,D)高低窗口需前N−1根，另有K/D递推状态；MACD需快慢EMA/DEA末状态，首批不额外假造历史价格。</td></tr>
+<tr><td>多个指标合在一起保留多少输入</td><td>计算服务汇总各指标声明，按相同股票、周期和价格口径合并所需行数与字段；读取模块据此保留和释放。</td><td>MA20、BOLL20、KDJ9共同保留最大所需19根，但KDJ仍只使用自己的9根窗口，不会因为共用19根而改成20根窗口。</td></tr>
+<tr><td>每次新读取多少根</td><td>仅指实际读入批次的资源配置，不是算法输入/输出合同；先由算法明确必需历史和输出含义，再按内存及性能分批读取。</td><td>例子中的1000根只是说明；读取8192根已确认作为初始批次，算法仍独立声明必要前置历史与数学安全段长。</td></tr>
+<tr><td>SQL平滑计算每段多少根</td><td>由对应指标算法根据参数和数值安全推导，计算模块负责执行并接续状态。</td><td>读取一批可以包含多个数值分段；不能把读取批次直接当安全段长，也不能在段首重置EMA或K/D。</td></tr>
+</tbody></table></div><p>后续其他指标按其自身公式声明历史与状态要求，不能把所有指标统一套成N−1。读取模块负责实现已经声明的输入保留规则，不负责制定指标数学规则。</p>
+<h3>3. 跨批例子：哪些保留、哪些不能重算</h3>
+<p>仅作可核对的说明，批次1000根不是正式配置值。MACD、MA20、BOLL20与KDJ(9,3,3)共同计算：第一批处理1—1000根；MA/BOLL下一批需前19根，KDJ高低窗口需前8根，同口径只保留最大所需的982—1000根共19根。另保留MACD和K/D在第1000根结束后的指标状态。</p>
+<p>下一批新读1001—2000根；窗口计算使用已保留的19根加新1000根，递推从第1000根末状态继续，只推进1001—2000根。982—1000根只用于窗口，不再递推或重复输出。所有使用方完成后独立保存1982—2000根，释放上一轮保留窗口与本批已用完数据。若增加MA250，所需尾部变为249根；实际保留不超过已存在行数。取消时不再需要后续窗口，全部清理。</p>
+<h3>4. 请求结束、异常与取消的处理顺序</h3>
+<div class="table-wrap"><table><thead><tr><th>情况</th><th>具体建议</th></tr></thead><tbody>
+<tr><td>正常完成</td><td>全部计算完成→物化独立输出→计算模块清理状态/中间表→读取模块清理共享数据/来源资源→服务关闭共用连接→返回。输出转换失败也走失败清理；后续序列化失败不得依赖已关闭连接重读数据。</td></tr>
+<tr><td>请求或参数不支持</td><td>请求参数非法、未知能力及配置已知不支持的组合在创建连接、读数据前拒绝。需要实际读取才能取得的来源说明，取得后立即判断，失败也按已创建资源统一清理；不假定“没开始算”就没有资源，不增加数据质量预扫描。</td></tr>
+<tr><td>读取、复权或任一指标真实失败</td><td>停止领取下一批及剩余计算，不返回其他指标半成品；清理本批、历史窗口、状态、输出及连接。重试为新请求，从约定历史起点重新计算，不续用半成品，也不增加输入质量扫描。</td></tr>
+<tr><td>取消或超时</td><td>先停止继续读取/计算并中断正在运行的SQL，等待SQL及读取不再使用数据后再清理；不能边运行边删除输入。正常返回成功前再核对取消：已接受的取消丢弃尚未交付结果。一个请求取消不影响另一个请求。</td></tr>
+<tr><td>尚不能确认SQL已停止</td><td>资源仍视为正在使用，不能声称已释放或重复用于新请求。LLD须证明停止与释放有界并记录毫秒数；证明不了则该执行方式不通过，不以接口先返回、后台继续跑作为成功取消，也不在本轮擅自引入进程池。</td></tr>
+<tr><td>清理过程再次出错</td><td>继续尝试其余资源的清理，并由最终关闭连接处理仍由其持有的SQL资源；保留原始失败，同时记录清理失败。管理员已确认：正常路径清理失败不报告成功，必须成为LLD检查项；只做重复调用仍安全的清理，不无限重试或把本次连接放回共享池。</td></tr>
+<tr><td>快速切换后旧响应返回</td><td>旧请求单独取消和清理；页面不得以旧响应覆盖新选择。属于页面接入LLD，不能靠读取模块共享不同请求状态解决。</td></tr>
+<tr><td>进程退出、重复清理或再次调用</td><td>不写持久指标状态或计算临时文件，无跨请求续跑数据；进程退出后新请求完整重算。释放操作须能应对部分初始化和重复收尾，已经释放的资源不再次使用；未释放时不能只把标记改成已完成。</td></tr>
+</tbody></table></div>
+<p>日志或耗时统计失败不能改变已算出的结果；资源清理失败与单纯日志失败须分开。所有工作内存、共享输入、指标状态和结果均受同一请求总预算约束，不因分属模块就各取一份预算。已确认首版不预取下一批、不增加通用引用计数；跨请求缓存与连接池也不在首版范围。</p>
+<h3 id="response-lifetime-audit">计算返回以后：API仍持有的结果也要计入资源</h3>
+<p>关闭DuckDB连接只结束SQL资源的使用，不表示本次结果已经发送给浏览器。内核返回独立结果后，API仍可能持有该结果、DTO及JSON字节；慢速接收或断开时，这些数据的释放要由接入层负责。读取模块不重新接管返回结果，也不因此延后已结束SQL连接的关闭。</p>
+<p>当前StockMinuteQueryService._enforce_response_size先执行model_dump_json再编码为字节来计数，随后仍返回DTO。这能证明现行5MB检查不是内存上限，也不能证明只序列化一次；实际API后续如何转换须按当前代码追踪和测量。新核不能只统计SQL表已释放，就宣称整次页面请求的内存已全部归还。</p>
+<p>LLD须分别列：内核交付/API接收、DTO/JSON生成、发送完成或中断的结果持有及释放步骤；实际同时存在的份数和峰值；计算并发额度何时归还，以及API已有机制如何限制尚未发送完的结果总量。CPU计算结束与结果释放分别记录，不要求内核持有HTTP连接，也不新增结果队列、跨请求缓存或独立进程。全部结果准备完成后的发送仍可能失败；组合整次失败是计算结果规则，不承诺网络必然完整送达。API不得把半份JSON当成功，已关闭的SQL连接不能再收到迟到的中断操作。</p>
+<p>正常发送、发送慢、序列化失败和发送中断的有限样本及次数，先写进接入LLD并计入新增总开销；不自动执行或扩大现有1226万根测试预算。该项属于必须补齐的工程细节，不另请管理员决定每个对象何时释放。</p>
+<h3>5. LLD必须细化和验证</h3>
+<p>当前StockMinsLakeReader._read在取回全部页内行后立即关闭连接（CodeGraph node与源码已核对），不能不改交接方式就用于跨模块共享SQL输入；这属于新读取组件LLD需要解决的具体差异，本轮不修改旧Reader。<br>LLD须逐资源写创建/持有/使用/释放的方法及SQL；本次已确认的内容不得再当作待拍板项，工程方法按本节条件细化。有确需改变职责或业务行为的冲突时才另行说明，不能只因签名尚未写出而重复要求业务拍板。必须明确正常/失败/取消先后、跨批字段/行数、输出何时独立、释放失败的错误归属和重复清理行为；测试必须能抓住“提前释放”“仍引用整批”“窗口重复递推”“关闭后结果失效”“取消SQL未停”和“清理失败被吞”。正常、取消、完整重试及最终验收的时间/内存均纳入第13节预算，未补实际量化证据不得写已完成。</p></section>
+<section id="performance">
+<div class="section-head"><span>13</span>
+<h2>性能：计算快，不代表读湖一定快</h2></div>
+<p class="intro">预算覆盖读文件、请求及依赖检查、计算、输出、取消和重试，不包含输入数据质量审计；不拿内存公式计时直接承诺页面响应。以下数字是建议验收目标，尚未通过真实链路测试。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>阶段</th><th>建议验收目标 / 需要记录</th>
+</tr></thead>
+<tbody>
+<tr><td>无缓存，单对象60/90/120分钟；另测日/周/月，返回1000根</td><td>完整服务调用P95≤1.5秒；记录首次启动与稳定重复请求。必须从来源约定起点计算，不裁剪历史以达标。</td>
+</tr>
+<tr><td>无缓存，单对象1分钟，返回1000根</td><td>完整服务调用P95≤3秒仍为未验收目标；当前总处理目标8秒、第6秒尚未完成即发起停止；输入根数、文件数、读取初始保护、输出大小及工作内存受上一节相应预算约束；来源文件物理字节仅作统计，不设合计大小拒绝条件。超限单独报告。</td>
+</tr>
+<tr><td>两请求并发</td><td>分别按前述建议时限验收；测进程实际工作集。若部署多worker，计算总并发和总内存，不把每worker上限当全局上限。</td>
+</tr>
+<tr><td>取消 / 失败后重试</td><td>每批前后检查；不可中断的步骤需改造后才能上线。重试按无缓存完整成本验收；不能只量正常路径。</td>
+</tr>
+<tr><td>数值与体验一起验收</td><td>时间键、值、NULL、参数、来源、截止和数据延迟均正确；页面快速显示错误指标也属于失败。</td>
+</tr>
+<tr><td>后续缓存优化</td><td>不在本轮测试和开发范围。首轮测试关闭应用指标缓存，但如实记录操作系统文件缓存条件；不擅自清系统缓存。</td></tr></tbody></table></div>
+<h3 id="resource-test-plan">资源测试方案：初始配置先确定，开发后先做最小验证</h3>
+<p><strong>2026-10-22更新：</strong>管理员已确认第11节初始值，不必先跑完此前完整性能矩阵才给出初始配置或开始编写LLD。开发后的初步性能核验先聚焦单个区域组合10项、两个组合请求同时加载、计算中取消三个场景；两个请求可以来自不同页面，也可以来自同页不同区域。公式、分段、资源归属及必要正反测试仍须完成，不能把“先估算”写成“无需验证”。本轮没有运行任何计算测试或读取正式行情。</p>
+<div class="table-wrap"><table><thead><tr><th>最小性能场景</th><th>执行安排</th><th>核对内容</th></tr></thead><tbody>
+<tr><td>一个区域组合10项指标</td><td>按下文固定10实例组合，一次请求返回1000根，先执行一次。</td><td>来源遍历一轮、必要复权每批一次、一个连接和一个名额；记录整次耗时与内存。</td></tr>
+<tr><td>两个组合请求同时加载</td><td>两个各含10实例的请求实际重叠，先执行一次；可以来自同页不同区域。</td><td>每进程上限2、数据/状态隔离及进程峰值；等待和超限的先后规则另以轻量测试核对。</td></tr>
+<tr><td>计算中取消</td><td>一个请求在SQL计算中取消，随后完整重试一次；最后重复单页场景一次作读回验收。</td><td>分别记录SQL停止与资源释放耗时，核对2秒目标、未提前归还名额、无残留引用和重试可完成。</td></tr>
+</tbody></table></div>
+<p>LLD先列来源、单证券/周期的必需历史、每请求输入上限H、文件数、读取初始保护、输出字节及SQL处理预算；来源物理字节仅作统计；以上包含重试和最后验收最多6次完整请求等量输入，即不超过6H根，取消请求实际读取量按记录计。H须落成具体数值，不能只留符号，也不能为降低成本截断算法必需历史。不自动扩大下文已有的真实读取范围；合成场景不能冒充真实来源。三类场景只给初步证据，不能据此报告P95或宣称全部参数、全部周期通过。</p>
+<p><strong>下列2026-10-20～21的完整资源矩阵保留为扩展验证参考，均未执行。</strong>它不再是初始配置定案的前置。只有要扩大性能结论、验证额外边界或定位最小验证发现的问题时，才在LLD明确选取哪些场景与费用；不能把旧706万/1226万根矩阵与最小验证自动相加，也不能未经更新预算全部重跑。详细量化记录要求保留，尚未实测的项目明确待验证。</p>
+
+<h4>1. 固定条件与输入范围</h4>
+<p>资源测试固定计算MACD(12,26,9)、KDJ(9,3,3)、MA20、BOLL(20,2)，每次返回最近1000根；不启用跨请求指标缓存。由DuckDB生成确定的、有序的合成OHLC、成交量和成交额，Python只安排执行和记录，不生成全历史逐行对象或计算指标公式。合成价格应包含固定范围内的涨跌，且满足已确认算法输入含义；生成方法、数值范围和初值写入LLD，不能只用某种会触发特殊简化的全常数输入冒充全部性能。</p>
+<p>输入批次从8192根开始测试；数学分段按参数和数值安全规则确定，不能把8192直接当作指数幂展开的段长。线程、连接、进程、DuckDB设置和机器条件在一组对照内固定并记录；要改动时单独记录，不把不同条件的结果混在一起。</p>
+<div class="table-wrap"><table><thead><tr><th>场景</th><th>每请求输入</th><th>并发</th><th>具体目的</th></tr></thead><tbody>
+<tr><td>合成短历史</td><td>20000根</td><td>1</td><td>测服务与算法基本开销。</td></tr>
+<tr><td>合成较长历史</td><td>200000根</td><td>1</td><td>与短历史对照，查是否把已完成历史一直留在内存。</td></tr>
+<tr><td>合成长历史</td><td>1200000根</td><td>1</td><td>测长历史分批、跨段状态、排序/窗口及最终输出的真实占用。</td></tr>
+<tr><td>合成长历史并发</td><td>每请求1200000根</td><td>2</td><td>让两个请求的主要计算阶段实际重叠，直接测进程/服务总峰值；不把单请求数字简单乘2。</td></tr>
+<tr><td>真实读取</td><td>上证指数000001.SH，1分钟，2025-01-01至2025-12-31；最多200000根，返回1000根</td><td>1</td><td>测限定范围内文件发现、读取/解压、计算和输出，验证合成测试遗漏的读取成本。</td></tr>
+</tbody></table></div>
+<p>真实范围明确到一个指数、一种频率、一个年份；不读全市场、不读已存技术指标、不做数值质量或完整性审计。执行前只核对来源合同、指定范围文件清单和预算。缺所需来源或超预算时记录不可执行，不自动扩大日期、换股票、改来源或截断成成功结果。读取的正式文件保持只读，不复制为新湖资产。</p>
+<p><strong>纠正前次聊天的文件表述：</strong>当前指数分钟合同与Reader按频率、交易日分区读取part-000.parquet，并不是年度文件。真实测试读取2025年范围内实际日分区，记录实际文件数、所选文件总字节和实际处理量；不能写成“一个年份文件”。当前Reader完整历史上限仍为20000根，且返回整批行；本节不批准改旧Reader或直接沿用其整批持有方式。LLD须先在新读取组件中明确最多20万根的有界分批读法，再执行真实测试。</p>
+<p>限定年份的真实用例只证明这个输入范围的读取、计算与资源表现，不能证明从正式约定历史起点开始的数值或正式API全历史性能。使用内部测试输入与执行接口，不为该用例改变公开入口或正式历史范围；完整历史数值及服务验收仍按原验收项分别完成。</p>
+
+<h4>2. 先按实际同时保留的数据逐表计算</h4>
+<p>以6列8字节数值（OHLC、成交量、成交额）及1列8字节时间作说明：8192×(6×8＋8)＝458752字节＝448KiB。这只是这一批7列的载荷；真实字段类型以来源合同为准，不包含空值标记、字符串代码、读取/解压缓冲和DuckDB额外开销。若一次确实保留两份相同大小的数据，两份载荷为896KiB；不能没有代码依据就默认总占用乘2。</p>
+<p>LLD逐张列出：原始输入、复权结果（本次指数不需复权）、计算中间表、跨段窗口与状态、最终结果及结果包装。每项记录行数、字段及字节宽度、同时持有的份数、创建步骤、最后使用步骤和释放步骤。每个执行阶段只相加当时仍存在的项目，不把已经释放的表重复算入，也不漏掉仍被视图或查询持有的输入。MA、BOLL或多个指标共用同一输入时，按实际持有量计数。</p>
+<p>采用计算式：阶段已知载荷＝该阶段各项“实际行数×投影列宽×同时持有份数”的总和。排序、窗口缓存、解压及运行环境等无法可靠由列宽算出的部分，在下面的实测中单独识别；不能凭空统一乘某个倍数作为全部内存。</p>
+
+<h4>3. 实际测量步骤</h4>
+<ol>
+<li>每个场景启动独立测试进程，加载同一运行环境与服务组件；输入开始前记录空闲内存及进程启动阶段峰值，避免上一场景缓存和历史峰值污染下一场景。</li>
+<li>合成数据在SQL中按设计分批产生和处理，不先把全部历史变成Python数组。真实用例通过新组件按已核对合同读取同一组限定文件。</li>
+<li>由操作系统记录全程内存峰值；按文件发现、读取、计算、输出和清理标记阶段，并记录阶段内存与耗时。若阶段内存靠采样获取，须说明采样间隔和它只是观测最大值，不能冒充精确阶段峰值；操作系统全程峰值另外保留。</li>
+<li>单请求新增占用＝请求期间总峰值－输入前空闲占用，同时保留两个原始值和完整进程峰值。解释其包含读取、计算和输出，不能把差值全归给指标公式。</li>
+<li>并发场景核对两个请求确实重叠。按LLD实际部署的进程/连接安排执行；多进程时测同一时刻服务总占用，不能把各进程不同时刻的单独峰值相加冒充同时峰值。</li>
+<li>结束后记录已释放与仍保留的连接、临时表、缓冲及临时文件。比较估算与实测，查明未计入项目；不以“配置没报错”代替峰值记录。</li>
+</ol>
+<p>结果必须保留：场景、输入根数/实际文件数与物理字节、列/类型、指标及参数、批次/段长、输出量、线程/连接/进程/并发、环境版本、空闲内存、估算载荷、实际峰值、新增占用、各阶段耗时及清理后占用。字节/MiB的换算与操作系统返回单位必须明确。</p>
+
+<h4>4. 取消、重试和临时空间使用同一批有限样本</h4>
+<p>在真实读取场景的读取阶段、120万根合成场景的排序/窗口计算阶段、2万根合成场景的两段之间分别提出一次取消。记录提出取消、SQL实际停止、资源释放三个时刻，计算两段毫秒差；未命中目标阶段的取消不能记为该阶段已通过。每次取消后做一次同输入完整重试，验证没有残留任务且可以正常完成；不保存跨请求计算状态来降低重试成本。</p>
+<p>管理员已确认禁止计算临时落盘。LLD列禁用设置和所有执行连接的生效方式，测试记录临时计算数据文件使用量应为0，并验证内存不足时明确失败、SQL停止、内存临时表及连接释放；不得自动打开落盘或自行写中间文件。测试报告可以按批准范围保存，但不在正式Lake或业务数据库写测试产物。</p>
+<p>正常基础场景共5种，输入根数上限为4020000（其中并发场景含两个120万根请求，真实用例按20万上限计）。三个取消及其各一次完整重试最多再处理2840000根，最后重复一次真实用例验收最多200000根，合计输入根数上限7060000。这个数字只计来源输入，不等于各条SQL的累计处理行数；二者分别记录。LLD另给每场景和整轮的时间、内存、临时空间及取消上限；新增补测或重试次数前先更新LLD范围和开销，不无上限重复。</p>
+
+<h4>资源测试与延迟统计不能混为一谈</h4><p>上述基础资源场景各执行一次，用于识别占用与释放，不能据此计算P95，也不能证明第13节建议响应目标已通过。LLD若要验收P95，必须另列固定重复次数、冷启动与稳定请求条件、统计方法及超时/失败样本，不过滤慢请求；先把增加的总输入、真实文件读取和耗时预算写入LLD。本轮706万根预算不自动覆盖这些额外重复。</p><p>启动新进程不等于操作系统文件缓存已清空，应用不缓存指标也不等于磁盘每次冷读；记录实际条件，不擅自清系统缓存。当前真实用例只有指数且不做复权，不能证明股票复权前置步骤的资源和接入。LLD须为股票价格/因子、需要支持的大窗口和多实例补必要有限样本及开销，不自动扩大当前真实读取范围。</p><h4>5. 扩展验证时校准配置，不把初始值冒充测量结论</h4>
+<div class="table-wrap"><table><thead><tr><th>待确定值</th><th>怎样取值</th></tr></thead><tbody>
+<tr><td>读取批次batch_rows</td><td>以已确认8192为初始值，对照逐表载荷、实测峰值与耗时。若超预算，按占用差额推导一个更小候选再做有界复测；不遍历所有批次，不通过减少应算历史达标。</td></tr>
+<tr><td>query_memory_bytes、request_memory_bytes</td><td>区分DuckDB管理的查询内存、读取/列数据/包装占用和进程基础内存，以测量及部署可用资源确定；分别列限制值、实测峰值、差额和余量依据。不能把DuckDB memory_limit当进程总上限，不能只写“加20%”而不说明来源。</td></tr>
+<tr><td>max_concurrent_requests</td><td>初始取2已确认；用真实重叠的双请求核对峰值与延迟。若不满足，记录原因并提出调小或优化建议，不自行扩大并发或宣称已验收。多进程总并发和总占用必须同时核算，不能仅限制单线程。</td></tr>
+<tr><td>max_input_rows、窗口及实例上限</td><td>本组只提供120万根、4个指标实例和默认窗口的资源证据。若仍声明150万根、16实例或更大窗口，须在LLD增加相应有限边界样本及开销；不得用本组结果直接证明更大范围。参数精度验证继续按第17节独立要求。</td></tr>
+<tr><td>取消、请求截止、临时空间上限</td><td>分别按实测停止/清理时间和完整服务耗时确定。计算临时磁盘占用要求为0；请求截止不代替取消延迟，不以放开落盘来绕过内存上限。所有上限必须有验收条件。</td></tr>
+</tbody></table></div>
+<p>LLD给出“已确认初始值—计算依据—开发后样本/实测—允许上限—余量—验收状态”的对应表，并回写第11节。实现后才能取得的数据先列验证步骤和待验证状态，不要求在未开发前假造实测，也不再阻塞已确认初始值。凡未测、未证明或超预算的项目保留待完成；不因某一组通过就宣布全部参数、全部周期或正式API通过。配置变化仍须按现行规则完成配置来源、消费者、生效方式和正反测试审计。</p>
+<p>当前代码依据：<a href="../../src/foundation/clients/local_lake/major_index_mins_contract.py">指数分钟来源与路径合同</a>；<a href="../../src/foundation/clients/local_lake/major_index_mins_reader.py">MajorIndexMinsLakeReader及其20000根历史限制</a>。本次先通过CodeGraph定位类，再读取具体路径与上限代码；只修订测试计划，不修改Reader、API、生产者或消费者。</p>
+<details>
+<summary>早期Python实验：历史参考，不作为本版实现或性能依据</summary>
+<p>本机CPython 3.11.9、arm64；合成价格已在内存中，每组9次取中位数，包含DIF/DEA/柱值三个输出数组的生成，不含读湖、鉴权、接口、图表或其他指标。2万根约2.3ms，24万根约28.5ms，120万根约140.9ms；自定义10/69/10与12/26/9耗时接近。该实验早于本次DuckDB优先决定；不作为本版实现方案、性能预算或正式API验收证据。</p></details>
+<h3 id="page-multi-indicator-tests">LLD新增要求：测一个区域组合5项和10项指标，以及独立区域请求</h3>
+<p>现有4指标资源矩阵继续保留，但不足以证明5项或10项页面组合的体验。以下是新增的有限合成测试建议，尚未执行；先在LLD写清SQL、测量入口与全部开销。真实股票来源和页面联调另按已限定范围验收，不扩大原真实行情读取范围。</p>
+<div class="table-wrap"><table><thead><tr><th>组合</th><th>固定实例</th><th>用途</th></tr></thead><tbody>
+<tr><td>5项</td><td>MACD(12,26,9)、KDJ(9,3,3)、MA20、BOLL(20,2)、MA60。</td><td>常见主图/副图组合；MA20与BOLL20可检验共同均值是否实际复用。</td></tr>
+<tr><td>10项</td><td>在5项基础上增加MA5、MA10、MA30、MA90、MA250。</td><td>用已有指标对象的不同参数验证10实例与多窗口；不为凑数量开发新指标，也不声称代表任意10种算法。</td></tr>
+</tbody></table></div>
+<p>每项组合分别以20万和120万根合成未复权K线、合成因子执行一次，每请求返回1000根；再让两个各含10项指标、各120万根的请求实际重叠一次，共5个场景。相同输入/截止/目标前复权共用一次读取与必要转换；因子生成及独立价格预期必须在LLD固定。新增来源输入上限520万根，与原706万根合计1226万根；这仍不包含P95重复、额外取消/重试、股票真实接入或更高参数边界，LLD须分别补有限预算，不能默认无限加测。</p>
+<p>逐场记录：页面一次请求含几项指标、实际来源遍历轮数和根数、因子读取与复权执行次数（按批计）、共享与独立计算步骤、输出量、读取/复权/各步骤/包装及整次耗时、峰值内存、拒绝/超时数量、临时磁盘占用。相同源的遍历应保持一轮，复权应保持每批一次；指标从5增至10不能把来源读取和复权也变成10轮。</p>
+<p>此前1.5秒/3秒仍是整次服务调用的建议目标；5项和10项须分别统计验证，不能每项分别低于3秒就声称页面通过。接入阶段还要测HTTP返回、结果转换、图表绘制、快速切换后的旧请求取消，以及旧响应不得覆盖新选择。若未达标，先查重复读取、未复用步骤、数据搬运和输出开销；没有具体证据，不直接加线程、放大内存、启用落盘或引入跨请求缓存。管理员已确认忙时允许等待以提高成功机会，且必须明确失效时间；初始并发、等待和失效数值已按第11节确认；验证实际表现，有问题再依据证据提出调整，不再重复决定是否允许等待。</p>
+<h3 id="concurrency-waiting-example">并发与等待：按整次页面计算说明</h3>
+<p>并发数量指同一时刻已有处理名额且尚未完成收尾的完整请求数；首版建议把读取、计算、清理及响应发送均计入该名额的持有期，具体API释放位置必须在LLD核对。一个区域一次提交MACD、KDJ、MA、BOLL共4项指标，仍算1个请求；同页另一区域的独立请求另算1个。等待数量是已有请求占满可用计算位置时，最多让多少个尚未开始读取/计算的请求等候。等待时间是这些请求最多等多久；开始执行后的耗时与此前等待分别记录，总截止仍从请求到达计算。</p>
+<p>按已确认初始值举例：A、B各一页的组合请求正在处理，C、D依次到达后进入最多2人的等待；E再到达时立即返回繁忙。若A实际结束并归还名额，C先开始；D继续等，自己的等待累计满2秒就结束，不因C开始而重新计时。旧请求只是收到取消信号、SQL却还没停止时，不能提前归还它占用的计算位置。</p>
+<p>多个指标不是多个并发请求，DuckDB内部SQL线程数也不是这里的请求数。从行为上这是进程内有数量及时间上限的等待，不是等待整段计算持有的锁，也不需要外部消息队列或新的线程池；初始每进程同时2个、最多等2个且2秒已经确认；LLD核对落点，开发后先按最小场景验证，不等待完整矩阵再定初值。读取、计算、输出/发送各自占用与释放仍按第12节说明，不把等待等同于已开始后台预取。</p>
+<h3 id="concurrency-control-details">已确认等待方向；并发控制必须在LLD落实的安排</h3>
+<p><strong>管理员确认的是效果：</strong>空闲立即处理、忙时允许等候、人数与时间有上限、前端整次请求明确失效。下面是落实该效果的工程建议，尚未编码或验收；不改变同步calculate入口、业务进程执行、单次一种目标复权或已有读取/计算资源归属。</p>
+<ol>
+<li><strong>等待的是计算名额，不是整段计算持有的锁。</strong>从行为看，是进程内有限的等待队列。优先复用现有AnyIO等运行库的等待/通知能力，接口外只做数量和截止控制；不自建通用任务系统、外部消息队列、数据库任务表或轮询线程。若需要锁，只短暂保护人数及名额变更，不持锁读取K线、执行SQL或等待其他请求。</li>
+<li><strong>同一业务进程的所有相关入口共用一份控制。</strong>由App在应用生命周期建立一次，Biz接入层使用；不能在每次请求或每个股票服务实例里新建一份计数。股票、指数和调用同一内核的入口共同计量；Foundation不反向依赖Web框架。非HTTP调用的截止/取消交接另按同一内部合同说明，不默认绕过限制。</li>
+<li><strong>先获得名额，再进入工作线程和读取数据。</strong>沿用现有鉴权及轻量请求检查，未授权或非法参数不进入等候；前端总时限仍包含鉴权过程。等待期间只保存有大小限制的请求参数、截止和通知信息，不开DuckDB连接、不读文件、不复权、不占着工作线程睡眠。接口侧用异步等待，获准后通过已有工作线程机制调用同步内核；现有同步def入口不能原样加一把阻塞锁就声称完成。接入层是否修改入口形式须在接入LLD列清，不在本轮修改现行API。</li>
+<li><strong>一次组合请求只申请一次名额。</strong>接入层是该次请求名额的唯一申请和归还方。获得名额后，同步calculate、读取/复权对象、各指标及复合依赖都不能再次申请同一名额，否则名额较少时会排队等待自己。当前股票分钟API的_service每次创建查询服务对象，所以不能照此把共享计数放进每次新建的服务实例；App建立的共享控制与每次计算的数据/连接分别管理。直接调用内核的其他入口也必须在自己的接入边界完成一次相同的控制，不以不经HTTP为由绕过资源限制；具体装配列入LLD，不给内核增加Web依赖。</li><li><strong>等待数量不能只靠线程数限制。</strong>运行库的并发名额可能有内部等候列表，但不自动提供本业务的最大等待人数。LLD同时限制正在处理与尚未开始的请求；满员后立即拒绝新增等候，不让默认线程池外再堆一层无上限等待。获准后若仍等待框架线程，也计入本次总时限，到期不能后来又启动SQL。</li>
+<li><strong>按到达顺序唤醒，过期和取消请求移除。</strong>首版建议先到先开始，不加用户优先级或股票优先级；新请求不能绕过已等候者。等候者取消时释放等候位置，轮到它时还须再次检查截止。取消、超时和“刚好获得名额”同时发生的情况必须逐条验证，防止重复归还或永久少一个名额。</li>
+<li><strong>每次请求只确定一次总截止。</strong>服务端用单调时间从到达开始计算，等候、框架线程等待、读数、计算、转换及必要清理的安排都不能靠重新计时延长。最长等待不得超过整次请求剩余时间；初始从到达起总目标8秒，其中最后2秒预留停止/清理；第6秒未完成即取消，LLD核对转换和发送如何计时并记录实际停止耗时。数据查询的业务截止日期与请求失效时间分别说明，不能混用。</li>
+<li><strong>前端也必须有独立的整次失效时间。</strong>后端截止无法保证网络一定送达，页面须到期停止加载、取消原请求并忽略迟到结果。已确认后端总目标8秒、前端从发出请求起10秒失效；两端分别计时，预留余量不等于保证所有网络环境都能收到错误响应。当前wealthFetch转交调用方signal，并有401后的登录刷新与一次重发，但本轮所读分钟路径未见统一整次超时；接入时沿用同一截止覆盖刷新/重发、响应体接收和结果转换，不修改全站无关接口，不为繁忙增加无限自动重试。当前parseMinuteResponse在取得Response后还会await response.json，故不能在fetch返回响应头时就清掉定时器。同步JSON解析/图表转换不能靠定时器强行抢断；用输出大小限制和有限测量限定占用，完成后再次检查截止，过期结果不进入展示。</li>
+<li><strong>前端失效不等于SQL已经停止。</strong>等待中失效就移除，且不再开始读数；运行中失效就通知内核停止新批次/新指标、中断本请求SQL并清理。未实际停止的SQL和未释放资源继续占原名额；不能通过取消await、返回超时或浏览器断开就归还。正常目标为发起取消后2秒内完成停止与清理，实际SQL停止和资源释放分别记录；若超时仍无法确认停止，标明未停止并阻止继续超额接单，不宣称成功取消，不自动创建新线程或重启进程。Python线程不能被安全强杀的限制仍保留；达不到相应验收条件时不得通过该执行方式的开发验收。</li>
+<li><strong>名额释放必须有唯一负责方和明确时点。</strong>首版建议HTTP侧名额覆盖从获准开始，到SQL结束、资源清理及API响应完成或断开；只有这些条件满足才由接入控制归还一次。内核仍由原服务创建/关闭连接，读取和指标分别清理自己的数据；接入层不越权close。慢速发送、DTO/JSON转换失败也受第12节的总资源规则约束，不因SQL结束就无限积存待发送结果。实际释放位置在接入LLD追到框架的响应完成/异常路径，而非只追到函数return。</li>
+<li><strong>多进程的数字分别核算。</strong>进程内等待对象不能跨Web进程共用。部署若有P个进程、每进程C个名额，总量最多P×C，等候人数和同时内存同样计入总预算；不能每个进程都配2个后声称全系统只有2个。首版不为统一数字引入分布式锁或外部队列；目标部署进程数和资源分配必须在LLD21明确，不能擅自改部署。</li>
+<li><strong>退出与失败仍要完成收尾。</strong>应用关闭时停止接收新计算，移除/结束等候请求，通知运行中计算停止并按归属清理；不保存请求续跑或自动重放。等待人数、处理人数、停止中人数、等待耗时及拒绝/过期原因应能从既有日志和测试记录核对，不新建观测平台，也不因日志失败改变结果。</li>
+</ol>
+<p><strong>实现依据与限制：</strong>本机Web环境AnyIO为4.13.0，已读CapacityLimiter的OrderedDict等待及取消移除/释放通知代码；它说明已有等待能力，不证明业务最大等待人数、整次超时和SQL中断已经实现。<a href="https://anyio.readthedocs.io/en/stable/synchronization.html">AnyIO官方同步工具说明</a>明确异步工具不能由工作线程直接操作；归还名额等操作须回到其所属的异步执行环境。<a href="https://anyio.readthedocs.io/en/stable/threads.html">AnyIO官方线程说明</a>明确取消等待不终止底层线程；<a href="https://starlette.dev/threadpool/">Starlette线程池说明</a>确认该容量还供其他接口使用。本次只核对代码与资料，没有安装或升级依赖、建立队列或执行并发测试。</p>
+<h3>并发控制的有限验证：不靠“加了锁”判断完成</h3>
+<p>LLD先列12类控制规则验证，每类至多6个轻量请求、固定执行一次，上限72个请求；用可控制的测试替身安排先后，不读正式湖、不算长历史，不随机无限重跑。这部分仅证明控制规则，不作为真实SQL停止、HTTP响应或性能通过的证据。真实SQL取消、响应发送及5项/10项组合仍需最小真实链路；增加的次数、根数、耗时与取消重试开销先写入LLD，不自动包含在现有1226万根预算里。</p>
+<ul><li>空闲立即开始，多指标仍只占一个请求名额。</li><li>满员后等待，按到达顺序唤醒，新请求不得插队。</li><li>等候人数到上限后拒绝，未创建来源或SQL资源。</li><li>等待到期移除，之后即使有空位也不开始。</li><li>等待取消立即腾出等候位置，不错减正在处理人数。</li><li>取得名额与取消/截止同时发生，无名额丢失或重复归还。</li><li>计算异常、重复取消及清理异常，其他请求不被误停且收尾归属正确。</li><li>框架线程暂不可用时仍受总截止限制，过期不迟启动。</li><li>前端失效、登录刷新重发及快速切换沿用总截止，迟到结果不覆盖新选择。</li><li>SQL未停止或结果仍发送时不提前归还；最终处理/等待/停止中计数可核对。</li><li>多个应用进程的总量不误当单进程上限，关闭时不再启动等待请求。</li><li>同一时刻5项/10项请求与轻量API并行时，对其他接口的响应影响另用有界真实场景测量，不拿轻量替身的时延作生产依据。</li></ul>
+<h3>真实核验只做有界样本</h3>
+<p>后续先用明确的单个股票/指数和周期，不读全市场、不导出全数据集。分别计量文件发现、实际读取、请求及依赖处理、每项计算、输出和端到端耗时，保留原始样本说明；输入数据不复制成新湖资产。是否更换读取方式或增加执行进程，依据测量再修改本文与LLD，不能先凭感觉建另一套基础设施。</p>
+<h3>本轮DuckDB能力实验与耗时</h3><div class="table-wrap"><table><thead><tr><th>隔离实验（2026-10-19）</th><th>结果</th><th>结论范围</th></tr></thead><tbody><tr><td>SQL独立字面样本</td><td>3根价格100、101、102；MACD参数2/3/2、KDJ参数3/3/3、MA3、BOLL3/2倍及复权。全部与独立字面预期相符，数值容差1e−10。</td><td>证明所用SQL方法能表达这些公式；不是默认参数、长历史、跨段、所有参数或真实源验收。</td></tr><tr><td>SQL数值范围反例</td><td>power(1−2/13,−20000)及power(1−2/3,−1024)均超出有限DOUBLE范围。</td><td>证明不能全历史直接展开，也不能对所有参数照搬1024根分段。</td></tr><tr><td>MA/BOLL局部计时</td><td>120万行合成价格在SQL中生成并计算20根窗口，排序返回最近1000根；5次耗时0.450—0.459秒，中位约0.453秒。</td><td>DuckDB 1.5.2，单线程、128MB、不落盘；不含Lake读取、API、页面、MACD/KDJ或完整服务初始化。不能直接换算成页面响应。</td></tr></tbody></table></div><p>实验未安装扩展，未访问正式数据，只在内存处理合成数据。它支持“优先使用DuckDB SQL”的技术路线，不证明该路线对所有指标都比任何其他实现快。下一轮必须分别测SQL编译、来源读取、窗口/分段、结果转换、取消及重试；从全历史计算不能因只显示1000根而省略历史输入。</p><details><summary>SQL能力实验：输入、公式与独立字面预期</summary><p>以下是本轮隔离实验，不是正式内核实现。预期值为可手算的固定数值，未调用待测公式生成；Python只提交此SQL并收集结果。最后一列passed的3行均为true。该实验不覆盖长历史与跨段接续。</p><pre><code>WITH p AS (
+ SELECT 2.0/(2+1) af, 1-2.0/(2+1) bf,
+        2.0/(3+1) aslow, 1-2.0/(3+1) bslow,
+        2.0/(2+1) ad, 1-2.0/(2+1) bd,
+        1.0/3 ak, 1-1.0/3 bk
+), bars(i, close, high, low, factor) AS (
+ VALUES (1,100.0,101.0,99.0,1.0), (2,101.0,102.0,100.0,2.0),
+        (3,102.0,103.0,101.0,2.0)
+), base AS (
+ SELECT *, max(high) OVER w hhv, min(low) OVER w llv,
+   avg(close) OVER w ma, stddev_pop(close) OVER w sd
+ FROM bars WINDOW w AS (ORDER BY i ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+), inputs AS (
+ SELECT *, CASE WHEN hhv=llv THEN 50.0 ELSE 100.0*(close-llv)/(hhv-llv) END rsv
+ FROM base
+), stage1 AS (
+ SELECT *,
+  pow(bf,i)*(100.0+af*sum(close*pow(bf,-i)) OVER w) ef,
+  pow(bslow,i)*(100.0+aslow*sum(close*pow(bslow,-i)) OVER w) es,
+  pow(bk,i)*(50.0+ak*sum(rsv*pow(bk,-i)) OVER w) k
+ FROM inputs CROSS JOIN p
+ WINDOW w AS (ORDER BY i ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+), stage2 AS (
+ SELECT *, ef-es dif,
+  pow(bd,i)*ad*sum((ef-es)*pow(bd,-i)) OVER w dea,
+  pow(bk,i)*(50.0+ak*sum(k*pow(bk,-i)) OVER w) d
+ FROM stage1
+ WINDOW w AS (ORDER BY i ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+), calculated AS (
+ SELECT i,dif,dea,2*(dif-dea) hist,k,d,3*k-2*d j,
+  close*factor/2 adjusted_close,
+  CASE WHEN i&gt;=3 THEN ma END ma3,
+  CASE WHEN i&gt;=3 THEN ma+2*sd END boll_upper,
+  CASE WHEN i&gt;=3 THEN ma-2*sd END boll_lower
+ FROM stage2
+), expected(i, dif_e, dea_e, hist_e, k_e, d_e, j_e, adjusted_e) AS (
+ VALUES
+ (1,0.0,0.0,0.0,50.0,50.0,50.0,50.0),
+ (2,0.16666666666666667,0.11111111111111111,0.11111111111111111,
+    55.55555555555556,51.85185185185185,62.96296296296296,101.0),
+ (3,0.3055555555555556,0.24074074074074073,0.12962962962962962,
+    62.03703703703704,55.24691358024691,75.61728395061728,102.0)
+)
+SELECT c.*, abs(dif-dif_e)&lt;1e-10 AND abs(dea-dea_e)&lt;1e-10
+ AND abs(hist-hist_e)&lt;1e-10 AND abs(k-k_e)&lt;1e-10 AND abs(d-d_e)&lt;1e-10
+ AND abs(j-j_e)&lt;1e-10 AND adjusted_close=adjusted_e
+ AND (i&lt;3 OR (abs(ma3-101.0)&lt;1e-10
+  AND abs(boll_upper-102.63299316185545)&lt;1e-10
+  AND abs(boll_lower-99.36700683814455)&lt;1e-10)) passed
+FROM calculated c JOIN expected USING(i) ORDER BY i</code></pre></details></section>
+<section id="rollout">
+<div class="section-head"><span>14</span>
+<h2>页面试用与DG退出：分阶段完成</h2></div>
+<p class="intro">用户感受性能是必要的一步；最终无缝切换还需要正确性、接口含义和全部消费者都完成迁移。退出股票任务与退出指数任务是两件事。</p>
+<div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1018 203" role="img" aria-label="架构设计到DG技术指标退出的阶段图"><title>架构设计到DG技术指标退出的阶段图</title><defs><marker id="revision-8-arrow-7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#62798a"/></marker><marker id="revision-8-triangle-7" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11z" fill="white" stroke="#62798a"/></marker></defs><rect x="18" y="34" width="176" height="124" rx="10" fill="#ecf7f2" stroke="#276d59" stroke-width="1.2"/><text x="32" y="57" class="sk" text-anchor="start">«当前»</text><text x="32" y="82" class="sh" text-anchor="start">① 架构 / LLD</text><text x="32" y="107" class="st" text-anchor="start">确认本设计</text><text x="32" y="129" class="st" text-anchor="start">逐条落实编码合同</text><text x="32" y="151" class="st" text-anchor="start">本轮停在架构设计</text><rect x="223" y="34" width="176" height="124" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="237" y="57" class="sk" text-anchor="start">«后续»</text><text x="237" y="82" class="sh" text-anchor="start">② 开发内核</text><text x="237" y="107" class="st" text-anchor="start">对象与注册</text><text x="237" y="129" class="st" text-anchor="start">独立样本、错误测试</text><text x="237" y="151" class="st" text-anchor="start">无页面与任务改动</text><rect x="428" y="34" width="176" height="124" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="442" y="57" class="sk" text-anchor="start">«后续»</text><text x="442" y="82" class="sh" text-anchor="start">③ 页面试用</text><text x="442" y="107" class="st" text-anchor="start">现有DTO逐项对账</text><text x="442" y="129" class="st" text-anchor="start">无缓存真实性能</text><text x="442" y="151" class="st" text-anchor="start">管理员体验</text><rect x="633" y="34" width="176" height="124" rx="10" fill="#edf4fa" stroke="#35658b" stroke-width="1.2"/><text x="647" y="57" class="sk" text-anchor="start">«后续»</text><text x="647" y="82" class="sh" text-anchor="start">④ 正式切换</text><text x="647" y="107" class="st" text-anchor="start">全部消费者迁移</text><text x="647" y="129" class="st" text-anchor="start">清零指标文件依赖</text><text x="647" y="151" class="st" text-anchor="start">取消旧读取路径</text><rect x="838" y="34" width="162" height="124" rx="10" fill="#fff7e8" stroke="#9a702b" stroke-width="1.2"/><text x="852" y="57" class="sk" text-anchor="start">«需执行批准»</text><text x="852" y="82" class="sh" text-anchor="start">⑤ DG退出</text><text x="852" y="107" class="st" text-anchor="start">逐项停任务</text><text x="852" y="129" class="st" text-anchor="start">核对不再触发</text><text x="852" y="151" class="st" text-anchor="start">数据另行处置</text><path d="M194 96 L223 96" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-8-arrow-7)"/><path d="M399 96 L428 96" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-8-arrow-7)"/><path d="M604 96 L633 96" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-8-arrow-7)"/><path d="M809 96 L838 96" fill="none" stroke="#62798a" stroke-width="1.5" marker-end="url(#revision-8-arrow-7)"/></svg></div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>对象</th><th>当前已定位的相关入口</th><th>退出边界</th>
+</tr></thead>
+<tbody>
+<tr><td>股票分钟技术指标</td><td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code>及其sensor；<code>gold_stk_mins_qfq_macd_kdj_repair_job</code>及其sensor；另有checks-only刷新入口。</td><td>后续完整核对asset/check/catalog、bootstrap、修复联动及所有读取方。关闭自动任务仍不能保证人工入口不再写；须核对运行中与排队任务。</td>
+</tr>
+<tr><td>指数分钟技术指标</td><td><code>gold_major_index_mins_technical_daily_update_job</code>及其sensor；页面之外还包括徐小明分钟识别/预测输入。</td><td>单独迁移页面、识别与预测的来源及身份说明；识别、预测算法不随通用内核重写。股票退出不自动批准指数退出。</td>
+</tr>
+<tr><td>继续保留的来源</td><td>股票未复权价格、因子与现有Gold前复权价格及其修复；指数标准分钟K线。</td><td>现有来源任务保持；复合计算所用输入由接入LLD明确。技术指标退出不等于行情退出，也不删除外部现有质量职责。</td>
+</tr>
+<tr><td>已存指标和中间状态文件</td><td>现有历史文件暂时用于有界数值对照与迁移核验。</td><td>停止更新不等于删除历史文件；删除范围、空间收益和操作清单另行确认。本轮不清理任何湖文件。</td>
+</tr></tbody></table></div>
+<p>试用阶段采用明确的接入范围和切换点，旧DG指标可作为独立离线对照，不给新服务加“失败就偷偷回读Gold”的兜底。验证完成后按批准范围清零旧调用，不能把两套长期并存当作迁移完成。若新链路不达标，先定位读取或计算原因，修订设计后再推进停任务。</p>
+</section>
+<section id="acceptance">
+<div class="section-head"><span>15</span>
+<h2>已确认决定、开发测试与下一步</h2></div>
+<p class="intro">已确认的职责直接约束后续LLD；外部审计实现仍由管理员后续规划，本轮不将其补成另一项开发任务。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>已确认决定</th><th>必须落实</th>
+</tr></thead>
+<tbody>
+<tr><td>无条件信任输入</td><td>不扫描数值、不查缺口、不比预期时间、不核对停牌退市、不新增质量准入步骤。</td>
+</tr>
+<tr><td>不要求业务提供审计信息</td><td>请求不包含日历、停牌、退市、预期时间列表、质量证明或已审计标志；不增加允许缺口开关。</td>
+</tr>
+<tr><td>支持复合计算</td><td>指标对象声明目标价格、字段和历史需求；读取模块内独立复权对象按需生成价格并管理共享输入，指标引擎只执行指标依赖和SQL，不接管复权。</td>
+</tr>
+<tr><td>读取与计算分开</td><td>当前数据湖读取实现独立，未来来源替换不改变纯计算核心。公开计算入口只有calculate(request)。</td>
+</tr></tbody></table></div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>开发测试 / 审计</th><th>应证明什么</th>
+</tr></thead>
+<tbody>
+<tr><td>公式与分批一致性</td><td>独立字面样本核对MACD/KDJ/BOLL/MA及复权基准；不同切批大小得到同一结果，初始化不在批次边界重置。</td>
+</tr>
+<tr><td>对象与复合依赖</td><td>新增指标不改引擎分支；相同前置复权一次请求只算一次；三种可选价格类型分别用请求验证且互不污染，不据此要求一次请求三种输出；循环或缺少已注册依赖被拒绝。</td>
+</tr>
+<tr><td>数据质量职责不回流</td><td>通过静态依赖审计与有界调用记录证明：新内核/服务/读取包装层没有逐根质量扫描，也不调用日历、停牌、退市、审计单元或质量证明。不能以“检查坏行被拒绝”作为新内核验收目标。</td>
+</tr>
+<tr><td>请求参数与资源</td><td>未知能力、非法参数、无效依赖、越界路径和资源超限按各自职责报错；正常读取异常与计算异常不被吞掉。</td>
+</tr>
+<tr><td>运行异常</td><td>取消、超时、实际计算异常和退出后重试正确；不写正式数据，不把异常转换成补值或静默丢行。</td>
+</tr>
+<tr><td>最小真实链路与性能</td><td>选明确的单对象样本，读取来源并调用新引擎，测完整服务和页面；公式与集成测试使用来源明确的样本，不在请求内新增质量审计。</td>
+</tr>
+<tr><td>迁移既有检查</td><td>已有Reader和XXM入口的检查代码不会因本文自动删除。LLD须审计复用路径，避免把旧检查带入新通用服务，或误改仍在使用的现行功能。</td>
+</tr></tbody></table></div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>仍需设计 / 资料核对</th><th>下一步</th>
+</tr></thead>
+<tbody>
+<tr><td>输入数据合同与来源覆盖</td><td>明确未复权价格、因子、各周期来源、复权基准、算法历史起点。合同以文档和开发样本核对，不转成每请求质量扫描。</td>
+</tr>
+<tr><td>配置和真实预算</td><td>现有建议预算需按真实单对象读取与部署并发校准；内核无数据质量审计预算。</td>
+</tr>
+<tr><td>页面与DG退出</td><td>旧DTO、来源、参数版本和消费者清单仍需单独LLD；本文不批准变更现行API或停任务。</td>
+</tr>
+<tr><td>外部审计单元</td><td>由管理员后续规划。当前只记录责任外置，不设计调度、审计存储、阻塞规则或证明接口。</td>
+</tr></tbody></table></div>
+<div class="decision">下一步补DuckDB计算内核代码级LLD：先固定多周期输入与复权合同，再写对象/SQL接口、分段及临时表生命周期、配置审计、数值样本和真实性能验收。内核职责已简化，不因继续设计而重新引入外部数据质量检查。</div>
+<div class="table-wrap"><table><thead><tr><th>本次新增验收约束</th><th>LLD必须落实</th></tr></thead><tbody><tr><td>多周期复用</td><td>相同标准K线内容与参数应进入同一指标SQL；周期时间说明正确，窗口按K线根数计算。接入覆盖与算法支持分别报告，不能默认所有来源已就绪。</td></tr><tr><td>没有Python指标算术</td><td>静态核对对象和执行路径，不含逐根Python/NumPy/Pandas公式或Python UDF；平滑系数也在SQL生成。分段执行循环仅负责调用。</td></tr><tr><td>SQL分段正确性</td><td>独立小样本、默认与自定义参数、周期1、短周期、跨段初始化、高低窗口交界、极值及接近0的精度都须覆盖。固定分段引发溢出的反例必须成为回归测试。</td></tr><tr><td>实际中间结果复用</td><td>核对SQL步骤和执行计划，证明相同复权依赖不重复执行；临时表生命周期、取消清理和跨请求隔离正确。</td></tr><tr><td>SQL资源预算</td><td>窗口缓存、排序、临时表和列数据注册都进入总预算；正式多周期读取、并发、超时中断和失败重试均需有界验收。</td></tr><tr><td>Python例外边界</td><td>只有出现具体DuckDB不支持证据时才提交例外方案。无同名函数、难写、慢或当前SQL出错，先研究SQL实现，不能触发自动回退。</td></tr></tbody></table></div><div class="decision">分段接续已获管理员确认。正式LLD已逐项对应<a href="#review">第17节已确认决定与25项检查</a>；开发仍须逐项完成实现及验收，尤其分别证明数值安全和资源可控；总体方案确认不等于允许跳过LLD开始编码。</div><div class="decision"><strong>LLD复核新增硬要求：</strong>逐条核对最新一根周期K线参与与同根更新、业务明确输入/输出复权及转换路径、数值安全、资源与取消量化证据、代码位置和独立验收样本。每项标明已有证据、需补测内容和结果位置；没有证据不得以“大概”“应当”或配置数值代替验收。</div><div class="table-wrap"><table><thead><tr><th>明确要验证的例子</th><th>应证明的结果</th></tr></thead><tbody><tr><td>上周收盘100，本周收盘依次更新102/108/110，周线MA2</td><td>截至各时点分别101/104/105；同一周只占一根K线，不能按三根递推。</td></tr><tr><td>周二截至查询使用本周周二输入，另构造周五完整输入</td><td>不能用周五已完成的110声称得到周二104；不为该测试扩建历史版本服务。</td></tr><tr><td>分钟/日线输入/输出同类型同基准、确有依据的不同基准、不同类型；另测周/月只读</td><td>同口径不重复转换；其他分钟/日线路径仅按已核实规则转换或明确不支持；周/月直接读取目标口径，不能进入转换或重新合成。不得根据数值猜复权。</td></tr><tr><td>LLD量化记录复核</td><td>参数/独立预期/误差/耗时、内存估算及实测、取消延迟、重试成本等对应证据齐全后才能通过相应项。</td></tr></tbody></table></div></section>
+<section id="evidence">
+<div class="section-head"><span>16</span>
+<h2>依据、审计范围与本轮交付</h2></div>
+<p class="intro">引用当前工作区文件；审计发现与建议设计分开标注。HTML图全部内嵌SVG，可离线阅读，不依赖在线图表库。本次修订使用CodeGraph核对现有Reader逐根检查及XXM完整性检查，仅记录当前代码，不迁移或删除其逻辑。</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr><th>依据</th><th>文件</th><th>本轮用途</th>
+</tr></thead>
+<tbody>
+<tr><td>架构与边界</td><td><a href="../../docs/architecture/subsystem-boundary-plan.md"><code>docs/architecture/subsystem-boundary-plan.md</code></a></td><td>Foundation、Biz、App、QTF依赖方向；通用模块归属。</td>
+</tr>
+<tr><td>Foundation规则</td><td><a href="../../src/foundation/AGENTS.md"><code>src/foundation/AGENTS.md</code></a></td><td>可复用组件及外部IO边界。</td>
+</tr>
+<tr><td>现有股票读取</td><td><a href="../../src/foundation/clients/local_lake/stock_mins_reader.py"><code>src/foundation/clients/local_lake/stock_mins_reader.py</code></a></td><td>股票价格/指标分离路径、3年与分页上限。</td>
+</tr>
+<tr><td>股票页面查询</td><td><a href="../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py"><code>src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py</code></a></td><td>Gold指标读取与页面字段映射。</td>
+</tr>
+<tr><td>股票页面转换</td><td><a href="../../wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts"><code>wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts</code></a></td><td>时间键及身份校验、MACD/KDJ字段。</td>
+</tr>
+<tr><td>指数来源合同</td><td><a href="../../src/foundation/clients/local_lake/major_index_mins_contract.py"><code>src/foundation/clients/local_lake/major_index_mins_contract.py</code></a></td><td>正式路径、分钟频度、字段、参数和版本。</td>
+</tr>
+<tr><td>指数完整历史读取</td><td><a href="../../src/foundation/clients/local_lake/major_index_mins_reader.py"><code>src/foundation/clients/local_lake/major_index_mins_reader.py</code></a></td><td>2万根限制、分区数量、字段投影与查询内存。</td>
+</tr>
+<tr><td>指数页面查询</td><td><a href="../../src/biz/queries/wealth/market/index_detail_minutes/index_detail_minutes_query_service.py"><code>src/biz/queries/wealth/market/index_detail_minutes/index_detail_minutes_query_service.py</code></a></td><td>当前读取已存MA/BOLL/MACD/KDJ。</td>
+</tr>
+<tr><td>指数页面请求</td><td><a href="../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts"><code>wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts</code></a></td><td>500根、开发环境判断、K线与指标分开请求。</td>
+</tr>
+<tr><td>指数页面转换</td><td><a href="../../wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.ts"><code>wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.ts</code></a></td><td>来源gold、参数版本和时间对齐。</td>
+</tr>
+<tr><td>现有配置</td><td><a href="../../src/foundation/config/local_minute_capability.py"><code>src/foundation/config/local_minute_capability.py</code></a></td><td>Settings读取、本地/dev门禁；指数正式根限制。</td>
+</tr>
+<tr><td>徐小明分钟输入</td><td><a href="../../src/biz/queries/wealth/market/index_detail_xxm/source.py"><code>src/biz/queries/wealth/market/index_detail_xxm/source.py</code></a></td><td>完整价格与已存MACD的读取消费者。</td>
+</tr>
+<tr><td>DG股票公式</td><td><a href="../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py"><code>lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py</code></a></td><td>12/26/9、9/3/3、初始状态、递推和修复相关计算。</td>
+</tr>
+<tr><td>DG指数公式</td><td><a href="../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py"><code>lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py</code></a></td><td>MA/BOLL/MACD/KDJ与总体标准差、初值。</td>
+</tr>
+<tr><td>当前股票指标主方案</td><td><a href="../../lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md"><code>lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code></a></td><td>现行资产与状态用途；本文未修改其运行口径。</td>
+</tr>
+<tr><td>当前指数指标主方案</td><td><a href="../../lake_console/docs/design/dagster-index-technical-datasets-onboarding-plan-v1.html"><code>lake_console/docs/design/dagster-index-technical-datasets-onboarding-plan-v1.html</code></a></td><td>现有主要指数指标资产接入设计；替代实施前须同步修订。</td>
+</tr>
+<tr><td>QTF当前板块计算</td><td><a href="../../qtf/modules/sector/factor_kernel.py"><code>qtf/modules/sector/factor_kernel.py</code></a></td><td>已有板块研究能力不能直接作为Biz共享技术指标实现。</td>
+</tr>
+<tr><td>性能治理</td><td><a href="../../lake_console/docs/design/dagster-data-pipeline-performance-governance.md"><code>lake_console/docs/design/dagster-data-pipeline-performance-governance.md</code></a></td><td>先约束读取模型与资源；正式数据只读和写入分阶段。</td>
+</tr></tbody></table></div>
+<p><strong>CodeGraph：</strong>使用codegraph_explore、codegraph_search、codegraph_node、codegraph_files、codegraph_impact，范围覆盖股票/指数页面、查询服务、Foundation读取、徐小明分钟输入、QTF与相关测试。对聚合名称产生的无关结果，继续按当前文件核对；CodeGraph测试覆盖提示不代替实际测试文件审计。</p>
+<p><strong>仍需人工/真实核验：</strong>正式DG启用状态、所有历史/临时读取脚本、真实价格单位与历史起点、复权修订身份、实际接口与页面耗时。本文没有全局读取数据集、没有访问正式DG instance、没有运行任务或写湖。</p>
+<p><strong>文档变更：</strong>此前已完成本文改名及docs/README.md对应索引更新；本轮仅修订本文，补充分段确认、实验复核和LLD待细化清单。多周期、DuckDB SQL计算、外部质量责任、复合计算和读取边界保持。不改变当前代码、配置、API、数据路径或依赖矩阵；未提交Git。</p>
+<h3>DuckDB官方资料与本次研究依据</h3><div class="table-wrap"><table><thead><tr><th>来源</th><th>用于确认</th></tr></thead><tbody><tr><td><a href="https://duckdb.org/docs/current/sql/functions/window_functions">Window Functions</a></td><td>按行窗口可用于移动统计；窗口算子会缓存输入，需计入内存预算。</td></tr><tr><td><a href="https://duckdb.org/docs/current/sql/functions/aggregates">Aggregate Functions</a></td><td>avg、min/max及总体标准差stddev_pop等原生统计能力。</td></tr><tr><td><a href="https://duckdb.org/docs/current/sql/query_syntax/with">WITH Clause</a></td><td>复合SQL与中间结果复用的表达；CTE可能被展开，不能仅凭SQL外观断言只算一次。</td></tr><tr><td><a href="https://duckdb.org/2025/05/23/using-key">官方：USING KEY</a></td><td>递归状态在SQL中可表达；该能力本身不证明逐根指标递归的效率。</td></tr><tr><td><a href="https://duckdb.org/docs/current/sql/statements/create_macro">CREATE MACRO</a></td><td>SQL表达式/表计算可封装；本版不因有macro就引入业务上传公式。</td></tr><tr><td><a href="https://duckdb.org/docs/current/guides/performance/how_to_tune_workloads">Tuning Workloads</a></td><td>多个排序、窗口和物化步骤需要独立核对性能与内存；不能承诺所有查询恒定内存。</td></tr></tbody></table></div><p><strong>本次CodeGraph补充：</strong>通过codegraph_node读取股票_insert_macd_kdj_segment_rows真实实现，逐项核对SQL计算、Python分段组织和系数位置；结合指数writer的当前代码核对avg/stddev_pop/RSV及状态处理。没有改变实现方、调用方、消费者或依赖矩阵。</p><p><strong>本次文档改名：</strong>原minute-technical-indicator-kernel-component-design-v1.html改为technical-indicator-kernel-component-design-v1.html，索引同步更新，仓库内只保留这一份主设计。尚未开发或提交正式代码，尚未完成真实源与服务性能验收。第17节以已确认决定、2026-10-20以来的审计记录及2026-10-22复核作为LLD准备清单；较早记录不能覆盖后续明确决定，也不代表实现已完成。</p><p><strong>本轮审计补充：</strong>使用codegraph_explore追踪股票/指数SQL及StockMinsLakeReader、IndexDetailMinutesQueryService消费者；通用名称产生无关结果时，使用codegraph_node精确读取_insert_macd_kdj_segment_rows。另读取当前公式字面测试、前端指标来源/身份测试及分钟DATE/TIMESTAMP合同。仅报告已读边界，未改任何实现或跨工程副本。</p><p><strong>本轮补充核对：</strong>使用CodeGraph精确读取StockMinsLakeReader._validate_freq及SUPPORTED_INDEX_MINUTE_FREQS，只确认现有分钟函数的适用范围，不据此推断其他日/周/月来源无数据。复核既有SQL实验结果文件，未把内存配置或普通查询耗时冒充资源/取消实测。</p><h3>此前comments对应的日线基准代码依据</h3><div class="table-wrap"><table><thead><tr><th>代码与测试</th><th>本轮静态核对</th></tr></thead><tbody><tr><td><a href="../../src/biz/queries/quote_query_service.py">QuoteQueryService._load_stock_adjustment_anchor</a></td><td>前复权按股票取最新因子；后复权取最早因子。</td></tr><tr><td><a href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq.py">gold_stock_daily_qfq</a> 与 <a href="../../lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py">write_gold_stock_daily_qfq_partition</a></td><td>日常调用基准日默认目标日；OHLC公式为未复权价格×当日因子÷基准因子，成交量/额沿用输入。</td></tr><tr><td><a href="../../lake_console/orchestrator/src/orchestrator/defs/bootstrap/gold_stock_daily_qfq_history.py">generate_gold_stock_daily_qfq_history / _write_effective_as_of_adj_factor_snapshot</a></td><td>2026-10-20核对：历史生成器先确定整批基准，按股票选该日及之前最后一个因子，再逐分区使用。前轮引用的未提交审计文件已不在当前工作区，不再将其作为当前实现依据。</td></tr><tr><td>前轮阅读的日线价格关系独立字面样本（原临时测试文件现不在当前工作区）</td><td>仅保留前轮阅读记录，不再用其证明当前测试覆盖；本轮未执行测试或正式任务，不声称生产结果已验收。</td></tr></tbody></table></div><p>使用CodeGraph精确符号读取日线生成、基准选择与查询函数，并核对真实调用代码及测试。通用名称检索产生的无关结果不作依据。本轮仅修改本文，不修改日线代码、配置、数据或其他工作区改动。</p><h3>2026-10-20前复权范围纠正的补充依据</h3>
+<p><a href="../../src/biz/queries/quote_query_service.py">页面查询</a>按日期倒序取前复权基准；<a href="../../lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py">日线因子修复</a>与<a href="../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_factor_repair.py">分钟因子修复</a>按任务日期选因子；<a href="../../lake_console/orchestrator/src/orchestrator/defs/bootstrap/gold_stock_daily_qfq_history_cli.py">日线历史CLI</a>保留显式日期。<a href="../../lake_console/docs/design/dagster-stock-daily-qfq-asset-low-level-design.md">原日线LLD</a>的P8记录2026-06-27发现问题、2026-06-28完成重建及当次采用6月26日基准。未运行这些入口，也未验证正式文件或任务现状。</p></section>
+<section id="review"><div class="section-head"><span>17</span><h2>完整审计、已确认决定与LLD核对清单</h2></div><p class="intro">2026-10-20完成全篇审计，2026-10-21整理本轮边界、输入输出、连接及生命周期讨论，并对应25项LLD检查。关键代码、测试和既有实验的审计范围按原记录保留。只修订本文；不执行新的性能/数值测试、不读正式行情、不改API/配置/数据或DG任务。</p><div class="decision"><strong>结论：</strong>已有业务决定可作为LLD依据，临时落盘已按管理员决定禁止；允许有上限等待及明确失效时间已确认，管理员2026-10-22已确认第11节初始配置；后续验证实际表现，不把初值当已测性能；本轮已确认读取模块边界，生命周期具体释放与异常步骤另列第12节待LLD细化；第04节的执行位置已获管理员确认：首版放在业务进程内，内核不自建Python线程池、进程池或独立服务。技术细节明确列入25项LLD核对清单。总体方向已确认不等于LLD完成、代码完成或正式验收通过。</div><h3 id="lld-ambiguity-audit">本轮面向LLD的歧义审计</h3>
+<p>本次核对17节正文、9幅图和25项LLD要求，修正：业务请求/来源说明/内部取消截止混写；已确认生命周期又写成待讨论；输入量与多条SQL处理量混计；实际输出字节被说成能读前判断；分批取回结果被误当有界执行；初始配置确认与完整实测前置混淆。补清排队后第6秒已到不得启动新SQL，以及注册算法与实际来源支持分别说明。</p>
+<p>这些修订直接落实已有决定，没有增加数据质量检查、区域标识、跨请求共享、计算临时落盘或新的执行进程。读取成功却0根K线的结果口径现已由管理员确认，唯一适用条件及排除项详见下方；该次记录形成时正式LLD尚未编写；现已成稿，运行实现及新性能仍未验证。</p>
+<h3 id="regional-request-audit">区域请求边界的本轮复审</h3>
+<p>已核对第08/09/11/12/13/17节、9幅图和25项LLD清单：业务按相关主要区域组合请求，不限整页只能一次；区域不进入内核合同，每个实际请求独立计数，共用同请求输入但不跨请求复用；已有初始配置、多周期、默认前复权、周/月只读、质量外置、DuckDB运算和读取模块生命周期均保持。</p>
+<p>本轮补齐实际请求各自取消/失效、组合失败仅限该请求，以及多个请求不保证同一批输入的说明；LLD03/09/18/19/22/24对应补充。纠正历史审计表一处将已确认初始值仍列为待定的残留，初始值仍以第11节已确认值为准。这些是落实最新业务边界的工程要求，没有新增需要管理员拍板的内核方向。业务页面的区域布局与错误展示留在后续页面接入设计，不在本轮强制规定。</p>
+<h3 id="initial-settings-audit-20261022">2026-10-22初始配置确认后的完整复核</h3><p><strong>本轮业务边界修正：</strong>此前整页强制一个请求过窄，现按相关主要区域组织组合请求，不限制整页只能一次。业务可按区域、加载时机或刷新需要分别调用；内核只复用同请求数据，不新增区域标识、跨请求等待拼接或缓存。每个实际请求各自占名额并遵守已有等待、内存和失效配置；初始数值不因此自动增加。第08/11/13节及LLD03/09/16/18/24已同步纠正。</p>
+<p><strong>本次确认：</strong>第11节初始值已获管理员同意；按相关主要区域组合提交指标，不限制整页只能发一次请求；业务决定区域及加载/刷新边界，内核复用本次已提交的组合，不识别页面布局。此前“整页全部指标必须合并”的表述已由本次决定取代。源码复核仍显示当前页面按K线/指标两个接口读取，且指标响应本身已包含MACD/KDJ；本次不把未来合并方向写成当前已经迁移。</p>
+<p>本轮通读17节正文、9幅图及25项LLD清单，纠正四处容易指导错误实现的内容：旧4秒截止改为已确认8秒目标、到达第6秒停止并预留2秒；等待数量/时间不再写待定；256 MiB整体估算不当进程硬限制；此前完整测试矩阵保留但不再作为先定初值的前置。已确认的默认前复权、一次一种目标、周/月直接读已有口径、外部负责质量、DuckDB承担运算、读取模块管理共享价格、同一服务创建/关闭连接、无预取/跨请求缓存/计算临时落盘及业务进程执行均保持。</p>
+<p>补齐的LLD检查：相关区域组合提交、不同区域可独立请求及按实际请求计数；配置来源与前后端计时一致；停止清理目标不能冒充硬性终止；响应发送和部分响应失败的收尾；多进程总量及最小测试成本。只有算法参数/精度、安全分段、来源合同和实际生命周期等详细工程工作尚未完成，没有新增需要管理员再次拍板的业务方向。</p>
+<h3 id="concurrency-reconciliation-20261022">2026-10-22复核：刚才讨论的方向已同步，未增加业务范围</h3>
+<p>本轮对照第04/11/12/13/17节及原25项LLD清单，确认以下决定一致：计算在服务器业务进程的现有工作线程中执行；忙时按数量及时间上限等候，等待阶段不读数、不预取、不建DuckDB连接或占用计算线程；名额和等待控制在应用接入层共用一份；到期/取消请求移除或停止，实际SQL及资源未结束时不归还名额；前端有整次失效时间，登录刷新重发不延长它；多个Web进程按实际总量核算，不增加外部队列、分布式锁或新的线程/进程池。</p>
+<p>本轮补齐三项工程要求：一次组合请求只申请一次名额，内核内部不重复申请；前端总失效覆盖响应体接收及转换，而不是只到响应头；当前指数接入按现有合同显式传不复权，不改变默认前复权或伪造因子。这些落实已有决定，未新增需要管理员拍板的业务方向。参数精度、SQL安全分段和未确认的边界仍须在LLD推导；已确认初始容量及时间值按第11节执行并作有限验证；该次记录时尚未完成LLD；当前已成稿，实施验收仍未完成。</p>
+<h3 id="discussion-reconciliation">2026-10-21本轮复审：刚才的结论与原方案逐项对应</h3><p>本轮逐节审阅17节正文及9幅SVG：服务器业务进程与浏览器分开说明，业务进程执行已确认（第04节）；一次请求共用所需K线和复权、指标固定顺序且不预取（第08/12节）；读取模块管输入和复权，指标模块管指标状态，同一服务创建并最终关闭连接（第03/04/12节）；算法声明输入/输出及必需历史，读取按要求执行（第06/12节）；外部负责数值与完整性，DuckDB负责全部指标运算，不写计算临时文件、不增加跨请求缓存（第07/08/11/13节）。这些决定未改变，也不以“继续设计”恢复未批准的线程池、进程池、审计单元或DG退出。</p><p>本次已纠正旧复权归属用语并补入API发送期间的结果资源要求；管理员进一步确认一次请求只用一种目标复权，不传默认前复权，传入合法类型就照做，禁止一次三组输出，不再列为待review。本段记录2026-10-21当时尚待定的状态；现已由2026-10-22初始配置确认更新，实际性能仍未测得。该次记录时尚未编写代码级LLD；现已成稿，不执行新的计算或正式数据读取。</p><h3>此前决定逐项对账（含本轮新增确认）</h3><div class="table-wrap"><table><thead><tr><th>项目</th><th>应执行的决定</th><th>落点与核对</th></tr></thead><tbody><tr><td>周期</td><td>分钟、日、周、月共用算法对象；周期表示一根K线的含义，不再以分钟线命名内核。</td><td>第01/06/08节；LLD逐周期核对时间字段与来源。</td></tr><tr><td>对象与组件</td><td>算法由内核注册和维护；每项能力明确基本信息、输入/输出数量与对齐、参数、历史及初始化需求、计算逻辑和依赖。业务不上传算法，读取模块不制定数学规则。</td><td>第04/05节；定义、实现、发现共用同一事实。</td></tr><tr><td>按相关主要区域组合请求</td><td>按管理员最新修正，同一区域一起加载或刷新的相关指标组合提交；不同区域或加载时机可独立请求，不限制整页只能一次。一个组合内10项仍只占一个名额、一个连接，共用一轮输入和每批一次必要复权。</td><td>第08/11节；LLD03/09/18/24；业务决定区域，内核不新增区域字段、不跨请求拼接；同页多个实际请求分别计量。</td></tr><tr><td>初始配置</td><td>管理员2026-10-22确认第11节初始配置。数值确认与运行实测分开，不为未做完整性能实验继续推迟定初值。</td><td>LLD15/18/19/21；按最小场景验证，估算、限制与目标分别记录；禁止修改现行配置或API冒充已落地。</td></tr><tr><td>调用进程与线程</td><td>管理员2026-10-21确认首版放在服务器的业务进程内；页面接入层交给现有工作线程执行整次calculate调用。内核不自建Python线程池、进程池或独立服务；DuckDB内部SQL线程显式配置。</td><td>第04/12节；连接由同一服务创建并关闭，LLD核对线程数、部署总内存、等待/取消及其他接口影响，当前未实现。</td></tr><tr><td>运算位置</td><td>指标公式、平滑系数及复权运算全部使用DuckDB原生SQL；Python只组织执行、资源计量和包装。</td><td>第05/08节；没有同名函数、难写或慢不是Python回退理由。</td></tr><tr><td>分段接续</td><td>已采用分段SQL和段末状态接续；不能丢历史，也不能按批次、日、年或页重新初始化。</td><td>第08节；读取批次和数学段长分开。</td></tr><tr><td>质量职责</td><td>数值、排序/重复、缺口、首尾完整性、因子覆盖、日历、停牌退市均由外部负责。</td><td>第03/06/07节；核心、读取包装和输出均不得加回质量扫描。</td></tr><tr><td>执行检查</td><td>仍检查请求、参数、依赖、配置和资源；真实IO/SQL/序列化异常正常处理。</td><td>第07节；各模块处理自身执行检查，不创建统一数据质量模块。</td></tr><tr><td>外部审计</td><td>由管理员另行规划；本轮不设计调度、存储、审计证明或每请求审计依赖。</td><td>第03/07节；不提供允许缺口或已审计标志。</td></tr><tr><td>读取来源</td><td>当前只接Lake；未来Prod、网络接口用其他读取实现接入，纯计算不关心来源。</td><td>第04/06节；不把未来来源实现提前加入本轮。</td></tr><tr><td>业务入口</td><td>只有calculate(request)作为业务计算入口；bars和内部SQL接口只留内部。能力发现与计算定义共用。</td><td>第09节；不恢复calculate_from_source或公开bars入口。</td></tr><tr><td>复合计算</td><td>读取模块内的复权是独立基础对象；同口径价格供多指标共享，也可单独输出；指标计算模块不重复复权。</td><td>第03/04/05/08节；服务统一说明能力，不复制复权算法。</td></tr><tr><td>读取模块边界</td><td>管理员确认：读取模块管理输入与复权价格生命周期；计算模块管理指标状态；同一统一服务在同次调用内创建并最终关闭共用连接，其他模块只使用。</td><td>第03/04/12节；本次调用内部共用，不跨请求共享；完整释放条件和异常顺序继续细化。</td></tr><tr><td>生命周期已确认细节</td><td>2026-10-21确认：固定顺序、不预取、不增加通用引用计数；正常路径清理失败不报成功；输出独立于连接、仅保留所需结果；释放不要求RSS立即下降。</td><td>第12/17节及LLD；逐项验证正常与失败路径，不把原则确认写成实现已验收。</td></tr><tr><td>复权声明</td><td>来源如实说明实际输入类型；业务目标复权不传默认前复权，合法传入就按指定类型处理，一次只输出一种。禁止猜测输入、重复复权或静默切回默认。</td><td>第06/08节；当前来源不支持的路径明确不支持。</td></tr><tr><td>等待与请求失效</td><td>管理员2026-10-21确认：有空位立即开始，忙时允许有数量与时间上限的等待，以提高请求成功机会；前端必须有明确的整次失效时间，不能无限等待。</td><td>第04/11/13节及LLD17/18/19/21/24：应用接入层管理共享名额与等待；内核仍同步执行，不新增消息队列、线程池或进程池。数量与时间初始值按第11节已确认；实际表现待验证。</td></tr><tr><td>目标复权选择与默认值</td><td>管理员2026-10-21确认：一次请求只输出一种目标复权；业务不传默认前复权，合法传入不复权/前复权/后复权就按指定类型处理，禁止一次三组结果和静默切回默认。实际输入类型仍由来源如实说明。</td><td>第06/08/09节；默认规则属于请求合同，不新增可覆盖此规则的基础配置。LLD03/08/09列省略与显式前复权一致、显式其他类型、非法/多值拒绝及来源不支持时明确失败。</td></tr><tr><td>前复权基准</td><td>沿用最新可用因子规则；不增加业务任选旧日期、手填因子或任意换基准功能。</td><td>第06节；历史工具参数不能变成业务需求。后复权按自身已核实规则。</td></tr><tr><td>周/月复权</td><td>直接读取已有目标口径的周/月K线，不在本轮复权、换基准或由日线重新合成。</td><td>第06/08节；资料或来源不足就明确不支持。</td></tr><tr><td>当前周期K线</td><td>最新未收盘K线参与，值随同一根K线更新；不能把其多次更新当作多根递推。</td><td>第06节；周线MA2的101/104/105字面例子保留。</td></tr><tr><td>展示与历史</td><td>最近N根、展示起止和分页只决定返回；递推仍从来源约定起点计算到目标截止。</td><td>第06/09节；不能为达标裁剪必需历史。</td></tr><tr><td>历史较短</td><td>请求1000根但有效历史只有300根则返回300根；不补零或复制，MA250前249根为NULL。</td><td>第09节；不把来源缺口误解释为已核实的短历史。</td></tr><tr><td>首轮状态</td><td>不做跨请求缓存或持久指标/中间状态；只保留本请求SQL状态，失败后完整重算。</td><td>第11/12节；已删除首轮缓存开关和容量建议。</td></tr><tr><td>计算临时磁盘</td><td>2026-10-20管理员确认首版禁止临时落盘；内存不足明确失败，不自行写中间文件，不自动开启磁盘。</td><td>第11/12/13节；内存临时表允许，LLD证明禁用实际生效、计算临时文件为0以及失败后资源释放。</td></tr><tr><td>组合失败</td><td>任一计算异常或取消时，该次组合请求整次失败，不发布其部分指标结果；不扩大为整页所有独立请求一起失败。</td><td>第08/12节；其他独立请求不被误停，页面错误展示归业务接入设计，不由内核限制。</td></tr><tr><td>数值与预算证据</td><td>参数/精度先推导再验证有限样本；资源需估算、实测、上限及依据；禁止全参数穷举。</td><td>第13节及本节量化TODO；配置建议不是验收事实。</td></tr><tr><td>迁移范围</td><td>内核、页面试用、消费者切换和DG退出分阶段；不修改识别/预测算法，不自动停任务或删湖文件。</td><td>第14/15节；当前仍只做方案和LLD准备。</td></tr></tbody></table></div><h3>本次发现的文档问题及处理状态</h3><div class="table-wrap"><table><thead><tr><th>问题</th><th>依据/原矛盾</th><th>本次处理</th><th>是否需再次拍板</th></tr></thead><tbody><tr><td>缓存范围冲突</td><td>第11节列cache_enabled/容量，第12节又说首轮不开发。</td><td>删除首轮开关和容量；状态图的缓存路径标为本轮不实现。</td><td>否，落实已有首轮范围。</td></tr><tr><td>请求失败范围</td><td>第12节已经明确不发布部分组合结果；放宽为区域请求后，须说明不是整页失败。</td><td>保留单次组合整次失败，LLD补同页两个请求的取消、错误归属和资源释放测试，不规定整页错误展示。</td><td>否，落实实际请求独立，不新增页面行为限制。</td></tr><tr><td>资源用例与P95</td><td>第13节固定场景各执行一次，不能据此计算稳定的P95。</td><td>资源与延迟统计分开；LLD另列有限重复次数和增加的总开销。</td><td>否，测量方法由LLD细化。</td></tr><tr><td>源端覆盖不等于算法支持</td><td>已读两个Reader都针对分钟；指数完整历史上限20000，股票读法先过滤/分页且最多3年。</td><td>LLD列各周期与复权路径的实际来源清单；不直接复制旧Reader，也不据此断言Lake缺日/周/月。</td><td>否，已有“来源不足明确不支持”的决定。</td></tr><tr><td>算法代码不能整段搬入新核</td><td>当前DG指数writer会扫无效/重复源行，并在Python算系数；股票系数也在Python。</td><td>只借鉴已核对公式，系数迁入SQL；不导入DG writer，不携带其质量扫描和持久输出。</td><td>否，落实已确认职责。</td></tr><tr><td>初值误差可能影响符号</td><td>既有3根合成SQL记录中，第一根理论DIF为0，实际为约−1.421×10⁻¹⁴。</td><td>LLD单独核对首条初始化和近0符号，不只看1e−10容差就宣称适合下游判断；不普遍四舍五入。</td><td>否，公式/数值实现细节。</td></tr><tr><td>资源限制的实际效力</td><td>DuckDB查询限制、进程总内存和单请求预算不是同一个东西。</td><td>LLD明确哪些能直接限制、哪些需估算和计量；没有实现依据不能承诺进程硬上限或取消延迟。</td><td>否，技术方案与量化证据必须补齐。</td></tr><tr><td>已确认内容分散</td><td>第06/13/17节多轮追加，容易把最新因子、周/月只读、实际根数返回再列为待决定。</td><td>本节集中形成28项对账；资源执行方法只以第13节为入口，量化TODO继续保留。</td><td>否，文档收口。</td></tr><tr><td>执行位置未写定</td><td>原文只说“每请求连接”和并发，没有明确谁创建线程或进程。</td><td>第04节列当前三类路径，区分Python工作线程与DuckDB SQL线程；管理员已确认业务进程内调用。</td><td>已确认，按该决定细化LLD。</td></tr><tr><td>框架等待与取消遗漏</td><td>同步接口通过共享线程池运行；取消等待不保证底层线程或SQL停止。</td><td>LLD补等待总时限、满载检查位置、SQL中断和关闭前撤销监控；其他接口共享影响纳入验证。</td><td>允许等待及明确失效已确认；初始数量和时间已按第11节确认，实际表现待验证，中断步骤属LLD。</td></tr><tr><td>连接配额作用范围不清</td><td>不同连接可指向同一DuckDB实例；SQL线程/内存不是任意cursor的私有额度。</td><td>按本请求独立实例明确配置及总预算，不把一条连接错当整机硬上限。</td><td>否，技术合同需落实。</td></tr><tr><td>实验与页面运行版本不同</td><td>本机Web 1.5.5、DG 1.5.2；旧实验是1.5.2。</td><td>保留旧记录，LLD按目标运行版本验证数值和资源，不升级套件、不冒充已验收。</td><td>否，补运行依据与测试。</td></tr><tr><td>一次多种复权输出的范围写大</td><td>第09节把三种可选类型写成一次请求三个目标，但CalculationResult示例只有一个series口径；没有管理员明确要求。</td><td>管理员已确认一次只用一种目标复权，不传默认前复权，传入合法类型照做；图5及第06/08/09/12/15节同步更正，保留多指标共用同类型价格。</td><td>已拍板，不再review，也不增加三组输出。</td></tr><tr><td>返回结果的生命周期未覆盖发送</td><td>第12节明确SQL释放，却未明确API持有DTO/JSON直到发送完成的占用；现行响应大小检查先生成JSON字节。</td><td>补入第12节及LLD13/18/24：API接收后持有、转换、发送/断开、并发额度归还及峰值，不把关闭连接等同内存全部释放。</td><td>否，沿用已确认归属，由LLD给步骤和测量。</td></tr><tr><td>复权归属的一处旧句不清</td><td>第15节“基础复权与技术指标由引擎按依赖执行”易被理解为指标引擎接管复权，与第03/04/12节不一致。</td><td>已改为指标声明目标价格需求，读取模块内独立复权对象提供并管理价格；指标引擎只做指标计算。</td><td>否，纠正文案，落实已有管理员决定。</td></tr><tr><td>同一请求可能重复申请名额</td><td>原文同时提接入控制与计算服务资源限制，没有逐层写禁止重复申请；当前_service每次新建服务对象。</td><td>第13节和LLD01/05/18明确App共享一次控制、接入层一次申请/归还；内部读取和多指标不再排队申请自己，不把计数放进每请求新建对象。</td><td>否，落实已有一请求一名额及共享控制。</td></tr><tr><td>前端失效没有区分响应头与响应体</td><td>当前客户端在fetch返回Response后才await response.json；仅等到响应头就清定时器会漏掉后续接收。</td><td>第11/13节和LLD19/24补接收、转换、再检查截止与过期结果不展示；同步解析靠输出限制及实测约束，不承诺定时器可抢断JS。</td><td>否，落实整次请求明确失效。</td></tr><tr><td>指数来源与默认前复权如何衔接未写明</td><td>当前已读指数分钟合同只有标准OHLC等字段，未提供复权因子；通用默认前复权不能被内核偷偷改掉。</td><td>第06节和LLD03/04/08/24明确该指数接入调用显式选不复权；未核实的转换按已有来源不支持规则失败，不伪造因子或扩大到所有未来来源。</td><td>否，按已确认参数和来源合同落实。</td></tr></tbody></table></div><h3 id="review-decisions">本轮是否还有需要管理员拍板的事项</h3><h3 id="empty-series-review">已确认：成功返回空结果只允许这一种情形</h3>
+<p><strong>管理员2026-10-22确认，作为唯一规则：</strong>请求合法，所选来源支持本次证券类型、周期、目标复权及所需计算，必要的读取正常结束，并且请求输出范围或所请求页内没有任何K线；返回前的输出处理与资源清理也正常完成，才允许成功返回空结果。该规则不代表来源数据已被内核审计；数值与完整性继续由外部负责，内核信任来源合同的正常读取结果，不新增缺口、日历或逐根质量检查。</p>
+<ul><li><strong>先完成必要检查：</strong>能力、参数、请求范围/根数、来源支持和实际输入/目标复权声明等仍按合同检查。即使0根，也不能跳过未知指标、非法参数或不支持的复权路径。没有K线时可省去无用的指标运算及逐根复权运算，不因此跳过必要声明检查或掩盖读取错误。</li>
+<li><strong>以请求输出范围为准：</strong>算法所需的前置历史可能有K线，但所请求输出区间或翻页位置没有K线，仍符合本项条件；不能要求整个来源历史也为空。读取某一批暂时0行不等于正常读完，必须按读取合同确认结束；不能靠吞掉异常、丢行、过滤指标NULL或把失败替换成空表得到0根。</li>
+<li><strong>返回内容明确：</strong>实际返回根数为0，时间序列和每个请求计算实例的值序列为空；保留各实例的身份、参数、版本及已知来源/复权说明，不制造NULL假K线。实际输出起止时间为NULL，不能与请求起止或已经读取的前置历史范围混淆；已有来源范围、读取量和执行统计如实保留，不因输出为空全部清零。具体字段名及类型在LLD13写定。内核不猜测停牌、退市、尚未上市或数据缺失等原因。</li>
+<li><strong>所有实际失败都不在此列：</strong>请求/参数错误、来源或转换不支持、访问失败、合同要求的文件/字段/声明不可用、IO/复权/SQL/输出/序列化异常、超限/繁忙、取消/超时及资源清理失败，均按本身结果结束，不得转为成功空结果。来源合同正常返回无匹配记录，与应读文件访问失败是两回事。失败发生在读取中途或已生成空结果之后，也不能被空结果覆盖；传输失败不改写成另一份成功空响应。</li></ul>
+<div class="table-wrap"><table><thead><tr><th>LLD必须列出的正反例</th><th>唯一预期</th></tr></thead><tbody>
+<tr><td>合法且支持，来源正常读完，请求输出范围无K线，输出/清理成功</td><td>成功；返回0根、空时间/值序列和NULL实际输出起止，保留请求实例说明。</td></tr>
+<tr><td>前置计算历史有K线，但请求区间或所请求页内无K线</td><td>同样成功返回空结果；前置历史范围与实际读取统计不能伪装为0。</td></tr>
+<tr><td>输出范围有10根K线，计算MA20尚不满足窗口</td><td>返回10个时间点及10个公式规定的NULL；不是空结果。</td></tr>
+<tr><td>本批0行但读取合同尚未结束，后面还有输出K线</td><td>按合同继续；不得提前成功返回空结果。</td></tr>
+<tr><td>0根同时遇到未知指标、非法参数或来源/复权不支持</td><td>按原错误失败；0根不能成为跳过检查的提前返回。</td></tr>
+<tr><td>读取中途异常、取消/超时/超限，或空结果的输出/清理失败</td><td>保留真实失败，不返回成功空结果；按既定规则停止和释放资源，不泄漏连接或名额。</td></tr>
+</tbody></table></div>
+<p>LLD03/06/13/22须共同落实上述条件、返回合同及正反例，LLD05/19补齐资源收尾和取消先后。测试中核对行数与时间对齐，不将这些断言变成每次请求的额外质量扫描。本项是已确认行为，不再保留“无数据报错”的备选；不新增公开空结果开关，也不改变现行Reader/API。</p>
+
+<p><strong>核心职责和已确认初始配置保持；上述0根K线的唯一成功口径已确认，本项不再待review。</strong>按相关主要区域组合请求的修正规则已确认，不再重复讨论。以下为LLD必须落实的工程细节；发现无法满足目标时说明原因及调整建议，不擅自扩大范围。</p>
+<div class="table-wrap"><table><thead><tr><th>已明确的工程规则</th><th>为什么要写清</th><th>LLD落点</th></tr></thead><tbody>
+<tr><td>已确认数字的性质</td><td>128 MiB为查询设置，256 MiB为整体估算，约1 GiB为预留；8秒及停止清理2秒为目标，不能写成进程硬上限或安全强杀保证。</td><td>11/18/19/21；初值已定，验证未完成。</td></tr>
+<tr><td>同一总截止覆盖发送和取消</td><td>不能等2秒后再重新给8秒；也不能SQL结束后让慢响应无限占用名额。已发送部分响应时不能再拼一份错误JSON，应结束发送并按实际状态收尾。</td><td>13/18/19/24；等待、到达第6秒停止、目标第8秒结束及前端10秒逐步对应。</td></tr>
+<tr><td>算法边界与来源支持</td><td>返回1000根可能需要很多历史；10个常用实例的估算不能证明任意参数、16实例、150万根或全部周/月来源都受支持。</td><td>04/06/11/14/16/21；参数边界先推导，有依据才在发现中声明。</td></tr>
+<tr><td>实际部署与最小验证</td><td>每进程2个不会自动变成全系统2个；Web原有内存不能从预留中漏掉。三类小验证不代表P95或所有场景验收。</td><td>15/17/18/21；核对进程数、总占用、有限输入H及费用，未验证项如实保留。</td></tr>
+</tbody></table></div>
+<h3 id="lld-accepted-decisions-20261022">此前五项确认与编码细节补齐</h3><div class="table-wrap"><table><thead><tr><th>项目</th><th>已确认决定，与LLD第20节一致</th></tr></thead><tbody><tr><td>暂不升级</td><td>当前DuckDB保持1.5.5，本轮不升级2.0；超时使用同一次绝对截止及interrupt。</td></tr><tr><td>超时实现</td><td>每个实际运行的请求最多一个中断控制线程；停止后20ms重试interrupt，SQL退出后同锁解绑、join、清理、关闭；8秒是含清理目标。</td></tr><tr><td>读取选型</td><td>采用PyArrow23.0.1独立保存文件读取进度；DuckDB唯一连接执行复权与指标SQL；选型已确认，集成及性能待验证。</td></tr><tr><td>周期参数</td><td>不设置统一周期上限或固定参数套表；只保留公式、SQL可表示性及实际资源约束，不按巨大周期预分配。</td></tr><tr><td>配置检查</td><td>仅检查单项明确错误、已知直接关系、运行中实际超限；不穷举配置取值组合，不保证提前拦住所有失败。</td></tr></tbody></table></div>
+<p>推荐PyArrow的依据是它能在本轮单连接、禁止全历史物化的边界下独立保存文件进度；不声称它速度最快。实现使用既定23.0.1版本，依赖落在根项目local-lake可选组及锁文件，不扩展到DG/全局环境，不顺带升级现有包。本轮不安装。具体字段、方法、EOF/空批/异常、Arrow注册和释放、当前文件关闭及固定规模验证，见<a href="technical-indicator-kernel-low-level-design-v1.html#s06">LLD第06节</a>；RecordBatch物化后注销并释放，SQL价格表供全部指标用完才释放，两个释放点必须分开。价格主流由Arrow保留进度；当日因子/基准在读取模块通过同一DuckDB连接作有界小查询并立即物化，不跨计算步骤保留未完成因子查询。</p>
+<p>超时实现已补到可指导编码：ExecutionControl字段与方法、单一Condition锁、监控等待循环、SQL启动间隙重复interrupt、启动失败、正常结束也join、取消与完成相撞、回调与解绑互斥、join超目标、原错误和清理错误、A/B请求互不影响。见<a href="technical-indicator-kernel-low-level-design-v1.html#s13">LLD第13节</a>。统一finally先等监控退出，再逐项收集清理问题并尝试最终关闭连接；不能因一个收尾错误跳过其余释放。原12类/最多72次控制验证保持，不扩大成配置组合测试。</p>
+<p>上述五项保持。本次新增确认见下表，与LLD第20节一致；5000文件、16实例、10000返回位置已确认为初始值；150万输入根数也已确认，所有初始容量均已写定。本轮没有运行代码、配置、安装、API、正式数据或DG状态变更。</p>
+<h3 id="lld-capacity-precision-review-20261022">本次容量、BOLL与精度确认</h3>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>已确认决定，与LLD第20节一致</th></tr></thead><tbody><tr><td>来源文件大小</td><td>不设置来源文件合计1GiB限制，不新增max_source_bytes配置；source_file_bytes仍如实统计，不作为拒绝条件。</td></tr><tr><td>输出大小</td><td>max_output_bytes初始值5000000个UTF-8字节；超过即本次请求整次失败，丢弃未发送结果，不截断K线、字段或JSON，不返回不完整成功。</td></tr><tr><td>读取初始保护</td><td>选中列每个row group的未压缩字节估算初始保护值为32MiB；超过先报资源超限，不跳过数据块或自动放宽。记录必要估算依据，后续撞线须重新评估合理性，再经review调整配置；不声称它保证实际内存上限。</td></tr><tr><td>BOLL倍率</td><td>倍率默认2，只要求有限且非负，不设上限10；0时上下轨与中轨重合，11等大于10的有限倍率合法，实际数值不能表示时正常失败。</td></tr><tr><td>精度标准</td><td>采用abs(actual-reference)≤1e−8+1e−10×abs(reference)作为验收门槛；MACD首根严格0，参考绝对值&gt;1e−8时符号一致，≤1e−8单列记录符号差异且不自动改0；NULL、时间和数量精确一致，XXM敏感判断留待接入验收。</td></tr></tbody></table></div>
+<p><strong>5000文件不等于固定天数：</strong>当前主要指数分钟线按频率/交易日每日一文件，若5000个价格文件均存在，对应5000个交易日；完整交易日30分钟通常8根，共约40000根，按每年250交易日粗算约20年。股票Gold前复权分钟线按频率/股票/年份每年一文件，10个完整交易年通常只选10个年份文件，约2500交易日/20000根。因子等额外唯一文件也计入预算，不能用5000÷8换算天数，更不能理解为实际可用5000年。依据为Foundation的build_stock_mins_qfq_paths和_enumerate_partitions；仅核对代码，无正式数据扫描。5000已确认为初始值，估算不承诺历史覆盖或耗时。</p>
+<p>LLD检查须同步§06来源预算、§09参数、§10精度、§14输出、§16配置/初始保护、§18正反测试及§22逐条对账：不得保留来源合计1GiB拦截；5000000编码字节超限整次失败；32MiB撞线先拒绝、留下重新评估依据；BOLL0及11合法，负数/非有限倍率拒绝；精度阈值与近0符号检查按已确认值执行。本次只改两份设计，不开发或新增实验。</p>
+<h3 id="lld-capacity-initials-confirmed-20261022">已确认：5000文件、16实例、10000返回位置</h3>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>已确认决定，与LLD第20节一致</th></tr></thead><tbody><tr><td>唯一来源文件数</td><td>max_source_files初始值5000；价格、因子与基准的实际唯一文件共同计数，同文件供多个指标共享只计一次；超过整次失败，不跳过历史文件。</td></tr><tr><td>请求指标实例数</td><td>max_indicator_instances初始值16；price计1，MACD的三个输出字段合计1，同指标不同参数分别计实例，内部依赖不另计；读数据前拒绝超限请求。</td></tr><tr><td>返回位置数</td><td>max_output_rows初始值10000；限制一次返回的时间位置，不是指标周期或历史输入上限；请求limit超过10000在读取前失败，不静默改成10000；输出字节上限仍独立生效。</td></tr></tbody></table></div>
+<p>三项均为运营配置初始值，不是性能通过结论；按照既有Settings来源及应用重启生效规则执行。LLD第16节配置、第18节正反测试和第22节25项对账必须保持相同状态。150万输入根数在本次已获确认，具体累计与超限规则见下方；其它已确认配置不变。</p>
+<h3 id="lld-review-20261022-comments">2026-10-22管理员review后的明确收口</h3>
+<p>本轮不升级DuckDB2.0，沿用当前1.5.5；到达后第6秒请求停止，第8秒为含清理的完成目标。同一请求只有一个绝对截止，运行SQL由唯一必要中断控制调用interrupt，停止后20ms重试直到SQL退出，再解绑/join/清理/关闭；不按每条SQL重新给完整时限，不承诺任意系统I/O硬停。</p>
+<p>指标周期取消统一10000上限，不新增max_period或固定参数套表；仅保留正整数、fast小于slow等公式条件，不能表达或资源不足时明确失败。配置仅三类检查：单项明确错误、已知直接关系、运行中实际超限；新增配置不引出全部取值组合穷举。16实例和150万输入根数均已确认为初始值，二者是资源容量，不是指标周期限制。</p>
+<p>读取目标仍为同批价格复用、来源持续推进；实测当前四种DuckDB交错调用尚不能同时满足该目标及禁止全历史物化的要求。本轮已确认采用PyArrow23.0.1独立读取，本机尚未安装；具体结果和证据见<a href="technical-indicator-kernel-low-level-design-v1.html#s06">LLD第06节</a>。未穷尽所有接口，不宣称DuckDB读Parquet有问题；读取选型不再待拍板，代码/集成/性能尚未验收。原10000参数数值实验保留为历史回归和有限样本，不证明无限参数精度或最大内存。</p>
+<h3 id="lld-v1-delivery-20261022">2026-10-22代码级LLD交付与原方案对账</h3>
+<p>本次按管理员要求新建<a href="technical-indicator-kernel-low-level-design-v1.html">HTML代码级LLD</a>，不是继续只写方向。文件/对象/方法与输入输出、来源支持、依赖复用、SQL状态及分段、正常/异常/取消的释放先后、配置来源与消费者、量化资源预算和有限验收均有具体定义。原25项逐项见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD对账表</a>；设计有覆盖不代表实现或运行验收已经通过。</p>
+<div class="table-wrap"><table><thead><tr><th>本次细化</th><th>落地定义与状态</th></tr></thead><tbody>
+<tr><td>读取一轮与实际分批</td><td>当前1.5.5已补测四种直接取批方法：三种在穿插计算SQL后不能继续，relation.execute先完成整段结果。不能据此说DuckDB读Parquet有问题，也不能采用全历史物化来凑逐批读取。来源须独立保管进度，PyArrow23.0.1已确认采用，按逐文件Scanner/Reader独立推进；本机未安装、集成未验证。每批8192、禁止预取、复权/指标全部原生SQL不变。</td></tr>
+<tr><td>参数、安全分段与精度</td><td>管理员已撤销统一10000周期限制；仅保留公式正整数/fast&lt;slow、SQL可表示性及实际资源失败。LLD用SQL求α/β及S=min(1024,floor(256/−lnβ))，周期1恒等处理；MACD首条独立SQL严格0；高价大周期样本发现相近EMA相减超差，正式SQL按等价方式先减首价再计算，保持原精度门槛并独立复核。A=1e−8、R=1e−10及近0单列核对已确认；有限样本不证明全范围或XXM接入。</td></tr>
+<tr><td>中断控制</td><td>管理员选择本轮暂不升级2.0。本机1.5.5无max_execution_time；使用同一次绝对截止和interrupt。LLD明确每活动调用至多1个仅负责interrupt的控制线程及20ms重试、解绑/join/close顺序，不新增计算线程池或进程池。该工程细节已在本版LLD确认；SQL退出和原生I/O停止仍需实现后实测，不承诺硬杀。</td></tr>
+<tr><td>资源与执行费用</td><td>已有并发/等待/8秒目标/6秒停止/2秒清理/前端10秒、8192批次、128/256MiB初值保持。LLD逐表计算载荷，给出244MiB整体估算及余量；三最小性能场景H=200000，含取消/重试/最后重复最多6H，不自动执行原706万/1226万矩阵。所有初始容量均已确认，有限边界样本及费用已写入LLD17；未测项仅保留为开发后验收。</td></tr>
+<tr><td>实际本轮验证</td><td>只用现有依赖做有界合成SQL、模式/参数与官方资料核对；没有正式行情读取、Arrow整合、完整内核、双并发或页面验收。新LLD明确记录实际输入、误差、中断小样本及实验安排偏差，不把示例、估算和实测混同。</td></tr>
+</tbody></table></div><p>150万输入、5000唯一文件、16实例、10000返回位置均已确认为初始值；新LLD第20节当前无待拍板项；来源文件合计大小限制已撤销，5000000输出字节、32MiB初始保护、BOLL有限非负及精度门槛已确认；PyArrow及中断实现已确认；统一10000周期限制已撤销，配置检查已限定三类；此前已确认决定不重新开启。本轮最终开发条件复核通过，可按LLD D1—D4逐步开发和验收，页面/XXM迁移与DG退出仍另行批准。当前未获本轮代码开发或正式任务执行授权。</p>
+<h3 id="lld-input-capacity-confirmed-20261023">已确认：每请求150万根历史输入</h3>
+<p>max_input_rows初始值1500000；按每请求新交付目标K线累计，前置历史计入，多个指标共享及窗口重复使用不重复计数；超过整次失败，不截断历史、不改变指标参数。</p>
+<p>这是最后一项已确认初始值；当前范围内所有设计、参数口径、依赖选型和资源初值均已review通过。新内核定义、来源支持、失败/中断规则和有限验收位置仍以LLD为准，不将设计确认当作性能已验收。</p>
+<h3 id="lld-full-audit-20261023">2026-10-23全面审计后的具体修订</h3>
+<p>本轮先同步5000文件、16实例、10000返回位置三个已确认初始值，再按原25项审计。该轮记录中的150万输入初始值现已确认，不再保留未决项。审计发现并修复了实际会让编码分歧的问题，完整位置和验收映射见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20.3节</a>，不以章节齐全代替语义核对。</p>
+<div class="table-wrap"><table><thead><tr><th>问题</th><th>已细化的唯一规则</th></tr></thead><tbody>
+<tr><td>依赖及接口交接不完整、方法表显示丢失</td><td>LLD04补依赖角色/结果表、每节点上下文、factory、实际engine/input/output方法；Optional签名不被表格切开。Calculation在consume生成受控SQL，指标状态只在consume段内更新，不再有另一处批末save_states。</td></tr>
+<tr><td>复权固定引用未读取列，日线可能丢日期</td><td>读取和复权按指标字段并集投影；单MACD只转换close，price才取全套OHLC量额。各粒度保留trade_date；日/周/月另保留period_start/end/source_as_of，复权不丢时间字段。</td></tr>
+<tr><td>周/月未结束周期在读取阶段可能被排掉</td><td>按周期相交选择候选分区，不能先按周五标签过滤周二请求；标准化后核实际截止。顶层source_as_of在周/月为与times对齐的日期数组（0根为[]），分钟/日为null。</td></tr>
+<tr><td>跨批输出表先创建后删除，第二批缺表</td><td>prepare仅建状态/参数；每批consume建空输出表，collector保存后批末释放；状态跨批保留。末批不靠预取判断EOF。</td></tr>
+<tr><td>取消、清理和发送截止缺少衔接</td><td>异步断开观察先发停止信号，工作线程仍等真实结束；停止后用仅允许已登记DROP/unregister的清理入口。一次worker调用含适配编码，第6秒后不开始成功发送；已开始发送由response按第8秒绝对截止结束。admission持实际Lease集合，授予但未移交时取消由acquire回收；停机找到每个control并等真实归还，idle_event采用AnyIO Event的替换/置位规则，不调用clear。</td></tr>
+<tr><td>配置名、内存估算和现行状态有旧口径</td><td>原方案total_target_ms与LLD同名同单位；日/周/月时间字段纳入每行72B/11列估算及输出截止占用；当前状态改为LLD已成稿，历史阶段记录保留但不充当下一步。</td></tr>
+</tbody></table></div>
+<p>修订属于既定范围内的编码细化，不新增公开入口、数据审计、缓存、预取、计算线程池或进程。正反测试合并既有小夹具和72次控制预算；未运行新增数值/性能实验、未安装、未改API/配置或正式数据。本轮修订后已完成独立复核：原25项映射保留、八项新确认两文逐字一致、表格列数/本地链接/锚点及设计示例语法检查通过，仓库文档完整性检查通过；这只证明静态设计对账，不是SQL/Arrow/ASGI或真实来源验收。实际集成、内存、取消与页面验收留待实现。</p>
+<h3 id="lld-final-handoffs-20261023">最终编码交接检查</h3>
+<p>LLD已补齐三个不能留给实现者猜的交接：连接创建前的describe显式接收本请求control并按文件检查截止/取消；输入prepare取得真实复权基准后，通过请求独立的resolved_description交给结果；纯库calculate返回前严格流式计量库格式字节、超过5000000整次失败，计量块立即丢弃。后续Biz最终格式独立检查并只形成一份HTTP body，不能重复编码同一HTTP内容；两种格式的必要遍历均纳入同一第6秒工作截止和资源报告。具体签名、位置、异常及小夹具见LLD第04/06/11/14/18/20.4节，不增加公开入口、缓存或新配置。</p>
+<h3 id="lld-freeze-conclusion-20261023">最终结论：满足内核开发条件，方案与LLD设计冻结</h3>
+<p><strong>2026-10-23开发前审计通过：当前范围内待管理员review项0、已知未决设计或编码阻塞0。</strong>最后一项150万输入已确认，全部初值及参数、接口、读取/复权/历史、SQL状态、资源生命周期、取消、输出/编码和有限验收已在LLD写定；原25项逐条对应见LLD第22节。最终三项交接经独立复核闭合，具体修订与结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20.3—20.5节</a>。</p>
+<p>本版可作为LLD第19节D1—D4编码依据：合同/定义/配置、读取复权、SQL指标、停止/资源与隔离接入。运行正确性、真实来源交接、内存/并发、取消及隔离ASGI按已定方法在开发后验收；未测不标通过，这些不是设计未决项。本轮仅文档更新与静态审计，不执行开发、安装、正式数据操作或迁移；现行页面/API、XXM及DG退出仍属后续独立范围。开发中若发现真实代码或来源与设计冲突，按现有变更规则修订和复核，不自行增加分支或扩大需求。</p>
+<h3 id="lld-writing-status">LLD怎样区分已定规则、待细化内容和开发后验证</h3>
+<p><strong>已定规则的使用位置：</strong>请求组合范围以第08节“相关主要区域”为准；资源初始值以第11节已确认表为准；创建/关闭连接及各模块数据归属以第12节为准。第13节先做三个最小性能场景；保留的706万/1226万根扩展矩阵不是必跑前置。旧示例、实验和历史审计记录不覆盖这些后续决定。25项清单沿用，不再另造一套开发清单。</p>
+<ul><li><strong>LLD冻结前写定：</strong>本步范围、类/方法和字段、SQL及表schema、算法初始化、参数界限、安全分段与精度阈值、历史输入/输出、配置映射、异常/清理先后；给出数值或可求值公式、独立预期、有限测试步骤及包括取消/重试/最终验收的成本。0根K线按上方已确认的唯一成功条件写定请求/结果/错误合同及正反例，不得再把错误或初始NULL解释为空结果。</li>
+<li><strong>开发后补实际验证：</strong>完整新内核及API尚未存在时，不能要求先交出它们的实际峰值或端到端耗时。LLD先给已确认初始值、估算、测量办法、目标和待验证状态；实现后记录真实内存、SQL停止、清理及接口表现。相应项未验证，不能报告开发验收或上线通过；不因为缺实现后的测量就将已确认初始值重新列为待拍板。</li>
+<li><strong>实现者不能自行换口径：</strong>已确认业务边界、资源归属和禁止项不得改成可选分支；具体技术方法由LLD写清。确需改变已确认行为或发现来源/代码与方案冲突时，先说明证据和影响再review，不能先编码绕过。</li></ul>
+<h3 id="lld-contract-clarifications">编写LLD时必须分开的合同与检查时点</h3>
+<div class="table-wrap"><table><thead><tr><th>事项</th><th>明确口径</th><th>LLD落点</th></tr></thead><tbody>
+<tr><td>业务请求与来源说明</td><td>业务选择证券、周期、输出范围、目标复权和指标参数。实际输入复权类型、单位、基准、历史起点由读取实现按来源合同说明，不新增让业务重复填写输入复权类型或猜测来源的参数。目标省略仍默认前复权。</td><td>03/04/08；业务请求字段与来源交付字段分表列出。</td></tr>
+<tr><td>到达时间、截止与取消信号</td><td>由调用入口/接入层产生并交给本次同步服务，不由用户填写，也不作为可覆盖基础预算的业务参数。每个请求独立保存，不能用一个可变全局值覆盖其他请求。calculate(request)仍为唯一业务计算入口；具体内部传递签名由LLD写清，不新增公开bars或第二套入口。</td><td>01/03/05/19/21；HTTP从收到请求计时，其他入口从接到本次调用计时，交接不重置。</td></tr>
+<tr><td>排队结束不等于还能开始算</td><td>最长等待2秒也必须服从到达后第6秒停止正常处理的时点；获准、进入工作线程、创建连接和执行下一条读取/计算SQL前都检查。若正常处理时间已经用尽，只结束请求并清理，不因刚获得空位再启动SQL；8秒总目标及2秒清理预留不延长。</td><td>18/19；覆盖鉴权或框架等待已消耗时间、获准与到期同时发生的反例。</td></tr>
+<tr><td>真正限制处理规模的分批</td><td>8192是新输入批次，不是全历史SQL执行完后每次取回8192行。读取、排序、窗口、复权和中间表的实际处理/保留范围分别列清；不能在DuckDB先物化全部历史，再仅凭Python分批取回结果声称内存有界。按批查询也不能反复从头扫描全部历史却只累计返回行数。</td><td>04/06/12/15/18；列来源推进办法、SQL实际处理量和同时保留数据，执行记录证明一轮读取。</td></tr>
+<tr><td>输入、SQL处理和文件计量</td><td>新来源K线位置只计一次输入；前置窗口、指标复用和递推分段的SQL处理量另记。所选文件数和物理大小按实际选用文件计算，重复读取次数另记；不能把一个文件被多次读取藏在“只有一个文件”里，也不能把一个输入被10项复用当10份新输入。</td><td>15/18/21；计数是资源统计，不增加质量扫描。</td></tr>
+<tr><td>输出限制和异常处理</td><td>可预判的根数、实例与参数限制在读前检查；编码后才知道的真实字节数在输出阶段检查。初始NULL、编码失败和零输入不是同一种情况；NaN/Infinity不得默默补0或变成公式初始NULL，正常转换/严格序列化发生错误就失败，不加逐点isfinite预扫描。成功空结果只适用于<a href="#empty-series-review">已确认的正常读完且输出范围无K线</a>；前置历史、空批次与输出0根分开说明，错误不能用空结果代替。</td><td>13/19/22/24；列实际格式、字节检查位置、内核结果与API响应的交接，不让内核持有HTTP连接。</td></tr>
+<tr><td>能力说明与来源支持</td><td>注册了算法不等于本部署已能读取该周期或复权类型。发现/说明给出算法定义及配置已知的来源支持范围；执行仍按真实支持的组合处理，不查每次到数或审计状态。不能把“算法适用于周线”直接发布成“当前所有周线请求都能算”。</td><td>02/04/08/13/21；不同来源、不同周期的支持条件有静态依据，不以扫描全湖证明。</td></tr>
+</tbody></table></div>
+<h3 id="lld-audit-checklist">25项代码级LLD交付与复核要求</h3><p><strong>这张清单是LLD的25项设计与开发后验证依据；设计对应已见LLD第22节，未开发项目和实测不标记完成。</strong>每项必须对应具体类/方法、接口字段、SQL与状态表、释放/异常步骤、配置来源、量化限制、独立正反测试及验收证据；本版设计细节已在LLD明确，开发以冻结的文件、接口及验收要求为准，不能只凭早期方案方向自行发挥。</p>
+<p>本轮讨论按以下位置复核，沿用同一张25项清单，不另建第二份检查表：</p><ul>
+<li>读取模块包含复权、共享输入生命周期：核对<a href="#lld-item-04">04读取合同</a>、<a href="#lld-item-08">08复权对象</a>、<a href="#lld-item-09">09依赖复用</a>。</li>
+<li>算法定义输入输出及必需历史，服务生成完整读取要求：核对<a href="#lld-item-02">02指标定义</a>、<a href="#lld-item-03">03请求合同</a>、<a href="#lld-item-06">06历史与输出</a>；MA20/MA250例子不得误写成资源批次。</li>
+<li>连接创建和最终关闭由同一服务负责：核对<a href="#lld-item-05">05连接与数据归属</a>、<a href="#lld-item-19">19取消收尾</a>、<a href="#lld-item-22">22失败处理</a>，包含部分初始化与清理再次失败。</li>
+<li>固定顺序、不预取；必要窗口保留但不重复递推；输入可释放且输出不失效：核对<a href="#lld-item-09">09执行顺序</a>、<a href="#lld-item-12">12跨批状态</a>、<a href="#lld-item-13">13独立输出</a>。</li>
+<li>正常清理失败不能成功，日志失败单独处理；内存/取消/无落盘要求有数字与证据：核对<a href="#lld-item-15">15资源测试</a>、<a href="#lld-item-18">18内存与并发</a>、<a href="#lld-item-19">19取消</a>、<a href="#lld-item-20">20禁止落盘</a>、<a href="#lld-item-22">22错误归属</a>。</li></ul>
+<div class="table-wrap"><table><thead><tr><th>序号</th><th>项目</th><th>LLD必须写清</th><th>至少需要的验证</th></tr></thead><tbody><tr id="lld-item-01"><td>01</td><td>范围与实现位置</td><td>对应第04节目录及经确认执行位置，列类/方法/SQL/测试；明确调用进程、Python线程、DuckDB线程与谁管理；Foundation不依赖Web框架/App，不自建未获准的池。</td><td>静态依赖与最小装配证明不导入DG/上层；没有新页面、Prod或DG退出实现。</td></tr><tr id="lld-item-02"><td>02</td><td>计算对象与说明</td><td>CalculationDefinition字段：ID/版本、参数、输入列/单位/周期、依赖、初始化、跨批历史及状态要求、输出及空值含义；历史规则由指标按公式定义，汇总与读取不改公式。</td><td>新增一个测试计算对象无需改引擎指标名称分支；发现和执行说明一致，未知能力/非法参数拒绝。</td></tr><tr id="lld-item-03"><td>03</td><td>请求合同</td><td>单个对象的代码/类型、周期、业务目标复权、展示起止、返回根数与分页；相关主要区域内同次加载/刷新指标组合提交；不同区域或加载时机可独立请求，不要求整页只能一次，也不新增区域字段或最低指标数量，确定缺省与截止含义；实际输入复权由来源说明，业务不重复填写；到达时间、运行截止和取消信号由接入层内部交接，业务不覆盖；一次请求只允许一种目标复权，不传默认前复权，合法传入照做；列省略/显式前复权一致、显式不复权/后复权、非法/多值拒绝的独立正反样本。 成功空结果仅按已确认唯一条件，0根不跳过任何必要请求/参数/来源支持检查，业务不得用返回根数0表达空结果请求。</td><td>最小/多实例请求字面样本及区域调用计数；同一区域组合10项时内核调用、连接和名额各1；同页两个独立区域请求均合法且分别计数，不因未合并整页或单次仅1项而拒绝；实际截止、口径和参数随各自结果说明，不承诺跨请求使用同一批输入；组合内部另开连接或重复读取的反例应被发现；当前指数接入显式不复权，默认前复权不被隐式改写；拒绝任意SQL、算法、路径、公开bars、质量标志和业务基准日期。 列正常无输出K线、0根遇非法参数/未知能力/不支持路径的正反例，禁止空结果提前返回绕过检查。</td></tr><tr id="lld-item-04"><td>04</td><td>读取合同与来源清单</td><td>按股票/指数、分钟/日/周/月、复权类型列真实生产者、路径/字段/类型/单位、时间标记、历史起点及最新未收盘K线能否提供。</td><td>读真实生产者与必要有界样本；列实际分批推进办法，不能以全历史物化后分批取回替代有界读取；注册算法、部署来源支持、本次有数据分开表述；不按名字推断就绪。</td></tr><tr id="lld-item-05"><td>05</td><td>读取与执行的连接</td><td>明确服务在同次calculate调用内创建并最终关闭连接；列连接创建/关闭、读取模块输入/复权表、指标状态各自方法及SQL，逐批释放条件和最终收尾；不fetchall全历史。</td><td>验证正常、读取/复权/指标/输出失败及取消均由同一服务收尾；其他模块不提前或重复关闭连接，不跨请求共享可变表；部分初始化仍可清理，不沿用旧扫描或历史截断。</td></tr><tr id="lld-item-06"><td>06</td><td>历史、分页与输出</td><td>分别列业务输出范围、算法必需历史和实际读取批次；MA20的M+19与MA250前249根，递推从约定起点到截止；内部读取合同和展示过滤/LIMIT位置明确。 区分前置历史、请求输出位置及临时空批次；读取合同正常结束且输出位置0根才符合成功空结果条件。</td><td>历史充足时MA20的1000个有效输出需1019根输入；MA250月份输出含前249根；读取批次变化结果不变、翻页不重置；短历史按规则返回，超限不能截断伪装成功。 验证前置历史非空但输出页为空、空批次后仍有行，以及10根MA20返回10个NULL而非0根；不另加运行时质量扫描。</td></tr><tr id="lld-item-07"><td>07</td><td>最新周期K线</td><td>说明最新未收盘记录的实际截止、同根更新与重算；周/月只读已有来源。</td><td>MA2为101/104/105；同周只算一根。无当时输入版本时，不能用周五完整值冒充周二或偷偷合成。</td></tr><tr id="lld-item-08"><td>08</td><td>独立复权对象</td><td>复权对象归读取模块；核对不复权/前/后复权路径、最新因子与日期关联，量额不改；单独价格能力及统一发现不产生第二套算法。</td><td>独立字面价格样本、同口径不重复复权、不同口径不混用；当前指数调用显式不复权，来源未核实的复权请求明确失败，不编造因子或偷偷改默认。</td></tr><tr id="lld-item-09"><td>09</td><td>复合依赖与复用</td><td>依赖展开、循环/未知依赖、实例ID、执行顺序、按历史/字段并集读取一轮、每批复权一次、共享步骤及内存临时表；列5项/10项、同目标价格两组MACD及三种类型分别请求的响应；同一次组合内部禁止按指标另开calculate、连接或读取轮次，禁止一次多目标类型，测试不得把三种选择拼成一次输出。</td><td>5项增至10项不重复遍历来源，正确目标口径转换0次，其余同口径每批转换一次；共同均值可复用，状态/字段隔离；执行记录证明而非只看同名视图。</td></tr><tr id="lld-item-10"><td>10</td><td>初始化与公式边界</td><td>首个EMA/DIF/DEA、K/D递推前初值与首根更新、RSV平区间、MA/BOLL不足窗口和总体标准差分别给SQL。</td><td>独立字面金样本核对，尤其首条DIF/DEA理论0、周期1、平区间；不让微小符号误差被宽容差掩盖。</td></tr><tr id="lld-item-11"><td>11</td><td>参数与数值安全</td><td>给每个参数的类型/最小最大、参数关系、系数可表示性、负幂/乘积/累计范围、安全段长及余量公式。</td><td>默认与实际自定义、端点、周期1/2、段长前后有限样本；不全参数穷举，不固定1024兜所有参数。</td></tr><tr id="lld-item-12"><td>12</td><td>SQL步骤及跨段状态</td><td>精确到SQL模板、语句先后、绑定、表schema；按各指标声明汇总必要历史，由读取模块保留，计算模块保留递推状态；共同19根不改变KDJ9窗口，不重复推进/输出，不留下指向整批的视图。</td><td>跨批/日/年/页连续；共享19根时KDJ仍按9根窗口计算，保留行不重复递推/输出；执行记录证明不重扫全历史、不留整批引用，不积存全部中间结果。</td></tr><tr id="lld-item-13"><td>13</td><td>输出合同与版本</td><td>结果实例、字段、时间/时区、参数及版本/范围、空结果与初始化NULL；说明内核结果移交API、DTO/JSON生成与发送结束的持有方，关闭连接后仍可访问，原始输入不能随响应存活。 按已确认规则定义成功0根：时间与各实例值序列为空、实际输出起止NULL；实例/参数/版本及已知来源/复权信息保留，前置历史范围和实际统计不清零。</td><td>字面响应、字段/版本对齐；关闭连接和释放输入后仍可访问结果，最近N根只保留N根所需结果；可预判限制读前检查，真实编码字节在输出形成后检查，单位和最终格式明确；JSON错误正常失败，不加数值预扫描或补值掩盖异常。 独立字面响应区分0根与10根MA20的初始NULL；空结果同样正常清理，输出或严格序列化失败不得变成空成功。</td></tr><tr id="lld-item-14"><td>14</td><td>精度与独立预期</td><td>绝对/相对误差、近0范围、符号与消费者判断的验收条件；独立核算方法与测试输入来源。</td><td>保留参数、根数、段长、预期、误差与差异数量；不得调用待测helper生成expected或随意改识别/预测规则。</td></tr><tr id="lld-item-15"><td>15</td><td>资源测试执行方案</td><td>先把第13节三个最小场景映射到测试入口、SQL、监测与记录字段，H须是具体输入上限，含重试/最后验收最多6H；扩展矩阵仅在选用时补预算，不再作为确定初始值或编写LLD的前置。</td><td>提供估算/实测/上限/余量/证据；目标运行版本下验证线程/实例隔离、取消和其他接口影响并先补成本。旧706万根只对应保留的扩展用例，不自动执行或与最小验证相加，也不等于全部SQL工作量。</td></tr><tr id="lld-item-16"><td>16</td><td>缺少的资源边界</td><td>先验证已确认初值下区域组合10项和两个独立组合请求场景；如要声明150万输入、16实例及最大窗口或全部周期支持，另列对应依据和有限边界样本。旧520万及合计1226万根是扩展方案预算，不作为本次必跑工作。</td><td>先给股票/因子和大窗口等样本来源与开销，再执行；不自动扩大现有真实读取范围或全市场扫数。</td></tr><tr id="lld-item-17"><td>17</td><td>耗时统计</td><td>固定延迟次数、冷启动/稳定条件和统计方法；到达、等待、开始执行、SQL、输出/清理各时刻明确，P95和总截止包含等待；超时/拒绝不被过滤，先补总预算。</td><td>单次资源用例不计算P95；新进程不等于系统文件缓存已清空，不擅自清系统缓存或过滤慢请求。</td></tr><tr id="lld-item-18"><td>18</td><td>内存限制与并发</td><td>区分请求并发、框架线程池、DuckDB线程及Web worker数；列实例配置作用范围、CPU/内存和整个部署总量。写App共享名额的建立/关闭、异步等候、最大等待人数、先后顺序、等待/拒绝及唯一归还；禁止每请求创建计数、内部重复申请名额或工作线程阻塞等待，列12类至多72次轻量规则验证及真实补测预算。</td><td>采用第11节已确认初始批次8192和每进程并发2，再核对实际表现；256 MiB是整体估算、128 MiB是查询限制，不能当进程硬上限；不能以10个指标当10个请求或无视其成本；来源新输入、SQL处理及物理文件/重复读取分别计数；同页两个区域的实际请求各占一个名额，不能因同页共用一个名额，也不新增区域配额。包括计算结束但仍在转换/发送的结果；LLD明确并发额度归还点、API已有资源限制与同时峰值，核对已确认等待2个/2秒、总目标8秒和前端10秒，不再重复review是否允许等待。</td></tr><tr id="lld-item-19"><td>19</td><td>取消和截止</td><td>明确API与同步调用的取消/截止交接，覆盖等待中/读取/SQL/段间；不能以Future/等待取消冒充SQL停止。按初始等待2秒、到达后第6秒停止、第8秒目标收尾及前端10秒，规定等待/执行/前端总失效的交接，interrupt与关闭次序、监控撤销、重复清理、停止中仍占名额及毫秒上限；覆盖取得名额与取消同时发生；到达后第6秒正常处理时间已尽时，即使刚获名额也不启动读取或计算；同页多个实际请求独立计时，单区域更新只取消其已失效请求，共同条件变化再取消所有受影响请求；前端失效不能在取得响应头时提前结束，响应体接收与转换均核对。</td><td>读取中、SQL中及段间取消的必要验证与开销在LLD列清，不要求全套长历史重复；SQL真正停止、逐归属清理和完整重试；无提前释放、失效输出、清理失败吞掉或取消误停其他请求。不能以返回替代停止，不更改原始错误。</td></tr><tr id="lld-item-20"><td>20</td><td>临时落盘</td><td>按已确认决定禁止DuckDB及自建计算中间文件落盘；列全部连接的禁用方式、内存不足错误、取消/失败释放步骤。</td><td>计算临时数据文件占用为0；内存不足明确失败，无磁盘兜底；内存临时表正常/取消/失败均释放，不写正式Lake/业务表。</td></tr><tr id="lld-item-21"><td>21</td><td>配置审计</td><td>每项配置名称、默认值、来源/消费者/作用范围/生效/可见性/测试；显式SQL线程与独立实例预算，等待数量/时间/前端总失效与服务截止的关系，核对Web进程总量、共享线程池及AnyIO当前版本；目标DuckDB版本与依赖来源固定，不新增首轮缓存配置。</td><td>已确认初值按第11节映射，未确认的参数/容量界限另给依据；配置调整回写原方案，不能在实现中私改；source_contract引用已有定义，不能成为运营手写另一套路径/列事实。</td></tr><tr id="lld-item-22"><td>22</td><td>失败与重试</td><td>已确认的成功0根与参数错误、来源不支持、公式初始NULL、IO/复权/SQL/序列化、超限/繁忙/取消/超时分别说明；只有正常读完且输出范围无K线、输出及清理成功才允许空成功，保留真实错误归属。 不以空结果推断停牌、退市或数据缺失。</td><td>任一实例失败仅该次组合整次失败并释放资源；不撤销其他独立请求结果或误取消同页其他请求；正常计算后清理失败也不得成功，原始失败不被清理错误覆盖；日志失败不改变结果。禁止局部返回、换来源/读旧指标/切Python或无限重试。 反例覆盖0根检查绕过、读取中途失败及空结果输出/清理失败；均不得转为成功空结果，取消和截止仍按已有规则处理。</td></tr><tr id="lld-item-23"><td>23</td><td>职责不回流</td><td>列新服务/读取包装/计算/输出实际调用路径与保留的安全边界；排序属于算法步骤，不能变成额外时间审计。</td><td>静态与调用记录证明无质量扫描、日历/停牌退市/审计调用、来源复查或质量证明；既有页面检查不在本步擅删。</td></tr><tr id="lld-item-24"><td>24</td><td>消费者及实施顺序</td><td>列股票/指数页面、DTO/前端、XXM；业务按相关主要区域组合提交指标；前端/Biz及内核调用计数同时覆盖区域内复用与不同区域独立请求，不能用整页请求数必须为1来验收；分别说明各区域的加载、取消、10秒失效及回包对应关系，单区域失败不由内核扩大为整页失败，错误展示由页面设计确定，K线与指标同次输出的合同单独审计；HTTP序列化/发送的结果占用、快速切换取消及旧响应不覆盖新选择纳入接入LLD；传输失败与内核失败分别说明；页面整次超时覆盖401刷新重发、完整响应体接收及转换，切换/失效取消旧请求且不无限重试，响应完成或断开的名额归还点追到实际框架代码。</td><td>旧paramsKey/indicatorVersion/gold身份不冒用；新来源清零旧调用后才讨论停任务，不把本轮变成正式迁移。</td></tr><tr id="lld-item-25"><td>25</td><td>最终逐条对账</td><td>为本表每行记录LLD位置、实现/SQL/配置、正反测试、证据路径、状态及未完成原因。</td><td>待拍板不得当已确认；未测不得当已通过；当前已完成方案和代码级LLD设计审计，全部设计与初始值已确认，按最终实质审计结论判断开发条件，不以链接检查代替语义复核。</td></tr></tbody></table></div><p>每行都要在LLD给出真实实现位置或待开发位置、输入输出、读写边界、失败/取消/重试、配置和性能预算及正反验收。实现前先审计当前producer、schema与消费者，不凭名称造夹具；涉及正式数据读取继续使用有界范围，涉及全局明细读取另遵守根规则。</p><h3 id="lld-resource-quantitative-todo">TODO：LLD必须交付内存、取消和临时落盘的详细数据</h3>
+<p><strong>管理员2026-10-20要求；当前状态：设计交付已完成，真实运行实测在开发后执行。</strong>不能只用估算冒充实测。LLD须逐场景给出输入条件、估算值、实测值、允许上限、是否满足以及证据位置。尚未测得的数据保留待完成，不用128MB等配置冒充峰值，不用8秒总处理目标冒充取消延迟。</p>
+<div class="table-wrap"><table><thead><tr><th>内容</th><th>必须提供的详细数字</th><th>验证与完成条件</th></tr></thead><tbody>
+<tr><td>测量条件</td><td>输入总根数、列与类型、读取批次根数、数值分段根数、本场景实际窗口（不设任意周期上限）、输出根数/字节、指标实例数及参数、请求并发、进程/连接/线程数；DuckDB与运行环境版本。</td><td>LLD列固定且有界的样本清单及总开销，不穷举参数，不读全市场。字段载荷、额外缓冲和实际数据规模不能混为一谈。</td></tr>
+<tr><td>内存</td><td>按字节或MiB列空闲进程、读取缓冲、SQL排序/窗口/中间表、跨段保留数据、结果转换各项估算；记录实际进程峰值、单请求增量及约定并发下总峰值，给出最终批次/窗口/实例/并发上限和余量。</td><td>逐项有行数×列宽×同时保留份数或实测依据；明确何时释放、是否重叠。DuckDB内存限制与进程总内存分别记录，不能靠固定倍数掩盖未知开销。</td></tr>
+<tr><td>取消</td><td>分别记录提出取消到SQL停止、提出取消到资源释放的毫秒数；给出允许上限和各场景实测最大值。列取消后仍存活的任务/连接/临时资源数量及是否满足预期。</td><td>覆盖读取中、排序/窗口计算中及两段之间。测量SQL实际停止和释放，不能以接口提前返回成功、正常计算耗时或请求截止时间代替。</td></tr>
+<tr><td>临时落盘</td><td>已确认禁止：列全部执行连接的禁用设置、计算临时文件实际字节数（要求为0）、超内存时的错误及SQL停止/内存释放耗时；不额外保留开启路径或临时目录配置。</td><td>不能拿Parquet压缩大小当内存中间数据量。取消/失败后核对内存临时表及连接释放；禁止超限自动落盘或另写中间文件。禁用设置和证据须在LLD冻结前明确。</td></tr>
+<tr><td>中断后重试与最后验收</td><td>正常执行、取消清理、完整重试及最终有界验收分别列耗时、读取量、峰值内存和临时磁盘占用；据此给出总预算。</td><td>首轮无跨请求状态保存，重试按完整成本计量；不遗漏重试与最终验收开销，不把估算写成已验收。</td></tr>
+</tbody></table></div>
+<p>初始值已确认，不能因缺实测重新写成“初值待拍板”；详细数据、计算依据、实际测量和验收上限缺少任一项时，性能验证状态仍保持TODO。执行方法、固定测试场景、读取范围和据此确定取值的步骤，统一见<a href="#resource-test-plan">第13节最小验证与保留的扩展资源测试方案</a>；本表只列LLD交付要求。本轮没有开发计算内核、运行正式任务或测得新的性能结果。</p><h3 id="lld-quantitative-todo">TODO：LLD必须给出参数、分段与精度的量化指标</h3>
+<p><strong>管理员2026-10-20要求；当前状态：量化设计已写定，完整实现后的数值验证另行执行。</strong>LLD不能仅描述验证方法，必须给出下表的明确数值或能直接求值的公式，并附依据与有界验证结果。本文记录交付要求，不提前编造参数上限、容差或测量结果；禁止穷举所有参数及其组合。</p>
+<div class="table-wrap"><table><thead><tr><th>待办</th><th>LLD必须给出的量化内容</th><th>依据与完成条件</th></tr></thead><tbody>
+<tr><td>合法参数范围</td><td>每个指标参数的允许类型、公式必要条件及直接参数关系；周期1的明确处理；不设任意周期上限。说明SQL不能表达时的失败，以及实际窗口保留量min(N−1,已到历史)，不按巨大N预分配。</td><td>逐项对应现行公式、SQL类型与系数可表示性、实际资源预算。类型或计算不能处理时明确失败，不截成10000或自动换参数。不能只写“支持自定义”，也不为填最大值捏造业务上限。</td></tr>
+<tr><td>安全分段</td><td>各递推计算如何由参数得到安全段长，负幂、乘输入、累计求和的边界及安全余量；与读取批次上限如何共同限制。</td><td>有公式推导，并有短周期与跨段的有限反例/正例；不能把1024无条件用于所有参数。</td></tr>
+<tr><td>精度指标</td><td>按输出字段列出最大允许绝对误差、相对误差及其适用范围；接近0的数值范围和符号/下游判断差异的验收条件。</td><td>容差来自误差分析和真实消费者用途。保留独立预期、实际最大误差及差异数量；不能用某次观测值反向定义验收标准。</td></tr>
+<tr><td>有限验证规模</td><td>测试参数组合清单、组数、每组K线根数、总计算量及耗时预算；包括默认参数、实际自定义参数、公式必要边界与窗口/段长前后边界；已有10000样本仅保留错误回归，不作为产品周期上限。</td><td>LLD先列清单，再按清单执行；不遍历全部参数，不做参数组合全覆盖，不读取全市场来验证公式。</td></tr>
+</tbody></table></div>
+<p>上述量化设计的数值、依据、实现位置和已有有限实验记录已落入LLD；未执行的完整内核测试仍保留为开发后验收，不能只凭方法说明或“通过”字样认定实测完成。此前方案阶段只整理LLD指引；当前代码级LLD已成稿，量化定义、预算与有限SQL证据见LLD第09/10/16/17/21节，完整实现后的实测仍待完成，尚未进入内核开发。</p><h3>参数范围与精度：先推导边界，再验证有限样本，禁止穷举</h3><p>管理员明确不允许把所有数值或所有参数组合逐一计算。本设计采用以下方法；LLD先列公式依据、样本表、每项根数和总开销，不执行全参数、全市场或全历史组合扫描。</p><div class="table-wrap"><table><thead><tr><th>步骤</th><th>LLD具体交付</th><th>为什么不用把所有参数算一遍</th></tr></thead><tbody><tr><td>1. 从公式确定允许的参数</td><td>逐指标写清整数/正数、参数关系、周期1及初始化；SQL整数类型、浮点系数不可表示时正常失败，窗口只保留实际已有历史并服从资源限制。不再推导或配置一个任意业务周期上限。</td><td>参数类型与公式条件可一次表达整个范围；不是靠每个值跑过一遍才知道合法。</td></tr><tr><td>2. 推导安全分段</td><td>EMA的α=2/(N+1)、β=1−α。N=1单独处理，不能进入β的负指数幂。N大于1时，根据β、受支持数值尺度、乘积/累计和及DOUBLE范围推导安全段长；K/D按自身系数分别推导。段长还要服从资源限制。</td><td>负指数幂β的−S次方随S增长，可用对数推导边界，无须从1遍历所有N和S。不能只证明幂有限，却漏掉乘输入和累计求和的范围。</td></tr><tr><td>3. 用有界样本验证推导与实现</td><td>包含默认12/26/9、已有实际自定义9/65/9和10/69/10，以及公式必要边界、周期1/2、窗口N−1/N/N+1、段长S−1/S/S+1；用常数、涨跌、平区间和接近0的独立样本。LLD固定组数及每组根数，不做参数笛卡尔积。</td><td>样本针对不同的出错原因和边界；中间参数靠同一数学条件覆盖，不声称有限测试证明所有浮点结果逐位相同。</td></tr><tr><td>4. 确定精度验收值</td><td>按受支持数值尺度、递推/求和误差及消费者实际使用方式，给出有依据的绝对误差和适用时的相对误差。接近0另记符号及下游判断是否变化；不通过四舍五入掩盖差异。独立预期来自手算字面值或另行核准的小样本核算。</td><td>精度标准来自误差分析和实际用途，不取某次测试碰巧观测到的最大值作为全部保证。</td></tr></tbody></table></div><p>例如EMA每一步是上一值与本次输入按权重相加；权重非负且合计为1时，精确数学结果不会超出两者范围。但SQL负幂展开的中间数仍可能超出DOUBLE，所以LLD必须分别约束最终值、负幂乘积及累计和。数值尺度属于受支持计算范围的设计依据，不因此增加逐根输入质量扫描。若无法证明所承诺范围内安全，就缩小支持范围或先调整SQL方案，不能用穷举或Python公式兜底。</p><h3>证据、实际完成范围与后续顺序</h3><p>2026-10-22本轮按管理员确认，仅补清正常读取但输出范围无K线这一种成功空结果的条件、排除项、返回内容及LLD03/06/13/22正反例；复核CodeGraph node中的StockMinsLakeReader._empty_page作为旧0行表示的代码依据。未修改任何运行实现或配置，未执行数据读取及内核验收。</p><p>本轮以CodeGraph node读取StockMinsLakeReader._read/_empty_page、StockMinuteQueryService._enforce_response_size及股票分钟API：旧Reader取回页内行后关闭连接，旧字节限制在model_dump_json和编码后取得，旧API仍是同步读取预计算指标。它们用于定位移交及检查时点；新内核成功空结果的唯一口径由管理员本次确认，不由旧Reader推断，也不声称已经有共享分批计算。仅修改本HTML，未改运行代码、API、配置或正式数据。</p><p>本轮用CodeGraph explore核对StockDetailPage.handlePeriodChange及分钟客户端，确认当前同一图表的controller与Promise.all关系，避免将未来多个独立区域错误地接到同一取消控制。只修订本HTML与既有LLD检查项，没有改变当前页面、API、配置、数据或执行状态；未将当前图表的合法共用行为报告为现存缺陷。</p><p>本轮按管理员最新意见，仅纠正请求组合的业务边界；用CodeGraph explore复核现有股票页面/分钟请求客户端调用关系，将页面与内核约束、并发计数和验收样本同步修回本文。没有修改API、实现、配置或正式数据，不引入区域字段、跨请求复用或新的计算能力。</p><p>2026-10-22本轮使用CodeGraph explore核对股票分钟API → StockMinuteQueryService → Reader调用，及StockDetailPage.handlePeriodChange → fetchStockMinuteBars / fetchStockMinuteIndicators → parseMinuteResponse和wealthFetch。复核现有两个HTTP请求、默认500根、已有指标合并响应及输出包装事实；只修订本HTML并做文档核验，未修改代码/配置/API或正式数据，未运行性能测试。初始值来自管理员确认，载荷计算只为估算，不能当测量证据。</p><p>2026-10-22本轮使用CodeGraph explore核对前端fetchStockMinuteIndicators/parseMinuteResponse，用node核对股票分钟API的_service；另读现有指数分钟字段合同。只据所读当前代码补LLD要求，未修改API、前端、配置、数据或运行并发测试；CodeGraph误匹配的ingestion结果不作本次依据。</p><p>2026-10-21本次再审计覆盖17节及9幅图，使用CodeGraph node核对StockMinuteQueryService及其_enforce_response_size，并读取指标响应返回步骤。只补回原HTML与原25项LLD清单，不新增开发、配置、数据读取或迁移范围。静态源代码表明DTO与JSON可能重叠，不把该推断当作已测峰值。</p><p>2026-10-21本轮使用CodeGraph explore核对页面、图表及后端分钟接口，并读取客户端、分钟字段转换与股票日线查询。前端与后端的具体职责按当前代码说明，业务进程执行决定由管理员确认；只修订本文，未改前端/API、运行配置或任何计算实现。</p><p>2026-10-20页面场景补充使用CodeGraph node核对StockMinuteQueryService和StockMinuteChartWorkspace，并读取StockDetailPage.handlePeriodChange、客户端及当前SQL依赖设计；本次只更新方案，未改任何消费者。此前完整审计使用CodeGraph的explore、node及impact，覆盖股票/指数分钟查询、Foundation读取、XXM来源和相关测试；精确读取指数writer并核对股票系数代码，阅读当前独立字面公式测试与前端参数/版本/来源处理。CodeGraph的影响列表不代替源代码核对，也不等于所有隐藏脚本消费者均已穷尽。</p><p>既有实验JSON仍可读取，确认3根小样本、EMA常数分段反例和局部MA/BOLL耗时的记录；本次未重跑。新通用模块src/foundation/technical_indicators尚未实现。正式来源各周期的字段、数据单位、历史起点和本次到数情况，完整API/页面性能、峰值内存与取消均未验收，必须按LLD补证据。</p><p>执行位置及一次一种目标复权及默认前复权已确认；全部初始值已确认且设计冻结审计通过，下一步按D1—D4及既定最小验证安排分步开发；临时落盘已确认禁止。可按已确认的业务进程执行方式，以及已写定的合同、对象、来源、SQL与资源规则实施内核；初始等待数量/时间已经定案，实际表现未验证，两者分别记录。LLD逐条给出实现、推导和开发后验证位置，审计通过后再开发；不能以初值已确认跳过LLD，也不要求用尚未实现的完整内核先交出实测。开发、页面试用、消费者迁移和DG退出仍分别推进，不因本次审计扩展执行授权。</p></section>
+<footer>技术指标计算内核 · 组件设计 v1 · 职责边界已确认，方案与代码级LLD已冻结并通过开发前设计审计，开发范围及验收见第17节；当前运行行为仍以代码为准。</footer></main><script>document.getElementById('expand').addEventListener('click',function(){const all=[...document.querySelectorAll('details')];const open=all.some(d=>!d.open);all.forEach(d=>d.open=open);this.textContent=open?'收起补充说明':'展开补充说明';});if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{for(const e of entries){if(e.isIntersecting){document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));}}},{rootMargin:'-10% 0px -70% 0px'});document.querySelectorAll('section[id]').forEach(s=>observer.observe(s));}</script></body></html>
