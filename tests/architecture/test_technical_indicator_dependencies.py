@@ -37,3 +37,14 @@ import src.foundation.technical_indicators.discovery.catalog
 import src.foundation.technical_indicators.configuration.settings
 '''
     subprocess.run([sys.executable, "-c", code], cwd=ROOT, check=True, capture_output=True, timeout=5)
+
+
+def test_d2_runtime_sql_resources_are_explicitly_declared_for_packaging():
+    """Static LLD file declaration; this does not claim a wheel was built."""
+    import tomllib
+
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    patterns = config["tool"]["setuptools"]["package-data"]
+    assert "sql/*.sql" in patterns["src.foundation.technical_indicators.sources"]
+    expected = {"stage_input.sql", "adjust_price.sql", "retain_history.sql"}
+    assert {path.name for path in (PACKAGE / "sources/sql").glob("*.sql")} == expected

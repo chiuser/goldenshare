@@ -1,0 +1,137 @@
+{
+  "status": "passed",
+  "versions": {
+    "duckdb": "1.5.5",
+    "pyarrow": "23.0.1"
+  },
+  "real_sources": [
+    {
+      "period": "day",
+      "status": "passed",
+      "factor_target_rows": 1,
+      "target_rows_before_read": 1,
+      "hfq_probe_basis_date": "2026-10-15",
+      "values": {
+        "n": 1,
+        "close": 9.64,
+        "volume": 685742.99,
+        "amount": 658627.633,
+        "as_of": "2026-10-15"
+      },
+      "unique_files": 2,
+      "source_rows": 1,
+      "basis_date": "2026-10-15",
+      "basis_value": 17.3774,
+      "conversion_batches": 1,
+      "sql_steps": 6,
+      "cleanup_errors": [],
+      "elapsed_ms": 121.04566628113389
+    },
+    {
+      "period": "week",
+      "status": "passed",
+      "target_rows_before_read": 1,
+      "values": {
+        "n": 1,
+        "close": 9.73,
+        "volume": 3547252.88,
+        "amount": 3423625.41,
+        "as_of": "2026-10-16"
+      },
+      "unique_files": 1,
+      "source_rows": 1,
+      "basis_date": null,
+      "basis_value": null,
+      "conversion_batches": 0,
+      "sql_steps": 3,
+      "cleanup_errors": [],
+      "elapsed_ms": 65.68233296275139
+    },
+    {
+      "period": "month",
+      "status": "passed",
+      "target_rows_before_read": 1,
+      "values": {
+        "n": 1,
+        "close": 9.76,
+        "volume": 6791359.41,
+        "amount": 6564064.69,
+        "as_of": "2026-10-20"
+      },
+      "unique_files": 1,
+      "source_rows": 1,
+      "basis_date": null,
+      "basis_value": null,
+      "conversion_batches": 0,
+      "sql_steps": 3,
+      "cleanup_errors": [],
+      "elapsed_ms": 63.79287503659725
+    }
+  ],
+  "control_objects": 4,
+  "new_parquet_files": 0,
+  "initial_peak_bytes": 141967360,
+  "limitation": "D2 inputs only; no indicator algorithms, full history, API or D4 resource acceptance",
+  "wrong_sample": {
+    "metadata": {
+      "path": "/private/tmp/ti_reader_interleave_20261022/large.parquet",
+      "bytes": 2700287,
+      "rows": 262144,
+      "projected_row_group_bytes": 139156
+    },
+    "status": "rejected_before_reader",
+    "error": "Expected exactly 32768 fixture rows; got 262144"
+  },
+  "fixture_preflight": {
+    "path": "/private/tmp/indicator_lld_probe_20261022/fixture.parquet",
+    "bytes": 386178,
+    "rows": 32768,
+    "projected_row_group_bytes": 149429
+  },
+  "fixture": {
+    "status": "passed",
+    "batches": [
+      {
+        "n": 8192,
+        "lo": 1,
+        "hi": 8192
+      },
+      {
+        "n": 8192,
+        "lo": 8193,
+        "hi": 16384
+      },
+      {
+        "n": 8192,
+        "lo": 16385,
+        "hi": 24576
+      },
+      {
+        "n": 8192,
+        "lo": 24577,
+        "hi": 32768
+      }
+    ],
+    "source_rows": 32768,
+    "sql_steps": 12,
+    "sql_logical_rows": 98304,
+    "cleanup_errors": [],
+    "elapsed_ms": 24.59116606041789
+  },
+  "real_preflight": {
+    "paths": {
+      "day": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-15/part-000.parquet",
+      "factor": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-15/part-000.parquet",
+      "week": "/Volumes/datasource/data_lake/silver/quote/stock_weekly/week_end=2026-10-16/part-000.parquet",
+      "month": "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet"
+    },
+    "bytes": {
+      "day": 263328,
+      "factor": 55506,
+      "week": 307898,
+      "month": 308507
+    }
+  },
+  "elapsed_ms": 299.3030003271997,
+  "final_peak_bytes": 181518336
+}

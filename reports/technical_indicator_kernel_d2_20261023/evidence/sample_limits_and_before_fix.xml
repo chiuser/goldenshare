@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="12" time="0.978" timestamp="2026-10-23T17:27:07.442232+08:00" hostname="localhost"><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_exact_footer_rows_are_checked_before_creating_any_data_reader[32768-True]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_exact_footer_rows_are_checked_before_creating_any_data_reader[262144-False]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_exact_footer_rows_are_checked_before_creating_any_data_reader[32767-False]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_exact_footer_rows_are_checked_before_creating_any_data_reader[0-False]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_metadata_resource_boundary_has_a_normal_and_rejected_side[bytes-8388608]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_metadata_resource_boundary_has_a_normal_and_rejected_side[projected_row_group_bytes-33554432]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_oversized_or_extra_batches_are_never_delivered[32768-4-1]" time="0.003" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_oversized_or_extra_batches_are_never_delivered[32760-3-9]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_oversized_or_extra_batches_are_never_delivered[0-0-8193]" time="0.000" /><testcase classname="tests.foundation.technical_indicators.test_sample_limits" name="test_legal_partial_last_batch_and_real_eof_are_preserved" time="0.001" /><testcase classname="tests.foundation.technical_indicators.test_price_adjustment" name="test_input_failures_keep_the_original_error_and_release_all_owned_resources[cancel_before_register]" time="0.104"><failure message="AssertionError: ['Input resources could not all be released']&#10;assert (ResourceClea...e released'),) == ()&#10;  &#10;  Left contains one more item: ResourceCleanupError('Input resources could not all be released')&#10;  Use -v to get more diff">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10f887bd0&gt;
+failure = 'cancel_before_register'
+
+    @pytest.mark.parametrize('failure', ['open', 'read', 'register', 'unregister',
+                                       'cancel_after_read', 'cancel_before_register', 'cancel_before_stage'])
+    def test_input_failures_keep_the_original_error_and_release_all_owned_resources(monkeypatch, failure):
+        """Failure substitutes only the named boundary; real Arrow/SQL still run.
+
+        Cancellation in the two registration gaps must not invent a cleanup failure
+        for a table/registration that never reached the underlying connection.
+        """
+        service, connection, executor, control, source, _, inputs = open_session(batches=1)
+
+        def fail(*args, **kwargs):
+            raise OSError('literal ' + failure)
+
+        if failure == 'open':
+            monkeypatch.setattr(source, 'open', fail)
+        elif failure == 'read':
+            monkeypatch.setattr(source.stream, 'next_batch', fail)
+        elif failure == 'register':
+            register = executor.register_arrow
+
+            def register_then_fail(*args):
+                register(*args)
+                fail()
+            monkeypatch.setattr(executor, 'register_arrow', register_then_fail)
+        elif failure == 'unregister':
+            monkeypatch.setattr(executor, 'unregister_arrow', fail)
+        elif failure == 'cancel_after_read':
+            read = source.stream.next_batch
+
+            def read_then_stop(*args):
+                batch = read(*args)
+                control.request_stop('cancel')
+                return batch
+            monkeypatch.setattr(source.stream, 'next_batch', read_then_stop)
+        elif failure == 'cancel_before_register':
+            register = executor.register_arrow
+
+            def stop_before_register(*args):
+                control.request_stop('cancel')
+                return register(*args)
+            monkeypatch.setattr(executor, 'register_arrow', stop_before_register)
+        else:
+            execute = executor.execute
+
+            def stop_before_stage(step):
+                if step.name == 'stage_input':
+                    control.request_stop('cancel')
+                return execute(step)
+            monkeypatch.setattr(executor, 'execute', stop_before_stage)
+        expected = CalculationCancelledError if failure.startswith('cancel') else OSError
+        try:
+            with pytest.raises(expected):
+                inputs.prepare()
+                inputs.next_batch()
+        finally:
+            errors = service._close_execution(control, connection, inputs=inputs)
+&gt;       assert errors == (), [str(item) for item in errors]
+E       AssertionError: ['Input resources could not all be released']
+E       assert (ResourceClea...e released'),) == ()
+E
+E         Left contains one more item: ResourceCleanupError('Input resources could not all be released')
+E         Use -v to get more diff
+
+tests/foundation/technical_indicators/test_price_adjustment.py:299: AssertionError</failure></testcase><testcase classname="tests.foundation.technical_indicators.test_price_adjustment" name="test_input_failures_keep_the_original_error_and_release_all_owned_resources[cancel_before_stage]" time="0.009"><failure message="AssertionError: ['Input resources could not all be released']&#10;assert (ResourceClea...e released'),) == ()&#10;  &#10;  Left contains one more item: ResourceCleanupError('Input resources could not all be released')&#10;  Use -v to get more diff">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10fb14250&gt;
+failure = 'cancel_before_stage'
+
+    @pytest.mark.parametrize('failure', ['open', 'read', 'register', 'unregister',
+                                       'cancel_after_read', 'cancel_before_register', 'cancel_before_stage'])
+    def test_input_failures_keep_the_original_error_and_release_all_owned_resources(monkeypatch, failure):
+        """Failure substitutes only the named boundary; real Arrow/SQL still run.
+
+        Cancellation in the two registration gaps must not invent a cleanup failure
+        for a table/registration that never reached the underlying connection.
+        """
+        service, connection, executor, control, source, _, inputs = open_session(batches=1)
+
+        def fail(*args, **kwargs):
+            raise OSError('literal ' + failure)
+
+        if failure == 'open':
+            monkeypatch.setattr(source, 'open', fail)
+        elif failure == 'read':
+            monkeypatch.setattr(source.stream, 'next_batch', fail)
+        elif failure == 'register':
+            register = executor.register_arrow
+
+            def register_then_fail(*args):
+                register(*args)
+                fail()
+            monkeypatch.setattr(executor, 'register_arrow', register_then_fail)
+        elif failure == 'unregister':
+            monkeypatch.setattr(executor, 'unregister_arrow', fail)
+        elif failure == 'cancel_after_read':
+            read = source.stream.next_batch
+
+            def read_then_stop(*args):
+                batch = read(*args)
+                control.request_stop('cancel')
+                return batch
+            monkeypatch.setattr(source.stream, 'next_batch', read_then_stop)
+        elif failure == 'cancel_before_register':
+            register = executor.register_arrow
+
+            def stop_before_register(*args):
+                control.request_stop('cancel')
+                return register(*args)
+            monkeypatch.setattr(executor, 'register_arrow', stop_before_register)
+        else:
+            execute = executor.execute
+
+            def stop_before_stage(step):
+                if step.name == 'stage_input':
+                    control.request_stop('cancel')
+                return execute(step)
+            monkeypatch.setattr(executor, 'execute', stop_before_stage)
+        expected = CalculationCancelledError if failure.startswith('cancel') else OSError
+        try:
+            with pytest.raises(expected):
+                inputs.prepare()
+                inputs.next_batch()
+        finally:
+            errors = service._close_execution(control, connection, inputs=inputs)
+&gt;       assert errors == (), [str(item) for item in errors]
+E       AssertionError: ['Input resources could not all be released']
+E       assert (ResourceClea...e released'),) == ()
+E
+E         Left contains one more item: ResourceCleanupError('Input resources could not all be released')
+E         Use -v to get more diff
+
+tests/foundation/technical_indicators/test_price_adjustment.py:299: AssertionError</failure></testcase></testsuite></testsuites>

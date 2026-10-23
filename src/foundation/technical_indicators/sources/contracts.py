@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Protocol, TYPE_CHECKING
 
 from ..contracts import Adjustment, CalculationRequest, TimePosition
@@ -12,6 +13,7 @@ from ..calculation.history import HistoryRequirement
 if TYPE_CHECKING:
     from ..execution_control import ExecutionControl
     from ..executor import DuckDBExecutor
+    from .read_context import SourceReadContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,9 +34,17 @@ class SourceDescription:
     supports_partial_period: bool
     supported_adjustment_paths: tuple[tuple[Adjustment, Adjustment], ...]
     converted: bool
+    price_paths: tuple[Path, ...] = ()
+    factor_paths: tuple[tuple[date, Path], ...] = ()
+    source_projection: tuple[str, ...] = ()
+    standard_projection: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "supported_adjustment_paths", tuple(tuple(item) for item in self.supported_adjustment_paths))
+        object.__setattr__(self, "price_paths", tuple(Path(item) for item in self.price_paths))
+        object.__setattr__(self, "factor_paths", tuple((day, Path(path)) for day, path in self.factor_paths))
+        object.__setattr__(self, "source_projection", tuple(self.source_projection))
+        object.__setattr__(self, "standard_projection", tuple(tuple(item) for item in self.standard_projection))
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,7 +61,7 @@ class SourceBatch:
     columns: object
     source_first_position: int
     source_last_position: int
-    physical_rows: int
+    physical_rows: int | None
     selected_rows: int
     source_files: int
     source_file_bytes: int
@@ -81,9 +91,21 @@ class SourceStream(Protocol):
 
 class PriceSource(Protocol):
     def describe(
-        self, request: CalculationRequest, requirement: ReadRequirement, *, control: ExecutionControl,
+        self, request: CalculationRequest, requirement: ReadRequirement, *,
+        control: ExecutionControl, read_context: SourceReadContext,
     ) -> SourceDescription: ...
 
     def open(
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,
+        *, read_context: SourceReadContext,
     ) -> SourceStream: ...
+
+    def prepare_basis(
+        self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,
+        *, table_name: str, read_context: SourceReadContext,
+    ) -> SourceDescription: ...
+
+    def prepare_factors(
+        self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,
+        trade_dates: tuple[date, ...], *, table_name: str, read_context: SourceReadContext,
+    ) -> None: ...

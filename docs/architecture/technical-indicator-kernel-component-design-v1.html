@@ -10,9 +10,9 @@
 <main>
 <div class="toolbar"><button type="button" onclick="window.print()">打印 / 保存PDF</button><button type="button" id="expand">展开补充说明</button></div><header class="hero">
 <div class="eyebrow">Goldenshare / architecture / component design</div>
-<h1>技术指标计算内核<br>组件设计</h1><p><strong>当前实施状态：D1已完成并通过本阶段验收；D2—D4未启动。此前暂停记录保留，验收对账见第17节。</strong></p>
+<h1>技术指标计算内核<br>组件设计</h1><p><strong>当前实施状态：D1已完成并提交；D2阶段验收与D1/D2审计已通过，本次提交归档；D3—D4未启动。详见第17节。</strong></p>
 <p>分钟、日、周、月使用同一套指标定义。<br>Python组织对象与调用，DuckDB SQL执行复权和指标运算。</p>
-<div class="meta"><span class="pill green">总体方案已确认 · D1已验收</span><span class="pill">v1 · 2026-10-23</span><span class="pill">多周期 · DuckDB SQL计算</span><span class="pill">对象化 · 组件化 · 模块化</span></div></header>
+<div class="meta"><span class="pill green">D1已提交 · D2阶段验收已通过</span><span class="pill">v1 · 2026-10-23</span><span class="pill">多周期 · DuckDB SQL计算</span><span class="pill">对象化 · 组件化 · 模块化</span></div></header>
 <div class="principles">
 <div class="principle"><b>算法内聚</b><span>业务不上传算法。指标对象声明参数、依赖、SQL步骤和输出说明。</span></div>
 <div class="principle"><b>计算与读取分开</b><span>算法面对可信输入。数值质量和完整性由外部负责。</span></div>
@@ -20,8 +20,8 @@
 <section id="scope">
 <div class="section-head"><span>01</span>
 <h2>设计目标与已确认边界</h2></div>
-<div class="decision"><strong>2026-10-23当前交付状态：</strong>组件设计的已确认方向保持；管理员已要求据此编写代码级LLD，现已形成<a href="technical-indicator-kernel-low-level-design-v1.html">技术指标计算内核LLD v1</a>，包含代码组织、文件/对象/合同、SQL模板、来源映射、资源生命周期、量化预算、有限测试及逐项审计。原25项要求的对应位置见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD第22节</a>。此前五项及本次容量、BOLL、精度确认已同步；来源文件合计1GiB限制已撤销，5000000输出字节、32MiB读取初始保护、BOLL有限非负及精度门槛不再待拍板；150万输入、5000文件、16实例、10000返回位置均已确认为初始值，当前范围内无未review设计或已知编码阻塞；方案与LLD已冻结，满足内核开发条件。D1合同、静态能力定义、配置及注册发现已实现并完成本阶段验收；Settings只新增已确认字段，既有加载行为与本机环境文件不变。读取/SQL/并发实现、API和页面迁移、DG退出及完整性能验收尚未实施。第11节既有初始值、默认前复权/单目标、外部负责数据质量、周月直接读取和唯一空结果规则不变。</div><p class="intro">历史过程记录（当时尚在方案阶段，当前以本版冻结结论为准）：2026-10-20对账此前讨论、全部17节及9幅图，补齐已确认决定、待拍板项和LLD核对清单。总体方案及分段接续方向已确认，仍未开发；本次审计不等于LLD已完成或正式验收已通过。</p>
-<div class="note"><strong>本轮LLD交付状态：</strong><a href="technical-indicator-kernel-low-level-design-v1.html">LLD已成稿并按25项清单逐项对账</a>，全部设计与初始值已确认，开发前审计通过、设计已冻结，结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20节</a>。<a href="#empty-series-review">成功空结果的唯一条件</a>已确认，不再列待拍板。历史段落中的“尚未编写LLD”仅记录此前设计阶段，不覆盖本次交付状态；D1基础对象已实现并验收；D2—D4运行模块尚未开发。</div>
+<div class="decision"><strong>2026-10-23当前交付状态：</strong>组件设计的已确认方向保持；管理员已要求据此编写代码级LLD，现已形成<a href="technical-indicator-kernel-low-level-design-v1.html">技术指标计算内核LLD v1</a>，包含代码组织、文件/对象/合同、SQL模板、来源映射、资源生命周期、量化预算、有限测试及逐项审计。原25项要求的对应位置见<a href="technical-indicator-kernel-low-level-design-v1.html#s22">LLD第22节</a>。此前五项及本次容量、BOLL、精度确认已同步；来源文件合计1GiB限制已撤销，5000000输出字节、32MiB读取初始保护、BOLL有限非负及精度门槛不再待拍板；150万输入、5000文件、16实例、10000返回位置均已确认为初始值，初版设计冻结时认定可开发；当前D1已完成，D2开工审计提出的内部合同修订见第17节19.6，已获确认并复核后按LLD第04.2节继续D2。D1合同、静态能力定义、配置及注册发现已实现并完成本阶段验收；Settings只新增已确认字段，既有加载行为与本机环境文件不变。D2读取/复权/共享及基础执行控制已实现并完成本阶段验收；D3指标SQL、D4并发装配、API和页面迁移、DG退出及完整性能验收尚未实施。第11节既有初始值、默认前复权/单目标、外部负责数据质量、周月直接读取和唯一空结果规则不变。</div><p class="intro">历史过程记录（当时尚在方案阶段，当前以本页交付状态及19.9验收审计为准）：2026-10-20对账此前讨论、全部17节及9幅图，补齐已确认决定、待拍板项和LLD核对清单。总体方案及分段接续方向已确认，仍未开发；本次审计不等于LLD已完成或正式验收已通过。</p>
+<div class="note"><strong>本轮LLD交付状态：</strong><a href="technical-indicator-kernel-low-level-design-v1.html">LLD已成稿并按25项清单逐项对账</a>，业务方向及初始值已确认，初版设计冻结记录见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20节</a>。<a href="#empty-series-review">成功空结果的唯一条件</a>已确认，不再列待拍板。历史段落中的“尚未编写LLD”仅记录此前设计阶段，不覆盖本次交付状态；D1基础对象已实现并验收；D2阶段验收已通过，当前结论见19.9；原暂停记录保留于19.7，D3—D4未启动。</div>
 <div class="decision"><strong>管理员已确认：</strong>数值质量、数据缺口、首尾与中间完整性，以及停牌、退市等相关判断，全部交给外部负责。计算内核不逐根复查，不生成预期时间点，不请求业务传递日历、停牌、退市或质量证明。外部审计单元由管理员后续规划，本版不设计或实现该单元。</div>
 <div class="table-wrap">
 <table>
@@ -831,7 +831,7 @@ FROM calculated c JOIN expected USING(i) ORDER BY i</code></pre></details></sect
 <p>本轮执行清单限定：本模块3个测试文件和新增不可变反例、本模块分层测试；FoundationAGENTS规定的四项最小门禁；原Settings回归仅用tests/test_announcement_pg_migration.py::test_settings_default_priority_and_no_main_fallback精确节点。公告迁移整文件及其pg/pg_cluster fixtures明确排除，不提升权限、不安装、不修改无关测试。本次D1专用验证计划及副作用依据在实际执行前按审计结果补记；最终以实际执行结果列示，不删除此前29个准备错误记录或将其改成通过。</p>
 <p>执行前只读审计已完成：三个D1文件只创建内存对象及临时env；本模块分层测试仅读源码，唯一子进程为5秒内的Python导入检查；Foundation门禁使用静态定义、源码和Mock session，不建立数据库连接；CLI只校验静态定义。精确公告配置函数仅tmp_path/monkeypatch、Settings/cache及纯URL解析，其pg/pg_cluster不是autouse且不被该函数请求；tests/web/conftest.py不适用于本轮目录。该清单无需网络、数据库、端口、提权或依赖安装。</p>
 </div><div id="d1-complete-20261023"><h3>19.5 D1完成与本轮逐项对账</h3>
-<p>当前结论：第一阶段D1已完成并通过本阶段验收，无待管理员拍板项、无已知D1开发阻塞；D2—D4未启动。本结论仅覆盖基础合同、静态能力定义、配置、注册/依赖/发现，不表示指标SQL、来源读取、完整calculate、性能或页面已经可用。本轮代码未提交。</p>
+<p>当前结论：第一阶段D1已完成并通过本阶段验收，无待管理员拍板项、无已知D1开发阻塞；D2—D4未启动。本结论仅覆盖基础合同、静态能力定义、配置、注册/依赖/发现，不表示指标SQL、来源读取、完整calculate、性能或页面已经可用。D1此后已提交为9e15ac73d，当前D2准备状态见后续开工审计。</p>
 <table>
 <thead>
 <tr>
@@ -876,8 +876,150 @@ FROM calculated c JOIN expected USING(i) ORDER BY i</code></pre></details></sect
 <p>本次最终执行证据：D1合同/配置/注册及新架构测试合计228 passed，0.43秒；已核实副作用的Foundation现有最小pytest与原Settings精确函数合计188 passed，2.35秒；ingestion-lint-definitions passed。最终合计416项通过，无跳过。此前4项有意用于证明原缺陷的失败与§19.3的29项无关公告测试准备错误分别保留，不冒充本次失败或抹掉历史。测试原始JUnit位于/private/tmp/ti_d1_final_local_20261023.xml与/private/tmp/ti_d1_final_existing_20261023.xml；临时文件仅为本机证据，持久结论和命令清单保存在本节及§19.4。</p>
 <p>CodeGraph本轮使用explore核对实际交接对象与定义、impact确认SqlStep当前没有运行消费者；独立审计核对registry/dependencies/discovery、参数与来源声明语义及测试独立预期。所有原现行API、前端、XXM与DG调用保持，不声称它们已接入；唯一旧代码改动为Settings新增19个字段，既有加载行为不变。新注册表未自动装配五项SQL factory，符合D1与D3分界。</p>
 <p>下一步为第二阶段D2：按§19.1先实现真实执行控制/连接/清理，再读取、复权与共享批次；依赖安装仍遵守既定授权要求。本轮停止在D1完成处，不自动开始D2，不将未测的读取、精度、内存、并发或取消记为通过。</p>
-</div><h3 id="lld-freeze-conclusion-20261023">最终结论：满足内核开发条件，方案与LLD设计冻结</h3>
-<p><strong>2026-10-23开发前审计通过：当前范围内待管理员review项0、已知未决设计或编码阻塞0。</strong>最后一项150万输入已确认，全部初值及参数、接口、读取/复权/历史、SQL状态、资源生命周期、取消、输出/编码和有限验收已在LLD写定；原25项逐条对应见LLD第22节。最终三项交接经独立复核闭合，具体修订与结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20.3—20.5节</a>。</p>
+</div><div id="d2-preflight-20261023"><h3>19.6 D2开工审计：内部合同修订已确认</h3>
+<p>D1已提交为9e15ac73d（27个明确文件），未推送，工作区其它改动保留。管理员随后明确允许仅在本项目.venv安装PyArrow23.0.1；已用既有uv执行仅该包、无依赖安装与无解释器下载的安装，安装前后核对原61包版本无变化，唯一新增pyarrow23.0.1，DuckDB仍1.5.5。项目依赖声明及锁文件尚未修改，随D2落地时仅新增已确认PyArrow条目并核对其它版本不变。</p>
+<p>本轮开工审计曾发现下列内部交接缺口；现已修订确认，投影与资源登记的完整编码合同见LLD第04.2节。来源真实schema、复权公式、信任边界、资源初值均不改变；开工审计时未编码或实验，当前验收结论见19.9，原暂停事实见19.7。修订扩展D1已提交的内部协议，管理员已明确回答“同意内部合同修订，复核后继续D2”。本节及§04.2是已确认落地口径，原业务与资源边界不变。</p>
+<table>
+<thead>
+<tr>
+<th>发生位置</th>
+<th>当前缺口与影响</th>
+<th>建议的明确落地规则</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>describe到open</td>
+<td>SourceDescription没有已检查文件清单；open取得不到它，会被迫重新枚举或把本次状态放共享来源工厂</td>
+<td>SourceDescription新增price_paths:tuple[Path,...]、factor_paths:tuple[tuple[date,Path],...]、source_projection:tuple[str,...]。全部为本请求不可变说明；factor_paths按分区日期升序，供当批因子及最新/最早基准共用。open沿此清单前进，不重新枚举、不改来源单例。路径不进入业务结果。schema及row group元数据只保留当前文件，校验后释放，不保存5000份footer对象。</td>
+</tr>
+<tr>
+<td>Session取得因子与基准</td>
+<td>PriceSource仅有价格describe/open；Session无来源方法取得当日因子和全局基准，不能据此硬编码Lake路径</td>
+<td>保持§06.4已确认的同连接SQL方式，不增加因子SourceStream或第二个Arrow Reader。PriceSource补prepare_basis(executor,description,requirement,<em>,table_name:str,read_context)-&gt;SourceDescription及prepare_factors(executor,description,requirement,trade_dates:tuple[date,...],</em>,table_name:str,read_context)-&gt;None。前者用有界SQL找到qfq最新/hfq最早一行、物化到指定基准表并返回填入实际日期/值的新说明，Python只交接这一行元信息；后者只把当批所需日期的本证券原因子物化到指定因子表，供同连接LEFT JOIN。表名由PriceInputSession按内部规则生成，执行前登记为自己所有，来源方法只建表不取得清理权；本批复权完成后Session删除因子表，基准表保留至Session.close。创建途中失败也由Session尝试清理已登记表；同一服务最终关闭连接。已有目标口径时Session不调用这两个方法，不另读因子；周/月仍只读已有列。</td>
+</tr>
+<tr>
+<td>本次来源资源计数</td>
+<td>价格、因子、基准三个读取路径需要合并唯一文件及字节；SourceBatch字段未说明累计或增量</td>
+<td>新增内部SourceReadContext，由同一服务为每请求创建，在describe前建立；仅持已解析资源配置、实际访问文件集合/大小和小量计数，不持行情或线程。describe/open及两个因子方法显式接收同一个read_context，SourceStream延用它。文件首次访问元数据或数据即计入唯一文件预算，重复角色访问不重复计数；source_rows仅计新交付价格行。SourceBatch.source_files/source_file_bytes为此时累计快照；selected_rows为本批目标行数；physical_rows改为int或None，不可可靠取得实际解压物理行时为None。无来源依赖的共享可变单例。</td>
+</tr>
+<tr>
+<td>可用截止</td>
+<td>不能从分区日期、mtime或过滤后的少量目标行推断来源全局最后更新时间</td>
+<td>available_through无可靠来源声明时保持None；读取实际起止单独按已交付目标行记read_start/read_end，不把本次受end过滤的最后一行冒充来源全局截止。resolved_description仍如实交付已取得的基准日期和值。</td>
+</tr>
+<tr>
+<td>D2与D3的连接所有者</td>
+<td>完整calculate留D3，但D2已需同一服务创建/关闭；D1历史测试还要求service.py不存在</td>
+<td>D2在原service.py的TechnicalIndicatorService实现真实内部_open_execution(control)-&gt;(connection,executor)及_close_execution(control,connection,*,engine=None,inputs=None,output=None)-&gt;tuple[BaseException,...]。前者检查停止、创建独立内存连接并启动唯一monitor，失败同服务收尾；后者等业务调用返回后停止monitor、按既定模块顺序逐项清理、最后关闭。D3完整calculate直接使用它们，不增第二个连接所有者、公开入口或假calculate。D1测试改为检查无公开占位calculate及导入无连接，不再按阶段文件不存在断言。</td>
+</tr>
+<tr>
+<td>stop_monitor计时</td>
+<td>只量join会漏掉等待interrupt同锁的耗时，可能误报满足清理目标</td>
+<td>从进入stop_monitor开始记录总耗时，分别记等锁及join；200ms仍为join子目标，取消后2000ms包含等锁、SQL退出、join与所有清理，不重置预算。超目标记录失败且等待真实退出，不强杀或提前归还。</td>
+</tr>
+</tbody>
+</table>
+<p>SourceReadContext所需最小操作为record_file(path:Path,size_bytes:int)-&gt;None、record_price_rows(rows:int)-&gt;None及只读统计；均在工作线程按请求推进，控制线程不读写。SourceDescription及SourceBatch的数据合同只在本新模块与新来源实现使用，CodeGraph未发现现行API/页面/XXM的消费者；确认后同次更新协议、所有新实现及相关测试，不保留旧签名兼容路径。不会修改旧StockMinsLakeReader（三年限制/自行建连/逐根校验不符合新方案）或把其流程复制进新内核。</p>
+<p>§11还须把历史需求与读取需求的构造分开：combine_history_and_fields(plan)得到HistoryRequirement，服务据此连同原请求、batch_rows、history_start及processing_end构造ReadRequirement，再交给来源describe/open，不得把前者直接当后者传递。这是现行D1合同的类型对齐，不改变读取范围。</p>
+<p>上述修订已获确认；因子方案与原§06.4/06.8一致、所有权及类型交接已独立复核通过，签名和执行步骤已同步§04/05/06/11及D2范围。接下来按既定有界预算实施读取/共享/复权、控制及资源验收；当时尚未使用D2预算；当前实际用量与暂停状态见19.7。现有源码与LLD的生产者字段和qfq/hfq规则已核对一致，本节处理的是模块交接，不新增算法、来源、质量检查、缓存、预取或运行配置。</p>
+<div id="d2-progress-20261023"><h3>19.7 D2实施与暂停记录（2026-10-23）</h3>
+<p><strong>当前D2尚未完成验收、尚未提交。</strong> D1提交仍为9e15ac73d。管理员已批准内部合同修订，本轮完成了执行控制/执行器/同服务连接归属、请求内计数、Lake适配器、价格复权、共享输入及必要历史表的代码。未进入D3指标SQL/完整calculate或D4业务装配，未修改API/页面、XXM或DG任务。</p>
+<p>独立审计指出并已修正：旧文档基准列名/登记时点未同步；周/月截至周二不能接受周五最终版本；Reader.close失败不能丢掉未释放句柄。后两项分别有正反用例及关闭失败回归。所有权、同连接因子/基准及字段/类型交接已做实际代码复核。</p>
+<table>
+<thead>
+<tr>
+<th>验证</th>
+<th>当前证据与范围</th>
+<th>不应扩大为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>控制/执行器/清理</td>
+<td>当前29个唯一测试有证据：首轮27项3.96s；新增及受影响7个精确node复验0.28s。37个control；真实长SQL中断仅1次，合成输入最多1000万，实际收到InterruptException并完成清理</td>
+<td>不是完整内核、Arrow读取取消或并发页面验收</td>
+</tr>
+<tr>
+<td>共享输入/复权</td>
+<td>11项0.51s，9个control；qfq5/6、hfq20/24、量额不变、同口径不重复、缺因子不丢位置、五组周月截至正反例、资源计数与不可变清单</td>
+<td>文件读取被LiteralSource替代，不是Lake因子方法真实接入证据</td>
+</tr>
+<tr>
+<td>来源</td>
+<td>首轮5项5.90s；修Reader关闭失败后6项0.47s。每轮3份小Parquet/8物理行，累计6份/16行；其它周期只用内存Arrow/SQL</td>
+<td>不能把累计数写成3份，也不能称所有来源真实文件验收完成</td>
+</tr>
+<tr>
+<td>最小真实样本</td>
+<td>按§17.2只选600000.SH，一份日/因子/周/月文件，合计935239B，每份目标最多3行。前三个价格循环断言完成后才进入下面的临时样本；当时未逐段写出明细/耗时，因此不补造缺失值</td>
+<td>不证明完整历史或全局最新基准；整轮最后失败，不能报整轮通过</td>
+</tr>
+<tr>
+<td>既有临时样本的交错读取</td>
+<td>原要求32768行/4批，实际误选large.parquet（262144行/32批、2700287B），未事先核对footer行数、循环未先限制4批，最后断言失败。服务finally完成，无清理断言失败；已停止后续运行，无重试</td>
+<td>这是执行错误，不能写成通过或说成计算内核缺陷；不把8倍输入纳入原32768成功预算</td>
+</tr>
+</tbody>
+</table>
+<p>截至暂停，累计control对象50个，仍未用完原72次；最后脚本未新建Parquet、没有正式数据写入。来源测试两轮累计文件数与最后临时输入超出原叙述，均保留，不覆盖为正常通过。原始测试和此次失败记录见<a href="../../reports/technical_indicator_kernel_d2_20261023/progress.json">本轮进展证据</a>，临时脚本和JUnit位置在其中列明。停止后不再执行运行测试或另选样本重跑。</p>
+<p>依赖方面，项目.venv仅新增已批准PyArrow23.0.1，原61包版本不变、DuckDB仍1.5.5。pyproject与uv.lock仅追加PyArrow；生成锁时发现原pyproject早已声明pypinyin0.55.0而原锁缺失，工具自动补入的该无关修复已撤回，未安装/升级它。此既有不一致待另行限定范围处理；本轮不宣称完整锁文件一致性检查通过。</p>
+<p><strong>恢复前必须先处理：</strong> 明确正确32768行既有临时文件及footer行数，读取前拒绝与预算不一致的样本，并限定最大批数/累计行数，不能默默过滤大文件冒充原夹具；分阶段及时保存证据，失败仍保留已完成/未完成事实；确认剩余读量、次数及重试开销后，只补缺失与受影响验证，不重跑已通过整组。既有pypinyin锁文件差异需单独确认范围。本节记录暂停，不自动授权扩大样本、重复实验或D3开发。</p>
+</div></div><div id="d2-resume-20261023"><p>最后文件审计另发现D2运行读取的三份sources/sql模板没有显式包资源声明：源码目录运行可读，现有pyproject只声明公告包资源，不能据此保证安装包携带新SQL。修正仅在既有<code>[tool.setuptools.package-data]</code>新增<code>&quot;src.foundation.technical_indicators.sources&quot; = [&quot;sql/*.sql&quot;]</code>，对应本D2已定义三文件；不改包版本、依赖范围、安装方式或构建工具。tests/architecture/test_technical_indicator_dependencies.py新增纯静态资源清单检查，修复前静态断言已失败。官方setuptools package_data规则已用Context7核对；本轮不自动安装构建依赖或构建部署，不把静态声明检查冒充实际wheel安装验收。D3新增其它SQL包资源由D3另核，不在本轮提前实现。</p>
+<p>本轮异常反例已复现一处D2实现缺陷：Session登记自己的名称后、executor首次check_active前取消，执行器尚未登记名称，导致收尾出现假的“从未登记”错误。基准/因子在来源检查文件前取消还有同类更早间隙。修正位置限定executor.py的declare_table/execute/register_arrow与sources/session.py的_own_table；按§04.2区分known（已声明）和live（已开始创建），不新增集合、配置、业务入口或兜底，陌生名字仍拒绝。先保留2个修复前失败证据，再运行原7条异常路径及一个覆盖basis/factor两处的节点，共9个control；加本轮2个失败control、诊断4个和至多1个受影响旧控制节点，本轮≤16、累计≤66。10个数量保护测试已通过，不再重复；新增与修复前/后的小测试共≤20次。独立复核后才将此缺陷标记已关闭。</p>
+<h3>19.8 D2阶段验收已通过与D1/D2审计（2026-10-23，已授权）</h3>
+<p>管理员明确要求“先纠正样本选择，补上读取前的数量检查，完成D2的剩余验收，然后审计一下D1和D2落地是否符合预期”。本节承接19.7，保留失败事实，不覆盖旧记录；不进入D3/D4、不修改现有API/页面、XXM或DG任务，不安装/升级任何包，不自动修复既有pypinyin锁文件差异。</p>
+<p><strong>当前代码依据与改动位置：</strong> 上轮临时脚本直到读取后才断言4批，选错large.parquet时无法在读前阻止；产品SourceReadContext已有150万输入预算，不应把32768试验规模加进产品配置。新增<code>scripts/diagnostics/technical_indicator_d2_acceptance.py</code>作为本轮有界诊断入口，数量检查及证据输出仅在该脚本；新增<code>tests/foundation/technical_indicators/test_sample_limits.py</code>核对防误选正反例。D1/D2运行代码只有审计发现与既定LLD不符的缺陷才修正，先把修正点记本节并核影响面再改。生产价格数值仍由外部负责，不增加质量/完整性扫描或行情审计。</p>
+<table>
+<thead>
+<tr>
+<th>本步</th>
+<th>读前约束、次数及失败处理</th>
+<th>验收条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>纠正临时样本</td>
+<td>已仅用footer确认<code>/private/tmp/indicator_lld_probe_20261022/fixture.parquet</code>为32768行/386178B，schema为i/trade_time/close；错误large.parquet为262144行。数据Reader创建前核对路径、选中列存在、footer行数恰32768、物理文件≤8MiB、投影row group≤32MiB。错误行数不得以过滤/截断通过；负例只读footer，不创建Scanner或连接</td>
+<td>32768正常，262144明确拒绝，拒绝时打开数据Reader计数0</td>
+</tr>
+<tr>
+<td>当前批及累计输入</td>
+<td>正确样本新Reader只建一次、批≤8192，固定4批；每次交付前核对本批与剩余额度，不启动第5个数据批；正常EOF仍由原Reader确认，不重读源。每批stage/后续SQL仍同一service连接，Arrow先释放、SQL表finish后释放</td>
+<td>四段seq为1–8192/8193–16384/16385–24576/24577–32768，无重复/漏行，source_rows=32768</td>
+</tr>
+<tr>
+<td>最小真实接入补证</td>
+<td>沿用19.7的600000.SH及日线/因子2026-10-15、周线2026-10-16、月线2026-10四个已核路径，合计935239B≤32MiB；不枚举其它日期、不读取其它证券明细。各文件先按该证券统计计数，目标≤3才交付；日线实际prepare_basis/prepare_factors使用同一指定因子文件，不声称已验全历史最新/最早选择。各价格流至多3目标行且一轮，因子角色复用同路径计数一次</td>
+<td>源真实schema/SQL投影/同连接因子基准/量额、日期交接及清理成功；每种价格目标1行，独立记录实际值/耗时；不能拿单日基准样本证明全局最新历史</td>
+</tr>
+<tr>
+<td>补足异常与资源证据</td>
+<td>先审具体测试/fixtures，无祖先conftest；无新增Parquet文件，复用现有小夹具或内存Arrow/元数据替身。只补此前未覆盖与本次实际修正的路径；取消/资源失败正反例均记录被替代的层。禁spill设置用真实单连接核对，D2只测输入阶段RSS/Arrow引用/清理，不宣称D4整页预算通过</td>
+<td>取消后不交付新批/新业务SQL；部分创建、读/注销/关闭失败不变空成功，最后清理实际完成</td>
+</tr>
+<tr>
+<td>D1/D2对账</td>
+<td>D1合同/注册/定义/配置、D2source/session/adjustment/executor/control/service逐条映射到真实代码、具体测试与有界证据；CodeGraph只辅助当前调用关系，手工核验新模块无上层、页面/旧Reader消费者</td>
+<td>无未解释的已批准口径偏差；D3计算/完整calculate及D4并发/完整资源验收明确未实施</td>
+</tr>
+</tbody>
+</table>
+<p><strong>本次追加的明确预算：</strong> 临时32768行仅1轮；四个真实文件各目标≤3、价格3个请求+因子计数/SQL准备复用同文件，至多一次完整补证；不额外创建Parquet。运行控制对象≤16，使累计50+16≤66，不超过原72；控制单元不足时先停下核对，不整组重跑长SQL。新有界SQL逻辑输入≤200000行（不重跑之前1000万中断SQL），数据读取验证≤20秒，单请求仍原6秒正常处理/8秒含清理。新纯内存/元数据断言≤20次，独立D1及静态架构门禁不读数据、不计入控制对象。本次失败不无限重跑，须保存已完成部分、实际数量、异常与清理问题后停止汇报。</p>
+<p>诊断结果写入既有<code>reports/technical_indicator_kernel_d2_20261023/</code>的新<code>acceptance.json</code>，每个阶段完成即原子替换进度JSON；最先持久化计划及footer检查，失败也保存stage/error/已交付量、原始cause和清理状态。旧progress.json不删除。D1/D2审计报告写同目录<code>audit.md</code>，两原HTML更新当前状态并链接证据；不以私有临时文件作为唯一交付证据。工具版本保持DuckDB1.5.5/PyArrow23.0.1；参数与并发初始值不变。</p>
+</div><div id="d1-d2-acceptance-20261023"><h3>19.9 D1/D2当前验收与审计结论（2026-10-23）</h3>
+<p><strong>本阶段结论：D1符合已确认要求；D2完成剩余有界验收，本轮发现的取消登记与SQL包资源两处问题均已修复并核验，无未关闭的D1/D2实现偏差。D2及本轮文档随本次提交归档，提交号以Git记录为准。</strong> 19.7保留原失败及超量事实，19.8是本次恢复授权/范围，不覆盖为从未失败。</p>
+<ul>
+<li>正确32768行样本一轮4×8192，同连接SQL交错、实际源位置与seq均连续，输入交接24.59ms；错误262144行样本在Reader创建前拒绝。前置数量保护10测试通过，不在产品增加32768限制。</li>
+<li>实际600000.SH四份日/因子/周/月文件合计935239B，各目标1行（先计数≤3才读）。Lake实际因子/基准SQL与共享输入交接通过，日线转换1次、周/月0次，清理错误0；只代表指定文件的接入，不证明全局最新因子或完整历史。</li>
+<li>本轮有效通过证据265项：230回归、16架构、10数量保护、8异常收尾、1包资源声明；修复前2个失败反例保留，修复后覆盖并通过。未受影响的上轮控制/来源测试复用，没有重跑长SQL或新造Parquet。累计control66/原72，本轮新增16。</li>
+<li>小样本诊断总299.30ms；进程观测峰值181518336B（173.11MiB），相比开始时历史峰值增加39550976B（37.72MiB）。这是D2输入阶段证据，不能当作D4整页/并发性能或内存验收。</li>
+</ul>
+<p>完整硬口径→实现→测试/真实读证据与限制见<a href="../../reports/technical_indicator_kernel_d2_20261023/audit.md">本轮D1/D2审计报告</a>，逐阶段机器记录见<a href="../../reports/technical_indicator_kernel_d2_20261023/acceptance.json">acceptance.json</a>，原失败见<a href="../../reports/technical_indicator_kernel_d2_20261023/progress.json">progress.json</a>。JUnit已复制同报告目录evidence，不再只依赖/private/tmp。</p>
+<p><strong>范围外保留项：</strong> 原pyproject的pypinyin0.55.0声明与原锁文件既有差异未改，不宣称项目完整锁一致或全新安装通过；此后需独立限定依赖维护范围。本轮仅增加PyArrow及D2三SQL包资源声明，未安装/升级其它已有包。完整wheel构建/安装、D3指标算法与calculate、D4并发资源/HTTP、API/页面/XXM迁移和DG退出均未实施。下一步可按已确认LLD准备D3；本轮不自动进入，不提交D2或部署。</p>
+</div><h3 id="lld-freeze-conclusion-20261023">初版设计冻结结论（历史记录）</h3><p><strong>当前限定：</strong>以下为初版设计冻结记录；D1已提交，D2内部交接修订已确认，按LLD第04.2及本节19.6实施；本段仍只保留初版冻结记录。</p>
+<p><strong>初版设计冻结时曾认定：待管理员review项0、已知未决设计或编码阻塞0；当前D2开工复核发现的交接修订以本节19.6为准。</strong>最后一项150万输入已确认，全部初值及参数、接口、读取/复权/历史、SQL状态、资源生命周期、取消、输出/编码和有限验收已在LLD写定；原25项逐条对应见LLD第22节。最终三项交接经独立复核闭合，具体修订与结论见<a href="technical-indicator-kernel-low-level-design-v1.html#s20">LLD第20.3—20.5节</a>。</p>
 <p>本版可作为LLD第19节D1—D4编码依据：合同/定义/配置、读取复权、SQL指标、停止/资源与隔离接入。运行正确性、真实来源交接、内存/并发、取消及隔离ASGI按已定方法在开发后验收；未测不标通过，这些不是设计未决项。本轮仅文档更新与静态审计，不执行开发、安装、正式数据操作或迁移；现行页面/API、XXM及DG退出仍属后续独立范围。开发中若发现真实代码或来源与设计冲突，按现有变更规则修订和复核，不自行增加分支或扩大需求。</p>
 <h3 id="lld-writing-status">LLD怎样区分已定规则、待细化内容和开发后验证</h3>
 <p><strong>已定规则的使用位置：</strong>请求组合范围以第08节“相关主要区域”为准；资源初始值以第11节已确认表为准；创建/关闭连接及各模块数据归属以第12节为准。第13节先做三个最小性能场景；保留的706万/1226万根扩展矩阵不是必跑前置。旧示例、实验和历史审计记录不覆盖这些后续决定。25项清单沿用，不再另造一套开发清单。</p>

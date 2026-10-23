@@ -1,0 +1,58 @@
+{
+  "d1_d2_regression.xml": {
+    "tests": 230.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.787
+  },
+  "architecture.xml": {
+    "tests": 16.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 11.208
+  },
+  "sample_limits_and_before_fix.xml": {
+    "tests": 12.0,
+    "failures": 2.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.978
+  },
+  "input_failures_after_fix.xml": {
+    "tests": 8.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.654
+  },
+  "sql_package_data.xml": {
+    "tests": 1.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.028
+  },
+  "previous_execution.xml": {
+    "tests": 27.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 3.952
+  },
+  "previous_execution_targeted.xml": {
+    "tests": 7.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.267
+  },
+  "previous_price.xml": {
+    "tests": 11.0,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "time": 0.501
+  }
+}

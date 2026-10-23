@@ -173,8 +173,10 @@ def test_d1_has_no_fake_calculation_or_source_import_side_effects():
     assert not hasattr(package, "calculate")
     assert "OutputField" in vars(calculation)
     assert "OutputField" not in vars(importlib.import_module(package.__name__ + ".contracts"))
-    # Only protocol method bodies exist at this stage, not a placeholder runtime service.
-    assert not Path(package.__file__).with_name("service.py").exists()
+    # D2 adds real ownership/control methods; a placeholder business calculate
+    # must still not be published before D3 implements the complete operation.
+    from src.foundation.technical_indicators.service import TechnicalIndicatorService
+    assert not hasattr(TechnicalIndicatorService, "calculate")
 
 
 def test_dependency_copies_both_parameter_container_levels():

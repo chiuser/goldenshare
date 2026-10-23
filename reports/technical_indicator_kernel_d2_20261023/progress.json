@@ -1,0 +1,69 @@
+{
+  "state": "D2 paused; implementation not accepted or committed",
+  "d1_commit": "9e15ac73d",
+  "dependency": {
+    "installed_only": "pyarrow==23.0.1",
+    "unchanged_existing_packages": 61,
+    "duckdb": "1.5.5",
+    "lock_only_new_package": "pyarrow==23.0.1",
+    "preexisting_lock_drift": "pypinyin==0.55.0 already declared in pyproject, absent from original lock; generated unrelated repair removed; lock consistency not claimed"
+  },
+  "tests": {
+    "execution_unique": 29,
+    "execution_first": {
+      "passed": 27,
+      "seconds": 3.96,
+      "junit": "/private/tmp/ti_d2_execution_first_20261023.xml"
+    },
+    "execution_targeted": {
+      "passed": 7,
+      "seconds": 0.28,
+      "junit": "/private/tmp/ti_d2_execution_targeted_20261023.xml"
+    },
+    "price_unique": 11,
+    "price_seconds": 0.51,
+    "price_junit": "/private/tmp/ti_d2_price_first_20261023.xml",
+    "source_unique": 6,
+    "source_rounds": [
+      {
+        "passed": 5,
+        "seconds": 5.9,
+        "new_parquet_files": 3,
+        "physical_rows": 8
+      },
+      {
+        "passed": 6,
+        "seconds": 0.47,
+        "new_parquet_files": 3,
+        "physical_rows": 8
+      }
+    ],
+    "source_cumulative_new_parquet_files": 6,
+    "source_cumulative_physical_rows": 16,
+    "control_objects_cumulative": 50,
+    "long_interrupt_sql_runs": 1,
+    "long_interrupt_sql_input_limit": 10000000
+  },
+  "last_verification": {
+    "script": "/private/tmp/ti_d2_bounded_verification_20261023.py",
+    "status": "failed; stopped with no retry",
+    "real_scope": "600000.SH, daily/factor 2026-10-15, weekly 2026-10-16, monthly 2026-10; one file each",
+    "real_physical_file_bytes": 935239,
+    "real_price_rows": "one row each; three price-loop assertions completed before failure; detailed values/timings not persisted",
+    "wrong_temporary_fixture": "/private/tmp/ti_reader_interleave_20261022/large.parquet",
+    "planned_fixture_rows": 32768,
+    "actual_fixture_rows_from_footer": 262144,
+    "actual_fixture_bytes": 2700287,
+    "failure": "Expected 4 batches of 8192; selected preexisting large file contains 32 batches; final assertion failed",
+    "cause": "Did not check file row count and loop bound before reading; this is an execution error, not a kernel calculation defect",
+    "formal_writes": 0,
+    "new_parquet_files": 0,
+    "production_consumers_changed": false,
+    "cleanup": "service finally completed; no cleanup assertion failed"
+  },
+  "next_requires_review": [
+    "Correct sample selection; before data access compare footer row count to the exact approved 32768; explicit maximum batch/row checks and durable incremental evidence; do not silently trim large file to pass",
+    "Resolve preexisting pypinyin manifest/lock drift within an explicitly approved scope; do not call current lock fully consistent",
+    "After resumption run only missing/affected acceptance; do not rerun all passed groups or expand resource budgets"
+  ]
+}
