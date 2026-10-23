@@ -1,6 +1,7 @@
 """Existing formal storage only; read-only by default, no automatic DDL."""
 
 from contextlib import ExitStack, contextmanager
+from copy import deepcopy
 from pathlib import Path
 
 import dagster as dg
@@ -21,7 +22,9 @@ INSTANCE_HOME = Path("/Users/congming/.goldenshare/dagster_home")
 
 
 @contextmanager
-def daily_basic_event_instance(*, writable=False):
+def daily_basic_event_instance(*, writable=False, for_execution=False):
+    if for_execution and not writable:
+        raise DailyBasicValidationError("history_execution_requires_writable")
     config = yaml.safe_load((INSTANCE_HOME / "dagster.yaml").read_text())
     if any(
         k in config
@@ -60,6 +63,16 @@ def daily_basic_event_instance(*, writable=False):
             + ("" if writable else " -c default_transaction_read_only=on")
         }
     ).render_as_string(hide_password=False)
+    settings = {"telemetry": {"enabled": False}}
+    run_coordinator_data = None
+    if for_execution:
+        # Parse descriptors only: storage remains the explicitly controlled pair below.
+        formal_ref = InstanceRef.from_dir(str(INSTANCE_HOME))
+        if formal_ref.run_coordinator_data is None:
+            raise DailyBasicValidationError("history_execution_configuration_missing")
+        run_coordinator_data = formal_ref.run_coordinator_data
+        if "concurrency" in formal_ref.settings:
+            settings["concurrency"] = deepcopy(formal_ref.settings["concurrency"])
     ref = InstanceRef(
         local_artifact_storage_data=ConfigurableClassData(
             "dagster._core.storage.root",
@@ -72,9 +85,9 @@ def daily_basic_event_instance(*, writable=False):
             "{}",
         ),
         scheduler_data=None,
-        run_coordinator_data=None,
+        run_coordinator_data=run_coordinator_data,
         run_launcher_data=None,
-        settings={"telemetry": {"enabled": False}},
+        settings=settings,
         run_storage_data=None,
         event_storage_data=None,
         schedule_storage_data=None,
@@ -93,6 +106,6 @@ def daily_basic_event_instance(*, writable=False):
             compute_log_manager=None,
             run_coordinator=None,
             run_launcher=None,
-            settings={"telemetry": {"enabled": False}},
+            settings=settings,
             ref=ref,
         )

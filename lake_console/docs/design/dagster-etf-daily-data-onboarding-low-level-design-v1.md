@@ -2,7 +2,7 @@
 
 > 状态：已结案（2026-09-04，管理员确认）；历史入湖、事件补录、四个 Sensor 启用及首个交易日日常验收已完成；不再等待剩余两个交易日观察；因子 coverage 阻断、日线 coverage 告警的规则不变
 > 更新日期：2026-10-23
-> 本次补充：§11.9原依据核验和设计确认已完成；2026-10-23按管理员指令进入开发，合并检查、Basic内存复用和分阶段维护代码已接通，本步开发及隔离验收已完成，证据见§11.9.14。尚未准备正式候选、改写正式文件、追加正式事件或重载；页首“已结案”只指原P1—P6建设。
+> 本次补充：本轮指定56代码/26日期补齐已完成并正式验收：26文件新增701行，原42,900行零改删，补后43,601行；26成功run、156项真实检查通过。最后29日/58文件验收通过，目标869条齐全。首次失败与一次获批人工恢复保留追溯，未重复新增首日物化；当前结案及实值见§11.9.18。页首原“已结案”指P1—P6建设，本补齐任务也已按本轮证据完成。
 > 上位方案：`dagster-etf-daily-data-onboarding-plan-v1.md`
 > P0 证据：`dagster-etf-daily-data-onboarding-p0-audit-2026-09-02.md`
 > 开发目录：`lake_console/orchestrator`
@@ -11,7 +11,7 @@
 
 ## 1. 设计目标与硬口径
 
-本 LLD 的原 P1—P6 为已完成的建设依据；§11.8 记录512390清理，§11.9记录已确认的56只ETF缺行范围及最新检查执行决定，当前开发及隔离验收见§11.9.14，正式补数和验收未进行，不能把设计确认或开发通过写成正式执行批准。若现实代码、源接口或正式数据与本文冲突，必须先停止并回到技术方案 review，不能自行加兼容或临时开关。
+本LLD的原P1—P6为已完成的建设依据；§11.8记录512390清理，§11.9记录56只ETF指定缺行补齐、检查优化及正式执行。开发/隔离验收见§11.9.14，首次执行及失败见§11.9.17，获批修正、恢复与最终正式验收已完成，实值及当前结案见§11.9.18。各历史“未执行/停止”只描述对应时点，不能覆盖已完成事实，也不能把当时设计或开发通过冒充正式批准。若现实代码、源接口或数据与现行设计冲突，仍须停止回到方案review，不自行增加兼容或开关。
 
 ### 1.1 必须
 
@@ -22,7 +22,7 @@
 5. `fund_adj` Raw/Silver 都使用 4 个源字段，显式包含 `discount_rate`。
 6. 四个资产复用 `cn_a_etf_mins_trade_days`，Bootstrap 起点为 2025 年第一个已注册日期。
 7. staging 只写 `/Volumes/datasource/data_lake_staging`，正式文件只写 `/Volumes/datasource/data_lake`。
-8. 普通 writer／原 Bootstrap：新文件原子提升；已有等价文件复用；内容冲突立即停止且不覆盖。§11.9 的指定缺行追加及检查做法已确认，正式操作仍逐阶段批准，不增加普通 writer 的覆盖开关。
+8. 普通writer／原Bootstrap：新文件原子提升；已有等价文件复用；内容冲突立即停止且不覆盖。§11.9的指定缺行追加及检查做法已确认，2026-10-23已授权按§11.9.17逐阶段执行原范围，不增加普通writer的覆盖开关。
 9. 所有生产 DuckDB 连接来自 `DuckDBResource`，所有 Parquet schema 读取显式 `hive_partitioning=false`。
 10. 四个 Sensor 默认 `STOPPED`，窗口从上海时间 21:00 开始，每 tick 每 Sensor 最多一个 run。
 
@@ -859,7 +859,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 6. 固定原文件与新增行的独立计数、指纹，候选路径、完整候选预期指纹、每文件预期新增键。完整候选预期指纹在Plan阶段从“原行+明确新增源行”的SQL结果计算，不提前写候选，也不在冻结后补改Plan。Plan内容hash只对业务范围、schema、Raw/Basic/原Silver内容依据及预期输出计数/hash做规范化计算；事件自增编号、run_id、观察时间、mtime、执行目录不参与完成身份。完整Plan另保存这些追溯证据，并逐项核对它们真实存在且绑定正确；不能因其不参与业务hash就免检。原物化编号只用于追溯，不放入业务 `run_key`、`run_config`、上游批次号或完成身份。
 7. Plan未完整核验前只能保存不可执行草稿；全26日通过后原子冻结，任何后续内容变更都使旧批准失效。临时审计JSON只作来源说明，运行时不依赖 `/private/tmp`，也不读已撤回644测算报告来决定范围。
 
-全局Basic内容读取沿用根规则：先复用来源明确且仍适用的既有证据；有界56代码投影不等于已验证整份快照内容。若原引用校验必须完整读取Basic Raw/Silver，则先列去重后的确切路径、总字节、读取一次并缓存的方式和开销，另获明确批准再读。先前仅两份旧快照的一次批准不能覆盖未来重复读取或其他快照。不得把完整读取拆批绕过审批；缺少必要批准时Plan不可冻结。
+全局Basic内容读取沿用根规则：有界56代码投影不等于已验证整份快照内容。管理员2026-10-23已明确批准本任务新维护进程重新完整核验限定两对Raw/Silver Basic；确切文件、字节、30秒初始化与内存复用方式见§11.9.17。初始化后不再完整读取，运行中缺失/错引用立即停止；下次明确维护启动允许重新核验该有限范围，不追旧进程。超出两对或另增快照不在批准内，不能拆批绕过；必要合同/内容证据不足时Plan不可冻结。
 
 #### 11.9.5 候选如何生成和核对
 
@@ -906,7 +906,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 #### 11.9.7 提升、事件与中断续跑
 
-**阶段独立。** CLI分别提供只读Plan、生成候选、审计候选、提升文件、登记新物化/检查、最后只读核对，已按2026-10-23开发授权实现；正式操作前补齐已实现命令、确切Plan/candidate路径和读写量并按方案§8.6.4逐阶段批准。本轮不提供可直接执行的正式写入命令，不修改日常CLI入口行为。
+**阶段独立。** CLI分别提供只读Plan、生成候选、审计候选、提升文件、登记新物化/检查、最后只读核对，已按2026-10-23开发授权实现。现行正式调用、固定Plan路径和读写量见§11.9.17；管理员已授权原范围在内部验收和独立候选总审计通过后依次执行，每次只调用一个阶段，不修改日常CLI入口行为。
 
 **提升前：** 候选已全部通过且经review、所需共用检查代码已验收；确认正式代码状态和对应日期无在途写入/检查任务。沿用现有Lake root preflight核对正式挂载、目标权限、staging位置、同文件系统和可用空间；可用空间须满足本方案既有2.5倍候选空间预算，不创建错误挂载点或改用其他目录。每文件前重新确认原目标hash和最新物化仍为冻结原依据，候选hash未漂移；同文件系统才允许 `os.replace()`。不自动暂停sensor、取消任务或重载location；如存在冲突先停止并说明。
 
@@ -920,7 +920,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 **管理员已确认改为真实检查运行；本段原直接补登记检查的方式禁止执行。** 六项合并执行及保存方式见 §11.9.12，数据目标及保留要求不变。
 
-**文件与事件分开：** 原事件全部保留。文件提升成功但未登记新物化、检查未齐或失败时，readiness必须阻断，不能沿用原成功。只有事件阶段另获批准后，才为每个已读回一致的日期追加一个新因子物化，再触发现有因子任务的检查部分；一次合并核验后由真实运行产生六项结果，全部绑定该新物化。失败结果如实保留并停止，不能预设全绿。26日成功目标为26物化+156检查=182条文件/检查事件；另有26次真实运行及其日志，182不是全部event log数量。不触发Raw、Basic、ETF日线、分钟线或sensor。
+**文件与事件分开：** 原事件全部保留。文件提升成功但未登记新物化、检查未齐或失败时，readiness必须阻断，不能沿用原成功。按§11.9.17既有授权，在每日期文件已读回一致后追加一个新因子物化，再触发现有因子任务的检查部分；一次合并核验后由真实运行产生六项结果，全部绑定该新物化。失败结果如实保留并停止，不能预设全绿。26日成功目标为26物化+156检查=182条文件/检查事件；另有26次真实运行及其日志，182不是全部event log数量。不触发Raw、Basic、ETF日线、分钟线或sensor。
 
 **已确认：新物化先找回并保存，再准备检查运行。** 实现仍在已列出的维护bootstrap模块/CLI内，复用现有物化查询与登记接口、`atomic_write_json`和逐日进度。只读Plan不得调用登记接口。正式事件阶段每日期追加前，以及新物化步骤中断后的续查，都先用`fetch_materializations(AssetRecordsFilter(asset_key=本因子资产, asset_partitions=[本日期]), limit=1)`取最新1条，不搜索更早历史、不跨日期探查；文件已读回且仍为审核候选是前提。
 
@@ -941,7 +941,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 | 候选/提升的数据文件 | 固定26日期；1日1单位，单文件最多5000行，候选合计最多130000行；26日Raw/原Silver/候选合计最多16 MiB，实际大小先统计；只读对应文件完整行以证明旧行未变是必要范围，不扩成全部历史 | 超出行数或字节先报告，不能自行提高；0 Tushare请求、0 Prod访问 |
 | 最后验收的数据文件 | 26变更日加10月19—21日，共29日；去重Raw/Silver最多58个文件，总字节单独限16 MiB，先统计再读。26日核对完整新文件和701新增键；另3日只核对56代码共168条已有行与既有正式物化中的文件指纹，不做完整六项复查、不触发检查运行；不再读其他正式对照日期 | 58是不同文件上限，不是扫描次数；实际扫描/载入次数仍须测量。超字节、范围或指纹不符即停，不新增候选或写入 |
 | DuckDB | 现有Resource；1 thread、256 MiB、无spill；SQL读取与投影、逐文件COPY，不逐行Python、不跨日DataFrame；候选与正式目标同文件系统 | 超内存、spill、跨文件系统拒绝；保留证据 |
-| 准备/总审计/续查/最后验收 | 各30秒；准备、候选及其审计仍只处理26变更日。最后26日readiness按最多10日3批，另3个完整日仅按上行只读核对；不同Basic引用共享同一已核验内存，最后验收及必要续查显式传入，每连接seed，不重新完整读取Basic | 计时含证据关联与文件核验；需要Basic而内容缺失即停，仅查运行状态不强加Basic条件。超时停止，不另扫全库补查；完整重读须另批 |
+| 元数据预检/Basic初始化 | 两阶段各30秒；预检仅26日原引用3批、Basic Raw/Silver各latest 1及3项检查和4路径stat。初始化最多两对/4个Basic文件，以现有审计完整核验后冻结内存，允许审计内部有限重复扫描；实际文件字节见§11.9.17 | 超时、第三对、引用/内容/56业务字段不符即停；不读取因子准备文件，不把正常latest更新视为未冻结Plan失效 |
+| 准备/总审计/续查/最后验收 | 各30秒；准备、候选及其审计仍只处理26变更日。最后26日readiness按最多10日3批，另3个完整日仅按上行只读核对；初始化后不同Basic引用共享同一已核验内存，最后验收及必要续查显式传入，每连接seed，不重新完整读取Basic | 计时含证据关联与文件核验；需要Basic而内容缺失即停，仅查运行状态不强加Basic条件。超时停止，不另扫全库补查；明确启动下一维护进程才重新初始化，不在运行内隐式重读 |
 | 候选/提升/事件 | 三阶段各30秒；每文件/日期前后检查取消、保存进度；候选随生成的逐文件审计计入候选预算，独立候选总审计另计30秒；事件阶段含26个新物化、26次真实检查运行及156项结果；正式检查阶段每日期完整核验一次，共26次 | 启动、核验、保存结果、运行日志及状态查回均计时；182仅为物化/检查事件数。超时保存进度并停止领取下一日期；安全取消与续跑先经隔离验证，不靠无限重试或自行放宽预算 |
 | 日常checks/readiness | 最近最多10日；每资产1次批量最新物化查询；原依据最多1层，父物化集合1次、原检查/最新检查集合1次、原Raw集合1次，最多4次证据集合查询，不逐日查库；原检查最多60项，最新检查最多60项，父物化/Raw各最多10项 | 查询截断、超限、错绑、缺项即失败；不深扫历史事件；10日窗口预算30秒 |
 | 新物化保存/找回 | 仅固定26日，逐日追加前最多1次最新物化查询，确实追加后再1次；每次limit=1，正常最多52次/52条。本Plan等价记录只查1次、追加0条；新target保存成功后才准备检查run_id | 该数仅是本子步骤，不冒充检查任务或最后验收总查询数。全部计入原事件/续查30秒；失败停止，不轮询、不广搜 |
@@ -949,7 +950,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 开发日志回归门禁按本机Dagster 1.13.26及既有单步骤、六结果成功路径核对：每次27条运行日志，26次合计702条，序列化UTF-8总量不超过2 MiB。该2 MiB是根据本轮约1.51 MB样本留余量的开发回归及正式预检预算，不是PostgreSQL表和索引物理占用。26条新物化另算，不能把702当作全阶段所有记录；失败/取消时也不为凑正常数量而补写。只在隔离测试中按26个实际run_id测量这些日志，不新增正式全历史读取或日志收集服务；正式阶段仍只按原六项读回和30秒预算执行。SDK、任务或metadata变化导致超过该预算时停止重新核对，不自行加量。
 
-26个变更日与最后验收另加的3个完整日均已明确，正式写入仍只有26份Silver；其他对照仅在隔离测试，不增加正式日期。读取原行用于“零改动、零删除”的对账，额外3日指纹必须对照既有正式物化，不能用现场新算指纹自证；不允许未批准的完整Basic读取。上表各阶段预算含中断续查和最终验收，是开发待测门禁；此前56只审计0.38秒、§11.8的4.22秒及小样本传递的1.31秒均不能证明新代码已通过性能验收。预检先统计去重输入字节、原行数和所需事件；逐文件进度显示当前日期、完成/总量和最后更新时间，ETA不可靠不展示。
+26个变更日与最后验收另加3日均已明确，正式写入仅26份Silver；其他对照只在隔离测试，不增加日期。原行读取用于零改删对账，额外3日指纹必须对照既有物化，不用现场新算指纹自证；禁止未批准完整Basic读取。上表预算含中断续查与最后验收，开发实测见§11.9.14，正式六阶段实测及结案见§11.9.18；不再标为当前待测。此前56只审计0.38秒、§11.8的4.22秒及原传递实验1.31秒仅证明各自范围，不能代替本轮实测。预检统计去重字节、原行数和所需事件；逐日进度显示日期、完成/总量及更新时间，ETA不可靠不展示。
 
 #### 11.9.9 测试、真实核验和最后口径对账
 
@@ -963,14 +964,14 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 | 六项合并、一次核验 | 真实合并执行的隔离测试断言完整核验入口只调用一次、所需Basic依据不被六项重复读取；六个check key/名称/blocking集合精确不变。逐项故障仍失败，正常变化仍通过；单项选择有效，不保留六套旧定义并行注册。任一项失败时整体检查和本次运行失败、日期不ready且停止，不能将正常分项涂红或只因步骤返回就算成功 |
 | 真实检查追加记录 | 旧结果存在时更新文件、追加新物化、只执行合并检查，六项新结果均属于实际新run_id并绑定新target，旧事件/检查均未修改；用9月3日同类旧记录复现，不靠伪造run_id或辅助资产完成测试。写文件资产必须可被测试证明未调用 |
 | 可恢复且无额外写入 | replace前中断、replace后进度前中断；新物化追加成功但target未保存时按本资产/日期最新1条找回，追加0条；target保存失败时检查UUID准备和运行均为0。首次追加、等价复用、查无/另一Plan/更新target停止均核对查询次数及limit=1；检查事件后进度前中断另按run_id查回。部分检查失败、重复执行不重发；只读命令正式写入0，候选命令事件/正式写入0 |
-| 有界且可审计 | 10日批量查询数量、29日/58文件/16 MiB及14次最后证据查询上限，额外3日无候选/检查运行/事件；其他对照只用隔离样本。检查后3批readiness及需要Basic的续查复用同一内容、完整Basic读取0，缺失/错快照/错内容均停止，日常默认行为不变；仅查运行状态不要求Basic。各阶段30秒、256MiB/无spill；全局Basic未获批时拒绝完整读取，不使用历史批准扩大权限 |
+| 有界且可审计 | 10日批量查询数量、29日/58文件/16 MiB及14次最后证据查询上限，额外3日无候选/检查运行/事件；其他对照只用隔离样本。明确初始化之后，检查后3批readiness及需要Basic的续查复用同一内容、完整Basic读取0，缺失/错快照/错内容均停止，日常默认行为不变；仅查运行状态不要求Basic。各阶段30秒、256MiB/无spill；初始化限本次明确批准的两对，额外全局读取仍拒绝，不使用历史批准扩大权限 |
 | 保留正常规则 | 普通writer仍拒绝覆盖，缺真实应有因子仍阻断；删除的512390生成模块不恢复；asset/job/sensor/分区/源合同版本不变 |
 
 新单元和隔离集成使用独立小样本及真实生产者合同，不用待测代码生成expected；故意坏输入单独标明。至少通过一次真实生产者格式的小链路验证及正式已有文件/原证据的有界只读核对，再讨论候选。测试范围包括writer/checks/history/readiness/sensor/bootstrap必要回归、定义和静态治理，不为此跑全历史或正式job。
 
 最后正式验收只读29日、最多58个Raw/Silver文件，沿用§11.9.8的独立16 MiB、30秒及最多14次证据查询预算。26个变更日完整新hash与新物化一致，原行逐字段和原指纹不变，新增701键逐字段等于冻结Raw；156项新检查全部正确绑定且真实通过，readiness按最多10日3批核对这26日，显式传入同一已核验Basic内容。10月19、20、21日只核对56代码已有的168行及既有正式物化记录中的文件指纹；该3日不运行检查、不读其检查历史、不生成候选、不重写、不登记事件。701+168=869，核对56只从各自上市日至固定10月21日完整、无上市前多余。普通文件与未改动历史文件的其他对照只在隔离测试，不额外读取正式日期。其他未触及文件以执行目标清单及写入记录证明没有写入，不扩大读取全湖来证明未改。
 
-逐项报告实际状态：26日原验收与4份Basic单次获批读取已完成，见§11.9.10—§11.9.11。管理员2026-10-23已要求进入本文开发，当前实现及隔离验收结果统一见§11.9.14，不再沿用此前仅部分实现的测试结论。正式可执行Plan、候选review、正式文件/事件执行、代码重载及最后正式验收均未完成；Basic原一次批准不重复使用，正式操作仍分阶段批准。
+实际状态逐项记录：原26日验收和此前Basic读取见§11.9.10—11，开发/隔离见§11.9.14，正式重载见§11.9.15；新授权与首次执行见§11.9.17，最小修正、恢复及最终结案见§11.9.18。正式Plan、候选、文件/事件和最后验收现均已有对应真实证据，原56/26/701任务已完成；历史等待状态不能当作当前阻断，不以文档状态代替物理与新事件核验。
 
 ---
 
@@ -990,6 +991,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 #### 11.9.11 2026-10-22获批读取后的开发约束
 
+本节保留当时一次完整读取及原验收的历史事实。后续不得把该次内存仍在作为当前前提；2026-10-23新维护进程、当前latest及重新核验许可按§11.9.17执行，其余原行保留、证据绑定和只读连接规则继续适用。
+
 管理员已单独批准上述4份Basic各完整读取一次。实际按4个文件各一次读入临时内存表，Raw/Silver内容hash均匹配正式引用，两版Raw到Silver投影双向相等；20个旧引用各自的日期、可用代码数量/hash均核验通过。26日旧文件按原Basic的源对账也通过：普通日期完全相等，18日只保留原先批准且验收过的512390额外行。4份Basic后续在该次执行进程内复用，不重新完整读取或导出明细。
 
 开发沿用§11.9.3清单，新增行及其证据审计放在 `defs/asset_guards/etf_adj_factor_history_completion.py`，与既有历史模块明确分工：旧模块保留未改动旧文件的核验；新模块供候选、正式checks和readiness共用指定追加的完整核验，复用原合同函数，不恢复生成补值。这样不把377行的旧核验继续堆入完整Plan、存储读取、候选和追加审计；不是第二套数据生成规则。维护执行仍放在已列出的bootstrap模块及CLI中。
@@ -1005,7 +1008,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 #### 11.9.12 已确认的检查合并、真实运行与追加记录
 
-**确认范围与当前状态：** 管理员已确认“合并执行、保留六项结果”，并同意26日文件补齐后按日真实运行检查、追加新记录。2026-10-23按管理员指令进入开发；合并检查、内存传递和各独立维护阶段已接通，当前隔离验收状态见§11.9.14。4份Basic单次获批读取、20个旧引用及26日原数据核验的历史事实不变。尚未生成正式候选、正式提升或追加正式事件；本次开发不构成这些操作及重载批准。
+**开发时确认范围与状态：** 管理员确认“合并执行、保留六项结果”并同意26日文件补齐后按日真实检查、追加新记录；2026-10-23进入开发，合并检查、内存传递及独立维护阶段接通，隔离验收见§11.9.14。4份Basic获批读取、20旧引用及26日原核验历史不变；当时尚无正式候选/提升/新事件，开发本身不构成正式操作批准。随后正式授权、执行与当前结案见§11.9.17—§11.9.18。
 
 **开发前已核实的现状（下列独立六次计算为开发前代码，当前实现见§11.9.14）：**
 
@@ -1055,19 +1058,19 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 先在隔离环境测固定一天，分别报告启动、Raw/Silver/Basic读取及次数、核验、结果保存、运行日志条数/字节、完整总耗时；对照证明仅一次完整核验，而非只减少函数外层调用。再评估固定26日正常执行、状态查回、中断继续和最后验收；一天的结果仅是样本，不冒充26日实测。事件阶段30秒包括运行及日志成本，不擅自放宽，不新增并发或调度设施；额外运行日志的数量/字节上限须在测量后落回本节并核对，未形成有界成本或超预算不得正式执行，不能把182当日志预算。
 
-**测试和真实边界验收：** 开发前先按真实Raw/Silver/metadata合同构造独立小样本。至少验证：一次核验产生原六项结果；各类坏输入仍阻断而合法变化不过度拦截；单项选择有效；普通/旧历史/新完成文件及readiness一致；在已有空run_id旧检查的同类场景，更新文件、追加物化、真正仅检查运行能追加六项正确绑定的新结果且旧记录未变；writer未调用、无辅助资产；中断后查回、重复执行复用、失败不自动重试；越界代码/日期、查询超量、超时和未批准完整Basic读取均拒绝。只检查API签名、手工填入新run_id、辅助资产或直接注入结果的测试均不能替代真实运行验收。正式运行前列完整命令、DAGSTER_HOME、Plan/候选路径、读写/日志量和代码状态；正式文件/物化/检查执行及重载仍分阶段批准。
+**测试和真实边界验收：** 开发前先按真实Raw/Silver/metadata合同构造独立小样本。至少验证：一次核验产生原六项结果；各类坏输入仍阻断而合法变化不过度拦截；单项选择有效；普通/旧历史/新完成文件及readiness一致；在已有空run_id旧检查的同类场景，更新文件、追加物化、真正仅检查运行能追加六项正确绑定的新结果且旧记录未变；writer未调用、无辅助资产；中断后查回、重复执行复用、失败不自动重试；越界代码/日期、查询超量、超时和未批准完整Basic读取均拒绝。只检查API签名、手工填入新run_id、辅助资产或直接注入结果的测试均不能替代真实运行验收。现行完整调用、DAGSTER_HOME、Plan/候选路径与读写边界见§11.9.17，重载结果见§11.9.15；管理员已授权原范围按各阶段内部验收及独立候选总审计后推进，不重复请求原范围批准。
 
 **已有数量约束与本次决定：** [模板§10A](../templates/dagster-dataset-onboarding-template.html#human-readable)禁止“为了机器方便拆出大量细碎check”，并要求合并后说明失败规则、数量和样本；Git记录表明该条已在2026-06-26存在。[性能规范§3](dagster-data-pipeline-performance-governance.md#3-开发前性能设计清单)自2026-06-21已有日期×资产×检查数量的读取模型和事件写入预算要求。当前两份文件没有统一规定每资产最多N个check，也未在这两份中找到“因PG膨胀限制为某个数量”的原文；不能因此忽略明确的数量和成本要求。本次按管理员选择保留六项结果，只消除重复核验，不宣称减少PG记录或解决历史膨胀，不顺手合成单一check、清理日志或修改模板。
 
-**已确认：Basic复用的具体做法（2026-10-23，代码已接通，正式执行未进行）。**
+**已确认：Basic复用的具体做法（2026-10-23，代码与隔离验收已完成，正式执行结果见§11.9.18）。**
 
-1. 维护入口 `defs/bootstrap/etf_adj_factor_history_completion.py` 在同一进程持有旧版和冻结新版两份已核验Silver Basic内存行及其引用，串行执行26次真实检查，并向最后26日readiness的3个窗口、续查中确实需要文件和Basic资格核验的环节显式提供同一份内容；对应Raw/Silver内容hash与已核验记录仍保留作依据，不再次读取Basic Raw。不是用只有指纹/计数的临时JSON报告恢复完整内容。
+1. 本轮按§11.9.17在新维护进程先完整核验两对限定Raw/Silver Basic，再形成`PreparedCompletionBasic`；维护入口 `defs/bootstrap/etf_adj_factor_history_completion.py` 在该进程持有旧版和冻结新版两份已核验Silver内存行及其引用，串行执行26次真实检查，并向最后26日readiness的3个窗口、续查中确实需要文件和Basic资格核验的环节显式提供同一份内容。对应Raw/Silver内容hash与已核验记录仍保留作依据，初始化之后不再次完整读取Basic。不是用只有指纹/计数的临时JSON报告恢复完整内容。
 2. 每次检查、每批最后验收保留独立DuckDB连接。检查通过仅内存的resource传入已核验行，最后验收及需要Basic的续查通过内部参数传递；均显式交给共用核验函数，并使用现有 `CompletionBasicCache.seed(reference, rows)` 放入各自连接的临时表。调用`get()`前必需的内容及引用必须已seed；缺失、错内容或引用不在已核验集合时停止，不能进入其完整Parquet读取分支。运行/批次结束关闭自己的连接，不跨运行借用一条可能被关闭的连接，不新增永久缓存服务或落盘文件。普通日常任务和日常readiness没有本次维护输入，继续原有读取规则；维护入口必须先检查输入，不能把维护缺失输入降成普通调用绕过停止条件。
 3. 物理内容仍按Raw/Silver正式路径及两种内容hash区分，不能只用“最新Basic”或日期作为缓存身份；同一物理快照的不同日期引用，逐个核对日期、可用代码数量/hash，不能只验证第一份引用。每次seed须核对Silver内容hash；不同引用共享内容，不共享未经核验的日期资格结论。
-4. 现有4份Basic各一次完整读取批准已使用。必须复用仍实际持有那次已核验行的原进程/会话，不能另起进程后声称临时报告足够。内存已丢失时保留已有进度并停止；若继续确需重读，明确提出原4份文件各一次、共466,819字节的目的和成本，获批后才读取并继续未完成日期。不在失败或续跑时自动重读、导出Basic，或扩大到其他快照；若冻结引用本身变化，按原Plan失效规则另审，不顺手换版本。
-5. 隔离验证需证明同一批次连续真实运行确实收到同一份已核验内容，但各有独立连接，Basic Parquet读取不会按六项或26日增长；每个引用仍被核对。计入每次内容指纹复核、临时表导入及内存成本，不能把内存操作当作零开销。Raw/Silver每日输入也应在单次核验内复用，实测文件打开、扫描/载入、SQL及缓存未命中的次数，不能只断言完整核验入口调用一次。内存丢失、错快照、错日期引用和缺少传入内容均应停止，不能触发隐式全局读取。小样本传递、独立连接与缺失即停已按§11.9.13验证；正式注入、其他失败情况及26日生命周期和性能仍未验收。
+4. 管理员2026-10-23已明确允许新维护进程重新核验本任务两对Basic；此前“只能寻找旧持有进程、重读另批”的前提被替代，实际文件和字节见§11.9.17。退出时保留已有checkpoint；下次明确维护启动可以重新预检、完整核验限定两对后续查，不寻找旧Basic进程，不导出或新建缓存服务。运行中内存丢失、错引用/错内容仍停止，不隐式回退完整读取；Plan冻结后的引用变化仍按原失效规则核对，不顺手换版本或扩大快照数。
+5. 隔离验证需证明同一批次连续真实运行确实收到同一份已核验内容，但各有独立连接，Basic Parquet读取不会按六项或26日增长；每个引用仍被核对。计入每次内容指纹复核、临时表导入及内存成本，不能把内存操作当作零开销。Raw/Silver每日输入也应在单次核验内复用，实测文件打开、扫描/载入、SQL及缓存未命中的次数，不能只断言完整核验入口调用一次。内存丢失、错快照、错日期引用和缺少传入内容均应停止，不能触发隐式全局读取。小样本机制见§11.9.13；维护代码、其他失败情况及26日生命周期和性能的隔离验收已完成，见§11.9.14。本轮新进程实际初始化及正式调用另按§11.9.17记录，不能以隔离测试代替。
 6. 实现覆盖维护入口、`asset_guards/etf_adj_factor_history_completion.py`的共用完成审计、合并检查入口，以及`etf_daily_lake_readiness.py:_batch_readiness`和`batch_etf_adj_factor_silver_lake_readiness`之间的内部传递。后两者增加显式可选的已核验内容输入：提供时在当前连接建立缓存并seed，默认不传时保持日常行为。维护入口在调用前必须拒绝缺少必需内容，再传入全部所需内容；最后验收不能直接沿用现有每批空缓存路径。仅按运行编号查询状态、不读取文件或判断Basic资格的步骤，不额外要求Basic仍在内存；发现需要文件核验时才进入上述检查。
-7. 增加隔离测试：真实检查结束后，最后3个readiness窗口及需要Basic的续查仍接收同一份内容，Basic完整读取总数保持0；分别在检查、最后验收、必要续查中验证缺失、错快照和错内容会停止，不能被普通日常默认分支掩盖。另用正常日常调用证明既有读取/失败规则不变，仅查询运行状态不因Basic缺失而被误拦。本轮没有执行这些新增测试，不能用§11.9.13的小样本结果冒充通过。
+7. 增加隔离测试：真实检查结束后，最后3个readiness窗口及需要Basic的续查仍接收同一份内容，Basic完整读取总数保持0；分别在检查、最后验收、必要续查中验证缺失、错快照和错内容会停止，不能被普通日常默认分支掩盖。另用正常日常调用证明既有读取/失败规则不变，仅查询运行状态不因Basic缺失而被误拦。这些新增测试已按§11.9.14完成；§11.9.13的小样本实验仅保留原范围，不能代替这些测试或正式环境验收。
 
 **本步开发的内部接口与资源核对（2026-10-23，沿用已确认的内存复用方案）：** `PreparedCompletionBasic.from_cache(cache)`仅提取当前进程中已核验的内存内容及逐日期引用，不读文件；`require_prepared_basic(value)`拒绝缺失/错类型；`seed_cache(connection, lake_root, references)`复核必需引用和内容后返回禁止完整读取的`CompletionBasicCache`。维护入口、合并检查和最后验收使用同一个对象，不把它序列化为运行配置或事件metadata。
 
@@ -1076,22 +1079,22 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 | `prepared_basic` | 合并因子检查内嵌`ResourceDefinition.hardcoded_resource(None)`，维护运行用同名resource传入已核验对象；只供本次检查及维护函数，来自进程内存，无env、数据库或文件配置，无凭据 | 日常默认None；维护入口必须先拒绝缺失。为识别resource传递丢失，在该次真实运行现有tags中复用`goldenshare/history_completion`保存本Plan hash；合并检查见此运行身份必须require内容，并核对新物化内Plan hash一致，缺失时不得进入日常读取分支。此tag由维护代码填写，不是运营开关，不包含Basic明细 | 资源初始化不访问外部系统、不写文件或事件，不使正常Definitions加载失败；在执行时报告错误。真实隔离运行验证覆盖传递丢失、错Plan及普通日常对照 |
 | 维护阶段的DuckDB resource | 仍用现有`duckdb`资源key及`DuckDBResource`接口，仅维护入口提供受控连接；临时目录由既有staging执行目录确定，固定1线程/256MiB/无spill，不新增可调CLI、env或持久配置 | 复用`connect_configured_duckdb(..., temp_policy='existing_no_spill')`，扩展自动安装/加载关闭；目录/挂载/预算不符立即停止，不修改共享resource默认值，不影响其他资产 | 每次连接独立关闭；只在本阶段已获批准的路径中读写。测试目录全部在`/private/tmp`，分别断言实际设置与路径，运行检查阶段不调用writer |
 
-合并执行通过现有`multi_asset_check(resource_defs=..., can_subset=True)`承载，不新增永久job、资产或配置。每个`AssetCheckSpec`显式绑定现因子资产对象及同一分区定义。检查运行的tag仅保存本Plan运行身份，不参与业务Plan hash，不放物化编号或Basic内容；查回既有run时也必须核对该身份。CLI每次只调用一个阶段；需要Basic的调用只接受原维护进程显式传入上述对象，不从JSON报告、CLI路径或新启动进程恢复内容。
+合并执行通过现有`multi_asset_check(resource_defs=..., can_subset=True)`承载，不新增永久job、资产或配置。每个`AssetCheckSpec`显式绑定现因子资产对象及同一分区定义。检查运行的tag仅保存本Plan运行身份，不参与业务Plan hash，不放物化编号或Basic内容；查回既有run时也必须核对该身份。CLI每次只调用一个阶段；需要Basic的调用只接受本轮已初始化维护进程显式传入上述对象，不从JSON报告或CLI路径恢复内容。下次明确启动重新初始化按§11.9.17办理，运行中不偷偷重读。
 
 **本步测试执行边界：** 使用现有orchestrator `.venv`、临时测试目录和隔离Dagster实例，不安装依赖、不使用`PYTHONPATH`、不读正式Lake/instance/凭据或原Basic会话。ETF专项没有现成保护启动器时，在`/private/tmp`使用当前任务负责的临时测试启动器：禁网络和正式路径访问，将测试的默认DuckDB临时目录绑定到本次临时目录，并保持受控连接实际设置；测试完成后删除该可执行文件、保留摘要。已有受保护资产治理测试继续使用其现有启动器，不另写一套替代。替换仅覆盖测试资源边界，不替代所声称验收的文件、schema、SQL、真实运行或事件存储链路。 完整26日隔离样本的原Silver为42,900行、新增701行；Raw容量按既有核验56,349行构造，差额12,748行使用明确不在两份Basic中的人工代码，验证这些原始额外行不会进入候选。仍为相同26日期、56个新增代码和701键，不读取正式资源；3个完整日另保留各56条目标行。合成文件压缩大小和临时SQLite不冒充正式Parquet或PostgreSQL成本。
 
-**Basic复用的缺点与取舍（已确认，成本待实测）。**
+**Basic复用的缺点与取舍（已确认，隔离成本见§11.9.14，正式成本逐步记录）。**
 
 | 代价 | 对本任务的实际影响 | 建议保留的边界 |
 | --- | --- | --- |
-| 依赖仍持有数据的原维护进程 | 进程退出后，逐日进度只说明做到哪里，不能恢复Basic行；需要停止，获批重读后继续 | 不因方便恢复而增加Basic持久文件、跨进程缓存或后台服务 |
+| 内存随本轮维护进程存在 | 进程退出后，逐日进度只说明做到哪里，不能恢复Basic行；下一次明确维护启动按§11.9.17重新预检及加载，再按checkpoint续查 | 不追旧Basic进程，不因方便恢复而增加Basic持久文件、跨进程缓存或后台服务 |
 | 仍有计算和内存导入 | 每次独立连接的 `seed()` 仍会复核内容hash、JSON转换、建临时表和复制行；各日期资格仍需核对 | 节省的是重复完整文件读取，不宣称零计算；这些开销计入实测 |
 | 运行初始化及日志仍在 | 26次真实Dagster运行及记录写入不会消失，且不等于额外启动26个操作系统进程 | 不承诺六倍提速或已满足30秒，不自行加并发来抵消 |
 | 内存占用高于文件字节数 | Python行、JSON及DuckDB临时表可能同时存在，不能用压缩Parquet大小当作实际内存 | 本次只有两份有限Silver Basic内容，仍需测峰值；不推广到大型快照 |
 | 冻结资料不自动追随新版 | 同批可保持一致，但相关上市日/状态后续又修正时，不能自动混入后半批 | 沿用原Plan引用和失效规则；不加入无关ETF，不自动换版本 |
-| 实际数据尚未正式运行 | 维护代码已接通；§11.9.13原实验和§11.9.14本轮合成样本均不代表实际Basic已用于正式运行 | 正式执行前仍须确认真实内存可用；禁止丢缓存后悄悄全量读取 |
+| 隔离样本不能代替正式运行 | §11.9.13实验与§11.9.14合成样本只证明各自边界；随后真实Basic初始化及26日运行已按§11.9.17—18完成 | 正式结果单独列证据；运行中丢缓存仍不能悄悄完整读取 |
 
-管理员已同意针对本次有限批次使用内存复用，并接受“退出后停止、获批重读”的取舍；不新增持久设施。设计不再待拍板，代码接入及本轮隔离验收见§11.9.14；真实Basic内存可用性和正式环境成本仍须在获批阶段核对。
+管理员已同意针对本次有限批次使用内存复用，并于2026-10-23明确允许新维护进程重新核验限定Basic；运行内严格复用，退出保留checkpoint、下一次明确启动重新初始化，不新增持久设施。代码接入及隔离验收见§11.9.14；正式初始化与成本逐步按§11.9.17记录，不用隔离数据冒充。
 
 **已确认：少见运行中断的最小处理（设计已确认，当前实现与隔离证据见§11.9.14）。**
 
@@ -1132,7 +1135,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 **最小隔离测试：** 先覆盖§11.9.7的新物化追加成功但target未保存、target保存失败及等价复用，证明不重发物化、不提前准备检查UUID。检查部分再验证启动前保存失败不调用Dagster；首次保存后未调用即退出时沿用编号；运行已创建但进度未再更新时能按编号查回；成功但完成进度未写时复用且创建次数不增；失败/未开始/仍运行时停止；查无但旧进程仍在或不明时不创建；重复编号异常不换新号。结合前述真实检查小链路核对六项与target/hash，不能只mock最终状态宣称真实运行通过。不为罕见情况增加自动接续或无限重试测试体系。
 
-本节Basic内存复用及其代价、低成本中断处理、文件/记录修正、分项规则和整体失败规则，以及最后验收传递、新物化找回和29日只读边界均已由管理员确认，不再列为待拍板方案。当前开发及全阶段隔离验收见§11.9.14；§11.9.13仍只记录当时临时机制实验，不扩大其结论。正式文件、任务、事件和代码重载仍未执行。
+本节Basic内存复用及其代价、低成本中断处理、文件/记录修正、分项规则和整体失败规则，以及最后验收传递、新物化找回和29日只读边界均已由管理员确认，不再列为待拍板方案。开发及全阶段隔离验收见§11.9.14；§11.9.13仍只记录当时临时机制实验，不扩大其结论。正式重载与读回见§11.9.15，新的Basic初始化与原任务逐阶段正式结果见§11.9.17。
 
 #### 11.9.13 2026-10-23获准的隔离验证：Basic跨运行内存传递
 
@@ -1172,7 +1175,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS
 
 #### 11.9.14 2026-10-23本步开发与隔离验收
 
-**状态：本步开发及所列隔离验收已完成，正式补数未执行。** 管理员本轮授权严格按LLD完成下一步开发。当前代码接通了合并检查、内存复用、六个独立维护阶段及低成本中断处理；不新增job、sensor、源合同、环境变量、缓存服务、通用覆盖开关或跨工程依赖。开发仍在`dev-interface`，未创建分支或worktree。本步代码与文档按管理员本次指令一并提交，不暂存、提交或覆盖其他任务修改。
+**开发结束时状态：本步开发及所列隔离验收完成，当时正式补数未执行；后续正式结案见§11.9.18。** 管理员本轮授权按LLD开发，接通合并检查、内存复用、六个独立维护阶段及低成本中断处理；不新增job、sensor、源合同、env、缓存服务、通用覆盖开关或跨工程依赖。开发在`dev-interface`，未建分支/worktree；本步代码与文档按指令提交，不暂存或覆盖其他任务修改。
 
 **实现与硬口径对账：** 下表源文件相对`lake_console/orchestrator/src/orchestrator/`，测试相对`lake_console/orchestrator/tests/`。既有部分实现不是本轮新增的全部；本表说明最终工作区代码如何承接本节口径，不把原依据核验重复算作本轮正式读取。
 
@@ -1213,7 +1216,201 @@ SQL代理统计不包含受控连接helper内部两条设置核对；这些设�
 
 **证据及正式边界：** [汇总](/private/tmp/etf_completion_development_acceptance_20261023.json)保存去重测试来源、当前源文件指纹、测量及最终样本报告路径；本节采用的[完整测量](/private/tmp/etf-completion-tests-20261023-93zwaylp/allowed/pytest/test_complete_26_file_pipeline0/full-stage-measurement.json)和[执行专项结果](/private/tmp/etf-completion-tests-20261023-lczp99au/allowed/result.json)保留。测试启动器完成后删除，仅保留摘要/日志。合成文件压缩率、临时SQLite、人工Basic规模和路径不等于正式PostgreSQL及原快照成本；未把隔离实测扩大为正式执行已通过。
 
-**下一阶段及未执行项：** 开发阶段无待拍板设计，转入正式Plan/候选准备前，先按原规则确认持有已批准核验的Basic内容；本轮未探查原会话，也不假定内容仍可用。丢失则停止并单独列确切4份/466,819字节重读请求，不自动重读或用报告补造内存。正式Plan、staging候选review、正式26文件提升、新物化/检查、代码重载及29日正式验收仍按独立阶段批准，全部尚未执行。其他任务的dirty文件保持不动。
+**开发结束时未执行项及后续变化：** 当时正式Basic输入与调用、Plan路径、范围构造及资源调用尚未填实，因此不能回答“每一步均已可执行”；本轮开发未探查原会话，也不能假定其对象可用。该缺口记录见§11.9.16。随后§11.9.15完成代码加载，管理员再明确授权新维护进程重新核验限定Basic、核对后直接完成原任务；现行输入、调用与路径已写入§11.9.17，不再寻找旧进程或重复请求本次范围批准。正式Plan、候选、提升、新事件/检查和最后验收仍逐步记录真实结果；其他任务修改保持不动。
+
+#### 11.9.15 2026-10-23正式代码加载
+
+**目标与授权：** 管理员已明确批准加载当前工作区。仅对现有`orchestrator`代码location调用一次加载，不执行Plan、候选、提升、检查或最后数据验收。加载不依赖Basic内存，不能把加载成功当作正式维护入口已验证。
+
+**当前代码与影响：** 当前分支`dev-interface`，本需求提交`38c7dca47cd64cdf6c8c6162f03a1e201141c6f9`。现有托管code-server从当前工作区加载`orchestrator.definitions`；加载也使9份未提交orchestrator源码变化生效：`catalog/lake_assets.py`仅格式/注释，7份moneyflow sensor文件仅说明文字，`sensors/moneyflow_update_selection.py`在Raw窗口全ready时不再因当天尚未复核而重复提交下载。后者可能改变已运行sensor下一次判断，已向管理员说明。没有启停sensor的代码，不修改已有启停状态；不把它描述成完全无运行行为变化。
+
+| 本次固定输入 | 实值与核对依据 |
+| --- | --- |
+| 正式服务 | `http://127.0.0.1:3000/graphql`；现有服务只读查询已成功 |
+| location / repository | `orchestrator` / `__repository__` |
+| 正式instance位置 | `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，沿用现有webserver，不另起instance |
+| 定义来源 | 模块`orchestrator.definitions`，工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator/src`；当前workspace及进程参数已核对 |
+| SDK及实际入口 | 本机Dagster 1.13.26；`dagster_graphql/schema/roots/mutation.py`的`GrapheneReloadRepositoryLocationMutation.mutate`核对location和权限后调用现有`reload_code_location`；不通过新写的服务入口加载 |
+| 加载前定义 | location为`LOADED`，`updatedTimestamp=1792501122.9016478`；`silver_etf_adj_factor_update_job`为`silver_etf_adj_factor`加原6个独立检查步骤 |
+| 证据路径 | `/private/tmp/etf_completion_formal_reload_20261023.json`，只记录代码状态、请求、定义、耗时和成功/失败，不保存Basic或数据明细 |
+
+**准确调用：** 复用已批准的curl方式向上述端点发送JSON GraphQL请求，不安装工具、不重启webserver或daemon、不调用`reloadWorkspace`。本次mutation为：
+
+```graphql
+mutation {
+  reloadRepositoryLocation(repositoryLocationName: "orchestrator") {
+    __typename
+    ... on WorkspaceLocationEntry {
+      name
+      loadStatus
+      updatedTimestamp
+      locationOrLoadError {
+        __typename
+        ... on RepositoryLocation { name serverId }
+        ... on PythonError { message }
+      }
+    }
+    ... on PythonError { message }
+  }
+}
+```
+
+**顺序、预算与验收：** mutation最多25秒，只尝试一次。成功后用同一端点做一次有界只读查询：location加载状态/时间，`silver_etf_adj_factor_update_job`的步骤名，以及`silver_etf_adj_factor`的6个check名称和blocking标记；只读定义，不查运行、事件或业务数据。查询最多5秒，且受加载与读回合计30秒剩余预算限制。期待location为`LOADED`、无PythonError、更新时间更新，job步骤精确为`silver_etf_adj_factor`和`silver_etf_adj_factor_checks`；六个名称仍为contract、key_integrity、source_filter、source_parity、basic_coverage、domain原名称，全为blocking。完整原名称和顺序无关的集合比较写入摘要。只收到“请求成功”或location存在不算验收通过，必须看实际新job与check定义。
+
+**读写、失败与中断：** 本步只有代码location加载及运行服务自身必要状态更新，业务数据、分区、cursor、任务/检查/手工sensor评估、历史事件和Lake写入全部禁止；已有自动运行照其原状态继续，不宣称整个正式环境零后台写入。错误、超时、响应不明或读回不符时停止，记录已发请求和状态；不再次加载，不自动重启、回滚或启动任务。若请求超时不能认定完全未生效，后续应先只读确认，不能盲目重试。新建/修改配置、schema、API或数据合同均为0。
+
+**首次调用结果及验收查询纠正：** 正式mutation一次成功，耗时4.778823秒，location返回`LOADED`、`updatedTimestamp=1792691955.313462`、serverId为`8fe759c4-5ca7-4657-908a-673301e9e5b6`。首次只读验收请求耗时0.009209秒、HTTP 400：查询错误地给`AssetNodeOrError`加入不支持的`PythonError`分支，接口在查询校验时拒绝，未取得定义数据；这是本次调用编写错误，不能写成验收通过。已停止原调用，不再发送mutation；在本节先记录修正，移除这一分支、用当前SDK schema本地验证后，只允许再做一次相同范围的只读定义查询，单独最多5秒，不读运行/事件/数据、不重试加载。原步骤未按最初清单一次完成，不以HTTP调用耗时相加冒充包含排错间隔的30秒完整验收。
+
+**最终结果：加载及定义读回通过。** 修正后的查询经本机SDK schema验证，正式只读请求耗时0.045027秒。location为`LOADED`，读回`updatedTimestamp=1792691955.3272362`，serverId与mutation一致；因子job步骤精确为`silver_etf_adj_factor`和`silver_etf_adj_factor_checks`。检查名称集合仍为`silver_etf_adj_factor_basic_coverage_check`、`silver_etf_adj_factor_contract_check`、`silver_etf_adj_factor_domain_check`、`silver_etf_adj_factor_key_integrity_check`、`silver_etf_adj_factor_source_filter_check`、`silver_etf_adj_factor_source_parity_check`，恰6项且全部blocking。加载前17份本需求源码/依赖指纹与隔离验收汇总一致，另9份工作区源码已单独记录指纹。完整结果及请求、失败查询、纠正查询见上述证据文件。
+
+本步mutation次数1，主动启动补数任务/检查、手工sensor评估、sensor启停修改、分区/cursor修改、Lake与历史事件写入、Basic读取均为0；不据此声称服务后台没有原有自动行为。正式Plan及真实Basic传入未执行，仍按§11.9.16保持未完成，不因定义加载成功而放行补数。
+
+#### 11.9.16 正式执行缺口及逐步完成条件
+
+**历史状态说明：** 本节记录代码加载时的遗漏及当时完成条件。之后管理员2026-10-23明确同意新维护进程重新核验所需Basic、直接完成原任务；本节“寻找原Basic进程”和“本轮除代码加载不推进”的前提已被§11.9.17替代，保留本节作审计追溯，不作为当前重复审批或暂停理由。各阶段自然产生hash/target/UUID及必须核验真实输入的要求仍适用。
+
+**纠正审计结论：** §11.9.14证明代码及所列隔离测试，不证明实际Basic进程已接入正式维护入口。之前审计验证了测试代码传对象后能运行，却漏核对真实对象从哪里来、如何进入入口，并把“执行前再列命令”当作非阻断事项；这是审计遗漏，正式Plan目前仍被阻止。旧文两处“26日生命周期仍未验收/本轮未执行新增测试”已纠正为隔离验收完成、正式未执行。不撤回有效的开发测试，也不把文档完整性检查当作正式调用的证据。
+
+| 步骤 | 本轮确认的缺口 | 本步骤可以开始/完成的具体条件 |
+| --- | --- | --- |
+| 代码加载 | 当前现场清单原未填实 | 已按§11.9.15补齐，管理员已批准；只加载与读回定义，结果单独记录 |
+| 确认Basic可用及传入 | 没有确认实际持有行的原进程、对象结构及可用的同进程调用方法 | 仅在获准边界内确认原进程/对象；核对`PreparedCompletionBasic.from_cache`需要的实际snapshots/references能否由现有对象提供，并验证同进程传给入口的方法。不能先假定原会话使用该类。无法做到则停止、说明原因；不暗中重读、导出或新建缓存服务 |
+| 正式Plan | 尚未确定固定范围映射的构造、实际Plan路径和资源调用 | 根据本方案已review的56代码/26日表构造scope并通过固定范围hash；不能将测试fixture或旧临时审计JSON直接用作正式许可名单。列出staging内Plan绝对路径、所用同进程调用、只读storage、受控DuckDB及Basic reference；各对象的实际来源必须明确。先做该调用的有界入口核验，再判断能否正式执行 |
+| 候选及总审计 | 需承接正式Plan的真实产物，不能用临时测试产物 | Plan生成后填其真实路径/hash，再明确候选/审计报告路径、准确阶段调用和原预算；仅按已批准26日/701键生成和审核，review通过后才能提升 |
+| 26文件提升 | 需承接已审候选及正式目标状态 | 填真实Plan、候选报告/hash、进度路径和准确调用；按原规则核对空间/挂载/同文件系统、目标未漂移及无冲突在途运行。先具备该阶段执行条件，再按阶段授权提升，不改原42,900行 |
+| 新物化及真实检查 | 正式instance/job/resource/Basic/进度调用尚未填实 | 填上述同一Basic对象、正式instance、解析后的现有job、受控resource及真实Plan/进度路径；核对正式已加载合并检查。仍是26日各追加物化后执行六项真实检查，不改旧日志；UUID与target按既定顺序保存 |
+| 最后29日验收 | 输入需来自前阶段真实结果 | 填真实Plan、完成进度和最终报告绝对路径，明确同Basic对象的阶段调用；遵守58文件、16MiB、30秒、最多14次证据查询，额外3日不追加运行/事件 |
+
+**哪些是缺口，哪些正常在后面生成：** 真实Basic持有进程、对象如何传入、首次Plan放哪里及如何调用，应在正式Plan前明确，不能留给执行人员猜。Plan hash、候选hash、物化target及UUID由各自阶段自然生成，提前没有实值不是设计缺陷；产生后写回本清单供下一步使用，禁止预造。`main(argv, prepared_basic=..., **context)`只能由持有内容的进程传入对象；新开shell运行模块不会继承内存，不能把带路径的shell命令当作已解决传递。是否需要代码改动，须在确认真实对象和现有入口后判断，不预先增加入口或执行脚本。
+
+**后续审计的具体交付：** 每一步分别列实际输入来源、准确调用、读写范围、原预算、失败停止方式和独立验收证据；必须核对现有代码确实接受这些输入。已验证、隔离验证和未验证分开写；有任何必需输入或调用尚未确定，即标未完成，不再用“没有待拍板设计”代表“可以执行”。本表只是明确未完成工作，不赋予新的读取、任务或写入授权；本轮除§11.9.15外不推进正式动作。
+
+#### 11.9.17 2026-10-23：新维护进程初始化与原范围补齐
+
+**本节保留当时获批的执行规则与首次过程；当前完成状态见§11.9.18。** 管理员明确同意重新读取本任务所需Basic、核对后直接完成原任务，不再寻找旧审计进程中的内存；此前旧进程/重读另批/仅重载的限制已被替代。授权只覆盖56代码、26日期、701新增及26文件修改，原42,900行不改不删、补后43,601行，512390及其他任务不变；各stage内部验收及独立候选总审计通过后顺序推进，不重复请求已给批准，冲突/失败/取消/超预算停止。本节“下一步/未完成/停止”均为对应时点记录，后续获批修正与恢复事实见§11.9.18，不能当作当前仍阻断或遗漏的动作。
+
+**本节记录首次执行及当时停止状态；当前已按§11.9.18修正、恢复并完成最后验收。** 首次events失败时，26文件已提升，只为首日追加1个新物化并创建1次失败运行，六项仅planned、实际evaluation为0；当时其他25日与最后验收未执行，不能声称156项通过。26文件/checkpoint及失败日志保留，当时即停止并先审清接入修正，未自动重试。实际latest在Plan冻结前正常日更到2026-10-22，两对4份467,414字节、56资格及固定scope已核对；没有借错误扩大范围。下表及失败说明保持该时点原事实，成功恢复及当前完成状态以§11.9.18为准。
+
+**本轮元数据预检实值。** 首次保守预检因仍要求旧`02670e...`而在内容读取前停止；已确认是正常latest更新，按当前规则核对路径后重做同范围预检，通过耗时0.048318秒，不宣称一次到位。固定scope hash符合上述56/26/701，26日仍引用20个旧日期reference，原Silver合计42,900行；Plan不存在。最新Raw物化storage_id为7717486、观测时间`2026-10-22T21:07:27.726548+08:00`、hash为`83e4d18a830c671b76571bf6095e82971efab4d0353bf6ce9bf16f8b17369293`；Silver为7717534、`2026-10-22T21:15:16.848412+08:00`、hash为`622bad0ca9bb0b9087b9c8f0abce8a886e659a6cfc914c58927a53eaa954a43e`。限定内容读取文件如下；完整结果见[本轮正式执行摘要](/private/tmp/etf_completion_formal_execution_20261023.json)，该时点`basic_initializations=0`、`stages={}`、无源请求、sensor状态或分区修改。
+
+| 物理文件 | 字节 |
+| --- | ---: |
+| `/Volumes/datasource/data_lake/raw/tushare/etf_basic/snapshot_id=1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44/part-000.parquet` | 116508 |
+| `/Volumes/datasource/data_lake/silver/basic/etf_basic/snapshot_id=1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44/part-000.parquet` | 113155 |
+| `/Volumes/datasource/data_lake/raw/tushare/etf_basic/snapshot_id=83e4d18a830c671b76571bf6095e82971efab4d0353bf6ce9bf16f8b17369293/part-000.parquet` | 120774 |
+| `/Volumes/datasource/data_lake/silver/basic/etf_basic/snapshot_id=83e4d18a830c671b76571bf6095e82971efab4d0353bf6ce9bf16f8b17369293/part-000.parquet` | 116977 |
+| 合计 | 467414 |
+
+**本轮初始化与Plan实测及下一调用。** 仍使用上述同一维护进程；摘要中的元数据`plan_exists=false`和`basic_contents_read=false`仅表示预检时点，后续阶段结果如下，不覆盖历史时点。
+
+| 已执行步骤 | 实际结果和耗时 | 给下一阶段的真实输入及允许动作 |
+| --- | --- | --- |
+| `initialize_basic()` | 通过，0.697991秒；2个物理版本、4文件、467,414字节，完整审计调用2次，内部有限重复扫描按原设计允许。20个旧日期引用加1个新引用，共21个prepared引用；56个上市日/状态全部匹配。新引用资格日期2026-10-21，可请求代码1711，reference fingerprint为`65b6ba72ad26b74ef11d2ea9e7854abd12e6d87bb289a75544a48a67cec1d2bc` | 同进程保存`prepared_basic`及新reference；后续禁止完整读取，不从摘要重建Basic行。初始化摘要所列42,900/56,349是当时的因子元数据量，不将初始化说成已扫描因子文件 |
+| `stage("plan")` | 通过，7.238582秒；按现有完整Plan核验实际扫描对应26日Raw/Silver，固定56/26/701及原42,900行通过，目标43,601行；正式Plan已冻结在上述绝对路径 | 真实Plan hash为`21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd`。下一步同进程分别调用`stage("candidates")`、`stage("candidate-audit")`，每次仅一个stage，各30秒，继续使用同一prepared内容、固定scope/reference、只读storage和受控resource |
+| `stage("candidates")` | 通过，7.986150秒；26/26份候选已生成，逐日新增数与§11.9.2一致，合计701；只写staging，尚未提升正式文件或追加事件 | 下一调用为同进程`stage("candidate-audit")`一次，30秒，复用同一prepared内容与真实Plan；读回现有候选并生成`candidate-audit.json`，完成后才交独立子代理只读review |
+| `stage("candidate-audit")` | 通过，6.602533秒；26文件、新增701、原行修改0/删除0；Raw/原Silver/候选输入合计1,152,223字节，低于16MiB。总审计报告已写入真实候选目录`candidate-audit.json` | 独立子代理已收到报告，按原固定范围、每日期结果及原行不变规则只读review；其结论未通过前不调用`promote`，不额外扩展正式读取 |
+| 独立候选review | `review_run_gap`只读核对Plan、`candidates.json`、`candidate-audit.json`通过，无阻断；三者同Plan hash，scope hash独立复算一致；26日各为1650原行加批准新增，总42,900+701=43,601，修改/删除0；候选hash、总审计hash及Plan预计hash逐日相等，26路径严格落在指定候选目录，无多余日期 | 本次只读报告metadata，未重复扫描Parquet；符合提升前门槛，可以按下一段现有调用进入`promote`，仍逐文件核验正式目标与候选，不用报告review替代提升时读回 |
+| `stage("promote")` | 通过，7.949846秒；26/26份正式Silver按原路径提升，逐份完整读回和`files.json`完成进度均保存 | 此阶段结束时仅文件更新，不能当作ready；随后events尝试失败如下。不要重复提升或启动writer |
+| `stage("events")` | **失败并停止**，1.605481秒；首日新物化target为7718242，真实run为`eaa86d87-b837-4a2d-ad0b-fa6b1ffe1a71`，终态FAILURE。只产生该run的11条日志，其中6条check planned，实际check evaluation为0；其他25日事件未开始 | 保留1个新物化、1次失败运行及6条planned，不删除/覆盖旧新记录，不换UUID重试、不改progress。先完成下述instance接入修正与失败后处理方案审计；最后29日验收未执行，不能宣称ready |
+
+本Plan对应真实候选目录为`/Volumes/datasource/data_lake_staging/etf_daily/operation_id=21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd/silver_etf_adj_factor/`，生成进度为该目录`candidates.json`。候选及总审计调用只生成/审计26份staging候选与现有报告/checkpoint，不提升正式文件、不追加事件或检查运行。总审计报告产生后由独立子代理按原标准只读review；新增701、旧行修改0/删除0、范围及候选/目标指纹全部通过后才进入既定`promote`，不以Plan或候选生成成功代替候选总验收。
+
+**已完成提升的准确调用与读写。** 独立review通过后，在持有上述`prepared_basic`的当前进程调用`stage("promote")`一次。临时调用者使用`with daily_basic_event_instance(writable=False) as instance`，把该只读正式instance、现有只读storage、受控resource和同一prepared内容传给`run_stage("promote", plan_path=<上述固定Plan路径>, expected_plan_hash="21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd", approved=True, ...)`；这里`approved=True`仅承接本次已给出的原范围授权，不是新增用户开关。不得传job或写instance来做文件提升。
+
+该阶段只处理Plan所列26个`/Volumes/datasource/data_lake/silver/quote/etf_adj_factor/trade_date=<Plan日期>/part-000.parquet`目标，日期严格取冻结Plan，不自行展开其他日。重核总审计内容、原目标/候选指纹、原依据、同日无在途运行、挂载/可写/空间和同文件系统；逐日期完整核验后`os.replace`，读回一致才保存该日完成进度。准确进度文件为`/Volumes/datasource/data_lake_staging/etf_daily/operation_id=21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd/silver_etf_adj_factor/files.json`，阶段每日期前后检查取消，总预算30秒（含instance建立、核验、读回和checkpoint），1线程/256MiB/无spill。不写物化或检查事件，不改Raw/Basic或原42,900行。失败保留已完成文件/进度并停止；已提升且与候选等价时只读回，不重复替换，第三种内容停止。正式readiness在新事件/检查完成前仍应阻断，不将26文件替换等同最终完成。
+
+**本轮事件调用记录（已失败，禁止直接沿此调用重试）。** 本次在当前维护进程调用`stage("events")`一次，外层30秒从建立`daily_basic_event_instance(writable=True)`之前开始，包含最小job解析、26个固定日期的`has_dynamic_partition`只读预检、文件/原依据核验、新物化、真实检查、日志及进度；缺分区即停，不调用`add_dynamic_partitions`。解析只组合真实`silver_etf_adj_factor`、真实`silver_etf_adj_factor_checks`、现有因子job和其2个上游`AssetSpec`；不加载全局Definitions。将该真实job、写instance、同一prepared内容、受控`duckdb`/`lake_root`及只读storage传给现有`run_stage("events", plan_path=<上述固定Plan路径>, expected_plan_hash="21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd", approved=True, ...)`。该组合在真实检查启动时暴露下述错误，因此撤回“此instance可直接执行真实检查”的判断；不是全部26日事件执行通过。
+
+**准确失败原因与证据边界。** 复用的`daily_basic_event_instance`原用于runless事件/只读访问，其`InstanceRef.run_coordinator_data=None`。本机Dagster 1.13.26真正的in-process检查入口，在`InstanceConcurrencyContext → event_log_storage.get_pool_config() → instance.get_concurrency_config() → instance.run_coordinator`取运行协调器时抛出`Run coordinator not configured in instance ref`，资源初始化已成功但检查步骤尚未执行。这是本次把runless helper用于真实check run的接入错误，不是因子数据错误。原438项隔离测试没有覆盖这个正式helper与真实check run的组合，不能再引用这些测试证明该组合可执行。
+
+只按上述精确run_id、有界61条上限读回实际11条日志：6条`ASSET_CHECK_EVALUATION_PLANNED`、`PIPELINE_START`、`ENGINE_EVENT`、`RESOURCE_INIT_STARTED`、`RESOURCE_INIT_SUCCESS`、`PIPELINE_FAILURE`；没有`ASSET_CHECK_EVALUATION`。错误及堆栈保存在[本轮正式摘要](/private/tmp/etf_completion_formal_execution_20261023.json)的`stage_error`与`failed_run_diagnostics`中。未重试、未启动后续日期、未修改日志或progress。源代码调整、失败run之后如何产生新记录及相应测试，必须先落回原方案/LLD并审计；本段只记录阻断，不预先授权新增run或默认重试。
+
+现有维护实现先确认26日`files.json`全部完成，逐日重新审计已提升文件，追加或等价找回新物化；新target持久保存后才保存UUID和运行。真实job仅取`asset_selection=set()`及该因子的6个check subset，核对资产选择为空、检查集合恰6项后`execute_in_process`；不执行资产writer。每日期1个合并核验步骤产生6项真实ERROR/blocking结果，全部通过且绑定新target才保存完成；任一项失败即停止，保留实际失败，不换UUID自动重试。运行Plan tag、错绑/后续失败核对、仅latest 1找回和中断规则仍按§11.9.7/12。
+
+准确事件进度为`/Volumes/datasource/data_lake_staging/etf_daily/operation_id=21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd/silver_etf_adj_factor/events.json`。成功目标是26个新物化、26次真实检查运行、156项新检查结果及真实运行日志；旧物化/旧检查修改0、删除0，不登记其他资产，不触发sensor，不改已提升文件或Raw/Basic。仅本阶段使用写instance，其余前后阶段继续只读；Basic初始化后完整读取0，沿1线程/256MiB/无spill和原事件/恢复查询预算。每日期前后检查取消，文件/target/UUID各自既有checkpoint保留，失败不得领取下一日期。
+
+事件阶段全部通过后，在同一进程单独调用`stage("final-audit")`，用`daily_basic_event_instance(writable=False)`、同一Plan/hash/prepared内容和受控资源。准确报告路径为`/Volumes/datasource/data_lake_staging/etf_daily/operation_id=21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd/silver_etf_adj_factor/final-audit.json`；只读29日/58个Raw/Silver文件、16MiB、最多14次证据查询，外层30秒含只读instance初始化及报告写入，额外3日仍无检查/运行/事件。不把事件成功替代最终869条、旧行0变化和正确新事件绑定验收。
+
+**现有实现与调用方式。** 本次不改业务代码。临时调用脚本为`/private/tmp/etf_completion_operator_20261023.py`，仅编排现有`CompletionBasicCache`、`PreparedCompletionBasic`、`ReadonlyCompletionStorage`和`run_stage`，不重写选择、校验或写入业务逻辑。由`lake_console/orchestrator/.venv/bin/python -B -i /private/tmp/etf_completion_operator_20261023.py`启动一个本轮维护进程；启动只做下表元数据预检，`initialize_basic()`才读取Basic内容，之后通过`stage("plan")`等一次调用一个阶段。同一进程保留`prepared_basic`及上下文，摘要不包含Basic明细；完成后关闭storage/instance并删除临时调用脚本，保留执行摘要与现有进度文件。不是新增永久CLI、环境变量、缓存文件或后台服务。
+
+| 步骤 | 目标、输入和现有入口 | 读取/写入、预算及通过条件 |
+| --- | --- | --- |
+| 元数据预检 | 从§11.9.2的56代码上市日表与26日表构造`scope`；校验`validate_etf_factor_completion_scope(scope)`。以`ReadonlyCompletionStorage(Path("/Users/congming/.goldenshare/dagster_home"))`读取现有配置，仅连接只读event storage。26日原因子物化中的完整Basic reference按每批最多10日、共3批取得；最新Basic Raw/Silver各取latest 1，取得对应3项检查元数据 | 只读固定26日与上述Basic元数据、4个物理路径stat，不读因子Parquet、不读取Basic内容、不读10月21日因子文件、不初始化写instance或执行job。30秒内结束；scope必须为56/26/701，固定hash为`b42c991cbe1711316c48ad0782e9cb21d4b3944967013aa01c5288481400f76b`。元数据身份、引用、路径、检查绑定或两对上限不符即停，记录实际4路径和字节后才初始化 |
+| 本轮Basic初始化 | 使用受控`CompletionDuckDBResource`连接，`CompletionBasicCache(connection, lake_root, allow_full_read=True)`。旧版按一个代表reference调用`get()`完成该物理版本的完整核验；新版使用现有`audit_etf_basic_silver_snapshot`一次取得真实rows，以现有资格分类/hash和`build_etf_basic_silver_snapshot_reference`构造完整最新reference，再seed/get。其他日期reference逐个get核对各自日期资格，不再对同一物理版本完整核验 | 限预检确认的两对/4份Raw/Silver Basic；允许现有完整审计内部有限重复扫描，不将“一次调用完整审计”写成“文件绝对只扫描一次”，不为追求该说法修改共享审计。新版`eligibility_as_of=2026-10-21`是本次审计终点，观测时间使用latest元数据的真实时间，不能伪造成历史当日最新。初始化30秒、1线程、256MiB、无spill；所有完整合同、内容与资格校验通过后`PreparedCompletionBasic.from_cache(cache)`，再结束初始化连接 |
+| 后续同进程调用 | `stage(name)`将已有`prepared_basic`、同一scope/reference、只读storage、受控resource及Plan路径显式传给现有`run_stage`；后续连接通过`prepared_basic.seed_cache(..., references)`取得`allow_full_read=False`缓存 | 初始化之后，26次检查、续查和最后验收均复用已核验内存；错引用、错内容、对象丢失立即停止，不能静默调用完整读取。不得从JSON报告、临时导出或原审计会话补造内容。每阶段仍30秒；不把初始化成本从本轮记录中隐藏，也不把各阶段加总误称单阶段成本 |
+
+范围构造使用文档已review的字面表：`listing_dates`是56代码到上市日期的映射；`additions[day]`是该固定26日中上市日不晚于day的代码排序列表；同时逐行核对文档中的单日新增数与各代码新增数。不得从测试fixture或旧644条模拟JSON取得正式许可名单。固定hash校验失败即停，不改hash来适配现场。
+
+**固定路径及资源。** 正式根为`/Volumes/datasource/data_lake`，staging根为`/Volumes/datasource/data_lake_staging`。本轮Plan绝对路径确定为`/Volumes/datasource/data_lake_staging/etf_daily/etf_adj_factor_history_completion_20261023/plan.json`；受控DuckDB临时目录为同目录`duckdb_tmp/`。创建前检查根、祖先及目标均无符号链接，沿用现有staging边界和禁止spill规则。候选仍由现有代码写入`staging/etf_daily/operation_id=<真实plan_hash>/silver_etf_adj_factor/`，不改为Plan目录或正式Lake。只读storage读取上述固定home中的现有PG配置，不打印连接凭据。`plan`、`candidates`及`candidate-audit`不创建正式instance/job。
+
+本轮调用按原阶段逐步进行：`plan`冻结完整Plan后记录真实hash；`candidates`及`candidate-audit`只写和审计staging，并在独立总审计通过后进入`promote`。`promote`已通过现有`daily_basic_event_instance(writable=False)`取得只读正式instance；未来`final-audit`也仅只读。`events`本轮曾用该helper的`writable=True`，已暴露下述run coordinator缺失并失败，不能继续把它当作可执行真实检查的入口；修正及失败后处理尚待审清。禁止`DagsterInstance.get/from_config`或加载全局Definitions。检查job使用真实`silver_etf_adj_factor`、真实合并检查、现有job和2个上游`AssetSpec`做最小组合后`resolve_job_def`，资源仅传受控`duckdb`、`lake_root`以及现有检查所需`prepared_basic`；不创建永久job，不新增动态分区，已有分区有界核对缺失即停。具体Plan/候选/事件/最终报告与进度的真实hash、路径和逐步结果在各自产生后记录，不用占位值冒充已验收。
+
+**中断、续跑和最后验收。** 进程退出保留现有逐日checkpoint和已经完成的文件/事件；下次明确启动本任务维护进程，允许重新预检并加载这两对必要Basic，再按现有Plan/目标指纹及进度续查，不追踪旧Basic持有进程，不增加导出或共享服务。运行期间内容丢失仍立即停止，不能以“下一次可初始化”为由偷偷回退读取。UUID续查中确认旧维护进程退出的防重复启动规则继续适用。最后仅26变更日加10月19—21日共29日、58个Raw/Silver日期文件，16MiB、30秒、最多14次证据查询；额外3日只读既定56代码已有行及文件指纹，不触发检查/运行/事件，不查全量检查历史。各阶段延续1线程/256MiB/无spill与原恢复预算；不请求Tushare、不访问Prod、不改Raw/Basic、不重刷其他日期或代码。
+
+#### 11.9.18 首日执行接入错误的最小修正及已批准恢复
+
+**授权与实施状态：当前已完成。** 管理员明确同意本节最小修正并继续原任务，包含仅首日失败的人工恢复例外。1个现有helper修正及1份新增测试已完成，真实同构SDK隔离8项、纯人工进度恢复隔离通过；正式人工恢复、恢复后26日events及最后29日验收均已完成，实值见下文。失败事实、26份已提升文件、冻结Plan及原56/26/701范围保留；未重做Plan/候选/提升，未增加stage或自动重试机制。
+
+**首次失败时的状态与依据：** 当时26份Parquet已经按冻结Plan提升并读回，Plan为`21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd`；首日2026-09-03新物化7718242已保存，运行`eaa86d87-b837-4a2d-ad0b-fa6b1ffe1a71`失败，11条运行日志中有6条检查planned、实际evaluation为0，步骤未开始。仅按此run_id读取11条定位，未查其他历史。SDK1.13.26的`InstanceConcurrencyContext`即使步骤没有声明池，也会调用`get_pool_config→get_concurrency_config→instance.run_coordinator`；原helper实例及ref均没有coordinator，因此失败。这次将只适合读取/补事件的组合用于真实检查，是接入审计遗漏；后续修正不抹去该事实。
+
+**只读核对过的正式配置：** `InstanceRef.from_dir("/Users/congming/.goldenshare/dagster_home")`只解析配置描述，不构造storage或写schema。实际coordinator为`dagster._core.run_coordinator.QueuedRunCoordinator`，自身config为`{}`；并发配置为`{"runs":{"max_concurrent_runs":1},"pools":{"granularity":"run"}}`。不得塞入默认coordinator、清空并发限制或修改dagster.yaml来绕过错误。
+
+**具体开发位置与影响面。** 只修改`lake_console/orchestrator/src/orchestrator/defs/bootstrap/daily_basic_event_instance.py`，新增`lake_console/orchestrator/tests/test_etf_adj_factor_completion_instance.py`；不另建实例体系，不修改共享运行/检查/文件生成业务规则。当前源码调用方只有`defs/bootstrap/daily_basic_history_cli.py`的`daily_basic_event_instance(writable=writable)`和`moneyflow_continuation_cli.py`的无参数调用；两者保持原行为。本任务临时`/private/tmp/etf_completion_operator_20261023.py`只在events阶段调整调用，仍编排既有stage，不成为新永久入口。
+
+| 内部参数或输入 | 默认值、来源、消费者及依赖 | 实现与禁止项 | 验收要求 |
+| --- | --- | --- | --- |
+| `for_execution` | 现有helper新增仅关键字内部参数，默认`False`，无env/配置文件/数据库/CLI输入；仅本次events调用显式传`True`，依赖`writable=True` | `for_execution=True, writable=False`在构造storage及任何正式读写之前拒绝。默认False沿用原helper，不解析/接入coordinator；两个既有源码调用方不修改 | 默认读取/runless模式行为不变；readonly与execution组合反例实际拒绝，不以mock提前返回替代 |
+| 正式coordinator描述与concurrency | execution模式用`InstanceRef.from_dir(str(INSTANCE_HOME))`只读解析已有正式配置描述；`run_coordinator_data`必须存在。若正式settings含`concurrency`，完整deepcopy；若合法省略该可选section，保持省略并沿SDK默认。本轮实际有配置：QueuedRunCoordinator、空组件config，concurrency为runs上限1及pools按run | 只复制实际存在的这两部分到受控ref；settings保留本helper的`telemetry.enabled=False`，不复制run_monitoring等其他settings；不复制launcher、scheduler或自动构造storage，不改正式dagster.yaml。不填默认coordinator，不缩减原并发限制；合法省略concurrency时不塞空设置、不误拦 | ref和最终instance使用同一settings；`get_concurrency_config()`与`event_log_storage.get_pool_config()`保留原配置/合法缺省语义；仅缺coordinator描述或非法配置抛错，不静默兜底 |
+| 现有受控PG storage和实例 | 正式home、localhost/正式库身份、SQL超时、只读/写模式及artifact检查继续复用原实现；显式构造event/run storage | 两者仍`should_autocreate_tables=False`；保持无launcher、无scheduler，不调用`DagsterInstance.from_ref/get/from_config`。只有解析ref，不实例化其其他storage；不生成另一套配置或服务 | spy核对两处False及构造参数；真实SDK执行检查时不得提交launcher、触发writer或DDL |
+
+在同一helper中，先拒绝非法参数组合，完成既有正式配置/路径/库身份检查；execution模式再读取所需ref描述，构建包含正式`run_coordinator_data`和上述settings的受控ref。最终`DagsterInstance`与ref使用相同settings，并让instance按该ref获取正式coordinator组件；不把完整正式ref交给会自行构造其storage的入口。实例的显式storage、关闭顺序及临时资源清理沿用现有`ExitStack`。新增参数不是用户/运营可调配置，也不授权其他现有调用改成真实执行。
+
+**测试位置、输入依据与真实边界。** 新测试使用真实`daily_basic_event_instance`函数和本机真实Dagster SDK；本任务临时artifact及SQLite只替代正式PG连接/存储，显式说明不证明正式PG成本。测试fixture来自上述已只读确认的正式配置描述合同：QueuedRunCoordinator组件config为空，完整concurrency为`{"runs":{"max_concurrent_runs":1},"pools":{"granularity":"run"}}`，telemetry关闭；不读正式home或凭据，不连网络，不安装依赖。关键预期用独立字面值，不从helper计算expected。PG构造替身同时spy确认生产构造明确传`should_autocreate_tables=False`；临时SQLite建立测试表不等于正式PG自动DDL，测试报告须区分两者。
+
+新增测试逐项证明：原默认模式构造的真实SDK运行在检查step之前因缺coordinator失败，六项evaluation为0，能复现本次错误；execution模式通过同一真实helper构造后实际运行六项检查，六项均执行/通过，不换成另一种测试instance；ref与instance的现有concurrency完整deepcopy且修改输入不会串改输出，telemetry仍关闭，其他settings/launcher未复制；另用合法省略concurrency的正常样本，证明保留省略、可沿SDK默认取得并发配置，不误拒绝或人为增加空section；缺coordinator作为独立反例拒绝。`for_execution=True`配只读拒绝；原默认False的读取和runless行为仍通过必要回归。执行时监视禁止的网络/正式路径、storage构造、DDL、launcher及writer，不能仅断言API签名。测试可用独立小check样本验证真实执行边界，明确它不重复声称全26日生产检查已经通过；六项数据判断已有专项回归继续有效。原失败run和异常恢复通过现有progress/执行函数的隔离小样本核对：原失败记录不变、原target复用、仅首日当前UUID退役后真实新UUID正常保存并运行，其他25日不受影响；不将FAILED改为SUCCESS，不用`previous_process_exited=True`绕过失败。
+
+新隔离片段预算30秒，仍用现有受保护测试启动方式、临时资源与已有解释器；不读正式config/Basic/Lake/instance。超时或任何上述边界未证明就停止，不能以新测试数量代替真实helper组合的验证。开发完成后先核对该helper、测试及本节硬口径一致，再允许临时调用者events使用`daily_basic_event_instance(writable=True, for_execution=True)`。`promote`/`final-audit`及两个原调用方继续默认False，不新增阶段、数据范围或并发开关。
+
+**helper修正及真实同构SDK隔离结果（已通过）。** 源码已按本节实施，新增测试8项通过，pytest耗时1.51秒；保护执行整段1.767893秒，低于30秒。真实旧默认模式精确复现检查step前缺coordinator失败、evaluation为0；新execution模式由同一真实helper构造，六项真实check运行后从临时SQLite读回，全部通过且绑定同一个真实target。QueuedRunCoordinator与原有runs上限1/pools按run配置、合法省略concurrency的SDK默认行为均通过；默认两个caller仍不接入执行配置，readonly+execution拒绝，storage构造的`should_autocreate_tables=False`已spy核对，未使用launcher或writer。Ruff与差异空白检查通过。
+
+该片段只用临时SQLite替代PG存储，不声称证明正式PG性能；未读正式config/Basic/Lake/instance或访问网络。保护器记录1次标准库`platform.architecture`试图通过`file`探查解释器，已被阻止、未启动子进程；此为标准库环境探查，不是Dagster launcher调用，不能把它隐去或说成成功启动。临时保护执行脚本已删除，结果保留在[保护执行摘要](/private/tmp/etf-instance-tests-20261023-gxe2yw5q/allowed/result.json)及同目录`pytest.log`。这组证据补齐本次真实helper与SDK的接入边界，仍不代表正式26日事件已成功。
+
+**人工进度恢复的隔离结果（已通过，仅文件步骤）。** [独立验证摘要](/private/tmp/etf_manual_recovery_validation_20261023.json)记录耗时0.019520秒：只以AST提取4个具名纯函数及现有原子文件保存调用，不导入整个临时operator；输入及输出文件均在`/private/tmp`，禁止外部访问，未接触正式资源。真实执行两次原子保存，证明先保留失败依据，再退役首日当前UUID；原输入对象、首日target/hash及其他25个日期键均不变。9类反例均拒绝：错Plan、run、target、文件hash或日期，已通过、当前UUID缺失、授权依据缺失、已经记录恢复。第一次保存失败时原文件不变并停止；第二次保存失败时已持久保存恢复依据及旧UUID，不会留下“编号已删、依据没存”的状态。
+
+该证据只覆盖纯进度内容构造及现有文件原子保存，不涉及真实DB、run、Parquet、helper真实SDK组合或外层正式恢复调用；不能据此开始正式恢复。仍须等待本节helper真实SDK集成通过，再执行授权范围内的正式动作。
+
+**仅此失败的人工恢复（已获明确授权，开发/隔离通过后才执行）：** 保留原失败run状态、日志及6条planned；不删除、不改成功、不补造evaluation。只对上述真实hash目录现有`events.json`执行一次有界调整：先将旧UUID、日期2026-09-03、Plan hash、target7718242、文件hash、11日志/0结果及本次管理员明确同意的依据写入首日已有进度的恢复记录，原子保存成功后，再仅对该首日调用`pop("run_id")`并原子保存；target、content_hash及其他已有键全部保留，其他25日进度不变。不先清编号再补恢复依据；写失败立即停止，不领下一动作。此记录不是新数据表、缓存文件或自动重试功能。
+
+准确人工恢复入口为临时调用者的`recover_startup_failure()`，仅处理日期`2026-09-03`、Plan hash `21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd`、target7718242和失败run `eaa86d87-b837-4a2d-ad0b-fa6b1ffe1a71`；不能由任意日期/run参数扩大恢复范围。重新加载修正helper及caller后先按冻结Plan恢复输入并核对上述实值，确认失败状态、11日志/0结果、文件hash及首日保存的target一致，实际验证execution实例`get_concurrency_config/get_pool_config`可用，再完成两次原子保存。外层仍30秒，任何核对/保存失败即停，不追加物化或运行。
+
+该人工恢复返回成功后，当前维护调用者用`daily_basic_event_instance(writable=True, for_execution=True)`仅一次调用既有`stage("events")`继续。现有`execute_completion_checks`正常生成新UUID，先原子保存再创建真实run；首日`ensure_completion_materialization`必须复用7718242，不重复追加。已有失败编号不得传给`execute_in_process`当续跑，不误用`previous_process_exited=True`——该选项只用于编号查无，与本次已存在的FAILURE无关。除已批准这一次首日接入异常恢复，任何后续失败仍按原规则停止，不增加自动重试循环；人工恢复已完成，但26日新事件完成及最终验收仍未记录成功。
+
+**正式人工恢复结果（已完成，尚未新增运行）。** `recover_startup_failure()`耗时0.122019秒。修正helper在正式既有PG实例实际读取`get_concurrency_config/get_pool_config`通过，runs上限1、pools按run均保留；旧run仍为FAILURE，其Plan/date正确，无同日在途运行，按latest 1取得首日target7718242及metadata与冻结Plan/保存进度一致。先保存完整失败恢复依据，再仅退役旧UUID，两次原子保存成功，target/hash及其他已有键保留，未修改旧run或其11条日志，新增正式事件0、run 0。实绩在[本轮执行摘要](/private/tmp/etf_completion_formal_execution_20261023.json)的`manual_recovery`；修正helper的SHA-256为`55986edfaba51e24eaeb7c6b84441f3fa02cfa44ac2e4bfb8acc3f552976c0e8`。
+
+下一调用是在同一维护进程执行`stage("events")`一次，继续原固定26日，包括复用首日target后用正常流程生成新UUID，以及其余25日。外层30秒包含实例/并发预检、job解析、26分区有界核对、真实检查及进度，不重新写Parquet、不新增首日物化、不跳过原检查或最终验收。
+
+**恢复输入与预算：** 使用已冻结Plan及其`original_metadata`恢复20个原日期引用和42,900行依据，不从当下latest物化重建“原42,900”基线；首日最新已是1651行，不能误当原1650行再报漂移。恢复冷启动首先读上述已冻结Plan并校核固定scope/hash，再取其`original_metadata`；不使用§11.9.17首次Plan前“26日当前latest作为原文件”的准备分支。新维护进程按§11.9.17的受控初始化方法，只重新加载此Plan冻结的旧版与新版两对Basic，不改绑恢复时的其他latest，不找旧进程，不重新生成Plan/候选或重写已提升文件。继续核对文件进度及实际target。额外允许的正式变化仅为首日一个新检查run，其余25日的25个物化/25run/150结果仍属原范围；成功后共26个新物化、156项通过结果，另保留1次启动失败，合计27次run。正常702条日志加已发生11条，目标为713条；2MiB预算不因本次错误自动放宽，正式日志不另做全局收集。恢复前先证明成本有界；事件/续查与最后验收各30秒不变，最后仍29日/58文件/16MiB/最多14次证据查询，任何后续失败停止说明。
+
+**恢复后events实绩（已完成）。** 同一维护进程一次调用既有`stage("events")`通过，外层完整耗时28.080222秒，包含instance建立、最小job解析、26已有分区及并发配置预检、逐日文件/依据审计、新物化、真实检查和checkpoint，未放宽30秒预算。26/26日期均完成，156项实际evaluation由原函数逐日核对run SUCCESS、正确target及最新六项全部通过；不是只有planned。首日继续复用target7718242，没有再追加首日物化。全本次成功目标为26个新物化、26次成功run、156项通过结果，另保留原1次失败run及11日志；合计27个run，不删除或改写旧记录。
+
+失败信息保留在执行摘要的`prior_stage_errors`，原首日失败run仍存在；`events`正式stage现为passed，`events.json`继续保存同Plan下的人工恢复依据及逐日target/hash/run_id。随后已按原清单在同进程单独执行`stage("final-audit")`：只读instance、29日/58个Raw/Silver日期文件、16MiB、最多14次证据查询，外层30秒包含instance与报告保存，不新增run/物化/检查；完成结果见下段，不用events成功替代最终869条及旧行零变化验收。
+
+**最后正式验收与当前结案。** 同一维护进程单独执行既有`stage("final-audit")`通过，外层6.488283秒（报告内文件/证据核验6473.561毫秒），使用只读instance，无新run/物化/检查。实际29日、58个不同Raw/Silver日期文件、900,702字节、8次证据查询，分别低于16MiB和14次上限；58是不同文件数，不据此改称已测得58次扫描。26日完整文件/原行/701新增及新事件绑定通过；额外10月19—21日已有168条及文件指纹通过，额外3日未运行检查或写事件。目标范围869条齐全，补后26文件总43,601行、新增701、修改0、删除0，原42,900行及512390保留。
+
+26日进度均`checks_passed=True`、26个唯一成功run、156项通过结果；首日target仍7718242，成功新run为`4181af4f-0587-4b98-87e1-57d2785725e0`。旧失败run `eaa86d87-b837-4a2d-ad0b-fa6b1ffe1a71`及11日志保留，总27run，不删改旧记录。713条日志为本节既定门禁目标，未为凑数全局收集正式日志；不将其写成已逐条统计的PG物理成本。
+
+| 本轮完成阶段 | 实际外层耗时（秒） | 预算与范围结果 |
+| --- | ---: | --- |
+| Plan | 7.238582 | 26日固定范围及原依据核验通过 |
+| candidates | 7.986150 | 26份staging、701新增通过 |
+| candidate-audit | 6.602533 | 26份总审计，0修改/删除；另独立只读报告review通过 |
+| promote | 7.949846 | 26/26文件原子提升、逐份读回/checkpoint |
+| 恢复后events | 28.080222 | 26成功run、156结果；含instance/job/分区/并发预检，首日target复用 |
+| final-audit | 6.488283 | 29日/58文件/8查询/900702字节，869目标行及原行零变化通过 |
+
+六个完成阶段分别小于原30秒，未增加线程、内存、spill、读取日期或写入范围；首次events失败1.605481秒、开发修正/隔离及人工恢复0.122019秒另列，不冒充全流程一次成功或总计30秒。只修改26份指定Silver并追加获批事件/运行，Tushare请求、Prod访问、sensor状态/分区修改均0；未全湖复查，不重刷其他代码或日期。准确最终报告为`/Volumes/datasource/data_lake_staging/etf_daily/operation_id=21d8bb72f606be1b26f1b1526ab37c6c795d17c988038c7ff16d1f21a2dbebdd/silver_etf_adj_factor/final-audit.json`，实值与各产物指纹保存在[本轮执行摘要](/private/tmp/etf_completion_formal_execution_20261023.json)的`final_report`、`events_summary`及`artifacts`，总体`status=complete`。本任务已完成，不保留额外补齐/检查为待执行动作；首次失败及恢复历史继续保留。
+
+**独立复核及收尾：** 完整正式报告已由独立子代理`review_run_gap`复核，各阶段、固定范围、原行0改删、26新物化/26成功run/156结果、失败保留和最终29日验收均对账通过。维护storage已关闭，进程exit code为0，临时operator已删除；摘要`maintenance_cleanup`记录`storage_closed=true`、`process_exit_code=0`、`operator_removed=true`，仅保留摘要及现有staging Plan/报告/checkpoint，不留下执行服务。两份本次源码Ruff/check/format通过；测试最后仅3行格式换行，AST一致，原8项测试证据有效，CodeGraph已同步到当前源码。该收尾不新增正式查询、补数或运行，不清理其他任务文件。
 
 ## 12. Readiness
 
@@ -1244,7 +1441,7 @@ class EtfDailyBatchReadiness:
 
 ### 12.2 批量算法
 
-输入最多 10 个日期，一次完成。普通文件使用以下物理审计；符合 §11.8 的未改动补值文件另按同节核对原验收。§11.9设计已确认，当前开发与隔离验收见§11.9.14，正式执行未进行；完成指定追加的文件必须先按 §11.9 核对原有行和新增行，再判断 ready，不能把整份文件套回旧指纹检查，也不能继续调用补值解析器。本次维护的最后验收及必要续查还须按§11.9.12显式传入已核验Basic内容，每批独立连接seed，缺失即停；日常调用默认行为不变：
+输入最多10个日期，一次完成。普通文件使用以下物理审计；符合§11.8的未改动补值文件另核对原验收。§11.9开发/隔离验收见§11.9.14，正式完成结果见§11.9.18；完成指定追加的文件必须先核对原有行和新增行，再判断ready，不能把整份文件套回旧指纹或调用补值解析器。本次维护最后验收及必要续查按§11.9.12显式传入已核验Basic，每批独立连接seed，缺失即停；日常默认行为不变：
 
 1. 对目标 asset 一次批量读取这些 partition 的最新 materialization evidence；禁止每日期一次 event 查询。
 2. 用一个 DuckDB 连接检查目标文件存在性、schema、日期、主键和数据集 blocking 规则。
