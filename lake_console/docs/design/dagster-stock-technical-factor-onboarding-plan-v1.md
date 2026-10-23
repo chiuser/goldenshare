@@ -235,7 +235,7 @@ Raw 完整保留来源返回的业务行，包括历史退市股票；Silver 本
 
 ```python
 from orchestrator.tushare_download import (
-    DownloadMode, DownloadTask, TimeRange, TushareDownloader,
+    DownloadMode, DownloadStatus, DownloadTask, TimeRange, TushareDownloader,
 )
 
 daily_task = DownloadTask(
@@ -252,15 +252,25 @@ history_task = DownloadTask(
 )
 
 
-def download_and_save(task, save_unit, *, control=None, on_progress=None):
+def download_and_save(task, save_unit, *, expected_unit_count,
+                      control=None, on_progress=None):
     downloader = TushareDownloader.load()
     session = downloader.download(task, control=control, on_progress=on_progress)
     with session:
         for result in session:
-            save_unit(result)        # 业务校验、候选落盘及提交，不放进进度回调
+            save_unit(result)        # 仅业务校验、源候选落盘/读回，不发布正式文件
             del result
-    return session.summary
+    summary = session.summary       # 正常退出with，关闭成功后才判断阶段完整
+    if (summary.status != DownloadStatus.SUCCEEDED
+            or not summary.download_complete
+            or summary.total_units != expected_unit_count
+            or summary.completed_units != expected_unit_count
+            or summary.delivered_units != expected_unit_count):
+        raise ValueError("下载会话未成功完成，不能记录源完整或发布正式文件")
+    return summary
 ```
+
+`expected_unit_count`由本次已核验任务范围得出，不是运营配置；上述两个例子均为1。下载期间只保存完整unit源候选，正常退出with后再核最终summary及源清单/行数，才保存source-complete并进入正式发布。关闭失败、STOPPED/CANCELLED/FAILED不能因unit已全部交付就放行；阶段失败仍按§9重新下载。日期传给下载器时统一使用ISO字符串，业务记录中的日期类型按本地合同转换。
 
 无分类展开时，daily_task 的一个 unit 是该交易日全市场完整结果；history_task 的一个 unit 是该股票在所给整个窗口的完整结果，不是每天一次。示例短窗口仅说明输入，实际历史更新仍须覆盖 §8 确认的全部历史，由业务安排连续、有界且不遗漏的窗口。
 
@@ -335,7 +345,7 @@ bootstrap 只读 Prod 的批准历史；完成初始化验收及另行启用批�
 
 1. 开始时核对目标日T、执行日期D、计划时点、截止时间、注册日期及唯一写入条件；再次确认股票复权因子Raw T/P已就绪，读取实际比较输入。
 2. **在任何技术因子请求前**生成并完整保存目标T的变化名单、对应T/P值、各股原历史范围、无法判断范围及输入依据。同T输入未变可以核验后使用已有完整名单；输入变更则保存新依据，并保留以前尚未完成的原范围。名单是业务依据，不属于重试时弃用的下载候选。
-3. 每轮以及失败后的日更重执行，都以BY_POINT重新请求原T的全部网络页。完整unit才交业务；业务错误不触发组件源重试。每次执行只使用本run新下载源构建候选。自动入口五字段、准确层级、parent/root核对及截止规则见LLD§2.4。
+3. 每轮以及失败后的日更重执行，都以BY_POINT重新请求原T的全部网络页。完整unit才交业务；业务错误不触发组件源重试。仅源候选在循环内保存；正常退出下载with、会话最终成功且本轮全部unit/行数对账通过后才记源完整、进入发布。每次执行只使用本run新下载源构建候选。自动入口五字段、准确层级、parent/root核对及截止规则见LLD§2.4。
 4. 检查字段、日期、主键、类型及源/保存对账。将新源按主键合入当前T Raw，未返回旧行保留；校验、发布并读回Raw T。直接从这份合并后的Raw全部业务行生成Silver T，日期转DATE，校验并发布Silver T。这里“完整Raw”指合并后的文件，股票是否齐备另算；日数据没有最低股票数、比例或全历史完成门槛。
 5. **以已发布Raw T计算历史前置。**应有集合为T上市A股扣除确认全天停牌股票；必须有真实覆盖依据且缺失代码集合为空。Raw不齐或覆盖未知时，记录缺失及历史待处理，结束本轮历史步骤：不下载、不合并、不提升任何历史文件，也不先处理名单中已到的股票。Raw齐备且日Silver必要检查通过后，才进入下一步。全天停牌缺T行不会造成应有集合缺失，仍可处理原名单内该股d<T历史；盘中停牌不扣除。
 6. 核对完整变化名单内本次尚待处理的原范围，以及相应当前T/P输入；个股缺比较值仍明确待处理，不伪造无变化。同股票、基准、范围、契约及处理规则此前**整批成功发布并读回有效**的历史可排除；某失败批次即使已发布一部分，其原完整范围仍作为整体重试，不据中间文件缩小范围。技术源同名adj_factor不同只记录差异，不阻断，也不改源业务值。
@@ -540,6 +550,8 @@ Raw/Silver 分区 checks 必须显式使用与资产相同的 `partitions_def`�
 夹具来自已核对的源字段、Prod schema 和有界真实样本。预期结果用独立可人工核算样本，不能用被测函数生成 expected。真实接入验收须分别记录源返回、归一化、拒绝、目标行数，mock 通过不能代替真实边界。
 
 组件既有隔离测试按其原验收记录保留，不在本数据集重新立项开发六种模式。新增回归重点是：源数据集名可登记/查找；独立 version 与内容变化仍影响比较及 unit 身份；同名重复登记仍拒绝；完整 261 字段及所用两种模式；固定 HTTP 登记及有界真实边界；假定分页的正常与失败终点。名称变更时同步全部受影响夹具和测试，不靠保留旧名别名通过。
+
+下载收尾回归须覆盖：本地date先转ISO字符串后才能通过组件输入校验；unit全部交付但关闭抛1304，或summary未成功、数量不符时，不记源完整、不正式发布。多窗口逐session核验各任务子范围，全部任务成功且覆盖完整阶段范围才记阶段完整。预检未下载及首次合法空结果不伪造check；历史物化先yield持久化，再绑定真实记录yield检查。管理员明确重新执行可处理已用自动Q机会或永久失败的原目标，但不恢复自动机会。
 
 存储边界还须证明：相同完整契约可由不同业务调用方选择本工程允许的正式目标和写入方式，无需改变下载配置；下载器不触碰正式数据库或文件。分别覆盖unit内部部分页成功但unit失败、完整unit已交付但业务未提交、全部下载结束但发布失败、提交后状态写失败和接收不明；业务失败停止后续下载而不触发源重试，已提交数据保留。合法NULL与负指标必须有可写入正例，不能只测试错误被拒绝。
 
