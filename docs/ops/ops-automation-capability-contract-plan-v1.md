@@ -148,3 +148,7 @@ Scheduler 单轮实际先处理到期 schedule，再运行 probe；不能将业�
 前端入口：`frontend/src/pages/ops-v21-task-auto-tab.tsx` 及同名测试；API 模型：`src/ops/schemas/catalog.py`；只读 CLI：`src/cli_parts/ops_handlers.py`。页面回归仍覆盖 workflow 无 probe/source、直接 index_daily 有 probe、margin_detail 固定约束、纯 probe 与 fallback 显示差异。
 
 本轮仅做文档整合与静态核验；没有运行以上数据库/浏览器测试、生产预检、探测或调度，不改变架构依赖和运行行为。
+
+## 2026-10-24 周线执行计划故障修复
+
+管理员要求修复本次来源不一致，且明确只纠正周线执行计划、不影响其他数据集。Ops任务来源scheduled在交给foundation周线计划时转换为schedule；TaskRun、查询、前端、新闻任务和公共调度保持现行行为。创建冻结、preflight及worker共用转换；foundation业务合同、事务、续跑和预算不变。不执行上文8月修订、DG搬运或22/23历史行情补数。方案/LLD、性能、测试、发布边界和实际状态见[周线修复方案与LLD](/Users/congming/github/goldenshare/docs/ops/ops-scheduler-failure-recovery-plan-and-low-level-design-v1.md)。

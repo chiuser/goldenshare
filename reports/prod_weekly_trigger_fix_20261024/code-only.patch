@@ -1,0 +1,65 @@
+diff --git a/src/ops/runtime/task_run_dispatcher.py b/src/ops/runtime/task_run_dispatcher.py
+index d71ccedbe..5b776d9a1 100644
+--- a/src/ops/runtime/task_run_dispatcher.py
++++ b/src/ops/runtime/task_run_dispatcher.py
+@@ -23,6 +23,7 @@ from src.foundation.ingestion.service import DatasetMaintainService
+ from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
+ from src.foundation.models.core.trade_calendar import TradeCalendar
+ from src.ops.models.ops.task_run import TaskRun
++from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
+ from src.ops.models.ops.task_run_issue import TaskRunIssue
+ from src.ops.models.ops.task_run_node import TaskRunNode
+ from src.ops.contracts.external_task import ExternalTaskExecutor
+@@ -1010,7 +1011,7 @@ class TaskRunDispatcher:
+                 date_field=self._optional_text(time_payload.get("date_field")),
+             ),
+             filters=filters,
+-            trigger_source=task_run.trigger_source,
++            trigger_source=dataset_action_trigger_source(resource_key, task_run.trigger_source),
+             requested_by_user_id=task_run.requested_by_user_id,
+             schedule_id=task_run.schedule_id,
+             run_id=task_run.id,
+diff --git a/src/ops/services/task_run_service.py b/src/ops/services/task_run_service.py
+index d8401eb72..f33a875c7 100644
+--- a/src/ops/services/task_run_service.py
++++ b/src/ops/services/task_run_service.py
+@@ -25,6 +25,7 @@ from src.ops.action_catalog import (
+ )
+ from src.ops.models.ops.schedule import OpsSchedule
+ from src.ops.models.ops.task_run import TaskRun
++from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
+ from src.ops.contracts.external_task import ExternalTaskDefinition
+ from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
+ from src.ops.services.ingestion_error_presentation import present_ingestion_error
+@@ -317,7 +318,9 @@ class TaskRunCommandService:
+         request = DatasetActionRequest(dataset_key=context.resource_key, action=context.action,
+             time_input=DatasetTimeInput(**{k:TaskRunCommandService._optional_date(v)
+                 if k in {'trade_date','ann_date','start_date','end_date'} else v for k,v in time_input.items()}),
+-            filters=dict(context.filters), trigger_source=context.trigger_source, execution_context=previous)
++            filters=dict(context.filters),
++            trigger_source=dataset_action_trigger_source(context.resource_key, context.trigger_source),
++            execution_context=previous)
+         try:
+             plan = DatasetActionResolver(session).build_plan(request)
+         except (IngestionError, WeeklyAdjContractError) as exc:
+@@ -429,7 +432,7 @@ class TaskRunCommandService:
+                 date_field=TaskRunCommandService._optional_text(time_input.get("date_field")),
+             ),
+             filters=dict(context.filters or {}),
+-            trigger_source=context.trigger_source,
++            trigger_source=dataset_action_trigger_source(context.resource_key, context.trigger_source),
+             requested_by_user_id=context.requested_by_user_id,
+         )
+         DatasetActionResolver(session).build_plan(request)
+--- /dev/null
++++ b/src/ops/services/dataset_action_request_adapter.py
+@@ -0,0 +1,9 @@
++"""Translate Ops task intent into the existing named weekly ingestion contract."""
++from src.foundation.datasets.stock_weekly_adj_contracts import DATASET_KEY
++
++
++def dataset_action_trigger_source(dataset_key: str, trigger_source: str) -> str:
++    """Keep Ops 'scheduled' in TaskRun; weekly ingestion expects 'schedule'."""
++    if dataset_key == DATASET_KEY and trigger_source == "scheduled":
++        return "schedule"
++    return trigger_source

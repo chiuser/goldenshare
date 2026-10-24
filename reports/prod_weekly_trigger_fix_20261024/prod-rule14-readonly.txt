@@ -1,0 +1,8 @@
+BEGIN
+SET
+ id |            target_key            | schedule_type | cron_expr  |   timezone    |        calendar_policy         |                                                   params_json
+----+----------------------------------+---------------+------------+---------------+--------------------------------+------------------------------------------------------------------------------------------------------------------
+ 14 | stk_period_bar_adj_week.maintain | cron          | 4 22 * * * | Asia/Shanghai | latest_completed_calendar_week | {"dataset_key": "stk_period_bar_adj_week", "action": "maintain", "time_input": {"mode": "point"}, "filters": {}}
+(1 row)
+
+ROLLBACK

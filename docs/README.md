@@ -107,6 +107,7 @@ docs/
 - [Ops 任务完成后处理 Worker 运行契约（刷新、条件审计、通知及失败边界）](/Users/congming/github/goldenshare/docs/ops/ops-task-completion-side-effect-worker-plan-v1.md)
 - [Ops 自动任务日期策略 v1（现行七种策略与日期传导）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
 - [Ops 自动任务能力契约 v1（已合并 LLD；P5 生产迁移验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)
+- [Prod周线执行计划故障修复方案与LLD（2026-10-24）](/Users/congming/github/goldenshare/docs/ops/ops-scheduler-failure-recovery-plan-and-low-level-design-v1.md)
 - [Ops 新闻日内高频自动任务方案 v1（已实现并结案，2026-09-01）](/Users/congming/github/goldenshare/docs/ops/ops-intraday-news-high-frequency-schedule-plan-v1.md)
 - [Ops 数据集展示目录 v1（现行来源与消费边界；分组最终确认待核实）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [Ops Biz 数据集投影契约 v1（合并一期与 LLD；部署验收待核实）](/Users/congming/github/goldenshare/docs/ops/ops-biz-dataset-auto-projection-plan-v1.md)

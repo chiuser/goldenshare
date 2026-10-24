@@ -23,6 +23,7 @@ from src.foundation.ingestion.service import DatasetMaintainService
 from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.contracts.external_task import ExternalTaskExecutor
@@ -1010,7 +1011,7 @@ class TaskRunDispatcher:
                 date_field=self._optional_text(time_payload.get("date_field")),
             ),
             filters=filters,
-            trigger_source=task_run.trigger_source,
+            trigger_source=dataset_action_trigger_source(resource_key, task_run.trigger_source),
             requested_by_user_id=task_run.requested_by_user_id,
             schedule_id=task_run.schedule_id,
             run_id=task_run.id,

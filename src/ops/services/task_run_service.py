@@ -25,6 +25,7 @@ from src.ops.action_catalog import (
 )
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
 from src.ops.contracts.external_task import ExternalTaskDefinition
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 from src.ops.services.ingestion_error_presentation import present_ingestion_error
@@ -317,7 +318,9 @@ class TaskRunCommandService:
         request = DatasetActionRequest(dataset_key=context.resource_key, action=context.action,
             time_input=DatasetTimeInput(**{k:TaskRunCommandService._optional_date(v)
                 if k in {'trade_date','ann_date','start_date','end_date'} else v for k,v in time_input.items()}),
-            filters=dict(context.filters), trigger_source=context.trigger_source, execution_context=previous)
+            filters=dict(context.filters),
+            trigger_source=dataset_action_trigger_source(context.resource_key, context.trigger_source),
+            execution_context=previous)
         try:
             plan = DatasetActionResolver(session).build_plan(request)
         except (IngestionError, WeeklyAdjContractError) as exc:
@@ -429,7 +432,7 @@ class TaskRunCommandService:
                 date_field=TaskRunCommandService._optional_text(time_input.get("date_field")),
             ),
             filters=dict(context.filters or {}),
-            trigger_source=context.trigger_source,
+            trigger_source=dataset_action_trigger_source(context.resource_key, context.trigger_source),
             requested_by_user_id=context.requested_by_user_id,
         )
         DatasetActionResolver(session).build_plan(request)

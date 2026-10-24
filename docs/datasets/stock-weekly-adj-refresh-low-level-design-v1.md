@@ -133,3 +133,7 @@ DG已完成三个重复数据集根及活动入口清退；新直接源bootstrap
 <a id="weekly-prod-run15378"></a>
 <a id="weekly-delivery-anchor-correction"></a>
 历史索引：P0/D0来源/容量评审、P1协议/迁移、P2执行及真实小样本、日期误判修正、内存typed-JSON优化、15378进程观察和实际输入anchor修正均已发生；不再保留互相覆盖的“待部署/原批运行中”正文。精确提交/失败日志保留在Git历史，必要运行合同已合入本文，未完成的真实新批/Silver/8月修订仍按当前主方案独立验收。
+
+## 2026-10-24 周线执行计划故障修复
+
+管理员要求修复本次来源不一致，且明确只纠正周线执行计划、不影响其他数据集。Ops任务来源scheduled在交给foundation周线计划时转换为schedule；TaskRun、查询、前端、新闻任务和公共调度保持现行行为。创建冻结、preflight及worker共用转换；foundation业务合同、事务、续跑和预算不变。不执行上文8月修订、DG搬运或22/23历史行情补数。方案/LLD、性能、测试、发布边界和实际状态见[周线修复方案与LLD](/Users/congming/github/goldenshare/docs/ops/ops-scheduler-failure-recovery-plan-and-low-level-design-v1.md)。

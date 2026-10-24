@@ -34,3 +34,7 @@
 Prod最小验收：请求参数/新码正确，源完整页、Raw/Serving业务键与完整行一致，范围外不变，已提交可恢复，TaskRun和节点终态一致，观测失败不回滚业务。新共享合同或配置变更先审计所有消费者与模板，不恢复旧worker lane或增加通用状态机。
 
 DG和Prod各自保留真实执行证据，不互相冒充完成；先完成DG周/月Raw与Silver，再单独确认本Prod待办及其他后置任务，不默认沿用旧修复流程。详细历史从Git及日期报告追溯，不作日常运行依赖。
+
+## 2026-10-24 周线执行计划故障修复
+
+管理员要求修复本次来源不一致，且明确只纠正周线执行计划、不影响其他数据集。Ops任务来源scheduled在交给foundation周线计划时转换为schedule；TaskRun、查询、前端、新闻任务和公共调度保持现行行为。创建冻结、preflight及worker共用转换；foundation业务合同、事务、续跑和预算不变。不执行上文8月修订、DG搬运或22/23历史行情补数。方案/LLD、性能、测试、发布边界和实际状态见[周线修复方案与LLD](/Users/congming/github/goldenshare/docs/ops/ops-scheduler-failure-recovery-plan-and-low-level-design-v1.md)。
