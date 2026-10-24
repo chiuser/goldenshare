@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>技术指标计算内核 · 代码级LLD v1</title><style>
 :root{--ink:#152d3b;--muted:#58717d;--line:#dce5e9;--blue:#315f80;--bg:#eff4f5;--paper:white}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}a{color:#266787;text-underline-offset:4px}aside{position:fixed;top:0;left:0;bottom:0;width:255px;padding:25px 18px;overflow:auto;background:#132e3c;color:white}aside strong{font-size:18px;display:block;margin-bottom:18px}aside a{display:flex;gap:9px;color:#d5e7ec;text-decoration:none;font-size:12px;line-height:1.5;padding:8px 3px;border-bottom:1px solid #ffffff12}aside span{color:#88b8c7;min-width:21px}main{max-width:1500px;margin-left:255px;padding:40px 45px 80px;min-width:0}.hero{background:linear-gradient(120deg,#193a4c,#315f75);color:white;border-radius:18px;padding:32px;margin-bottom:28px}.hero a{color:#bce5f1}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:8px 0}.badge{display:inline-block;font-size:13px;padding:4px 10px;border-radius:7px;background:#ffffff18;margin:5px 5px 0 0}section{padding:30px 34px;background:var(--paper);border:1px solid var(--line);border-radius:14px;margin-bottom:24px;min-width:0;overflow:hidden}h2{font-size:25px;line-height:1.5;margin:0 0 22px}h2 small{font-size:15px;color:#a47836;margin-right:12px}h3{font-size:19px;margin:28px 0 12px}p{margin:12px 0}strong{font-weight:650}.table-wrap{overflow:auto;max-width:100%;margin:20px 0;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;min-width:780px;font-size:13px}th{background:#eaf1f4;text-align:left}th,td{vertical-align:top;border-bottom:1px solid var(--line);padding:12px 14px;min-width:120px}tbody tr:last-child td{border-bottom:0}td:first-child{font-weight:600;min-width:130px}pre{padding:20px;background:#102b3a;color:#e2f0f3;border-radius:10px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto;max-width:100%}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}p code,li code,td code{background:#eaf1f4;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.diagram{overflow:auto;background:#fbfcfd;border:1px solid var(--line);border-radius:10px;margin:15px 0 24px}.diagram svg{width:100%;min-width:760px;height:auto;display:block;font-family:inherit;color:var(--ink)}.diagram text{fill:currentColor}.diagram text[fill="white"]{fill:white}ul,ol{padding-left:24px}li{margin:8px 0}footer{color:var(--muted);font-size:13px}.toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}.toolbar button{border:1px solid var(--line);background:white;border-radius:7px;padding:7px 14px;color:var(--ink);cursor:pointer}@media(max-width:1050px){aside{width:210px}main{margin-left:210px;padding:24px}section{padding:25px}}@media(max-width:760px){aside{position:static;width:auto;max-height:175px;padding:15px 18px}aside strong{margin-bottom:7px}aside nav{display:flex;gap:12px;overflow:auto}aside a{min-width:150px;max-width:150px;border:0}main{margin:0;padding:16px}section{padding:20px 16px}.hero{padding:24px 20px}.hero h1{font-size:27px}h2{font-size:22px}pre{font-size:12px}table{min-width:800px}}@media print{aside,.toolbar{display:none}main{margin:0;padding:0;max-width:none}body{background:white}section{border:0;break-before:page;padding:10px 0;overflow:visible}pre{white-space:pre-wrap;color:#152d3b;background:#f1f5f6}.table-wrap{overflow:visible}table{min-width:0;font-size:10px}th,td{min-width:0;padding:5px}.hero{background:#eaf1f4;color:#152d3b}}
-</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>本轮设计核验范围</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-23 · v1.0.0</p><span class="badge">业务方向已确认 · D2阶段验收通过</span><span class="badge">D1已提交 / D2阶段验收通过</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>本轮设计核验范围</h2><p>编码前先核对当前生产者、读取合同和消费者。允许的本轮设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
+</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>最初设计核验范围（历史证据，不据此重新运行）</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-25 · v1.0.0</p><span class="badge">D1/D2已提交 · D3暂停开发</span><span class="badge">仅修订设计 / D2先修正合批</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>最初设计核验范围（历史证据，不据此重新运行）</h2><p>本节记录最初编写LLD时的设计实验及其原预算，不授权本轮重新运行。后续开发验收只使用§17/18.1/19.10—19.13的固定安排。最初设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -33,7 +33,7 @@
 </table></div>
 <p>本轮后续review补充的设计实验仅用当前1.5.5和临时合成文件：四种查询结果各32768行、每批8192，另比较32768/262144行在首次取批前的执行记录；中断竞态新增2个极小样本。证据见§06.3、§13.2与§21，不属于正式数据或完整内核验收。</p>
 <p>上述范围只为写定LLD提供依据。完整内核的内存峰值、取消耗时和真实数据性能在实现后按本文固定场景验证，未实现前不得伪造实测。</p>
-</section><section id="s01"><h2><small>01</small>目标、范围与不能改变的规则</h2><p>交付一个Foundation库组件：调用方提交一只证券、一个周期、一种目标复权、一个输出范围和一组计算实例，服务完成共享读取、必要复权、原生SQL指标计算、独立结果输出和资源清理。算法按K线根数定义，同样用于分钟、日、周、月；来源支持单独声明。</p>
+</section><section id="s01"><h2><small>01</small>目标、范围与不能改变的规则</h2><p>交付一个Foundation库组件：调用方提交一只证券、一个周期、一种目标复权、一个输出范围和一组要求计算的指标及参数，服务完成共享读取、必要复权、原生SQL指标计算、独立结果输出和资源清理。算法按K线根数定义，同样用于分钟、日、周、月；来源支持单独声明。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -80,7 +80,7 @@
 </tr>
 <tr>
 <td>分批与数学分段分别定义</td>
-<td>8192新输入；平滑段长由SQL参数推导</td>
+<td>跨文件累计：满8192根才交付，只有全源正常结束的最后一批可短；平滑段长由SQL参数推导</td>
 <td>不以fetchmany冒充分批；不整段物化历史；不固定1024套任意参数</td>
 </tr>
 <tr>
@@ -177,13 +177,13 @@
 </tr>
 <tr>
 <td><code>.venv</code>现状</td>
-<td>Python3.13.5、DuckDB1.5.5、AnyIO4.13.0、FastAPI0.136.3、Starlette1.2.1、Pydantic2.13.4；没有PyArrow</td>
-<td>本轮固定当前DuckDB1.5.5，不开展2.0升级；采用PyArrow23.0.1独立读取；选型已确认，本机未安装；本轮不安装、不升级</td>
+<td>Python3.13.5、DuckDB1.5.5、AnyIO4.13.0、FastAPI0.136.3、Starlette1.2.1、Pydantic2.13.4；PyArrow23.0.1已获准安装并在D2完成最小读取/SQL交接</td>
+<td>沿用已声明依赖和锁文件，不重装、不升级；跨文件合批、完整指标和整页性能仍须按后续阶段验收，证据见§19.9</td>
 </tr>
 </tbody>
 </table></div>
 <p>CodeGraph已使用explore、node与impact核对入口、读取和消费者。索引的同名 <code>Reader</code>、研究脚本与ingestion误匹配不作依据；未穷尽的私有脚本不视为已迁移。当前方案是未来实现合同，不改变上表现行行为。</p>
-</section><section id="s03"><h2><small>03</small>文件组织：每个文件负责什么</h2><div class="diagram"><svg viewBox="0 0 1000 290" role="img" aria-label="组件职责及同次连接共用"><defs><marker id="ar-modules" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="20" y="65" width="225" height="88" rx="12" fill="#deebf4"/><text x="132" y="101" text-anchor="middle" font-size="19">统一服务</text><text x="132" y="130" text-anchor="middle" font-size="14">创建、组织、最终关闭</text><rect x="265" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="377" y="101" text-anchor="middle" font-size="19">读取模块</text><text x="377" y="130" text-anchor="middle" font-size="14">读取、复权、共享价格</text><rect x="510" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="622" y="101" text-anchor="middle" font-size="19">指标模块</text><text x="622" y="130" text-anchor="middle" font-size="14">SQL步骤、指标状态</text><rect x="755" y="65" width="225" height="88" rx="12" fill="#f4eddf"/><text x="867" y="101" text-anchor="middle" font-size="19">输出模块</text><text x="867" y="130" text-anchor="middle" font-size="14">保留尾部、独立结果</text><path d="M245,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M490,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M735,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><rect x="265" y="194" width="470" height="60" rx="10" fill="#152d3b"/><text x="500" y="231" text-anchor="middle" font-size="18" fill="white">本请求唯一 DuckDB 连接 · 全部数值运算</text><path d="M377 153 V194 M622 153 V194" stroke="#315f80" fill="none"/><text x="500" y="30" text-anchor="middle" font-size="15">连接由服务创建并关闭；读取和指标模块分别管理自己的表</text></svg></div><p>下列目录为完整内核的目标组织；当前D1合同、定义、配置、注册及发现已实现，其余运行模块仍按D2—D4开发。小型枚举、不可变请求/结果放同一合同文件；SQL模板和计算对象一同版本管理。不同职责不堆到一个大service中。</p>
+</section><section id="s03"><h2><small>03</small>文件组织：每个文件负责什么</h2><div class="diagram"><svg viewBox="0 0 1000 290" role="img" aria-label="组件职责及同次连接共用"><defs><marker id="ar-modules" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="20" y="65" width="225" height="88" rx="12" fill="#deebf4"/><text x="132" y="101" text-anchor="middle" font-size="19">统一服务</text><text x="132" y="130" text-anchor="middle" font-size="14">创建、组织、最终关闭</text><rect x="265" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="377" y="101" text-anchor="middle" font-size="19">读取模块</text><text x="377" y="130" text-anchor="middle" font-size="14">跨文件合批、必要复权</text><rect x="510" y="65" width="225" height="88" rx="12" fill="#e3f1ea"/><text x="622" y="101" text-anchor="middle" font-size="19">指标模块</text><text x="622" y="130" text-anchor="middle" font-size="14">SQL步骤、指标状态</text><rect x="755" y="65" width="225" height="88" rx="12" fill="#f4eddf"/><text x="867" y="101" text-anchor="middle" font-size="19">输出模块</text><text x="867" y="130" text-anchor="middle" font-size="14">保留尾部、独立结果</text><path d="M245,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M490,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><path d="M735,109 h20" stroke="#315f80" fill="none" marker-end="url(#ar-modules)"/><rect x="265" y="194" width="470" height="60" rx="10" fill="#152d3b"/><text x="500" y="231" text-anchor="middle" font-size="18" fill="white">本请求唯一 DuckDB 连接 · 全部数值运算</text><path d="M377 153 V194 M622 153 V194" stroke="#315f80" fill="none"/><text x="500" y="30" text-anchor="middle" font-size="15">连接由服务创建并关闭；读取和指标模块分别管理自己的表</text></svg></div><p>下列目录为完整内核的目标组织；当前D1及D2已提交，D2合批修正尚未落地；D3/D4运行模块未实现，按§19.10—19.11顺序推进。小型枚举、不可变请求/结果放同一合同文件；SQL模板和计算对象一同版本管理。不同职责不堆到一个大service中。</p>
 <pre><code class="language-text">src/foundation/technical_indicators/
   __init__.py                         # 只导出3个业务能力及合同，不建立连接
   contracts.py                        # 请求、结果、标准表说明、枚举
@@ -208,12 +208,12 @@
       retain_history.sql              # 独立保留窗口，不指向旧批次
   calculation/
     __init__.py
-    calculation.py                    # Calculation接口、Definition及SQL步骤合同
+    calculation.py                    # 既有Calculation/Definition/CalculationSession；D3加归属检查方法
+    sql_templates.py                  # 只加载当前计算对象在代码中写死的SQL文件
     registry.py                       # CalculationRegistry；发现/执行同一注册表
     dependencies.py                   # 展开、去重、循环检查及固定顺序
     history.py                        # 汇总指标声明的历史/字段/状态需求
     engine.py                         # CalculationEngine；只算目标价格并管理状态
-    session.py                        # CalculationSession；请求内指标状态与表清单
     indicators/
       __init__.py
       price.py                        # 独立目标价格输出，不另写复权公式
@@ -225,28 +225,32 @@
       smoothing_parameters.sql        # α/β、安全段长，包含N=1
       rolling_mean.sql
       bollinger_bands.sql
-      macd_first.sql                  # 首根close、close、0，保证首条DIF/DEA/柱严格0
+      macd_first.sql                  # 仅INSERT首根状态；零结果另由固定辅助步骤写入
       macd_segment.sql
       kdj_window.sql
       kdj_segment.sql
-      update_state.sql
   output/
     __init__.py
-    collector.py                      # 只保留输出范围内最近N+1位置
+    contracts.py                      # 输出需要的不可变说明，不含计算计划
+    collector.py                      # 只保留输出范围内最近limit根
     result.py                         # 形成独立不可变结果
     encoding.py                       # 统一严格JSON编码与真实字节计量
+    sql/
+      merge_batch.sql                 # 新时间位置与各项结果的固定关联
+      retain_tail.sql                 # 保留符合区间的最近limit个位置
+      select_result.sql               # 显式字段、按时间升序完整取回
 
 src/foundation/clients/local_lake/
   technical_indicator_price_source.py  # 新：只读Lake来源选择/文件推进/列式读取
   technical_indicator_contracts.py     # 新：已核实的来源字段/路径/口径引用
 
-src/foundation/config/settings.py       # 后续只增加本LLD配置字段，不改旧行为
+src/foundation/config/settings.py       # D1已加入19项；后续阶段只消费，不增新设置
 src/app/runtime/technical_indicators/
   __init__.py
   composition.py                      # Settings→KernelConfig、来源、注册表的装配
   admission.py                        # 一个进程一份名额/有限FIFO等待；不属于Foundation
   execution.py                        # 异步等待后交给既有工作线程，监控截止/断开
-  response.py                         # 未来API发送结束/中断后的唯一名额归还
+  response.py                         # 只发送已经编码的body；execution最后唯一归还名额
 tests/foundation/technical_indicators/
   test_contracts.py                    # 请求与非法反例、单目标/默认
   test_registry_dependencies.py        # 无引擎名称分支、依赖顺序/复用
@@ -304,7 +308,7 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <tr>
 <td>SourceStream</td>
 <td><code>next_batch(max_rows: int) -&gt; Optional[SourceBatch]</code>；<code>release_current_batch()</code>；<code>close()</code></td>
-<td>None仅表示正常结束；空批次不等于结束；异常直接抛出；最多持有当前文件和当前列批次，无预取；物化并注销后release_current_batch，仅释放Arrow引用，不重置文件进度</td>
+<td>None仅表示正常结束；空批次不等于结束；异常直接抛出；仅开当前文件；跨文件凑满max_rows，只有全源EOF可交短批；当前交付与已读余量分别管理，无预取；物化并注销后只释放当前交付，不重置进度</td>
 </tr>
 <tr>
 <td>PriceInputSession / sources/session.py</td>
@@ -323,8 +327,8 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 </tr>
 <tr>
 <td>DuckDBExecutor / executor.py</td>
-<td><code>execute(step: SqlStep) -&gt; ExecutionStats</code>；<code>scalar(sql, bindings=())</code>；<code>register_arrow(name,batch)</code>；<code>unregister_arrow(name)</code>；<code>drop_table(name)</code>；<code>cleanup_drop(name)</code>；<code>cleanup_unregister(name)</code></td>
-<td>普通SQL只在本次工作线程；参数绑定；内部标识由受控名称生成；取消/到期后不得开启新业务SQL</td>
+<td><code>execute(step: SqlStep) -&gt; ExecutionStats</code>；D2来源内部<code>scalar(sql, bindings=())</code>；D3新增<code>read_control_row(step, *, expected_columns)</code>见§07.4、<code>read_result(step, *, expected_columns, max_rows)</code>见§14.5；Arrow/清理方法保持</td>
+<td>普通SQL只在本次工作线程；指标只能通过CalculationSession的固定步骤调用，不能直接使用scalar/连接；取消/到期后不得开启新业务SQL</td>
 </tr>
 <tr>
 <td>ExecutionControl</td>
@@ -333,8 +337,8 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 </tr>
 <tr>
 <td>OutputCollector / output/collector.py</td>
-<td><code>append_new_rows(batch_output)</code>；<code>build_result(...)</code>；<code>discard()</code></td>
-<td>只追加新行；保留最近N+1用于翻页，不积存全历史；连接关闭前完整取出独立结果</td>
+<td><code>__init__(*, executor, request, instances)</code>；<code>append_new_rows(batch_output)</code>；<code>build_result(...)</code>；<code>discard()</code></td>
+<td>只追加新行；保留最近limit根，不积存全历史；连接关闭前完整取出独立结果</td>
 </tr>
 <tr>
 <td>discovery/catalog.py</td>
@@ -347,7 +351,7 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <p><code>CalculationSession</code>记录executor引用、内部表清单、已处理新输入数、状态表名与初始化标记。<strong>不在Python保存EMA/DEA/K/D值</strong>；段末只通过SQL更新状态。服务负责连接，读取负责输入，engine负责指标状态，collector负责返回结果，各方只清自己资源。</p>
 <p>Definition另有静态<code>public: bool</code>：五项业务能力为true，共用<code>window_mean</code>/<code>window_range</code>定义为false。它们同样由registry维护，<code>resolve</code>只供合法业务计算ID，内部<code>resolve_dependency</code>才可取非公开定义；list/describe业务能力不发布这些内部步骤。该标记不来自业务参数或env，不增加任意调用内部SQL的入口，避免把“声明依赖”写成实际找不到的对象。moving_average.py管理window_mean定义，kdj.py管理window_range定义，BOLL只引用同版本均值，不复制均值算法。</p>
 <p><code>TechnicalIndicatorService.__init__(*, source: PriceSource, registry: CalculationRegistry, config: KernelConfig, control: ExecutionControl | None=None)</code>只接收已解析依赖，不读全局env。没有注入control的同步库调用，在calculate进入时新建本次control并按配置启动必要中断控制；App注入的control保留最早到达时间，不重新计时。普通服务可复用其不可变定义/来源工厂，每次调用的connection/session/control都必须新建；绑定特定control的服务对象只用于该次请求。SourceDescription/SourceStream不得放进共享单例的可变字段。</p>
-<p><code>ExecutionStats</code>固定包含step_name、elapsed_ms、logical_input_rows、output_rows及是否失败；它不保存价格值。结果的<code>sql_processed_rows</code>定义为各SqlStep实际传入表/段的<strong>逻辑输入行数之和</strong>，同一批被多个步骤使用分别计量；不是DuckDB内部所有operator的行数。开发profiling另记累计operator处理量/报告扫描行，不能用逻辑计数冒充物理I/O或优化器实际工作。<code>source_rows</code>只计新交付目标K线一次，文件数/物理大小/重复读取单独记；不可可靠取得的实际物理读取字节保持未知，不填写伪数字。</p>
+<p><code>ExecutionStats</code>固定包含step_name、elapsed_ms、logical_input_rows、output_rows及是否失败；它不保存价格值。结果的<code>sql_processed_rows</code>定义为各SqlStep实际传入表/段的<strong>逻辑输入行数之和</strong>，同一批被多个步骤使用分别计量；不是DuckDB内部所有operator的行数。开发profiling另记累计operator处理量/报告扫描行，不能用逻辑计数冒充物理I/O或优化器实际工作。<code>source_rows</code>只计首次实际读到的本证券匹配K线一次；成功时等于全部交付新行，失败时可包含已经读到但尚未交付的半批/余量，文件数/物理大小/重复读取单独记；不可可靠取得的实际物理读取字节保持未知，不填写伪数字。</p>
 <h3>04.1 依赖、结果表及实际调用方法的完整合同</h3>
 <p>下列字段由<code>calculation/calculation.py</code>定义，根<code>contracts.py</code>只维护业务请求/结果；<code>sources/contracts.py</code>维护来源交接。引用方向为计算对象使用来源表说明，来源不import指标实现。<code>OutputField</code>仅在calculation.py定义，发现模块引用同一份，不复制定义。以下补齐已有对象之间的交接，不增加公开接口。</p>
 <h4>1. 注册和每请求实例</h4>
@@ -379,7 +383,7 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 </tr>
 <tr>
 <td>CalculationSession</td>
-<td><code>executor</code>、<code>node_index:int</code>、<code>parameters:Parameters</code>、<code>dependencies: Mapping[str, CalculationOutput]</code>、<code>state_tables</code>、<code>batch_tables</code>、<code>initialized:bool</code></td>
+<td><code>executor</code>、<code>node_index:int</code>、<code>parameters:Parameters</code>、<code>dependencies: Mapping[str, CalculationOutput]</code>、<code>state_tables</code>、<code>batch_tables</code>、<code>initialized:bool</code>；D3增加<code>readable_tables:frozenset[str]</code>、<code>allowed_step_names:frozenset[str]</code>、<code>owned_table_names:frozenset[str]</code>、<code>current_batch:PriceBatch | None</code>、固定<code>control_read_steps</code>映射及<code>declare_owned_table/execute/read_control_row/drop_owned_table</code>方法，仍定义于calculation.py</td>
 <td>每节点每请求一份。dependencies在每批调用前由engine替换成当前批只读映射。state_tables从prepare保留至请求结束；batch_tables仅本批有效。表名只由内部枚举与node_index生成。</td>
 </tr>
 <tr>
@@ -417,7 +421,8 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <li><code>CalculationEngine.close() -&gt; None</code>：按反向依赖顺序清理全部节点资源，即使某个失败也继续，按现有清理合同汇总异常。</li>
 <li><code>PriceInputSession.prepare() -&gt; None</code>、<code>resolved_description() -&gt; SourceDescription</code>、<code>next_batch() -&gt; PriceBatch | None</code>、<code>retain_required_history() -&gt; None</code>、<code>finish_batch() -&gt; None</code>、<code>close() -&gt; None</code>。</li>
 <li><code>retain_required_history</code>只在全指标consume及collector完成后，按已声明字段及W−1保存目标口径历史，不保留来源Arrow批或未复权原价，不提前读取下一批。</li>
-<li><code>OutputCollector.append_new_rows(batch_outputs:BatchCalculationOutputs) -&gt; None</code>：在SQL按price_batch新seq为主表关联实例结果，按原输出范围选位置并保留limit+1；字段NULL不能导致丢位置。</li>
+<li><code>OutputCollector.__init__(*, executor:DuckDBExecutor, request:CalculationRequest, instances:tuple[OutputInstanceDescription,...])</code>：只接收服务生成的输出说明；不接收或import CalculationPlan，不查询注册表，不重新补默认参数。说明在读源前已经形成，空结果也可使用。</li>
+<li><code>OutputCollector.append_new_rows(batch_outputs:BatchCalculationOutputs) -&gt; None</code>：使用本批K线的时间编号找到各项指标对应结果，再按请求区间/翻页/limit选择返回内容；不把全部输入行数当最终输出行数。当前五项能力的数值列与最终选中的times对齐，未满窗口保留NULL；缺结果行与合法NULL的明确检查和错误合同见§14.4—14.5。</li>
 <li><code>OutputCollector.build_result(description:SourceDescription, statistics:CalculationStatistics) -&gt; CalculationResult</code>：关闭连接前复制为独立结果；之后表可删除。</li>
 <li><code>OutputCollector.discard() -&gt; None</code>按现有清理合同释放输出表/结果引用。</li>
 </ul>
@@ -428,7 +433,7 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <p>管理员已确认§19.6修订。本小节是D2编码合同，不增加业务请求字段、数据来源、算法或运行配置。</p>
 <ul>
 <li>SourceDescription增加<code>price_paths:tuple[Path,...]</code>、<code>factor_paths:tuple[tuple[date,Path],...]</code>、<code>source_projection:tuple[str,...]</code>、<code>standard_projection:tuple[tuple[str,str],...]</code>；默认空元组，仅供请求内部使用。全部复制为不可变容器；factor_paths按日期升序。source_projection是Arrow所需物理列名；standard_projection是“标准列名、受控SQL表达式”对，表达式仅引用别名<code>b</code>，由已核实来源合同生成，不来自业务。类型转换、vol→volume、周月已有复权列选择及日期解析只在stage SQL执行。Session按标准时间列排序并附加seq，不按source_id硬编码Lake字段。source_projection不要求额外读取无关价格列；价格price能力才选全部OHLC量额。</li>
-<li><code>SourceReadContext(config)</code>在<code>sources/read_context.py</code>定义，服务每请求在describe前创建；持有config、唯一已访问Path到物理大小映射、累计新价格行数。<code>record_file(path,size_bytes)</code>首次元数据或数据访问前计数，重复文件不叠加；最多max_source_files，bytes只统计。<code>record_price_rows(rows)</code>仅新交付行累计，超过max_input_rows报ResourceLimitError；不存在因子行加入价格行数、重复角色重复文件计数或共享全局上下文。只读属性<code>source_files/source_file_bytes/source_rows</code>用于统计；不持数据、线程或来源对象。physical_rows未知为None，不用selected_rows伪装实际解压量。</li>
+<li><code>SourceReadContext(config)</code>在<code>sources/read_context.py</code>定义，服务每请求在describe前创建；持有config、唯一已访问Path到物理大小映射、累计新价格行数。<code>record_file(path,size_bytes)</code>首次元数据或数据访问前计数，重复文件不叠加；最多max_source_files，bytes只统计。<code>record_price_rows(rows)</code>对物理读取首次获得的本证券匹配行累计一次，包括尚未交付的余量；余量下次交付不再累计，超过max_input_rows报ResourceLimitError；不存在因子行加入价格行数、重复角色重复文件计数或共享全局上下文。只读属性<code>source_files/source_file_bytes/source_rows</code>用于统计；不持数据、线程或来源对象。physical_rows未知为None，不用selected_rows伪装实际解压量。</li>
 <li><code>PriceSource.describe(request,requirement,*,control,read_context)-&gt;SourceDescription</code>产生上述文件/投影计划；open沿该计划前进，<code>open(executor,description,requirement,*,read_context)-&gt;SourceStream</code>不重枚举。control从executor交给Stream，保持原截止。元数据/路径/投影检查与文件预算遵守§06，不保存所有footer。</li>
 <li><code>prepare_basis(executor,description,requirement,*,table_name:str,read_context)-&gt;SourceDescription</code>：来源在同一连接有界查找qfq最新/hfq最早该证券一行，建立指定基准表，返回有实际日期/值的新说明。<code>prepare_factors(executor,description,requirement,trade_dates:tuple[date,...],*,table_name:str,read_context)-&gt;None</code>：在同一连接把当批日期/证券的原因子立即物化到指定小表。基准列为<code>basis_date DATE,basis_value DOUBLE</code>，因子列为<code>trade_date DATE,adj_factor DOUBLE</code>。日期来自stage表正常SQL的distinct日期元信息，不作覆盖检查。Session选择并在调用前登记内部表名，来源只建表；当批复权后删除因子表，Session.close清基准表，部分创建失败同样尝试清理。已经是目标口径时两个方法都不调用。没有因子SourceStream、第二Arrow Reader或第二DuckDB连接。</li>
 <li><code>PriceInputSession(executor,source,description,requirement,*,read_context)</code>：prepare取得基准并打开价格流；resolved_description在prepare成功前拒绝。next_batch在上一批finish前拒绝重复取批，正常EOF才返回None；不把失败/空批当EOF。来源字段全部标准化到SQL后即注销Arrow并释放列批引用。当前SQL目标价格表按统一seq合并已保存的目标口径历史，标明新seq范围及time_fields；所有使用方结束后retain_required_history仅保存preceding_rows内已存在的尾部，finish_batch才删除本批表。所有请求历史递推读取到实际上界，不按start截掉前缀；输出过滤留给D3。</li>
@@ -437,6 +442,29 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <li>D2服务实现真实<code>_open_execution(control)-&gt;(connection,executor)</code>和<code>_close_execution(control,connection,*,engine=None,inputs=None,output=None)-&gt;tuple[BaseException,...]</code>。前者局部失败由自己收尾，成功才交出连接；后者确认业务调用返回后依次stop_monitor、engine.close、inputs.close、output.discard、connection.close，各项失败收集后仍尝试其余项。D3完整calculate复用这两个方法；D2不提供占位calculate。D1文件不存在测试改为行为约束，不改变无运行依赖导入要求。</li>
 <li><code>stop_monitor</code>从进入方法开始记录总耗时，包含等interrupt同锁；200ms仍是join子目标。取消至收尾2000ms包含等锁、SQL退出、join及所有清理，不重置预算。超目标记失败并等真实退出，不强杀、不提前close/归还。</li>
 </ul>
+<h3>04.3 2026-10-24已确认：输出说明由服务创建，输出模块不理解计算计划</h3>
+<p>这里所说的一项，就是请求calculations列表中的一个条目。例如请求MACD12/26/9和MACD10/69/10，是两项，不是两个连接或两个页面。请求条目由调用方创建；给输出模块的说明由TechnicalIndicatorService创建。</p>
+<p>新增文件<code>output/contracts.py</code>只定义以下内部不可变数据；不改变根contracts.py的业务请求/最终结果，不新增业务参数或API字段：</p>
+<pre><code class="language-python">@dataclass(frozen=True, slots=True)
+class OutputFieldDescription:
+    name: str
+    sql_type: Literal[&quot;DOUBLE&quot;]
+    nullable: bool
+    initialization_rule: str
+
+@dataclass(frozen=True, slots=True)
+class OutputInstanceDescription:
+    instance_id: str
+    calculation_id: str
+    algorithm_version: str
+    parameters: Parameters
+    fields: tuple[OutputFieldDescription, ...]
+</code></pre>
+<p>构造时复制参数外层及每对名称/值、fields外层为tuple；字段对象本身frozen。沿用已批准的不可变Parameters整理，不重新调用算法参数校验。说明只含已有公开字段信息，不携带内部column_name、节点序号、依赖关系、Calculation对象、表名、状态或连接。不把plan改名后藏进对象。</p>
+<p>服务内部方法固定为<code>_describe_output_instances(plan:CalculationPlan) -&gt; tuple[OutputInstanceDescription,...]</code>，在expand_dependencies成功后、source.describe/创建连接之前执行。按plan.instances的请求顺序取(instance_id,node_index)，从对应node.definition和node.parameters一次复制指标ID、版本、已补齐参数及公开输出字段。该方法只整理少量说明，不读取K线，不生成指标数值。output/contracts.py、collector.py、result.py不得依赖CalculationPlan或读取plan.nodes；只有service负责这个转换。</p>
+<p>OutputCollector构造签名为<code>OutputCollector(*, executor:DuckDBExecutor, request:CalculationRequest, instances:tuple[OutputInstanceDescription,...])</code>。每批BatchCalculationOutputs继续只交付本批实例和实际结果表说明，内部column_name从该批CalculationOutput取得；按实例ID匹配并核对公开字段。不要把算法版本和默认值补到批次里，否则0批次仍缺信息。</p>
+<p>例：请求macd_default、macd、parameters={}。输出说明在读源前已含fast=12/slow=26/signal=9、algorithm_version=1.0.0、dif/dea/hist；有值时据此组织数值，正常0根时据此组织三个空序列。两个相同参数但不同instance_id形成两份说明，节点可只计算一次；不同参数不混用。内部window_mean/window_range不属于plan.instances，不出现在业务结果。</p>
+<p>D3必须验证：默认参数非空结果、0根来源、前置历史存在但输出区间为空、同参数两个ID、不同参数、原列表外部修改不影响说明；这些使用有界小样本，不新增长历史。依赖静态检查必须证明输出模块不import dependencies/registry/engine；字段类型不重复借用完整CalculationDefinition。</p>
 </section><section id="s05"><h2><small>05</small>请求、时间、分页与标准输入</h2><h3>05.1 业务请求</h3>
 <pre><code class="language-python">@dataclass(frozen=True, slots=True)
 class CalculationRequest:
@@ -476,7 +504,7 @@ class CalculationInstance:
 </tr>
 <tr>
 <td>ReadRequirement</td>
-<td>对象/周期/目标复权；目标输出start/end/before/limit；来自各指标的历史并集；新批次上限8192；来源起点；所需字段；处理截止；不是新的公开请求</td>
+<td>对象/周期/目标复权；目标输出start/end/before/limit；来自各指标的历史并集；新批次固定8192，只有全源正常结束的尾批可短；来源起点；所需字段；处理截止；不是新的公开请求</td>
 </tr>
 <tr>
 <td>SourceDescription</td>
@@ -484,7 +512,7 @@ class CalculationInstance:
 </tr>
 <tr>
 <td>SourceBatch</td>
-<td>有类型的列式批次引用；source位置范围；physical_rows:int或None；selected_rows为本批行数，文件/字节为本请求累计快照；有序性和数值由来源负责；不为每根重复携带metadata</td>
+<td>columns固定为已合好的pyarrow.RecordBatch（包内合同以object标注避免无可选依赖时import失败）；每批1～8192根，只有全源EOF最后可短；有类型的列式批次引用；source位置范围；physical_rows:int或None；selected_rows为本批行数，文件/字节为本请求累计快照；有序性和数值由来源负责；不为每根重复携带metadata</td>
 </tr>
 <tr>
 <td>PriceBatch</td>
@@ -543,7 +571,7 @@ class CalculationInstance:
 <li>按路径日期或股票年份升序选文件；读取元数据/模式及物理大小，只统计资源和选择投影，不核对逐行数值。元数据足以判断超文件数或选中列row group初始保护值时读前拒绝，后续实际发现超限也整次失败。物理文件大小只统计，不设合计1GiB拒绝条件。</li>
 <li><strong>采用已确认的PyArrow23.0.1逐文件Scanner。</strong> 每次只打开当前文件，以ts_code和来源已有时间列过滤，投影所需列；batch_size=config.batch_rows（初始8192），batch_readahead=0、fragment_readahead=0、use_threads=False、cache_metadata=False；Parquet选项pre_buffer=False、use_buffered_stream=False，不额外预取、不调整进程全局线程池。具体代码、生命周期及依赖落点见§06.5～06.8。</li>
 <li>保留当前Scanner/Reader，不与DuckDB连接上的未读完查询结果交错。来源交付一批后保留位置，等本批finish_batch才取下一批；没有匹配行继续后续文件，只有全源正常结束才返回None。</li>
-<li>当前RecordBatch通过<code>connection.register(internal_name, batch)</code>交给<strong>同一连接</strong>；立即执行<code>stage_input.sql</code>，只把本批所需字段和目标证券记录物化为SQL标准表。注册引用只有在物化SQL完成后注销，随后释放Python列批次引用；数据数值运算仍在SQL中。</li>
+<li>按§06.6跨文件合满8192根（仅全源EOF尾批可短）的RecordBatch通过<code>connection.register(internal_name, batch)</code>交给<strong>同一连接</strong>；立即执行<code>stage_input.sql</code>，只把本批所需字段和目标证券记录物化为SQL标准表。注册引用只有在物化SQL完成后注销，随后释放Python列批次引用；数据数值运算仍在SQL中。</li>
 <li>来源合同保证目标证券跨文件和批次按时间有序；来源表物化后按时间排序是算法步骤，不检查是否有重复或乱序。年文件生产者已有<code>ORDER BY ts_code, trade_time</code>；日/周/月分区的目标证券最多该周期一条。未能保证跨批有序的新来源不得直接接入，不在内核全历史排序或临时去重补救。</li>
 <li>一次请求的所有指标复用同一个源遍历和本批目标价格；每个正式文件的数据流只前进一遍，schema/footer读取单列统计，不把多次读元数据说成多次价格遍历。源Scanner过滤仍可能解压含其它证券的row group：这是物理读取成本，不把目标股票的1行等同只读了1行文件。</li>
 </ol>
@@ -551,7 +579,7 @@ class CalculationInstance:
 <p>周/月先读取受控候选分区，在stage SQL由源标签生成period_start/end、解析source_as_of，再处理输出相交关系；递推仍保留所有必需前置周期。只有请求end落在未结束目标周期内且该条source_as_of晚于end时，拒绝该历史截止，不得把它过滤为0根成功。例：源trade_date为周五，source_as_of为周二，周二end应包含当前周；同样标签但source_as_of为周五则不能回算周二。对普通已结束周期沿用§05.1，不因后来重发而错误拒绝。</p>
 <p>含递推指标时Scanner的时间过滤只有有效输出上界，不应用start或最近N作为来源下界；从来源约定最早正式分区开始正序推进。服务通过SQL <code>row_number() OVER(ORDER BY time_key)+already_delivered</code>为新目标行分配连续seq，already_delivered仅是已交付行数计量，不计算指标。来源历史起点说明为该来源合同的最早可用历史，实际首行时间另记；不能把旧Reader默认近3年移植为来源起点。</p>
 <p>官方依据：Arrow <a href="https://arrow.apache.org/docs/23.0/python/generated/pyarrow.dataset.Scanner.html">Scanner23.0.1</a> 的批次、过滤及readahead参数；DuckDB <a href="https://duckdb.org/docs/stable/clients/python/reference/">Python连接</a> 的register/unregister。实现时只使用已确认版本签名，库不存在即明确能力不可用，不自动安装或换数据源。</p>
-<p>以下是本轮已确认PyArrow读取实现的调用模板；仅为设计，尚未安装或执行集成。它只读取/过滤，不计算任何指标数值：</p>
+<p>以下是已确认PyArrow读取实现的调用模板。PyArrow23.0.1已获准安装，依赖声明、锁文件和D2最小读取/SQL交接已有证据；本轮跨文件合批尚未实现。它只读取/过滤，不计算任何指标数值：</p>
 <pre><code class="language-python">import pyarrow.dataset as ds
 import pyarrow.fs as pafs
 
@@ -611,68 +639,82 @@ reader = scanner.to_reader()
 <p>因子采用<code>LEFT JOIN</code>而非<code>INNER JOIN</code>后过滤缺失记录，避免无意丢K线；不对缺值COALESCE为1。不增加因子逐根质量检查。外部保证错误时可能自然得到NULL或SQL错误，这是已确认的信任边界；不得把指标NULL当空输出、宣称质量已核实，或另加覆盖扫描。缺必要基准声明/执行步骤直接报来源合同错误。</p>
 <p><strong>实际基准的结果交接。</strong> PriceInputSession构造时持有原不可变SourceDescription；prepare按已定来源读取并固定一行基准后，创建本请求独立的新SourceDescription，填入实际basis_date/basis_value及converted等已知说明，保存在本Session中。resolved_description()仅在prepare成功后可读，返回这份最终不可变说明；不得修改共享来源工厂或原说明，不再次查询因子。服务构造结果时只用该方法返回的说明。读取基准一行日期/数值用于元信息交接，不把EMA/K/D取回Python计算；公式仍在SQL。已有Gold qfq来源确实不知道具体日期/数值时沿原规则保留None，不伪造；由未复权日线转换且已实际取得的基准必须如实返回。</p>
 <h3>06.5 已确认的PyArrow选型、依赖位置和限制</h3>
-<p>管理员本轮同意引入PyArrow；依据是当前已测DuckDB直接调用不能同时满足读取进度、同连接交错SQL和禁止全历史物化，而PyArrow有独立Scanner/RecordBatchReader可保管读取进度。本轮选择它作为正式读取实现，<strong>不再列为待选或待批准依赖</strong>。这个选择是对本项目边界的适合性判断，不是速度最优的证明；本机安装已在§19.6记录：经管理员明确允许，仅新增PyArrow23.0.1；集成及性能尚未验证。</p>
-<p>保持原设计目标版本<code>pyarrow==23.0.1</code>，后续依赖改动位置仅为根<code>pyproject.toml</code>的<code>[project.optional-dependencies].local-lake</code>及对应<code>uv.lock</code>。业务项目DuckDB继续锁定现有1.5.5；不顺便升级DuckDB、其他现有依赖、DG或全局环境。新依赖的必需锁定增量须可解释，不用自动升级全部依赖取得安装成功。选型确认与安装授权分开；§19.6记录的安装已有管理员明确授权。依赖声明及锁文件仍在D2范围内按最小增量落实，不扩大到其它依赖。</p>
+<p>管理员已同意引入PyArrow；依据是当前已测DuckDB直接调用不能同时满足读取进度、同连接交错SQL和禁止全历史物化，而PyArrow有独立Scanner/RecordBatchReader可保管读取进度。正式读取实现固定为23.0.1，不再列为待选或待批准依赖。它已按许可安装，项目依赖及锁文件已在D2追加，最小读取、同连接SQL及来源交接证据见§19.9；跨文件合批、完整指标与整页资源性能仍按D2修正/D3/D4分别验收，不能将最小接入扩大为完整性能通过。</p>
+<p>保持原设计目标版本<code>pyarrow==23.0.1</code>，后续依赖改动位置仅为根<code>pyproject.toml</code>的<code>[project.optional-dependencies].local-lake</code>及对应<code>uv.lock</code>。业务项目DuckDB继续锁定现有1.5.5；不顺便升级DuckDB、其他现有依赖、DG或全局环境。新依赖的必需锁定增量须可解释，不用自动升级全部依赖取得安装成功。选型确认与安装授权分开；§19.6记录的安装已有管理员明确授权。依赖声明和锁文件已在D2按最小增量落实，沿用现状；本轮不重新生成锁文件，不扩大到其它依赖。</p>
 <p>没有PyArrow时，在能力装配阶段明确依赖不可用，不在第一次请求中隐式下载，不回退到全历史物化、按指标多连接或Python数值计算。算法发现仍说明算法能力；部署依赖不可用不能被标成今天没有行情。</p>
 <p>代码位置固定为<code>src/foundation/clients/local_lake/technical_indicator_price_source.py</code>中的Lake来源实现；通用协议和批次接收留在<code>technical_indicators/sources/contracts.py</code>与<code>session.py</code>。来源只使用投影和股票/时间过滤，不调用Arrow Compute计算指标、复权、系数或单位换算。</p>
-<h3>06.6 SourceStream字段、推进和关闭</h3>
-<p>SourceStream每请求独立，普通方法仅在本次工作线程调用；配置/来源工厂可以共用，此对象不能共用。至少保存：</p>
+<h3>06.6 SourceStream字段、合批、推进和关闭</h3>
+<p>以下是D2修正后的编码合同，当前已提交D2尚未实现跨文件合批。普通方法仅在本请求工作线程调用；对象不能跨请求共享，max_rows在请求中固定为配置batch_rows，初始8192。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
 <th>字段</th>
-<th>类型/初值与职责</th>
+<th>类型/初值及精确用途</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>file_iterator / current_path</td>
-<td>已有受控文件清单的迭代器 / None；路径已按时间排序，不每批重新枚举</td>
+<td>已确认的时间有序文件清单迭代器 / None；不重新枚举</td>
 </tr>
 <tr>
 <td>fragment / scanner / reader</td>
-<td>None或当前文件对应Arrow对象；每次只打开一个文件</td>
+<td>None或当前文件对象；始终只开一个文件，禁用预取</td>
+</tr>
+<tr>
+<td>pending_batch</td>
+<td>None或已经读到、尚未交付的紧凑RecordBatch；最多8191根；下次先用它，不重新读文件</td>
+</tr>
+<tr>
+<td>assembling_batches / assembling_rows</td>
+<td>当前next_batch局部列表及根数，累计不超过8192；成员是复制了选中行的RecordBatch，不长期借用旧大缓冲</td>
 </tr>
 <tr>
 <td>current_batch</td>
-<td>None或当前RecordBatch；SourceStream与PriceInputSession交接期引用，物化后释放</td>
+<td>None或已合好的RecordBatch，1～8192根；一个交付尚未释放时不允许再次next_batch</td>
+</tr>
+<tr>
+<td>_delivered</td>
+<td>已交付的累计目标根数，初始0；SourceBatch.source_first_position=_delivered+1，source_last_position=_delivered+selected_rows；交付后更新。与包含余量的read_context.source_rows分开</td>
 </tr>
 <tr>
 <td>exhausted / closed / failed</td>
-<td>初始False；正常全文件结束、显式关闭、读取失败分别记录，不能混为同一EOF</td>
+<td>分别标正常全源结束、已关闭、失败；三者不能互相冒充</td>
 </tr>
 <tr>
-<td>source_rows / source_files / source_file_bytes</td>
-<td>已交付目标行及已打开唯一文件计量；不冒充物理读取字节或磁盘遍数</td>
-</tr>
-<tr>
-<td>control / read_requirement</td>
-<td>本次停止控制及不可变输入需求；时间过滤只有有效输出上界，不截掉递推前缀</td>
+<td>read_context / control / read_requirement</td>
+<td>本次唯一计数、取消截止及固定输入需求；余量不会重复计数，时间上界不截掉递推前缀</td>
 </tr>
 </tbody>
 </table></div>
-<p>方法<code>next_batch(max_rows)</code>的max_rows由PriceInputSession固定传入config.batch_rows；本请求过程中不改成别的值。若current_batch尚未release，不允许再取下一批。第一次调用打开第一个文件，后续调用延续同一个reader；不得每次重新Scanner、重新发起DuckDB读文件查询或read_all/to_table。</p>
-<p>推进算法：检查停止→必要时创建当前文件fragment/Scanner/reader→read_next_batch→再次检查停止→若num_rows为0则释放该空批继续取本文件→交付非空SourceBatch。只有捕获<strong>StopIteration</strong>才结束当前文件：关闭reader，清空fragment/scanner引用，再推进下一个文件；全部文件都正常结束后才设exhausted并返回None。其他异常保留cause并抛SourceReadError，不转为StopIteration/None；close失败按ResourceCleanupError处理并整次失败，不打开下一文件掩盖问题。</p>
-<p>SourceStream内部协议<code>release_current_batch() -&gt; None</code>：幂等清空current_batch引用，不关闭reader、不重置读取进度。<code>close()</code>只由工作线程调用，先释放当前批，再尝试reader.close，最后清空scanner/fragment/file_iterator等引用并标closed；即使某项清理失败也尝试其余释放并报告错误。关闭或failed后的next_batch是内部调用错误，不返回正常EOF。正常exhausted后的next_batch可继续返回None；重复close不操作已经释放的对象。</p>
-<p>若read_next_batch返回后已停止，不交付该批给指标；释放该批并抛取消/截止错误。不得从控制线程调用Arrow close去抢断正在运行的原生文件操作。单一批次8192是交付行数上限，不是原生解压内存硬上限；选中列row group的元数据估算及实际内存继续遵守§16～17。</p>
+<p>固定推进步骤：</p>
+<ol>
+<li>检查未关闭、未失败且没有current_batch。先消耗pending_batch，后读当前reader。每次原生读取前后、每次复制/合并前后都检查同一个取消/截止；不在控制线程close Arrow。</li>
+<li>空批释放后继续；只在StopIteration关闭当前文件再开下一文件。单文件结束、无匹配文件、物理批小于8192都不能提前交付。只有全部文件正常结束才算全源EOF。</li>
+<li>一次物理读取获得n根目标记录时，先以n调用record_price_rows一次，超过150万立即失败；这不是逐值质量检查。当前还差k根就取min(k,n)根，余下放pending_batch。已计数余量下一次使用不再计数。交付的连续seq由PriceInputSession按交付数量推进，不把来源已读数当新批起始编号。</li>
+<li>为避免一行切片仍持有原文件的大缓冲，每个选中片段按投影列调用<code>pa.concat_arrays([column])</code>复制所选值，再用原schema构造RecordBatch；余量同样复制后保留。该PyArrow原生列复制不计算价格或指标。复制结束立即释放原物理批/切片引用，不将Table.from_batches的零复制组织误当成释放原缓冲。当前reader自身解码缓冲仍计入读取预留。</li>
+<li>累计正好8192根即停止读取；列表只有一份就直接交付，多份使用<code>pa.concat_batches(assembling_batches)</code>一次合并成一个RecordBatch，随后清空片段列表。禁止每加一行就反复复制整个累积批。已读余量保留；没有当前批需求时不主动读下一文件/下一物理批。</li>
+<li>全源EOF且累计1～8191根，按相同办法交最后一批；累计0根返回None。总数≤8192的请求必然先读完所有匹配记录再一次交付；总数&gt;8192必然为若干满批及至多一个不足8192的尾批。恰好满批时无需预读确认EOF，下一次调用再确认并返回None。</li>
+</ol>
+<p>例如三个文件分别筛到5000、5000、1根：第一次交8192根，保留第二文件余下1808根；下次先用这1808根，再读第三文件1根，正常EOF后交1809根。不能交5000/5000/1，也不能丢弃或重复1808根。500份日线文件各1根，总500根，全部读完后只交一批500根。</p>
+<p><code>release_current_batch()</code>只清current_batch，幂等，不清pending_batch，不关闭reader或重置进度。<code>close()</code>及任何读取/复制/合并失败清空current_batch、pending_batch和正在累积的片段，再逐项关闭reader、清scanner/fragment/迭代器；失败的对象不得继续取批。next_batch关闭/失败后调用报内部错误；正常exhausted且无余量可重复返回None。停止时已有半批不得交给指标，直接按原取消/截止异常退出。</p>
+<p>失败归属沿既有类明确：取消/到期及已抛出的ResourceLimitError原样保留；复制/合并内存分配失败为ResourceLimitError；实际列schema不相容导致无法合并为SourceContractError；文件打开/读取失败为SourceReadError；释放/关闭失败为ResourceCleanupError。均保留原始cause，不将异常当EOF、空批或部分成功，不更换来源/复制方法兜底。</p>
+<p>持有量：累积或交付部分≤8192根、一个已读余量≤8191根；复制/最终合并瞬间可多一份当前部分，另有当前reader解码缓冲。释放current_batch不意味着进程RSS马上下降。64MiB读取预留仍是原估算、32MiB单row group仍是初始保护，不是Arrow总内存硬保证。D2修正用现有小文件场景记录实际数组缓冲及RSS，不新增内存配置或大规模压力矩阵；若原预算不满足则停止讨论。</p>
 <h3>06.7 交给DuckDB及两层批次的释放点</h3>
 <p>读取所得SourceBatch由PriceInputSession按以下固定顺序接收，不能把整个Reader注册给每个指标：</p>
 <ol>
-<li>检查停止和实际输入计量，把<strong>当前RecordBatch</strong>注册为受控内部名称；尝试注册前先登记受控注册名，成功后才交接。</li>
+<li>检查停止和实际输入计量，把<strong>已经按§06.6跨文件合好的RecordBatch</strong>注册为受控内部名称；尝试注册前先登记受控注册名，成功后才交接。</li>
 <li>在本请求唯一连接执行stage_input.sql，完成本批投影、类型/单位转换与受控排序；各指标只看后续准备好的目标价格临时表。</li>
-<li>stage_input物化成功后unregister本批Arrow注册名，再release_current_batch并清空接收方对SourceBatch/RecordBatch的引用。之后需要复权时，在同一连接执行读取模块的复权SQL。最终目标价格是独立SQL表，继续供所有指标复用；此时尚不读取下一批。</li>
+<li>stage_input物化成功后unregister本批Arrow注册名，再release_current_batch并清空接收方对SourceBatch/RecordBatch的引用；Stream中尚未交付的pending_batch保留至下次使用或close。之后需要复权时，在同一连接执行读取模块的复权SQL。最终目标价格是独立SQL表，继续供所有指标复用；此时尚不读取下一批。</li>
 <li>engine计算、输出收集、SQL状态和必要历史窗口独立保存完毕后，PriceInputSession.finish_batch才删除本批SQL价格/输入表，允许下一次next_batch。<strong>Arrow批次的释放早于SQL价格表；二者不能使用同一个模糊的“批次结束”。</strong></li>
 <li>注册或物化失败时整次失败；待SQL实际退出并结束中断监控后，由统一finally尝试unregister、释放Arrow引用、关闭reader、清理SQL表及最终close连接。unregister失败要记清理错误；不能声称引用已经释放，最终连接关闭仍必须尝试。</li>
 </ol>
 <p>没有预取、跨请求缓存或通用引用计数；不是让DuckDB和PyArrow各读一遍。一次源推进服务同批全部指标，来源数值和完整性仍由外部负责，不新增质量扫描或日历/停牌检查。</p>
-<h3>06.8 必要验证，固定规模而非组合穷举</h3>
-<p>后续D2先验证已确认PyArrow读取，再推进后续计算：</p>
-<ul>
-<li>复用现有32768行临时Parquet，每批≤8192，取批后在同一DuckDB连接执行本批SQL；下一批必须继续原位置，四批合计32768且各位置只交付一次。登记/注销后目标价格表仍可查询，计算SQL不能改变Arrow读取位置。该夹具只证明读取/交接，不冒充正式行情合同。</li>
-<li>生产者合同的独立小夹具使用既有已核实标准schema；三个文件目标行数分别2、0、3，总物理行数≤16。中间无匹配文件不能当全源EOF；字面预期总5行，文件推进各一次，量额/日期/复权类型按合同单独核对。再补正常零输出、空批、打开/取批/注销/close失败及取消，正反路径纳入test_source_contracts/test_errors_and_cleanup，不引出全市场读取。</li>
-<li>上述隔离读取合计新文件≤3份小夹具及既有大夹具，总≤8MiB；单轮≤10秒、≤20次小调用。真实源边界仍按§17.2原有有界样本执行，不新增未批准的数据范围。用Mock注入的失败仅说明异常处理，不能代替真实Arrow/DuckDB交接验证。</li>
-<li>验证只保留一个文件Reader、一个DuckDB连接、一个当前Arrow批；下一批在finish_batch之前不发生，默认预取关闭且不调全局线程池；实际RSS、解码缓冲、停止与清理分别测量。未完成这些验证，不报告读取集成或性能通过，也不因选型获批跳过验收。</li>
-</ul>
+<h3>06.8 D2修正的必要验证</h3>
+<p>原D2读取与控制证据保留，不能把它们当成已经通过新合批规则。修正只按§19.11重新验证受影响的读取、交付及释放，沿用test_source_contracts/test_price_adjustment/test_errors_and_cleanup，不重跑无关数据库测试，不扩大正式湖读取。数据字段/schema仍依据原生产者，不从消费者倒推。</p>
+<h3>06.9 已确认：先读成8192根一批，再交付计算</h3>
+<p>管理员已明确批准：总数不超过8192，全部读完再交付；超过8192，只交满8192根的批次，直到全源结束时交最后不足一批的记录。合批是读取模块职责，不交给指标模块自行凑行，不把文件/row group边界当成计算边界。D2修正先于D3，准确字段和步骤见§06.6，范围、失败规则和预算见§19.11。来源仍只正序推进一轮，同一批K线只标准化一次、必要复权一次，供本次请求的全部指标使用。</p>
+<p>当前已提交代码的缺陷位置：technical_indicator_price_source.py中_LakePriceStream.next_batch读到非空物理批就返回；sources/session.py随即建表、必要复权。日线会把文件数扩大为输入处理轮数，D3接入后还会扩大为指标调用次数。修正不重写session的复权、历史及清理规则，不另加DuckDB读取路线或第二连接。D3尚未接入，不能把设计推断写成已测指标性能。</p>
 </section><section id="s07"><h2><small>07</small>复合依赖、复权及同请求复用</h2><h3>07.1 固定定义与顺序</h3>
 <p><code>registry.py</code>注册 <code>price@1.0.0 / ma@1.0.0 / boll@1.0.0 / macd@1.0.0 / kdj@1.0.0</code>。独立复权对象的实现版本为<code>price_adjustment@1.0.0</code>，其说明由<code>price</code>能力引用并结合配置来源给出可用目标口径；不再发布一个业务不能直接调用的第六个计算ID，也不在指标引擎重复实现复权。业务单独提交<code>price</code>和目标复权即可取得价格，多指标中的price实例也走同一已准备价格，不触发第二轮读取。发现列出的每个计算ID必须能通过同一calculate入口解析；来源不支持与未知能力分开返回。</p>
 <p>依赖展开先校验全部实例，再深度优先检查循环，按定义声明顺序稳定拓扑排列。依赖展开阶段的复用键由<strong>本请求</strong>固定证券、周期、目标复权上下文及计算ID、实际参数、公式版本和初始化组成；当前递归路径中的同键报循环，已完成节点的同键复用。来源实际基准在随后输入准备阶段固定并由本请求所有节点共用，不要求展开前读取因子、创建连接或使用尚未知的basis值散列，也不在取到基准后重新展开。内部散列只用于表名映射，不冒充来源版本或持久缓存。相同MA20与BOLL20声明同一个window_mean(20)；同参数不同输出instance_id可共享一次计算，输出身份仍分别存在。不同参数/版本/基准不复用。不为每次加减乘除建对象。</p>
@@ -689,6 +731,125 @@ CROSS JOIN ti_anchor a;
 </code></pre>
 <p>以上表名由内部代码生成，参数值绑定，源列按合同投影。adjust_price.sql按ReadRequirement.fields与内置价格列白名单的交集生成投影：需要的open/high/low/close各执行同一比例表达式，不存在且不需要的列绝不引用；seq及本周期全部time_fields原样保留，volume/amount仅在请求price等能力确实需要时读取并原样传递。不用NULL或0补出未请求的列，也不为单MACD扩大为整套价格读取。动态部分只能来自内部字段枚举，业务不能提交SQL表达式。<code>basis_value</code>：qfq取该股票<strong>最新可用因子</strong>，hfq取<strong>最早可用因子</strong>，与已核实QuoteQueryService一致；同一SQL比例公式，模式决定准备哪一行基准。不假设最早因子=1，不以输出end/start/页数改变分母。独立字面例：当日因子1、2，最新2、最早0.5，原价10、6：qfq为5、6；hfq为20、24；量额不变。</p>
 <p>输入已为同类型且来源声明基准符合目标规则时直接用；本轮不实现qfq↔hfq、已复权反还原和任意日期换基准。不支持就明确拒绝，不静默改读另一条来源。声明支持和请求有无数据分别判断，0行不能跳过不支持的路径。</p>
+<h3>07.3 同一批K线和计算结果共用时，怎样防止用错</h3>
+<p>不新增通用缓存、引用计数或任意SQL框架。沿用现有dependencies.py每请求局部去重字典，以及CalculationSession的依赖和自有表清单，具体约束如下。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>要防的错误</th>
+<th>编码规则和实现位置</th>
+<th>本任务中的例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>复用不同参数/版本/复权的计算</td>
+<td>dependencies.expand_dependencies只按§07.1完整键复用，Parameters补默认后不可变；不按指标名字或单独period去重，不跨请求保存节点/表/结果</td>
+<td>MA20+BOLL20共享window_mean20；MA60另算；BOLL20/2与BOLL20/3只共享均值、上下轨分别算</td>
+</tr>
+<tr>
+<td>依赖重复算或取到上批结果</td>
+<td>engine.consume每个唯一节点每批一次；上批未release时不能再次consume。每批先建立新的依赖映射，核new_first_seq/new_last_seq等于当前PriceBatch；父指标只读映射，不调用依赖consume</td>
+<td>两份同参数MACD条目返回两个ID，实际节点只算一次；不能用上批均值生成本批BOLL</td>
+</tr>
+<tr>
+<td>修改/删除别人正在用的表</td>
+<td>CalculationSession新增内部execute(step)及drop_owned_table(name)方法；两者先核归属再委托同一executor。写表必须已在本session的state_tables/batch_tables登记；读表仅限自己表、engine指定的本批K线表及已声明依赖表；借用表不允许登记为自有表</td>
+<td>BOLL能读均值表，不能UPDATE/DROP均值表；price直接借用读取模块表，不能删它</td>
+</tr>
+<tr>
+<td>写对了名字却绑定到错表</td>
+<td>engine为每session设置当批只读readable_tables集合；固定SQL模板的表角色按代码映射。只读角色只能填K线/依赖表，写角色只能填自己登记的表；SqlStep.input_tables/output_tables分别核对，越界在执行SQL前报CalculationExecutionError</td>
+<td>MACD的state角色只能是自己的状态表，不能拿KDJ状态表替换</td>
+</tr>
+<tr>
+<td>提前释放或失败后继续使用</td>
+<td>一批按固定顺序完成所有指标、结果收集和历史保留，再反向释放各指标表，最后inputs.finish_batch释放K线；不增加引用计数。失败后停止后续指标，统一finally清理本请求，不能返回其它指标的半份成功</td>
+<td>MA与BOLL都使用完均值且输出已经保存后，才由均值计算对象删除表</td>
+</tr>
+</tbody>
+</table></div>
+<p>仅检查state_tables/batch_tables成员还不够，否则错误地把依赖表加到该列表仍可能被写删。各计算对象另以代码常量TABLE_ROLES写死可创建的表角色、前缀和生命周期；engine由当前node_index生成只读owned_table_names及role到内部表名映射。CalculationSession.declare_owned_table(role:str)-&gt;str只接受这份角色映射的成员，先登记模块和执行器，再返回固定表名，不接任意表名。execute/drop_owned_table必须同时核“属于生成的owned_table_names”和“已经登记到对应清单”。借用表即使误加清单也不能获得写删资格。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>计算对象</th>
+<th>固定TABLE_ROLES与生命周期</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>price、ma</td>
+<td>空；只借用已有表</td>
+</tr>
+<tr>
+<td>window_mean</td>
+<td>output→ti_mean_<node>，本批</td>
+</tr>
+<tr>
+<td>window_range</td>
+<td>output→ti_range_<node>，本批</td>
+</tr>
+<tr>
+<td>boll</td>
+<td>output→ti_boll_output_<node>，本批</td>
+</tr>
+<tr>
+<td>macd</td>
+<td>parameters→ti_macd_parameters_<node>、state→ti_macd_state_<node>，本请求；work→ti_macd_work_<node>、output→ti_macd_output_<node>，本批</td>
+</tr>
+<tr>
+<td>kdj</td>
+<td>parameters→ti_kdj_parameters_<node>、state→ti_kdj_state_<node>，本请求；work→ti_kdj_work_<node>、output→ti_kdj_output_<node>，本批</td>
+</tr>
+</tbody>
+</table></div>
+<p>TABLE_ROLES、SQL_FILES及FIXED_SQL_STEPS都是内置类的只读常量，不能由业务或env指定；同一role的名字/生命周期重复或冲突在prepare前拒绝。§21示例省略的表后缀按此表生成。不同参数/节点有不同node_index，不会同名覆盖；不同请求连接独立。这些只是现有固定SQL表的名称和归属声明，不引入对象池或通用权限系统。</p>
+<p>engine.prepare从每个计算对象类内固定SQL_FILES和FIXED_SQL_STEPS取得本对象允许的步骤名，构造只读allowed_step_names并传入本节点session；步骤名采用文件名（去掉.sql）或固定辅助步骤名，重复声明启动失败。业务不能提供/改写该集合。SqlStep.sql只允许该对象调用固定加载函数/固定辅助函数生成，不给调用方提供任意SQL正文入口，不靠步骤名声称验证任意SQL正文，也不增加SQL解析器。</p>
+<p>CalculationSession.execute的固定步骤：检查本请求仍活动→核step.name属于本session.allowed_step_names且不是control_read_steps中的SELECT→核读写表角色与上述集合→执行器原有先登记/停止检查/安全绑定/计量→返回ExecutionStats。两条控制SELECT只能用§07.4的read_control_row，不能提交后遗失返回值。不得把未经核验的SQL文本交给该方法；指标代码不得直接调用session.executor.execute、连接execute或通用drop来绕过这些检查。prepare时readable_tables只含已经可用的自有状态；consume前engine再加入当批K线和声明依赖，release_batch后清当批集合。drop_owned_table(name, *, cleanup=False)先核自有清单；正常批末固定用drop_table，只有engine.close调用release的统一收尾路径设置cleanup=True并用cleanup_drop。归属检查不会因cleanup跳过，业务/指标consume不能开启清理模式。停止后的清理沿§11/13专用入口，不重新开启普通业务SQL。</p>
+<p>当前D1的CalculationSession尚无这些方法/集合，当前D2执行器只核受控名称并登记资源，尚不核每指标归属；上述方法在D3实现，D2修正不改它们。来源、输出仍由各自模块管理，不借此扩大成全系统权限框架。固定SQL文件、角色和代码审查共同保证内部代码不误用；不声称可以安全执行任意不可信SQL。共用模板若改变公式、初始化或输出含义，必须同步版本及其MA/BOLL等全部消费者，不能仅改一方。</p>
+<p>这些约束只在已确认的多指标、批次接续和失败场景中验收：看相同均值是否只算一次、不同参数是否分开、借用表越界是否在SQL前失败、旧批说明是否拒绝。不追加参数交叉矩阵或新的测试类别。</p>
+<h3>07.4 D3固定读取段长和计算终点，不返回指标状态到Python</h3>
+<p>这两个方法只供MACD/KDJ安排下一段SQL，不是业务接口，也不是任意SELECT入口；没有新配置。方法及返回对象固定如下：</p>
+<ul>
+<li><code>CalculationSession.read_control_row(step_name: str, bindings: tuple=()) -&gt; tuple[int | None,...]</code>：调用者只选下表两个固定步骤名；不得提供SQL、表、字段或行数。代码中固定声明还包括读表角色、绑定数/类型、返回列和逻辑行数。Session先检查活动状态、步骤、表归属及本批终点，再调用执行器；不能通过scalar/read_result/connection绕开。</li>
+<li><code>DuckDBExecutor.read_control_row(step: SqlStep, *, expected_columns: tuple[tuple[str,str],...]) -&gt; tuple[int | None,...]</code>：仅由上述Session调用，预期列取自该计算类固定声明。沿用当前工作线程、唯一连接及普通停止检查；不向业务或指标暴露可替换的预期列参数。</li>
+</ul>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>固定步骤及调用时机</th>
+<th>固定SELECT、绑定和读表</th>
+<th>确切返回/计量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>read_smoothing_limits；prepare参数表形成后一次</td>
+<td><code>SELECT segment_rows AS safe_rows FROM {{parameters}}</code>；无绑定；只读自有parameters</td>
+<td>严格一行一列safe_rows INTEGER；逻辑输入1行。NULL为参数不能表达，抛RequestInvalidError；非整数或不在1～1024为CalculationExecutionError。此处1024是既定数学段上限，不是业务周期上限</td>
+</tr>
+<tr>
+<td>read_segment_bounds；consume初始化完成后及每次状态更新后</td>
+<td>下方固定CTE；一个绑定等于engine设置的当前PriceBatch.new_last_seq；只读自有state/parameters</td>
+<td>严格一行：last_seq BIGINT、next_end BIGINT、segment_rows INTEGER；逻辑输入2行。返回的segment_rows是本次实际处理行数，可为0</td>
+</tr>
+</tbody>
+</table></div>
+<pre><code class="language-sql">-- read_segment_bounds：一个绑定，终点由本批说明给出
+WITH endpoint AS (SELECT CAST(? AS BIGINT) AS new_last_seq),
+bounds AS (
+ SELECT s.last_seq,
+        least(s.last_seq+p.segment_rows,e.new_last_seq)::BIGINT AS next_end
+ FROM {{state}} s CROSS JOIN {{parameters}} p CROSS JOIN endpoint e
+)
+SELECT last_seq,next_end,(next_end-last_seq)::INTEGER AS segment_rows
+FROM bounds;
+</code></pre>
+<p>Session在engine.consume前取得只读current_batch（new_first_seq/new_last_seq）；read_smoothing_limits无绑定；仅read_segment_bounds允许一个非bool整数绑定，必须等于该终点。prepare时不得调用此步骤；release_batch后清除current_batch。read_segment_bounds的三个值均必须为非bool整数、非NULL，否则control_types；只有read_smoothing_limits的safe_rows允许NULL并转参数错误。读取所得last_seq必须位于本批起点减1至终点之间，next_end不得倒退/越过终点，segment_rows必须等于next_end−last_seq且在0～1024。这里只校验SQL控制信息和批次关联，不扫描行情质量；Python只安排循环，不求系数或指标值。control_read_steps是engine从计算类FIXED_SQL_STEPS的read声明生成的不可变映射，值固定为SQL正文/只读表角色/绑定类型/预期列/逻辑输入数；execute类声明与read类声明不得同名，execute明确拒绝read步骤。参数表SELECT不是可替换的用户SQL。</p>
+<p>执行器按固定列顺序和DuckDB类型检查description，先fetchone取得一行，再fetchone确认结束；每次fetch前后检查取消/截止，不在其间执行别的SQL。0行、多行、字段/类型不符、边界异常用CalculationExecutionError，附固定step_name及reason（control_row_count、control_columns、control_types、control_bounds）；底层SQL/fetch失败分别为control_query_failed/control_fetch_failed并保留cause。已有取消、截止、资源异常保持原类和原优先级。只返回独立tuple，不返回游标，不取alpha/beta/EMA/DEA/K/D。</p>
+<p>每次真正提交SQL追加一次ExecutionStats，包含失败调用；output_rows取实际已取行数，logical_input_rows按上表。停止检查已拒绝且未提交SQL时不伪造执行记录；不增加source_rows。MACD/KDJ各自的FIXED_SQL_STEPS登记上述两条固定SELECT及元信息，MA/BOLL/price不能调用。read_control_row不增加任意SQL解析器。</p>
+<p>循环固定为：初始化成功→read_segment_bounds→segment_rows=0则本批结束，否则以next_end绑定本指标段SQL→追加结果→状态更新一次→释放work→再次读取。MACD只有首根的批次完成首根状态和零结果后自然得到0，不执行空段；KDJ由last_seq=0、K=D=50开始，第一根也进入段SQL。内部控制读取的检验合并到原初始化、跨段和越界拒绝场景，不另加参数矩阵。</p>
 </section><section id="s08"><h2><small>08</small>SQL表、批次与资源归属</h2><div class="table-wrap"><table>
 <thead>
 <tr>
@@ -701,7 +862,7 @@ CROSS JOIN ti_anchor a;
 <tr>
 <td><code>ti_source_batch</code>注册表</td>
 <td>当前≤8192源列行；只投影所需列</td>
-<td>来源注册；stage_input完成立即unregister并释放RecordBatch引用</td>
+<td>来源跨文件合批后注册；stage_input完成立即unregister并只释放本次交付，尚未交付余量由Stream保留</td>
 </tr>
 <tr>
 <td><code>ti_raw_new</code></td>
@@ -744,14 +905,14 @@ CROSS JOIN ti_anchor a;
 <td>同上；初始last_seq=0、K=D=50</td>
 </tr>
 <tr>
-<td><code>ti_smooth_params_&lt;node&gt;</code></td>
-<td>1行：参数α/β、段长S及版本</td>
+<td><code>ti_macd_parameters_&lt;node&gt;</code> / <code>ti_kdj_parameters_&lt;node&gt;</code></td>
+<td>1行：参数α/β和段长S；确切字段见§21.1/21.2，版本只在Definition及输出说明</td>
 <td>SQL生成；请求内只准备一次；engine清理</td>
 </tr>
 <tr>
-<td><code>ti_work_&lt;node&gt;</code></td>
+<td><code>ti_macd_work_&lt;node&gt;</code> / <code>ti_kdj_work_&lt;node&gt;</code></td>
 <td>当前数学段≤S；中间EMA/DIF/K/D等列</td>
-<td>每段结束后drop或复用清空；不保留历史work表</td>
+<td>每段结束后由drop_owned_table删除；不保留或复用历史work表</td>
 </tr>
 <tr>
 <td><code>ti_output_batch</code></td>
@@ -760,7 +921,7 @@ CROSS JOIN ti_anchor a;
 </tr>
 <tr>
 <td><code>ti_output_tail</code></td>
-<td>≤limit+1行及请求字段</td>
+<td>≤limit行及请求字段</td>
 <td>collector请求内保留；整次完成独立取出，随后drop</td>
 </tr>
 </tbody>
@@ -825,6 +986,15 @@ FROM a;
 <p><code>n=1</code>走恒等结果，不计算ln(0)、0负幂；此时1024只是内部单步行数上限，不是指数幂段长，也不让恒等分量把其它平滑强制变成逐根SQL。复合平滑步骤须先逐个检查各递推分量safe_rows均非NULL，任一NULL则整次拒绝；不能直接用会忽略NULL的MIN掩盖无效分量。全部有效后，段长取其各递推分量safe_rows最小值，再与当前新输入剩余行数取小；Python只安排已经由SQL确定的S，不求α/β/对数或指标值。</p>
 <p>约束 <code>S×(−lnβ)≤256</code>，因此负幂至多约<code>e^256=1.5114×10^111</code>；另有S≤1024。若精度验证的价格尺度M=10^6，允许MACD中间输入绝对尺度2M，负幂乘输入与累计和的保守界为<code>1024×2×10^6×e^256 &lt; 3.10×10^120</code>，显著低于DOUBLE最大约<code>1.7977×10^308</code>。K/D输入在正常价格合同下RSV0..100，边界更小。该推导同时覆盖乘输入/求和，不能只证明幂有限。该M用于限定数值验收结论，不增加逐根输入范围检查，也不保证任意接近DOUBLE极限的异常源数值仍可计算。</p>
 <p>本机1.5.5核验的段长：EMA2=233、EMA9/12/26/65/69/10000=1024；K/D2=369、K/D3=631、K/D10000=1024。默认MACD取1024、默认KDJ取631；读批8192分别含多个数学段。自定义参数的任一分量若要求更短段，必须共同服从；不能只按快/慢EMA忽略DEA。256既留出超过180位十进制的数值余量，又避免把默认平滑无必要地切成很短的小SQL；不为省语句采用超过公式上限的段长。</p>
+<p><strong>参数表如何生成，固定到代码。</strong> MACD的create_parameters辅助步骤将同一smoothing_parameters.sql的SELECT正文嵌入f/s/g三个CTE，绑定顺序为(fast,'ema',slow,'ema',signal,'ema')。该固定模板读取时仅移除末尾一个分号后嵌入；业务不能替换文本。CTAS的SELECT固定为：</p>
+<pre><code class="language-sql">SELECT f.n AS fast,s.n AS slow,g.n AS signal,
+       f.alpha AS af,f.beta AS bf,s.alpha AS aslow,s.beta AS bslow,
+       g.alpha AS ag,g.beta AS bg,
+       CASE WHEN f.safe_rows IS NULL OR s.safe_rows IS NULL OR g.safe_rows IS NULL
+            THEN NULL ELSE least(f.safe_rows,s.safe_rows,g.safe_rows) END::INTEGER AS segment_rows
+FROM f CROSS JOIN s CROSS JOIN g;
+</code></pre>
+<p>KDJ的create_parameters固定嵌入k/d两个CTE，绑定(k_period,'kd',d_period,'kd')；SELECT固定为k.n AS k_period、d.n AS d_period、k.alpha AS ak、k.beta AS bk、d.alpha AS ad、d.beta AS bd，以及任一safe_rows为NULL就NULL、否则least(k.safe_rows,d.safe_rows)::INTEGER AS segment_rows。两个CTAS只写自己parameters表，logical_input_rows分别为3和2；不读取K线，不把系数取回Python再拼接。参数表建成后调用§07.4的read_smoothing_limits，一次校验通过才创建/初始化指标状态；表中NULL段长不能进入consume。版本来自Definition，不重复加进这两张SQL参数表。</p>
 <h3>09.3 分段模板及首条处理</h3>
 <pre><code class="language-sql">-- 对当前段，j为从1开始的段内序号；seed为上一段末值
 -- SQL参数表提供alpha、beta，所有普通运算仍在DuckDB
@@ -836,7 +1006,7 @@ CASE WHEN n=1 THEN x
 END AS smooth_value
 </code></pre>
 <p>EMA的第一根数学上两条EMA均为首个close，DIF=DEA=hist=0；内部按下段等价变换保存origin_price=close、两offset=0，输出直接字面SQL赋0，避免首条展开产生约1e−14的假负号。后续从第二根调用模板，段首seed取内部状态表，<code>j=seq-last_seq</code>。快慢EMA各算减首价后的值并相减形成DIF，再以旧DEA为seed对当前段DIF平滑；柱值<code>2*(dif-dea)</code>；段末更新两offset与DEA，origin_price不变。后续段不是重新以首个close初始化。</p>
-<p>**最终编码必须采用的数值处理：**原价首根为c0，令<code>x=close−c0</code>后在SQL计算两EMA；初始两状态均0，额外保存固定c0。因为EMA线性、两条EMA都减去相同c0，<code>EMA_fast(close)−EMA_slow(close)=EMA_fast(x)−EMA_slow(x)</code>，DIF/DEA/柱的数学定义不变。不需要把c0加回后再相减；那会重新引入大数相减。状态表字段明确改为<code>origin_price,ema_fast_offset,ema_slow_offset,dea,last_seq</code>，其中offset只表示已减c0的内部状态，不是改变目标复权或另一个业务指标。首根原始EMA数学上仍等于close，内部状态为0。此方法不读取更多数据，不新增Python数值运算，也不改变首条严格0要求。高价/大周期的原写法已在有限样本中超出§10门槛，不能继续作为正式模板或放宽容差。</p>
+<p>**最终编码必须采用的数值处理：**原价首根为c0，令<code>x=close−c0</code>后在SQL计算两EMA；初始两状态均0，额外保存固定c0。因为EMA线性、两条EMA都减去相同c0，<code>EMA_fast(close)−EMA_slow(close)=EMA_fast(x)−EMA_slow(x)</code>，DIF/DEA/柱的数学定义不变。不需要把c0加回后再相减；那会重新引入大数相减。状态表字段及顺序固定为<code>last_seq,origin_price,ema_fast_offset,ema_slow_offset,dea</code>，与§08/21一致，其中offset只表示已减c0的内部状态，不是改变目标复权或另一个业务指标。首根原始EMA数学上仍等于close，内部状态为0。此方法不读取更多数据，不新增Python数值运算，也不改变首条严格0要求。高价/大周期的原写法已在有限样本中超出§10门槛，不能继续作为正式模板或放宽容差。</p>
 <p>KDJ先对<code>ti_price_window</code>生成各新行window条高低：<code>max(high)/min(low) OVER (ORDER BY seq ROWS BETWEEN window−1 PRECEDING AND CURRENT ROW)</code>；<code>CASE WHEN highest=lowest THEN 50.0 ELSE (close-lowest)/(highest-lowest)*100.0 END</code>。K再平滑RSV，D再平滑当前K，J=<code>3*K−2*D</code>；K/D首根也要从50更新，不能直接输出50。k_period或d_period=1时对应平滑是恒等，不能把整个KDJ统一短路。</p>
 <p>MA/BOLL用完整窗口输入计算后，外层只选新行。均值和总体标准差均按<code>ROWS</code>，<code>count(*) OVER w &lt; N</code>时输出NULL。BOLL上下轨在窗口足够时<code>mean ± multiplier*stddev_pop(close)</code>，不用样本标准差、不补0、不四舍五入。共享均值只算一次，BOLL仅增加标准差及上下轨。</p>
 </section><section id="s10"><h2><small>10</small>精度：明确门槛、独立预期与有限样本</h2><p>实现使用DOUBLE，不承诺跨SQL版本/分段大小逐位相等。以下是管理员本轮<strong>已确认的验收门槛</strong>，不是已证明所有输入均满足的数学保证：</p>
@@ -873,58 +1043,15 @@ END AS smooth_value
 </table></div>
 <p>此门槛依据：binary64单位舍入约1.11e−16；分段限制负幂范围和一次求和长度，fsum降低累计误差，但libm幂函数和多段递推仍需有限验证；不能仅从本次观测最大误差倒推容差。价格绝对尺度≤10^6、有效参数范围和本表样本是本轮验证结论的适用范围；超出范围不能冒充已验收。若门槛不满足，先检查初始化/求和/段长或调整SQL，不扩大容差掩盖差异。下游XXM近0判断可能比绘图敏感，须在未来接入专门验证；本轮不修改其判断阈值。</p>
 <p>独立预期不得调用待测Calculation或SQL模板生成。小样本使用字面分数/手算；较长递推使用<strong>独立SQL递归HUGEINT定点参考</strong>：价格以10^18倍整数表示，EMA按<code>((n−1)*previous+2*x)//(n+1)</code>，K/D按<code>((n−1)*previous+x)//n</code>。逐步截断≤10^−18，在已测N≤10000的有限参考样本中，状态累积截断上界约5×10^−15（EMA）/1×10^−14（K/D）；中间整数在受测价格尺度及长度内小于1.7×10^38。该参考误差界只适用于所列受测参数和输入，撤销产品周期上限后不得外推为所有正整数参数的精度证明。HUGEINT参考只用于有限测试，不作正式运行递推路线；Python不参与数值核算。BOLL用字面总体方差独立预期。</p>
-<div class="table-wrap"><table>
-<thead>
-<tr>
-<th>固定组</th>
-<th>输入/参数</th>
-<th>每组上限及目的</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>G01～G04字面</td>
-<td>close=[10,12,11]；MA2=[NULL,11,11.5]；BOLL2/2分别[NULL,11,11.5]、[NULL,13,12.5]、[NULL,9,10.5]；MACD(2,3,2)首根严格0，第二根DIF=1/3、DEA=2/9、hist=2/9；KDJ(1,1,1)取RSV</td>
-<td>各≤4根；预期不调用生产helper</td>
-</tr>
-<tr>
-<td>G05～G07实际默认/自定义</td>
-<td>MACD12/26/9、9/65/9、10/69/10；同一2051根确定涨跌序列</td>
-<td>跨至少一个数学段；HUGEINT参考</td>
-</tr>
-<tr>
-<td>G08～G11平滑反例回归</td>
-<td>MACD1/2/1、2/3/2、2/10000/1、9999/10000/10000；后两组增加约99万价格、微小涨跌的独立参考</td>
-<td>每组≤2051；周期1、2、大参数和S−1/S/S+1；正式模板必须抓住原写法高价超差</td>
-</tr>
-<tr>
-<td>G12～G15 KDJ</td>
-<td>9/3/3、1/1/1、9/1/3、10000/10000/10000</td>
-<td>每组≤2051；短窗口、恒等分量、初值和缓慢递推</td>
-</tr>
-<tr>
-<td>G16～G18窗口</td>
-<td>MA/BOLL N=1,20,10000；长度N−1/N/N+1；最大窗另核KDJ恒定输入参考50</td>
-<td>最大10001根；NULL、有限长窗口样本及KDJ越过满窗时点；10000不是产品上限</td>
-</tr>
-<tr>
-<td>G19～G22数据形态</td>
-<td>恒定100、固定线性涨跌、平high=low、接近0但有限的价差</td>
-<td>每组≤1025根；对默认参数组合核对</td>
-</tr>
-<tr>
-<td>G23～G26跨批</td>
-<td>批大小1/7/257/8192，对同一确定10001根输入；默认10实例</td>
-<td>不要求逐位相等，按门槛核；窗口/输出不重复推进；输入总40004</td>
-</tr>
-</tbody>
-</table></div>
-<p>开发后完整数值测试共26组（其中高价边界增加2个输入变体），输入总上限100000根，SQL实际处理上限5000000行，单组30秒、整轮5分钟上限，超出先记录并更新设计，不无限重跑。不做参数笛卡尔积；本轮设计实验只是其中有界子集，尚未覆盖完整26组。</p>
-</section><section id="s11"><h2><small>11</small>完整调用步骤与异常收尾</h2><div class="diagram"><svg viewBox="0 0 1000 260" role="img" aria-label="正常执行和取消收尾时序"><defs><marker id="ar-life" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="16" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="106" y="91" text-anchor="middle" font-size="18">检查请求</text><text x="106" y="119" text-anchor="middle" font-size="13">全部实例、来源支持</text><rect x="213" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="303" y="91" text-anchor="middle" font-size="18">创建连接</text><text x="303" y="119" text-anchor="middle" font-size="13">独立内存实例</text><rect x="410" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="500" y="91" text-anchor="middle" font-size="18">读取与复权</text><text x="500" y="119" text-anchor="middle" font-size="13">当前批价格共享</text><rect x="607" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="697" y="91" text-anchor="middle" font-size="18">计算与保留</text><text x="697" y="119" text-anchor="middle" font-size="13">SQL状态、输出尾部</text><rect x="804" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="894" y="91" text-anchor="middle" font-size="18">清理与关闭</text><text x="894" y="119" text-anchor="middle" font-size="13">同一服务收尾</text><path d="M196,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M393,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M590,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M787,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><rect x="80" y="175" width="840" height="56" rx="10" fill="#f6e8e1"/><text x="500" y="209" text-anchor="middle" font-size="15">取消：SQL先退出 → 中断控制解绑并结束 → 模块清理 → 关闭连接；API发送结束再归还名额</text><text x="500" y="30" text-anchor="middle" font-size="15">当前批全部使用方完成后才取下一批；不预取、不返回半成品</text></svg></div><pre><code class="language-python">def calculate(self, request):
+<p>本轮只使用管理员已确认的日常验收范围，具体输入和预算见§19.10；不保留原人为分批矩阵或全部参数交叉表，不再要求提供流量覆盖比例。数值核对与正常多指标、实际自定义参数、短历史场景一起进行，不另跑一份重复长历史。</p>
+<p>独立字面例只用于这些场景的预期：close=[10,12,11]，MA2=[NULL,11,11.5]；BOLL2/2中轨相同、上轨[NULL,13,12.5]、下轨[NULL,9,10.5]；MACD(2,3,2)首根0、第二根DIF=1/3、DEA=2/9、hist=2/9；KDJ高低相等时RSV50。它们是可人工核对的短预期，不是把正常长历史强行按1根分批。较长递推仅在默认及视频真实参数的既定场景中使用独立参考。</p>
+<p>既有测试总预算不自动提高：新增输入≤100000、SQL逻辑处理累计≤5000000、单个测试程序≤30秒、整轮≤5分钟，包含失败后的重新验证及最后核对。产品仍为6秒工作截止、8秒含收尾，不因测试程序预算改成30秒。已确认的日常场景中如实际计量超过预算，记录具体SQL步骤并停止，不靠扩容或删断言继续。</p>
+</section><section id="s11"><h2><small>11</small>完整调用步骤与异常收尾</h2><div class="diagram"><svg viewBox="0 0 1000 260" role="img" aria-label="正常执行和取消收尾时序"><defs><marker id="ar-life" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#315f80"/></marker></defs><rect x="16" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="106" y="91" text-anchor="middle" font-size="18">检查请求</text><text x="106" y="119" text-anchor="middle" font-size="13">全部实例、来源支持</text><rect x="213" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="303" y="91" text-anchor="middle" font-size="18">创建连接</text><text x="303" y="119" text-anchor="middle" font-size="13">独立内存实例</text><rect x="410" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="500" y="91" text-anchor="middle" font-size="18">读取与复权</text><text x="500" y="119" text-anchor="middle" font-size="13">合批后同批K线共用</text><rect x="607" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="697" y="91" text-anchor="middle" font-size="18">计算与保留</text><text x="697" y="119" text-anchor="middle" font-size="13">SQL状态、输出尾部</text><rect x="804" y="58" width="180" height="82" rx="10" fill="#e3edf1"/><text x="894" y="91" text-anchor="middle" font-size="18">清理与关闭</text><text x="894" y="119" text-anchor="middle" font-size="13">同一服务收尾</text><path d="M196,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M393,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M590,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><path d="M787,99 h17" stroke="#315f80" marker-end="url(#ar-life)"/><rect x="80" y="175" width="840" height="56" rx="10" fill="#f6e8e1"/><text x="500" y="209" text-anchor="middle" font-size="15">取消：SQL先退出 → 中断控制解绑并结束 → 模块清理 → 关闭连接；API发送结束再归还名额</text><text x="500" y="30" text-anchor="middle" font-size="15">当前批全部使用方完成后才取下一批；不预取、不返回半成品</text></svg></div><pre><code class="language-python">def calculate(self, request):
     # 以下是编码顺序，不是已实现代码；所有数值步骤调用SQL对象
     control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
     normalized = normalize_request_and_validate_all_instances(request, self.config)
     plan = self.registry.expand_dependencies(normalized)
+    output_instances = self._describe_output_instances(plan)
     history = combine_history_and_fields(plan)
     requirement = ReadRequirement(normalized, history, self.config.batch_rows,
                                   history_start=None, processing_end=normalized.end)
@@ -942,7 +1069,8 @@ END AS smooth_value
         control.check_active()
         inputs = PriceInputSession(executor, self.source, description, requirement, read_context=read_context)
         engine = CalculationEngine(executor, plan)
-        output = OutputCollector(executor, normalized)
+        output = OutputCollector(executor=executor, request=normalized,
+                                 instances=output_instances)
         inputs.prepare()
         engine.prepare()
         while True:
@@ -992,7 +1120,7 @@ END AS smooth_value
 <p>不得使用全局<code>duckdb.sql</code>默认连接、命名共享内存实例或cursor另建连接当隔离请求。禁用临时磁盘是双重设置；内存临时表允许，内存不够正常抛OutOfMemoryException，不开目录、不切磁盘。初始化失败不回退默认设置；所有设置须在目标DuckDB1.5.5做current_setting核对，测试再强制低内存执行有界排序验证不产生计算临时文件。正常请求不每条SQL反复查设置。</p>
 <p>普通读取/复权/指标/结果操作在一个现有框架工作线程顺序执行。同请求10实例仍1连接、1名额；DuckDB内部SQL线程1。核心不建立计算线程池、进程池或服务。为停止正在运行的SQL，需要§13唯一中断控制；它不执行读数或指标，不按指标创建线程。</p>
 <h3>12.2 应用层一个进程一份控制</h3>
-<p><code>composition.py</code>在应用lifespan启动时创建不可变config/registry/source factory；<code>admission.py</code>建立唯一共享容量对象，保存<code>closing:bool=False</code>、<code>active_leases:dict[内部ID,AdmissionLease]</code>、一个最多2项的FIFO等待列表及<code>idle_event</code>。活动数从len(active_leases)取得，不维护另一份可漂移计数。AdmissionLease只持本请求control、内部ID和released标记；idle_event明确使用anyio.Event：初始化时置位；从0个活动请求授予第1个时替换为一个新的未置位Event，不调用不存在的clear方法；最后一个Lease归还时置位当前Event。不是每请求创建计数，不在Foundation导入App。应用退出时拒绝新请求，取消等待者，对活动请求发停止，等待其真实收尾；未清理任务不伪装已释放。实际Web worker数由部署配置记录，每worker各2；部署总上限=worker数×2，并按同刻RSS核算。</p>
+<p><code>composition.py</code>在§12.4规定的隔离生命周期中创建config/registry/无句柄source；本阶段不改正式Web lifespan；<code>admission.py</code>建立唯一共享容量对象，保存<code>closing:bool=False</code>、<code>active_leases:dict[内部ID,AdmissionLease]</code>、一个最多2项的FIFO等待列表及<code>idle_event</code>。活动数从len(active_leases)取得，不维护另一份可漂移计数。AdmissionLease只持本请求control、内部ID和released标记；idle_event明确使用anyio.Event：初始化时置位；从0个活动请求授予第1个时替换为一个新的未置位Event，不调用不存在的clear方法；最后一个Lease归还时置位当前Event。不是每请求创建计数，不在Foundation导入App。应用退出时拒绝新请求，取消等待者，对活动请求发停止，等待其真实收尾；未清理任务不伪装已释放。实际Web worker数由部署配置记录，每worker各2；部署总上限=worker数×2，并按同刻RSS核算。</p>
 <p><code>admission.acquire(control)</code>为async；同一事件循环内原子修改active/等待列表，无耗时锁。没有空位且等待已满，立即<code>CapacityBusyError</code>；可以等时按入队序保存Future及绝对到期时刻，最长2秒。waiter取消/到期先从列表移除，不能后来再授予。释放时核对Lease未归还，再唯一移除active_leases记录；选最早仍有效waiter并建立其Lease，若无活动请求则置idle_event。所有集合更新和Future授予在同一事件循环内完成且中间不await，不可出现一个名额同时交给两个请求。停机先closing=True，移除并唤醒所有waiter，再对active_leases快照逐个request_stop(cancel)，等待idle_event真实置位；不能仅凭计数发送停止，也不能未归还就宣布已清理。</p>
 <p>等待对象固定字段为<code>future</code>、<code>control</code>、<code>wait_until</code>、<code>assigned_lease=None</code>及是否已移交标记。授予时先建立Lease并登记active_leases、将assigned_lease写回等待对象，再set_result；acquire只有正常返回Lease给execution时才把管理权标为已移交。若Future已获授予、调用方尚未收到返回就发生取消/异常，由acquire自己的异常出口回收这份已分配但未移交的Lease；execution没有拿到Lease，不再归还。未授予者仅移除waiter。所有归还都检查released，既防泄漏也防重复释放；测试用Event/Barrier固定这个先后，纳入原授予同时取消类。</p>
 <p>shutdown先设closing再取得当前idle_event引用，因此之后不会授予新请求或替换该Event；取消等待、对活动control发停止后等待该引用置位。若原生工作未退出，等待不算完成，不提前改计数或宣称安全停机。</p>
@@ -1003,6 +1131,58 @@ END AS smooth_value
 <p>主任务仍使用一次<code>anyio.to_thread.run_sync(worker, abandon_on_cancel=False)</code>，在既有工作线程完成calculate→Biz字段适配→严格JSON编码；适配前后、iterencode每块前后和完成后均按同一control.check_active核对第6秒截止，不在事件循环同步做整个5MB编码。断开观察任务是同一组内的另一异步任务，不在run_sync内部等待的取消保护之中，能先让control进入停止；唯一中断控制随后interrupt，主任务仍等待工作线程真实返回，不遗弃后台工作。若在框架线程名额等待阶段已取消，worker不得随后启动；即使临界时刻开始，calculate首个check_active也必须拒绝。</p>
 <p>正常发送完成后先request_finished=True，再取消该组以结束断开观察；否则会将正常结束误判取消。主任务原异常仍优先保留；最终只对实际取得的Lease归还一次，且须工作线程已退出、发送调用已退出、body/result引用已释放。无Lease的取消等待者不得归还。以上只新增既有异步流程内的观察任务，不新增计算线程、线程池、进程或配置。</p>
 <p>依据：Context7核对AnyIO官方threads.rst、to_thread.py与cancellation.rst；本机AnyIO4.13.0的to_thread.py:25及_asyncio.py:2480附近确认abandon_on_cancel=False会在工作线程期间保护主任务取消。因此只在外层except中发停止不足以完成即时取消；本节步骤和§14.3发送截止必须共同实现。未执行本轮新实验或安装。</p>
+<h3>12.4 D4四个文件的固定调用入口、持有位置和关闭规则</h3>
+<p>D4只交付隔离装配，不修改src/app/web/lifespan.py、不注册正式路由、不向正式app.state增加对象。隔离测试和scripts/diagnostics/technical_indicator_resources.py在自己的异步生命周期中创建并持有下面同一个runtime，finally等待它aclose。未来正式应用接入另行修改方案/LLD并获准，不能在D4临时选择接入位置。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>文件/对象</th>
+<th>固定签名及字段</th>
+<th>实现边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>composition.py / TechnicalIndicatorRuntime</td>
+<td>frozen、slots；config:KernelConfig、registry:CalculationRegistry、source:PriceSource、admission:AdmissionController；<code>async aclose(self) -&gt; None</code></td>
+<td>字段引用不换；admission自身为事件循环内可变对象。不持请求、control、连接、reader、结果或线程；aclose在shield保护内只await admission.shutdown，重复关闭安全</td>
+</tr>
+<tr>
+<td>composition.py</td>
+<td><code>create_runtime(settings: Settings) -&gt; TechnicalIndicatorRuntime</code></td>
+<td>在正在运行的隔离事件循环中调用；KernelConfig.from_settings→内置注册表→LakeTechnicalIndicatorPriceSource(config)→唯一AdmissionController(config)。依赖不可用直接失败，无隐式安装/读数据/连接预建；所有消费者使用同一runtime，不每请求重建</td>
+</tr>
+<tr>
+<td>admission.py / AdmissionController</td>
+<td><code>__init__(config: KernelConfig)</code>；<code>async acquire(control: ExecutionControl) -&gt; AdmissionLease</code>；<code>release(lease: AdmissionLease) -&gt; None</code>；<code>async shutdown() -&gt; None</code></td>
+<td>与创建它的同一事件循环使用。release为同步无await的原子更新；无耗时锁、无工作线程等待名额。等待截止=min(入队时刻+max_wait_ms,control.work_until)，对应等待到期或工作到期异常不得互相吞并</td>
+</tr>
+<tr>
+<td>execution.py</td>
+<td><code>async execute_library(runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float) -&gt; CalculationResult</code></td>
+<td>仅App内部诊断入口，不是新增公开内核API；只调用同一Foundation calculate，不支持bars/SQL或模式开关</td>
+</tr>
+<tr>
+<td>execution.py</td>
+<td><code>async execute_http(runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float, receive: Receive, send: Send) -&gt; None</code></td>
+<td>request已经完成解析且请求体more_body=False已消费；arrived_at由可信入口初次接收时记录，不能由业务请求覆盖。本轮隔离HTTP成功发送库结果合同200 JSON，失败抛原异常，不定义现行API错误码/Biz DTO</td>
+</tr>
+<tr>
+<td>response.py</td>
+<td><code>async send_encoded_body(body: bytes, *, send: Send, control: ExecutionControl) -&gt; None</code></td>
+<td>只负责一次start和一次body（more_body=False）的发送及第8秒目标检查；不编码、不读取receive、不持有/归还Lease，不用JSONResponse重新编码</td>
+</tr>
+</tbody>
+</table></div>
+<p>Receive/Send直接从当前starlette.types导入，分别为异步receive/send调用类型，不另造别名或协议框架。Runtime注册表通过D3在calculation/indicators/<strong>init</strong>.py定义的<code>create_builtin_registry() -&gt; CalculationRegistry</code>创建：登记price/ma/boll/macd/kdj及内部window_mean/window_range的真实factory，随后调用现有freeze；不发布内部两项，不为尚无factory的定义创建占位算法。该函数不读源、不建连接，D3完成后才能在D4调用。source只保存既有config/无句柄来源定义，请求可变状态仍在describe/open返回值中。</p>
+<p>AdmissionLease的字段固定为lease_id:int（授予时取id(control)）、control:ExecutionControl、released:bool=False；只由admission创建，不向业务暴露。active_leases以lease_id为键，工作线程不访问此字典。等待记录固定为future、control、wait_until、assigned_lease=None、handed_over=False；正常acquire返回前才置handed_over，异常出口仅回收尚未移交的assigned_lease。</p>
+<p><strong>唯一归还出口固定在execution.py。</strong> acquire内若授予后尚未正常返回就取消，由acquire回收未移交Lease；一旦成功返回，只有execution的最外层finally能release。response和worker不归还，也不转交Lease。finally先等worker及send真实退出、停止并等待断开观察任务、释放body/result及任务返回值引用，再归还已取得Lease一次；没有取得则不归还。清理await使用既有AnyIO shield，外部取消不能跳过finally。没有第二个可提前释放名额的出口。</p>
+<p>正常库调用：新建ExecutionControl(arrived_at=arrived_at,config=runtime.config)→acquire→工作线程调用TechnicalIndicatorService(source/registry/config/control).calculate→calculate完成流式字节计量、清理并关连接→移交独立结果→finally归还。工作线程调用放在同一task_group的子任务，主任务在可取消的完成Event上等待；主任务收到取消先request_stop('cancel')再重抛，task_group仍等abandon_on_cancel=False的子任务真正结束，不能等SQL自然结束后才补发停止。结果/异常由请求局部容器交接，退出前清容器引用；正常调用只移交返回结果，不另存副本。直接调用Foundation calculate仍不隐含App排队。</p>
+<p>任务间交接固定使用本请求局部result=None/error=None与done Event；worker子任务捕获BaseException保存原对象，不直接从子任务向task_group抛业务错误，finally置done。主任务收到done后先等组内子任务退出，再在组外返回result或重新抛同一error，避免把既有异常类包成ExceptionGroup；外部取消先发stop并保留框架取消异常，仍等待worker结束。HTTP工作子任务同样保存原异常；send或receive观察失败时先保留最早的primary_error，发停止并结束/等待同组任务，退出组后抛该原异常，不把旁路失败覆盖成另一种错误；最外层finally始终唯一归还。捕获异常不表示吞异常或改成成功，错误和结果引用移交/丢弃后立即清空局部容器。</p>
+<p>正常隔离HTTP：先启动唯一receive观察任务→acquire→一次run_sync(abandon_on_cancel=False)执行calculate及encode_response_utf8→工作线程释放result局部引用，仅移交唯一body→send_encoded_body→置request_finished=True→取消并等待观察任务→释放body引用→最外层finally归还。库格式measure_result_utf8保持流式计量；隔离HTTP以库结果合同形成一次最终body，不增加Biz适配，不取消库字节检查。两次格式遍历均消耗同一个第6秒工作截止，不生成第二份HTTP body。</p>
+<p>断开观察独占receive，收到http.disconnect先request_stop('cancel')再取消同一task_group；外部取消使观察任务退出且request_finished仍False时，finally也先发停止。正常结束必须先置True，避免发送成功后误停。receive不交给response并行读取。worker或send发生异常时，错误优先与统一清理仍按§11/13/15；已发响应头不得补另一份JSON。未发送的隔离失败也直接向调用方抛原异常，不自行生成错误响应。</p>
+<p>send开始前check_active；开始后仅服从§14.3的target_finish剩余时间，不用第6秒工作截止中止已开始的发送。超时、断开或取消后仍须等send实际退出才能归还。runtime.aclose先closing，移除等待者，对活动control发cancel，再shield等待最后一个真实release使idle_event置位；超过目标记录未通过并继续等待，不能强关连接或伪造关闭完成。D4必要验证及对象数使用§18.1既定分配，无新增配置或计算线程池。</p>
+<p>关闭/授予异常固定为：closing时新acquire抛CapacityBusyError并标记reason=closing；shutdown对尚未授予者request_stop('cancel')并唤醒CalculationCancelledError。等待截止若work_until先到则CalculationDeadlineError，否则WaitExpiredError。release必须核active_leases.get(lease.lease_id)就是该对象且released=False；来自另一runtime、未知或重复归还抛内部RuntimeError，不减少活动数、不唤醒下一人。归还本身失败按原主错误优先规则附记，不能覆盖先前计算/发送错误。正常release才唯一移除记录、标released并授予下一有效等待者；没有并发线程读写此集合。</p>
 </section><section id="s13"><h2><small>13</small>取消、到期和中断控制的精确步骤</h2><h3>13.1 本轮确认、时间与负责方</h3>
 <p>管理员已确认本轮不升级DuckDB，采用现有1.5.5的interrupt方案。接口到达时只记录一次monotonic时刻T0；<code>work_until=T0+(total_target_ms-cleanup_reserve_ms)/1000</code>，初值第6秒；<code>target_finish=T0+total_target_ms/1000</code>，初值第8秒。前端仍从自身发出时刻起10秒失效。排队、鉴权、框架线程等待和读取均消耗本次时间，不在每条SQL或每批开始时重新计时。</p>
 <p><strong>每个实际运行的请求最多一个中断控制线程，由ExecutionControl创建并结束。</strong> 它只等待停止/截止/正常结束，并调用该请求连接的interrupt；普通SQL、fetch、Arrow读取和清理都在既有工作线程执行。2个活动请求至多2个控制线程；等待中的请求没有连接，也不启动控制线程。不按指标/SQL创建Timer，不增加计算线程池或进程池。</p>
@@ -1193,7 +1373,7 @@ finally:
 <p>记录stop_requested_at、业务SQL实际返回时刻、monitor退出时刻和资源释放时刻；没有发生的阶段记None。取消到资源释放≤2000ms是总目标，SQL停止≤1500ms及join≤200ms都是其中子目标，不能各自重置一份2秒预算。20ms不是保证取消延迟，200ms也不是线程强杀时限。</p>
 <h3>13.5 Arrow及系统读取边界、必要验收</h3>
 <p>Arrow文件读取只在工作线程发生，取批前后都检查停止；interrupt不能保证中断Arrow或任意操作系统文件I/O。不能从控制线程强关正在读取的Reader。取消时先等当前取批返回，丢弃未交付批次，再按统一顺序清理；不读取下一文件。系统I/O阻塞导致不能满足2秒目标时明确验收失败并保留名额，不靠后台遗留计算或未授权进程隔离掩盖。</p>
-<p>测试落点为<code>tests/app/technical_indicators/test_execution_cancellation.py</code>及Foundation清理测试：使用Event/Barrier固定先后验证本节各行，归入§18原12类/最多72次小调用，不做全配置组合。至少保留单次提前interrupt的反例、SQL启动间隙被重复中断的正例、无停止的正常对照、正常结束仍join、启动失败、解绑后无迟到回调、原错误/清理错误并存、join超目标、A/B互不影响。虚拟时钟只证明控制规则；真正SQL停止仍使用§17已有有限实际验证预算，不重新追加长历史实验。</p>
+<p>测试落点为<code>tests/app/technical_indicators/test_execution_cancellation.py</code>及Foundation清理测试：使用Event/Barrier固定先后验证本节各行，归入§18.1明确分配的控制验证和既有资源请求，不做全配置组合。至少保留单次提前interrupt的反例、SQL启动间隙被重复中断的正例、无停止的正常对照、正常结束仍join、启动失败、解绑后无迟到回调、原错误/清理错误并存、join超目标、A/B互不影响。虚拟时钟只证明控制规则；真正SQL停止仍使用§17已有有限实际验证预算，不重新追加长历史实验。</p>
 </section><section id="s14"><h2><small>14</small>输出、版本与成功空结果</h2><h3>14.1 确切结果结构</h3>
 <p>结果使用不可变dataclass和tuple；metadata只保存有限字面值，不保留连接、游标、Arrow对象或懒查询。输出字段按各定义顺序，不同实例不覆盖同名DIF。</p>
 <pre><code class="language-json">{
@@ -1205,9 +1385,17 @@ finally:
   &quot;times&quot;: [],
   &quot;source_as_of&quot;: null,
   &quot;calculations&quot;: [{&quot;instance_id&quot;:&quot;macd_default&quot;,&quot;calculation_id&quot;:&quot;macd&quot;,&quot;algorithm_version&quot;:&quot;1.0.0&quot;,&quot;parameters&quot;:{&quot;fast&quot;:12,&quot;slow&quot;:26,&quot;signal&quot;:9},&quot;fields&quot;:{&quot;dif&quot;:[],&quot;dea&quot;:[],&quot;hist&quot;:[]}}],
-  &quot;range&quot;: {&quot;actual_start&quot;:null,&quot;actual_end&quot;:null,&quot;count&quot;:0,&quot;has_more&quot;:false,&quot;next_before&quot;:null},
-  &quot;statistics&quot;: {&quot;source_rows&quot;:0,&quot;sql_processed_rows&quot;:0,&quot;source_files&quot;:0,&quot;source_file_bytes&quot;:0,&quot;source_data_passes&quot;:1,&quot;price_conversion_batches&quot;:0,&quot;elapsed_ms&quot;:0}
+  &quot;range&quot;: {&quot;actual_start&quot;:null,&quot;actual_end&quot;:null,&quot;count&quot;:0},
+  &quot;statistics&quot;: {&quot;source_rows&quot;:0,&quot;sql_processed_rows&quot;:0,&quot;source_files&quot;:0,&quot;source_file_bytes&quot;:0,&quot;source_data_passes&quot;:1,&quot;price_conversion_batches&quot;:0,&quot;elapsed_ms&quot;:0},
+  &quot;msg&quot;: &quot;&quot;
 }
+</code></pre>
+<p>新库输出合同在D3落实如下：contracts.py的OutputRange只保留actual_start、actual_end和count三个字段；CalculationResult在statistics后增加必填msg:str，由OutputCollector按§14.2赋值，消息不接受业务传参。编码器完整交付该字段，不兼容两套新库结果结构。该合同修正及全部内部构造/合同断言须与D3输出同次修改，具体位置见§19.12。</p>
+<pre><code class="language-python">@dataclass(frozen=True, slots=True)
+class OutputRange:
+    actual_start: TimePosition | None
+    actual_end: TimePosition | None
+    count: int
 </code></pre>
 <p>这是一份空结果的结构字面示例，不是正式数据或已实现API；非空字段的已知日期/实际基准须填入真实值，不固定null。<code>converted</code>表示本次选择了转换步骤，不代表空结果确实转换了0以外的行数；实际转换批次另计。每实例fields的每列长度等于times长度；NULL仅来自公式/源可信输入自然计算，不做NaN/Inf清洗。分钟times为带+08:00的ISO时间，日/周/月times为YYYY-MM-DD日期。结果固定有顶层<code>source_as_of</code>字段：周/月是与times等长、按位置对齐的不可变date序列，JSON为YYYY-MM-DD字符串数组；周/月0根时为[]。分钟/日线为None，JSON为null，不省略字段。该字段由collector从标准价格表保留，不得以周五/月末替代实际截止，不增加每次输入质量核验。</p>
 <p>库与未来HTTP共享<code>output/encoding.py</code>严格JSON编码：<code>json.JSONEncoder(allow_nan=False, ensure_ascii=False, separators=(',',':'))</code>，日期/枚举/tuple由有限合同转换，禁止泛用<code>default=str</code>吞掉未知对象；逐块iterencode并编码UTF-8累计真实字节，超5,000,000字节立即抛输出超限，丢弃已形成块，不扫描结果做isfinite。不返回半份JSON。独立库对象不自带重复JSON副本；需要HTTP编码时只生成一次字节并作为Response body发送，不model_dump_json后再让框架重复编码。字段名由Biz适配现行页面合同，迁移前不能把本例直接暴露为现行API响应。</p>
@@ -1217,11 +1405,94 @@ finally:
 <p><code>kernel_version</code>负责执行/合同版本，<code>algorithm_version</code>随公式/初始化/参数语义变化，<code>contract_version</code>表示来源字段/单位/时间规则。现有<code>paramsKey</code>、<code>indicatorVersion</code>和<code>indicatorSource=gold</code>不能被新核冒用；后续接入必须同步修改全部消费者，不留双轨兜底。</p>
 <h3>14.2 唯一成功空结果条件</h3>
 <p>请求和全部能力/参数合法，来源支持本请求，必要读取正常结束，输出区间或本页确实没有K线，输出处理及清理也成功，才返回count=0、空times/各实例值序列、NULL实际输出起止；周/月source_as_of=[]，分钟/日线source_as_of=null。保留实例/参数/版本/已知来源和复权说明，已读取前置历史的实际统计不能清零。不制造NULL假K线，不推断停牌、退市、尚未上市或缺数据。</p>
+<p>请求更早历史的显示规则已经确认：before非空且所选结果count=0时，msg精确为“已经加载全部数据了”；count&gt;0时msg为空字符串，实际不足limit也完整返回这些记录，后续仍按正常before请求处理。首次请求（before为空）正常无记录，沿用本节同一个空成功条件，msg为空字符串，不推断历史已加载完。这些只是成功结果的消息选择，不增加另一种空成功条件。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>请求及实际输出</th>
+<th>正常返回内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>正常选到1～limit根</td>
+<td>count为实际根数；时间与所有指标结果完整，msg为空字符串</td>
+</tr>
+<tr>
+<td>请求更早数据，必要读取正常结束且输出0根</td>
+<td>count=0，times及全部指标数组为空，msg=“已经加载全部数据了”；正常成功，不抛无数据异常</td>
+</tr>
+<tr>
+<td>首次请求正常无记录</td>
+<td>count=0，times及全部指标数组为空，msg为空字符串；保留来源/参数/统计</td>
+</tr>
+</tbody>
+</table></div>
+<p>calculate正常返回CalculationResult即库调用成功。后续HTTP接入沿正常成功响应交付空数组和msg，状态为200；前端收到请求更早历史的成功空结果后可提示msg并结束该请求条件下的历史加载，保留已加载图表。该消息由OutputCollector在完整读取后创建，编码前计入UTF-8字节，不能在已检查大小或清理之后再改；任何清理失败仍不得发成功。limit仍只限制返回数量，指标需要的前置历史和MACD/KDJ完整递推起点保持原约定。</p>
 <p>有K线但初始MA/BOLL不足窗口，返回对应时间和NULL；中途空批次不等于结束。参数/不支持/来源声明缺失、读取/复权/SQL/编码/清理错误、超限/繁忙、取消/到期均不得转为空成功。源正常无匹配与合同要求文件访问失败分开；0根不能提前跳过能力/参数/来源支持检查。</p>
 <h3>14.3 API结果持有与名额归还</h3>
 <p>未来接入时App <code>execution.py</code>启动异步断开观察→取得名额→一次工作线程调用内calculate关闭SQL并移交独立result、Biz字段适配、严格编码→App response持有完整body→ASGI发送完成或断开→释放body/result引用→唯一归还Lease。响应准备/发送仍服从T0+8s目标，已发送一部分后失败只能结束发送，不再拼错误JSON。前端直到完整响应体及转换结束才撤销10秒定时保护；401刷新重发使用同一绝对前端截止。该迁移另行获准后实施，本轮只用隔离ASGI适配器验证生命周期，不修改现行HTTP。</p>
-<p><strong>发送的第8秒截止由response.py负责。</strong> calculate返回前中断监控已经结束，不能靠它停止发送。完整body产生且check_active通过才允许开始成功发送；开始前已到第6秒或取消则不发布成功结果。第一次发送前取<code>remaining=control.target_finish-monotonic()</code>；≤0直接停止，否则用<code>anyio.CancelScope(deadline=anyio.current_time()+remaining)</code>包围完整ASGI start/body发送，把不同计时入口转换为同一剩余时间，不每段重置。发送完成后检查scope.cancel_called和实际target_finish，未完成或超时不算成功；任何发送await须实际退出后才释放资源和归还Lease。已开始的发送只服从第8秒完成目标，不能用第6秒计算截止将已开始响应错误中止；断开观察持续到整个发送收尾。</p>
-<p>发送超时/断开保留真实原因；如果已发送响应头或部分body，只结束发送，不追加另一份错误JSON。未开始发送的错误响应也只能在剩余第8秒内交付，不重置时限。底层不可中断阻塞仍不能保证强杀；超过目标必须记录失败且未真实结束前不归还名额。response.py不使用会另行争抢receive的StreamingResponse断开监听，本轮仅隔离ASGI验证，将来迁移须按现行框架核对。</p>
+<p><strong>发送的第8秒截止由response.py负责。</strong> calculate返回前中断监控已经结束，不能靠它停止发送。完整body产生且check_active通过才允许开始成功发送；最终Lease只由execution.py最外层finally归还，response.py不归还；开始前已到第6秒或取消则不发布成功结果。第一次发送前取<code>remaining=control.target_finish-monotonic()</code>；≤0直接停止，否则用<code>anyio.CancelScope(deadline=anyio.current_time()+remaining)</code>包围完整ASGI start/body发送，把不同计时入口转换为同一剩余时间，不每段重置。发送完成后检查scope.cancel_called和实际target_finish，未完成或超时不算成功；任何发送await须实际退出后才释放资源和归还Lease。已开始的发送只服从第8秒完成目标，不能用第6秒计算截止将已开始响应错误中止；断开观察持续到整个发送收尾。</p>
+<p>发送超时/断开保留真实原因；如果已发送响应头或部分body，只结束发送，不追加另一份错误JSON。D4隔离入口未开始发送时直接抛已有异常，不自行组织错误HTTP合同；未来正式接入若按已批准错误合同发送，也只能在剩余第8秒内交付，不重置时限。底层不可中断阻塞仍不能保证强杀；超过目标必须记录失败且未真实结束前不归还名额。response.py不使用会另行争抢receive的StreamingResponse断开监听，本轮仅隔离ASGI验证，将来迁移须按现行框架核对。</p>
+<h3>14.4 输出数量、合法NULL和缺少结果行：固定处理办法</h3>
+<p>输入数量不等于返回数量。例如处理5000根历史推进MACD，但只返回最近1000根；start/end/before与limit决定输出，前置历史不直接成为输出。以下仅约定当前price/MA/BOLL/MACD/KDJ：每批计算结果为本批每个新K线日期时间保留一行，最后再选择业务要求的输出日期；未来不同输出形态的指标必须另行定义，不把该规则推广为所有算法输入输出相等。</p>
+<p>MA20从上市首根开始：第1～19根有结果行，数值为SQL NULL；第20根首个均值。值为NULL不表示行不存在；整行没有生成则是计算/交接错误。DOUBLE列不放空字符串，不补0、不删除前19个日期，不通过关联后生成的NULL掩盖漏行。</p>
+<p>OutputCollector.append_new_rows按下列固定顺序执行，每个唯一结果表/字段组合检查一次，不因同参数两个ID重复检查：</p>
+<ol>
+<li>按初始化时的输出说明核本批条目ID完整、无多余/重复、公开字段与内部列映射一致；new_first_seq/new_last_seq必须等于当前PriceBatch新行区间。本批K线由读取模块给出的连续seq对应日期时间，不读交易日历，也不生成另一份外部预期日期表。</li>
+<li>通过执行器read_result执行collector固定的<code>SELECT name,type FROM pragma_table_info(?) ORDER BY cid</code>，表名作为元数据函数参数绑定；只取这份结果表的列名/类型，不读其它表或行情值。元数据自身固定name/type两VARCHAR列；数量上限由该结果表的定义列数及允许内部列数确定，超出拒绝。核seq BIGINT及全部声明数值列DOUBLE；自有结果表仅允许定义列，price借用表另外允许当前PriceBatch已声明时间/价格列，不能把合法额外列误当错。缺字段/错类型抛OutputContractError，不能SELECT *后靠位置猜。price借用的ti_price_window合法包含前置历史，因此允许表内有这些历史行，不把它们当意外输出。</li>
+<li>在每份结果的<strong>当前新seq区间</strong>执行固定SQL汇总COUNT(*)、COUNT(DISTINCT seq)、MIN(seq)、MAX(seq)。四项须等于new_row_count、new_row_count、new_first_seq、new_last_seq。seq按BIGINT定义，区间长度已由PriceBatch确定，四项共同证明这一段无漏号/重复号。只检查本内核生成结果的交接，不检查外部K线数值或完整性。自有指标结果表还必须没有NULL seq或新范围外的结果行；price借用表（table_name等于当前PriceBatch.table_name）允许合法历史，但不允许NULL seq或超出本批终点。范围外计数与范围内四项用下方同一固定SQL，不在查询外层使用WHERE把错误行提前排除，不以指标名称分支或误拒绝历史。</li>
+<li>上述检查通过后，merge_batch.sql用本批K线的新seq关联结果，显式投影全部时间字段及请求字段；然后应用请求start/end/before，留最近limit根。关联不得新增/丢失本批新位置；合法NULL原样保留。</li>
+<li>build_result核最终尾部表行数以及独立取回的行数一致；每个公开字段数组长度等于times。字段、行或条目缺失均失败，不能返回部分指标或靠NULL补漏。</li>
+</ol>
+<p>check_batch_rows固定辅助SQL如下。result_table只能是已经核对归属的本批结果表。前8个绑定值为(first,last)重复四次；后3个为(last, require_new_only, first)。require_new_only由是否借用当前PriceBatch.table_name确定，不是业务参数。五列返回类型为BIGINT，名称顺序写死；最后一列必须为0。这样既能抓到多出的NULL编号行，也不会因price保留历史而误报。</p>
+<pre><code class="language-sql">SELECT
+  COUNT(*) FILTER (WHERE seq BETWEEN ? AND ?) AS new_rows,
+  COUNT(DISTINCT seq) FILTER (WHERE seq BETWEEN ? AND ?) AS distinct_new_rows,
+  MIN(seq) FILTER (WHERE seq BETWEEN ? AND ?) AS first_seq,
+  MAX(seq) FILTER (WHERE seq BETWEEN ? AND ?) AS last_seq,
+  COUNT(*) FILTER (WHERE seq IS NULL OR seq &gt; ? OR (? AND seq &lt; ?)) AS unexpected_rows
+FROM {{result_table}};
+</code></pre>
+<h3>14.5 结果怎样完整读出，以及失败原因</h3>
+<p>新增内部方法<code>DuckDBExecutor.read_result(step:SqlStep, *, expected_columns:tuple[tuple[str,str],...], max_rows:int) -&gt; tuple[tuple[object,...],...]</code>；放executor.py，由OutputCollector调用，不公开给业务。只执行输出模块代码固定的查询/检查步骤；数值参数安全绑定，表/列来自受控内部映射，不接业务SQL。SQL执行和取结果在同一工作线程，沿执行器原active_call及停止检查管理，取完前不插入其它SQL。</p>
+<p>先执行固定显式SELECT并检查cursor.description字段顺序/类型；用fetchmany每次最多8192行正常取回，直到返回空序列，不能把一次短取当EOF。累计多于max_rows立即OutputContractError；不会截断成“成功”。每次取前后检查取消/截止，捕获底层读取异常保留cause。完成后返回独立tuple，不返回cursor、懒查询或连接引用。这里的8192只是结果读取上限，不能拿它改变§06.6输入凑满批规则。</p>
+<p>最终select_result.sql只选已经保留的至多limit根，按seq升序完整读取，max_rows=limit。读取前通过同一执行器取得该表实际COUNT，读后必须一致；所有取回行全部交付，不删首行、不截断。若取回数量超过上限或与实际COUNT不符，按OutputContractError整次失败。正常无记录时才按§14.2返回成功空结果及对应msg。下一次请求的before由业务使用本次返回的最早时间生成；纯库结果不额外发布历史终点判断字段。未来HTTP消费不会再访问连接。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>异常 / 固定内部reason</th>
+<th>明确含义与诊断字段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OutputContractError / missing_instance, duplicate_instance, unexpected_instance</td>
+<td>本批交付条目不完整或重复；记stage、instance_id、预期及实际ID，不发布其它条目</td>
+</tr>
+<tr>
+<td>OutputContractError / missing_fields, unexpected_fields, type_mismatch</td>
+<td>固定字段或SQL类型不符；记stage、instance_id、expected_fields、actual_fields</td>
+</tr>
+<tr>
+<td>OutputContractError / wrong_batch, missing_rows, duplicate_rows, unexpected_rows, fetch_count_mismatch</td>
+<td>当前批错配、缺行/重复/意外行、实际取回量不符；记stage、instance_id、预期/实际数量及seq范围；不打印全部价格或行</td>
+</tr>
+<tr>
+<td>OutputReadError / query_failed, fetch_failed</td>
+<td>实际输出查询或取回操作失败；记stage、固定step_name及原始cause，不伪装为0行或EOF</td>
+</tr>
+<tr>
+<td>CalculationCancelledError / CalculationDeadlineError</td>
+<td>已发生本请求取消/截止时沿用原异常，不被OutputReadError覆盖</td>
+</tr>
+<tr>
+<td>ResourceLimitError / OutputEncodingError</td>
+<td>实际内存/输出大小超限或严格编码失败，沿用既有类；不转成漏行错误</td>
+</tr>
+</tbody>
+</table></div>
+<p>OutputReadError/OutputContractError在D3加入现有errors.py，与输出方法同次实现。stage只使用固定的append/inspect/merge/final_query/final_fetch；诊断信息随异常保存，外部API映射另行接入，不在本轮新造HTTP错误码。输出失败停止后续SQL，按原统一清理；主错误保留，清理错误附记。合法空结果仍必须满足§14.2唯一条件，不能用新类改变它。</p>
 </section><section id="s15"><h2><small>15</small>错误合同与重试</h2><div class="table-wrap"><table>
 <thead>
 <tr>
@@ -1277,6 +1548,11 @@ finally:
 <td>实际停止和清理后归还；不自动续跑</td>
 </tr>
 <tr>
+<td>OutputReadError / OutputContractError</td>
+<td>输出查询/取回失败，或本批/最终行、字段、条目不符合约定；详细reason见§14.5</td>
+<td>整次失败；保留实际原因，不补NULL或转空成功</td>
+</tr>
+<tr>
 <td>OutputEncodingError</td>
 <td>严格JSON/日期字段组织失败</td>
 <td>不补0或丢行；不发半份成功</td>
@@ -1291,7 +1567,7 @@ finally:
 <p>不在本轮发明现行API错误码。未来Biz/App适配上述类到其已批准的错误合同，未知内部异常不给用户暴露文件路径。原始计算错误优先，清理错误仅附记；无原错误时清理错误成为主错误。取消原因记录第一次，普通SQL错误与deadline重叠时根据已发生停止信号和实际调用先后处理，不把所有SQL错都猜成超时。</p>
 <p>首版内核不自动重试，调用方重试必须作为新请求重新排队、重新读约定历史，不复用半成品。重试不能突破前端同次10秒总失效，也不因失败自动切回DG技术指标。进程退出没有待恢复的计算文件/状态；下次完整重算。</p>
 </section><section id="s16"><h2><small>16</small>配置审计与逐阶段内存估算</h2><h3>16.1 一处配置来源</h3>
-<p>所有后端新字段拟加到现有<code>src/foundation/config/settings.py:Settings</code>，环境别名前缀<code>TECHNICAL_INDICATOR_</code>。持久化继续用既有环境/<code>GOLDENSHARE_ENV_FILE</code>文件，优先级沿用get_settings，不新增数据库配置表或本地第二份配置文件。App <code>composition.py</code>一次解析为不可变KernelConfig；运行实例固定，重启生效，不由请求覆盖；只有配置模型知道单位及相互约束。</p>
+<p>下表19项后端字段已在D1加入现有<code>src/foundation/config/settings.py:Settings</code>，D2修正/D3/D4仅消费这些字段，本轮不新增配置。环境别名前缀<code>TECHNICAL_INDICATOR_</code>。持久化继续用既有环境/<code>GOLDENSHARE_ENV_FILE</code>文件，优先级沿用get_settings，不新增数据库配置表或本地第二份配置文件。App <code>composition.py</code>一次解析为不可变KernelConfig；运行实例固定，重启生效，不由请求覆盖；只有配置模型知道单位及相互约束。</p>
 <p>表中字段名均为Settings的 <code>technical_indicator_</code> 加下列后缀；env为完整字段大写。KernelConfig对应去掉该前缀的同名字段。source路径继续复用<code>goldenshare_lake_root</code>/<code>GOLDENSHARE_LAKE_ROOT</code>，不是新建第二个Lake根。</p>
 <div class="table-wrap"><table>
 <thead>
@@ -1379,8 +1655,8 @@ finally:
 </tr>
 <tr>
 <td>max_indicator_instances</td>
-<td>16/请求实例</td>
-<td>本轮已确认初始值；service；price也计1；依赖中间步骤不冒充业务实例</td>
+<td>16/请求条目</td>
+<td>本轮已确认初始值；service；price也计1；依赖中间步骤不计作业务请求条目</td>
 </tr>
 <tr>
 <td>max_projected_row_group_bytes</td>
@@ -1467,9 +1743,9 @@ finally:
 <td>收集尾部后drop，不保存全历史</td>
 </tr>
 <tr>
-<td>尾部N+1结果</td>
-<td>1001×152=152152B</td>
-<td>10001×792=7920792B</td>
+<td>尾部limit根结果</td>
+<td>1000×152=152000B</td>
+<td>10000×792=7920000B</td>
 <td>完整结果独立取出后drop</td>
 </tr>
 <tr>
@@ -1585,12 +1861,12 @@ finally:
 </tr>
 <tr>
 <td>test_batch_lifecycle</td>
-<td>固定夹具19/249/9999窗口独立小表（非产品最大窗口），各指标按自身窗口</td>
+<td>日常MA20/MA250尾部保留19/249根且各指标按自身窗口</td>
 <td>视图持有整批、窗口行重复递推、释放前结果未物化、重复close、10指标另读源均失败</td>
 </tr>
 <tr>
 <td>test_empty_results</td>
-<td>正常无输出0根；前置历史有行但输出空仍保留统计</td>
+<td>正常无输出0根；前置历史有行但输出空仍保留统计；请求更早历史的空结果msg按§14.2，非空不足limit仍正常返回</td>
 <td>10根MA20不得变0根；空批不是EOF；0根不跳过非法请求；异常/清理失败不得空成功</td>
 </tr>
 <tr>
@@ -1626,13 +1902,102 @@ finally:
 </tbody>
 </table></div>
 <p>有限控制测试沿用方案12类，每类最多6次、总≤72次小调用，不执行长历史。12类固定为：正常授予、等待FIFO、等待满、等待到期、等待取消、授予同时取消、授予时work_until已尽、执行取消、执行到期、清理失败、响应慢/断开、停机。每类包含至少一个正常变化不误拒绝的对照；虚拟时钟仅验证时序规则，不能冒充SQL停止实测。</p>
-<p>实现后执行顺序：合同/字面/禁止项→26组有限数值→生命周期/72次控制→三最小资源场景→限定真实来源样本→必要上界验证。任何一项失败保留原因和原始输入，不改夹具迎合实现、不skip、不扩大全市场范围。资源输入预算与数值组独立计量，不能把SQL累计工作量藏在“只有1000根输出”中。</p>
+<p>实现后执行顺序：合同/字面/禁止项→§19.10已确认日常场景中的有限数值→生命周期/既有控制预算→三最小资源场景→限定真实来源样本→必要上界验证。任何一项失败保留原因和原始输入，不改夹具迎合实现、不skip、不扩大全市场范围。资源输入预算与数值组独立计量，不能把SQL累计工作量藏在“只有1000根输出”中。</p>
 <p>调用级断言固定落到既有test_source_contracts/test_price_adjustment/test_errors_and_cleanup及编码小夹具：describe枚举第一个文件后收到停止，下一文件不得打开且已有句柄关闭；正常对照可继续。resolved_description在prepare成功前不可读取；prepare后返回实际基准日期/值，原SourceDescription及另一个请求保持不变。直接调用calculate时，库格式编码恰等于阈值允许、超1字节失败并完成统一清理；不保留完整库JSON副本。后续HTTP适配测试断言最终body只形成一次。这些是前述小样本的具体断言，不追加长历史或额外控制调用预算。</p>
 <p>本次冻结复核补齐三项内部交接测试，仍使用既有小夹具/控制预算：describe在第二个文件元数据前收到停止后不再读取该文件，正常停止前可继续枚举，句柄均自身关闭；source.open保留同一control不重置截止。日线qfq用已核字面价格/因子夹具独立断言basis_date/value如实交给结果，两个请求不污染对方，已有Gold qfq未知值仍为None。直接调用calculate时通过可调小阈值构造UTF-8少于/等于/超过边界，超限必须进入统一清理且不能返回成功对象；未来HTTP以适配后的最终结构再次检查、只持有一份body。静态统计分别记录库计量与HTTP编码耗时，不扩大长历史或正式读取范围。</p>
 <p>本次全面审计补充的检查纳入既有文件与小调用预算：单MACD日线qfq只交付close仍能转换；price全字段量额不变；标准日线全部日期字段在复权后保留。周/月source_as_of与times等长、0根为[]、分钟/日为null；周二截止不能被周五源标签提前排除，后来版本必须明确不支持而非空成功。跨两批MACD/KDJ（首批可只有1根）每批输出表均创建/释放、状态只更新一次；新增测试Calculation按相同依赖输出合同计算无需改engine分支。取消后仅受控DROP/unregister可运行，业务SQL仍不得启动；异步断开观察必须在run_sync等待被保护时先发stop，慢发送超时后仅在实际发送已退出且引用已释放时归还名额；Future已授予但acquire未返回时取消须回收Lease；停机能找到所有活动control并等待真实归还。相关正例、反例及原错误/清理错误先后并入原72次控制，不新增配置组合穷举。</p>
 <p>本次三项容量的检查归入test_contracts/test_configuration/test_source_contracts既有小样本预算：16个合法实例允许、17个在读数据前拒绝；limit=10000允许、10001读前拒绝；来源唯一文件元数据5000个允许、5001个拒绝，同文件在价格/基准等位置复用不重复计数。文件数边界用元数据替身，不打开5000个真实文件；正例不要求所有指标结果非NULL，且不替代真实读取与资源验收。</p>
 <p>本轮确认的专项检查合并进上述既有测试，不穷举、不读正式湖：BOLL倍率0及11使用close=[10,12,11]、N=2，独立字面预期分别为上下轨均[NULL,11,11.5]，及上轨[NULL,22,17]/下轨[NULL,0,6]；负数、NaN、Infinity倍率在参数层拒绝，默认倍率2不变。编码测试在可调小字节阈值下核对恰好等于/少于/多于上限，含中文UTF-8字节不等于字符数的反例；默认值仍断言5000000，超限不发布任何部分成功。row group元数据替身覆盖选中列合计33554432B正常、33554433B在读数据前拒绝，未选中列不加入所选投影计量；来源文件合计超过1GiB而其它条件满足的最小替身仍可读取，不为构造反例写入大文件。确认保护值重新评估前不会自动上调或跳过数据块，边界测试不替代未来Arrow真实内存验证。</p>
 <p>撤销周期上限的轻量正向样本：3根价格字面值1、2、3计算MA10001，保留3个时间点，结果为3个NULL；不因旧10000界限拒绝、不按10001预分配，不补历史。该样本放test_contracts/test_history小夹具，只增加3根输入，不展开参数组合。另有SQL系数无法表示的单分量反例应整次失败，不能被其他分量的MIN忽略。</p>
+<h3>18.1 剩余验收怎样执行和计数：不增加场景、不提高原上限</h3>
+<p>§19.9的66是已创建的真实ExecutionControl数量；现有来源测试的_Control替身没有计入。72是§18控制小调用的真实对象上限，不是把§17已经单列的性能/容量/ASGI请求取消掉。以下是剩余6个的唯一分配；不因换测试文件或进程重新取得预算，不跨请求复用一个真实control。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>阶段/固定入口</th>
+<th>新建真实control</th>
+<th>输入及证明范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D2 test_source_contracts三种正常合批</td>
+<td>0</td>
+<td>使用现有_Control替代计时/停止，读取和同连接DuckDB保持真实；32768+10001+21=42790根，只证明读取/合批/复权/释放，不声称完整中断控制验收</td>
+</tr>
+<tr>
+<td>D2 test_errors_and_cleanup余量停止、test_price_adjustment末次正常复核</td>
+<td>2</td>
+<td>余量停止10000根，已交8192后停止不得再发布余量；末次正常≤21根复用日线合批临时源/因子，经真实PriceInputSession及同连接stage/复权/finish/close，核只转换一批且量额不改；不只直接执行SELECT冒充服务交接</td>
+</tr>
+<tr>
+<td>D2其余Stream故障</td>
+<td>0</td>
+<td>累积中停止≤21、输入超限≤21、复制失败≤10、最终合并失败≤11、清理失败≤21，共≤84根；可控停止/错误替身只替代本次新增读取边界，真实Arrow/SQL及持有引用检查不被替代</td>
+</tr>
+<tr>
+<td>D3 test_history_and_paging完整服务首次组合、向前请求</td>
+<td>2</td>
+<td>10001和9001根，各自真实calculate和控制；读取/SQL/默认参数/输出/连接关闭均执行；不拿2051参数对照再占一次完整服务调用</td>
+</tr>
+<tr>
+<td>D3 test_empty_results完整服务两种0输出</td>
+<td>2</td>
+<td>一次来源正常0根且before非空，msg精确为“已经加载全部数据了”；另一次有21根前置历史、首次请求输出区间在其后，before为空，输出0且msg为空字符串、source_rows=21；保留参数/版本/实际统计并正常清理</td>
+</tr>
+<tr>
+<td>控制小调用合计</td>
+<td>66+2+4=72</td>
+<td>D2总读52895、D3上述真实服务总读19023；最后对账只读保存证据，不再启动一次计算</td>
+</tr>
+</tbody>
+</table></div>
+<p>D2两处失败注入（复制、合并）分开执行但合计最多21根，不能都读21再隐去增量。D3的2051根三套MACD参数仍用真实算法SQL和独立参考，只以可控control替代计时/停止；其它原定字面、NULL、漏行/缺字段、越界、当前周合同样本同理。它们不能证明完整服务取消；实际SQL停止由原D2证据及§17固定真实请求验证。D3全部场景仍合并在§19.10的100000输入、5000000逻辑处理行、每程序30秒、整轮5分钟内，不能因控制替身就不记录实际读量、SQL或时间。</p>
+<p>本次不整组重跑现有test_price_adjustment/test_errors_and_cleanup，因为这些现有函数各自新建真实control，会重复消耗额度；只执行上表列定的新修正函数，其余未改变路径复用原D2证据和代码差异核对。控制替身用于新Stream/算法单元时，真实SQL及物理读取不得替换成固定结果；完整calculate四请求和D2末次21根会覆盖真实执行器/连接/清理交接。此区别须写入acceptance.json，不能只报测试文件名或通过数量。</p>
+<p>D4 test_admission使用真实AdmissionController与可控control/时钟，按§18原12类、每类至多6次检查队列顺序、满、到期、移除、授予同时取消和唯一归还；这只证明状态变更，不冒充真实SQL停止。实现后的真实App运行则使用下表§17已有独立预算，必须从§12.4入口经过真实admission/execution/response，不能只直接调用Foundation服务后声称App通过。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>§17原有范围</th>
+<th>技术指标请求/新真实control最多</th>
+<th>既定读取和时间上限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P01/P02/P03</td>
+<td>6</td>
+<td>总输入≤1200000、SQL≤60000000、60秒；P03原有SQL中取消由runtime.aclose触发，证明停机找到活动control并等真实归还；原有重试和末次正常在新隔离runtime中执行，不新增请求</td>
+</tr>
+<tr>
+<td>读取中、批间取消及各自一次重试</td>
+<td>4</td>
+<td>总输入≤80000；归入同一资源轮60秒，命中阶段失败不自动重跑</td>
+</tr>
+<tr>
+<td>限定真实来源</td>
+<td>1</td>
+<td>000001.SH/1分钟/2025年，≤200000根/366文件/128MiB；墙钟20秒，服务目标不放宽；正式执行前仍核对既定文件范围</td>
+</tr>
+<tr>
+<td>容量及低内存</td>
+<td>4</td>
+<td>1500000根一次；输出10001读前拒绝一次；20000根输出10000一次；低内存≤200000根一次；输入≤1720000、SQL≤100000000、60秒</td>
+</tr>
+<tr>
+<td>隔离ASGI既定小结果</td>
+<td>3</td>
+<td>慢发送、断开、编码失败各1，单请求≤1000输出位置，输入各≤1000、合计≤3000；另3个无数据健康请求不创建control；合计6个ASGI请求，仍低于原10请求/10000输出位置。整组30秒，失败不得额外补跑</td>
+</tr>
+<tr>
+<td>§17真实control合计</td>
+<td>18</td>
+<td>依旧分别受各行上限约束，不把相加所得额度挪给别的场景；全部预算计入停止、清理及既定重试</td>
+</tr>
+</tbody>
+</table></div>
+<p>已有66＋剩余6＋§17原独立18，全部阶段真实control总上限90；这是原预算的显式总账，不是新配置或追加90次。报告同时写small_control_created、resource_control_created、真实总数和控制替身调用数/替代范围；分别附请求ID、阶段、输入/SQL/时长/结果，禁止只报72掩盖资源调用。P01/P02正常HTTP同时证明成功发送与归还，ASGI三故障检查不重复增加成功请求。</p>
+<p>所有阶段的额外自动重试额度为0；预定取消后的完整重试已写在§17。非预期失败保存输入、已完成量、错误及清理证据后停止；恢复需先重新核对剩余预算，原额度用尽则先修改原两文并review，不能先跑再补。最终静态对账只读取本轮保存的JSON/报告和代码差异，不重算历史、不再建control。该规则是明确失败出口，不是留给开发补填的配置或默认值。</p>
 </section><section id="s19"><h2><small>19</small>消费者、迁移边界与后续编码顺序</h2><p>本LLD可指导内核与隔离装配编码；不把“新增通用模块”变成切换现行接口。后续编码每步先核对本节范围与文件，再开发并独立验收。</p>
 <div class="table-wrap"><table>
 <thead>
@@ -1707,7 +2072,7 @@ finally:
 <tr>
 <td>第三阶段 D3：指标与完整库服务</td>
 <td>5 SQL计算对象及依赖执行；6 完整calculate与独立输出</td>
-<td>price/MA/BOLL/MACD/KDJ全部数值由SQL完成；安全分段、跨批/分页、初始NULL、严格字节上限与完整清理均在本阶段闭合，按26组有限数值等既定验证验收。</td>
+<td>price/MA/BOLL/MACD/KDJ全部数值由SQL完成；安全分段、跨批/分页、初始NULL、严格字节上限与完整清理均在本阶段闭合，按§19.10已确认的日常场景验收，D2修正通过后才开始本阶段。</td>
 </tr>
 <tr>
 <td>第四阶段 D4：业务进程装配与运行验收</td>
@@ -1734,7 +2099,7 @@ finally:
 <h3>19.4 D1恢复：不可变容器和测试执行范围</h3>
 <p>管理员已恢复执行。本轮继续只完成D1，不进入D2—D4；§19.3保留为此前暂停的历史记录，当前进展由本节及后续验收记录更新。没有新的业务待拍板项。</p>
 <p>不可变要求落到构造过程：Parameters的外层序列和每个名称/数值对都复制为tuple，名称为str、值仅int/float且不接受bool；非法结构拒绝。该结构整理只处理少量算法参数，不扫描K线或结果数值。Dependency.parameters、CalculationNode.parameters及CalculationValues.parameters共用同一内部转换，保留参数声明顺序，重复名称仍由原参数/依赖规则拒绝，不新增参数上限。</p>
-<p>SqlStep.bindings固定为不可变标量序列，所需标量为int/float/bool/str/date/datetime/None；构造时复制外层tuple，列表/字典等可变绑定值直接拒绝，不实现通用递归对象冻结器，不增加SQL数组等能力。input_tables/output_tables复制为tuple且元素为字符串。CalculationOutput.fields复制为OutputField的tuple；BatchCalculationOutputs.instances复制外层及每个实例/输出对，输出须为既有CalculationOutput。CalculationDescription.source_capabilities同样固定为SourceCapability的tuple。CalculationSession是明确的请求内可变状态，SourceBatch.columns是外部列批次引用，不套用不可变结果的规则、不复制行情数值。</p>
+<p>SqlStep.bindings固定为不可变标量序列，所需标量为int/float/bool/str/date/datetime/None；构造时复制外层tuple，列表/字典等可变绑定值直接拒绝，不实现通用递归对象冻结器，不增加SQL数组等能力。input_tables/output_tables复制为tuple且元素为字符串。CalculationOutput.fields复制为OutputField的tuple；BatchCalculationOutputs.instances复制外层及每个实例/输出对，输出须为既有CalculationOutput。CalculationDescription.source_capabilities同样固定为SourceCapability的tuple。CalculationSession是明确的请求内可变状态，SourceBatch.columns是外部列批次引用，不套用不可变结果的规则；D2修正按§06.6使用Arrow原生列复制选中片段，仅为释放大缓冲，不在Python计算行情或指标数值。</p>
 <p>测试先用传入列表后修改原列表的反例证明缺陷，再修实现，使Dependency/SqlStep/输出说明/计划参数不受外部列表修改影响；已合法的tuple和正常参数继续可用。测试落入原test_contracts和test_registry_dependencies；不新增长历史、正式读取或新配置。错误结构的反例独立构造，不以待测转换器生成预期。</p>
 <p>测试执行是硬边界：执行前必须读所选测试函数、其fixtures、conftest和相关辅助调用，列清实际是否创建进程/服务、网络或数据库连接，以及文件写入目标。影响面只用于找候选，不等于执行授权；找到一个函数不得默认运行其整文件。未核清实际行为或超出本阶段读写范围时不得执行，先报告，不依赖沙箱替代检查。本轮允许的独立子进程仅为分层测试中已核的只导入组件的Python解释器，不启动数据库服务。</p>
 <p>本轮执行清单限定：本模块3个测试文件和新增不可变反例、本模块分层测试；FoundationAGENTS规定的四项最小门禁；原Settings回归仅用tests/test_announcement_pg_migration.py::test_settings_default_priority_and_no_main_fallback精确节点。公告迁移整文件及其pg/pg_cluster fixtures明确排除，不提升权限、不安装、不修改无关测试。本次D1专用验证计划及副作用依据在实际执行前按审计结果补记；最终以实际执行结果列示，不删除此前29个准备错误记录或将其改成通过。</p>
@@ -1810,7 +2175,7 @@ finally:
 <tr>
 <td>本次来源资源计数</td>
 <td>价格、因子、基准三个读取路径需要合并唯一文件及字节；SourceBatch字段未说明累计或增量</td>
-<td>新增内部SourceReadContext，由同一服务为每请求创建，在describe前建立；仅持已解析资源配置、实际访问文件集合/大小和小量计数，不持行情或线程。describe/open及两个因子方法显式接收同一个read_context，SourceStream延用它。文件首次访问元数据或数据即计入唯一文件预算，重复角色访问不重复计数；source_rows仅计新交付价格行。SourceBatch.source_files/source_file_bytes为此时累计快照；selected_rows为本批目标行数；physical_rows改为int或None，不可可靠取得实际解压物理行时为None。无来源依赖的共享可变单例。</td>
+<td>新增内部SourceReadContext，由同一服务为每请求创建，在describe前建立；仅持已解析资源配置、实际访问文件集合/大小和小量计数，不持行情或线程。describe/open及两个因子方法显式接收同一个read_context，SourceStream延用它。文件首次访问元数据或数据即计入唯一文件预算，重复角色访问不重复计数；source_rows对首次实际读到的目标价格行计一次，含已读余量，交付余量不重计；成功时等于全部新交付行数。SourceBatch.source_files/source_file_bytes为此时累计快照；selected_rows为本批目标行数；physical_rows改为int或None，不可可靠取得实际解压物理行时为None。无来源依赖的共享可变单例。</td>
 </tr>
 <tr>
 <td>可用截止</td>
@@ -1917,7 +2282,8 @@ finally:
 <p>最后文件审计另发现D2运行读取的三份sources/sql模板没有显式包资源声明：源码目录运行可读，现有pyproject只声明公告包资源，不能据此保证安装包携带新SQL。修正仅在既有<code>[tool.setuptools.package-data]</code>新增<code>&quot;src.foundation.technical_indicators.sources&quot; = [&quot;sql/*.sql&quot;]</code>，对应本D2已定义三文件；不改包版本、依赖范围、安装方式或构建工具。tests/architecture/test_technical_indicator_dependencies.py新增纯静态资源清单检查，修复前静态断言已失败。官方setuptools package_data规则已用Context7核对；本轮不自动安装构建依赖或构建部署，不把静态声明检查冒充实际wheel安装验收。D3新增其它SQL包资源由D3另核，不在本轮提前实现。</p>
 <p><strong>本次追加的明确预算：</strong> 临时32768行仅1轮；四个真实文件各目标≤3、价格3个请求+因子计数/SQL准备复用同文件，至多一次完整补证；不额外创建Parquet。运行控制对象≤16，使累计50+16≤66，不超过原72；控制单元不足时先停下核对，不整组重跑长SQL。新有界SQL逻辑输入≤200000行（不重跑之前1000万中断SQL），数据读取验证≤20秒，单请求仍原6秒正常处理/8秒含清理。新纯内存/元数据断言≤20次，独立D1及静态架构门禁不读数据、不计入控制对象。本次失败不无限重跑，须保存已完成部分、实际数量、异常与清理问题后停止汇报。</p>
 <p>诊断结果写入既有<code>reports/technical_indicator_kernel_d2_20261023/</code>的新<code>acceptance.json</code>，每个阶段完成即原子替换进度JSON；最先持久化计划及footer检查，失败也保存stage/error/已交付量、原始cause和清理状态。旧progress.json不删除。D1/D2审计报告写同目录<code>audit.md</code>，两原HTML更新当前状态并链接证据；不以私有临时文件作为唯一交付证据。工具版本保持DuckDB1.5.5/PyArrow23.0.1；参数与并发初始值不变。</p>
-<h3>19.9 D1/D2当前验收与审计结论（2026-10-23）</h3>
+<h3>19.9 D1/D2原阶段验收与审计结论（2026-10-23历史记录）</h3>
+<p>本节保留原阶段完成时的代码/运行证据，D2此后已提交3fad340d；当前顺序是先修正合批再D3/D4，以§19.13为准，不由本节旧下一步表述跳过D2修正。</p>
 <p><strong>本阶段结论：D1符合已确认要求；D2完成剩余有界验收，本轮发现的取消登记与SQL包资源两处问题均已修复并核验，无未关闭的D1/D2实现偏差。D2及本轮文档随本次提交归档，提交号以Git记录为准。</strong> 19.7保留原失败及超量事实，19.8是本次恢复授权/范围，不覆盖为从未失败。</p>
 <ul>
 <li>正确32768行样本一轮4×8192，同连接SQL交错、实际源位置与seq均连续，输入交接24.59ms；错误262144行样本在Reader创建前拒绝。前置数量保护10测试通过，不在产品增加32768限制。</li>
@@ -1927,6 +2293,171 @@ finally:
 </ul>
 <p>完整硬口径→实现→测试/真实读证据与限制见<a href="../../reports/technical_indicator_kernel_d2_20261023/audit.md">本轮D1/D2审计报告</a>，逐阶段机器记录见<a href="../../reports/technical_indicator_kernel_d2_20261023/acceptance.json">acceptance.json</a>，原失败见<a href="../../reports/technical_indicator_kernel_d2_20261023/progress.json">progress.json</a>。JUnit已复制同报告目录evidence，不再只依赖/private/tmp。</p>
 <p><strong>范围外保留项：</strong> 原pyproject的pypinyin0.55.0声明与原锁文件既有差异未改，不宣称项目完整锁一致或全新安装通过；此后需独立限定依赖维护范围。本轮仅增加PyArrow及D2三SQL包资源声明，未安装/升级其它已有包。完整wheel构建/安装、D3指标算法与calculate、D4并发资源/HTTP、API/页面/XXM迁移和DG退出均未实施。下一步可按已确认LLD准备D3；本轮不自动进入，不提交D2或部署。</p>
+<h3>19.10 2026-10-24已确认的修订及日常验收范围</h3>
+<p>管理员已确认本轮全部设计：按正常请求读取更早历史，正常读完没有记录时成功返回空结果及msg“已经加载全部数据了”，详见§14.2及§19.12。本节日常场景范围足够，不再追加比例证明、参数组合或脱离实际的测试。本轮仍仅更新原方案和LLD，不修改运行实现/SQL/配置/依赖/API/页面/数据，不运行计算验收，不提交。D1的9e15ac73d和D2的3fad340d事实保留；先落实§19.11的D2合批修正，再按§19.12同步新库结果合同并推进D3。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>已确认要求</th>
+<th>编码落点及检查</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>请求里要求计算的每项含参数/版本/字段</td>
+<td>§04.3服务创建不可变输出说明，collector不理解plan；空和非空都用它，同参数两个ID都保留</td>
+</tr>
+<tr>
+<td>跨文件合成8192根一批</td>
+<td>§06.6—06.9、§19.11；不足8192必须全源EOF才交；物理余量只计一次，复制后释放大缓冲</td>
+</tr>
+<tr>
+<td>NULL和漏行分清</td>
+<td>§14.4固定行列检查；输入数不强求等于返回数，不以NULL或空串掩盖漏行</td>
+</tr>
+<tr>
+<td>完整取回结果及原因明确</td>
+<td>§14.5执行器方法、固定字段顺序、取到空才结束、读取数量核对和异常reason；失败不返回部分</td>
+</tr>
+<tr>
+<td>固定SQL和共用结果不误用</td>
+<td>§07.3/21.6：同完整条件才复用，当前批绑定，借用只读、自有写删、每个对象文件和参数写死</td>
+</tr>
+<tr>
+<td>资源正确归属</td>
+<td>先登记再创建、依赖全部使用结束再释放、同服务关闭同连接，停止/清理不能伪成功</td>
+</tr>
+</tbody>
+</table></div>
+<p>以下是唯一日常验收清单，不另保留一套长参数矩阵：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>已确认使用情况</th>
+<th>固定输入与请求</th>
+<th>预期/预算落点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主要图表区域组合、最近1000根首次加载</td>
+<td>确定涨跌序列10001根，正常8192+1809交付；默认MACD/KDJ、MA5/10/20/30/60/90/250及BOLL20/2，共10项；若同时展示价格，在同场景加入price</td>
+<td>一次来源推进、同批一次必要复权；时间和字段均与独立参考一致；MA20/BOLL20同窗只计算一次</td>
+</tr>
+<tr>
+<td>向前翻页</td>
+<td>同一固定来源另请求before=首页最早时间，处理其之前9001根，返回其末1000根</td>
+<td>页边界独立给定，递推不重置、前后页日期不重不漏；有结果全部正常交付，无记录时按§14.2空成功和msg结束本次加载</td>
+</tr>
+<tr>
+<td>正常满批和尾批、日线多文件合批</td>
+<td>直接复用前两场景；日线21份交易日文件各1根，全部读完一批21根</td>
+<td>正常批8192，最后可短；MA20第20根首值，前19根NULL；无21轮输入/指标调用</td>
+</tr>
+<tr>
+<td>默认及视频实际自定义参数</td>
+<td>一次请求同一2051根序列的MACD12/26/9、9/65/9、10/69/10</td>
+<td>同一批K线供三参数使用；HUGEINT独立参考及实际安全数学段，不交叉读取批大小</td>
+</tr>
+<tr>
+<td>新股历史不足、当前未收盘K线、合法空结果</td>
+<td>上述21根场景核不足显示1000根；一份两次更新的当前周K线小合同样本；来源正常无匹配小样本</td>
+<td>不补到1000、不把初始NULL变空结果；当前周只有一根随截止更新；空成功只按§14.2</td>
+</tr>
+<tr>
+<td>取消、超限、结果缺行/字段</td>
+<td>在上述小样本注入真实目标错误；每个原因只做必要正常对照</td>
+<td>原有取消/资源合同，加§14.5具体原因；整次失败、资源释放、不误停其它请求</td>
+</tr>
+</tbody>
+</table></div>
+<p>正常长数值请求的新增目标输入为10001+9001+2051=21053根；日线21根及其它既定小样本并入≤100000总输入，不重复跑多套分批。SQL处理量从实际每个SqlStep.processed_rows累计，须≤5000000；单测试程序≤30秒、整轮≤5分钟，失败后重验及最终核对也计入。§17已有三个资源场景及必要真实合同验证保留，不另增加性能组合。D2既有真实控制小调用66/72，剩余6次固定分给D2修正2次、D3完整服务4次；D4纯状态检查与§17既有真实资源请求严格分开，准确输入、对象数及停止条件见§18.1，不默认再取得72次。</p>
+<h3>19.11 D3前的D2修正：跨文件合批及必要验收</h3>
+<p><strong>目标与禁止项。</strong> 只修价格流交付边界，让文件读取与计算调用分开；不改指标公式、复权基准/日期/单位、来源支持矩阵、配置初值、API/页面、输入历史选择、预取/缓存/线程方案，不重写D2控制或启动D3。完成文档与本步审计后，按管理员后续执行指令进入编码；本轮只落设计。</p>
+<p><strong>代码与影响面。</strong> CodeGraph explore及源实现核对表明，变更主点为src/foundation/clients/local_lake/technical_indicator_price_source.py的_LakePriceStream.next_batch/release_current_batch/close；sources/contracts.py补SourceStream和SourceBatch.columns说明；sources/read_context.py只补“首次读到即计数、余量不重计”的说明及必要断言，不改已有record_price_rows含义之外的字段。PriceInputSession仅核接收合好的RecordBatch，register→stage→unregister→release→必要复权→历史→finish顺序保持。无需改D1请求/定义/配置、现有三个来源SQL、旧Reader、生产者或正式湖。实现前逐项核对精确diff，不能为了合批迁移其它入口。</p>
+<p><strong>执行规则。</strong> 按§06.6逐步实现；只保留当前累积/交付数据及一份已读余量，一个文件reader。复制行列用PyArrow已有原生方法，任何价格/指标数值仍只用SQL。打开、原生取批、复制、最终合并前后检查同一取消/截止。输入上限在复制/交付前按首次物理读取行数核对，超限失败不截断；文件唯一计数和32MiB row group保护保持。合批失败须立即清本地累积片段/余量，工作线程原finally继续注销/清表/关reader/连接。取消后不发布已凑半批，不从失败对象继续；新调用重新读取，不留续跑文件。</p>
+<p><strong>必要验收与数量，不扩大组合。</strong> 仅选test_source_contracts、test_price_adjustment、test_errors_and_cleanup内本次涉及的具体函数；先检查夹具和依赖无本机数据库/网络启动，再执行。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>固定样本和准确交付</th>
+<th>检查目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>已有正常大批</td>
+<td>复用原32768根临时Parquet，一次运行，4批各8192</td>
+<td>读取位置不重置、各行恰交一次，同连接物化后释放；不另制造新大文件</td>
+</tr>
+<tr>
+<td>文件边界和余量</td>
+<td>按已核实来源schema的3文件分别5000/5000/1根，另一个0匹配小文件；10001根只交8192/1809</td>
+<td>第二文件余下1808根下批先用；空文件不是EOF，无提前交短批；计数10001而非11809</td>
+</tr>
+<tr>
+<td>日线小文件及不足显示数</td>
+<td>原合同21文件各1根，最后只交21根一次</td>
+<td>跨文件累计确实发生；物化/必要复权只一次，全部列/日期顺序正确，复制后不持各文件大缓冲</td>
+</tr>
+<tr>
+<td>失败及正常释放</td>
+<td>复用上述夹具的有界前缀，额外实际读行合计≤10105：有余量时停止用5000/5000两文件共10000根；累积中停止、输入超限（测试配置20根）、复制/合并失败、清理失败及最后正常复核，各用最多21根既有日线小样本</td>
+<td>余量停止及末次正常共2个真实control，其余只替代读取停止/错误；复制≤10与合并≤11分开注入；准确分配见§18.1。失败不交半批、余量/片段/reader释放，正常对照不误拒绝</td>
+</tr>
+</tbody>
+</table></div>
+<p>本轮修正新增读取累计≤32768+10001+21+10105=52895根（文件创建新增目标记录10022根），SQL逻辑处理累计≤5000000、整轮≤5分钟；正常工作仍≤6秒/含清理8秒目标。一次性有限修正合计失败/最后复核均已计入上限，撞线停止，不重置预算。只用临时文件，沿用原schema和来源证据，不新增正式湖扫描。记录每批行数、交付次数、各文件打开次数、唯一总数、实际保留缓冲/峰值RSS、取消及清理耗时；原64MiB读取预留若不满足则停止并报告，不私自抬配置。</p>
+<p><strong>阶段完成条件。</strong> 上表对应正反断言通过；D1未改合同/配置及D2原复权/历史/连接/关闭行为按差异逐条核对；记录实际改动、SQL不变证明、受影响函数及新证据。D2修正先单独报告审计结果，再按原D3计划继续。不得沿用旧D2通过结论宣称新合批已经验收，也不得顺手开发指标。</p>
+<h3>19.12 已确认：正常请求更早历史、无记录时空成功</h3>
+<p><strong>目标和范围。</strong> 读取和输出仅按请求范围及limit处理；正常读完无记录时按§14.2的唯一成功条件返回空结果。原有读取8192合批、复权、算法历史/状态、超限/取消及清理规则不变；D2修正仍只做§19.11，不将结果合同改动混进该轮。本轮只同步设计，D3尚未编码。</p>
+<p><strong>当前代码与影响面。</strong> CodeGraph explore/impact及当前引用核对：OutputRange在src/foundation/technical_indicators/contracts.py定义，由CalculationResult.range引用；CalculationResult经本包__init__.py导出，当前没有库计算入口、collector或业务/API构造者。现有test_contracts.py的test_result_contract_matches_literal_top_level_and_copies_mutable_field_inputs按字面检查顶层字段，需同步新合同。上述类型当前代码与本节目标仍有差异，不能将文档更正说成代码已经迁移。</p>
+<p><strong>D3同次修改。</strong> contracts.py按§14.1收敛OutputRange并增加CalculationResult.msg；output/collector.py按§14.2组装消息和实际数量；output/sql/retain_tail.sql以limit保留结果，select_result.sql完整升序交付；executor.read_result按§14.5完整读取并核数量；output/encoding.py将msg计入同一严格UTF-8编码及字节上限。所有新库构造者、相关字段断言和字面JSON同次更新，不保留旧新两套字段或填充兼容。现行旧Reader、API、DTO及前端另属后续接入范围，本轮不修改。</p>
+<p><strong>结束、失败和消息。</strong> 所选输出区间正常0根才返回空成功；参数/来源不支持、缺字段/漏算、读取/SQL错误、取消/到期、超限或清理失败均保留原异常，不能用“已经加载全部数据了”掩盖。有结果即正常完整返回实际数量，消息不据行数不足推断结束；业务下一次按当前最早时间继续请求before，无记录时可提示msg。</p>
+<p><strong>预算与验收。</strong> 在既定test_contracts/test_empty_results/test_history_and_paging/test_errors_and_cleanup及编码小样本内更新断言，不新增长数据、参数组合或资源场景。字面核对OutputRange三字段、顶层msg及两类空结果消息；既有21根短历史返回21根且msg为空，既有空结果样本按before核固定消息；错误/取消绝不空成功。输出SQL记录只保留请求limit，独立取回数量与实际COUNT一致；原输入/逻辑处理/时限及控制调用预算保持。5000000字节上限包含msg；新尾部载荷估算见§16.2，总内存初值不变。D3实际落地后按本节对账，不能跳过合同同步。</p>
+<h3>19.13 2026-10-25本次补齐后的开发顺序、文件和交付检查</h3>
+<p>本节替代旧记录中“下一步直接D3”的当前执行顺序，不改既定四阶段/八步骤。D1/D2原提交保留，D2修正须先独立验收和报告；D3步骤5/6属于同一阶段，完成阶段审计后再进入D4。本轮只完成两份原文的编码设计，未授权或实施任何后续编码、安装、正式读取、迁移或停任务。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>顺序/目标</th>
+<th>本步文件及明确编码内容</th>
+<th>必须交付和完成条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 D2合批修正</td>
+<td>_LakePriceStream.next_batch/release_current_batch/close及SourceStream/ReadContext必要说明；按§06.6—06.9和19.11实现；原三来源SQL、配置、复权和历史规则不改</td>
+<td>满8192/最后短批、文件打开/交付/计数、余量仅计一次、停止释放均有证据；读取≤52895、真实control2；受影响代码/原D1D2要求逐条对账，先单独报告</td>
+</tr>
+<tr>
+<td>2 D3步骤5：计算对象及SQL</td>
+<td>calculation/calculation.py加入§07.3/07.4方法/字段；executor.py仅在此步加入受限控制行读取；engine.py、indicators五对象及两内部窗口对象、sql_templates.py和7份计算SQL；indicators/<strong>init</strong>.py加入create_builtin_registry</td>
+<td>§09/21固定输入/绑定/DDL/状态/输出可逐条对应；macd_first仅初始化state，macd_first_output单独执行；参数CTAS和控制行读取不能绕过归属；默认/自定义、独立精度、跨批及复用使用原场景验证</td>
+</tr>
+<tr>
+<td>3 D3步骤6：完整服务和独立结果</td>
+<td>service.py完整calculate复用D2连接/清理；executor.py在此步同时增加read_result及其输出异常处理；output/contracts/collector/result/encoding、3份输出SQL；contracts.py同次按§19.12迁移OutputRange/msg；errors.py加入已定义两种输出异常；pyproject只追加D3两个SQL包资源项，不重生成锁或安装</td>
+<td>输出说明在读源前生成；行/列/NULL和缺失检查、完整取回、严格字节及清理均有明确错误；真实control4、全部D3输入≤100000/SQL≤5000000；包文件及全部本库消费者一次迁移，无旧新双轨</td>
+</tr>
+<tr>
+<td>4 D4步骤7：隔离装配和结束处理</td>
+<td>App四文件按§12.4固定签名；隔离测试/诊断创建和关闭runtime；不改正式web_lifespan、app.state、路由、API、页面或XXM</td>
+<td>一进程一份admission，独立请求control/连接；execution唯一归还、response只发送；库包装和HTTP均调用同一calculate；创建失败、等待/取消/发送/关闭均沿固定合同，不留临时接入分支</td>
+</tr>
+<tr>
+<td>5 D4步骤8：运行验收</td>
+<td>原三最小资源场景、读取/批间取消、有限ASGI及容量；scripts/diagnostics/technical_indicator_resources.py与对应测试，范围/计量按§17/18.1</td>
+<td>报真实运行时间、峰值/清理后RSS、连接/线程/缓冲、SQL停止与真实归还、临时计算文件0；不同请求不误停；失败如实记录，不用静态检查或替身代替真实运行</td>
+</tr>
+</tbody>
+</table></div>
+<p>各阶段新证据写入reports下对应technical_indicator_kernel_d2_correction、technical_indicator_kernel_d3、technical_indicator_kernel_d4前缀加执行日期的目录；每目录固定plan.json（执行前保存本步清单/预算）、progress.json（每个已列场景完成或失败即更新实际量）、acceptance.json（参数/预期/实测/通过范围）、audit.md（硬要求→代码/SQL/测试→证据及未通过项）。只写本次报告和临时测试资源，不覆盖原D2报告，不把/private/tmp作为唯一交付。报告写入失败也记录并停止，不能宣称证据已保存；无长任务/TaskRun或新状态服务。</p>
+<p>开发前检查固定五项：①本步文件/方法与当前代码再次核对；②每个固定SQL的输入、绑定、表归属、输出和状态更新次数已映射；③失败/停止与正常清理出口明确；④采用§18.1剩余额度而非重新计满；⑤现行API/页面/XXM/DG在范围外。每步完成检查同样五项并补实际证据；任一不符停止报告，不能临时改源、提高配置、返回部分或补自动重试。</p>
+<p><strong>本次设计补齐检查。</strong> §04/07.4/09.2/21定义段长与终点的固定读取；§21.1/21.6界定首根两条INSERT；§03/12.4/14.3界定创建、持有、关闭和唯一归还；§17/18.1/19.11对清剩余次数和真实/替身范围；§02/06/16当前状态对齐D1/D2证据。既有19项设置名、初值、来源、消费者、生效方式和三类检查仍以§16唯一表为准，无待填数值、任意周期上限或新增配置。数值、资源、生命周期尚未运行的验收保留为未来实际结果，不是未完成的设计选项。</p>
+<p>后续正式API/页面及XXM迁移必须另写获准接入步骤并同步全部消费者；这些完成前不讨论实际停DG任务或删除指标数据。它们是范围外后续阶段，不能被开发者当成本次D4待自行补上的代码。</p>
 </section><section id="s20"><h2><small>20</small>设计确认、最终审计与开发条件</h2><p>本节保留原方案25项设计冻结时的确认及复核记录。“设计覆盖”与实现/性能验收分开；初始配置和依赖选型仍已确认。当前D1已完成提交，D2开工审计发现的内部交接合同修订已在§19.6获确认并同步§04.2；本节历史冻结记录不能替代后续D2实际验收。后续若发现真实来源/运行行为与设计冲突，仍按既定变更流程处理，不擅自换方案。</p>
 <h3>20.0 本轮管理员已确认的五项决定</h3>
 <div class="table-wrap"><table>
@@ -1950,7 +2481,7 @@ finally:
 </tr>
 <tr>
 <td>读取选型</td>
-<td>采用PyArrow23.0.1独立保存文件读取进度；DuckDB唯一连接执行复权与指标SQL；选型已确认，集成及性能待验证。</td>
+<td>采用PyArrow23.0.1独立保存文件读取进度；D2最小读取/SQL交接已验，新的合批、完整指标及资源性能未验。DuckDB唯一连接不变。</td>
 <td>§04/06/11/18</td>
 </tr>
 <tr>
@@ -2022,7 +2553,7 @@ finally:
 </table></div>
 <h3>20.1 全部初始值确认及本轮边界</h3>
 <p>管理员已确认最后一项历史输入容量：max_input_rows初始值1500000；按每请求新交付目标K线累计，前置历史计入，多个指标共享及窗口重复使用不重复计数；超过整次失败，不截断历史、不改变指标参数。</p>
-<p>150万输入、5000唯一文件、16实例、10000返回位置、5000000输出UTF-8字节和32MiB读取初始保护均已确认；原有并发/等待/内存/时限、PyArrow选型、周期参数及三类配置检查决定保持。BOLL有限非负与精度门槛已确认，来源文件合计1GiB限制已撤销。当前范围内无待拍板项；这些数值不是指标周期上限，也不是性能已验收结论。</p>
+<p>150万输入、5000唯一文件、16实例、10000返回位置、5000000输出UTF-8字节和32MiB读取初始保护均已确认；原有并发/等待/内存/时限、PyArrow选型、周期参数及三类配置检查决定保持。BOLL有限非负与精度门槛已确认，来源文件合计1GiB限制已撤销。初版冻结当时无待拍板项；这些数值不是指标周期上限，也不是性能已验收结论。2026-10-24要求D2修正先于D3，见§19.10—19.11；不以此历史结论启动开发。</p>
 <p>设计冻结当次只完成两份设计更新与静态审计，不开发、不安装、不迁移页面或XXM、不改变现行API或启停DG；当前D1实现与验收状态见§19.5。D1—D4是内核开发顺序；来源集成、SQL数值、资源/取消及隔离ASGI验证属于已定义的开发后验收，不是尚未决定的设计。页面/XXM正式接入与DG退出仍是范围外后续阶段。</p>
 <p>本轮不再把PyArrow是否采用、DuckDB是否升级、统一周期上限或是否穷举配置组合列为待拍板。控制线程/20ms重试/200ms join目标已写入具体方案，实测范围仍按§21说明，不把设计取值当完整验收。此前已确认默认qfq、唯一空成功、外部数据质量、周月直读、连接归属、业务进程和有限等待等均保持。</p>
 <h3>20.2 关键问题及处理</h3>
@@ -2123,7 +2654,7 @@ finally:
 </tr>
 </tbody>
 </table></div>
-<p>本轮修订后已完成独立复核：原25项映射保留、八项新确认两文逐字一致、两文表格列数/本地链接/锚点及Python/JSON设计示例语法检查通过；仓库文档完整性检查通过。这些是静态文档核验，不证明SQL/Arrow/ASGI已运行通过。验收方法仍以§10/17/18有限范围为准：上述测试合并到已列合同/小夹具/72次控制用例，不扩大正式数据或长历史实验，不把本轮静态审计当运行验证。本轮未执行新的性能/数值实验。150万输入量现已获得管理员确认，所有初始值均已写定；当前范围内无设计未决项，最终开发条件结论见下节；未运行的验收不冒充通过。</p>
+<p>本轮修订后已完成独立复核：原25项映射保留、八项新确认两文逐字一致、两文表格列数/本地链接/锚点及Python/JSON设计示例语法检查通过；仓库文档完整性检查通过。这些是静态文档核验，不证明SQL/Arrow/ASGI已运行通过。验收方法仍以§10/17/18有限范围为准：上述测试合并到已列合同/小夹具/72次控制用例，不扩大正式数据或长历史实验，不把本轮静态审计当运行验证。本轮未执行新的性能/数值实验。150万输入量现已获得管理员确认，所有初始值均已写定；当前范围内无设计未决项，当前开发顺序及交付条件见§19.13；未运行的验收不冒充通过。</p>
 <h3>20.4 最终开发条件复核：最后三项交接已补齐</h3>
 <p>本轮全篇及跨文复核发现并修订的最后三项，均落实已确认合同，不改变业务范围：</p>
 <div class="table-wrap"><table>
@@ -2165,17 +2696,16 @@ finally:
 </ul>
 <p>此历史结论保留当时设计审计与三项专项复核的判断；D2开工复核已发现§19.6的交接缺口，当前D2执行条件以§04.2及该节已确认修订为准，不冒充运行实现或生产验收已经通过。</p>
 </section><section id="s21"><h2><small>21</small>SQL模板的编码定义与本轮设计实验记录</h2><h3>21.1 MACD单段完整数据流</h3>
-<p>受控表名在加载模板时由engine替换；以下省略内部序号后缀，绑定参数<code>?</code>只传本段新输入终点。<code>ti_macd_parameters</code>来自§09的三组参数合并，字段<code>fast,slow,signal,af,bf,aslow,bslow,ag,bg,segment_rows</code>；state字段顺序<code>last_seq,origin_price,ema_fast_offset,ema_slow_offset,dea</code>。origin_price为固定首价，offset是内部数值表示，不能被消费者当原始EMA。仅请求级状态在prepare阶段建表：</p>
+<p>受控表名由各计算对象的固定表角色和序号生成，经共用加载函数核验；engine不拼指标公式。以下省略内部序号后缀，绑定参数<code>?</code>只传本段新输入终点。<code>ti_macd_parameters</code>来自§09的三组参数合并，字段<code>fast,slow,signal,af,bf,aslow,bslow,ag,bg,segment_rows</code>；state字段顺序<code>last_seq,origin_price,ema_fast_offset,ema_slow_offset,dea</code>。origin_price为固定首价，offset是内部数值表示，不能被消费者当原始EMA。仅请求级状态在prepare阶段建表：</p>
 <pre><code class="language-sql">CREATE TEMP TABLE ti_macd_state(last_seq BIGINT, origin_price DOUBLE,
     ema_fast_offset DOUBLE, ema_slow_offset DOUBLE, dea DOUBLE);
-CREATE TEMP TABLE ti_kdj_state(last_seq BIGINT,k DOUBLE,d DOUBLE);
-INSERT INTO ti_kdj_state VALUES(0,50.0,50.0);
 </code></pre>
-<pre><code class="language-sql">-- 每批consume开始先创建本节点本批输出表；随后在资源清单登记
+<pre><code class="language-sql">-- 每批consume开始前先登记本节点输出表归属及执行器资源，再执行CREATE
 CREATE TEMP TABLE ti_macd_output(seq BIGINT,dif DOUBLE,dea DOUBLE,hist DOUBLE);
 -- macd_first.sql，仅该实例从未见过输入时执行；只取首根新行
 INSERT INTO ti_macd_state
 SELECT seq,close,0.0,0.0,0.0 FROM ti_price_new ORDER BY seq LIMIT 1;
+-- 文件到此结束；下一条为MACD代码中单独登记的macd_first_output步骤
 INSERT INTO ti_macd_output
 SELECT last_seq AS seq,0.0 AS dif,0.0 AS dea,0.0 AS hist FROM ti_macd_state;
 
@@ -2206,12 +2736,13 @@ SELECT seq,ef,es,dif,next_dea AS dea,2.0*(dif-next_dea) AS hist FROM a;
 INSERT INTO ti_macd_output SELECT seq,dif,dea,hist FROM ti_macd_work;
 UPDATE ti_macd_state SET last_seq=w.seq,ema_fast_offset=w.ef,ema_slow_offset=w.es,dea=w.dea
 FROM (SELECT * FROM ti_macd_work ORDER BY seq DESC LIMIT 1) w;
+-- 这里只表示session.drop_owned_table(work)的动作，禁止另提交DROP文本
 DROP TABLE ti_macd_work;
 </code></pre>
-<p>每批<code>ti_macd_output</code>只存新行；第一批首根只执行first一次，随后分段；以后所有批次先建空输出，再只用state继续。collector保存独立尾部后由release_batch删除本批输出，state留到下批。Python允许读取一行<code>last_seq/next_end/segment_rows</code>安排语句，不取EMA/DEA回来运算，不在Python拼价格常量。状态/参数表类型需按§08固定，首根空输入时不执行first插入，不因此宣称来源支持检查可省略。</p>
+<p>每批ti_macd_output只存新行。首次非空批先单独执行macd_first，再单独执行macd_first_output；两者分别检查取消和记录ExecutionStats，全部成功才将session.initialized置True。前者input_tables仅本批price_new，processed_rows为本批新行数、输出1；后者仅读state一行、输出1。两条语句不得一次execute提交；任一步失败即整次失败清理，不在同一请求继续或重试。首根空输入不执行。后续批次只建空output并接续state，不重复初始化。每次段末固定追加结果、更新state一次、drop work，再按§07.4读取下一段；所有新行完成才交collector。collector保存独立尾部后release_batch删本批output，state留到下批。参数和指标状态不取回Python运算。</p>
 <h3>21.2 KDJ单段完整数据流</h3>
-<p><code>ti_rsv_new(seq,rsv)</code>先由§09高低窗口SQL输出新行；<code>ti_kdj_parameters(k_period,d_period,ak,bk,ad,bd,segment_rows)</code>由相同系数模板kind='kd'生成；state初始化一行<code>(last_seq=0,k=50.0,d=50.0)</code>。</p>
-<pre><code class="language-sql">-- 每批consume开始一次创建并登记；不是每个数学段都重建输出表
+<p><code>ti_rsv_new(seq,rsv)</code>先由§09高低窗口SQL输出新行；<code>ti_kdj_parameters(k_period,d_period,ak,bk,ad,bd,segment_rows)</code>由相同系数模板kind='kd'生成；state由KDJ自己的prepare先登记再建表，并初始化一行<code>(last_seq=0,k=50.0,d=50.0)</code>；MACD不创建它。</p>
+<pre><code class="language-sql">-- 先登记本节点输出表归属及执行器资源，再每批创建一次；不是每段重建
 CREATE TEMP TABLE ti_kdj_output(seq BIGINT,k DOUBLE,d DOUBLE,j DOUBLE);
 -- 以下work/INSERT/UPDATE/DROP每数学段执行
 CREATE TEMP TABLE ti_kdj_work AS
@@ -2235,6 +2766,7 @@ SELECT seq,next_k AS k,next_d AS d,3.0*next_k-2.0*next_d AS j FROM d_values;
 INSERT INTO ti_kdj_output SELECT seq,k,d,j FROM ti_kdj_work;
 UPDATE ti_kdj_state SET last_seq=w.seq,k=w.k,d=w.d
 FROM(SELECT * FROM ti_kdj_work ORDER BY seq DESC LIMIT 1) w;
+-- 这里只表示session.drop_owned_table(work)的动作，禁止另提交DROP文本
 DROP TABLE ti_kdj_work;
 </code></pre>
 <p>只含有限窗口指标时seq可以从首个读入前置行开始，输入历史不足时依定义NULL；含递推指标时seq从来源约定首根1开始，new_last_seq不因下一文件重置。<code>ti_rsv_new</code>生成后只处理当前新行，不能使history的seq再次进入K/D。</p>
@@ -2248,10 +2780,10 @@ WITH w AS (
 SELECT seq,CASE WHEN observations=20 THEN mean ELSE NULL END AS value
 FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </code></pre>
-<p>窗口19由已验证参数N−1产生内部整数标记，不能绑定业务自由表达式。BOLL同窗口stddev_pop另算一列，与<code>ti_mean_0</code>按seq关联，窗口count不足返回NULL。表名只能内部受控替换，倍率绑定。输出collector先将本批目标时间范围的新位置与各实例输出按seq关联形成宽表；随后<code>CREATE TEMP TABLE tail_next AS SELECT ... FROM (tail UNION ALL eligible_new) ORDER BY seq DESC LIMIT limit+1</code>，drop旧tail、rename。最后去掉多余第limit+1位置，升序取回，has_more据实际额外位置，不根据指标非NULL数量；不得用INNER JOIN把某实例NULL的K线丢掉。</p>
-<p>每条CREATE/INSERT/UPDATE/DROP均列为SqlStep并登记归属；同请求所有指标操作同连接。模板由对象负责字段定义，engine不写指标名分支。SQL标识替换与参数绑定分别测试，表名不能来自instance_id或用户输入。</p>
+<p>窗口19由已验证参数N−1产生内部整数标记，不能绑定业务自由表达式。BOLL同窗口stddev_pop另算一列，与<code>ti_mean_0</code>按seq关联，窗口count不足返回NULL。表名只能内部受控替换，倍率绑定。输出collector先将本批目标时间范围的新位置与各指标输出按seq关联形成宽表；随后<code>CREATE TEMP TABLE tail_next AS SELECT ... FROM (tail UNION ALL eligible_new) ORDER BY seq DESC LIMIT ?</code>，绑定请求limit，drop旧tail并rename。最后全部按seq升序取回，返回真实记录数；无记录按§14.2成功返回空结果及msg。不得用INNER JOIN把某项数值为NULL的K线丢掉。</p>
+<p>每条CREATE/INSERT/UPDATE分别为一个SqlStep，创建前登记归属；不在一个execute提交多条语句。DROP逐表调用§07.3的drop_owned_table，沿D2受控清理方法执行，不开放任意DROP文本，不重复执行一个SqlStep版DROP；其逻辑处理行数为0，清理耗时另记。固定控制SELECT按§07.4单独读取和计量。同请求所有指标操作同连接，模板由对象负责字段定义，engine不写指标名分支。SQL标识替换与参数绑定分别测试，表名不能来自instance_id或用户输入。</p>
 <h3>21.4 本轮实际执行的有限设计实验</h3>
-<p>共执行28组有限MACD设计实验与独立HUGEINT参考：初轮7组3335位置，最终段长规则的普通价7组10769位置，高价反例7组10769位置，等价处理后的高价7组10769位置，合计35642输入位置。每轮另有3行MA/BOLL字面核验；另有32768行Parquet切片及3次interrupt。没有执行完整26组内核测试、Arrow读取、真实行情、双并发或页面验收。</p>
+<p>共执行28组有限MACD设计实验与独立HUGEINT参考：初轮7组3335位置，最终段长规则的普通价7组10769位置，高价反例7组10769位置，等价处理后的高价7组10769位置，合计35642输入位置。每轮另有3行MA/BOLL字面核验；另有32768行Parquet切片及3次interrupt。这些只是当时有限设计实验，不是完整内核、真实行情、双并发或页面验收。</p>
 <p>普通价约100，最终段长规则的7组原始表示参考差值如下；高价问题发现后正式模板已采用§09减首价的等价表示，不能把下面原始表示作为另一条运行分支。</p>
 <div class="table-wrap"><table>
 <thead>
@@ -2386,7 +2918,143 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 <p>读取报告：<code>/private/tmp/ti_reader_interleave_20261022/summary.json</code>；整段执行对比：同目录<code>materialized_summary.json</code>。四种方法各用32768行，另用262144行合成文件查看首次fetch前是否已经完成整段查询。执行均已结束、连接已关闭，无正式湖读取、安装或运行实现修改。source扫描指标不等于磁盘读取字节，查询buffer峰值不等于进程RSS。</p>
 <p>中断报告：<code>/private/tmp/ti_timeout_review_probe.json</code>。新增2个极小样本：一次在SQL前interrupt后，sum(range1000)仍正常返回499500，说明单次提前中断会落空；另一次故意先中断并延迟30ms才进入SQL，每20ms重试后，在SQL开始约14.899ms退出，随后解绑、join、close；总约50.095ms。合成大range在中断后停止，没有完成全范围计算。原3次中断证据未重跑。</p>
 <p>以上仅证明当前版本的方法行为，不证明新内核、真实I/O、完整清理、双并发或HTTP验收。第6秒停止和第8秒收尾是目标；任意操作系统阻塞不能靠线程中断承诺硬停。原有限验收预算不扩大为配置穷举或全市场测试。</p>
-</section><section id="s22"><h2><small>22</small>对照方案25项的逐项审计</h2><p>以下逐项对应原方案<code>lld-item-01</code>至<code>lld-item-25</code>，不创建另一套要求。审计对象是本文是否能指导编码，不声称测试已开发或通过。此前全部决定及本次150万输入初始值已同步，当前范围内无待review项；本节为最终设计复核，开发后仍需逐条补实际代码、测试与验证证据。</p>
+<h3>21.6 2026-10-24已确认：每个计算对象的SQL文件固定在代码中</h3>
+<p>此前8份计算文件清单含一份重复职责的update_state.sql。本次按管理员“必须由指标自己定义、固定支持文件、状态不重复更新”的要求，删除这个通用文件项；MACD和KDJ各自更新不同字段，沿§21.1/21.2既有固定UPDATE语句，只在本指标每段结果形成后更新一次，不提供传列名/表达式的通用更新入口。计算数学模板为下表7份；文件数不是算法数或SQL调用次数，不为凑回8份保留不明确的文件。</p>
+<p>每个计算对象类在代码中声明不可变SQL_FILES；共用加载函数在<code>calculation/sql_templates.py</code>，构造时从该类固定清单取允许文件，不从CalculationRequest/parameters/env读取清单。指标类把所属包固定为src.foundation.technical_indicators.calculation，输出类把所属包固定为src.foundation.technical_indicators.output；分别仅允许该包sql目录内的精确文件名。包名/目录均来自调用类代码，不来自业务或env。未知文件、绝对路径、../、其它指标未声明的文件在访问文件前拒绝。每请求读取一次所需模板文本，不在数学段循环反复读文件；不新增跨请求缓存。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>计算对象</th>
+<th>本对象固定SQL_FILES</th>
+<th>通过声明依赖复用的内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>price</td>
+<td>空</td>
+<td>读取模块已经准备的目标价格；不再复权</td>
+</tr>
+<tr>
+<td>window_mean（内部）</td>
+<td>rolling_mean.sql</td>
+<td>无</td>
+</tr>
+<tr>
+<td>ma</td>
+<td>空</td>
+<td>同period的window_mean，直接借用value；不再算一遍</td>
+</tr>
+<tr>
+<td>boll</td>
+<td>bollinger_bands.sql</td>
+<td>同period的window_mean</td>
+</tr>
+<tr>
+<td>macd</td>
+<td>smoothing_parameters.sql、macd_first.sql、macd_segment.sql</td>
+<td>无</td>
+</tr>
+<tr>
+<td>window_range（内部）</td>
+<td>kdj_window.sql</td>
+<td>无</td>
+</tr>
+<tr>
+<td>kdj</td>
+<td>smoothing_parameters.sql、kdj_segment.sql</td>
+<td>同window的window_range</td>
+</tr>
+</tbody>
+</table></div>
+<p>加载函数只服务内置代码的固定调用；业务不能传文件名、SQL、路径、表名、字段表达式或任意算法代码。period/fast/slow/signal/multiplier等依然是此前已确认的数值参数；用?绑定数值不是让业务提交SQL。SQL表名仅来自本节点固定表角色与内部序号，投影/别名仅来自内置字段定义，不能拼instance_id。任何动态窗口标记只可为已核类型的整数，不能是用户文本表达式。新增指标须在其代码中登记自己的固定清单并完成检查，不在引擎增加指标名分支。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>SQL文件</th>
+<th>必需输入和固定参数</th>
+<th>算法及输出</th>
+<th>状态/失败约束</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>smoothing_parameters.sql</td>
+<td>正整数n；kind只由MACD固定为ema、KDJ固定为kd</td>
+<td>SQL求alpha/beta与safe_rows，按§09.2；结果一行参数</td>
+<td>n=1恒等；任一无效分量整项拒绝；不更新指标状态</td>
+</tr>
+<tr>
+<td>rolling_mean.sql</td>
+<td>本批K线及已有前置close/seq；period；新seq起止</td>
+<td>ROWS完整窗口avg，前N−1值NULL；只输出新seq,value</td>
+<td>MA/BOLL相同period共用，不改变输入或递推状态</td>
+</tr>
+<tr>
+<td>bollinger_bands.sql</td>
+<td>同窗均值依赖、close/seq窗口；period/multiplier；新seq起止</td>
+<td>stddev_pop；输出seq,middle,upper,lower；不足N三个NULL</td>
+<td>不重复求均值，不用样本标准差，不更新状态</td>
+</tr>
+<tr>
+<td>macd_first.sql</td>
+<td>首次新close/seq、已登记的本节点state表</td>
+<td>仅一条INSERT，取首价origin_price，offset/DEA为0；不写output</td>
+<td>本节点首次有输入仅执行一次；首条严格0由单独固定macd_first_output写output，两步都成功才置initialized；0输入不执行；不初始化KDJ</td>
+</tr>
+<tr>
+<td>macd_segment.sql</td>
+<td>新close/seq、固定origin_price和上一段offset/DEA、三组系数、本段末seq</td>
+<td>§21.1当前段两EMA差、DEA及2倍柱；输出work的seq,ef,es,dif,dea,hist</td>
+<td>文件负责段值计算；本对象固定步骤追加本段输出→UPDATE自身末状态一次→释放work；不另调update_state.sql</td>
+</tr>
+<tr>
+<td>kdj_window.sql</td>
+<td>high/low/close/seq、window、本批新seq起止</td>
+<td>窗口highest/lowest；平区间RSV50；输出新seq及rsv</td>
+<td>不足window用已有行；只供已声明依赖使用，不推进K/D</td>
+</tr>
+<tr>
+<td>kdj_segment.sql</td>
+<td>当前新rsv/seq、上一段k/d、两组系数、本段末seq</td>
+<td>§21.2输出seq,k,d,j；k/d期数1各自恒等</td>
+<td>KDJ prepare初始50/50，首根也更新；本对象固定步骤追加输出→UPDATE自身末状态一次→释放work</td>
+</tr>
+</tbody>
+</table></div>
+<p>段值文件与随后固定步骤的界限：macd_segment/kdj_segment文件各包含CREATE当前work及其计算SELECT；INSERT本段输出与UPDATE本节点状态在对应指标代码内为固定SQL常量，分别作为SqlStep执行；DROP work唯一通过drop_owned_table，不另提交SqlStep版DROP。两份UPDATE完整字段与语句沿§21.1/21.2写死，不能由业务或公用方法传更新列表。prepare阶段参数表/状态表、每批输出表的建表/初始化也由对应指标代码固定定义；表结构分别遵守§08，禁止指标替依赖或别的指标建表。SQL_FILES只列本对象固定文件名；FIXED_SQL_STEPS只列代码内辅助步骤名和固定SQL语句，不再重复列文件名。两者均为代码固定值，不提供业务可填写的运行步骤列表。执行前登记模块归属与执行器资源，执行失败走原统一清理。</p>
+<p>能共用的仅是读取固定模板、核内部标识、执行SqlStep、清理和已经声明的数学依赖，不把一行加法拆对象，也不把MACD/KDJ不同状态强行合并为自由参数SQL。新增同窗MA/BOLL只共享window_mean；父节点只借用依赖结果，不替依赖重复consume或释放。</p>
+<p>输出还有3份固定模板，目录output/sql，由OutputCollector代码中固定SQL_FILES管理，不属于指标可任意调用的文件：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>输入/参数</th>
+<th>处理与输出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>merge_batch.sql</td>
+<td>本批K线新seq范围、已声明的各项结果表与字段；内部生成别名</td>
+<td>按本批日期时间对应结果；只选新行，字段顺序按输出说明；不因合法NULL丢位置；先按§14.4核当前新seq完整、字段/类型及批次，再合并，不以关联NULL掩盖漏行</td>
+</tr>
+<tr>
+<td>retain_tail.sql</td>
+<td>已保留结果、本批符合区间的新结果；start/end/before、limit按已定类型绑定</td>
+<td>SQL筛选本页条件，合并后只保留最近limit个时间位置；不截断输入历史</td>
+</tr>
+<tr>
+<td>select_result.sql</td>
+<td>最终尾部表、固定公开字段清单</td>
+<td>显式列清单、按时间升序查询；由内部结果读取方法完整取回；按§14.5通过执行器完整读取、核对数量/字段与具体错误，不直接访问连接绕过执行器</td>
+</tr>
+</tbody>
+</table></div>
+<p>OutputCollector自己的建表、替换表、删除表及元数据/数量检查也必须固定步骤/受控名称；FIXED_SQL_STEPS写死inspect_columns、check_batch_rows、count_tail及相应语句，不能用read_result开放任意查询。inspect_columns为§14.4两列元数据查询；check_batch_rows固定为当前seq范围的count/count-distinct/min/max及自有表范围外计数；count_tail固定SELECT COUNT(*)，这些最多返回一行汇总或有限列名说明，仍经执行器检查停止及计量。不提供可从请求拼SQL的入口。D2三文件stage_input/adjust_price/retain_history继续仅由读取模块管理，指标不得直接加载或重复实现其公式。</p>
+<p>随代码交付检查：pyproject的package-data保留现有sources/sql三文件，D3明确增加<code>src.foundation.technical_indicators.calculation = [&quot;sql/*.sql&quot;]</code>及<code>src.foundation.technical_indicators.output = [&quot;sql/*.sql&quot;]</code>两项。开发提交必须包含7份计算模板＋3份输出模板，及相应指标固定SQL步骤；同一次提交更新包资源声明和静态清单检查。不得只有Python引用而遗漏SQL文件。缺模板/加载未声明文件必须明确失败，不寻找备用路径、不接收业务文件名。静态声明检查不能冒充wheel安装验证；构建/安装仍需限定范围和已有安装授权，不自动下载工具或升级依赖。</p>
+<p>算法一致性只读复核：当前指数writer的MA/总体BOLL、MACD12/26/9、KDJ9/3/3以及股票MACD/KDJ，与§09数学口径一致。现行证据位置为major_index_mins_technical_writer.py的窗口与递推实现、stk_mins_qfq_macd_kdj.py的_insert_macd_kdj_segment_rows。D3改用SQL系数、安全分段、减首价offset、fsum及首根字面0是已确认数值实现差异；不改公式，但不能保证与旧Gold逐位相同，必须按已确认A/R和近0规则核验。此次未跑结果对比或正式数据，不宣称数值已验收。</p>
+</section><section id="s22"><h2><small>22</small>对照方案25项的逐项审计</h2><p>以下逐项对应原方案<code>lld-item-01</code>至<code>lld-item-25</code>，不创建另一套要求。审计对象是本文是否能指导编码，不声称测试已开发或通过。此前全部决定及本次150万输入初始值已同步，本节保留初版冻结时的检查记录；当前D2修正及D3顺序以§19.10—19.12为准；本节为最终设计复核，开发后仍需逐条补实际代码、测试与验证证据。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -2471,14 +3139,14 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </tr>
 <tr>
 <td>13输出合同与版本</td>
-<td>§14、21</td>
-<td>字面JSON、NULL/空结果、真实UTF-8、独立结果、一次编码及API持有</td>
+<td>§14、19.12、21</td>
+<td>字面JSON、msg、NULL/空结果、真实UTF-8、独立结果、一次编码及API持有</td>
 <td>已写明</td>
 </tr>
 <tr>
 <td>14精度与独立预期</td>
 <td>§10、21</td>
-<td>A/R/近0、首条、HUGEINT参考与字面值、26组预算</td>
+<td>A/R/近0、首条、HUGEINT参考与字面值；仅用§19.10已确认的日常场景及固定预算，无人为长数据分批矩阵</td>
 <td>已写明；门槛已确认，不能替消费者验收</td>
 </tr>
 <tr>
@@ -2525,8 +3193,8 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </tr>
 <tr>
 <td>22失败与重试</td>
-<td>§11、14～15、18</td>
-<td>唯一空成功、原错误归属、清理失败不成功、单组合失败</td>
+<td>§11、14～15、18、19.12</td>
+<td>唯一空成功及msg、原错误归属、清理失败不成功、单组合失败</td>
 <td>已写明</td>
 </tr>
 <tr>
@@ -2550,13 +3218,14 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </tbody>
 </table></div>
 <p>原设计冻结时结论：25项已对应到文件、对象合同、SQL、配置、资源生命周期及正反验收，150万输入初始值已确认。D2开工复核发现§19.6列出的内部交接合同缺口，已获确认并同步原章节；本表设计覆盖不能代替D2当前的实际开工审计。§20.5保留初版设计冻结的历史结论；当前D2内部合同修订已确认并经复核，但不能把历史结论或本表覆盖情况当作D2运行验收通过。完整真实来源、内存、取消和页面验收仍按已定阶段执行。</p>
-</section><section id="s23"><h2><small>23</small>依据与核验范围</h2><ul>
+</section><section id="s23"><h2><small>23</small>依据与核验范围</h2><p>2026-10-24合批细节依据：Context7的/apache/arrow官方资料说明RecordBatch.slice为零复制、Table.from_batches只组织多个片段；当前项目PyArrow23.0.1的concat_arrays/concat_batches方法说明分别明确复制输入数组/合并数据。本轮仅读取方法说明，未执行新数值或性能实验。读取模块据此先紧凑复制小片段再合批，避免很多小片段持有旧缓冲。DuckDB官方元数据table_info列名/类型依据经Context7 /duckdb/duckdb-web核对；D3实现仍按本地1.5.5完成正常受控查询验收，不升级依赖。</p>
+<ul>
 <li><a href="technical-indicator-kernel-component-design-v1.html#lld-audit-checklist">组件设计方案及原25项检查</a>。</li>
 <li><a href="subsystem-boundary-plan.md">子系统架构基线</a>、<a href="foundation-current-standards.md">Foundation研发基线</a>；新库不依赖上层、QTF或DG。</li>
 <li>当前代码位置见§02；CodeGraph explore/node/impact核对StockMinuteQueryService、MajorIndexMinsLakeReader、QuoteQueryService、前端StockDetailPage及客户端；source schema及周/月生产者按实际源码确认。</li>
 <li>DuckDB维护方：<a href="https://duckdb.org/docs/1.5/data/parquet/overview">1.5 Parquet</a>、<a href="https://duckdb.org/docs/stable/clients/python/reference/">Python API</a>、<a href="https://duckdb.org/docs/stable/configuration/overview">配置</a>、<a href="https://duckdb.org/docs/lts/sql/functions/window_functions">窗口缓冲</a>、<a href="https://duckdb.org/2024/07/09/memory-management">内存管理</a>。版本敏感设置以本机1.5.5核验为准，不因stable页面更新就使用尚不存在的参数。</li>
 <li>AnyIO（Context7及本机源码交叉核对）：<a href="https://github.com/agronholm/anyio/blob/master/docs/threads.rst">线程取消</a>、<a href="https://github.com/agronholm/anyio/blob/master/src/anyio/to_thread.py">run_sync</a>、<a href="https://github.com/agronholm/anyio/blob/master/docs/cancellation.rst">取消与截止</a>；本机4.13.0语义为依据，不升级依赖。</li>
-<li>Apache Arrow：<a href="https://arrow.apache.org/docs/23.0/python/generated/pyarrow.dataset.Scanner.html">23.0.1 Scanner</a>、<a href="https://pypi.org/project/pyarrow/23.0.1/">官方发布包</a>。本轮选型与版本已确认；仅用于读取。本机尚未安装或验证Arrow整合。</li>
+<li>Apache Arrow：<a href="https://arrow.apache.org/docs/23.0/python/generated/pyarrow.dataset.Scanner.html">23.0.1 Scanner</a>、<a href="https://pypi.org/project/pyarrow/23.0.1/">官方发布包</a>。本轮选型与版本已确认；仅用于读取及列批组织。PyArrow23.0.1已经按管理员许可安装于项目.venv并在D2完成原合同读取验收；本次紧凑复制及合批尚未实现或验收。</li>
 </ul>
 <p>本轮未联网请求行情、未扫描正式Lake、未运行DG/生产API或全参数计算。仅使用现有依赖执行有界合成SQL、读当前代码和官方资料；没有安装、升级或修改套件。</p>
-</section><footer>本文件是编码设计，运行事实以当前代码及后续真实验收证据为准。当前D1已提交；D2阶段验收通过，范围与限制见第19.9节；原失败记录保留，运行验收仍按既定阶段执行。</footer></main></body></html>
+</section><footer>本文件是编码设计，运行事实以当前代码及后续真实验收证据为准。当前D1/D2已提交；D3开发暂停，当前编码顺序与交付检查见第19.13节，控制调用分配见第18.1节；原失败记录保留，不以设计文档冒充实现。</footer></main></body></html>
