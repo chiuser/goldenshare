@@ -1,5 +1,9 @@
 # Dagster 股票分钟线 QFQ 计算测试与生产 Check 治理低层设计
 
+> 2026-10-25最新状态：管理员随后批准开发与隔离测试，读取合并及每实际年度文件1次SHA已实现并验证；正式数据读取与补齐尚未执行。裁定及预算见[原LLD第9节](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#9-前复权整链读取审计与优化方案2026-10-25)，实际结果见原LLD第10节，真实性能样本与清理要求见第11节。旧三遍摘要申请已撤回。
+
+> 2026-10-24 写入修正：管理员已授权将QFQ、MACD/KDJ及state的候选移到staging，补齐逐文件记录和继续执行核对；公式、checks与日期合同不变。实施细节及验收以[写入修正方案和LLD](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md)为准，不把旧的目标旁临时文件写法继续作为执行依据。
+
 > 2026-08-13 当前口径：production check 数量和“公式由金样本保护”的治理原则不变；
 > Gold 5m/15m/30m/60m 的 09:30 输出、90m/120m source、历史 QFQ 与指标/state
 > 重建改由
@@ -400,3 +404,17 @@ python3 scripts/check_docs_integrity.py
 5. 三个相关 sensor 均为 `RUNNING`。QFQ daily 与 factor repair cursor 在 14:05 正常显示 `run_window_not_started`，分别为 600 和 622 bytes；MACD/KDJ run-status sensor cursor 为 142 bytes。没有发现 cursor 膨胀或运行中阻断。
 
 本次审计不生成 event、不改 Lake 文件、不发起 run，也不改变 sensor 状态。当前没有必要为 7 月 14 日人工重跑 QFQ：物理事实、active check 关联和下游 MACD/KDJ 状态均已全绿。下一次日常生产应由现有 sensor 在收盘后的既定窗口自然处理新的交易日；如需人工发起任何 run，必须另行批准。
+
+## 16. 2026-10-25前复权读取合并的检查约束
+
+本节与[写入修正方案/LLD第9节](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#9-前复权整链读取审计与优化方案2026-10-25)共同约束本轮实施。管理员已批准按方案开发与隔离测试；本轮结果以原LLD第10节及恢复记录第35节为准，旧263项不计作新优化验收。年度内容读取与正式补齐继续暂停。
+
+1. 保留原7个multi-check、28个名称、blocking属性、结果/metadata字段、输入缺失与schema失败分支。source coverage仍只求身份/同日factor覆盖，不重算OHLC公式；公式继续由独立金样本保护。
+2. 候选检查不能取代正式检查，asset的TEMP与写前结果不能传给check充当事实。正式check必须支持单独执行/重执行，因此独立读取当前正式年度和当日来源有必要；优化的是同一个check内部反复读文件。
+3. 正式check每个年度只读取一次所需列，同时保留全年路径检查并收集当日行，年度表逐文件释放。全局D日dup/价格/identity由本check日TEMP计算；非D路径计数与D计数集合分开，按原OR条件每行只计一次。NULL语义、样本全局排序和LIMIT5不变，失败样本不得重新扫年度。
+4. 候选的全年重复键与正式D日重复键含义不同，二者都保留；旧年度范围检查必须在删除旧D之前，不能以候选检查代替。候选范围/全年dup/count和旧范围/合并分别共用一次读取，不删除其拒绝条件。
+5. 原`union_by_name=true,filename=true`数据关系与`union_by_name=false`schema helper差异必须保留，用异构Parquet独立夹具证明缺列、类型提升、异常和计数等价。若不能证明，不能上线新读取方式或沿用新低预算。
+6. 当前读取预算按七目标真实来源映射1←1、5←1、15←5、30←5、60←30、90←30、120←60重复计入；不能按五份Silver去重体积估算七asset/check的总来源读取。正常总读取模型为S+3C+2D+14A+P+Fr+Tr，其中只有一个C是完整年度SHA，另外两个C分别保守覆盖候选业务检查和独立正式检查投影。
+7. 新计划正常一轮暂列34GiB应用文件读取、9GiB写入、12GiB额外空间；这些是有条件预算，不是物理I/O实测或已生效硬限制。S/C/A/P/元数据假设、no-spill前提、恢复最坏68/18及峰值空间22GiB、单独检查10GiB均以原LLD第9.5～9.7节为唯一数值依据。本轮不另设一份并行配置或执行清单。
+
+后续验收必须同时给出：独立语义金样本结果、真实文件reader次数与摘要字节计数、引擎无spill证据、原28检查同名同结果对账；不能只看总测试数或应用缓存命中。正常最终验收不重复运行已完成的正式检查或全局历史公式审计。

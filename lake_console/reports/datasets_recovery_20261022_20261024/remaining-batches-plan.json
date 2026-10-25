@@ -1,0 +1,488 @@
+{
+  "date": "2026-10-22",
+  "created_at": "2026-10-24T14:12:56.713709+08:00",
+  "basis": "remaining-missing-after-major-index.json; no global rescan",
+  "remaining_count": 28,
+  "batch_count": 11,
+  "required_check_targets": 136,
+  "all_assets_exactly_once": true,
+  "new_runtime_reads": 0,
+  "new_source_calls": 0,
+  "formal_execution": true,
+  "batches": [
+    {
+      "number": 1,
+      "title": "指数日线Lake",
+      "assets": [
+        "raw_index_daily",
+        "silver_index_daily",
+        "gold_market_major_indices_daily",
+        "gold_major_index_daily_nineturn"
+      ],
+      "jobs": [
+        "raw_index_daily_update_job",
+        "silver_index_daily_update_job",
+        "market_major_indices_daily_update_job",
+        "gold_major_index_daily_nineturn_update_job"
+      ],
+      "depends_on": [],
+      "prod_write": false,
+      "precondition": "Prod当天计数与对象覆盖、日线主要指数名单、21日九转前序及有限上下文；逐项核验现有writer的候选/提升和中断语义。",
+      "acceptance": "4项按Raw→Silver→主要指数Gold→日线九转通过各自检查，不发布Prod。",
+      "count": 4,
+      "remaining_after_success": 66,
+      "required_checks": 11,
+      "state": "completed_verified",
+      "physical_models": {
+        "raw_index_daily": "data_lake/raw/index_daily/trade_date={partition_key}/part-000.parquet",
+        "silver_index_daily": "data_lake/silver/index_daily/trade_date={partition_key}/part-000.parquet",
+        "gold_market_major_indices_daily": "data_lake/gold/market/major_indices_daily/trade_date={partition_key}/part-000.parquet",
+        "gold_major_index_daily_nineturn": "data_lake/gold/indicator/major_index_daily_nineturn/trade_date={partition_key}/part-000.parquet"
+      },
+      "execution_blocker": null,
+      "evidence": "batch1-index-daily-final-verified.json"
+    },
+    {
+      "number": 2,
+      "title": "板块分类、成分、行情Raw/Silver",
+      "assets": [
+        "raw_tushare_dc_index",
+        "silver_dc_index",
+        "raw_tushare_dc_member",
+        "silver_dc_member",
+        "raw_tushare_dc_daily",
+        "silver_dc_daily"
+      ],
+      "jobs": [
+        "raw_tushare_dc_index_update_job",
+        "silver_dc_index_update_job",
+        "raw_tushare_dc_member_update_job",
+        "silver_dc_member_update_job",
+        "raw_tushare_dc_daily_update_job",
+        "silver_dc_daily_update_job"
+      ],
+      "depends_on": [],
+      "prod_write": false,
+      "precondition": "按当前合同取得source_proof及适用的recovery_identity；核验历史覆盖证明的读取范围，以及需要两轮观察时的300秒间隔；成员必须在同日Raw分类可用后获取。",
+      "acceptance": "三条Raw/Silver链6项及各自检查通过；分类、成员与行情按各自真实合同验收，不机械要求彼此代码集合相等。",
+      "count": 6,
+      "remaining_after_success": 60,
+      "required_checks": 6,
+      "state": "completed_verified",
+      "physical_models": {
+        "raw_tushare_dc_index": "data_lake/raw/board/dc_index/trade_date={partition_key}/part-000.parquet",
+        "silver_dc_index": "data_lake/silver/board/dc_index/trade_date={partition_key}/part-000.parquet",
+        "raw_tushare_dc_member": "data_lake/raw/board/dc_member/trade_date={partition_key}/part-000.parquet",
+        "silver_dc_member": "data_lake/silver/board/dc_member/trade_date={partition_key}/part-000.parquet",
+        "raw_tushare_dc_daily": "data_lake/raw/board/dc_daily/trade_date={partition_key}/part-000.parquet",
+        "silver_dc_daily": "data_lake/silver/board/dc_daily/trade_date={partition_key}/part-000.parquet"
+      },
+      "execution_blocker": null,
+      "evidence": "resume_20261025/batch2-final.json"
+    },
+    {
+      "number": 3,
+      "title": "普通指数分钟线",
+      "assets": [
+        "raw_index_mins_1m",
+        "raw_index_mins_5m",
+        "raw_index_mins_15m",
+        "raw_index_mins_30m",
+        "raw_index_mins_60m",
+        "silver_index_mins_1m",
+        "silver_index_mins_5m",
+        "silver_index_mins_15m",
+        "silver_index_mins_30m",
+        "silver_index_mins_60m",
+        "silver_index_mins_90m",
+        "silver_index_mins_120m",
+        "gold_index_mins_1m",
+        "gold_index_mins_5m",
+        "gold_index_mins_15m",
+        "gold_index_mins_30m",
+        "gold_index_mins_60m",
+        "gold_index_mins_90m",
+        "gold_index_mins_120m"
+      ],
+      "jobs": [
+        "raw_index_mins_update_job",
+        "silver_index_mins_update_job",
+        "gold_index_mins_update_job"
+      ],
+      "depends_on": [],
+      "prod_write": false,
+      "precondition": "核对silver_index_basic及当前批准的Prod指数分钟对象池；只按22日/五频统计计数和对象覆盖，冻结列投影、导出规模与SQL预算后获取。",
+      "acceptance": "Raw5→Silver7→Gold7共19项检查通过；源行数、标准化和派生差异按合同解释。",
+      "count": 19,
+      "remaining_after_success": 41,
+      "required_checks": 19,
+      "state": "completed_verified",
+      "physical_models": {
+        "raw_index_mins_1m": "data_lake/raw/tushare/index_mins/freq=1min/trade_date={partition_key}/part-000.parquet",
+        "raw_index_mins_5m": "data_lake/raw/tushare/index_mins/freq=5min/trade_date={partition_key}/part-000.parquet",
+        "raw_index_mins_15m": "data_lake/raw/tushare/index_mins/freq=15min/trade_date={partition_key}/part-000.parquet",
+        "raw_index_mins_30m": "data_lake/raw/tushare/index_mins/freq=30min/trade_date={partition_key}/part-000.parquet",
+        "raw_index_mins_60m": "data_lake/raw/tushare/index_mins/freq=60min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_1m": "data_lake/silver/quote/index_mins/freq=1min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_5m": "data_lake/silver/quote/index_mins/freq=5min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_15m": "data_lake/silver/quote/index_mins/freq=15min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_30m": "data_lake/silver/quote/index_mins/freq=30min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_60m": "data_lake/silver/quote/index_mins/freq=60min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_90m": "data_lake/silver/quote/index_mins/freq=90min/trade_date={partition_key}/part-000.parquet",
+        "silver_index_mins_120m": "data_lake/silver/quote/index_mins/freq=120min/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_1m": "data_lake/gold/quote/index_mins/freq=1/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_5m": "data_lake/gold/quote/index_mins/freq=5/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_15m": "data_lake/gold/quote/index_mins/freq=15/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_30m": "data_lake/gold/quote/index_mins/freq=30/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_60m": "data_lake/gold/quote/index_mins/freq=60/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_90m": "data_lake/gold/quote/index_mins/freq=90/trade_date={partition_key}/part-000.parquet",
+        "gold_index_mins_120m": "data_lake/gold/quote/index_mins/freq=120/trade_date={partition_key}/part-000.parquet"
+      },
+      "execution_blocker": null,
+      "write_fix": "verified",
+      "source_evidence": "minute-prod-source-counts-verified.json",
+      "evidence": "resume_20261025/batch3-final.json"
+    },
+    {
+      "number": 4,
+      "title": "板块技术指标Gold与本机ClickHouse",
+      "assets": [
+        "gold_dc_daily_technical",
+        "ch_dc_daily_technical"
+      ],
+      "jobs": [
+        "gold_dc_daily_technical_update_job",
+        "ch_dc_daily_technical_update_job"
+      ],
+      "depends_on": [
+        2
+      ],
+      "prod_write": false,
+      "precondition": "当前Gold入口读取2024-01-02至22日的Silver历史，先用文件元数据及已批准必要样本测算读取、耗时、内存和重试预算；若涉及全局读取，须另获明确批准后才能读取。",
+      "acceptance": "Gold检查通过后才写本机CH；本机同日行数、主键及字段读回通过，不同步Prod。",
+      "count": 2,
+      "remaining_after_success": 39,
+      "required_checks": 2,
+      "state": "awaiting_history_read_approval",
+      "physical_models": {
+        "gold_dc_daily_technical": "data_lake/gold/board/dc_daily_technical/trade_date={partition_key}/part-000.parquet",
+        "ch_dc_daily_technical": null
+      },
+      "execution_blocker": "板块Raw/Silver已恢复；Gold指标需明确批准2024-01-02至22日约677文件35.85MiB历史读取，之后本机/Prod CH才可发布"
+    },
+    {
+      "number": 5,
+      "title": "主要指数日线九转发布到Prod",
+      "assets": [
+        "prod_core_index_daily_nineturn"
+      ],
+      "jobs": [
+        "prod_core_index_daily_nineturn_sync_job"
+      ],
+      "depends_on": [
+        1
+      ],
+      "prod_write": true,
+      "precondition": "批次1同日Gold和检查已通过；正式执行前核对Prod目标日现状、精确表和事务边界，执行授权必须包含Prod写入。",
+      "acceptance": "只发布core_serving.index_nineturn_daily的22日分区，事务内读回与Gold业务内容一致，通过现有检查。",
+      "count": 1,
+      "remaining_after_success": 38,
+      "required_checks": 1,
+      "state": "completed_verified",
+      "physical_models": {
+        "prod_core_index_daily_nineturn": "postgresql://prod/core_serving.index_nineturn_daily?trade_date={partition_key}"
+      },
+      "evidence": "batch5-index-nineturn-prod-verified.json"
+    },
+    {
+      "number": 6,
+      "title": "板块技术指标发布到Prod ClickHouse",
+      "assets": [
+        "prod_ch_dc_daily_technical"
+      ],
+      "jobs": [
+        "prod_ch_dc_daily_technical_sync_job"
+      ],
+      "depends_on": [
+        4
+      ],
+      "prod_write": true,
+      "precondition": "批次4本机CH已验收；核对Prod目标日现状和当前同步/替换合同，授权明确包含Prod CH写入。",
+      "acceptance": "Prod board_fact_technical_daily同日数据与本机来源对账，保持本机/Prod连接和权限边界。",
+      "count": 1,
+      "remaining_after_success": 37,
+      "required_checks": 1,
+      "state": "awaiting_history_read_approval",
+      "physical_models": {
+        "prod_ch_dc_daily_technical": null
+      },
+      "execution_blocker": "板块Raw/Silver已恢复；Gold指标需明确批准2024-01-02至22日约677文件35.85MiB历史读取，之后本机/Prod CH才可发布"
+    },
+    {
+      "number": 7,
+      "title": "股票分钟线Raw/Silver",
+      "assets": [
+        "raw_stk_mins_1m",
+        "raw_stk_mins_5m",
+        "raw_stk_mins_15m",
+        "raw_stk_mins_30m",
+        "raw_stk_mins_60m",
+        "silver_stk_mins_1m",
+        "silver_stk_mins_5m",
+        "silver_stk_mins_15m",
+        "silver_stk_mins_30m",
+        "silver_stk_mins_60m"
+      ],
+      "jobs": [
+        "stock_mins_raw_update_from_prod_job",
+        "stock_mins_silver_update_job"
+      ],
+      "depends_on": [],
+      "prod_write": false,
+      "precondition": "核验当日Prod完成依据prod_completion_reference、五频覆盖，以及股票基础、身份映射、22日日线和停牌事实；逐频测算明细量及只读导出开销。",
+      "acceptance": "5个Raw和5个Silver检查通过。Raw现有目标可复用、缺失目标会读取Prod生成；Silver新建使用write_new，不能套用离线恢复专用的reuse_existing配置。",
+      "count": 10,
+      "remaining_after_success": 27,
+      "required_checks": 35,
+      "state": "completed_verified",
+      "physical_models": {
+        "raw_stk_mins_1m": "data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet",
+        "raw_stk_mins_5m": "data_lake/raw/tushare/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet",
+        "raw_stk_mins_15m": "data_lake/raw/tushare/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet",
+        "raw_stk_mins_30m": "data_lake/raw/tushare/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet",
+        "raw_stk_mins_60m": "data_lake/raw/tushare/stk_mins/freq=60/trade_date={partition_key}/part-000.parquet",
+        "silver_stk_mins_1m": "data_lake/silver/quote/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet",
+        "silver_stk_mins_5m": "data_lake/silver/quote/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet",
+        "silver_stk_mins_15m": "data_lake/silver/quote/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet",
+        "silver_stk_mins_30m": "data_lake/silver/quote/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet",
+        "silver_stk_mins_60m": "data_lake/silver/quote/stk_mins/freq=60/trade_date={partition_key}/part-000.parquet"
+      },
+      "execution_blocker": null,
+      "write_fix": "verified",
+      "source_evidence": "minute-prod-source-counts-verified.json",
+      "completion_evidence": "stock_resume_20261025/batch7-final.json",
+      "actual_remaining_after_success": 30
+    },
+    {
+      "number": 8,
+      "title": "市场成交额Gold及Prod发布",
+      "assets": [
+        "gold_wealth_market_turnover",
+        "prod_core_wealth_market_turnover"
+      ],
+      "jobs": [
+        "gold_wealth_market_turnover_update_job"
+      ],
+      "depends_on": [
+        7
+      ],
+      "prod_write": true,
+      "precondition": "五频股票Silver与22日股票日线通过；现有job同时选择Gold和Prod发布，不能按只写Lake的任务审批，执行授权须包含core_serving.wealth_market_turnover_snapshot同日写入。",
+      "acceptance": "Gold聚合及检查通过后原生job发布Prod；按原合同核对成交额单位、北交所日线校准及JSON内容和目标读回。",
+      "count": 2,
+      "remaining_after_success": 25,
+      "required_checks": 1,
+      "state": "completed_verified",
+      "physical_models": {
+        "gold_wealth_market_turnover": "data_lake/gold/wealth/market_turnover/trade_date={partition_key}/part-000.parquet",
+        "prod_core_wealth_market_turnover": "postgresql://prod/core_serving.wealth_market_turnover_snapshot?trade_date={partition_key}"
+      },
+      "execution_blocker": null,
+      "completion_evidence": "stock_resume_20261025/batch8-final.json",
+      "actual_remaining_after_success": 28
+    },
+    {
+      "number": 9,
+      "title": "股票分钟前复权七频",
+      "assets": [
+        "gold_stk_mins_qfq_1m",
+        "gold_stk_mins_qfq_5m",
+        "gold_stk_mins_qfq_15m",
+        "gold_stk_mins_qfq_30m",
+        "gold_stk_mins_qfq_60m",
+        "gold_stk_mins_qfq_90m",
+        "gold_stk_mins_qfq_120m"
+      ],
+      "jobs": [
+        "stock_mins_qfq_daily_update_job"
+      ],
+      "depends_on": [
+        7
+      ],
+      "prod_write": false,
+      "precondition": "当天Silver与复权因子覆盖；核清因子修复影响、受影响证券/2026年度文件集合；先处理已确认的目标旁.tmp写入与正式staging规则冲突。",
+      "acceptance": "7项22日记录及检查通过，受影响年度文件中其它日期业务记录保持不变；不能把7项资产当作7个物理文件。",
+      "count": 7,
+      "remaining_after_success": 18,
+      "required_checks": 28,
+      "state": "code_verified_awaiting_bounded_sample_and_annual_read_approval",
+      "physical_models": {
+        "gold_stk_mins_qfq_1m": "data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_5m": "data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_15m": "data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_30m": "data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_60m": "data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_90m": "data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_120m": "data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code={ts_code}/year={year}/part-000.parquet"
+      },
+      "resolved_execution_blocker": {
+        "original": "现行年度writer在正式目标旁生成.tmp；本批尚不可执行，须先完成针对该问题的修正方案、LLD、授权与验收。",
+        "resolution": "已按专项方案和LLD完成staging及继续执行修正，隔离与真实样本验收通过，正式补齐尚待本批前置核验。"
+      },
+      "code_write_precondition": "verified; see README section 14 and qfq-staging-real-sample-verified.json",
+      "execution_blocker": "开发及隔离验证已通过；尚未获准正式年度内容读取/写入与补数。须先按原LLD9.9冻结实际目标/stat及获准有界性能样本，校准S/C/A/P、内存和耗时，再取得精确年度读取执行批准。",
+      "read_optimization_plan": "../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#9-前复权整链读取审计与优化方案2026-10-25",
+      "approved_normal_annual_sha_passes": 1,
+      "read_optimization_implemented": true,
+      "annual_reading_approved": false,
+      "read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json"
+    },
+    {
+      "number": 10,
+      "title": "股票分钟MACD/KDJ及状态",
+      "assets": [
+        "gold_stk_mins_qfq_macd_kdj_1m",
+        "gold_stk_mins_qfq_macd_kdj_5m",
+        "gold_stk_mins_qfq_macd_kdj_15m",
+        "gold_stk_mins_qfq_macd_kdj_30m",
+        "gold_stk_mins_qfq_macd_kdj_60m",
+        "gold_stk_mins_qfq_macd_kdj_90m",
+        "gold_stk_mins_qfq_macd_kdj_120m",
+        "gold_stk_mins_qfq_macd_kdj_state_1m",
+        "gold_stk_mins_qfq_macd_kdj_state_5m",
+        "gold_stk_mins_qfq_macd_kdj_state_15m",
+        "gold_stk_mins_qfq_macd_kdj_state_30m",
+        "gold_stk_mins_qfq_macd_kdj_state_60m",
+        "gold_stk_mins_qfq_macd_kdj_state_90m",
+        "gold_stk_mins_qfq_macd_kdj_state_120m"
+      ],
+      "jobs": [
+        "gold_stk_mins_qfq_macd_kdj_daily_update_job"
+      ],
+      "depends_on": [
+        9
+      ],
+      "prod_write": false,
+      "precondition": "前复权及因子修复检查通过，21日精确前序状态齐备；逐文件恢复计划和年度读写预算；先处理当前目标旁临时文件写入问题。",
+      "acceptance": "7个频率指标与状态成对通过检查；年度指标仅替换22日记录、前序连续性正确，不以从零初始化掩盖缺少前序。",
+      "count": 14,
+      "remaining_after_success": 4,
+      "required_checks": 28,
+      "state": "blocked_upstream",
+      "physical_models": {
+        "gold_stk_mins_qfq_macd_kdj_1m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_5m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_15m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_30m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_60m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_90m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_120m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code={ts_code}/year={year}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_1m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_5m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_15m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_30m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_60m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_90m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_macd_kdj_state_120m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date={partition_key}/part-000.parquet"
+      },
+      "resolved_execution_blocker": {
+        "original": "年度指标writer使用目标旁隐藏.tmp，未满足当前staging要求；需先单列修正与验证，不直接运行。",
+        "resolution": "已按专项方案和LLD完成staging及继续执行修正，隔离与真实样本验收通过，正式补齐尚待本批前置核验。"
+      },
+      "code_write_precondition": "verified; see README section 14 and qfq-staging-real-sample-verified.json",
+      "execution_blocker": "等待QFQ完成及明确批准2025+2026七频QFQ历史读取/2026指标年度合并；原21日state齐备不免除历史读取。"
+    },
+    {
+      "number": 11,
+      "title": "股票分钟前复权九转",
+      "assets": [
+        "gold_stk_mins_qfq_nineturn_30m",
+        "gold_stk_mins_qfq_nineturn_60m",
+        "gold_stk_mins_qfq_nineturn_90m",
+        "gold_stk_mins_qfq_nineturn_120m"
+      ],
+      "jobs": [
+        "gold_stk_mins_qfq_nineturn_update_job"
+      ],
+      "depends_on": [
+        9
+      ],
+      "prod_write": false,
+      "precondition": "30/60/90/120频率QFQ与因子修复检查通过，21日九转及当前算法所需有限历史输入齐备；不直接依赖MACD/KDJ。",
+      "acceptance": "4项22日九转和检查通过，历史结果不覆盖。",
+      "count": 4,
+      "remaining_after_success": 0,
+      "required_checks": 4,
+      "state": "blocked_upstream",
+      "physical_models": {
+        "gold_stk_mins_qfq_nineturn_30m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_nineturn_60m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_nineturn_90m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date={partition_key}/part-000.parquet",
+        "gold_stk_mins_qfq_nineturn_120m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date={partition_key}/part-000.parquet"
+      },
+      "execution_blocker": "等待QFQ完成及明确批准2025+2026四频QFQ历史读取；如需其他年份fallback必须另冻结范围并批准，不按20日窗口误估。"
+    }
+  ],
+  "progress_update": {
+    "updated_at": "2026-10-25T16:36:17.770750+08:00",
+    "formal_runs_started": 17,
+    "additional_assets_restored": 42,
+    "remaining_count": 28,
+    "batch1_state": "completed_verified",
+    "batch1_source_rows": 820,
+    "batch1_expected_codes": 820,
+    "stock_qfq_write_fix": "verified_in_isolation_and_bounded_real_sample",
+    "global_audit_repeated": false,
+    "evidence": [
+      "index-daily-raw-preflight.json",
+      "qfq-staging-code-tests.log",
+      "qfq-staging-real-sample-verified.json",
+      "index-daily-raw-preflight-after-prod-update.json",
+      "index-daily-staging-code-tests.log",
+      "index-daily-staging-real-sample-verified.json",
+      "batch1-index-daily-final-verified.json",
+      "batch5-index-nineturn-prod-verified.json",
+      "batch2-dc-source-counts.json",
+      "minute-staging-validation-summary.json",
+      "minute-staging-real-sample-verified.json",
+      "minute-prod-source-counts-verified.json",
+      "resume_20261025/batch3-final.json",
+      "resume_20261025/batch2-final.json",
+      "resume_20261025/stock-coverage.json",
+      "resume_20261025/prod-stock-task-evidence.txt",
+      "task_date_fix_20261025/date-verification.json",
+      "stock_resume_20261025/preflight.json",
+      "stock_resume_20261025/silver-partition-registration.json",
+      "stock_resume_20261025/batch7-final.json",
+      "stock_resume_20261025/batch8-final.json"
+    ],
+    "note": "Initial phase fields and remaining_after_success retain the original planned-order scenario; actual_remaining_after_success and current progress record the approved stock-first execution. No global audit repeated.",
+    "index_daily_silver_gold_write_fix": "verified_in_isolation_and_bounded_real_sample",
+    "batch1_raw_staging_fix": "verified_in_isolation_and_bounded_real_sample",
+    "batch5_state": "completed_verified",
+    "formal_checks_passed": 73,
+    "remaining_check_targets": 63,
+    "minute_raw_silver_write_fix": "verified",
+    "minute_tests_passed": 311,
+    "minute_subtests_passed": 21,
+    "additional_formal_runs_this_turn": 3,
+    "additional_assets_restored_this_turn": 12,
+    "batch3_state": "completed_verified",
+    "resume_20261025_assets_restored": 25,
+    "batch2_state": "completed_verified",
+    "resume_20261025_runs": 9,
+    "resume_20261025_checks_passed": 25,
+    "batch7_state": "completed_verified",
+    "batch8_state": "completed_verified",
+    "stock_task_date_fix_commit": "2405c620a",
+    "stock_resume_20261025_runs": 3,
+    "stock_resume_20261025_checks_passed": 36,
+    "stock_qfq_read_audit": "implemented and isolated tests passed; no formal data reads or writes",
+    "stock_qfq_read_budget_gib": 34,
+    "stock_qfq_write_budget_gib": 9,
+    "stock_qfq_budget_status": "conditional budget, read strategy implemented and isolated-tested; actual volume and time not measured, not execution approval; see LLD 9.6",
+    "stock_qfq_read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json"
+  },
+  "scope_total_count": 70,
+  "restored_count": 42
+}

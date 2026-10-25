@@ -1,0 +1,183 @@
+[
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 26,
+      "row": 6
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from datetime import datetime",
+          "end_location": {
+            "column": 36,
+            "row": 6
+          },
+          "location": {
+            "column": 1,
+            "row": 6
+          }
+        }
+      ],
+      "message": "Remove unused import: `datetime.date`"
+    },
+    "location": {
+      "column": 22,
+      "row": 6
+    },
+    "message": "`datetime.date` imported but unused",
+    "name": "unused-import",
+    "noqa_row": 6,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "UP035",
+    "end_location": {
+      "column": 42,
+      "row": 8
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from typing import Any\nfrom collections.abc import Mapping, Sequence",
+          "end_location": {
+            "column": 42,
+            "row": 8
+          },
+          "location": {
+            "column": 1,
+            "row": 8
+          }
+        }
+      ],
+      "message": "Import from `collections.abc`"
+    },
+    "location": {
+      "column": 1,
+      "row": 8
+    },
+    "message": "Import from `collections.abc` instead: `Mapping`, `Sequence`",
+    "name": "deprecated-import",
+    "noqa_row": 8,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/deprecated-import"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 49,
+      "row": 556
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 556
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 556,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 87,
+      "row": 882
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": null,
+    "location": {
+      "column": 33,
+      "row": 882
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 882,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 83,
+      "row": 883
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": null,
+    "location": {
+      "column": 31,
+      "row": 883
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 883,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 65,
+      "row": 918
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": null,
+    "location": {
+      "column": 16,
+      "row": 918
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 918,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "RUF100",
+    "end_location": {
+      "column": 59,
+      "row": 1088
+    },
+    "filename": "/private/tmp/qfq_read_optimization_20261025/stk_mins_asset.before.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 59,
+            "row": 1088
+          },
+          "location": {
+            "column": 43,
+            "row": 1088
+          }
+        }
+      ],
+      "message": "Remove unused `noqa` directive"
+    },
+    "location": {
+      "column": 45,
+      "row": 1088
+    },
+    "message": "Unused `noqa` directive (unused: `BLE001`)",
+    "name": "unused-noqa",
+    "noqa_row": 1088,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/unused-noqa"
+  }
+]

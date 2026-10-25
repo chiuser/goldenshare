@@ -1,0 +1,145 @@
+{
+  "verified_at": "2026-10-25T19:42:24.416700+08:00",
+  "branch": "dev-interface",
+  "scope": "QFQ daily read consolidation and shared publication; code plus isolated tests only",
+  "pytest": {
+    "passed": 297,
+    "subtests_passed": 65,
+    "seconds": 24.68,
+    "new_tests": {
+      "publication": 65,
+      "asset_writer_reads": 26,
+      "formal_checks": 32
+    }
+  },
+  "protected_static_gates": {
+    "passed": 113,
+    "subtests_passed": 5,
+    "launcher": "tests/stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py"
+  },
+  "fatal_ruff": "passed for src and tests",
+  "default_ruff": "changed files pass except asset existing identical 7 findings",
+  "asset_ruff_existing_findings": {
+    "before": 7,
+    "after": 7,
+    "same_code_and_message": true
+  },
+  "isolation": {
+    "network": "OS denied",
+    "Volumes": "OS denied",
+    "DuckDB_temp": "isolated existing directory; memory/threads/policy unchanged",
+    "DAGSTER_HOME": "isolated temporary directory"
+  },
+  "production": {
+    "new_data_reads": 0,
+    "new_runs": 0,
+    "writes": 0,
+    "global_audit_repeated": false,
+    "commit_created": false,
+    "annual_reading_approved": false
+  },
+  "budget": {
+    "read_gib": 34,
+    "write_gib": 9,
+    "status": "conditional file-size budget; not measured physical IO or an automatic enforced cap",
+    "spill_bytes": 0,
+    "metadata_cumulative_write_bytes": "not measured"
+  },
+  "remaining_count_from_existing_recovery_record": 28,
+  "codegraph": {
+    "before": [
+      "explore",
+      "impact"
+    ],
+    "after": [
+      "sync",
+      "status"
+    ],
+    "boundaries": [
+      "daily QFQ assets and checks",
+      "path SQL consumers: readiness/history/repair/BSE",
+      "publication QFQ and MACD annual/state"
+    ],
+    "manual_or_real_checks_remaining": [
+      "formal filesystem atomic rename sample",
+      "actual target S/C/A/P and metadata budget",
+      "representative performance/memory and execution authorization"
+    ]
+  },
+  "file_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq.py": "51d7b394fd9ce302bd1facd33fe5b340dbf55e144591afb74076f0b62ffad69b",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py": "5428228a86630fdffdb8329889922e56048e6519f8bdd499e164c4502d610170",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py": "aaa9f9b62a3be334225c77b3f83c0c1b8bd26e2b2ede96c8cc7f2be900323839",
+    "lake_console/orchestrator/src/orchestrator/defs/io/stk_mins_qfq_publication.py": "7f8992c21b63de93a8849801d99edc70edda31b28717c8679852e13fa2f73de6",
+    "lake_console/orchestrator/tests/test_stk_mins_qfq_read_optimization.py": "d1eadf4f11e7f229271e49eec12445fbd332adf90907b91a328e3afc75b2df57",
+    "lake_console/orchestrator/tests/test_stk_mins_qfq_check_read_reuse.py": "dd7bb3f76350eac91cc713266cf20ca827b50199db816adaa46d2e8babd19fb1",
+    "lake_console/orchestrator/tests/test_stk_mins_qfq_publication_single_digest.py": "0dde50d6075478a5983fe94946a0293251eb43c4f4faa6444429c3ac03a3f35c",
+    "lake_console/orchestrator/tests/test_stk_mins_qfq_staging_publication.py": "84192b5b4e0cf2206ca5ae899148f73887332a40a8317a9f70c93836020ec952"
+  },
+  "test_suites": [
+    "test_stk_mins_qfq_staging_publication.py",
+    "test_stk_mins_qfq_publication_single_digest.py",
+    "test_stk_mins_qfq_m8a_assets.py",
+    "test_stk_mins_qfq_m11_derived_assets.py",
+    "test_stk_mins_qfq_m12_macd_kdj.py",
+    "test_stk_mins_qfq_formula_golden_contracts.py",
+    "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py",
+    "test_stk_mins_qfq_partition_rewrite.py",
+    "test_stk_mins_qfq_m9c_factor_repair.py",
+    "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py",
+    "test_stk_mins_qfq_m8c_history.py",
+    "test_stk_mins_qfq_m11f_derived_history.py",
+    "test_stk_mins_bse_recursive_recovery.py",
+    "test_stk_mins_qfq_macd_kdj_check_contracts.py",
+    "test_stk_mins_qfq_m9a_job_contracts.py",
+    "test_stk_mins_qfq_read_optimization.py",
+    "test_stk_mins_qfq_check_read_reuse.py",
+    "test_stk_mins_qfq_m8b_checks.py",
+    "test_qfq_sensor_batch_readiness.py",
+    "test_stk_mins_qfq_sql_helpers.py"
+  ],
+  "documentation_checks": {
+    "docs_integrity": "passed",
+    "scoped_git_diff_whitespace": "passed",
+    "current_section_links_and_anchors": "passed",
+    "code_evidence_hashes": "passed"
+  },
+  "commit_scope_validation": {
+    "passed": 297,
+    "subtests_passed": 65,
+    "seconds": 22.99,
+    "asset_file_sha256": "6b31800e68ca2d616e97bd1ff8c1b5edeba4b82696967341b9189075465fbada",
+    "asset_scope": "QFQ functions equal validated workspace; Raw/Silver changes and MinutePartitionPublication import excluded",
+    "test_temporary_root_removed": true,
+    "evidence": "commit-scope-tests.txt"
+  },
+  "real_sample_proposal": {
+    "executed": false,
+    "metadata_only": true,
+    "code": "600000.SH",
+    "year": 2026,
+    "trade_date": "2026-10-22",
+    "target_frequencies": [
+      1,
+      5,
+      15,
+      30,
+      60,
+      90,
+      120
+    ],
+    "annual_file_count": 7,
+    "annual_bytes": 1365658,
+    "day_source_files": 4,
+    "day_source_bytes": 29024129,
+    "factor_files": 1,
+    "factor_bytes": 55558,
+    "unique_formal_input_files": 12,
+    "formal_input_bytes": 30445345,
+    "conditional_total_read_budget_mib": 64,
+    "conditional_temporary_write_budget_mib": 16,
+    "conditional_temporary_space_mib": 32,
+    "cleanup": "remove entire owned parent directory including lake and sibling staging; verify absent; retain only small report",
+    "approved_for_execution": false
+  }
+}

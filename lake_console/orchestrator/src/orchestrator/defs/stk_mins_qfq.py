@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -19,6 +18,7 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.io.cn_a_gold_minute_bars import (
     build_canonical_gold_minute_batch_select_sql,
 )
+from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
@@ -129,7 +129,13 @@ class GoldStkMinsQfqFactorRepairPlan:
 
 
 def build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths: Sequence[Path]) -> str:
-    adj_factor_source = _read_parquet_paths(as_of_adj_factor_paths)
+    return _build_as_of_adj_factor_by_code_relation_sql(
+        f"SELECT * FROM {_read_parquet_paths(as_of_adj_factor_paths)}"
+    )
+
+
+def _build_as_of_adj_factor_by_code_relation_sql(relation_sql: str) -> str:
+    adj_factor_source = f"({relation_sql})"
     return f"""
 WITH as_of_adj_factor AS (
   SELECT
@@ -152,7 +158,13 @@ FROM as_of_adj_factor
 def _build_adj_factor_by_code_trade_date_sql(
     adj_factor_paths: Sequence[Path],
 ) -> str:
-    adj_factor_source = _read_parquet_paths(adj_factor_paths)
+    return _build_adj_factor_by_code_trade_date_relation_sql(
+        f"SELECT * FROM {_read_parquet_paths(adj_factor_paths)}"
+    )
+
+
+def _build_adj_factor_by_code_trade_date_relation_sql(relation_sql: str) -> str:
+    adj_factor_source = f"({relation_sql})"
     return f"""
 SELECT
   CAST(ts_code AS VARCHAR) AS ts_code,
@@ -179,15 +191,35 @@ def build_canonical_gold_stk_mins_qfq_select_sql(
 ) -> str:
     """Build bounded QFQ bars from the canonical Silver source frequency."""
 
+    return build_canonical_gold_stk_mins_qfq_select_sql_from_relations(
+        silver_relation_sql=f"SELECT * FROM {_read_parquet_paths(silver_paths)}",
+        trade_adj_factor_relation_sql=f"SELECT * FROM {_read_parquet_paths(trade_adj_factor_paths)}",
+        as_of_adj_factor_relation_sql=f"SELECT * FROM {_read_parquet_paths(as_of_adj_factor_paths)}",
+        target_freq=target_freq, partition_keys=partition_keys,
+        stock_codes=stock_codes, match_as_of_by_trade_date=match_as_of_by_trade_date,
+    )
+
+
+def build_canonical_gold_stk_mins_qfq_select_sql_from_relations(
+    *,
+    silver_relation_sql: str,
+    trade_adj_factor_relation_sql: str,
+    as_of_adj_factor_relation_sql: str,
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+    match_as_of_by_trade_date: bool = False,
+) -> str:
+    """Use the same formula for file inputs and already materialized inputs."""
     normalized_freq = normalize_stk_mins_qfq_freq(target_freq)
     source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
     normalized_dates = _normalize_trade_dates(partition_keys)
-    source = _read_parquet_paths(silver_paths)
-    trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    source = f"({silver_relation_sql})"
+    trade_adj_source = f"({trade_adj_factor_relation_sql})"
     as_of_adj_sql = (
-        _build_adj_factor_by_code_trade_date_sql(as_of_adj_factor_paths)
+        _build_adj_factor_by_code_trade_date_relation_sql(as_of_adj_factor_relation_sql)
         if match_as_of_by_trade_date
-        else build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+        else _build_as_of_adj_factor_by_code_relation_sql(as_of_adj_factor_relation_sql)
     )
     date_values_sql = _date_values_sql(normalized_dates)
     stock_filter = ""
@@ -443,8 +475,36 @@ def _build_daily_qfq_coverage_sql(
     match_as_of_by_trade_date: bool,
     stock_codes: Sequence[str] = (),
 ) -> str:
-    silver_source = _read_parquet_paths(silver_paths)
-    trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    return _build_daily_qfq_coverage_relation_sql(
+        silver_relation_sql=f"SELECT * FROM {_read_parquet_paths(silver_paths)}",
+        trade_adj_factor_relation_sql=f"SELECT * FROM {_read_parquet_paths(trade_adj_factor_paths)}",
+        as_of_adj_sql=as_of_adj_sql,
+        match_as_of_by_trade_date=match_as_of_by_trade_date,
+        stock_codes=stock_codes,
+    )
+
+
+def build_daily_qfq_coverage_sql_from_relations(
+    *, silver_relation_sql: str, trade_adj_factor_relation_sql: str,
+    as_of_adj_factor_relation_sql: str, stock_codes: Sequence[str] = (),
+) -> str:
+    return _build_daily_qfq_coverage_relation_sql(
+        silver_relation_sql=silver_relation_sql,
+        trade_adj_factor_relation_sql=trade_adj_factor_relation_sql,
+        as_of_adj_sql=_build_as_of_adj_factor_by_code_relation_sql(
+            as_of_adj_factor_relation_sql
+        ),
+        match_as_of_by_trade_date=False, stock_codes=stock_codes,
+    )
+
+
+def _build_daily_qfq_coverage_relation_sql(
+    *, silver_relation_sql: str, trade_adj_factor_relation_sql: str,
+    as_of_adj_sql: str, match_as_of_by_trade_date: bool,
+    stock_codes: Sequence[str] = (),
+) -> str:
+    silver_source = f"({silver_relation_sql})"
+    trade_adj_source = f"({trade_adj_factor_relation_sql})"
     stock_filter = ""
     if stock_codes:
         stock_filter = (
@@ -674,9 +734,19 @@ def build_canonical_gold_stk_mins_qfq_diagnostics_sql(
     partition_keys: Sequence[str],
     stock_codes: Sequence[str] = (),
 ) -> str:
+    return build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation(
+        silver_relation_sql=f"SELECT * FROM {_read_parquet_paths(silver_paths)}",
+        target_freq=target_freq, partition_keys=partition_keys, stock_codes=stock_codes,
+    )
+
+
+def build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation(
+    *, silver_relation_sql: str, target_freq: int | str,
+    partition_keys: Sequence[str], stock_codes: Sequence[str] = (),
+) -> str:
     normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
     source_freq = gold_stk_mins_qfq_source_freq(normalized_target_freq)
-    source = _read_parquet_paths(silver_paths)
+    source = f"({silver_relation_sql})"
     partition_dates_sql = _date_values_sql(_normalize_trade_dates(partition_keys))
     stock_filter = ""
     if stock_codes:
@@ -1307,61 +1377,103 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
     replace_trade_dates: Sequence[str],
     fail_if_target_exists: bool = False,
     allow_empty_replacement: bool = False,
+    publication_id: str | None = None,
 ) -> tuple[GoldStkMinsQfqWriteResult, ...]:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
-    allowed_dates_sql = _date_values_sql(allowed_trade_dates)
-
-    with connect_configured_duckdb() as connection:
+    with StkMinsQfqPublication(
+        lake_root=lake_root, family="qfq", freq=normalized_freq,
+        trade_dates=allowed_trade_dates, publication_id=publication_id,
+    ) as publication, connect_configured_duckdb() as connection:
         _create_replacement_rows_table(connection, qfq_select_sql)
-        replacement_row_count = int(
-            connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
+        return write_prepared_gold_stk_mins_qfq_rows_to_year_files(
+            connection, publication=publication, lake_root=lake_root, freq=normalized_freq,
+            replace_trade_dates=allowed_trade_dates,
+            fail_if_target_exists=fail_if_target_exists,
+            allow_empty_replacement=allow_empty_replacement,
         )
-        if replacement_row_count == 0 and allow_empty_replacement:
-            return ()
-        _validate_replacement_rows(
-            connection,
-            normalized_freq=normalized_freq,
-            allowed_dates_sql=allowed_dates_sql,
-            replacement_row_count=replacement_row_count,
-        )
-        groups = connection.execute(
-            """
-            SELECT
-              ts_code,
-              strftime(trade_date, '%Y') AS year,
-              count(*) AS replacement_row_count
-            FROM qfq_replacement_rows
-            GROUP BY ts_code, year
-            ORDER BY ts_code, year
-            """
-        ).fetchall()
 
-        results: list[GoldStkMinsQfqWriteResult] = []
-        for ts_code, year, replacement_row_count in groups:
-            target_path = gold_stk_mins_qfq_path(
-                lake_root,
-                normalized_freq,
-                str(ts_code),
-                str(year),
-            )
-            row_count = _write_gold_qfq_group_to_year_file(
-                connection,
-                target_path=target_path,
-                normalized_freq=normalized_freq,
+
+def write_prepared_gold_stk_mins_qfq_rows_to_year_files(
+    connection: duckdb.DuckDBPyConnection,
+    *, publication: StkMinsQfqPublication, lake_root: Path,
+    freq: int | str, replace_trade_dates: Sequence[str],
+    fail_if_target_exists: bool = False, allow_empty_replacement: bool = False,
+) -> tuple[GoldStkMinsQfqWriteResult, ...]:
+    """Publish the actual replacement table, validating it for every caller."""
+    normalized_freq = normalize_stk_mins_qfq_freq(freq)
+    allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
+    allowed_dates_sql = _date_values_sql(allowed_trade_dates)
+    if (
+        publication.descriptor is None or publication.scope["family"] != "qfq"
+        or publication.scope["freq"] != normalized_freq
+        or publication.scope["trade_dates"] != list(allowed_trade_dates)
+        or publication.root != lake_root.resolve()
+    ):
+        raise ValueError("QFQ prepared writer requires the matching held publication lock")
+    replacement_row_count = int(
+        connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
+    )
+    if replacement_row_count == 0 and allow_empty_replacement:
+        return ()
+    _validate_replacement_rows(
+        connection,
+        normalized_freq=normalized_freq,
+        allowed_dates_sql=allowed_dates_sql,
+        replacement_row_count=replacement_row_count,
+    )
+    groups = connection.execute(
+        """
+        SELECT
+          ts_code,
+          strftime(trade_date, '%Y') AS year,
+          count(*) AS replacement_row_count
+        FROM qfq_replacement_rows
+        GROUP BY ts_code, year
+        ORDER BY ts_code, year
+        """
+    ).fetchall()
+
+    publication.bind(
+        connection,
+        inputs={"replacement": (
+            f"SELECT {', '.join(GOLD_STK_MINS_QFQ_COLUMNS)} "
+            "FROM qfq_replacement_rows ORDER BY ts_code, trade_time"
+        )},
+        targets=tuple(
+            gold_stk_mins_qfq_path(lake_root, normalized_freq, str(code), str(year))
+            for code, year, _ in groups
+        ),
+    )
+
+    results: list[GoldStkMinsQfqWriteResult] = []
+    for ts_code, year, replacement_row_count in groups:
+        target_path = gold_stk_mins_qfq_path(
+            lake_root,
+            normalized_freq,
+            str(ts_code),
+            str(year),
+        )
+        row_count = _write_gold_qfq_group_to_year_file(
+            connection,
+            target_path=target_path,
+            normalized_freq=normalized_freq,
+            ts_code=str(ts_code),
+            year=str(year),
+            fail_if_target_exists=fail_if_target_exists,
+            publication=publication,
+        )
+        results.append(
+            GoldStkMinsQfqWriteResult(
+                path=target_path,
                 ts_code=str(ts_code),
                 year=str(year),
-                fail_if_target_exists=fail_if_target_exists,
+                row_count=row_count,
+                replacement_row_count=int(replacement_row_count),
             )
-            results.append(
-                GoldStkMinsQfqWriteResult(
-                    path=target_path,
-                    ts_code=str(ts_code),
-                    year=str(year),
-                    row_count=row_count,
-                    replacement_row_count=int(replacement_row_count),
-                )
-            )
+        )
+
+    publication.promote()
 
     return tuple(results)
 
@@ -1428,53 +1540,31 @@ def _validate_replacement_rows(
     if row_count == 0:
         raise ValueError("qfq replacement rows are empty; refusing to write gold qfq files.")
 
-    null_key_count = connection.execute(
-        """
-        SELECT count(*)
+    null_key_count, freq_mismatch_count, outside_date_count, duplicate_count = (
+        connection.execute(f"""
+        SELECT
+          count(*) FILTER (WHERE ts_code IS NULL OR trade_date IS NULL OR trade_time IS NULL),
+          count(*) FILTER (WHERE freq <> {normalized_freq}),
+          count(*) FILTER (WHERE trade_date NOT IN ({allowed_dates_sql})),
+          (SELECT count(*) FROM (
+            SELECT ts_code, trade_time FROM qfq_replacement_rows
+            GROUP BY ts_code, trade_time HAVING count(*) > 1
+          ) duplicates)
         FROM qfq_replacement_rows
-        WHERE ts_code IS NULL OR trade_date IS NULL OR trade_time IS NULL
-        """
-    ).fetchone()[0]
+        """).fetchone()
+    )
     if null_key_count:
         raise ValueError(f"qfq replacement rows contain null business keys: {null_key_count}.")
-
-    freq_mismatch_count = connection.execute(
-        f"""
-        SELECT count(*)
-        FROM qfq_replacement_rows
-        WHERE freq <> {normalized_freq}
-        """
-    ).fetchone()[0]
     if freq_mismatch_count:
         raise ValueError(
             "qfq replacement rows contain freq values that do not match the target freq: "
             f"{freq_mismatch_count}."
         )
-
-    outside_date_count = connection.execute(
-        f"""
-        SELECT count(*)
-        FROM qfq_replacement_rows
-        WHERE trade_date NOT IN ({allowed_dates_sql})
-        """
-    ).fetchone()[0]
     if outside_date_count:
         raise ValueError(
             "qfq replacement rows contain trade_date values outside replace_trade_dates: "
             f"{outside_date_count}."
         )
-
-    duplicate_count = connection.execute(
-        """
-        SELECT count(*)
-        FROM (
-          SELECT ts_code, trade_time, count(*) AS row_count
-          FROM qfq_replacement_rows
-          GROUP BY ts_code, trade_time
-          HAVING count(*) > 1
-        )
-        """
-    ).fetchone()[0]
     if duplicate_count:
         raise ValueError(
             "qfq replacement rows contain duplicate ts_code + trade_time keys: "
@@ -1490,10 +1580,20 @@ def _write_gold_qfq_group_to_year_file(
     ts_code: str,
     year: str,
     fail_if_target_exists: bool,
+    publication: StkMinsQfqPublication,
 ) -> int:
+    temp_path, reused_count = publication.candidate(
+        target_path, fail_if_target_exists=fail_if_target_exists,
+    )
+    if temp_path is None:
+        return int(reused_count)
+    existing_source_sql = (
+        "SELECT * FROM "
+        f"{read_parquet(target_path, hive_partitioning=False)}"
+        if target_path.exists() else _empty_gold_qfq_select()
+    )
+    connection.execute(f"CREATE TEMP TABLE qfq_existing_year_rows AS {existing_source_sql}")
     if target_path.exists():
-        if fail_if_target_exists:
-            raise FileExistsError(f"Gold qfq target already exists: {target_path}")
         _validate_existing_year_file(
             connection,
             target_path=target_path,
@@ -1501,11 +1601,6 @@ def _write_gold_qfq_group_to_year_file(
             ts_code=ts_code,
             year=year,
         )
-
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = _temp_path_for(target_path)
-    if temp_path.exists():
-        temp_path.unlink()
 
     connection.execute(
         copy_query_to_parquet(
@@ -1536,17 +1631,15 @@ def _write_gold_qfq_group_to_year_file(
             temp_path,
         )
     )
-    _validate_written_year_file(
+    connection.execute("DROP TABLE qfq_existing_year_rows")
+    row_count = _validate_written_year_file(
         connection,
         temp_path=temp_path,
         normalized_freq=normalized_freq,
         ts_code=ts_code,
         year=year,
     )
-    row_count = connection.execute(
-        f"SELECT count(*) FROM {read_parquet(temp_path, hive_partitioning=False)}"
-    ).fetchone()[0]
-    os.replace(temp_path, target_path)
+    publication.validated(target_path, temp_path, int(row_count))
     return int(row_count)
 
 
@@ -1559,7 +1652,7 @@ def _existing_rows_select(target_path: Path) -> str:
     )
     return f"""
     SELECT {select_columns}
-    FROM {read_parquet(target_path, hive_partitioning=False)}
+    FROM qfq_existing_year_rows
     """
 
 
@@ -1582,7 +1675,7 @@ def _validate_existing_year_file(
     invalid_count = connection.execute(
         f"""
         SELECT count(*)
-        FROM {read_parquet(target_path, hive_partitioning=False)}
+        FROM qfq_existing_year_rows
         WHERE CAST(freq AS INTEGER) <> {normalized_freq}
            OR CAST(ts_code AS VARCHAR) <> {duckdb_string(ts_code)}
            OR strftime(CAST(trade_date AS DATE), '%Y') <> {duckdb_string(year)}
@@ -1597,45 +1690,42 @@ def _validate_existing_year_file(
 
 def _validate_written_year_file(
     connection: duckdb.DuckDBPyConnection,
-    *,
-    temp_path: Path,
-    normalized_freq: int,
-    ts_code: str,
-    year: str,
-) -> None:
-    invalid_count = connection.execute(
-        f"""
-        SELECT count(*)
-        FROM {read_parquet(temp_path, hive_partitioning=False)}
-        WHERE freq <> {normalized_freq}
-           OR ts_code <> {duckdb_string(ts_code)}
-           OR strftime(trade_date, '%Y') <> {duckdb_string(year)}
-        """
-    ).fetchone()[0]
-    if invalid_count:
-        temp_path.unlink(missing_ok=True)
-        raise ValueError(
-            "Written gold qfq year file contains rows that do not match its "
-            f"freq/ts_code/year path: {temp_path}."
-        )
-
-    duplicate_count = connection.execute(
-        f"""
-        SELECT count(*)
-        FROM (
-          SELECT ts_code, trade_time, count(*) AS row_count
-          FROM {read_parquet(temp_path, hive_partitioning=False)}
-          GROUP BY ts_code, trade_time
-          HAVING count(*) > 1
-        )
-        """
-    ).fetchone()[0]
-    if duplicate_count:
-        temp_path.unlink(missing_ok=True)
-        raise ValueError(
-            "Written gold qfq year file contains duplicate ts_code + trade_time keys: "
-            f"{duplicate_count}."
-        )
+    *, temp_path: Path, normalized_freq: int, ts_code: str, year: str,
+) -> int:
+    connection.execute(
+        "CREATE TEMP TABLE qfq_candidate_year_rows AS "
+        "SELECT freq, ts_code, trade_date, trade_time "
+        f"FROM {read_parquet(temp_path, hive_partitioning=False)}"
+    )
+    try:
+        row_count, invalid_count, duplicate_count = connection.execute(
+            f"""
+            SELECT count(*), count(*) FILTER (
+              WHERE freq <> {normalized_freq}
+                 OR ts_code <> {duckdb_string(ts_code)}
+                 OR strftime(trade_date, '%Y') <> {duckdb_string(year)}
+            ), (
+              SELECT count(*) FROM (
+                SELECT ts_code, trade_time FROM qfq_candidate_year_rows
+                GROUP BY ts_code, trade_time HAVING count(*) > 1
+              ) duplicates
+            )
+            FROM qfq_candidate_year_rows
+            """
+        ).fetchone()
+        if invalid_count:
+            raise ValueError(
+                "Written gold qfq year file contains rows that do not match its "
+                f"freq/ts_code/year path: {temp_path}."
+            )
+        if duplicate_count:
+            raise ValueError(
+                "Written gold qfq year file contains duplicate ts_code + trade_time keys: "
+                f"{duplicate_count}."
+            )
+        return int(row_count)
+    finally:
+        connection.execute("DROP TABLE qfq_candidate_year_rows")
 
 
 def _validate_replacement_select_scope(
@@ -1801,7 +1891,3 @@ def _normalize_year(year: int | str) -> str:
 
 def _date_values_sql(trade_dates: Sequence[str]) -> str:
     return ", ".join(f"DATE {duckdb_string(item)}" for item in trade_dates)
-
-
-def _temp_path_for(target_path: Path) -> Path:
-    return target_path.with_suffix(target_path.suffix + ".tmp")

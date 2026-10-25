@@ -311,6 +311,7 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
             partition_key=partition_key,
             previous_expected_trade_date=previous_trade_date,
             allow_without_previous_state=allow_without_previous_state,
+            publication_id=context.run.root_run_id or context.run.run_id,
         )
         LOGGER.stdout(
             "gold_stk_mins_qfq_macd_kdj_indicator_completed",

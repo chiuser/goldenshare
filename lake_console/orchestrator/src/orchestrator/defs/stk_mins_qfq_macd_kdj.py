@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -21,6 +20,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_TS_CODE,
     gold_stk_mins_qfq_macd_kdj_path,
@@ -134,10 +134,6 @@ def _normalize_trade_dates(trade_dates: Sequence[str]) -> tuple[str, ...]:
     if not normalized:
         raise ValueError("At least one trade date is required.")
     return normalized
-
-
-def _temp_path_for(target_path: Path) -> Path:
-    return target_path.with_name(f".{target_path.name}.tmp")
 
 
 def _schema_cast_columns(column_types: dict[str, str]) -> str:
@@ -775,10 +771,14 @@ def _write_indicator_group_to_year_file(
     year: str,
     replacement_trade_dates: Sequence[str],
     fail_if_target_exists: bool,
+    publication: StkMinsQfqPublication,
 ) -> int:
+    temp_path, reused_count = publication.candidate(
+        target_path, fail_if_target_exists=fail_if_target_exists,
+    )
+    if temp_path is None:
+        return int(reused_count)
     if target_path.exists():
-        if fail_if_target_exists:
-            raise FileExistsError(f"Gold qfq MACD/KDJ target already exists: {target_path}")
         _validate_indicator_year_file(
             connection,
             target_path=target_path,
@@ -787,10 +787,6 @@ def _write_indicator_group_to_year_file(
             year=year,
         )
 
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = _temp_path_for(target_path)
-    if temp_path.exists():
-        temp_path.unlink()
     columns = ", ".join(GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS)
     replacement_dates = _date_values_sql(replacement_trade_dates)
     connection.execute(
@@ -834,7 +830,7 @@ def _write_indicator_group_to_year_file(
             f"SELECT count(*) FROM {read_parquet(temp_path, hive_partitioning=False)}"
         ).fetchone()[0]
     )
-    os.replace(temp_path, target_path)
+    publication.validated(target_path, temp_path, row_count)
     return row_count
 
 
@@ -845,11 +841,11 @@ def _write_state_partition_file(
     freq: int,
     trade_date: str,
     scoped_stock_codes: Sequence[str] = (),
+    publication: StkMinsQfqPublication,
 ) -> int:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = _temp_path_for(target_path)
-    if temp_path.exists():
-        temp_path.unlink()
+    temp_path, reused_count = publication.candidate(target_path)
+    if temp_path is None:
+        return int(reused_count)
     columns = ", ".join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)
     scoped_state_filter = _stock_code_filter_sql(scoped_stock_codes)
     if scoped_stock_codes and not target_path.exists():
@@ -917,7 +913,7 @@ def _write_state_partition_file(
             f"SELECT count(*) FROM {read_parquet(temp_path, hive_partitioning=False)}"
         ).fetchone()[0]
     )
-    os.replace(temp_path, target_path)
+    publication.validated(target_path, temp_path, row_count)
     return row_count
 
 
@@ -932,6 +928,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
     fail_if_target_exists: bool = False,
     allow_empty_replacement: bool = False,
     duckdb_settings: DuckDBConnectionSettings = DEFAULT_DUCKDB_CONNECTION_SETTINGS,
+    publication_id: str | None = None,
 ) -> tuple[
     tuple[GoldStkMinsQfqMacdKdjWriteResult, ...],
     tuple[GoldStkMinsQfqMacdKdjStateWriteResult, ...],
@@ -942,7 +939,10 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
     if not source_qfq_paths:
         raise FileNotFoundError("Missing source gold qfq files for MACD/KDJ computation.")
 
-    with connect_configured_duckdb(duckdb_settings) as connection:
+    with StkMinsQfqPublication(
+        lake_root=lake_root, family="macd_kdj", freq=normalized_freq,
+        trade_dates=normalized_trade_dates, publication_id=publication_id,
+    ) as publication, connect_configured_duckdb(duckdb_settings) as connection:
         replacement_tables = prepare_stk_mins_qfq_macd_kdj_replacement_tables(
             connection,
             source_qfq_paths=source_qfq_paths,
@@ -976,6 +976,26 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
             ORDER BY ts_code, year
             """
         ).fetchall()
+        publication.bind(
+            connection,
+            inputs={
+                "indicator": (
+                    f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS)} "
+                    "FROM macd_kdj_indicator_replacement_rows ORDER BY ts_code, trade_time"
+                ),
+                "state": (
+                    f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)} "
+                    "FROM macd_kdj_state_replacement_rows ORDER BY trade_date, ts_code"
+                ),
+            },
+            targets=tuple(
+                gold_stk_mins_qfq_macd_kdj_path(lake_root, normalized_freq, str(code), str(year))
+                for code, year, _ in groups
+            ) + tuple(
+                gold_stk_mins_qfq_macd_kdj_state_path(lake_root, normalized_freq, day)
+                for day in normalized_trade_dates
+            ),
+        )
         indicator_results: list[GoldStkMinsQfqMacdKdjWriteResult] = []
         for ts_code, year, group_replacement_row_count in groups:
             target_path = gold_stk_mins_qfq_macd_kdj_path(
@@ -992,6 +1012,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
                 year=str(year),
                 replacement_trade_dates=normalized_trade_dates,
                 fail_if_target_exists=fail_if_target_exists,
+                publication=publication,
             )
             indicator_results.append(
                 GoldStkMinsQfqMacdKdjWriteResult(
@@ -1016,6 +1037,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
                 freq=normalized_freq,
                 trade_date=trade_date_value,
                 scoped_stock_codes=stock_codes,
+                publication=publication,
             )
             state_results.append(
                 GoldStkMinsQfqMacdKdjStateWriteResult(
@@ -1025,6 +1047,8 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
                     row_count=row_count,
                 )
             )
+
+        publication.promote()
 
     return (
         tuple(indicator_results),
@@ -1040,6 +1064,7 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
     partition_key: str,
     previous_expected_trade_date: str | None,
     allow_without_previous_state: bool,
+    publication_id: str | None = None,
 ) -> GoldStkMinsQfqMacdKdjPartitionWriteResult:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     source_paths = discover_gold_stk_mins_qfq_source_year_paths(
@@ -1065,6 +1090,7 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             freq=normalized_freq,
             source_qfq_paths=source_paths,
             target_trade_dates=[partition_key],
+            publication_id=publication_id,
             previous_state_paths=(
                 (previous_state_path,) if previous_state_path is not None else ()
             ),

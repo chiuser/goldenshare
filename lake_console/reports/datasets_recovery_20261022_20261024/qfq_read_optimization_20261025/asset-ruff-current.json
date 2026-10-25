@@ -1,0 +1,183 @@
+[
+  {
+    "cell": null,
+    "code": "F401",
+    "end_location": {
+      "column": 26,
+      "row": 6
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from datetime import datetime",
+          "end_location": {
+            "column": 36,
+            "row": 6
+          },
+          "location": {
+            "column": 1,
+            "row": 6
+          }
+        }
+      ],
+      "message": "Remove unused import: `datetime.date`"
+    },
+    "location": {
+      "column": 22,
+      "row": 6
+    },
+    "message": "`datetime.date` imported but unused",
+    "name": "unused-import",
+    "noqa_row": 6,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/unused-import"
+  },
+  {
+    "cell": null,
+    "code": "UP035",
+    "end_location": {
+      "column": 42,
+      "row": 8
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "from typing import Any\nfrom collections.abc import Mapping, Sequence",
+          "end_location": {
+            "column": 42,
+            "row": 8
+          },
+          "location": {
+            "column": 1,
+            "row": 8
+          }
+        }
+      ],
+      "message": "Import from `collections.abc`"
+    },
+    "location": {
+      "column": 1,
+      "row": 8
+    },
+    "message": "Import from `collections.abc` instead: `Mapping`, `Sequence`",
+    "name": "deprecated-import",
+    "noqa_row": 8,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/deprecated-import"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 49,
+      "row": 560
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 560
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 560,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 87,
+      "row": 886
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": null,
+    "location": {
+      "column": 33,
+      "row": 886
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 886,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 83,
+      "row": 887
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": null,
+    "location": {
+      "column": 31,
+      "row": 887
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 887,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "DTZ007",
+    "end_location": {
+      "column": 65,
+      "row": 922
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": null,
+    "location": {
+      "column": 16,
+      "row": 922
+    },
+    "message": "Naive datetime constructed using `datetime.datetime.strptime()` without %z",
+    "name": "call-datetime-strptime-without-zone",
+    "noqa_row": 922,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/call-datetime-strptime-without-zone"
+  },
+  {
+    "cell": null,
+    "code": "RUF100",
+    "end_location": {
+      "column": 59,
+      "row": 1092
+    },
+    "filename": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "",
+          "end_location": {
+            "column": 59,
+            "row": 1092
+          },
+          "location": {
+            "column": 43,
+            "row": 1092
+          }
+        }
+      ],
+      "message": "Remove unused `noqa` directive"
+    },
+    "location": {
+      "column": 45,
+      "row": 1092
+    },
+    "message": "Unused `noqa` directive (unused: `BLE001`)",
+    "name": "unused-noqa",
+    "noqa_row": 1092,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/unused-noqa"
+  }
+]

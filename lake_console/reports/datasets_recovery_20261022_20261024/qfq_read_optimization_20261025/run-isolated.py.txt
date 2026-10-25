@@ -1,0 +1,23 @@
+"""Task-local isolation: only temp directory defaults change; actual connection policy remains."""
+import os
+import sys
+import tempfile
+from pathlib import Path
+from dataclasses import replace
+with tempfile.TemporaryDirectory(prefix="qfq-tests-") as temporary:
+    root = Path(temporary).resolve()
+    os.environ["DAGSTER_HOME"] = str(root / "dagster")
+    (root / "dagster").mkdir()
+    from orchestrator.defs import duckdb_connection
+    settings = replace(duckdb_connection.DEFAULT_DUCKDB_CONNECTION_SETTINGS,
+                       temp_directory=root / "duckdb")
+    settings.temp_directory.mkdir()
+    # MACD writer accepts this existing object explicitly, so redirect its
+    # temp path too. No memory/thread/policy/SQL settings change.
+    object.__setattr__(duckdb_connection.DEFAULT_DUCKDB_CONNECTION_SETTINGS,
+                       "temp_directory", settings.temp_directory)
+    duckdb_connection.connect_configured_duckdb.__wrapped__.__defaults__ = (settings,)
+    init = duckdb_connection.DuckDBConnectionSettings.__init__
+    init.__defaults__ = (settings.temp_directory, *init.__defaults__[1:])
+    import pytest
+    raise SystemExit(pytest.main(["-q", "-p", "no:cacheprovider", "--basetemp", str(root / "pytest"), *sys.argv[1:]]))

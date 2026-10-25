@@ -58,9 +58,9 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMN_TYPES,
-    build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
-    build_daily_qfq_coverage_sql,
-    build_gold_stk_mins_qfq_derived_diagnostics_sql,
+    build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation,
+    build_canonical_gold_stk_mins_qfq_select_sql_from_relations,
+    build_daily_qfq_coverage_sql_from_relations,
     gold_stk_mins_qfq_source_freq,
 )
 from orchestrator.defs.stock_factor_price_checks import (
@@ -1073,6 +1073,169 @@ def _gold_qfq_derived_check_results(
     )
 
 
+def _qfq_check_file_identity(path: Path) -> tuple[int, ...]:
+    value = path.stat()
+    return (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+
+
+def _assert_qfq_check_inputs_unchanged(identities: dict[Path, tuple[int, ...]]) -> None:
+    if any(_qfq_check_file_identity(path) != value for path, value in identities.items()):
+        raise ValueError("QFQ check input changed during its file scan")
+
+
+def _load_qfq_check_source(connection, *, source_path: Path, factor_path: Path) -> dict:
+    paths = [source_path, *([factor_path] if factor_path.exists() else [])]
+    identities = {path: _qfq_check_file_identity(path) for path in paths}
+    connection.execute(
+        f"CREATE TEMP TABLE qfq_check_source AS SELECT * FROM {read_parquet(source_path, hive_partitioning=False)}"
+    )
+    if factor_path.exists():
+        connection.execute(
+            f"CREATE TEMP TABLE qfq_check_factor AS SELECT * FROM {read_parquet(factor_path, hive_partitioning=False)}"
+        )
+    _assert_qfq_check_inputs_unchanged(identities)
+    if factor_path.exists() != (factor_path in identities):
+        raise ValueError("QFQ check factor presence changed during its file scan")
+    return identities
+
+
+def _create_qfq_check_expected_rows(connection, *, freq: int, partition_key: str) -> str:
+    select_sql = build_canonical_gold_stk_mins_qfq_select_sql_from_relations(
+        silver_relation_sql="SELECT * FROM qfq_check_source",
+        trade_adj_factor_relation_sql="SELECT * FROM qfq_check_factor",
+        as_of_adj_factor_relation_sql="SELECT * FROM qfq_check_factor",
+        target_freq=freq,
+        partition_keys=[partition_key],
+    )
+    connection.execute(
+        "CREATE TEMP TABLE qfq_check_expected AS "
+        f"SELECT ts_code, trade_date, trade_time, exchange FROM ({select_sql})"
+    )
+    return "SELECT ts_code, trade_date, trade_time, exchange FROM qfq_check_expected"
+
+
+def _qfq_check_coverage_counts(connection):
+    return connection.execute(build_daily_qfq_coverage_sql_from_relations(
+        silver_relation_sql="SELECT * FROM qfq_check_source",
+        trade_adj_factor_relation_sql="SELECT * FROM qfq_check_factor",
+        as_of_adj_factor_relation_sql="SELECT * FROM qfq_check_factor",
+    )).fetchone()
+
+
+def _gold_qfq_formal_file_counts(
+    connection, *, paths: Sequence[Path], partition_key: str, freq: int,
+    expected_identity_sql: str | None,
+) -> tuple[tuple[int, ...], dict[str, list[dict[str, Any]]]]:
+    """Read each actual year once; retain only this check's target day and samples.
+
+    DESCRIBE preserves the union reader's binding types. Per-file projections
+    apply those types before the check casts, including absent-column NULLs.
+    """
+    identities = {path: _qfq_check_file_identity(path) for path in paths}
+    union_schema = {
+        row[0]: row[1] for row in connection.execute(
+            f"DESCRIBE SELECT * FROM {_read_parquet_paths(paths, filename=True)}"
+        ).fetchall()
+    }
+    check_columns = tuple(GOLD_STK_MINS_QFQ_COLUMN_TYPES)
+    if any(column not in union_schema for column in (*check_columns, "filename")):
+        # Retain DuckDB binding failure, rather than leaking a Python KeyError.
+        columns_sql = ", ".join((*check_columns, "filename"))
+        connection.execute(
+            f"DESCRIBE SELECT {columns_sql} FROM {_read_parquet_paths(paths, filename=True)}"
+        )
+    date_sql = "DATE " + duckdb_string(partition_key)
+    path_predicate = (
+        f"freq != {freq} OR ts_code != path_ts_code "
+        "OR strftime(trade_date, '%Y') != path_year "
+        f"OR (trade_date = {date_sql} AND CAST(trade_time AS DATE) != trade_date)"
+    )
+    outside_path_count = 0
+    for index, path in enumerate(paths):
+        _assert_qfq_check_inputs_unchanged({path: identities[path]})
+        relation = _read_parquet_paths([path], filename=True)
+        file_columns = {
+            row[0] for row in connection.execute(f"DESCRIBE SELECT * FROM {relation}").fetchall()
+        }
+        projections = []
+        for column in (*check_columns, "filename"):
+            quoted = '"' + column.replace('"', '""') + '"'
+            # Unknown global columns fail here as in the original bound query.
+            value = quoted if column in file_columns else "NULL"
+            projections.append(f"CAST({value} AS {union_schema[column]}) AS {quoted}")
+        union_projection = ", ".join(projections)
+        # The original counts SQL never consumes volume/amount. Do not force
+        # its unused DOUBLE casts when materializing heterogeneous union types.
+        normalized_projection = ", ".join(
+            (f"{column} AS {column}" if column in {"vol", "amount"} else
+             f"CAST({column} AS {kind}) AS {column}")
+            for column, kind in GOLD_STK_MINS_QFQ_COLUMN_TYPES.items()
+        )
+        connection.execute(f"""
+            CREATE TEMP TABLE qfq_check_year AS
+            SELECT {normalized_projection}, CAST(filename AS VARCHAR) AS filename,
+              regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1) AS path_ts_code,
+              regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1) AS path_year
+            FROM (SELECT {union_projection} FROM {relation})
+        """)
+        _assert_qfq_check_inputs_unchanged({path: identities[path]})
+        outside_path_count += int(connection.execute(f"""
+            SELECT count(*) FROM qfq_check_year
+            WHERE trade_date IS DISTINCT FROM {date_sql} AND ({path_predicate})
+        """).fetchone()[0])
+        if index == 0:
+            connection.execute("CREATE TEMP TABLE qfq_check_target AS SELECT * FROM qfq_check_year WHERE false")
+            connection.execute("CREATE TEMP TABLE qfq_check_path_samples AS SELECT * FROM qfq_check_year WHERE false")
+        connection.execute(f"INSERT INTO qfq_check_target SELECT * FROM qfq_check_year WHERE trade_date = {date_sql}")
+        connection.execute(f"""
+            CREATE OR REPLACE TEMP TABLE qfq_check_path_samples AS
+            SELECT * FROM (
+              SELECT * FROM qfq_check_path_samples
+              UNION ALL
+              (SELECT * FROM qfq_check_year WHERE {path_predicate}
+               ORDER BY filename, trade_date, trade_time LIMIT 5)
+            ) ORDER BY filename, trade_date, trade_time LIMIT 5
+        """)
+        connection.execute("DROP TABLE qfq_check_year")
+    _assert_qfq_check_inputs_unchanged(identities)
+    day_counts = tuple(int(value or 0) for value in connection.execute(
+        minute_qfq_counts_sql(gold_source="qfq_check_target", partition_key=partition_key, freq=freq)
+    ).fetchone())
+    counts = (day_counts[0], outside_path_count + day_counts[1], *day_counts[2:])
+    samples = {}
+    if any(counts[1:]):
+        # Non-target rows only supply bounded path samples. Target rows remain
+        # complete so global duplicate/price samples retain their original SQL.
+        connection.execute(f"""
+            CREATE TEMP VIEW qfq_check_sample_rows AS
+            SELECT * FROM qfq_check_target
+            UNION ALL
+            SELECT * FROM qfq_check_path_samples
+            WHERE trade_date IS DISTINCT FROM {date_sql}
+        """)
+        queries = _gold_qfq_sample_queries(
+            gold_source="qfq_check_sample_rows", partition_key=partition_key, freq=freq,
+        )
+        for name, count in (
+            ("path_mismatch_samples", counts[1]),
+            ("duplicate_samples", counts[2]), ("price_samples", counts[3]),
+        ):
+            if count:
+                rows = connection.execute(queries[name]).fetchall()
+                samples[name] = _sample_dicts(
+                    [column[0] for column in connection.description], rows,
+                )
+    identity_counts = (0, 0, 0)
+    if expected_identity_sql is not None:
+        identity_counts = tuple(int(value or 0) for value in connection.execute(
+            minute_qfq_identity_coverage_counts_sql(
+                gold_source="qfq_check_target", expected_identity_sql=expected_identity_sql,
+                partition_key=partition_key,
+            )
+        ).fetchone())
+    return (*counts, *identity_counts), samples
+
+
 def _gold_stk_mins_qfq_check_results(
     *,
     context: dg.AssetCheckExecutionContext,
@@ -1104,113 +1267,52 @@ def _gold_stk_mins_qfq_check_results(
 
     input_file_paths = [silver_path, trade_adj_factor_path]
 
-    with connect_configured_duckdb() as connection:
-        expected_paths = _gold_qfq_expected_paths(
-            connection,
-            lake_root=root,
-            freq=normalized_freq,
-            partition_key=partition_key,
-            silver_path=silver_path,
+    with connect_configured_duckdb(temp_policy="existing_no_spill") as connection:
+        input_identities = _load_qfq_check_source(
+            connection, source_path=silver_path, factor_path=trade_adj_factor_path,
+        )
+        factor_present = trade_adj_factor_path in input_identities
+        source_codes = connection.execute(
+            "SELECT DISTINCT CAST(ts_code AS VARCHAR) FROM qfq_check_source ORDER BY 1"
+        ).fetchall()
+        expected_paths = tuple(
+            gold_stk_mins_qfq_path(root, normalized_freq, str(row[0]), partition_key[:4])
+            for row in source_codes
         )
         missing_gold_paths = tuple(path for path in expected_paths if not path.exists())
         existing_gold_paths = tuple(path for path in expected_paths if path.exists())
-        silver_row_count = _row_count(connection, silver_path)
-
-        schema_mismatch_count, observed_schema, schema_error = (
-            _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
-        )
-
-        gold_target_row_count = 0
-        path_mismatch_row_count = 0
-        duplicate_key_count = 0
-        invalid_price_row_count = 0
-        missing_gold_identity_row_count = 0
-        unexpected_gold_identity_row_count = 0
-        exchange_mismatch_row_count = 0
+        silver_row_count = int(connection.execute("SELECT count(*) FROM qfq_check_source").fetchone()[0])
+        schema_mismatch_count, observed_schema, schema_error = _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
+        gold_target_row_count = path_mismatch_row_count = duplicate_key_count = invalid_price_row_count = 0
+        missing_gold_identity_row_count = unexpected_gold_identity_row_count = exchange_mismatch_row_count = 0
         samples: dict[str, list[dict[str, Any]]] = {}
-
+        expected_identity_sql = None
         if existing_gold_paths and schema_mismatch_count == 0:
-            gold_source = _read_parquet_paths(existing_gold_paths, filename=True)
+            if factor_present:
+                expected_identity_sql = _create_qfq_check_expected_rows(
+                    connection, freq=normalized_freq, partition_key=partition_key,
+                )
             (
-                gold_target_row_count,
-                path_mismatch_row_count,
-                duplicate_key_count,
-                invalid_price_row_count,
-            ) = (
-                int(value or 0)
-                for value in connection.execute(
-                    minute_qfq_counts_sql(
-                        gold_source=gold_source,
-                        partition_key=partition_key,
-                        freq=normalized_freq,
-                    )
-                ).fetchone()
+                gold_target_row_count, path_mismatch_row_count, duplicate_key_count,
+                invalid_price_row_count, missing_gold_identity_row_count,
+                unexpected_gold_identity_row_count, exchange_mismatch_row_count,
+            ), samples = _gold_qfq_formal_file_counts(
+                connection, paths=existing_gold_paths, partition_key=partition_key,
+                freq=normalized_freq, expected_identity_sql=expected_identity_sql,
             )
-            sample_queries: dict[str, str] = {}
-            if (
-                path_mismatch_row_count > 0
-                or duplicate_key_count > 0
-                or invalid_price_row_count > 0
-            ):
-                sample_queries = _gold_qfq_sample_queries(
-                    gold_source=gold_source,
-                    partition_key=partition_key,
-                    freq=normalized_freq,
-                )
-            for sample_name, failed_count in (
-                ("path_mismatch_samples", path_mismatch_row_count),
-                ("duplicate_samples", duplicate_key_count),
-                ("price_samples", invalid_price_row_count),
-            ):
-                if failed_count <= 0:
-                    continue
-                rows = connection.execute(sample_queries[sample_name]).fetchall()
-                columns = [column[0] for column in connection.description]
-                samples[sample_name] = _sample_dicts(columns, rows)
-
-            if trade_adj_factor_path.exists():
-                expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
-                    silver_paths=[silver_path],
-                    trade_adj_factor_paths=[trade_adj_factor_path],
-                    as_of_adj_factor_paths=[trade_adj_factor_path],
-                    target_freq=normalized_freq,
-                    partition_keys=[partition_key],
-                )
-                identity_counts = connection.execute(
-                    minute_qfq_identity_coverage_counts_sql(
-                        gold_source=gold_source,
-                        expected_identity_sql=expected_identity_sql,
-                        partition_key=partition_key,
-                    )
-                ).fetchone()
-                (
-                    missing_gold_identity_row_count,
-                    unexpected_gold_identity_row_count,
-                    exchange_mismatch_row_count,
-                ) = (int(value or 0) for value in identity_counts)
-
-        if trade_adj_factor_path.exists():
-            coverage_counts = connection.execute(
-                build_daily_qfq_coverage_sql(
-                    silver_paths=[silver_path],
-                    trade_adj_factor_paths=[trade_adj_factor_path],
-                    as_of_adj_factor_paths=[trade_adj_factor_path],
-                )
-            ).fetchone()
+        if factor_present:
             (
-                _coverage_silver_row_count,
-                qfq_output_row_count,
-                missing_trade_adj_factor_row_count,
-                missing_as_of_adj_factor_row_count,
-                invalid_trade_adj_factor_row_count,
-                invalid_as_of_adj_factor_row_count,
-            ) = (int(value or 0) for value in coverage_counts)
+                _coverage_silver_row_count, qfq_output_row_count,
+                missing_trade_adj_factor_row_count, missing_as_of_adj_factor_row_count,
+                invalid_trade_adj_factor_row_count, invalid_as_of_adj_factor_row_count,
+            ) = (int(value or 0) for value in _qfq_check_coverage_counts(connection))
         else:
             qfq_output_row_count = 0
-            missing_trade_adj_factor_row_count = silver_row_count
-            missing_as_of_adj_factor_row_count = silver_row_count
-            invalid_trade_adj_factor_row_count = 0
-            invalid_as_of_adj_factor_row_count = 0
+            missing_trade_adj_factor_row_count = missing_as_of_adj_factor_row_count = silver_row_count
+            invalid_trade_adj_factor_row_count = invalid_as_of_adj_factor_row_count = 0
+        _assert_qfq_check_inputs_unchanged(input_identities)
+        if trade_adj_factor_path.exists() != factor_present:
+            raise ValueError("QFQ check factor presence changed during its file scan")
 
     counts = GoldStkMinsQfqCheckCounts(
         silver_row_count=silver_row_count,
@@ -1257,7 +1359,6 @@ def _gold_stk_mins_qfq_derived_check_results(
     root = lake_root.root()
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
-    year = partition_key[:4]
     source_path = silver_stk_mins_path(root, source_freq, partition_key)
     trade_adj_factor_path = silver_adj_factor_path(root, partition_key)
     if not source_path.exists():
@@ -1281,110 +1382,48 @@ def _gold_stk_mins_qfq_derived_check_results(
         root,
         normalized_freq,
         "{ts_code}",
-        year,
+        partition_key[:4],
     ).parents[2]
-    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
-        silver_paths=[source_path],
-        trade_adj_factor_paths=[trade_adj_factor_path],
-        as_of_adj_factor_paths=[trade_adj_factor_path],
-        target_freq=normalized_freq,
-        partition_keys=[partition_key],
-    )
-    diagnostics_sql = build_gold_stk_mins_qfq_derived_diagnostics_sql(
-        source_qfq_paths=[source_path],
-        target_freq=normalized_freq,
-        partition_keys=[partition_key],
-    )
-    with connect_configured_duckdb() as connection:
-        (
-            source_freq_from_sql,
-            _target_freq,
-            source_row_count,
-            source_stock_day_count,
-            expected_window_count,
-            generated_window_count,
-            incomplete_window_count,
-            exchange_mismatch_window_count,
-        ) = (
-            int(value or 0) for value in connection.execute(diagnostics_sql).fetchone()
+    with connect_configured_duckdb(temp_policy="existing_no_spill") as connection:
+        input_identities = _load_qfq_check_source(
+            connection, source_path=source_path, factor_path=trade_adj_factor_path,
         )
+        expected_identity_sql = _create_qfq_check_expected_rows(
+            connection, freq=normalized_freq, partition_key=partition_key,
+        )
+        diagnostics_sql = build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation(
+            silver_relation_sql="SELECT * FROM qfq_check_source",
+            target_freq=normalized_freq, partition_keys=[partition_key],
+        )
+        (
+            source_freq_from_sql, _target_freq, source_row_count, source_stock_day_count,
+            expected_window_count, generated_window_count, incomplete_window_count,
+            exchange_mismatch_window_count,
+        ) = (int(value or 0) for value in connection.execute(diagnostics_sql).fetchone())
         expected_paths = _gold_qfq_derived_expected_paths(
-            connection,
-            lake_root=root,
-            target_freq=normalized_freq,
-            partition_key=partition_key,
-            expected_identity_sql=expected_identity_sql,
+            connection, lake_root=root, target_freq=normalized_freq,
+            partition_key=partition_key, expected_identity_sql=expected_identity_sql,
         )
         missing_gold_paths = tuple(path for path in expected_paths if not path.exists())
         existing_gold_paths = tuple(path for path in expected_paths if path.exists())
-        schema_mismatch_count, observed_schema, schema_error = (
-            _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
-        )
-
-        gold_target_row_count = 0
-        path_mismatch_row_count = 0
-        duplicate_key_count = 0
-        invalid_price_row_count = 0
-        missing_gold_identity_row_count = 0
-        unexpected_gold_identity_row_count = 0
-        exchange_mismatch_row_count = 0
+        schema_mismatch_count, observed_schema, schema_error = _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
+        gold_target_row_count = path_mismatch_row_count = duplicate_key_count = invalid_price_row_count = 0
+        missing_gold_identity_row_count = unexpected_gold_identity_row_count = exchange_mismatch_row_count = 0
         samples: dict[str, list[dict[str, Any]]] = {}
-
         if existing_gold_paths and schema_mismatch_count == 0:
-            gold_source = _read_parquet_paths(existing_gold_paths, filename=True)
             (
-                gold_target_row_count,
-                path_mismatch_row_count,
-                duplicate_key_count,
-                invalid_price_row_count,
-            ) = (
-                int(value or 0)
-                for value in connection.execute(
-                    minute_qfq_counts_sql(
-                        gold_source=gold_source,
-                        partition_key=partition_key,
-                        freq=normalized_freq,
-                    )
-                ).fetchone()
+                gold_target_row_count, path_mismatch_row_count, duplicate_key_count,
+                invalid_price_row_count, missing_gold_identity_row_count,
+                unexpected_gold_identity_row_count, exchange_mismatch_row_count,
+            ), samples = _gold_qfq_formal_file_counts(
+                connection, paths=existing_gold_paths, partition_key=partition_key,
+                freq=normalized_freq, expected_identity_sql=expected_identity_sql,
             )
-            sample_queries: dict[str, str] = {}
-            if (
-                path_mismatch_row_count > 0
-                or duplicate_key_count > 0
-                or invalid_price_row_count > 0
-            ):
-                sample_queries = _gold_qfq_sample_queries(
-                    gold_source=gold_source,
-                    partition_key=partition_key,
-                    freq=normalized_freq,
-                )
-            for sample_name, failed_count in (
-                ("path_mismatch_samples", path_mismatch_row_count),
-                ("duplicate_samples", duplicate_key_count),
-                ("price_samples", invalid_price_row_count),
-            ):
-                if failed_count <= 0:
-                    continue
-                rows = connection.execute(sample_queries[sample_name]).fetchall()
-                columns = [column[0] for column in connection.description]
-                samples[sample_name] = _sample_dicts(columns, rows)
-
-            identity_counts = connection.execute(
-                minute_qfq_identity_coverage_counts_sql(
-                    gold_source=gold_source,
-                    expected_identity_sql=expected_identity_sql,
-                    partition_key=partition_key,
-                )
-            ).fetchone()
-            (
-                missing_gold_identity_row_count,
-                unexpected_gold_identity_row_count,
-                exchange_mismatch_row_count,
-            ) = (int(value or 0) for value in identity_counts)
+        _assert_qfq_check_inputs_unchanged(input_identities)
 
     counts = GoldStkMinsQfqDerivedCheckCounts(
         source_freq=source_freq_from_sql,
-            source_file_count=1,
+        source_file_count=1,
         source_row_count=source_row_count,
         source_stock_day_count=source_stock_day_count,
         expected_window_count=expected_window_count,
