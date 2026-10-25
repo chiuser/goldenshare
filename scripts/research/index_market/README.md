@@ -1,5 +1,7 @@
 # 指数大势研究：统一代码入口
 
+2026-10-25第一阶段第一批：原始峰谷扫描器由`xxm/local_extrema.py`原样迁至`src/biz/services/wealth/market/index_detail_daily_wave/local_extrema.py`，迁移前后SHA256均为`ed1d71519ed3bd8f0e4ca3d6abccdec7b3c6878ec97bdd1b5ffd7b9253602c7c`。研究调用方与新生成Notebook统一引用新位置；原研究命令及算法不变，不留旧路径转发。历史报告、已存Notebook及其中源码SHA保持原样；当前批次仅作隔离迁移测试，不重跑历史研究。
+
 2026-10-19当前徐小明验收：**唯一产品已升级r2，当前结果见[交付报告](../../../reports/xxm_top_activation_r2_implementation_20261019/README.md)。沿用`xxm.reference_rescue_acceptance`／共用`bottom_history_acceptance`入口；frozen读取开发前117文件及获准18项更正，不能再用旧a1／r1预期验收新版。下方a1、R1运行成绩与命令按其日期保留为历史。原研究候选和旧`xxm.acceptance`／`same_segment_acceptance`不作为r2成功验收入口，不应重跑覆盖旧报告。**
 
 ```sh
