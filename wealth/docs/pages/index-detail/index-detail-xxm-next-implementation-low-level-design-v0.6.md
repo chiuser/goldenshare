@@ -705,7 +705,7 @@ P表示现预测中假设的钝化收盘及随后持平收盘，C表示目标根
 | 数字 | Float(53)读得值先转规范十进制文本/Decimal，不冒称交易所原文。close>0，有限DIF/DEA/H；0与显示0分开；H直接使用源值，独立关系检查允许abs(H−2×(DIF−DEA))≤0.0021，超限报来源问题而不是重算H |
 | 时间 | 日期升序唯一且是SSE开市日，每根日线上海15:00完成；发生日与后来确认时点分开。读取上限不超过10月21，也不读实际末日以后的行确认尾部 |
 
-主范围查询显式对象/请求日期过滤，升序最多801行用于拒绝越界。前段倒序最多251行，最近250行入选，第251行仅作更早存在性探测；确需再补时，从已取最早日之前再取250+1行，不越绝对下界。两批去重后升序，先核日历及所有应有开市日，再计算。没有足够前段如实标未知；不能因存在第251行就误拒正常来源。
+主范围查询显式对象/请求日期过滤，升序最多801行用于拒绝越界。前段倒序最多251行，最近250行入选，第251行仅作更早存在性探测；确需再补时，从已取最早日之前再取250+1行，不越绝对下界。两批合并时先检查日期，重复日期报错，不静默去重；随后升序，先核日历及所有应有开市日，再计算。没有足够前段如实标未知；不能因存在第251行就误拒正常来源。
 
 当前主链直接只读取得本次窗口，不再把旧CSV当必须准备的输入或备用数据源。既有日线快照到10月13/16的历史元数据仍可查原报告，不能据此猜当前库最新日期。执行前按本节对象/字段/日期/上限核授权；本轮不访问数据库。
 
@@ -715,7 +715,7 @@ P表示现预测中假设的钝化收盘及随后持平收盘，C表示目标根
 |---|---|
 | `src/biz/services/wealth/market/index_detail_daily_wave/{spec,types,calculator}.py` | DailyWaveReviewSpec、内存类型、build_color_segments/build_price_candidates/review_prefix/build_review；纯函数，无DB/文件/软件答案，不调用旧识别step |
 | 同目录`local_extrema.py` | 已从scripts/research/index_market/xxm/local_extrema.py原样迁入，保留number/TurningPoint/LocalExtremaScanner/scan_values的原规则和签名，只有一份实现，不留旧路径转发 |
-| `src/biz/queries/wealth/market/index_detail_daily_wave/{query,query_service}.py` | load_daily_window/load_calendar显式有界查询；服务核输入→调用同一纯函数→组装内存响应，失败不写结果，不import scripts/research |
+| `src/biz/queries/wealth/market/index_detail_daily_wave/{query,query_service}.py` | load_main_window/load_context_window/load_calendar分别有界查询主范围、前段和日历，签名见§14.9.1；服务核输入→调用同一纯函数→组装内存响应，失败不写结果，不import scripts/research |
 | `src/biz/schemas/wealth/market/index_detail_daily_wave.py` | §14.6.1/§15.3 DTO，合法数字/日期/ID引用/空值检查；不重新算边界 |
 | `src/biz/api/wealth/market/index_detail_daily_wave.py`、App装配 | 新只读计算GET；App注入本模块有时限的只读session、现行情权限和WebAppError；Biz不反向import App |
 | `tests/test_index_detail_daily_wave.py`、`tests/test_index_detail_daily_wave_query.py`、`tests/web/test_index_detail_daily_wave_api.py` | 独立字面、输入/DAO/路由合同、无持久化和错误重算；真实小链路另验，不把mock叫真实集成 |
