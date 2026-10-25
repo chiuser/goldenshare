@@ -50,6 +50,7 @@ from orchestrator.defs.prod_db.stk_mins import (
     validate_prod_stk_mins_select_contract,
 )
 from orchestrator.defs.prod_db.stk_mins_task_run import (
+    build_stk_mins_task_run_date_filter,
     full_market_stk_mins_task_run_from_row,
 )
 from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
@@ -361,7 +362,8 @@ class ProdStkMinsRawReplaceSource:
             )
 
     def _task_run_rows(self, *, trade_date: str) -> tuple[dict[str, object], ...]:
-        sql = """
+        date_filter_sql, date_params = build_stk_mins_task_run_date_filter(trade_date=trade_date)
+        sql = f"""
         SELECT
           id,
           task_type,
@@ -385,12 +387,12 @@ class ProdStkMinsRawReplaceSource:
           AND action = 'maintain'
           AND status = 'success'
           AND ended_at IS NOT NULL
-          AND time_input_json ->> 'trade_date' = %s
+          AND {date_filter_sql}
         ORDER BY ended_at DESC, id DESC
         LIMIT %s
         """
         with self._prod_postgres.connect_readonly_transaction() as connection, connection.cursor() as cursor:
-            cursor.execute(sql, (trade_date, TASK_RUN_QUERY_LIMIT))
+            cursor.execute(sql, (*date_params, TASK_RUN_QUERY_LIMIT))
             columns = tuple(str(column[0]) for column in cursor.description)
             return tuple(
                 {column: value for column, value in zip(columns, row, strict=True)}

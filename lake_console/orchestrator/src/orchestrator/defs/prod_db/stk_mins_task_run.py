@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from time import perf_counter
 
 from orchestrator.defs.resources import ProdPostgresResource
@@ -31,6 +31,33 @@ PROD_STK_MINS_TASK_RUN_COLUMNS = (
     "time_input_json",
     "filters_json",
 )
+
+# Keep date filtering before ORDER BY / LIMIT in both TaskRun candidate queries.
+# JSON dates are checked without casts so one malformed record cannot abort the probe.
+_STK_MINS_TASK_RUN_DATE_FILTER_SQL = """
+(
+  (
+    (time_input_json ->> 'mode' = 'point' OR time_input_json -> 'mode' IS NULL)
+    AND time_input_json ->> 'trade_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    AND pg_catalog.pg_input_is_valid(time_input_json ->> 'trade_date', 'date')
+    AND time_input_json ->> 'trade_date' = %s
+    AND COALESCE(time_input_json ->> 'start_date', '') = ''
+    AND COALESCE(time_input_json ->> 'end_date', '') = ''
+  )
+  OR
+  (
+    time_input_json ->> 'mode' = 'range'
+    AND COALESCE(time_input_json ->> 'trade_date', '') = ''
+    AND time_input_json ->> 'start_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    AND time_input_json ->> 'end_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    AND pg_catalog.pg_input_is_valid(time_input_json ->> 'start_date', 'date')
+    AND pg_catalog.pg_input_is_valid(time_input_json ->> 'end_date', 'date')
+    AND time_input_json ->> 'start_date' <= time_input_json ->> 'end_date'
+    AND time_input_json ->> 'start_date' <= %s
+    AND time_input_json ->> 'end_date' >= %s
+  )
+)
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,7 +222,7 @@ def full_market_stk_mins_task_run_from_row(
         return None
     time_input = _json_mapping(row.get("time_input_json"))
     filters = _json_mapping(row.get("filters_json"))
-    if time_input.get("trade_date") != trade_date:
+    if not _task_run_covers_trade_date(time_input, trade_date=trade_date):
         return None
     if _normalized_requested_freqs(filters.get("freq")) != _expected_freq_labels():
         return None
@@ -241,6 +268,7 @@ def _load_task_run_rows(
     prod_postgres: ProdPostgresResource,
     trade_date: str,
 ) -> tuple[dict[str, object], ...]:
+    date_filter_sql, date_params = build_stk_mins_task_run_date_filter(trade_date=trade_date)
     sql = f"""
     SELECT
       {", ".join(PROD_STK_MINS_TASK_RUN_COLUMNS)}
@@ -248,13 +276,13 @@ def _load_task_run_rows(
     WHERE task_type = 'dataset_action'
       AND resource_key = 'stk_mins'
       AND action = 'maintain'
-      AND time_input_json ->> 'trade_date' = %s
+      AND {date_filter_sql}
     ORDER BY ended_at DESC NULLS LAST, id DESC
     LIMIT %s
     """
     with prod_postgres.connect_readonly_transaction() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(sql, (trade_date, PROD_STK_MINS_TASK_RUN_QUERY_LIMIT))
+            cursor.execute(sql, (*date_params, PROD_STK_MINS_TASK_RUN_QUERY_LIMIT))
             columns = tuple(description.name for description in cursor.description)
             return tuple(
                 dict(zip(columns, row, strict=True))
@@ -281,6 +309,55 @@ def _load_task_run_row_by_id(
                 return None
             columns = tuple(description.name for description in cursor.description)
             return dict(zip(columns, row, strict=True))
+
+
+def build_stk_mins_task_run_date_filter(
+    *,
+    trade_date: str,
+) -> tuple[str, tuple[str, str, str]]:
+    """Bind one target date to the shared point/range candidate SQL condition."""
+
+    if not _is_canonical_trade_date(trade_date):
+        raise ValueError("trade_date must be a valid YYYY-MM-DD date.")
+    return _STK_MINS_TASK_RUN_DATE_FILTER_SQL, (trade_date, trade_date, trade_date)
+
+
+def _task_run_covers_trade_date(
+    time_input: Mapping[str, object],
+    *,
+    trade_date: str,
+) -> bool:
+    if not _is_canonical_trade_date(trade_date):
+        return False
+    mode = time_input.get("mode")
+    if mode == "point" or "mode" not in time_input:
+        return (
+            time_input.get("trade_date") == trade_date
+            and _is_empty_date_field(time_input.get("start_date"))
+            and _is_empty_date_field(time_input.get("end_date"))
+        )
+    if mode != "range" or not _is_empty_date_field(time_input.get("trade_date")):
+        return False
+    start_date = time_input.get("start_date")
+    end_date = time_input.get("end_date")
+    return (
+        _is_canonical_trade_date(start_date)
+        and _is_canonical_trade_date(end_date)
+        and start_date <= trade_date <= end_date
+    )
+
+
+def _is_canonical_trade_date(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def _is_empty_date_field(value: object) -> bool:
+    return value is None or value == ""
 
 
 def _json_mapping(value: object) -> Mapping[str, object]:

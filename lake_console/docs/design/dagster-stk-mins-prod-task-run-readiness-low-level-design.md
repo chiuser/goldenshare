@@ -6,6 +6,8 @@
 **日期：2026-07-28**
 **范围：`stock_mins_raw_update_from_prod_job` 的 prod 完成门禁与 2026-07-27 受控重建**
 
+**2026-10-25补充：已完成成功区间任务的日期识别修复和限定只读核验；仅验证TaskRun日期与完成条件，未读取真实分钟线、未执行补数。具体规则与本轮结果见文末2026-10-25章节。此前2026-07的执行状态保留为历史记录。**
+
 ## 1. 要解决的问题
 
 股票分钟线的 prod 同步和 DG Lake 同步是两套独立运行链路。此前 DG 只等待本地交易日和 `stock_basic` 就绪，便直接从 `raw_tushare.stk_mins` 导出；如果 prod 仍在逐股票、逐频度写入，DG 会读到一个中间版本。
@@ -57,7 +59,7 @@ resource_key = 'stk_mins'
 action = 'maintain'
 status = 'success'
 ended_at IS NOT NULL
-time_input_json 的 trade_date = D
+time_input_json 为合法单日 trade_date = D，或显式 range 的合法起止日期包含 D
 filters_json 指向五频度：1min, 5min, 15min, 30min, 60min
 filters_json 未将 ts_code 缩小为人工子集
 unit_total > 0
@@ -70,6 +72,8 @@ rows_rejected = 0
 ```
 
 候选按 `ended_at DESC, id DESC` 排序。若有多条满足条件的同日全市场任务，选择最新的一条；run ID 与终态摘要作为本次 DG 导出的第一道来源依据。后续代码子集补跑不替代该全市场候选，但它们写入 prod 原始表后的事实会由第 3.2 节重新核对。
+
+2026-10-25新增的完整日期规则以文末B节为准：候选在排序和最多20条截取前先筛日期；parser与按ID复核采用相同规则。其他完成条件与第3.2节分钟覆盖条件保持不变。本轮真实验收只覆盖任务识别，没有重新执行第3.2节。
 
 `time_input_json`、`filters_json`、`plan_snapshot_json` 是身份判定输入，不直接写入 sensor cursor、run config 或 Lake metadata。只有经规范化后的频度集合、是否全市场、task run ID、结束时间、预期代码数/hash 与小型 fingerprint 可以留存。
 
@@ -476,3 +480,89 @@ R3A 已于 2026-07-28 的受控维护窗口完成，执行证据如下：
 4. 已完成：R1 离线 recovery CLI 与临时 Lake fixture 测试，以及经单独批准的 R2 raw、R3A Silver、R3B
    下游重建和 R4 最终验收。原始 raw/Silver quarantine 均保留，物理删除仍须另行审批。
 5. 已完成本地代码与测试：未来日常 TaskRun + prod 代码覆盖双门禁、asset 二次复核、900 秒 interval 与窄白名单。仍待独立审批：`dg check defs`、正式 instance 只读 source 演练，以及 sensor 启用后的首日观察；本轮未执行这些动作。
+
+## 2026-10-25 成功区间任务的日期归属修正（最初讨论记录，后续确认见下节）
+
+Prod已由成功区间任务16729完成22日至23日，原候选SQL及row parser只接受point，导致22日返回missing。建议保留全部完成/五频/全市场/目标日覆盖门槛，扩充为严格的point精确日期或合法range包含目标日；不伪造Prod point记录，不改reference结构或Raw/Silver业务合同。共享候选SQL、共享parser和离线Prod恢复的同类SQL须同步，LIMIT20和列白名单不扩大，by-id继续走同一规则；新增日期、范围、混合输入与不完整任务反例，并用真实16729有界只读验证。精确方案/LLD与验收范围见[22日恢复记录第25节](../../reports/datasets_recovery_20261022_20261024/README.md#25-股票分钟区间完成记录待确认的最小修正方案与lld)。本段是待批准修正，原实现未因此改变；未获确认前不开发或执行股票job。
+
+## 2026-10-25 区间任务日期识别：本轮方案与LLD（已确认，按最新要求收窄验证范围）
+
+### A. 目标和边界
+
+管理员已基本认同方案，并明确本轮只修改Prod任务是否成功覆盖目标日的判断；测试不需要真实读取分钟线，因为后续数据读取流程没有修改。本步完成代码修复与日期/任务完成条件验证即停，不调用真实分钟覆盖查询，不生成真实completion reference，不登记分区或运行Raw/Silver补数任务。后续执行仍沿原批次，重新进入执行步骤时先补新鲜执行依据和执行卡。
+
+当前真实证据：16729为22日至23日range成功任务，29605/29605 units，failed/rejected0、progress100、五频无股票过滤；22日5576预期代码×五频EXISTS全部存在。21日16642为合法point成功记录。当前Prod生产者`src/ops/services/manual_action_service.py::_dataset_time_input_payload`写入mode及对应日期；此代码只读参考，不修改Prod。原两份测试夹具缺mode的明确trade_date记录被现行合同接受，不能凭16642一条样本断言所有旧无mode单日记录非法。
+
+### B. 唯一日期判断规则
+
+| 输入 | 对目标D的处理 | 独立样本 |
+| --- | --- | --- |
+| 单日：明确trade_date=D，mode为point或原有未带mode，且无非空start/end | 继续接受明确单日日期，不因为缺mode新增拒绝，也不根据缺字段猜日期 | 16642对21日有效；对22日无效 |
+| 区间：明确mode=range，trade_date空，canonical合法start/end且start<=D<=end | 接受；两端包含，单日range同样合法 | 16729对22/23日分别有效，对21/24日无效 |
+| 缺边界、非法/非canonical日期、反向区间、未知mode、混合非空单日和区间日期 | 拒绝，不进入可执行完成依据 | 2026-02-30、仅start、start>end、point携带start/end等 |
+| 只给start/end而没有range模式 | 拒绝，不推断区间模式 | 缺mode不能用作range |
+
+保留正常单日判断与新增严格区间是同一份日期合同，不新增旧入口、双配置或特殊ID放行。对未知mode/混合日期的拒绝是本方案明确增加的错误输入保护；不冒充“完全零行为变化”。已有明确无mode单日记录不是新增兼容兜底，原LLD§3.1本就只要求trade_date。
+
+这里“无mode”只指没有该键；显式JSON null、空字符串或其他类型的mode均拒绝。无关日期字段的空值只允许缺键、JSON null或空字符串；空格、数组、数字、对象不算空值。单日和区间日期文本必须严格为YYYY-MM-DD合法日期，不裁剪空白或猜格式。
+
+### C. 具体代码和调用链
+
+只改两份DG生产实现：
+
+1. `defs/prod_db/stk_mins_task_run.py`：共享日期归属纯函数与固定SQL条件；`_load_task_run_rows`在排序/LIMIT20之前按合法单日或含目标日区间筛选，row parser独立严格验证相同日期语义；by-id继续走此parser，不另开例外。
+2. `defs/bootstrap/stk_mins_raw_replace_from_prod.py`：独立`_task_run_rows`同步复用相同固定SQL日期条件；离线select仍复用同一parser，不留旧point-only SQL。
+
+CodeGraph explore/impact已核对共享probe、按ID复核、离线恢复选择器，相关21符号；日常sensor、Raw资产、run config和reference为消费者，名称/结构/指纹均不改。原来返回至多20条候选，继续保持；这只是返回上限，不声称服务器只检查20行。仍只查stk_mins身份及原16列，不加索引/迁移/新表，不读取其他Ops表或分钟OHLC作为readiness。
+
+日期文本必须同时符合YYYY-MM-DD及真实日期；Prod已真实核验PG160013及pg_input_is_valid(text,text)对合法true/非法false。SQL使用该能力配合canonical格式和文本闭区间，不用可能遇坏输入就报错的裸::date。两处SQL参数和相同条件必须测试，不能只改parser或只改一处查询。
+
+实现细节：在`stk_mins_task_run.py`提供固定日期SQL和三个绑定参数的共用builder，两个候选查询调用它；共享纯日期函数由row parser调用，Python用date.fromisoformat加isoformat完全相等校验，SQL用格式检查及pg_input_is_valid。原来已经在WHERE里按单日日期过滤，再ORDER BY和LIMIT20；本次扩展该WHERE条件，不增加新的候选截取流程、不扩大20条上限。没有新增配置项、持久化状态或外部依赖。
+
+### D. 完成和覆盖条件保持
+
+日期归属通过后，原全部条件不变：dataset_action/stk_mins/maintain、success、ended存在、五频完整、无股票过滤、unit_total>0且done=total、failed0、progress100、fetched/saved>0、rejected0。然后仍检查目标D当天预期代码的五频存在性；区间总行数和整体success不能代替这一步。
+
+对22日生成的reference继续保存目标22日、真实16729及结束时间、22日预期集合count/hash和五频覆盖；不修改Prod原JSON，不将range伪装为point。每个Raw资产写入前按ID复核该任务当前仍覆盖22日且结束时间一致，并核本频22日代码覆盖。reference未冻结整个JSON，因此不宣称所有源范围字段从未变化。有效旧point reference保持原形状；离线旧plan若来源指纹不再匹配，仍拒绝并重新plan，不自动接管。
+
+### E. 验证、性能和失败规则
+
+先回归重现16729现行不被识别；修复后覆盖22/23有效、21/24无效、原显式point和原无mode单日仍有效、合法单日range、各种非法/反向/混合输入及全部原任务完成门槛。保留原coverage/reference测试时只使用其隔离替身，不连接真实分钟来源。
+
+SQL验证不能只检查FakeCursor字符串：通过现行psql-remote入口执行READ ONLY的VALUES/CTE日期金样本，放入超过20条其他日期/坏scope记录，验证先过滤后LIMIT20，且SQL与Python对同一独立字面样本一致。CTE仅在查询内提供小型人工JSON，无建表、写入或业务明细读取；这是日期SQL验证，不冒充分钟数据接入。
+
+真实只读核验仅访问ops.task_run：新候选SQL对22/23/区间外21/24各最多20条原16列，按ID16729投影1条，Python再次识别该真实记录的日期/成功条件。不得调用stk_mins_prod_source_ready_for_trade_date或validate_stk_mins_prod_completion_reference去真实探测分钟，不读取raw_tushare.stk_mins、Lake或正式instance。复用已保存的覆盖证据只用于背景，不把它写成本轮覆盖验收。单SQL预算15秒、整段核验目标30秒，报告1MiB以内；失败停止，重试仅重做失败的小查询。隔离测试使用现有项目环境，目标3分钟内，不安装依赖；取消无业务写入需恢复。
+
+| 硬口径 | 实现位置 | 验证 |
+| --- | --- | --- |
+| 明确单日继续接受，合法区间包含目标日才接受 | 共用日期纯函数、row parser | 16729字面形状及边界/坏日期/未知模式/混合字段反例 |
+| 日期过滤先于20条截取，两个入口一致 | 共用SQL builder、两个候选查询 | 两处捕获SQL/绑定参数，READ ONLY CTE超过20条干扰记录 |
+| 成功、五频、全市场和完成计数条件保留 | 原row parser其余判断不改 | range逐项不完整反例、按ID与离线选择回归 |
+| 不改后续读取/写入/reference或其他数据集 | 仅两份生产Python文件修改 | scoped diff、既有reference静态/隔离回归；无正式分钟查询和补数 |
+
+既有股票连续性与run contract静态套件已纳入受保护测试启动器，必须使用现有`tests/stock_suspend_confirmed_test_runner.py --scope regression --suite <原套件名>`，不能通过修改PYTHONPATH或手工import支持模块绕过其隔离。新日期文件及原TaskRun隔离测试使用项目.venv的pytest；不修改runner、套件清单或防护策略。直接pytest收集连续性套件产生的支持模块导入错误不是业务回归通过证据，必须改用原受保护入口完成该套件。
+
+失败/取消保持原拒绝：TaskRun/日期/覆盖任一不满足，不创建Raw输出；新reference不改变writer的原候选、单文件receipt或续跑规则。修改本身不写Prod、不启动任务、不改分区或cursor。测试结果、真实只读结果、正式补齐结果分别记录，不混为验收。
+
+### F. 后续补数步骤（本轮不执行）
+
+1. 新代码真实只读证明22日可使用16729，冻结新鲜reference及现有config builder输出。
+2. 复核Raw/Silver十目标缺失、相关writer无活动run、既有同日身份/日线/停牌依赖、挂载/同设备/空间、LOAD postgres已可用。唯一缺的股票Silver日期分区只登记2026-10-22一个键；不运行sensor或批量注册。
+3. 按原生`stock_mins_raw_update_from_prod_job`→`stock_mins_silver_update_job`，每步SUCCESS及check通过后推进。五频同日Prod导出总行数上界1804297（现有统计全5577代码，执行过滤5576实际略少），Raw/Silver仅同日输入；候选/receipt/日志预算1GiB，两个job预计5—20分钟，超时或无进展先查本run。
+4. 原35个blocking checks通过后，十个文件做一次schema/目标日计数和代码覆盖读回，邻日stat不变；失败只处理未完成文件，不能盲重跑两job或覆盖已有成功结果。最终验收与中断检查预算3分钟内，最多500本run事件；不重新全局审计。通过后本阶段缺口40→30。
+
+以上保留为后续补数顺序，不作为本轮验证动作。完整执行命令和新鲜config应在后续正式写入前落回[22日恢复说明](../../reports/datasets_recovery_20261022_20261024/README.md)；不能复用未通过完整门禁的旧config或过期proof。本轮设计已确认，按A/E节收窄范围完成修复并汇报，不能将日期识别通过说成整条链路或数据补齐通过。
+
+### G. 本轮实施与验收结果
+
+两份生产实现已按C节完成：共用固定日期SQL与绑定参数，两个入口同步替换原单日条件；row parser新增严格单日/区间判断，其余成功/五频/全市场/完成计数逻辑未改。按ID复核沿用同一parser，reference结构、分钟覆盖、Raw/Silver writer、其他数据集与Prod实现没有修改。CodeGraph explore/impact覆盖共享候选、按ID、离线选择及其消费者，开发后已执行sync/status；未新增跨工程依赖或待人工确认的代码边界。
+
+验证证据统一放在[本轮报告目录](../../reports/datasets_recovery_20261022_20261024/task_date_fix_20261025/)：
+
+- `before-fix.json`：修改前用已保存的16729字面记录复现，22/23都被旧parser拒绝，无数据库或分钟读取。
+- `pytest-current.txt`：新日期用例145项及原TaskRun隔离用例7项通过。输入来自独立保存的Prod记录；预期为人工可核对的日期及任务条件，没有调用待测函数生成expected。
+- `protected-continuity.txt`、`protected-static-gates.txt`：原受保护入口分别通过26项连续性与113项静态门禁。普通pytest直接收集连续性套件时曾因其受保护支持模块无法导入而退出，未当作业务失败或通过证据；后已用原启动器完整验证，没有改防护或跳过用例。
+- `date-verification.json`、`task-date-sql-results.jsonl`：43个日期SQL样本全部符合独立预期；两个真实SQL入口均从25条更新的无效/其他日期干扰记录中筛出16729后再LIMIT20。实际Prod候选21日为16642，22/23为16729，24日为空；按ID真实16729再次证明22/23接受、21/24拒绝。真实SQL脚本READ ONLY、15秒超时、最终ROLLBACK，经psql-remote执行，整个脚本耗时约0.174秒，未重做计数或覆盖查询。
+- `ruff-baseline.json`：全项目致命错误检查通过；新测试与离线恢复文件完整Ruff通过。共享TaskRun文件有5项HEAD既存风格问题（I001一项、BLE001两项、SIM117两项），逐条比较无新增，未为本轮扩展清理。文档完整性与scoped diff检查通过。
+
+本轮真实分钟/Lake读取0、Prod/Dagster业务写入0、补数job0、分区登记0；没有生成或声称完整门禁的新reference，没有安装依赖、提交或部署。22日缺口仍为原40项，后续补数前仍需按D/F节取得完整新鲜执行依据。
