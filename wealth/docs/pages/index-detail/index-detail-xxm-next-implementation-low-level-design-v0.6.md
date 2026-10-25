@@ -1,6 +1,6 @@
 # 徐小明定量结构下一阶段实施LLD v0.6
 
-更新日期：2026-10-25。第一阶段第一批已完成并本地提交f30221f4b，见§14.3.2；本轮仅将第二批四项交接细化到§14.9，不编码、读取行情或运行试验。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
+更新日期：2026-10-25。第一阶段第一批已完成并本地提交f30221f4b，见§14.3.2；第二批已实现并完成本轮测试及有界真实只读验收，待管理员验收，见§14.9.8；尚未接API或页面。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
 
 <a id="xxm-daily-method-design"></a>
 
@@ -69,7 +69,7 @@
 
 ## 1. 本步目标、依据和当前代码
 
-第一批代码事实见§14.3.2，当前只完善第二批设计§14.9。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。本轮不开发API、页面、价格候选或真实读取代码。
+第一批代码事实见§14.3.2，第二批实现及验收证据见§14.9.8。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。本轮仅开发第二批的真实只读接入和价格候选；不开发API、页面或旧标签算法。
 
 2026-10-22使用CodeGraph查符号与影响位置；其探索多次返回了研究子类而未展示产品计算器主体，因此对未覆盖的具体文件补做直接静态阅读。工具未找到测试关系不能解释为仓库没有测试。本次核对的是以下源码，不是运行或端到端验收：
 
@@ -746,6 +746,8 @@ calculator.py先校完整输入，再分别调用唯一scanner记录CLOSE/DIF及
 
 #### 14.3.2 第一批实际完成与要求对账（2026-10-25，待管理员验收）
 
+本节保留第一批提交f30221f4b时的实现和验证记录；其中私有函数位置在第二批已重整，当前结构及对应测试见§14.9.8，不把历史位置当现行第二份实现。
+
 已创建本目录`__init__/spec/types/calculator.py`，scanner迁移SHA与14.3.1完全相同。五个研究调用方、两个原研究测试和主题README已更新；历史报告/已存Notebook/历史SHA未改。无query、schema、路由、页面或旧XXM改动。
 
 | 已定要求 | 当前代码 | 独立测试或检查 |
@@ -764,7 +766,7 @@ calculator.py先校完整输入，再分别调用唯一scanner记录CLOSE/DIF及
 
 人工1300根上限输入（500前段+800主范围、颜色逐日交替）计算约0.1355秒，1300色段、2164已确认局部转折，进程峰值约25.45MiB；这是合成压力例，不声称其自然日就是SSE开市日，不替代真实源/完整业务查询/HTTP预算。预算失败、中途取消和正常边界均有反例/正例。计算结果未落盘。
 
-第一批随后按管理员要求本地提交f30221f4b，未推送部署。真实读取、日历完整性、实际日期范围、价格候选/映射/逐日变化、API和页面仍未实现或验收。第二批按§14.9先落实只读会话及查询时限再读取，接同一基础计算实现，不另造scanner、不重算MACD；其授权和验收按统一顺序办理。
+第一批随后按管理员要求本地提交f30221f4b，未推送部署。第一批交付时，真实读取、价格候选/映射/逐日变化、API和页面尚未实现；第二批后续实现和真实只读验证见§14.9.8，API和页面仍待后批。
 
 ### 14.4 基础记录、颜色及时间顺序
 
@@ -900,9 +902,9 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 
 <a id="xxm-daily-batch-two-lld"></a>
 
-### 14.9 第一阶段第二批：代码级交接约定（待开发）
+### 14.9 第一阶段第二批：代码级交接约定（已实现，待验收）
 
-本节落实方案§0.7四项要求，细化§14.2/14.5/14.6.1，不替换已确认取价规则。第一批已提供纯计算，第二批增加同源有界读取、完整候选及逐日变化；第三批才接API，第四批才交付页面。本轮仅文档，没有执行以下代码、查询或测试。
+本节落实方案§0.7四项要求，细化§14.2/14.5/14.6.1，不替换已确认取价规则。第一批已提供纯计算，第二批增加同源有界读取、完整候选及逐日变化；第三批才接API，第四批才交付页面。以下编码约定已实施，实际测试及真实只读证据见§14.9.8。
 
 #### 14.9.1 实现位置、入口及执行顺序
 
@@ -943,7 +945,7 @@ build_price_candidates(basic, *, observation_range, calendar, spec=DEFAULT_SPEC,
 
 候选入口的CandidateRecords只含priceSegments/mappings/shortOppositeSegments，正式build_review使用同一_PriceCandidateState获得它，再补逐日变化及完整头部。clock默认只捕获一次当前上海时间、new_id默认一次UUID，测试可注入固定值；query默认本模块DailyWaveQuery。所有查询通过注入session内部同一budget执行，查询方法不得另传新时限。observation_range在非空结果时必须等于主范围源行实际首末；无主范围行时为null并返回empty。as_of为日线截止日期，rows/观察范围不能越过它；calculated_at是有时区的计算时间，不能早于输入末根完成时点。
 
-完整调用顺序固定：创建budget及身份→打开专用只读会话→主窗口→前段250/必要时再250→日历→源/日历/范围全部校验→关闭只读会话→build_review一次→最终引用/数量/字节检查→返回。没有行时按§15.3构造内部empty结果，不查前段或跑候选；外部HTTP仍待第三批。相同输入/规则计算值一致，calculationId/calculatedAt只由服务创建并传入纯函数。
+完整调用顺序固定：创建budget及身份→打开专用只读会话→主窗口→前段250/必要时再250→日历→源字段/日历/范围校验→关闭只读会话→build_review一次（入口先统一校验基础输入及H关系，再推进逐日状态）→最终引用/数量/字节检查→返回。没有行时按§15.3构造内部empty结果，不查前段或跑候选；外部HTTP仍待第三批。相同输入/规则计算值一致，calculationId/calculatedAt只由服务创建并传入纯函数。
 
 配置审计：沿用现Settings.database_url（现有DATABASE_URL及既有Settings读取规则），只供本模块工厂读取，不新增持久化位置或env键。所有限制读取DEFAULT_SPEC；本批仅新增`cleanup_seconds=0.5`，由App清理及budget测试消费，随代码发布、不可由请求调节，其余值见§14.3.1/14.8。配置异常返回明确错误，不打印连接URL或凭据。现有API、认证、全站连接和已定标记规则不改。
 
@@ -1041,6 +1043,8 @@ asofChanges仅在实际观察范围的每个已处理日保存asOf/newConfirmedT
 
 源类型/日历/连续性/范围错误用DailyWaveSourceError，原基础输入错误用DailyWaveInputError，预算/取消复用第一批异常；第三批再按§15.3统一映射HTTP码。读取失败不换CSV，不跳坏行，不新开事务重试；算法冲突属于正常记录的issues，不能误报为源缺数据。所有失败释放连接和本次状态，下一次build创建新身份、重新读取，不从旧活动状态或人工边界恢复。没有新结果文件、缓存、checkpoint或后台续算。
 
+源H关系及源指标十进制运算错误在纯函数中使用DailyWaveSourceInputError（继承DailyWaveInputError，保持第一批捕获语义），query仅将此类型映射为DailyWaveSourceError；禁止按异常中文字样猜测类型，也不能把结果合同错误统一归为源错误。
+
 | 开发验收 | 精确预期和反例 |
 |---|---|
 | 读取保护 | 证明连接整体2秒、多地址不累计放大；慢SQL、锁等待、客户端等待受共同截止；超时先关闭本连接再取消，无残留读任务、无新的SELECT。正常短查询不误拦，清理计入8秒；失败不修改全站engine |
@@ -1051,7 +1055,54 @@ asofChanges仅在实际观察范围的每个已处理日保存asOf/newConfirmedT
 | 预算/内存 | 1300根上限人工输入覆盖长同色、长平台、逐日换色；检查完整读取/计算/合同/清理预算、输入1MiB/结果内存256MiB/序列化上限2MiB。超限明确失败，不截段/删字段；第一批0.136秒不当本批证据 |
 | 最小真实只读 | 获本批执行授权后，只查本对象及规定窗口、SSE；核实际行数/日期/值、SHOW只读与隔离、耗时和响应字节。正式源不执行写语句或建表；写入拒绝用隔离测试验证。真实缺口如实说明，不预先宣称通过 |
 
-本批代码按连接/参数→query/转换/日历→共用状态/候选→合同与独立例→最小真实只读的顺序；每一步先核本节及当前实现。测试每组≤60秒、无安装；中断重做及最后检查仍纳入同次设计预算，不落盘恢复。交付分别列第一批回归、独立例、隔离接入、真实只读的证据和限制；停在第二批验收，不自动接路由/页面。上述用例本轮均未运行。
+本批代码按连接/参数→query/转换/日历→共用状态/候选→合同与独立例→最小真实只读的顺序；每一步先核本节及当前实现。测试每组≤60秒、无安装；中断重做及最后检查仍纳入同次设计预算，不落盘恢复。交付分别列第一批回归、独立例、隔离接入、真实只读的证据和限制；停在第二批验收，不自动接路由/页面。本轮实际执行结果见§14.9.8。
+
+#### 14.9.7 第二批获准执行及要求对账
+
+2026-10-25管理员确认详细计划并授权实施。本批按以下依赖顺序执行；本表不是完成声明，实际证据在验收后补充。
+
+| 步骤 | 实现要求及位置 | 验收 |
+|---|---|---|
+| 1 | 纯计算budget/types/spec，共用绝对deadline；新增cleanup_seconds=0.5；保持原异常与入口语义 | 预算正反例、不可变/空值及第一批58项 |
+| 2 | App DailyWaveReadSession及Biz只读Protocol，按14.9.2限时/取消/回滚/关闭 | 隔离慢连接/SQL/晚到句柄/清理及正常不误拦；通过后才真实读取 |
+| 3 | query固定六列和日历，query_service唯一转换、250/500选择及日历验证 | SQL/类型/精度/重复/空结果/节假日及缺日 |
+| 4 | calculator共享_BasicRecordState，原scanner原字节，两只各N步 | 第一批回归、2N计数、pending撤下及跨段平台 |
+| 5 | _PriceCandidateState/build_review/review_prefix/build_price_candidates，14.5及14.6.1完整合同 | 独立字面/镜像/尾部/内部关系/短反色/逐日因果及全部引用 |
+| 6 | 服务一次接通，校范围/数量/内存/字节后返回 | 必要回归/架构/1300上限及授权范围真实只读；实际覆盖及未通过项如实报告 |
+
+测试使用现有环境，单组60秒内；不运行真实冻结研究、不安装、不写行情/结果/恢复文件。若发现需改变已定合同或规则，停下说明，不能补值、换源、合并或放宽预算。验收后停止，不自动推进第三批。
+
+#### 14.9.8 第二批实际实现与验收证据（2026-10-25，待管理员验收）
+
+仅修改本批两份文档、纯计算budget/spec/types/calculator、Biz日线query包、App专用连接及三份测试；原scanner字节保持，未改全站engine、API/schema、前端、旧标签识别器、研究规则或历史报告。未创建分支/worktree、未安装、未提交部署；没有保存行情、计算结果或恢复文件。下列汇总是开发验收记录，不是结果持久化入口。
+
+| 要求 | 当前实现 | 证据 |
+|---|---|---|
+| 同一8秒/读取及清理限制 | budget.DailyWaveBudget；App DailyWaveReadSession/await_read_io；Spec新增cleanup_seconds=0.5 | 连接测试15项覆盖正常、握手/设置/业务SQL/回滚超时、晚到句柄、取消、配置拒绝及57014/55P03分类、整体多地址限时及单会话拒绝并发；真实慢SELECT另验 |
+| 固定投影/有限前段/精度/日历 | DailyWaveQuery三个load入口；query_service规范行、needs_more_context、validate_calendar及唯一build | 查询测试22项，含801/251/2001、探测坏数值不入选、250足够/再补250、500仍不足保留未知、源DATE/Float53、H不替换、空/重复/日历与正常休市日 |
+| 基础行为保持/一份扫描器 | calculator._BasicRecordState、_Statistics、_ColorState；build_basic_records/build_color_segments | 原基础58项不变通过；新完整计算spy断言2N；scanner原SHA保持；无第二套旧计算实现 |
+| 价格规则/平台/尾部/短反色 | _Candidate/_PriceCandidateState；build_review/review_prefix/build_price_candidates | 候选测试28项，含empty/实际行情及15点确认合同反例、14.7字面/下降镜像、旧高不误选、95冲突、新高及并列、跨界平台/偏移、三段不合并、未生成/旧结果不变/合同反例/1300根 |
+| 引用及完整输出 | validate_review_result及不可变ReviewResult；Coverage只统计实际主范围 | 确认/待确认/色段/候选/映射/反色/逐日引用、时间/方向/空值/数量/内存/字节检查；独立最终helper不重扫、不伪造asofChanges |
+| 隔离/无反向依赖 | 纯计算标准库+本目录；query只依赖Foundation/Biz/SQLAlchemy；App装配连接 | 现纯模块AST测试、额外query/App禁止依赖及写操作检查；三份架构测试16项；安全研究调用方66项；原scanner七基础节点30项 |
+
+完整测试命令使用`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider`，按四组执行：
+
+1. `tests/test_index_detail_daily_wave.py`、`tests/test_index_detail_daily_wave_candidates.py`、`tests/test_index_detail_daily_wave_connection.py`、`tests/test_index_detail_daily_wave_query.py`：123项，末轮约2.13秒。
+2. `scripts/research/index_market/tests/test_xxm_local_extrema.py`仅七节点：`test_independent_literal_turns`、`test_tiny_reversals_are_preserved_without_threshold_or_float_rounding`、`test_pending_tail_is_not_a_confirmed_peak_and_confirmation_is_later`、`test_incomplete_future_bar_does_not_advance_or_confirm`、`test_invalid_input_is_rejected_atomically_and_normal_next_bar_still_works`、`test_exhaustive_3280_short_integer_sequences_against_batch_definition`、`test_every_prefix_and_different_future_preserve_confirmed_events`，每个以文件路径加`::`完整节点名传给上述pytest命令；30项约0.06秒，没有整文件运行真实冻结行情节点。
+3. `scripts/research/index_market/tests/`下的`test_xxm_local_extrema_study.py`、`test_xxm_reference_window_review.py`、`test_xxm_same_bar_dull_review.py`三个完整文件：66项约0.10秒；既有tmp_path隔离回归不是新结果保存功能。
+4. `tests/architecture/test_subsystem_dependency_matrix.py`、`test_platform_legacy_guardrails.py`、`test_operations_legacy_guardrails.py`：16项约10.98秒。各组均小于60秒，无安装。
+
+真实有界验收由本批DailyWaveQueryService和专用只读工厂运行，query没有正式写语句；所有输入/审计只在进程内存，未另写runner或结果报告文件。核对同一事务current_setting返回read_only=on/isolation=repeatable read。实际主725、前250、总975；主范围2023-10-24至2026-10-21、context从2022-10-13、日历1470。结果turns694/pending2/color87/price65/mapping65/shortOpposite65/asofChanges725；前段首色段仍左端未知，主范围的leftIncomplete/ungenerated/invalid/unknown均0，不把辅助前段计进主统计。
+
+独立核对直接使用源Float53→Decimal值：分别合并相等平台，用左右相邻组高低确认全部694个峰谷；按H符号另建87段并核日期/根数/零柱/结束；对65个候选逐条从规定范围直接求最低/最高及全部并列日，核内部极值/尾部、方向有效性；不调用被测候选helper生成expected。2024-09-24、2025-12-16、2026-10-21三个历史前缀另算，逐日变化与完整结果对应前缀一致、无未来确认。最终又按源收盘独立核所有65段的touchedStart/strictlyBrokeStart，接触和严格突破可以同时为真。
+
+完整业务实测约0.66—1.37秒；独立核对整组约1.23秒。最终776652字节，最后进程峰值105693184字节（约100.8MiB），无残留任务。额外真实只读短SELECT正常；pg_sleep(4)在约3.2637秒触发DailyWaveBudgetExceeded，owner.closed=True、无残留Task，不含写入/建表。该证据不代表真实锁争用或多地址网络故障都已实测：后两者由隔离测试及单连接客户端共同截止覆盖，不夸大为生产故障演练。
+
+1300根人工例覆盖长同色、长平台和逐根换色，每种恰好2600次scanner.step。长同色/平台初测约0.33/0.13秒，约457/572KB；逐根换色的完整结果超过2MiB，按既定上限明确抛错，不截断、不调大预算。此例不声称自然日期符合真实SSE。真实输入975根已通过全部输出/范围/预算；未来若需要超2MiB输出，须另审，不在本批偷偷放宽。
+
+三项真实实现遗漏先有失败回归再修复：①已结束候选的DIF引用由pending变confirmed时，即使ID相同也加入当日updatedPriceSegmentIds，端点/结束时间不改；②tail.touchedStart记录尾部任一收盘等于起始价，不能用尾部最小/最大是否相等代替，所以可与严格突破同时为真；③辅助前段左端未知保留在colorSegments，不计主范围Coverage。测试夹具另修正两处错误假设：原日历反例没有休市日，改用含休市日输入；跨段平台按实际Oct25—27核Oct24红/Oct26绿，而非错用数组位置。没有为迎合实现而放宽预期。
+
+已使用CodeGraph status/impact/search核原入口、基础调用方及新QueryService，批量修改后sync/status正常；新代码另做直接源码及AST检查，不以图中未找到关系代替核验。模块依赖方向未改变。文档完整性、链接、差异及实际文件范围在交付前再检查。至此停在第二批验收，API/页面/1000根、原软件完整标签相容性及管理员逐段纠偏仍为后续任务。
 
 <a id="xxm-daily-wave-page-lld"></a>
 

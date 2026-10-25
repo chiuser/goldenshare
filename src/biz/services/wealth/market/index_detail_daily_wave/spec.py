@@ -26,6 +26,7 @@ class DailyWaveReviewSpec:
     query_seconds: float = 3.0
     lock_seconds: float = 1.0
     frontend_seconds: float = 10.0
+    cleanup_seconds: float = 0.5
 
 
 DEFAULT_SPEC = DailyWaveReviewSpec()

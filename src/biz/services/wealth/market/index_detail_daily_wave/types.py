@@ -1,5 +1,5 @@
 """Immutable facts and independent dictionary projections, LLD 14.6.1."""
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from decimal import Decimal
 from typing import Literal
 
@@ -135,3 +135,222 @@ class BasicRecords:
                     turns=[turn.to_dict() for turn in self.turns],
                     pendingTurns=[turn.to_dict() for turn in self.pendingTurns],
                     colorSegments=[segment.to_dict() for segment in self.colorSegments])
+
+
+def _project(value):
+    if isinstance(value, Decimal):
+        return decimal_text(value)
+    if isinstance(value, tuple):
+        return [_project(item) for item in value]
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    return value
+
+
+class _Record:
+    __slots__ = ()
+
+    def to_dict(self) -> dict:
+        return {field.name: _project(getattr(self, field.name)) for field in fields(self)}
+
+
+@dataclass(frozen=True, slots=True)
+class DateRange(_Record):
+    startDate: str
+    endDate: str
+
+
+@dataclass(frozen=True, slots=True)
+class CalendarDay(_Record):
+    exchange: str
+    date: str
+    isOpen: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PriceEndpoint(_Record):
+    date: str
+    closedAt: str
+    close: Decimal
+    tiedDates: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Issue(_Record):
+    message: str
+    dates: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PricePoint(_Record):
+    date: str
+    close: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class PriceComparison(_Record):
+    fromDate: str
+    toDate: str
+    relation: str
+
+
+@dataclass(frozen=True, slots=True)
+class InternalPriceRelations(_Record):
+    highs: tuple[PricePoint, ...]
+    lows: tuple[PricePoint, ...]
+    highComparisons: tuple[PriceComparison, ...]
+    lowComparisons: tuple[PriceComparison, ...]
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class TailReview(_Record):
+    range: DateRange | None
+    turnIds: tuple[str, ...]
+    extrema: Extrema | None
+    strictlyBrokeStart: bool | None
+    touchedStart: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class PriceSegment(_Record):
+    id: str
+    sourceColorSegmentId: str
+    previousColorSegmentId: str | None
+    direction: str
+    generated: bool
+    startSearchRange: DateRange | None
+    endSearchRange: DateRange | None
+    start: PriceEndpoint | None
+    end: PriceEndpoint | None
+    startKnownAt: str | None
+    isEnded: bool
+    endKnownAt: str | None
+    startValidity: str
+    endValidity: str
+    endpointValidity: str
+    issues: tuple[Issue, ...]
+    internalPriceRelations: InternalPriceRelations | None
+    tailReview: TailReview
+    extrema: Extrema | None
+    difTurnIds: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EndpointOffset(_Record):
+    difTurnId: str
+    priceEndpoint: str
+    tradingDayOffset: int
+
+
+@dataclass(frozen=True, slots=True)
+class MappingRecord(_Record):
+    sourceColorSegmentId: str
+    priceSegmentId: str
+    colorRange: DateRange
+    priceRange: DateRange | None
+    observationIntersection: DateRange | None
+    priceObservationIntersection: DateRange | None
+    sourceTurnIds: tuple[str, ...]
+    priceTurnIds: tuple[str, ...]
+    endpointOffsets: tuple[EndpointOffset, ...]
+    issues: tuple[Issue, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class BarStats(_Record):
+    coloredCount: int
+    longestBar: HistogramExtreme
+
+
+@dataclass(frozen=True, slots=True)
+class ThreeBarStats(_Record):
+    previous: BarStats
+    opposite: BarStats
+    next: BarStats
+
+
+@dataclass(frozen=True, slots=True)
+class ThreePriceExtrema(_Record):
+    previous: Extreme
+    opposite: Extreme
+    next: Extreme
+
+
+@dataclass(frozen=True, slots=True)
+class ShortOppositeRecord(_Record):
+    previousColorSegmentId: str
+    oppositeColorSegmentId: str
+    nextColorSegmentId: str
+    barStats: ThreeBarStats
+    priceHighs: ThreePriceExtrema
+    priceLows: ThreePriceExtrema
+    difTurnIds: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateRecords(_Record):
+    priceSegments: tuple[PriceSegment, ...]
+    mappings: tuple[MappingRecord, ...]
+    shortOppositeSegments: tuple[ShortOppositeRecord, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AsOfChange(_Record):
+    asOf: str
+    newConfirmedTurnIds: tuple[str, ...]
+    updatedColorSegmentIds: tuple[str, ...]
+    updatedPriceSegmentIds: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageCounts(_Record):
+    leftIncomplete: int
+    ungenerated: int
+    invalid: int
+    unknown: int
+
+
+@dataclass(frozen=True, slots=True)
+class Coverage(_Record):
+    mainPointCount: int
+    leftIncompleteColorSegmentIds: tuple[str, ...]
+    ungeneratedPriceSegmentIds: tuple[str, ...]
+    invalidPriceSegmentIds: tuple[str, ...]
+    unknownPriceSegmentIds: tuple[str, ...]
+    counts: CoverageCounts
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewResult(_Record):
+    schemaVersion: int
+    tsCode: str
+    period: str
+    status: str
+    ruleId: str
+    calculationId: str
+    calculatedAt: str
+    requestedStart: str
+    requestedEnd: str
+    observationStart: str | None
+    observationEnd: str | None
+    contextStart: str | None
+    contextEnd: str | None
+    asOf: str | None
+    sourcePoints: tuple[DailyPoint, ...]
+    turns: tuple[Turn, ...]
+    pendingTurns: tuple[Turn, ...]
+    colorSegments: tuple[ColorSegment, ...]
+    priceSegments: tuple[PriceSegment, ...]
+    mappings: tuple[MappingRecord, ...]
+    shortOppositeSegments: tuple[ShortOppositeRecord, ...]
+    asofChanges: tuple[AsOfChange, ...]
+    coverage: Coverage
+
+    def to_dict(self) -> dict:
+        result = super(ReviewResult, self).to_dict()
+        if self.status == "empty":
+            keys = ("schemaVersion", "tsCode", "period", "status", "ruleId",
+                    "calculationId", "calculatedAt", "requestedStart", "requestedEnd")
+            return {key: result[key] for key in keys}
+        return result
