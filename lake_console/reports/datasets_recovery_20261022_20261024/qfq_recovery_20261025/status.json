@@ -1,0 +1,10 @@
+{
+  "state": "completed_verified",
+  "formal_run_started": true,
+  "run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+  "status": "SUCCESS",
+  "assets": 7,
+  "checks_passed": 28,
+  "downstream_sensors_stopped": true,
+  "reenable_condition": "2026-10-23 datasets completed"
+}

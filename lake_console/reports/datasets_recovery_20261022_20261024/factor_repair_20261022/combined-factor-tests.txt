@@ -1,0 +1,24 @@
+..........................                                               [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: 4 warnings
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py: 54 warnings
+lake_console/orchestrator/tests/test_stk_mins_qfq_factor_repair_read_reuse.py: 52 warnings
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py:3326: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    evaluation_event_timestamp=datetime.utcfromtimestamp(event.timestamp),
+
+lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py::StkMinsQfqM9CFactorRepairTests::test_non_partitioned_op_job_emits_repair_check_events_from_run_config
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_qfq_m9c_factor_repair.py:795: DeprecationWarning: Function `EventMethods.get_event_records` is deprecated and will be removed in 2.0.
+    records = instance.get_event_records(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+26 passed, 118 warnings in 5.75s

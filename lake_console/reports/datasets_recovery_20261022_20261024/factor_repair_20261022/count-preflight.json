@@ -1,0 +1,260 @@
+{
+  "date": "2026-10-22",
+  "previous_date": "2026-10-21",
+  "as_of": "2026-10-25T22:11:39.301187+08:00",
+  "mode": "aggregate counts only; no factor or code detail export",
+  "input_stats": {
+    "current_factor": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22490342,
+        55558,
+        1792769502068020843,
+        1792769502069491375
+      ]
+    },
+    "previous_factor": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "identity": [
+        16777244,
+        22490251,
+        55566,
+        1792768900572997875,
+        1792768900574121605
+      ]
+    },
+    "stock_basic": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_basic/full/part-000.parquet",
+      "identity": [
+        16777244,
+        22489427,
+        421158,
+        1792746699675286381,
+        1792746699675784761
+      ]
+    },
+    "calendar": {
+      "path": "/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet",
+      "identity": [
+        16777244,
+        1912308,
+        89590,
+        1779599225007770939,
+        1779599225008092650
+      ]
+    }
+  },
+  "new_formal_runs": 0,
+  "new_formal_writes": 0,
+  "active_runs": [],
+  "daemon_process": "",
+  "latest_factor_runs": [
+    {
+      "id": "ec3d17f9-30a7-40d1-8127-88c45d3bda3c",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-21",
+      "created_at": "2026-10-21T11:47:02.939799+00:00"
+    },
+    {
+      "id": "76dcb7ab-7549-487f-b55f-e56720038f5c",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-20",
+      "created_at": "2026-10-20T14:10:59.643752+00:00"
+    },
+    {
+      "id": "0e6eed41-22b6-4a20-a58d-1b9b7dc94640",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-19",
+      "created_at": "2026-10-19T11:53:15.556842+00:00"
+    },
+    {
+      "id": "d64da0b1-426f-4abf-8374-e991433c8604",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-16",
+      "created_at": "2026-10-16T11:43:03.050064+00:00"
+    },
+    {
+      "id": "278b9be4-b1d5-43ad-b69c-f8825399e2df",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-15",
+      "created_at": "2026-10-15T11:56:36.712435+00:00"
+    },
+    {
+      "id": "ac6071b2-710d-4387-b893-33db8fa7812c",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-14",
+      "created_at": "2026-10-14T11:40:58.571518+00:00"
+    },
+    {
+      "id": "b90e787f-5930-4707-b238-782b1221077b",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-13",
+      "created_at": "2026-10-13T11:44:25.909977+00:00"
+    },
+    {
+      "id": "795c5ed2-756f-41a5-84dc-00be205877a7",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-12",
+      "created_at": "2026-10-12T11:43:47.232926+00:00"
+    },
+    {
+      "id": "d56e29c3-0cf0-4a2e-a6bc-96af455ad30d",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-09",
+      "created_at": "2026-10-09T11:44:49.841750+00:00"
+    },
+    {
+      "id": "da457bd8-b047-4715-b019-94b78c8c4617",
+      "status": "SUCCESS",
+      "trade_date": "2026-10-08",
+      "created_at": "2026-10-08T14:58:50.146478+00:00"
+    }
+  ],
+  "schemas": {
+    "current_factor": [
+      [
+        "ts_code",
+        "VARCHAR"
+      ],
+      [
+        "trade_date",
+        "DATE"
+      ],
+      [
+        "adj_factor",
+        "DOUBLE"
+      ]
+    ],
+    "previous_factor": [
+      [
+        "ts_code",
+        "VARCHAR"
+      ],
+      [
+        "trade_date",
+        "DATE"
+      ],
+      [
+        "adj_factor",
+        "DOUBLE"
+      ]
+    ],
+    "stock_basic": [
+      [
+        "ts_code",
+        "VARCHAR"
+      ],
+      [
+        "symbol",
+        "VARCHAR"
+      ],
+      [
+        "name",
+        "VARCHAR"
+      ],
+      [
+        "area",
+        "VARCHAR"
+      ],
+      [
+        "industry",
+        "VARCHAR"
+      ],
+      [
+        "fullname",
+        "VARCHAR"
+      ],
+      [
+        "enname",
+        "VARCHAR"
+      ],
+      [
+        "cnspell",
+        "VARCHAR"
+      ],
+      [
+        "market",
+        "VARCHAR"
+      ],
+      [
+        "exchange",
+        "VARCHAR"
+      ],
+      [
+        "curr_type",
+        "VARCHAR"
+      ],
+      [
+        "list_status",
+        "VARCHAR"
+      ],
+      [
+        "list_date",
+        "DATE"
+      ],
+      [
+        "delist_date",
+        "DATE"
+      ],
+      [
+        "is_hs",
+        "VARCHAR"
+      ],
+      [
+        "act_name",
+        "VARCHAR"
+      ],
+      [
+        "act_ent_type",
+        "VARCHAR"
+      ]
+    ],
+    "calendar": [
+      [
+        "exchange",
+        "VARCHAR"
+      ],
+      [
+        "trade_date",
+        "DATE"
+      ],
+      [
+        "is_open",
+        "BOOLEAN"
+      ],
+      [
+        "pretrade_date",
+        "DATE"
+      ]
+    ]
+  },
+  "factor_counts": {
+    "current_factor": {
+      "rows": 5576,
+      "unique_codes": 5576,
+      "invalid_rows": 0
+    },
+    "previous_factor": {
+      "rows": 5575,
+      "unique_codes": 5575,
+      "invalid_rows": 0
+    }
+  },
+  "change_reason_counts": {
+    "new_current_code": 1,
+    "factor_changed": 26
+  },
+  "basic_counts": {
+    "rows": 5577,
+    "unique_codes": 5577
+  },
+  "calendar_counts": {
+    "previous_date": "2026-10-21",
+    "expected_through_target": 3111,
+    "missing_registered": 0,
+    "history_start": "2014-01-01"
+  },
+  "inputs_unchanged": true,
+  "no_factor_history_rewrite_needed_by_counts": false
+}

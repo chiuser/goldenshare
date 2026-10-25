@@ -1,0 +1,158 @@
+{
+  "date": "2026-10-22",
+  "as_of": "2026-10-25T21:13:28.912227+08:00",
+  "annual_content_reads": 0,
+  "formal_writes": 0,
+  "active_runs": [],
+  "sensor_states": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "status": "RUNNING",
+      "repository": "__repository__",
+      "location": "orchestrator"
+    },
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "status": "RUNNING",
+      "repository": "__repository__",
+      "location": "orchestrator"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "RUNNING",
+      "repository": "__repository__",
+      "location": "orchestrator"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "RUNNING",
+      "repository": "__repository__",
+      "location": "orchestrator"
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "status": "RUNNING",
+      "repository": "__repository__",
+      "location": "orchestrator"
+    }
+  ],
+  "daemon_processes": "",
+  "daemon_heartbeats": {
+    "SENSOR": {
+      "timestamp": 1792772136.728104,
+      "age_seconds": 161872.4988899231
+    },
+    "SCHEDULER": {
+      "timestamp": 1792772100.00352,
+      "age_seconds": 161909.22348189354
+    },
+    "FRESHNESS_DAEMON": {
+      "timestamp": 1792772115.68925,
+      "age_seconds": 161893.53775310516
+    },
+    "BACKFILL": {
+      "timestamp": 1792772129.144319,
+      "age_seconds": 161880.08268499374
+    },
+    "ASSET": {
+      "timestamp": 1792772134.193566,
+      "age_seconds": 161875.03343892097
+    },
+    "QUEUED_RUN_COORDINATOR": {
+      "timestamp": 1792772141.950696,
+      "age_seconds": 161867.27630996704
+    },
+    "MONITORING": {
+      "timestamp": 1792772120.835024,
+      "age_seconds": 161888.3919827938
+    }
+  },
+  "partition": {
+    "name": "cn_a_stock_mins_silver_trade_days",
+    "exists": true
+  },
+  "inputs": {
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet": [
+      16777244,
+      22507761,
+      21651947,
+      1792916519496212707,
+      1792916519594110294
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet": [
+      16777244,
+      22507783,
+      5395387,
+      1792916525194469379,
+      1792916525270620604
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet": [
+      16777244,
+      22507772,
+      1172089,
+      1792916522180882706,
+      1792916522240721181
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet": [
+      16777244,
+      22507794,
+      804706,
+      1792916527713009296,
+      1792916527764811668
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet": [
+      16777244,
+      22490342,
+      55558,
+      1792769502068020843,
+      1792769502069491375
+    ]
+  },
+  "space": {
+    "mounted": true,
+    "root_no_symlinks": true,
+    "staging_no_symlinks": true,
+    "same_device": true,
+    "free_bytes": 2916578369536,
+    "writable": true
+  },
+  "duckdb_temp": {
+    "exists": true,
+    "no_symlinks": true,
+    "writable": true
+  },
+  "annual_metadata_upper_bound": {
+    "1": {
+      "files": 5592,
+      "stat_bytes": 5369525652
+    },
+    "5": {
+      "files": 5592,
+      "stat_bytes": 1393293759
+    },
+    "15": {
+      "files": 5592,
+      "stat_bytes": 559977010
+    },
+    "30": {
+      "files": 5592,
+      "stat_bytes": 318362352
+    },
+    "60": {
+      "files": 5592,
+      "stat_bytes": 182157863
+    },
+    "90": {
+      "files": 5592,
+      "stat_bytes": 144627729
+    },
+    "120": {
+      "files": 5592,
+      "stat_bytes": 104966756
+    }
+  },
+  "code_commit": "938344f8f275d908b660065895b5fea12416e5ae",
+  "core_matches_commit": true,
+  "qfq_functions_match_commit": true,
+  "safe_to_launch": false
+}

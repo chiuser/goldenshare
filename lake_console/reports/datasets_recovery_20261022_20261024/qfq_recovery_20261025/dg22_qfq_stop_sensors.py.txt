@@ -1,0 +1,61 @@
+import json
+import os
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster._core.scheduler.instigation import InstigatorStatus
+from dagster_postgres import PostgresRunStorage, PostgresScheduleStorage
+
+OUT = Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/qfq_recovery_20261025')
+NAMES = {'gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor', 'gold_stk_mins_qfq_nineturn_update_job_sensor'}
+os.environ['PGOPTIONS'] = '-c statement_timeout=30000'
+v = yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url']
+url = os.environ[v['env']] if isinstance(v, dict) else v
+rs = PostgresRunStorage(url, should_autocreate_tables=False)
+ss = PostgresScheduleStorage(url, should_autocreate_tables=False)
+result = {'as_of': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'sensor_changes': [], 'formal_run_started': False, 'annual_content_reads': 0}
+
+def save():
+    (OUT/'sensor-stop-and-launch-preflight.json').write_text(json.dumps(result, ensure_ascii=False, indent=2)+'\n')
+
+def active_runs():
+    return rs.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED, dg.DagsterRunStatus.QUEUED, dg.DagsterRunStatus.STARTING, dg.DagsterRunStatus.STARTED, dg.DagsterRunStatus.CANCELING]), limit=100)
+
+try:
+    assert not active_runs(), 'Active runs exist; no sensor changed'
+    daemon = subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip()
+    assert not daemon, 'Daemon active; stop and review'
+    all_before = ss.all_instigator_state()
+    selected = [s for s in all_before if s.name in NAMES and s.repository_selector.location_name=='orchestrator' and s.repository_selector.repository_name=='__repository__']
+    assert len(selected)==2 and {s.name for s in selected}==NAMES
+    for s in selected:
+        assert s.status in (InstigatorStatus.RUNNING, InstigatorStatus.STOPPED)
+        if s.status != InstigatorStatus.STOPPED:
+            ss.update_instigator_state(s.with_status(InstigatorStatus.STOPPED))
+        readback = ss.get_instigator_state(s.instigator_origin_id, s.selector_id)
+        assert readback.status==InstigatorStatus.STOPPED and readback.instigator_data==s.instigator_data
+        result['sensor_changes'].append({'name':s.name,'origin_id':s.instigator_origin_id,'selector_id':s.selector_id,'before':s.status.value,'after':readback.status.value,'cursor_preserved':True,'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()})
+        save()
+    after = {s.instigator_origin_id:s for s in ss.all_instigator_state()}
+    assert all(after[s.instigator_origin_id]==s for s in all_before if s.name not in NAMES)
+    pre = json.loads((OUT/'preflight.json').read_text())
+    for p, expected in pre['inputs'].items():
+        st=Path(p).stat()
+        assert [st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns]==expected
+    result['inputs_unchanged']=True
+    result['free_bytes']=shutil.disk_usage('/Volumes/datasource/data_lake_staging').free
+    result['other_instigator_states_unchanged']=True
+    result['daemon_active']=bool(subprocess.run(['pgrep','-f',r'(^|/| )dagster-daemon( |$)'],capture_output=True).returncode==0)
+    result['active_runs']=[{'run_id':r.run_id,'job':r.job_name,'status':r.status.value} for r in active_runs()]
+    result['safe_to_launch']=not result['active_runs'] and not result['daemon_active'] and result['free_bytes']>=12*1024**3
+    result['reenable_todo']='Only after 2026-10-23 datasets are completed; do not reenable at this 2026-10-22 QFQ completion'
+    save()
+    assert result['safe_to_launch']
+    print(json.dumps(result,ensure_ascii=False,indent=2))
+finally:
+    rs.dispose();ss.dispose()

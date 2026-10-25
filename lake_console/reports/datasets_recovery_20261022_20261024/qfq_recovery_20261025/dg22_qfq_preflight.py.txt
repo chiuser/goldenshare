@@ -1,0 +1,70 @@
+import ast
+import json
+import os
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage, PostgresScheduleStorage
+from orchestrator.defs.paths import silver_adj_factor_path, silver_stk_mins_path
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+
+ROOT = Path('/Volumes/datasource/data_lake')
+STAGE = Path('/Volumes/datasource/data_lake_staging')
+OUT = Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/qfq_recovery_20261025')
+DAY = '2026-10-22'
+FREQS = (1, 5, 15, 30, 60, 90, 120)
+os.environ['PGOPTIONS'] = '-c default_transaction_read_only=on -c statement_timeout=30000'
+cfg = yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())
+val = cfg['storage']['postgres']['postgres_url']
+url = os.environ[val['env']] if isinstance(val, dict) else val
+rs = PostgresRunStorage(url, should_autocreate_tables=False)
+es = PostgresEventLogStorage(url, should_autocreate_tables=False)
+ss = PostgresScheduleStorage(url, should_autocreate_tables=False)
+
+def stat(p):
+    s = p.stat()
+    return [s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns]
+
+def no_symlinks(p):
+    return all(not x.is_symlink() for x in (p, *p.parents))
+
+result = {'date': DAY, 'as_of': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'annual_content_reads': 0, 'formal_writes': 0}
+try:
+    active = rs.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED, dg.DagsterRunStatus.QUEUED, dg.DagsterRunStatus.STARTING, dg.DagsterRunStatus.STARTED, dg.DagsterRunStatus.CANCELING]), limit=100)
+    result['active_runs'] = [{'run_id': r.run_id, 'job': r.job_name, 'status': r.status.value} for r in active]
+    states = [s for s in ss.all_instigator_state() if any(x in s.name for x in ('stk_mins_qfq', 'stock_mins_qfq'))]
+    result['sensor_states'] = [{'name': s.name, 'status': s.status.value, 'repository': s.repository_selector.repository_name, 'location': s.repository_selector.location_name} for s in states]
+    result['daemon_processes'] = subprocess.run(['pgrep', '-fl', r'(^|/| )dagster-daemon( |$)'], capture_output=True, text=True).stdout.strip()
+    result['daemon_heartbeats'] = {k: {'timestamp': v.timestamp, 'age_seconds': datetime.now().timestamp()-v.timestamp} for k, v in rs.get_daemon_heartbeats().items()}
+    result['partition'] = {'name': cn_a_stock_mins_silver_trade_days.name, 'exists': es.has_dynamic_partition(cn_a_stock_mins_silver_trade_days.name, DAY)}
+    inputs = [silver_stk_mins_path(ROOT, f, DAY) for f in (1,5,30,60)] + [silver_adj_factor_path(ROOT, DAY)]
+    result['inputs'] = {str(p): stat(p) if p.is_file() and no_symlinks(p) else None for p in inputs}
+    result['space'] = {'mounted': ROOT.parent.is_mount(), 'root_no_symlinks': no_symlinks(ROOT), 'staging_no_symlinks': no_symlinks(STAGE), 'same_device': ROOT.stat().st_dev == STAGE.stat().st_dev, 'free_bytes': shutil.disk_usage(STAGE).free, 'writable': all(os.access(p, os.R_OK|os.W_OK|os.X_OK) for p in (ROOT,STAGE))}
+    tmp = Path('/Volumes/datasource/.goldenshare_duckdb_tmp')
+    result['duckdb_temp'] = {'exists': tmp.is_dir(), 'no_symlinks': no_symlinks(tmp), 'writable': os.access(tmp, os.R_OK|os.W_OK|os.X_OK)}
+    annual = {}
+    for f in FREQS:
+        paths = list((ROOT/'gold/quote/stk_mins_qfq'/f'freq={f}').glob('ts_code=*/year=2026/part-000.parquet'))
+        assert all(p.is_file() and no_symlinks(p) for p in paths)
+        annual[str(f)] = {'files': len(paths), 'stat_bytes': sum(p.stat().st_size for p in paths)}
+    result['annual_metadata_upper_bound'] = annual
+    result['code_commit'] = subprocess.check_output(['git','rev-parse','938344f8'],text=True).strip()
+    core = ['src/orchestrator/defs/stk_mins_qfq.py','src/orchestrator/defs/io/stk_mins_qfq_publication.py','src/orchestrator/defs/checks/stk_mins_checks.py']
+    result['core_matches_commit'] = all(Path(p).read_bytes()==subprocess.check_output(['git','show',f'938344f8:lake_console/orchestrator/{p}']) for p in core)
+    asset = 'src/orchestrator/defs/assets/stk_mins.py'
+    old = ast.parse(subprocess.check_output(['git','show',f'938344f8:lake_console/orchestrator/{asset}'],text=True))
+    new = ast.parse(Path(asset).read_text())
+    funcs = lambda t: {n.name: ast.dump(n, include_attributes=False) for n in t.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and 'qfq' in n.name}
+    result['qfq_functions_match_commit'] = funcs(old)==funcs(new)
+    result['safe_to_launch'] = bool(not active and not any(s.status.value=='RUNNING' for s in states) and result['partition']['exists'] and all(result['inputs'].values()) and all(result['space'][k] for k in ('mounted','root_no_symlinks','staging_no_symlinks','same_device','writable')) and result['space']['free_bytes'] >= 12*1024**3 and all(result['duckdb_temp'].values()) and result['core_matches_commit'] and result['qfq_functions_match_commit'])
+finally:
+    rs.dispose(); es.dispose(); ss.dispose()
+OUT.mkdir(exist_ok=True)
+(OUT/'preflight.json').write_text(json.dumps(result, ensure_ascii=False, indent=2)+'\n')
+print(json.dumps(result, ensure_ascii=False, indent=2))
+assert result['safe_to_launch'], 'Preflight requires review; no task launched'

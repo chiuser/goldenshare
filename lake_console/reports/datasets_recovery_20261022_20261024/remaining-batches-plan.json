@@ -2,11 +2,11 @@
   "date": "2026-10-22",
   "created_at": "2026-10-24T14:12:56.713709+08:00",
   "basis": "remaining-missing-after-major-index.json; no global rescan",
-  "remaining_count": 28,
+  "remaining_count": 21,
   "batch_count": 11,
   "required_check_targets": 136,
   "all_assets_exactly_once": true,
-  "new_runtime_reads": 0,
+  "new_runtime_reads": "Approved one normal 2026-10-22 QFQ job plus original checks; no additional global audit",
   "new_source_calls": 0,
   "formal_execution": true,
   "batches": [
@@ -315,7 +315,7 @@
       "count": 7,
       "remaining_after_success": 18,
       "required_checks": 28,
-      "state": "code_verified_awaiting_bounded_sample_and_annual_read_approval",
+      "state": "completed_verified",
       "physical_models": {
         "gold_stk_mins_qfq_1m": "data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet",
         "gold_stk_mins_qfq_5m": "data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet",
@@ -330,12 +330,29 @@
         "resolution": "已按专项方案和LLD完成staging及继续执行修正，隔离与真实样本验收通过，正式补齐尚待本批前置核验。"
       },
       "code_write_precondition": "verified; see README section 14 and qfq-staging-real-sample-verified.json",
-      "execution_blocker": "开发及隔离验证已通过；尚未获准正式年度内容读取/写入与补数。须先按原LLD9.9冻结实际目标/stat及获准有界性能样本，校准S/C/A/P、内存和耗时，再取得精确年度读取执行批准。",
+      "execution_blocker": null,
       "read_optimization_plan": "../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#9-前复权整链读取审计与优化方案2026-10-25",
       "approved_normal_annual_sha_passes": 1,
       "read_optimization_implemented": true,
-      "annual_reading_approved": false,
-      "read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json"
+      "annual_reading_approved": true,
+      "read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json",
+      "bounded_sample_reading_approved": true,
+      "annual_reading_approval_scope": "2026-10-22 seven QFQ assets; affected 2026 annual files only; one normal job plus original 28 checks; read 34 GiB, write 9 GiB, extra space 12 GiB; no 2025 or downstream; explicit user approval",
+      "real_sample_attempted": true,
+      "real_sample_passed": false,
+      "real_sample_evidence": "qfq_real_performance_20261025/result-retry.json",
+      "performance_testing_required": false,
+      "business_logic_review": "No known QFQ business blocker; the two failures are isolated sample environment/reporting paths, not the normal production recovery path",
+      "actual_remaining_after_success": 21,
+      "downstream_sensors_stopped": true,
+      "downstream_sensor_reenable_todo": "Wait until 2026-10-23 datasets are completed before reenabling MACD daily and nineturn sensors",
+      "run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+      "completion_evidence": "qfq_recovery_20261025/run-verified.json",
+      "summary_evidence": "qfq_recovery_20261025/summary.json",
+      "actual_annual_files": 38990,
+      "actual_date_rows": 1793540,
+      "formal_checks_passed": 28,
+      "elapsed_seconds": 914.6292400360107
     },
     {
       "number": 10,
@@ -368,7 +385,7 @@
       "count": 14,
       "remaining_after_success": 4,
       "required_checks": 28,
-      "state": "blocked_upstream",
+      "state": "pending_macd_read_scope_and_history_repair_plan",
       "physical_models": {
         "gold_stk_mins_qfq_macd_kdj_1m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code={ts_code}/year={year}/part-000.parquet",
         "gold_stk_mins_qfq_macd_kdj_5m": "data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code={ts_code}/year={year}/part-000.parquet",
@@ -390,7 +407,7 @@
         "resolution": "已按专项方案和LLD完成staging及继续执行修正，隔离与真实样本验收通过，正式补齐尚待本批前置核验。"
       },
       "code_write_precondition": "verified; see README section 14 and qfq-staging-real-sample-verified.json",
-      "execution_blocker": "等待QFQ完成及明确批准2025+2026七频QFQ历史读取/2026指标年度合并；原21日state齐备不免除历史读取。"
+      "execution_blocker": "Factor prerequisite completed and ready. Next review/approve MACD 2025+2026 source and 2026 annual merge budget, exact previous state, and the 26-code historical MACD repair required after QFQ history rewrite; do not substitute daily14 success for full indicator reconciliation."
     },
     {
       "number": 11,
@@ -413,21 +430,21 @@
       "count": 4,
       "remaining_after_success": 0,
       "required_checks": 4,
-      "state": "blocked_upstream",
+      "state": "blocked_staging_write_fix_and_read_scope",
       "physical_models": {
         "gold_stk_mins_qfq_nineturn_30m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_60m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_90m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_120m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date={partition_key}/part-000.parquet"
       },
-      "execution_blocker": "等待QFQ完成及明确批准2025+2026四频QFQ历史读取；如需其他年份fallback必须另冻结范围并批准，不按20日窗口误估。"
+      "execution_blocker": "Factor prerequisite completed. Nineturn formal-Lake candidate path and failure/resume handling still require approved fix; then freeze exact prior seed and 2025+2026/fallback read scope."
     }
   ],
   "progress_update": {
-    "updated_at": "2026-10-25T16:36:17.770750+08:00",
-    "formal_runs_started": 17,
-    "additional_assets_restored": 42,
-    "remaining_count": 28,
+    "updated_at": "2026-10-25T21:41:29.451875+08:00",
+    "formal_runs_started": 18,
+    "additional_assets_restored": 49,
+    "remaining_count": 21,
     "batch1_state": "completed_verified",
     "batch1_source_rows": 820,
     "batch1_expected_codes": 820,
@@ -454,14 +471,17 @@
       "stock_resume_20261025/preflight.json",
       "stock_resume_20261025/silver-partition-registration.json",
       "stock_resume_20261025/batch7-final.json",
-      "stock_resume_20261025/batch8-final.json"
+      "stock_resume_20261025/batch8-final.json",
+      "qfq_recovery_20261025/run-verified.json",
+      "qfq_recovery_20261025/summary.json",
+      "qfq_recovery_20261025/final-control-state.json"
     ],
     "note": "Initial phase fields and remaining_after_success retain the original planned-order scenario; actual_remaining_after_success and current progress record the approved stock-first execution. No global audit repeated.",
     "index_daily_silver_gold_write_fix": "verified_in_isolation_and_bounded_real_sample",
     "batch1_raw_staging_fix": "verified_in_isolation_and_bounded_real_sample",
     "batch5_state": "completed_verified",
-    "formal_checks_passed": 73,
-    "remaining_check_targets": 63,
+    "formal_checks_passed": 101,
+    "remaining_check_targets": 35,
     "minute_raw_silver_write_fix": "verified",
     "minute_tests_passed": 311,
     "minute_subtests_passed": 21,
@@ -480,9 +500,66 @@
     "stock_qfq_read_audit": "implemented and isolated tests passed; no formal data reads or writes",
     "stock_qfq_read_budget_gib": 34,
     "stock_qfq_write_budget_gib": 9,
-    "stock_qfq_budget_status": "conditional budget, read strategy implemented and isolated-tested; actual volume and time not measured, not execution approval; see LLD 9.6",
-    "stock_qfq_read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json"
+    "stock_qfq_budget_status": "one approved normal run completed; estimated 31.255GiB read and 8.068GiB write including reserves",
+    "stock_qfq_read_optimization_evidence": "qfq_read_optimization_20261025/validation-summary.json",
+    "stock_qfq_real_sample": {
+      "status": "retry_failed_report_serialization",
+      "explicitly_authorized_attempts": 2,
+      "writer_frequencies_completed_in_latest_attempt": 1,
+      "check_evaluators_returned_in_latest_attempt": 1,
+      "frequencies_accepted": 0,
+      "checks_passed_verified": 0,
+      "cleanup_verified": true,
+      "automatic_retries": 0,
+      "formal_writes": 0,
+      "reporter_offline_cases_passed": 17,
+      "evidence": "qfq_real_performance_20261025/result-retry.json",
+      "further_testing_cancelled_by_user": true
+    },
+    "batch9_state": "completed_verified",
+    "stock_qfq_formal_recovery": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+    "stock_qfq_annual_read_approval": "executed once within approved scope; original 28 checks passed"
   },
   "scope_total_count": 70,
-  "restored_count": 42
+  "restored_count": 49,
+  "next_plan_review": {
+    "evidence": "README.md section 40",
+    "proposed_batch_order": [
+      "dc technical Gold/local/prod (3)",
+      "factor repair prerequisite via existing flow",
+      "MACD/KDJ and state (14)",
+      "nineturn after staging fix (4)"
+    ],
+    "current_remaining": 21,
+    "formal_execution_this_review": false,
+    "business_code_changed_this_review": false,
+    "known_code_fix_required": "stock QFQ nineturn candidate path and failure/resume handling",
+    "history_reading_approval_for_next_batches": false
+  },
+  "factor_repair_precondition": {
+    "state": "completed_verified",
+    "date": "2026-10-22",
+    "factor_changed_codes": 26,
+    "new_current_codes": 1,
+    "missing_previous_factor_codes": 0,
+    "history_dates": 3111,
+    "existing_annual_targets": 1932,
+    "source_metadata_bytes": 47307734197,
+    "target_metadata_bytes": 464280822,
+    "proposed_normal_read_gib": 52,
+    "proposed_normal_write_gib": 3,
+    "proposed_extra_space_gib": 4,
+    "history_reading_approved": true,
+    "code_changed": true,
+    "formal_run_started": true,
+    "plan_and_lld": "../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md section 14",
+    "evidence": "factor_repair_20261022/summary.json",
+    "approval_scope": "one normal 26-code 2014-01-02..2026-10-22 seven-frequency factor repair after isolated validation; read52GiB/write3GiB/free4GiB; failure stops, no automatic replay",
+    "run_id": "f23ca4a2-b7c0-459f-9c55-764cb585db26",
+    "factor_gate_ready": true,
+    "checks_passed": 7,
+    "history_rewrite_completed": true,
+    "normal_executions": 1,
+    "automatic_retries": 0
+  }
 }

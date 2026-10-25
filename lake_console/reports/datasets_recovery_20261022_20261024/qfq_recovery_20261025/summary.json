@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-22",
+  "as_of": "2026-10-25T21:41:29.451875+08:00",
+  "run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+  "status": "SUCCESS",
+  "job": "stock_mins_qfq_daily_update_job",
+  "elapsed_seconds": 914.6292400360107,
+  "restored_this_batch": 7,
+  "original_missing_count": 109,
+  "cumulative_restored_count_from_recovery_records": 88,
+  "remaining_count_from_recovery_records": 21,
+  "materializations": 7,
+  "blocking_checks_passed": 28,
+  "rows": [
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "frequency": 1,
+      "date_rows": 1342370,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "frequency": 5,
+      "date_rows": 267360,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "frequency": 15,
+      "date_rows": 89120,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "frequency": 30,
+      "date_rows": 44560,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "frequency": 60,
+      "date_rows": 22280,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "frequency": 90,
+      "date_rows": 16710,
+      "annual_files": 5570,
+      "checks_passed": 4
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "frequency": 120,
+      "date_rows": 11140,
+      "annual_files": 5570,
+      "checks_passed": 4
+    }
+  ],
+  "total_date_rows": 1793540,
+  "annual_files": 38990,
+  "input_stats_unchanged": true,
+  "global_audit_repeated": false,
+  "extra_performance_tests": 0,
+  "extra_annual_verification_reads": 0,
+  "extra_sha_passes": 0,
+  "read_estimate_with_reserve_gib": 31.25521290488541,
+  "write_estimate_with_reserve_gib": 8.067990363575518,
+  "annual_sha_passes": 1,
+  "downstream_sensors_still_stopped": true,
+  "reenable_todo": "Wait for 2026-10-23 datasets to be completed, then reenable the two sensors",
+  "remaining_groups": {
+    "macd_kdj_and_state": 14,
+    "qfq_nineturn": 4,
+    "dc_daily_technical_gold_local_prod": 3
+  }
+}

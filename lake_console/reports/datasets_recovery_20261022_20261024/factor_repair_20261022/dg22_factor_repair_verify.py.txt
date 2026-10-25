@@ -1,0 +1,115 @@
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/factor_repair_20261022')
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging')
+DAY='2026-10-22';FREQS=(1,5,15,30,60,90,120)
+manifest=json.loads((BASE/'scope-stat-manifest.json').read_text())
+scope_summary=json.loads((BASE/'scope-stat-summary.json').read_text())
+codes=scope_summary['changed_codes'];runtime=json.loads((BASE/'runtime.json').read_text())
+
+def digest(value):return hashlib.sha256(value.encode()).hexdigest()
+def identity(path):
+    s=path.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+def sha_format(value):return isinstance(value,str) and re.fullmatch('[a-f0-9]{64}',value) is not None
+
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];url=os.environ[v['env']] if isinstance(v,dict) else v
+rs=PostgresRunStorage(url,should_autocreate_tables=False);es=PostgresEventLogStorage(url,should_autocreate_tables=False)
+result={'date':DAY,'extra_historical_content_reads':0,'extra_sha_passes':0}
+try:
+    rr=rs.get_run_records(dg.RunsFilter(run_ids=[runtime['run_id']]),limit=1)[0];r=rr.dagster_run
+    assert r.job_name=='stock_mins_qfq_factor_repair_job'
+    assert r.run_config['ops']['stock_mins_qfq_factor_repair_op']['config']['trade_date']==DAY
+    records=es.get_records_for_run(r.run_id,of_type={dg.DagsterEventType.ASSET_CHECK_EVALUATION,dg.DagsterEventType.STEP_FAILURE,dg.DagsterEventType.PIPELINE_FAILURE,dg.DagsterEventType.ASSET_MATERIALIZATION},limit=30)
+    assert not records.has_more
+    checks=[];failures=[];mats=[]
+    for rec in records.records:
+        ev=rec.event_log_entry.dagster_event
+        if ev.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+            c=ev.event_specific_data
+            checks.append({'asset':c.asset_key.to_user_string(),'name':c.check_name,'partition':c.partition,'passed':c.passed,'blocking':c.blocking,'storage_id':rec.storage_id,'metadata':{k.removeprefix('goldenshare/'):v.value for k,v in c.metadata.items()}})
+        elif ev.event_type==dg.DagsterEventType.ASSET_MATERIALIZATION:mats.append(rec.storage_id)
+        else:failures.append(str(ev.event_specific_data))
+    result.update(run_id=r.run_id,root_run_id=r.root_run_id or r.run_id,status=r.status.value,elapsed_seconds=rr.end_time-rr.start_time if rr.start_time and rr.end_time else None,checks=checks,failures=failures,materializations=mats)
+    (BASE/'run-verified.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+    assert r.status==dg.DagsterRunStatus.SUCCESS and not failures and not mats
+    assert len(checks)==7 and {c['asset'] for c in checks}=={f'gold_stk_mins_qfq_{f}m' for f in FREQS}
+    code_hash=digest('\n'.join(sorted(codes)))
+    payload={'producer_run_id':r.run_id,'repair_required_codes_hash':code_hash}
+    expected_batch='qfq_factor_repair:'+DAY+':'+digest(json.dumps(payload,allow_nan=False,ensure_ascii=True,separators=(',',':'),sort_keys=True))[:12]
+    expected={'trade_date':DAY,'previous_trade_date':'2026-10-21','repair_start_trade_date':'2014-01-02','repair_end_trade_date':DAY,'selected_partition_count':3111,'can_execute_repair':True,'repair_required':True,'factor_changed_code_count':26,'repair_required_code_count':26,'repair_required_codes':codes,'repair_required_codes_hash':code_hash,'repair_required_codes_truncated':False,'new_current_code_count':1,'missing_previous_factor_code_count':0,'repaired_code_count':26,'failed_code_count':0,'derived_rewrite_required':True,'derived_repaired_code_count':26,'derived_failed_code_count':0,'failed_row_count':0,'planned_batch_count':65,'executed_batch_count':65,'derived_planned_batch_count':26,'derived_executed_batch_count':26,'producer_run_id':r.run_id,'upstream_batch_id':expected_batch}
+    for c in checks:
+        assert c['name']=='gold_stk_mins_qfq_factor_repair_plan_evaluated' and c['partition']==DAY and c['passed'] and c['blocking']
+        assert all(c['metadata'].get(k)==v for k,v in expected.items()),{k:(c['metadata'].get(k),v) for k,v in expected.items() if c['metadata'].get(k)!=v}
+        assert c['metadata']==checks[0]['metadata']
+    progress={};targets={};sources={};factors={};as_of=[]
+    for line in (BASE/'launch.log').read_text().splitlines():
+        d=dict(t.split('=',1) for t in line.split() if '=' in t)
+        if d.get('event')=='stock_minute_file_publication_progress' and d.get('stage')=='completed':
+            assert d['operation_directory'] not in progress,'Unexpected repeated completed scope'
+            progress[d['operation_directory']]=d
+        if d.get('event')=='factor_repair_target_completed':
+            key=(d['year'],int(d['freq']));assert key not in targets;targets[key]=d
+        if d.get('event')=='factor_repair_source_loaded':
+            key=(d['year'],int(d['source_freq']));assert key not in sources;sources[key]=d
+        if d.get('event')=='factor_repair_year_factor_loaded':
+            assert d['year'] not in factors;factors[d['year']]=d
+        if d.get('event')=='factor_repair_as_of_loaded':as_of.append(d)
+    assert len(targets)==91 and len(sources)==52 and len(factors)==13 and len(as_of)==1
+    assert sum(int(d['file_count']) for d in sources.values())==12444
+    assert max(int(d['cumulative_stat_bytes']) for d in sources.values())==47307734197
+    assert max(int(d['cumulative_stat_bytes']) for d in factors.values())==113188579
+    assert int(as_of[0]['stat_bytes'])==55558
+    years={str(y):[d for d in manifest['trade_dates'] if d.startswith(str(y))] for y in range(2014,2027)}
+    publications=[]
+    for year,dates in years.items():
+        for f in FREQS:
+            scope={'version':1,'family':'qfq','freq':f,'trade_dates':dates}
+            directory=STAGE/'stk_mins_qfq/qfq'/f'root={digest(str(ROOT.resolve()))}'/f'freq={f}'/f'run_id={digest(result["root_run_id"])}'/f'scope={digest(json.dumps(scope,sort_keys=True))}'
+            logged=targets[(year,f)]
+            if int(logged['output_file_count'])==0:
+                assert not (directory/'operation.json').exists();continue
+            operation=json.loads((directory/'operation.json').read_text())
+            assert operation['scope']==scope and sha_format(operation['inputs']['replacement'])
+            paths=operation['targets'];assert len(paths)==len(set(paths))==int(logged['output_file_count'])
+            pstat={'year':year,'freq':f,'files':len(paths),'old_bytes':0,'candidate_bytes':0,'annual_rows':0}
+            for pstr in paths:
+                p=Path(pstr);code=p.parent.parent.name.removeprefix('ts_code=')
+                assert code in codes and p==ROOT/'gold/quote/stk_mins_qfq'/f'freq={f}'/f'ts_code={code}'/f'year={year}'/'part-000.parquet'
+                receipt=json.loads((directory/'files'/f'{digest(pstr)}.json').read_text())
+                assert receipt['status']=='promoted' and receipt['target']==pstr and sha_format(receipt['sha256'])
+                candidate=Path(receipt['candidate']);assert candidate.is_relative_to(directory/'candidates') and not candidate.exists()
+                assert identity(p)[:4]==receipt['candidate_identity'][:4]
+                pstat['old_bytes']+=receipt['before'][2] if receipt['before'] else 0
+                pstat['candidate_bytes']+=receipt['candidate_identity'][2];pstat['annual_rows']+=receipt['row_count']
+            prog=progress[str(directory)]
+            assert int(prog['validated_file_count'])==int(prog['promoted_file_count'])==len(paths)
+            assert int(prog['existing_build_target_stat_bytes'])==pstat['old_bytes']
+            assert int(prog['verified_formal_stat_bytes'])==int(prog['candidate_sha256_read_bytes'])==pstat['candidate_bytes']
+            assert int(prog['verified_candidate_stat_bytes'])==int(prog['formal_sha256_read_bytes'])==0
+            assert prog['frozen_input_stat_bytes']==prog['input_sha256_read_bytes']
+            publications.append(pstat)
+    md=checks[0]['metadata']
+    assert sum(x['files'] for x in publications if x['freq']<90)==md['rewritten_file_count']
+    assert sum(x['files'] for x in publications if x['freq']>=90)==md['derived_rewritten_file_count']
+    assert sum(int(x['replacement_row_count']) for (year,f),x in targets.items() if f<90)==md['rewritten_row_count']
+    assert sum(int(x['replacement_row_count']) for (year,f),x in targets.items() if f>=90)==md['derived_rewritten_row_count']
+    for mapping in (*manifest['sources'].values(),manifest['factors']):
+        assert all(identity(Path(p))==s for p,s in mapping.items())
+    small=json.loads((BASE/'count-preflight.json').read_text())
+    assert all(identity(Path(x['path']))==x['identity'] for x in small['input_stats'].values())
+    S=sum(x['old_bytes'] for x in publications);C=sum(x['candidate_bytes'] for x in publications);P=sum(int(x['frozen_input_stat_bytes']) for x in progress.values())
+    R=47307734197+113188579+55558+S+2*C+P+2*1024**2+1024**3;W=C+P+512*1024**2
+    assert C<=1024**3 and P<=1024**3 and R<=52*1024**3 and W<=3*1024**3
+    result.update(publications=publications,verified_checks=7,input_stats_unchanged=True,source_loads=52,target_batches=91,total_annual_files=sum(x['files'] for x in publications),read_estimate_with_reserve_gib=R/1024**3,write_estimate_with_reserve_gib=W/1024**3,candidate_bytes=C,frozen_bytes=P,old_annual_bytes=S,annual_sha_passes=1)
+    (BASE/'run-verified.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+    print(json.dumps({k:v for k,v in result.items() if k not in ('checks','publications')},ensure_ascii=False,indent=2))
+finally:rs.dispose();es.dispose()

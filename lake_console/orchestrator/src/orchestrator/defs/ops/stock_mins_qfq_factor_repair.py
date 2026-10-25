@@ -20,7 +20,6 @@ from orchestrator.defs.stk_mins_qfq_factor_repair import (
     execute_gold_stk_mins_qfq_factor_repair,
 )
 
-
 GOLD_STK_MINS_QFQ_REPAIR_CHECK_ASSET_KEYS = tuple(
     asset.key for asset in GOLD_STK_MINS_QFQ_ASSETS
 )
@@ -56,7 +55,7 @@ def _load_stock_mins_qfq_expected_trade_dates(
             connection,
             calendar_path,
             min_trade_date=STK_MINS_QFQ_HISTORY_START_DATE,
-            evaluated_at=datetime.now(),
+            evaluated_at=datetime.now().astimezone(),
             same_day_register_start=None,
         )
 
@@ -87,6 +86,7 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
         trade_date=trade_date,
         expected_trade_dates=expected_trade_dates,
         registered_partition_keys=registered_trade_days,
+        publication_id=context.run.root_run_id or context.run_id,
     )
     missing_repair_count = max(
         report.plan.repair_required_code_count - report.repaired_code_count,

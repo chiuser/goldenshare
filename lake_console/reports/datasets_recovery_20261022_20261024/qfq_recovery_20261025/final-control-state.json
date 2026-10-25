@@ -1,0 +1,16 @@
+{
+  "as_of": "2026-10-25T21:40:39.481472+08:00",
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "active_runs": [],
+  "daemon_process": "",
+  "reenable_condition": "After 2026-10-23 datasets have been completed"
+}

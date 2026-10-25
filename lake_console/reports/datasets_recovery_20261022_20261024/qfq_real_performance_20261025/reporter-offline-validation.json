@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "formal_content_reads": 0,
+  "instance_created": false,
+  "test_count": 17,
+  "old_failure_reproduced": true,
+  "metadata_types": [
+    "TextMetadataValue",
+    "IntMetadataValue",
+    "FloatMetadataValue",
+    "BoolMetadataValue",
+    "JsonMetadataValue",
+    "PathMetadataValue",
+    "UrlMetadataValue",
+    "MarkdownMetadataValue",
+    "NullMetadataValue"
+  ],
+  "asset_check_result_cases": 2,
+  "normal_and_failure_json_roundtrip": true,
+  "exclusive_report_creation": true,
+  "script_sha256": "863576c62a8d15d33fe5210f591b91f9b7429ca715029edcf75b5e862a79e4d7",
+  "temporary_parent_removed": true
+}

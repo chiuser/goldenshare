@@ -1,0 +1,2046 @@
+{
+  "date": "2026-10-22",
+  "as_of": "2026-10-25T21:39:58.806780+08:00",
+  "extra_annual_content_reads": 0,
+  "extra_sha_passes": 0,
+  "run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+  "root_run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+  "status": "SUCCESS",
+  "elapsed_seconds": 914.6292400360107,
+  "materializations": [
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "storage_id": 7726470,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "dagster/row_count": 11140,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 120,
+        "goldenshare/source_freq": 60,
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_row_count": 27850,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/expected_window_count": 11140,
+        "goldenshare/generated_window_count": 11140,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 11140,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/calculation_model": "silver_direct_canonical_qfq",
+        "goldenshare/summary": "已写入股票 120min 分钟 gold 前复权派生行情：交易日 2026-10-22，11140 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq derived checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "source_asset": "silver_stk_mins_60m",
+          "source_file_count": 1,
+          "source_freq": 60,
+          "source_row_count": 27850,
+          "source_stock_day_count": 5570
+        },
+        "goldenshare/filter_summary": {
+          "exchange_mismatch_window_count": 0,
+          "expected_window_count": 11140,
+          "generated_window_count": 11140,
+          "incomplete_window_count": 0,
+          "output_file_count": 5570,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 11140
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "storage_id": 7726474,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "dagster/row_count": 89120,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 15,
+        "goldenshare/silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_trade_date": "2026-10-22",
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 89120,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/summary": "已写入股票 15min 分钟 gold 前复权行情：交易日 2026-10-22，89120 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-22",
+          "source_asset": "silver_stk_mins_5m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "goldenshare/filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 89120,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 89120
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "storage_id": 7726478,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "dagster/row_count": 1342370,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 1,
+        "goldenshare/silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_trade_date": "2026-10-22",
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 1342370,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/summary": "已写入股票 1min 分钟 gold 前复权行情：交易日 2026-10-22，1342370 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-22",
+          "source_asset": "silver_stk_mins_1m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "goldenshare/filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 1342370,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 1342370
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "storage_id": 7726482,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "dagster/row_count": 44560,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 30,
+        "goldenshare/silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_trade_date": "2026-10-22",
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 44560,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/summary": "已写入股票 30min 分钟 gold 前复权行情：交易日 2026-10-22，44560 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-22",
+          "source_asset": "silver_stk_mins_5m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "goldenshare/filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 44560,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 44560
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "storage_id": 7726486,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "dagster/row_count": 267360,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 5,
+        "goldenshare/silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_trade_date": "2026-10-22",
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 267360,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/summary": "已写入股票 5min 分钟 gold 前复权行情：交易日 2026-10-22，267360 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-22",
+          "source_asset": "silver_stk_mins_1m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "goldenshare/filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 267360,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 267360
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "storage_id": 7726490,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "dagster/row_count": 22280,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 60,
+        "goldenshare/silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/as_of_trade_date": "2026-10-22",
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 22280,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/summary": "已写入股票 60min 分钟 gold 前复权行情：交易日 2026-10-22，22280 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-22",
+          "source_asset": "silver_stk_mins_30m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "goldenshare/filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 22280,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 22280
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "storage_id": 7726494,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "dagster/row_count": 16710,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/freq": 90,
+        "goldenshare/source_freq": 30,
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_row_count": 50130,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/expected_window_count": 16710,
+        "goldenshare/generated_window_count": 16710,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 16710,
+        "goldenshare/physical_layout": "freq_ts_code_year",
+        "goldenshare/calculation_model": "silver_direct_canonical_qfq",
+        "goldenshare/summary": "已写入股票 90min 分钟 gold 前复权派生行情：交易日 2026-10-22，16710 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 gold_stk_mins_qfq derived checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "source_asset": "silver_stk_mins_30m",
+          "source_file_count": 1,
+          "source_freq": 30,
+          "source_row_count": 50130,
+          "source_stock_day_count": 5570
+        },
+        "goldenshare/filter_summary": {
+          "exchange_mismatch_window_count": 0,
+          "expected_window_count": 16710,
+          "generated_window_count": 16710,
+          "incomplete_window_count": 0,
+          "output_file_count": 5570,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 16710
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726470,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/expected_window_count": 11140,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "goldenshare/freq": 120,
+        "goldenshare/generated_window_count": 11140,
+        "goldenshare/gold_target_row_count": 11140,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 60,
+        "goldenshare/source_row_count": 27850,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 120 分钟 gold qfq 派生文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726470,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 11140,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 11140,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "goldenshare/freq": 120,
+        "goldenshare/generated_window_count": 11140,
+        "goldenshare/gold_target_row_count": 11140,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 60,
+        "goldenshare/source_row_count": 27850,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 120 分钟 gold qfq 派生主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726470,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 11140,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 11140,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "goldenshare/freq": 120,
+        "goldenshare/generated_window_count": 11140,
+        "goldenshare/gold_target_row_count": 11140,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 60,
+        "goldenshare/source_row_count": 27850,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 120 分钟 gold qfq 派生取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_derived_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726470,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 27850,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 11140,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "goldenshare/freq": 120,
+        "goldenshare/generated_window_count": 11140,
+        "goldenshare/gold_target_row_count": 11140,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_source_ready"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 60,
+        "goldenshare/source_row_count": 27850,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 120 分钟 gold qfq 派生输入覆盖 的 2 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726474,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "goldenshare/freq": 15,
+        "goldenshare/gold_target_row_count": 89120,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 15 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726474,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 89120,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "goldenshare/freq": 15,
+        "goldenshare/gold_target_row_count": 89120,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 15 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726474,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 89120,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "goldenshare/freq": 15,
+        "goldenshare/gold_target_row_count": 89120,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 15 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726474,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 272930,
+        "goldenshare/exchange_mismatch_row_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "goldenshare/freq": 15,
+        "goldenshare/gold_target_row_count": 89120,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_as_of_adj_factor_row_count": 0,
+        "goldenshare/invalid_trade_adj_factor_row_count": 0,
+        "goldenshare/missing_as_of_adj_factor_row_count": 0,
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/missing_gold_identity_row_count": 0,
+        "goldenshare/missing_trade_adj_factor_row_count": 0,
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/qfq_output_row_count": 272930,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 15 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "goldenshare/unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726478,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "goldenshare/freq": 1,
+        "goldenshare/gold_target_row_count": 1342370,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 1 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726478,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 1342370,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "goldenshare/freq": 1,
+        "goldenshare/gold_target_row_count": 1342370,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 1 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726478,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 1342370,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "goldenshare/freq": 1,
+        "goldenshare/gold_target_row_count": 1342370,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 1 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726478,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 1342370,
+        "goldenshare/exchange_mismatch_row_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "goldenshare/freq": 1,
+        "goldenshare/gold_target_row_count": 1342370,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_as_of_adj_factor_row_count": 0,
+        "goldenshare/invalid_trade_adj_factor_row_count": 0,
+        "goldenshare/missing_as_of_adj_factor_row_count": 0,
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/missing_gold_identity_row_count": 0,
+        "goldenshare/missing_trade_adj_factor_row_count": 0,
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/qfq_output_row_count": 1342370,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 1 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "goldenshare/unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726482,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "goldenshare/freq": 30,
+        "goldenshare/gold_target_row_count": 44560,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 30 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726482,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 44560,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "goldenshare/freq": 30,
+        "goldenshare/gold_target_row_count": 44560,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 30 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726482,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 44560,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "goldenshare/freq": 30,
+        "goldenshare/gold_target_row_count": 44560,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 30 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726482,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 272930,
+        "goldenshare/exchange_mismatch_row_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "goldenshare/freq": 30,
+        "goldenshare/gold_target_row_count": 44560,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_as_of_adj_factor_row_count": 0,
+        "goldenshare/invalid_trade_adj_factor_row_count": 0,
+        "goldenshare/missing_as_of_adj_factor_row_count": 0,
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/missing_gold_identity_row_count": 0,
+        "goldenshare/missing_trade_adj_factor_row_count": 0,
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/qfq_output_row_count": 272930,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "goldenshare/silver_row_count": 272930,
+        "goldenshare/summary": "通过：股票 30 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "goldenshare/unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726486,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "goldenshare/freq": 5,
+        "goldenshare/gold_target_row_count": 267360,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 5 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726486,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 267360,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "goldenshare/freq": 5,
+        "goldenshare/gold_target_row_count": 267360,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 5 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726486,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 267360,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "goldenshare/freq": 5,
+        "goldenshare/gold_target_row_count": 267360,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 5 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726486,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 1342370,
+        "goldenshare/exchange_mismatch_row_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "goldenshare/freq": 5,
+        "goldenshare/gold_target_row_count": 267360,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_as_of_adj_factor_row_count": 0,
+        "goldenshare/invalid_trade_adj_factor_row_count": 0,
+        "goldenshare/missing_as_of_adj_factor_row_count": 0,
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/missing_gold_identity_row_count": 0,
+        "goldenshare/missing_trade_adj_factor_row_count": 0,
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/qfq_output_row_count": 1342370,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "goldenshare/silver_row_count": 1342370,
+        "goldenshare/summary": "通过：股票 5 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "goldenshare/unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726490,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "goldenshare/freq": 60,
+        "goldenshare/gold_target_row_count": 22280,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/silver_row_count": 50130,
+        "goldenshare/summary": "通过：股票 60 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726490,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 22280,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "goldenshare/freq": 60,
+        "goldenshare/gold_target_row_count": 22280,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 50130,
+        "goldenshare/summary": "通过：股票 60 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726490,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 22280,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "goldenshare/freq": 60,
+        "goldenshare/gold_target_row_count": 22280,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/silver_row_count": 50130,
+        "goldenshare/summary": "通过：股票 60 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726490,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 50130,
+        "goldenshare/exchange_mismatch_row_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "goldenshare/freq": 60,
+        "goldenshare/gold_target_row_count": 22280,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_as_of_adj_factor_row_count": 0,
+        "goldenshare/invalid_trade_adj_factor_row_count": 0,
+        "goldenshare/missing_as_of_adj_factor_row_count": 0,
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/missing_gold_identity_row_count": 0,
+        "goldenshare/missing_trade_adj_factor_row_count": 0,
+        "goldenshare/next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/qfq_output_row_count": 50130,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "goldenshare/silver_row_count": 50130,
+        "goldenshare/summary": "通过：股票 60 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "goldenshare/unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726494,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 5570,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/expected_window_count": 16710,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "goldenshare/freq": 90,
+        "goldenshare/generated_window_count": 16710,
+        "goldenshare/gold_target_row_count": 16710,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_file_paths": [],
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/path_mismatch_row_count": 0,
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "goldenshare/schema_error": null,
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 30,
+        "goldenshare/source_row_count": 50130,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 90 分钟 gold qfq 派生文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726494,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 16710,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 16710,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "goldenshare/freq": 90,
+        "goldenshare/generated_window_count": 16710,
+        "goldenshare/gold_target_row_count": 16710,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 30,
+        "goldenshare/source_row_count": 50130,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 90 分钟 gold qfq 派生主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726494,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 16710,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 16710,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "goldenshare/freq": 90,
+        "goldenshare/generated_window_count": 16710,
+        "goldenshare/gold_target_row_count": 16710,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 30,
+        "goldenshare/source_row_count": 50130,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 90 分钟 gold qfq 派生取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_derived_source_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7726494,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 50130,
+        "goldenshare/exchange_mismatch_window_count": 0,
+        "goldenshare/existing_file_count": 5570,
+        "goldenshare/expected_file_count": 5570,
+        "goldenshare/expected_window_count": 16710,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "goldenshare/freq": 90,
+        "goldenshare/generated_window_count": 16710,
+        "goldenshare/gold_target_row_count": 16710,
+        "goldenshare/incomplete_window_count": 0,
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/missing_file_count": 0,
+        "goldenshare/missing_gold_file_samples": [],
+        "goldenshare/next_action": "无需处理；等待指标链路消费。",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_source_ready"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
+          }
+        ],
+        "goldenshare/source_file_count": 1,
+        "goldenshare/source_freq": 30,
+        "goldenshare/source_row_count": 50130,
+        "goldenshare/source_stock_day_count": 5570,
+        "goldenshare/summary": "通过：股票 90 分钟 gold qfq 派生输入覆盖 的 2 条质量规则全部通过。"
+      }
+    }
+  ],
+  "failures": [],
+  "publications": [
+    {
+      "frequency": 1,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=81bb4ce5171f63054edc9bd95d34515836c43e1cf989800336b860ef111699b6",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 5358202098,
+      "new_annual_stat_bytes": 5385579486,
+      "annual_rows": 254133777
+    },
+    {
+      "frequency": 5,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 1390277011,
+      "new_annual_stat_bytes": 1396551954,
+      "annual_rows": 50615856
+    },
+    {
+      "frequency": 15,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=94756d0fd477369996bbdd5c9f746c3d9b0ac8f7a5e5ad8333acffb1fafdf75a",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 558725371,
+      "new_annual_stat_bytes": 561304950,
+      "annual_rows": 16871952
+    },
+    {
+      "frequency": 30,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=12f0a911f8fa997b7609d3165ab02feb031241f8755b09aa1809dbbfcc663a53",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 317639027,
+      "new_annual_stat_bytes": 318912183,
+      "annual_rows": 8435976
+    },
+    {
+      "frequency": 60,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=78d0cba5de39d15a00a8f47d2ef5721cbdc72f5b6a2be131e0e372c52a0f3788",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 181730540,
+      "new_annual_stat_bytes": 182440104,
+      "annual_rows": 4217988
+    },
+    {
+      "frequency": 90,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=20d8d4510def628a21b050b96f3b98ce79b884ae32ba7191a182be87ffa22e41",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 144281299,
+      "new_annual_stat_bytes": 144803835,
+      "annual_rows": 3163491
+    },
+    {
+      "frequency": 120,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=559a028a3fb187d6d50ebb1705553b012dab185af6f4fd10b2034f7c3d0d97e0/scope=6f026f18d82e6072eb5f177a9b960447cbfb67ce957e5913203e013a9c6102c9",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_stat_bytes": 104705873,
+      "new_annual_stat_bytes": 105104277,
+      "annual_rows": 2108994
+    }
+  ],
+  "input_stats_unchanged": true,
+  "materializations_verified": 7,
+  "blocking_checks_passed": 28,
+  "remaining_count_from_scoped_recovery": 21
+}

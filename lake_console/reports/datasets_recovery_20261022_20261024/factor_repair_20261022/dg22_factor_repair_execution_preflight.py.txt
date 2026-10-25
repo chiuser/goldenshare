@@ -1,0 +1,56 @@
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage, PostgresScheduleStorage
+
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/factor_repair_20261022')
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging')
+manifest=json.loads((BASE/'scope-stat-manifest.json').read_text())
+small=json.loads((BASE/'count-preflight.json').read_text())
+NAMES={'gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor'}
+
+def identity(p):
+    for part in (p,*p.parents):
+        assert not part.is_symlink(),str(p)
+    if not p.is_file():return None
+    s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+result={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'date':'2026-10-22','formal_run_started':False,'historical_content_reads':0,'checks':{}}
+for group in ('sources','factors','targets'):
+    mappings=[manifest[group]] if group=='factors' else list(manifest[group].values())
+    entries={p:s for mapping in mappings for p,s in mapping.items()}
+    wrong=[p for p,s in entries.items() if identity(Path(p))!=s]
+    result['checks'][group]={'paths':len(entries),'existing_files':sum(s is not None for s in entries.values()),'stat_bytes':sum(s[2] for s in entries.values() if s),'mismatch_count':len(wrong),'mismatch_samples':wrong[:10]}
+    assert not wrong,f'{group} identities changed'
+assert all(identity(Path(v['path']))==v['identity'] for v in small['input_stats'].values())
+assert json.loads((BASE/'run-config.json').read_text())=={'ops':{'stock_mins_qfq_factor_repair_op':{'config':{'trade_date':'2026-10-22'}}}}
+assert ROOT.parent.is_mount() and ROOT.is_dir() and STAGE.is_dir()
+result['space']={'same_device':ROOT.stat().st_dev==STAGE.stat().st_dev,'free_bytes':shutil.disk_usage(STAGE).free,'writable':all(os.access(p,os.R_OK|os.W_OK|os.X_OK) for p in (ROOT,STAGE))}
+assert result['space']['same_device'] and result['space']['writable'] and result['space']['free_bytes']>=4*1024**3
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];url=os.environ[v['env']] if isinstance(v,dict) else v
+r=PostgresRunStorage(url,should_autocreate_tables=False);e=PostgresEventLogStorage(url,should_autocreate_tables=False);s=PostgresScheduleStorage(url,should_autocreate_tables=False)
+try:
+    active=r.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+    result['active_runs']=[{'run_id':x.run_id,'job':x.job_name,'status':x.status.value} for x in active]
+    states=[x for x in s.all_instigator_state() if x.name in NAMES and x.repository_selector.location_name=='orchestrator']
+    result['sensors']=[{'name':x.name,'status':x.status.value} for x in states]
+    pool=e.get_concurrency_info('gold_stk_mins_qfq_writer')
+    result['pool']={'limit':pool.limit,'slots':pool.slot_count,'active_slots':pool.active_slot_count,'pending_steps':pool.pending_step_count}
+    result['daemon_process']=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip()
+    assert not active and len(states)==2 and all(x.status.value=='STOPPED' for x in states) and not result['daemon_process']
+    assert pool.limit==1 and pool.active_slot_count==0 and pool.pending_step_count==0
+finally:r.dispose();e.dispose();s.dispose()
+files=('src/orchestrator/defs/stk_mins_qfq_factor_repair.py','src/orchestrator/defs/ops/stock_mins_qfq_factor_repair.py','tests/test_stk_mins_qfq_factor_repair_read_reuse.py')
+result['code_sha256']={p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in files}
+result['safe_to_launch']=True
+(BASE/'execution-preflight.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False,indent=2))

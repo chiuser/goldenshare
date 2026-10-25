@@ -6,11 +6,15 @@ from datetime import date
 from pathlib import Path
 
 import dagster as dg
+import duckdb
 
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_expected_dates_registered,
     previous_expected_trade_date,
 )
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     silver_adj_factor_path,
@@ -21,17 +25,21 @@ from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_NATIVE_FREQS,
     normalize_stk_mins_freq,
-    normalize_stk_mins_qfq_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
+    GoldStkMinsQfqDerivedDiagnostics,
     GoldStkMinsQfqFactorRepairPlan,
     GoldStkMinsQfqWriteResult,
-    assert_canonical_gold_stk_mins_qfq_source_ready,
-    build_canonical_gold_stk_mins_qfq_select_sql,
+    _create_replacement_rows_table,
+    build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation,
+    build_canonical_gold_stk_mins_qfq_select_sql_from_relations,
     build_gold_stk_mins_qfq_factor_repair_plan,
     gold_stk_mins_qfq_source_freq,
-    write_gold_stk_mins_qfq_rows_to_year_files,
+    write_prepared_gold_stk_mins_qfq_rows_to_year_files,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
+
+LOGGER = DgStdoutLogger("stk_mins_qfq_factor_repair")
 
 
 @dataclass(frozen=True)
@@ -83,6 +91,7 @@ def execute_gold_stk_mins_qfq_factor_repair(
     expected_trade_dates: Sequence[str],
     registered_partition_keys: Sequence[str],
     freqs: Sequence[int | str] = STK_MINS_QFQ_NATIVE_FREQS,
+    publication_id: str | None = None,
 ) -> GoldStkMinsQfqFactorRepairResult:
     normalized_trade_date = date.fromisoformat(trade_date).isoformat()
     expected_trade_dates = _normalize_expected_trade_dates(expected_trade_dates)
@@ -113,13 +122,19 @@ def execute_gold_stk_mins_qfq_factor_repair(
         start_trade_date=expected_trade_dates[0],
         end_trade_date=normalized_trade_date,
     )
+    current_factor_path = silver_adj_factor_path(lake_root, normalized_trade_date)
+    previous_factor_path = silver_adj_factor_path(lake_root, previous_trade_date)
+    basic_path = silver_stock_basic_path(lake_root)
+    plan_input_paths = (current_factor_path, previous_factor_path, basic_path)
+    plan_input_identities = _input_identities(plan_input_paths)
     plan = build_gold_stk_mins_qfq_factor_repair_plan(
-        current_adj_factor_path=silver_adj_factor_path(lake_root, normalized_trade_date),
-        previous_adj_factor_path=silver_adj_factor_path(lake_root, previous_trade_date),
-        silver_stock_basic_path=silver_stock_basic_path(lake_root),
+        current_adj_factor_path=current_factor_path,
+        previous_adj_factor_path=previous_factor_path,
+        silver_stock_basic_path=basic_path,
         trade_date=normalized_trade_date,
         previous_trade_date=previous_trade_date,
     )
+    _assert_inputs_unchanged(plan_input_paths, plan_input_identities)
     if not plan.can_execute_repair or not plan.repair_required:
         return GoldStkMinsQfqFactorRepairResult(
             plan=plan,
@@ -154,31 +169,17 @@ def execute_gold_stk_mins_qfq_factor_repair(
         freqs=normalized_freqs,
         selected_partition_keys=selected_partition_keys,
     )
-    write_results: list[GoldStkMinsQfqWriteResult] = []
-    for batch in batches:
-        batch_select_sql = _build_stock_year_batch_repair_select_sql(
-            lake_root=lake_root,
-            freq=batch.freq,
-            stock_codes=plan.repair_required_codes,
-            partition_keys=batch.partition_keys,
-            as_of_adj_factor_path=as_of_adj_factor_path,
-        )
-        batch_write_results = write_gold_stk_mins_qfq_rows_to_year_files(
-            lake_root=lake_root,
-            freq=batch.freq,
-            qfq_select_sql=batch_select_sql,
-            replace_trade_dates=batch.partition_keys,
-            allow_empty_replacement=True,
-        )
-        write_results.extend(batch_write_results)
-
     derived_target_freqs = _derived_target_freqs_for_native_freqs(normalized_freqs)
-    derived_write_results = _execute_derived_qfq_rebuild(
+    write_results, derived_write_results = _execute_shared_source_repair(
         lake_root=lake_root,
-        target_freqs=derived_target_freqs,
+        native_freqs=normalized_freqs,
+        derived_freqs=derived_target_freqs,
         stock_codes=plan.repair_required_codes,
         selected_partition_keys=selected_partition_keys,
         as_of_adj_factor_path=as_of_adj_factor_path,
+        publication_id=publication_id,
+        plan_input_paths=plan_input_paths,
+        plan_input_identities=plan_input_identities,
     )
     all_write_results = tuple(write_results) + derived_write_results
     code_results = _build_repair_code_results(
@@ -260,93 +261,163 @@ def _derived_target_freqs_for_native_freqs(freqs: Sequence[int]) -> tuple[int, .
     return tuple(target_freqs)
 
 
-def _execute_derived_qfq_rebuild(
-    *,
-    lake_root: Path,
-    target_freqs: Sequence[int],
-    stock_codes: Sequence[str],
-    selected_partition_keys: Sequence[str],
-    as_of_adj_factor_path: Path,
-) -> tuple[GoldStkMinsQfqWriteResult, ...]:
-    write_results: list[GoldStkMinsQfqWriteResult] = []
-    if not target_freqs:
-        return ()
-    for target_freq in target_freqs:
-        normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
-        source_freq = gold_stk_mins_qfq_source_freq(normalized_target_freq)
-        for year_partition_keys in _partition_keys_by_year(
-            selected_partition_keys
-        ).values():
-            silver_paths = tuple(
-                silver_stk_mins_path(lake_root, source_freq, partition_key)
-                for partition_key in year_partition_keys
-            )
-            trade_adj_factor_paths = tuple(
-                silver_adj_factor_path(lake_root, partition_key)
-                for partition_key in year_partition_keys
-            )
-            _require_existing_paths("silver_stk_mins", silver_paths)
-            _require_existing_paths("silver_adj_factor", trade_adj_factor_paths)
-            assert_canonical_gold_stk_mins_qfq_source_ready(
-                silver_paths=silver_paths,
-                target_freq=normalized_target_freq,
-                partition_keys=year_partition_keys,
-                stock_codes=stock_codes,
-                allow_empty=True,
-            )
-            batch_select_sql = build_canonical_gold_stk_mins_qfq_select_sql(
-                silver_paths=silver_paths,
-                trade_adj_factor_paths=trade_adj_factor_paths,
-                as_of_adj_factor_paths=[as_of_adj_factor_path],
-                target_freq=normalized_target_freq,
-                partition_keys=year_partition_keys,
-                stock_codes=stock_codes,
-            )
-            batch_write_results = write_gold_stk_mins_qfq_rows_to_year_files(
-                lake_root=lake_root,
-                freq=normalized_target_freq,
-                qfq_select_sql=batch_select_sql,
-                replace_trade_dates=year_partition_keys,
-                allow_empty_replacement=True,
-            )
-            write_results.extend(batch_write_results)
-    return tuple(write_results)
+def _input_identities(paths: Sequence[Path]) -> tuple[tuple[int, ...], ...]:
+    identities = []
+    for path in paths:
+        value = path.stat()
+        identities.append((
+            value.st_dev, value.st_ino, value.st_size,
+            value.st_mtime_ns, value.st_ctime_ns,
+        ))
+    return tuple(identities)
 
 
-def _build_stock_year_batch_repair_select_sql(
-    *,
-    lake_root: Path,
-    freq: int,
-    stock_codes: Sequence[str],
-    partition_keys: Sequence[str],
-    as_of_adj_factor_path: Path,
-) -> str:
-    source_freq = gold_stk_mins_qfq_source_freq(freq)
-    silver_paths = tuple(
-        silver_stk_mins_path(lake_root, source_freq, partition_key)
-        for partition_key in partition_keys
+def _assert_inputs_unchanged(
+    paths: Sequence[Path], identities: tuple[tuple[int, ...], ...],
+) -> None:
+    if _input_identities(paths) != identities:
+        raise RuntimeError("QFQ factor repair inputs changed while preparing rows.")
+
+
+def _load_repair_input(
+    connection: duckdb.DuckDBPyConnection,
+    *, table: str, paths: Sequence[Path], stock_codes: Sequence[str] = (),
+) -> tuple[tuple[int, ...], ...]:
+    identities = _input_identities(paths)
+    path_list = ", ".join(duckdb_string(path) for path in paths)
+    stock_filter = ""
+    if stock_codes:
+        values = ", ".join(duckdb_string(code) for code in stock_codes)
+        stock_filter = f" WHERE CAST(ts_code AS VARCHAR) IN ({values})"
+    connection.execute(
+        f"CREATE TEMP TABLE {table} AS SELECT * FROM "
+        f"read_parquet([{path_list}], hive_partitioning=false, union_by_name=true)"
+        f"{stock_filter}"
     )
-    trade_adj_factor_paths = tuple(
-        silver_adj_factor_path(lake_root, partition_key)
-        for partition_key in partition_keys
+    _assert_inputs_unchanged(paths, identities)
+    return identities
+
+
+def _assert_repair_source_ready(
+    connection: duckdb.DuckDBPyConnection,
+    *, target_freq: int, partition_keys: Sequence[str], stock_codes: Sequence[str],
+) -> None:
+    row = connection.execute(
+        build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation(
+            silver_relation_sql="SELECT * FROM qfq_repair_silver_input",
+            target_freq=target_freq, partition_keys=partition_keys,
+            stock_codes=stock_codes,
+        )
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("Canonical Gold qfq source audit returned no row.")
+    diagnostics = GoldStkMinsQfqDerivedDiagnostics(*(int(value) for value in row))
+    if diagnostics.source_row_count == 0 or diagnostics.complete:
+        return
+    raise RuntimeError(
+        "Canonical Gold qfq source windows are incomplete: "
+        f"target_freq={target_freq}, source_freq={diagnostics.source_freq}, "
+        f"source_rows={diagnostics.source_row_count}, "
+        f"incomplete_windows={diagnostics.incomplete_window_count}, "
+        f"exchange_mismatch_windows={diagnostics.exchange_mismatch_window_count}."
     )
-    _require_existing_paths("silver_stk_mins", silver_paths)
-    _require_existing_paths("silver_adj_factor", trade_adj_factor_paths)
-    assert_canonical_gold_stk_mins_qfq_source_ready(
-        silver_paths=silver_paths,
-        target_freq=freq,
-        partition_keys=partition_keys,
-        stock_codes=stock_codes,
-        allow_empty=True,
-    )
-    return build_canonical_gold_stk_mins_qfq_select_sql(
-        silver_paths=silver_paths,
-        trade_adj_factor_paths=trade_adj_factor_paths,
-        as_of_adj_factor_paths=[as_of_adj_factor_path],
-        target_freq=freq,
-        partition_keys=partition_keys,
-        stock_codes=stock_codes,
-    )
+
+
+def _execute_shared_source_repair(
+    *, lake_root: Path, native_freqs: Sequence[int], derived_freqs: Sequence[int],
+    stock_codes: Sequence[str], selected_partition_keys: Sequence[str],
+    as_of_adj_factor_path: Path, publication_id: str | None,
+    plan_input_paths: Sequence[Path],
+    plan_input_identities: tuple[tuple[int, ...], ...],
+) -> tuple[tuple[GoldStkMinsQfqWriteResult, ...], tuple[GoldStkMinsQfqWriteResult, ...]]:
+    targets = tuple(native_freqs) + tuple(derived_freqs)
+    if not targets:
+        return (), ()
+    native_results: list[GoldStkMinsQfqWriteResult] = []
+    derived_results: list[GoldStkMinsQfqWriteResult] = []
+    source_bytes = 0
+    factor_bytes = 0
+    with connect_configured_duckdb(temp_policy="existing_no_spill") as connection:
+        as_of_identities = _load_repair_input(
+            connection, table="qfq_repair_as_of_input", paths=(as_of_adj_factor_path,),
+        )
+        LOGGER.stdout(
+            "factor_repair_as_of_loaded", file_count=1,
+            stat_bytes=as_of_identities[0][2], target_code_count=len(stock_codes),
+        )
+        for year, year_dates in _partition_keys_by_year(selected_partition_keys).items():
+            factor_paths = tuple(silver_adj_factor_path(lake_root, day) for day in year_dates)
+            _require_existing_paths("silver_adj_factor", factor_paths)
+            factor_identities = _load_repair_input(
+                connection, table="qfq_repair_factor_input", paths=factor_paths,
+            )
+            factor_bytes += sum(item[2] for item in factor_identities)
+            LOGGER.stdout(
+                "factor_repair_year_factor_loaded", year=year,
+                file_count=len(factor_paths), cumulative_stat_bytes=factor_bytes,
+            )
+            try:
+                for source_freq in sorted({gold_stk_mins_qfq_source_freq(f) for f in targets}):
+                    source_paths = tuple(
+                        silver_stk_mins_path(lake_root, source_freq, day) for day in year_dates
+                    )
+                    _require_existing_paths("silver_stk_mins", source_paths)
+                    source_identities = _load_repair_input(
+                        connection, table="qfq_repair_silver_input",
+                        paths=source_paths, stock_codes=stock_codes,
+                    )
+                    source_bytes += sum(item[2] for item in source_identities)
+                    LOGGER.stdout(
+                        "factor_repair_source_loaded", year=year, source_freq=source_freq,
+                        file_count=len(source_paths), cumulative_stat_bytes=source_bytes,
+                        target_code_count=len(stock_codes),
+                    )
+                    try:
+                        for target_freq in targets:
+                            if gold_stk_mins_qfq_source_freq(target_freq) != source_freq:
+                                continue
+                            _assert_repair_source_ready(
+                                connection, target_freq=target_freq,
+                                partition_keys=year_dates, stock_codes=stock_codes,
+                            )
+                            _assert_inputs_unchanged(plan_input_paths, plan_input_identities)
+                            _assert_inputs_unchanged(factor_paths, factor_identities)
+                            _assert_inputs_unchanged(source_paths, source_identities)
+                            with StkMinsQfqPublication(
+                                lake_root=lake_root, family="qfq", freq=target_freq,
+                                trade_dates=year_dates, publication_id=publication_id,
+                            ) as publication:
+                                try:
+                                    select_sql = build_canonical_gold_stk_mins_qfq_select_sql_from_relations(
+                                        silver_relation_sql="SELECT * FROM qfq_repair_silver_input",
+                                        trade_adj_factor_relation_sql="SELECT * FROM qfq_repair_factor_input",
+                                        as_of_adj_factor_relation_sql="SELECT * FROM qfq_repair_as_of_input",
+                                        target_freq=target_freq, partition_keys=year_dates,
+                                        stock_codes=stock_codes,
+                                    )
+                                    _create_replacement_rows_table(connection, select_sql)
+                                    _assert_inputs_unchanged(plan_input_paths, plan_input_identities)
+                                    _assert_inputs_unchanged(factor_paths, factor_identities)
+                                    _assert_inputs_unchanged(source_paths, source_identities)
+                                    results = write_prepared_gold_stk_mins_qfq_rows_to_year_files(
+                                        connection, publication=publication, lake_root=lake_root,
+                                        freq=target_freq, replace_trade_dates=year_dates,
+                                        allow_empty_replacement=True,
+                                    )
+                                finally:
+                                    connection.execute("DROP TABLE IF EXISTS qfq_replacement_rows")
+                            (native_results if target_freq in native_freqs else derived_results).extend(results)
+                            LOGGER.stdout(
+                                "factor_repair_target_completed", year=year, freq=target_freq,
+                                output_file_count=len(results),
+                                replacement_row_count=sum(r.replacement_row_count for r in results),
+                                cumulative_source_stat_bytes=source_bytes,
+                            )
+                    finally:
+                        connection.execute("DROP TABLE IF EXISTS qfq_repair_silver_input")
+            finally:
+                connection.execute("DROP TABLE IF EXISTS qfq_repair_factor_input")
+    return tuple(native_results), tuple(derived_results)
 
 
 def _require_existing_paths(label: str, paths: Sequence[Path]) -> None:

@@ -1758,6 +1758,16 @@ python3 scripts/check_docs_integrity.py</code></pre>
       repair check event 仍挂到七个 <code>gold_stk_mins_qfq_*</code> assets 的目标日期上，不新增 summary asset。
     </div>
 
+    <div class="note">
+      <strong>2026-10-25，22日因子修复已完成：</strong>
+      手动 QFQ 不直接调用 repair，daemon 停止时独立 sensor 不会自动接上，此前最新成功为21日。
+      本次已获准修正重复读取和续跑身份，按年份/来源共享原始 TEMP，保留原算法、诊断和七条事件；26项隔离回归通过。
+      随后原 repair 运行 <code>f23ca4a2-b7c0-459f-9c55-764cb585db26</code> SUCCESS，112.514秒完成26股1,932份历史年度文件修复，七条检查全过、消费者ready。
+      26代码、2014-01-02至2026-10-22七频的具体范围、52GiB读/3GiB写批准预算、实际46.889/1.356GiB文件级估算、验证和中断约束见
+      <a href="dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#14-22日因子修复前置处理与读取修正方案待管理员确认未开发未执行">专项原方案与LLD第14节</a>。
+      本次未自动推进MACD/九转，历史QFQ变更后的MACD reconciliation仍须后续按范围处理；两个 sensor 仍按恢复记录等23日补齐后再启用。
+    </div>
+
     <table>
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
       <tr>

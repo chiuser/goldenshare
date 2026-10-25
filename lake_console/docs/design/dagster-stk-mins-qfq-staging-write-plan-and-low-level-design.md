@@ -1,6 +1,6 @@
 # 股票分钟前复权与MACD/KDJ写入修正方案和LLD
 
-日期：2026-10-24；读取优化实施：2026-10-25。当前状态：第9节读取优化已开发并通过第10节隔离测试，正常及续跑年度摘要均每实际文件1遍，另2遍已删除。尚未进行正式补数；34/9预算仍待实际样本校准和年度读取单独批准。后续真实性能样本及清理要求见第11节，本轮只说明范围，不运行该真实样本。
+日期：2026-10-24；读取优化及正式执行：2026-10-25。最新状态：22日七频QFQ及原28检查已完成（第13节）；因子repair读取/续跑身份修正完成，26项隔离回归通过，随后获准正常执行一次26股历史修复，七条真实检查及消费者门槛ready（第14.8节）。不再做性能样本或全局复审。此前样本失败及297项回归证据保留，不用旧阶段结论替代本次正式结果。
 
 ## 1. 目标、依据和边界
 
@@ -372,7 +372,7 @@ GiB不能直接换算耗时：约3.9万文件的多次receipt/目录fsync也可�
 
 ## 11. 后续真实性能样本与清理要求（提交前说明，尚未执行）
 
-本次指令批准提交已完成代码，并说明后续样本量；没有启动真实样本。以下范围用于后续执行卡，真实数据内容读取/临时写出仍在执行前核准，不把本节或前次开发测试授权当作正式补数授权。
+本节标题与下文保留提交前的方案阶段。后续管理员已批准本节方案，实际唯一一轮结果以第12节为准；执行卡见11.5，不把样本授权当作正式补数授权。
 
 ### 11.1 样本及现有stat
 
@@ -403,3 +403,210 @@ GiB不能直接换算耗时：约3.9万文件的多次receipt/目录fsync也可�
 管理员明确要求测试不留临时文件。正常、失败及可控中断都先关闭连接/释放锁，再删除本次整个独占父目录，涵盖复制输入、年度输出、candidate、receipt、锁文件、DuckDB临时文件、profile和临时日志，不能只删lake遗漏旁边staging。结束汇报前核对父目录及本次其他写出位置均不存在；清理失败须报具体残留，不能宣布清理完成。仅保存小型文字/JSON测量结论，不保留测试Parquet或原始数据副本。强杀/断电若打断清理，恢复后先按本次目录记录清理，再交付结果，不删除其他任务目录。
 
 本轮提交隔离复验同样把pytest的`--basetemp`置于独占TemporaryDirectory内，避免pytest默认保留测试文件；该复验仍完全禁止正式卷和网络。
+
+### 11.5 已批准样本的执行卡与脚本审计要求
+
+管理员已明确批准第11节方案并要求严格执行。此次仅执行一次所列真实样本，正式补数/正式卷写入/同卷rename仍未授权。代码基线为`938344f8`；当前资产文件中另有未提交Raw/Silver修改，执行前须以AST确认全部QFQ函数与该提交一致，不能将并行修改纳入测试结论。
+
+- 工作目录：`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用已有`.venv/bin/python3 -B`，不安装依赖。临时独占父目录固定为`/private/tmp/qfq_perf_20261025_a1`，须原先不存在；脚本、sandbox规则、临时Lake和同级staging、DuckDB目录、profile均在此目录。持久结果仅写`lake_console/reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/`小型JSON/说明。
+- 启动方式：`/usr/bin/sandbox-exec -f /private/tmp/qfq_perf_20261025_a1/sandbox.sb .venv/bin/python3 -B /private/tmp/qfq_perf_20261025_a1/runner.py`。规则禁止网络和全部正式卷写入，正式卷内容读取只允许11.1固定12个文件；写入只允许本次独占父目录及小型结果目录。`DAGSTER_HOME`仅指向临时父目录，不初始化任何instance。
+- 执行前只stat固定12个路径，检查普通文件、无符号链接和5字段身份/大小，与预算对应。准备阶段四Silver及因子各一次COPY，只按代码过滤，保留真实schema及坏行；7年度各复制一次，复制/提取前后及全程结束再核正式源stat。临时输入行数与11.2不符即报告并停止，不换股票、不裁剪、不继续或自动重试。
+- 真正daily及check连接只重定向temp目录，保留原16GB/4线程/无spill0B设置。七频按1/5/15/30/60/90/120顺序，直接调用现有writer及原check evaluator；后者仅接收含partition_key的context和临时Lake资源，无job/instance/events。每频检查四项名称、数量和通过状态；全部完成应7输出、322条当日replacement、28项passed。
+- 观测只包装现有调用，不替换SQL、公式、候选校验或原promote。捕获SQL耗时、read_parquet数据读取路径/次数及完整文件大小计费、COPY实际文件字节；DESCRIBE/footer及小JSON读单列Fr预留，不能称物理磁盘IO。摘要使用原read回调计实际字节，区分冻结P与年度C，不另算一遍hash。阶段耗时覆盖来源、诊断、生成、旧年度、合并COPY、候选校验、摘要、提升、正式检查；记录进程RSS高水位，不添加全量设备监控或重复查询。
+- 在准备前、每次读取前和每频原promote前检查11.3总量及C/Us/As/P、Fr/Fw和空间额度；为后续检查留出文件读取预算。_save及小型日志/profile按累计实际编码字节计Fw，不仅看最终目录size。连接确认0B且临时目录无spill；记录当前正式输入实际字节与临时预算。5分钟整轮和60秒无进展超限，先interrupt当前SQL，再抛错进入清理。
+- 正常/异常/SIGINT/SIGTERM均先退出所有连接和publication上下文、释放锁，核源stat，再由finally删除整个独占父目录并核不存在。源stat不变只证明本轮未检测到源变化，不额外全量hash。若任一检查/预算/清理失败，报告失败及已完成频率，不按成功处理，也不自动第二次读源。
+
+脚本进入真实数据前须经静态编译、固定路径/预算/清理独立审查；运行后只复用本次28检查及字节/完成记录，不额外读取年度内容做逐值对账，不宣称已证明非D逐值一致或全市场性能。执行脚本本身也在结束时删除，仅保留其SHA与小型结果；结果记录源码基线和实际运行边界。
+
+
+## 12. 首次真实样本结果与环境修正建议
+
+管理员批准第11节方案后实际启动一次，未自动重跑。四Silver按代码抽取241/49/9/5行、因子1行，准备七个完整年度副本。1分钟writer完成来源/因子载入和诊断后，在publication构造调用`tempfile.gettempdir()`时退出：脚本只重定向DuckDB temp目录，遗漏系统TMPDIR/TEMP/TMP；隔离规则拒绝了默认系统目录写入。属本次测试环境准备遗漏，不能归因数据或算法，也不能据此宣告完整链路性能通过。
+
+结果为0/7频率完成、0/28检查执行、0年度SHA/提升。运行0.839秒仅代表失败前阶段；读按全文件计费并加Fr预留为33.042MiB，写约1.354MiB，均未超额度。源12文件5字段stat不变、无正式写入或instance/job/event；连接退出后整个独占临时父目录已删除，并由主流程再次确认不存在且无运行进程。小型结果见[测量说明](../../reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/README.md)和[result.json](../../reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/result.json)。
+
+下一轮建议先修测试环境：启动Python前将TMPDIR/TEMP/TMP指向新独占父目录内预建system_tmp，读取正式内容之前核对`tempfile.gettempdir()`及该目录小文件创建/删除。保留现有sandbox限制和原业务代码；不开放系统默认临时目录或修改DuckDB预算。当前只记录修正建议，未重新创建执行脚本或第二次读源。原11.5明确“失败不自动第二次读源”，故重测需明确授权同范围额外一次64MiB读取/16MiB临时写/32MiB空间，不能沿用失败前准备而绕过计量，也不能覆盖首轮失败证据。
+
+### 12.1 环境修正及获准重测执行卡
+
+管理员已批准“修正后继续测试”。本轮按第11节同一12文件、同一股票/年份/日期/七频及额外一次64MiB读、16MiB临时写、32MiB空间预算执行；首轮证据保留，不追加MACD/九转、正式卷rename或正式补数。若此次仍失败，保存结果并清理，不自动第三次读源。
+
+临时独占父目录改为`/private/tmp/qfq_perf_20261025_a2`，须原先不存在；`system_tmp`在启动前创建。小型结果写原报告目录的`result-retry.json`，不覆盖`result.json`。工作目录、Python解释器、source白名单、逐频真实writer/check、阶段计量、预算/中断/清理规则全部复用11.5。
+
+| 现有变量/设置 | 默认来源及消费者 | 本轮作用范围与生效 | 验收及清理 |
+| --- | --- | --- | --- |
+| TMPDIR / TEMP / TMP | 子进程继承的系统环境；Python tempfile选择并缓存目录，publication构造调用gettempdir | 仅本次启动命令在Python启动前全部设为a2/system_tmp；不改shell、配置文件或正式进程环境 | 先核三变量、gettempdir及默认目录小文件创建/删除；错误即0正式内容读取停止；随父目录清理 |
+| DuckDB temp_directory | 原连接Settings；与上述系统变量不同 | 仍只改为a2/duckdb，保留16GB/4线程/无spill0B | 用现有连接校验；不得切managed |
+| DAGSTER_HOME | 本脚本的子进程环境 | 仅设a2/dagster_unused，不创建instance | 对instance入口设拒绝断言；结束核该目录未创建 |
+
+启动命令为`/usr/bin/env TMPDIR=/private/tmp/qfq_perf_20261025_a2/system_tmp TEMP=/private/tmp/qfq_perf_20261025_a2/system_tmp TMP=/private/tmp/qfq_perf_20261025_a2/system_tmp /usr/bin/sandbox-exec -f /private/tmp/qfq_perf_20261025_a2/sandbox.sb .venv/bin/python3 -B /private/tmp/qfq_perf_20261025_a2/runner.py`。sandbox继续禁止网络/全部正式卷写入，正式内容只允许12个literal路径，临时写入只允许本次父目录和小型报告目录。
+
+正式内容读取前先验证：三个系统变量一致、tempfile.gettempdir()确为system_tmp、使用不指定dir的NamedTemporaryFile创建并写微量字节再删除，路径必须位于system_tmp且删除后不存在；只构造publication并核目录在a2/lake_staging，不enter/bind/promote、不读Lake内容。这样预检覆盖上轮出错位置，而不是只验证解释器能启动。探针/脚本/日志/JSON累计字节计Fw，system_tmp计空间并整目录清理。脚本静态编译与独立审查后才能进入本轮正式内容读取，最终不额外扫描年度文件。
+
+### 12.2 a2结果记录错误与不读源修正验证
+
+a2已通过系统临时目录预检、1分钟真实writer及check evaluator调用，但报告转换`TextMetadataValue`时退出：通用normalize先按tuple遍历，随后才检查`.value`；本机Dagster的record属于tuple结构却禁止迭代。此次错误在测试脚本的报告记录步骤，不在前复权生产计算；后续六频未执行，不能宣告28检查通过。a2临时父目录已全删、源stat不变，未第三次读源。
+
+后续先做不访问正式数据的报告转换回归：使用本机真实MetadataValue与字面JSON/text/int/bool/float/path样本，先按MetadataValue取`.value`、再处理普通dict/list/tuple；对`.value`返回自身等尚未支持的复杂元数据明确拒绝，不吞异常。须证明原顺序会复现本次异常，修正后转换结果等于独立字面预期，并可记录真实AssetCheckResult的check_name/passed/metadata。该纯对象测试不创建instance、不运行check evaluator或读Lake，测试脚本和隔离临时目录结束删除，只保存小型验证结论。未来正式重测前应将该回归及完整报告写出/读回（正常/失败结果）都列为0正式读取的预检，不能再只覆盖环境。
+
+当前不启动第三轮；如另获批准，仍按原单股票/七频/12文件及一次64/16/32额度执行，a1/a2失败记录均保留。
+
+
+### 12.3 a2实际结果与后续边界
+
+a2系统临时目录修正和预检通过。1分钟真实writer完成241条replacement，年度临时文件919587B，writer耗时0.161285秒；其check evaluator耗时0.109377秒并返回。随后报告normalize误将TextMetadataValue当tuple迭代退出，未完成四项pass/name断言，不能补记四项或28项通过；后六频未执行。
+
+本轮年度候选实际SHA仅一次919587B，输入冻结摘要另一次7265B，提升后未再SHA。含Fr预留的文件读取计费36.560MiB，累计写约2.253MiB，均未超额度；启动至退出0.989秒只代表已执行阶段。12源stat不变、正式写入0；a2及a1目录均已清除。
+
+12.2规定的纯对象回归已完成17项并清除其临时目录，复现旧异常，验证9类真实MetadataValue、真实AssetCheckResult成功/失败、JSON写出读回及排他创建。未读取正式数据或创建instance，不算七频性能通过。结果详见[a2说明](../../reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/retry-summary.md)、[a2原始结果](../../reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/result-retry.json)与[纯对象回归](../../reports/datasets_recovery_20261022_20261024/qfq_real_performance_20261025/reporter-offline-validation.json)。
+
+当前按12.1失败后不自动第三次读源；下一轮若获明确同范围/额度批准，先在0正式读取时通过环境与结果记录完整预检，再执行原七频/28项。首轮和本轮失败均保留；不扩大到其他证券、年份、MACD/九转或正式补数。
+
+
+### 12.4 管理员停止性能测试，回到补数业务判断
+
+管理员明确不再继续测试。已只读复核当前生产链：正式Lake命中publication固定staging分支，不调用样本路径中的gettempdir；正式checks直接构造/返回AssetCheckResult，没有临时runner中的normalize(e.metadata)。两处错误不需要修改生产补数代码，也不能据此将业务判定为失败。
+
+现有297项回归包含七频独立公式金样本、因子/窗口语义、只替换目标日并保留其他日期、候选检查、同盘提升和中断恢复、原28检查语义；锁/receipt/CAST审计问题已经修正，真实1分钟writer也已完成241行。当前无已知QFQ补数业务阻断，可回到原正常补数入口；不再要求第三轮性能测试。正式补齐成功仍以实际补数run及原28项检查为准，不把代码判断写成已经执行成功。
+
+本轮仅读代码/已有证据并同步停止决定，没有测试、正式内容读取、任务或数据写入。既有失败记录保留，所有已清理临时目录不恢复；后续执行继续按原核定范围和必要现场预检进行。
+
+## 13. 正常补数的本轮范围
+
+管理员要求开始推进并先列清范围。本轮首先处理**2026-10-22**的`gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m`共7项，使用原`stock_mins_qfq_daily_update_job`和其原28项检查。上游Raw/Silver不重跑，不恢复性能测试。年度文件只替换22日业务记录，保留其他日期，不执行历史从零重建。
+
+读取对象为22日实际股票集合涉及的2026年度QFQ、22日Silver分钟及因子；读取全年仅为保留其他日期并合并22日，范围不含2025年、MACD/九转或板块历史。沿第9节正常一轮有条件预算：34GiB文件读取、9GiB写入、12GiB额外空间。含正式28检查，不另做成功后的全局审计；失败保留候选/记录并停止，不自动全范围重跑。该范围仍需按根AGENTS“数据集全局读取审批”明确授权，开始推进的一般指令不代替该项；可先做既有事实及元数据的必要预检，不先读年度内容。
+
+原恢复记录剩28项：本批7项通过后为21项。后续同日MACD/KDJ指标7项和state7项、九转30/60/90/120共4项、板块技术Gold/本机CH/Prod CH共3项，分别按依赖和自身历史读取/写入范围推进，不把它们混入本次QFQ年度读取授权。
+
+### 13.1 正式执行卡（管理员已明确批准）
+
+管理员随后回复“批准，开始实施，实施完成后，向我汇报”，批准第13节七项补数及2026年度读写范围。此决定取代上文“仍需授权”的等待状态；不再做性能测试，不改业务代码。
+
+- 当前代码依据：`938344f8`的QFQ writer、publication、原check及job；资产文件中无关Raw/Silver改动不在本job选择内。入口只选七QFQ及28检查，daily wrapper传当前root_run_id作为publication_id。
+- 工作目录为`lake_console/orchestrator`。必要预检用现有`.venv/bin/python3 -B`，直接构造PostgresRunStorage/EventLogStorage/ScheduleStorage且`should_autocreate_tables=False`，通过PGOPTIONS限制只读和30秒查询；不初始化instance、不求值sensor、不查Prod、不重读上游明细。只核活动任务、分区、sensor状态、daemon、五个输入stat、挂载/同设备/权限/空间、年度文件stat上界。预检脚本与小型结果存本轮报告目录，不成为业务入口。
+- 正式命令：`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job stock_mins_qfq_daily_update_job --partition 2026-10-22`。仅执行一次。沿现行配置16GB/4线程、existing_no_spill与既有临时目录，不安装、改配置、启停daemon/sensor或改分区。
+- 正式数据只写`/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq={1,5,15,30,60,90,120}/ts_code=*/year=2026/part-000.parquet`中实际replacement涉及文件。候选及记录只在`/Volumes/datasource/data_lake_staging`。不读2025，不调用MACD/九转/板块链。自动下游sensor必须停止或保持源码默认停止；存在会消费本次success的RUNNING状态则先停止本次执行并说明，不自行改sensor状态。
+- 预算按第9.6节：正常一次读34GiB、写9GiB、额外空间12GiB，含原28检查与小记录开销。预检只读stat及控制库小记录；正常执行复用现有业务进度、S/C/P/摘要实际读取字段观察成本，不为测量追加年度扫描。发现空间不足、输入变化、并发writer、预算假设不成立或业务报错即停止领取后续任务，保留已提升文件及候选/receipt，不删除业务数据，不自动重试。中断后的继续执行另核原root_run_id、剩余文件和预算；本次批准不等于再读一轮的批准。
+- 最终验收只取本run事件，核SUCCESS、七个22日物化、28项blocking/passed且绑定本次物化storage_id；复用该run publication JSON/receipt及文件stat核逐文件提升闭合、输入stat未变。不得调用旧单日单文件final审计器，不重开年度Parquet、不重算SHA。保留正式恢复receipt/checkpoint；此前测试临时目录不恢复。结果落原恢复报告，剩余数按本批实际结果更新。
+
+### 13.2 现场预检结果及自动下游边界
+
+21:13（Asia/Shanghai）只读预检：无活动run，daemon无进程且心跳停在约45小时前；五份当日输入stat与既有证据一致、分区已登记、QFQ函数及核心文件匹配938344f8；正式Lake/staging同设备、无符号链接、可读写，空闲约2.65TiB。只stat的2026全目录上界仍为39144份/8072911121B，没有年度内容读取或正式数据写入。
+
+实际控制库中的`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`与`gold_stk_mins_qfq_nineturn_update_job_sensor`均为RUNNING，重启daemon可能消费此次成功并触发范围外读取，当前不满足13.1边界，尚未启动补数。已请求额外明确批准将这两个状态改STOPPED并保持停止。另三个相关sensor不属于本次停用清单；MACD repair监听的是MACD daily，不直接监听本轮QFQ daily。
+
+如获批准，仅用现有PostgresScheduleStorage的`update_instigator_state(state.with_status(InstigatorStatus.STOPPED))`修改上述两个精确名称/既有repository记录，保留原origin/selector/cursor/instigator_data，不创建新state，不启停daemon，不改变其他sensor。逐条记录原状态、身份、修改时间，并只读取回核STOPPED；中途失败保留已经停止的状态，停止正式任务，不自动恢复RUNNING。随后仅刷新活动run、两个sensor状态及空间即可启动原命令，不重做年度stat或内容审计。待本批验收后仍保持STOPPED，后续下游执行获批时再决定何时开启。此控制库状态写入不能改变任何业务表。
+
+管理员已明确批准停用这两个sensor并继续补数，追加以下恢复条件，取代上段笼统的“再决定何时开启”：
+
+- [ ] **TODO：等2026-10-23的数据补齐完成后，再启用`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`和`gold_stk_mins_qfq_nineturn_update_job_sensor`。** 后续补数执行者在确认23日补齐结果后处理并记录启用时间及状态读回；本轮22日七频QFQ完成不满足启用条件，不能提前恢复RUNNING。
+
+本轮先停止两个现有状态并读回，刷新无并发run/daemon、五输入stat和空间，再执行13.1原命令一次。沿用已完成年度stat，不再次列举年度文件，不再测试。状态修改及预启动结果写`qfq_recovery_20261025/sensor-stop-and-launch-preflight.json`，业务结果仍由原28项检查及publication记录验收。
+
+### 13.3 正式执行及验收结论
+
+2026-10-25两项sensor已按13.2停止并读回，cursor及其他自动任务状态未变；按13.1原命令正常执行一次，run `78a6791a-a540-42b3-9ac3-e27abda235c6` SUCCESS，21:24:26～21:39:41，耗时914.629秒。7项22日物化及28项blocking检查全部通过，检查均绑定本run对应物化。每频5,570个目标，合计38,990份2026年度文件完成校验/原子提升；22日记录合计1,793,540行，五输入stat未变。没有重跑上游、性能测试、额外年度读取/摘要或启动下游。
+
+原预算与现场对账：S=8,055,561,219B、C=8,094,696,789B、P=31,370,988B；候选年度SHA累计读取C一次，正式重复SHA为0。复用D=57,243,552B、A=55,558B，按9.6含元数据预留的读/写估算为31.255/8.068GiB，未超34/9GiB。这里的记录及预算不是物理磁盘IO实测；未为测量追加读数。最终receipt/stat校验与七频日志汇总一致，不再全量逐值审计其他日期。
+
+沿恢复清单累计88项补齐、剩21项，不代表新全局审计。21:40读回两项sensor均STOPPED，无活动run/daemon；13.2的TODO继续保留，必须等23日数据补齐完成后再启用。执行命令、逐频行数、提升记录和开销见[原恢复报告第39节](../../reports/datasets_recovery_20261022_20261024/README.md#39-22日前复权七频正式恢复已完成并验收)及其`qfq_recovery_20261025`证据。操作脚本临时文件已清理，正式继续执行记录保留。
+
+<a id="14-22日因子修复前置处理与读取修正方案待管理员确认未开发未执行"></a>
+
+## 14. 22日因子修复前置处理与读取修正方案（已完成开发及正式执行）
+
+管理员已明确批准“批准修正，验证后按此范围执行”：本节开发、必要隔离测试及正常一次26代码历史修复，读52GiB、写3GiB、额外空间4GiB；失败停止，不自动重跑。本节原“待确认/未获批准”描述保留其提案背景，执行状态以本段及后续实际结果为准。
+
+### 14.1 已查事实、原因及影响
+
+管理员要求先处理七条因子修复检查，再推进后续补数。现有`stock_mins_qfq_factor_repair_job`是独立非分区任务，typed配置只有`trade_date`。手动QFQ job不直接调用它；平时由独立sensor在前置ready后发起。本轮控制记录最新成功为21日，补22日时daemon没有运行；七条缺记录不能解释为repair曾运行失败，也不能归因为此前停用的MACD/九转两个sensor。
+
+真实统计计数：22日因子5,576代码、21日5,575代码，非法因子0；26只已有股票因子变化、1只合法新增，无缺失旧因子。因而本次`can_execute_repair=true`且`repair_required=true`，不能采用“无变化、零行情写入、仅产生检查”的分支。2014-01-02至22日共有3,111个预期交易日，分区键已全登记。计数及26个有界代码名单、输入/目标stat见原恢复报告`factor_repair_20261022/`，本轮没有读取历史分钟或年度内容。
+
+这项现行职责是将26只股票的历史QFQ按22日因子重新计算，完成后由原op生成七条真实check；它会阻止MACD日更及九转自动任务，板块无此依赖。QFQ原28检查只证明当日行情，不替代本项。修复写过历史后，MACD后续还须按现有流程完成相应代码的历史指标修复，不能把日更14项成功当作该历史修复已完成。
+
+### 14.2 范围及禁止项
+
+- 目标日期只取2026-10-22；变化代码固定为本次26只，名单保存在`scope-stat-summary.json`，1只新增股票不进入本次历史改写。
+- 源日期为3,111个已核交易日，2014-01-02～2026-10-22；四个唯一Silver分钟来源1/5/30/60，各3,111文件，共12,444文件/47,307,734,197B；每日因子3,111文件/113,188,579B，另22日因子55,558B及小型Basic/日历计划输入。
+- 七个目标频率1/5/15/30/60/90/120，实际只改26代码的相应2014～2026年度QFQ。已存在1,932份/464,280,822B；理论上界26×13×7=2,366份。上市前空年份不凭理论上界造数据。
+- 只对上述代码/日期重算；保留其他代码及目标年度中范围外日期。不运行MACD、九转或板块任务，不开启daemon或sensor，不引入新数据集/配置/CLI参数或手工通过事件，不按旧QFQ34/9GiB授权执行。
+- 源仍是全市场日文件。按26代码过滤不等于只从磁盘读这26只的字节，本方案按全部所涉文件大小保守计费；不得用26/全市场比例压低读取申请。
+
+### 14.3 为什么不能直接运行现有任务
+
+修正前每freq/year先读Silver诊断窗口，再读同一文件构造结果；同来源也被不同目标重复读取。令四唯一来源为H1/H5/H30/H60，则D=2H1+2H5+2H30+H60=93,435,471,399B；仅两遍2D约174.037GiB。加因子、旧年度等尚未计候选/冻结/临时文件即约175.212GiB。这是当前独立读取步骤按文件大小的保守测算，不是硬盘实测IO；其中重复源读取并非算法要求，不按此旧开销直接申请执行。
+
+修正前repair的两处年度writer调用也没有传持久publication_id，每批使用随机身份。需要向下传原root_run_id，复用已有逐文件记录；不能把当前任务说成重启就只处理未完成文件。
+
+### 14.4 具体实现及影响面
+
+CodeGraph已覆盖`execute_gold_stk_mins_qfq_factor_repair`、op/job、SQL builder、调用及测试；新改动只落`defs/stk_mins_qfq_factor_repair.py`和`defs/ops/stock_mins_qfq_factor_repair.py`及相关隔离测试。复用现有核心接口，原则上不修改公共writer、原公式、检查名称/metadata或sensor状态。开发前若复用接口语义不满足以下约束，先更新本节，不新增旁路入口。
+
+1. 维持原因子分类、交易日/登记门槛、允许频率及原七条结果口径。op向execute传`context.run.root_run_id or context.run_id`，再传给每freq/year公共writer；scope已有频率和日期，不增加新状态表。
+2. 按年份组织处理，每次只保留一个年份和一个来源频率的26代码原始TEMP：1分钟供1/5目标，5分钟供15/30目标，30分钟供60/90目标，60分钟供120目标。七频原生/派生计算仍用原canonical公式，不依赖中间Gold结果生成派生。
+3. 每year/source只载入一次原始源，保留原列类型及原诊断应抓的坏行；仅按本次代码范围限制，不提前清理坏频率、价格、NULL或重复。诊断使用`build_canonical_gold_stk_mins_qfq_diagnostics_sql_from_relation`，计算使用`build_canonical_gold_stk_mins_qfq_select_sql_from_relations`，两者读同一TEMP；诊断未过不能生成/提升该目标。
+4. 每年历史因子只载一次，在七目标之间复用；22日as-of因子在run内复用。每年完成后释放年度因子；每来源完成后释放原始TEMP，不把13年明细同时放入内存。保留原空年份、来源完整性及26代码外不动的语义。
+5. 每目标仍在既有publication锁内生成并校验replacement，调用`write_prepared_gold_stk_mins_qfq_rows_to_year_files`；保留原旧文件校验/单次载入、候选完整业务校验、一次候选SHA、同设备原子提升及逐文件记录。空replacement沿原allow_empty语义处理，不伪造目标。
+6. 历史分钟载入、计算、候选写入的公共连接使用现有配置16GB/4线程和`existing_no_spill`，强制磁盘spill为0；不新增配置项、不改变其他任务策略。原计划分类helper保持其独立managed连接，只处理已核身份/总量不到1MiB且键唯一的两日因子和Basic三小输入，计入E及小记录预留，不读历史分钟或建立大型TEMP；不能声称该小连接也被强制no-spill。输入身份/规模变化先停。生成进度与已完成年份/频率/文件对应，继续复用publication字节及阶段日志。
+
+开发硬口径落点：`execute`保持分类/登记/频率子集及65+26计数；共享来源和因子TEMP在core年度执行helper，原relation诊断及prepared writer保留；publication_id由原op传入。新增隔离测试覆盖读取次数/原列类型、七频字面结果、空年和子集、范围外文件不变、失败续跑和输入变化。无源码合同/配置/入口行为变更，不新增绕过门槛的路径。
+
+### 14.5 预算、中断与验收
+
+令H为四唯一来源47,307,734,197B，F为历史因子113,188,579B，A为22日因子55,558B，S为旧目标464,280,822B，C为候选，P为冻结replacement，E为小型计划输入，Fr/Fw为额外记录及schema等预留。拟实现正常读取公式为：
+
+```text
+读 = H + F + A + S + 2C + P + E + Fr
+写 = C + P + Fw
+```
+
+候选的两次读取分别为业务投影校验和唯一SHA，不再另跑普通QFQ28检查；最后验收用本次七check/原生产者metadata、operation/receipt/stat。候选年度SHA正常仍只有一遍。暂按C≤1GiB、P≤1GiB、E≤2MiB、Fr≤1GiB、Fw≤512MiB、spill=0，读约48.60GiB、写约2.50GiB；申请上限为正常一次**读52GiB、写3GiB、额外空间4GiB**。这些是拟优化且带条件的额度，不是当前代码预算或已获批准。启动前重新核stat与本次范围；条件不成立先停，不能用旧175GiB开销启动或自行扩大代码/日期。
+
+中断保留已提交文件和既有逐文件记录，失败不回滚业务数据、不写假成功，也不自动第二次全范围运行。原root身份续跑仍可能重新载H/F并重新计算冻结replacement，再复用已验证目标，不承诺免源读取。最坏再一轮追加52GiB读/3GiB写；两轮合计104/6GiB，保留旧候选/冻结时空间按8GiB另核。此项必须纳入中断后的实际范围申请，正常一次批准不自动覆盖续跑。
+
+验收为原job SUCCESS、同run七项blocking/passed、partition=22日，metadata代码数26/名单hash/producer/upstream batch一致、failed_code_count=0、派生failed=0；真实登记历史改写量。只对本run目标/receipt/stat及控制记录收尾，不再次扫历史源或全市场年度。保持MACD/九转sensor STOPPED，不自动进入后续大范围指标修复。
+
+### 14.6 必要隔离验证及执行顺序
+
+设计获准后已完成下述必要隔离验证（最终26项通过，见14.8），不做真实全市场性能样本：复用现有factor分类/无变化/缺旧因子测试；增加同year/source只读取一次且诊断计算共用原始行的证据；用独立字面金样本核七频OHLC/窗口、空年/新股/跨年、坏源不能被过滤掩盖、26范围外文件不改；模拟中途失败、同root续跑不COPY已验证文件、输入改变拒绝继续。生产者字段以本轮四文件schema及现有Silver合同为依据，测试expected不调用待测helper生成。
+
+按本节完成开发、最小回归和方案对账后，才可能在明确历史读写范围批准下运行原非分区job一次：工作目录`lake_console/orchestrator`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，命令`.venv/bin/dg launch --module-name orchestrator.definitions --job stock_mins_qfq_factor_repair_job --config <本报告内固定22日配置文件>`；配置仅为`ops.stock_mins_qfq_factor_repair_op.config.trade_date: 2026-10-22`。执行前复核本轮源身份/26代码、活动run、pool和sensor边界。失败停止并保存事实；只有七项实际通过后才推进MACD及其他补数。
+
+### 14.7 获准执行卡及最小现场验收
+
+只用本报告已固定的`factor_repair_20261022/run-config.json`，正式命令固定为：
+
+```bash
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job stock_mins_qfq_factor_repair_job --config /Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/factor_repair_20261022/run-config.json
+```
+
+先完成14.6隔离回归及独立代码审查，修正发现的问题后记录源码SHA。隔离测试复用已有临时目录连接启动器，禁网络及整个正式卷；不安装依赖。结束删除本次临时父目录，仅保存文字结果。正式启动前只读控制库（禁止autocreate），核无活动run、共用pool及两个已停sensor状态，daemon必须仍无进程；只按已存manifest stat核源/factor/目标及Basic/日历身份不变、同设备、挂载与4GiB空闲，禁止再次glob所有年度或读取内容。另确认配置只含22日。
+
+正常任务只运行一次，监控新年/来源载入日志与publication日志，不另做全局审计。按日志累计H/F/A和各operation最后completed快照的S/C/P，避免累计进度快照重复计费；若C/P或总预算前提不成立，先中断当前任务并保留结果，不继续下一批、不自动重跑。52GiB/3GiB包括最终小型JSON/stat验收；不为记录IO额外profile或SHA。
+
+最终仅查精确run：SUCCESS，无step/pipeline failure，恰七项factor check，partition=22日、passed/blocking，producer_run_id为本run而publication使用root_run_id；metadata中26名单/hash、3111日期、native65/derived26及实际成功/失败改写量相符。此job无七项新materialization，不套用daily物化绑定验收。按本root各freq/year实际非空operation读JSON/receipt/stat核promoted，目标必须在26代码/七频/13年内，正式stat前4项匹配candidate_identity，输入stat五项全比；不得再读年度内容或重算摘要。空年份可没有operation。七项检查通过是解除前置，不从剩余21项中扣七。MACD/九转依旧停止，结束先汇报本项结果。
+
+开发已完成：两执行文件和新增隔离测试；26项隔离回归通过，三Python文件默认Ruff/差异检查通过，CodeGraph explore/impact及sync/status已完成。独立实现审查未发现阻断。正式预检所有已冻结源/因子/目标身份相符，pool=1且空闲、两sensor停止、daemon无进程、空间满足要求。测试专属临时父目录已删除。启动原命令时仅另存当前shell PID后exec原CLI，便于预算/失败时对准确进程发SIGINT；这不替换任务入口或计算过程。正式结果随后单列，不以开发或预检通过代替执行成功。
+
+### 14.8 实施、验证及正式结果
+
+实际改动为`defs/stk_mins_qfq_factor_repair.py`、`defs/ops/stock_mins_qfq_factor_repair.py`及新增`tests/test_stk_mins_qfq_factor_repair_read_reuse.py`。公共writer/公式/检查事件schema/配置/任务入口未变。op日期观察值转为本地带时区表示，其本地日期值保持一致，并通过既有op测试；没有借本次修改自动日期策略。
+
+| 硬口径 | 实现 | 验证证据 |
+| --- | --- | --- |
+| 同year/source只加载一次，诊断计算共用原始行 | `_execute_shared_source_repair`与`_load_repair_input`，年度/来源顺序，原列与坏行保留 | 真实DuckDB路径引用计数、三类坏源反例、七频字面结果；正式52次来源载入 |
+| 原因子与日期、频率子集、空年口径 | 原planner/登记门槛；native原集合及旧derived选择；原allow_empty | 既有15项、空年/跨年及26外文件/新股保留；正式native65+derived26 |
+| 原锁内生成、一次候选SHA、原子提升 | 原publication/prepared writer，TEMP逐批释放 | 真实os.replace故障与同root续跑测试；正式1932份receipt/stat全部匹配 |
+| 输入变化拒绝、正常源身份不变 | 计划/每年factor/每来源的身份前后核对 | 同次运行诊断后改源及重入改源反例；正式收尾全部输入五字段stat不变 |
+| 原运行身份及原七check | op传`context.run.root_run_id or context.run_id` | 原op隔离集成、正式7项同run事件与producer/batch/26名单hash核验 |
+| 不额外大数据审计/测试残留 | 本run日志、JSON/receipt/stat收尾 | 无新增历史内容读取/额外SHA/性能样本，专属测试父目录与操作脚本已删除 |
+
+既有15项和新增11项合并26项隔离测试全部通过（5.75秒），默认Ruff及差异检查通过。独立审查确认原始输入与金样本依据、子集/空年/锁和恢复行为，无阻断。测试明确禁止网络和整个正式卷，只用临时Parquet及隔离instance；环境先拒绝嵌套sandbox，测试未启动，改由工具授权在本机施加同一禁用规则后正常完成，未开放正式资源。
+
+正式只运行一次：`f23ca4a2-b7c0-459f-9c55-764cb585db26`，SUCCESS，耗时112.514秒。26股历史改写native 1,380文件/20,202,727行，90/120派生552文件/318,655行，合计1,932文件/20,521,382行；1只新增股票未列入历史修复。七条blocking/passed均为本run、22日，producer/batch/代码hash一致，failed均0。现行消费者判断器实际查询这些控制记录后ready=true，七event ID为7726576～7726582。它同时表明历史已改写、后续MACD reconciliation仍需处理，未把ready解释为全部指标完成。
+
+H/F/A日志与冻结清单相符：12,444源文件在52个year/source分组只载一次，历史因子每年一次；91个目标批次。S=464,280,822B、C=465,931,101B、P=453,330,654B，候选年度SHA累计读C一遍，正式重复SHA为0。按批准公式含预留，读46.889GiB、写1.356GiB，低于52/3GiB；不是硬盘实测IO。最后仅核本run事件、receipt/stat及输入身份，没有再扫历史。
+
+原剩余21项不因这七条前置检查再扣七。两个下游sensor仍STOPPED，无活动run/daemon，等23日补齐后再启用的TODO不变。本轮未启动MACD、九转、板块或自动重跑。Git提交由后续提交阶段单独记录。详见[执行汇总](../../reports/datasets_recovery_20261022_20261024/factor_repair_20261022/summary.json)、[实际run与逐文件验收](../../reports/datasets_recovery_20261022_20261024/factor_repair_20261022/run-verified.json)和[消费者/控制状态](../../reports/datasets_recovery_20261022_20261024/factor_repair_20261022/final-control-status.json)。

@@ -1,0 +1,75 @@
+{
+  "as_of": "2026-10-25T22:59:48.367237+08:00",
+  "factor_repair_status": {
+    "ready": true,
+    "trade_date": "2026-10-22",
+    "reason": "qfq factor repair rewrote history; reconciliation is required.",
+    "repair_required": true,
+    "rewrote_history": true,
+    "qfq_factor_repair_event_storage_ids": [
+      7726576,
+      7726577,
+      7726578,
+      7726579,
+      7726580,
+      7726581,
+      7726582
+    ],
+    "producer_run_id": "f23ca4a2-b7c0-459f-9c55-764cb585db26",
+    "upstream_batch_id": "qfq_factor_repair:2026-10-22:1ecb794186a4",
+    "missing_qfq_asset_keys": [],
+    "failed_qfq_asset_keys": [],
+    "repair_start_trade_date": "2014-01-02",
+    "repair_end_trade_date": "2026-10-22",
+    "selected_partition_count": 3111,
+    "repair_required_code_count": 26,
+    "repair_required_codes": [
+      "000498.SZ",
+      "000528.SZ",
+      "002250.SZ",
+      "002475.SZ",
+      "002500.SZ",
+      "002644.SZ",
+      "002838.SZ",
+      "002867.SZ",
+      "002929.SZ",
+      "300881.SZ",
+      "301261.SZ",
+      "301555.SZ",
+      "600026.SH",
+      "600218.SH",
+      "600415.SH",
+      "600477.SH",
+      "600570.SH",
+      "600685.SH",
+      "600814.SH",
+      "601222.SH",
+      "601225.SH",
+      "601966.SH",
+      "603323.SH",
+      "603373.SH",
+      "605089.SH",
+      "688046.SH"
+    ],
+    "repair_required_codes_hash": "41b905809024cb2d5d37c2feb4e3c3b9fb8c4a13919b19e4c8ffceea498da2d6",
+    "repair_required_codes_truncated": false,
+    "rewritten_file_count": 1380,
+    "rewritten_row_count": 20202727,
+    "derived_rewrite_required": true,
+    "derived_rewritten_file_count": 552,
+    "derived_rewritten_row_count": 318655,
+    "requires_derived_reconciliation": true
+  },
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "active_runs": [],
+  "daemon_process": ""
+}

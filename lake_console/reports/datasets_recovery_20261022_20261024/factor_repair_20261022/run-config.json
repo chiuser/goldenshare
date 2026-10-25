@@ -1,0 +1,9 @@
+{
+  "ops": {
+    "stock_mins_qfq_factor_repair_op": {
+      "config": {
+        "trade_date": "2026-10-22"
+      }
+    }
+  }
+}

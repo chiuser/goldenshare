@@ -1,0 +1,29 @@
+{
+  "code_files": [
+    "src/orchestrator/defs/stk_mins_qfq_factor_repair.py",
+    "src/orchestrator/defs/ops/stock_mins_qfq_factor_repair.py"
+  ],
+  "new_test_file": "tests/test_stk_mins_qfq_factor_repair_read_reuse.py",
+  "isolated_tests_passed": 26,
+  "test_evidence": "combined-factor-tests.txt",
+  "formal_volume_denied": true,
+  "network_denied": true,
+  "ruff_changed_files": "passed",
+  "codegraph": [
+    "explore",
+    "impact",
+    "sync",
+    "status"
+  ],
+  "formal_repair_started": false,
+  "independent_review": "passed; no execution blockers",
+  "review_scope": [
+    "source reuse",
+    "subsets and empty years",
+    "literal golden outputs",
+    "input identity",
+    "locks and root identity",
+    "failure/resume"
+  ],
+  "test_temp_parent_removed": true
+}

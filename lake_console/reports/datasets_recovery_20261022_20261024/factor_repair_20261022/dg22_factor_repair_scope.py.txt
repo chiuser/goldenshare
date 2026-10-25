@@ -1,0 +1,49 @@
+import json
+import os
+from pathlib import Path
+
+import yaml
+from dagster_postgres import PostgresEventLogStorage
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.paths import silver_stk_mins_path, silver_adj_factor_path, gold_stk_mins_qfq_path
+from orchestrator.defs.stk_mins_qfq import build_adj_factor_changed_codes_sql
+
+ROOT=Path('/Volumes/datasource/data_lake')
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/factor_repair_20261022')
+pre=json.loads((OUT/'count-preflight.json').read_text())
+paths={k:Path(x['path']) for k,x in pre['input_stats'].items()}
+
+def stat(p):
+    if not p.is_file():return None
+    assert all(not x.is_symlink() for x in (p,*p.parents))
+    s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+assert all(stat(p)==pre['input_stats'][k]['identity'] for k,p in paths.items())
+with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+    sql=build_adj_factor_changed_codes_sql(current_adj_factor_path=paths['current_factor'],previous_adj_factor_path=paths['previous_factor'],silver_stock_basic_path=paths['stock_basic'],trade_date='2026-10-22',previous_trade_date='2026-10-21')
+    codes=tuple(x[0] for x in c.execute(f"SELECT ts_code FROM ({sql}) WHERE change_reason='factor_changed' ORDER BY ts_code LIMIT 27").fetchall())
+    assert len(codes)==pre['change_reason_counts']['factor_changed']==26
+    listings=c.execute('SELECT ts_code,CAST(list_date AS VARCHAR) FROM read_parquet(?,hive_partitioning=false) WHERE ts_code IN (SELECT unnest(?)) ORDER BY ts_code',[str(paths['stock_basic']),list(codes)]).fetchall()
+    assert len(listings)==26
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v;e=PostgresEventLogStorage(u,should_autocreate_tables=False)
+try:
+    days=tuple(sorted(d for d in e.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name) if '2014-01-01'<=d<='2026-10-22'))
+finally:e.dispose()
+assert len(days)==pre['calendar_counts']['expected_through_target']==3111 and pre['calendar_counts']['missing_registered']==0
+sources={};source_totals={};missing={}
+for f in (1,5,30,60):
+    items={str(p):stat(p) for d in days for p in (silver_stk_mins_path(ROOT,f,d),)}
+    sources[str(f)]=items;missing[str(f)]=[p for p,s in items.items() if s is None]
+    source_totals[str(f)]={'files':sum(s is not None for s in items.values()),'missing_count':len(missing[str(f)]),'stat_bytes':sum(s[2] for s in items.values() if s)}
+factors={str(p):stat(p) for d in days for p in (silver_adj_factor_path(ROOT,d),)}
+targets={}
+for f in (1,5,15,30,60,90,120):
+    items={str(p):stat(p) for code in codes for y in range(2014,2027) for p in (gold_stk_mins_qfq_path(ROOT,f,code,y),)}
+    targets[str(f)]=items
+out={'date':'2026-10-22','changed_code_count':26,'changed_codes':list(codes),'listing_dates':dict(listings),'start_date':days[0],'end_date':days[-1],'selected_partition_count':len(days),'years':list(range(2014,2027)),'source_content_reads':0,'bounded_code_rows_read':len(codes),'source_totals':source_totals,'factor_files':sum(s is not None for s in factors.values()),'factor_missing_count':sum(s is None for s in factors.values()),'factor_stat_bytes':sum(s[2] for s in factors.values() if s),'target_annual_upper_bound':26*13*7,'target_existing_files':sum(s is not None for items in targets.values() for s in items.values()),'target_existing_stat_bytes':sum(s[2] for items in targets.values() for s in items.values() if s),'missing_source_samples':{k:v[:8] for k,v in missing.items()},'input_stats_unchanged':all(stat(p)==pre['input_stats'][k]['identity'] for k,p in paths.items())}
+manifest={'trade_dates':list(days),'sources':sources,'factors':factors,'targets':targets}
+(OUT/'scope-stat-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+(OUT/'scope-stat-summary.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(out,ensure_ascii=False,indent=2))

@@ -1,0 +1,58 @@
+import json
+import os
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.paths import silver_adj_factor_path, silver_stock_basic_path, silver_trade_calendar_path
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_HISTORY_START_DATE
+from orchestrator.defs.stk_mins_qfq import build_adj_factor_changed_codes_sql
+
+ROOT=Path('/Volumes/datasource/data_lake')
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/factor_repair_20261022')
+DAY='2026-10-22'; PREVIOUS='2026-10-21'
+paths={'current_factor':silver_adj_factor_path(ROOT,DAY),'previous_factor':silver_adj_factor_path(ROOT,PREVIOUS),'stock_basic':silver_stock_basic_path(ROOT),'calendar':silver_trade_calendar_path(ROOT)}
+
+def identity(p):
+    assert p.is_file() and all(not x.is_symlink() for x in (p,*p.parents))
+    s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+before={k:identity(p) for k,p in paths.items()}
+assert sum(s[2] for s in before.values())<=2*1024**2,'Unexpected input size; no content read'
+result={'date':DAY,'previous_date':PREVIOUS,'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'mode':'aggregate counts only; no factor or code detail export','input_stats':{k:{'path':str(paths[k]),'identity':s} for k,s in before.items()},'new_formal_runs':0,'new_formal_writes':0}
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];url=os.environ[v['env']] if isinstance(v,dict) else v
+rs=PostgresRunStorage(url,should_autocreate_tables=False);es=PostgresEventLogStorage(url,should_autocreate_tables=False)
+try:
+    registered=es.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name)
+    active=rs.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+    result['active_runs']=[{'id':r.run_id,'job':r.job_name,'status':r.status.value} for r in active]
+    result['daemon_process']=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip()
+    records=rs.get_run_records(dg.RunsFilter(job_name='stock_mins_qfq_factor_repair_job'),limit=10)
+    result['latest_factor_runs']=[{'id':r.dagster_run.run_id,'status':r.dagster_run.status.value,'trade_date':r.dagster_run.run_config.get('ops',{}).get('stock_mins_qfq_factor_repair_op',{}).get('config',{}).get('trade_date'),'created_at':r.create_timestamp.isoformat()} for r in records]
+    with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+        result['schemas']={k:[list(x[:2]) for x in c.execute('DESCRIBE SELECT * FROM read_parquet(?,hive_partitioning=false)',[str(p)]).fetchall()] for k,p in paths.items()}
+        result['factor_counts']={}
+        for k in ('current_factor','previous_factor'):
+            n,unique,invalid=c.execute('SELECT count(*),count(distinct ts_code),count(*) FILTER(WHERE ts_code IS NULL OR adj_factor IS NULL OR adj_factor<=0) FROM read_parquet(?,hive_partitioning=false)',[str(paths[k])]).fetchone()
+            result['factor_counts'][k]={'rows':n,'unique_codes':unique,'invalid_rows':invalid}
+        sql=build_adj_factor_changed_codes_sql(current_adj_factor_path=paths['current_factor'],previous_adj_factor_path=paths['previous_factor'],silver_stock_basic_path=paths['stock_basic'],trade_date=DAY,previous_trade_date=PREVIOUS)
+        result['change_reason_counts']={str(k):int(n) for k,n in c.execute(f'SELECT change_reason,count(*) FROM ({sql}) GROUP BY change_reason').fetchall()}
+        n,unique=c.execute('SELECT count(*),count(distinct ts_code) FROM read_parquet(?,hive_partitioning=false)',[str(paths['stock_basic'])]).fetchone()
+        result['basic_counts']={'rows':n,'unique_codes':unique}
+        prev,n,missing=c.execute("SELECT max(trade_date) FILTER(WHERE trade_date<CAST(? AS DATE)),count(*),count(*) FILTER(WHERE CAST(trade_date AS VARCHAR) NOT IN (SELECT unnest(?))) FROM read_parquet(?,hive_partitioning=false) WHERE exchange='SSE' AND is_open=true AND trade_date>=CAST(? AS DATE) AND trade_date<=CAST(? AS DATE)",[DAY,registered,str(paths['calendar']),STK_MINS_QFQ_HISTORY_START_DATE,DAY]).fetchone()
+        result['calendar_counts']={'previous_date':str(prev),'expected_through_target':n,'missing_registered':missing,'history_start':STK_MINS_QFQ_HISTORY_START_DATE}
+    assert all(identity(p)==before[k] for k,p in paths.items())
+    result['inputs_unchanged']=True
+    result['no_factor_history_rewrite_needed_by_counts']=not result['change_reason_counts'].get('factor_changed',0) and not result['change_reason_counts'].get('missing_previous_factor',0)
+finally:
+    rs.dispose();es.dispose()
+OUT.mkdir(exist_ok=True)
+(OUT/'count-preflight.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False,indent=2))

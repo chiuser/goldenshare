@@ -1,0 +1,32 @@
+{
+  "as_of": "2026-10-25T21:23:59.802348+08:00",
+  "sensor_changes": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "origin_id": "772281db6caf1b865496e2a2916e74059bc56604",
+      "selector_id": "f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+      "before": "RUNNING",
+      "after": "STOPPED",
+      "cursor_preserved": true,
+      "at": "2026-10-25T21:23:59.976007+08:00"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "origin_id": "48b83117c18ae7132887a622875eff56012430d8",
+      "selector_id": "99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+      "before": "RUNNING",
+      "after": "STOPPED",
+      "cursor_preserved": true,
+      "at": "2026-10-25T21:24:00.030541+08:00"
+    }
+  ],
+  "formal_run_started": false,
+  "annual_content_reads": 0,
+  "inputs_unchanged": true,
+  "free_bytes": 2916578369536,
+  "other_instigator_states_unchanged": true,
+  "daemon_active": false,
+  "active_runs": [],
+  "safe_to_launch": true,
+  "reenable_todo": "Only after 2026-10-23 datasets are completed; do not reenable at this 2026-10-22 QFQ completion"
+}

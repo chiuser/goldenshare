@@ -1,0 +1,349 @@
+{
+  "status": "failed",
+  "baseline_commit": "938344f8",
+  "code": "600000.SH",
+  "day": "2026-10-22",
+  "year": 2026,
+  "frequencies": [
+    1,
+    5,
+    15,
+    30,
+    60,
+    90,
+    120
+  ],
+  "frequencies_completed": [],
+  "formal_writes": 0,
+  "instance_created": false,
+  "job_or_event_executed": false,
+  "script_sha256": "b5cef54f53223d5e5ac7cb210bde893432c0e21a01dd3140141d076c872fc32b",
+  "runtime_versions": {
+    "python": "3.13.5",
+    "duckdb": "1.5.2",
+    "dagster": "1.13.26"
+  },
+  "per_frequency": [
+    {
+      "freq": 1
+    }
+  ],
+  "query_timings": [
+    {
+      "phase": "prepare",
+      "kind": "prepare_COPY",
+      "seconds": 0.019478959031403065,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "prepare",
+      "kind": "prepare_COPY",
+      "seconds": 0.004546833224594593,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "prepare",
+      "kind": "prepare_COPY",
+      "seconds": 0.003109666984528303,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "prepare",
+      "kind": "prepare_COPY",
+      "seconds": 0.002278542146086693,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "prepare",
+      "kind": "prepare_COPY",
+      "seconds": 0.0018218751065433025,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "writer_1",
+      "kind": "source_load",
+      "seconds": 0.002631541807204485,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "writer_1",
+      "kind": "factor_load",
+      "seconds": 0.0002870839089155197,
+      "reader_count": 1,
+      "metadata_only": false
+    },
+    {
+      "phase": "writer_1",
+      "kind": "SQL",
+      "seconds": 0.004106583073735237,
+      "reader_count": 0,
+      "metadata_only": false
+    },
+    {
+      "phase": "writer_1",
+      "kind": "SQL",
+      "seconds": 0.005157459061592817,
+      "reader_count": 0,
+      "metadata_only": false
+    }
+  ],
+  "sha_reads": [],
+  "data_reads": [
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 21651947
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 5395387
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 1172089
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 804706
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 55558
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 915069
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 228958
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 93543
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 52626
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 31132
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 25355
+    },
+    {
+      "phase": "prepare",
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600000.SH/year=2026/part-000.parquet",
+      "method": "copy complete approved annual file",
+      "file_bytes_charged": 18975
+    },
+    {
+      "phase": "writer_1",
+      "path": "/private/tmp/qfq_perf_20261025_a1/lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 7265
+    },
+    {
+      "phase": "writer_1",
+      "path": "/private/tmp/qfq_perf_20261025_a1/lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "method": "SQL read_parquet full-file allowance",
+      "file_bytes_charged": 482
+    }
+  ],
+  "metadata_queries": 0,
+  "peak_temporary_file_bytes": 1406848,
+  "qfq_functions_match_commit": true,
+  "formal_inputs": [
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22360758,
+        915069,
+        1792582847736824814,
+        1792582847740096680
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22371913,
+        228958,
+        1792582938110187791,
+        1792582938111255011
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22355180,
+        93543,
+        1792582789053723377,
+        1792582789055150016
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22366336,
+        52626,
+        1792582905509522967,
+        1792582905510545852
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22377491,
+        31132,
+        1792582968142121903,
+        1792582968143682835
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22383067,
+        25355,
+        1792582989145239959,
+        1792582989146044926
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600000.SH/year=2026/part-000.parquet",
+      "identity": [
+        16777244,
+        22349596,
+        18975,
+        1792582770478660430,
+        1792582770479497022
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22507761,
+        21651947,
+        1792916519496212707,
+        1792916519594110294
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22507783,
+        5395387,
+        1792916525194469379,
+        1792916525270620604
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22507772,
+        1172089,
+        1792916522180882706,
+        1792916522240721181
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22507794,
+        804706,
+        1792916527713009296,
+        1792916527764811668
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "identity": [
+        16777244,
+        22490342,
+        55558,
+        1792769502068020843,
+        1792769502069491375
+      ]
+    }
+  ],
+  "formal_input_bytes": 30445345,
+  "conditional_read_upper_bytes": 43181499,
+  "startup_peak_rss_bytes_macos": 148209664,
+  "effective_duckdb_settings": {
+    "max_temp_directory_size": "0 bytes",
+    "memory_limit": "14.9 GiB",
+    "temp_directory": "/private/tmp/qfq_perf_20261025_a1/duckdb",
+    "threads": "4"
+  },
+  "source_sample_rows": {
+    "1": 241,
+    "5": 49,
+    "30": 9,
+    "60": 5
+  },
+  "factor_sample_rows": 1,
+  "error": "FileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/congming/github/goldenshare/lake_console/orchestrator']",
+  "traceback": "Traceback (most recent call last):\n  File \"/private/tmp/qfq_perf_20261025_a1/runner.py\", line 438, in <module>\n    main()\n    ~~~~^^\n  File \"/private/tmp/qfq_perf_20261025_a1/runner.py\", line 398, in main\n    output = writer(lake_root=lake, duckdb=DuckDBResource(), freq=freq, partition_key=DAY, publication_id='approved-real-sample')\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py\", line 2610, in write_gold_stk_mins_qfq_asset_partition\n    write_results, _ = _write_daily_gold_qfq_partition(\n                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        lake_root=lake_root, source_path=silver_file_path,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        factor_path=trade_adj_factor_file_path, target_freq=normalized_freq,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        partition_key=partition_key, publication_id=publication_id,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py\", line 2568, in _write_daily_gold_qfq_partition\n    with StkMinsQfqPublication(\n         ~~~~~~~~~~~~~~~~~~~~~^\n        lake_root=lake_root, family=\"qfq\", freq=target_freq,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        trade_dates=(partition_key,), publication_id=publication_id,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ) as publication:\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stk_mins_qfq_publication.py\", line 107, in __init__\n    Path(gettempdir()),\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/tempfile.py\", line 315, in gettempdir\n    return _os.fsdecode(_gettempdir())\n                        ~~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/tempfile.py\", line 308, in _gettempdir\n    tempdir = _get_default_tempdir()\n  File \"/Users/congming/miniconda3/lib/python3.13/tempfile.py\", line 223, in _get_default_tempdir\n    raise FileNotFoundError(_errno.ENOENT,\n                            \"No usable temporary directory found in %s\" %\n                            dirlist)\nFileNotFoundError: [Errno 2] No usable temporary directory found in ['/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/', '/tmp', '/var/tmp', '/usr/tmp', '/Users/congming/github/goldenshare/lake_console/orchestrator']\n",
+  "formal_source_stats_unchanged": true,
+  "seconds": 0.8391487090848386,
+  "process_peak_rss_bytes_macos": 169361408,
+  "sql_and_copy_file_bytes_charged_plus_actual_sha_bytes": 30453092,
+  "read_budget_with_4mib_metadata_reserve": 34647396,
+  "parquet_bytes_written": 1380761,
+  "metadata_bytes_written_observed": 39333,
+  "components_bytes": {
+    "U_s": 14621,
+    "A_s": 482,
+    "S_copy": 1365658
+  },
+  "stage_seconds": {
+    "prepare:prepare_COPY": 0.031235876493155956,
+    "writer_1:source_load": 0.002631541807204485,
+    "writer_1:factor_load": 0.0002870839089155197,
+    "writer_1:SQL": 0.009264042135328054,
+    "writer_1:_qfq_coverage_counts": 0.006094499956816435,
+    "writer_1:_canonical_qfq_source_audit": 0.007317124865949154
+  },
+  "read_measurement_note": "Full file size charged per SQL data reader/copy; SHA bytes observed via original read callback. Not physical disk IO; code/interpreter reads excluded.",
+  "temporary_parent_removed": true,
+  "write_bytes_including_observed_metadata": 1420094
+}

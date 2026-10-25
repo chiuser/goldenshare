@@ -1,0 +1,58 @@
+{
+  "as_of": "2026-10-25T22:50:25.680308+08:00",
+  "date": "2026-10-22",
+  "formal_run_started": false,
+  "historical_content_reads": 0,
+  "checks": {
+    "sources": {
+      "paths": 12444,
+      "existing_files": 12444,
+      "stat_bytes": 47307734197,
+      "mismatch_count": 0,
+      "mismatch_samples": []
+    },
+    "factors": {
+      "paths": 3111,
+      "existing_files": 3111,
+      "stat_bytes": 113188579,
+      "mismatch_count": 0,
+      "mismatch_samples": []
+    },
+    "targets": {
+      "paths": 2366,
+      "existing_files": 1932,
+      "stat_bytes": 464280822,
+      "mismatch_count": 0,
+      "mismatch_samples": []
+    }
+  },
+  "space": {
+    "same_device": true,
+    "free_bytes": 2915870990336,
+    "writable": true
+  },
+  "active_runs": [],
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "pool": {
+    "limit": 1,
+    "slots": 1,
+    "active_slots": 0,
+    "pending_steps": 0
+  },
+  "daemon_process": "",
+  "code_sha256": {
+    "src/orchestrator/defs/stk_mins_qfq_factor_repair.py": "e96bd1a9288a228bab37e5951158594aa214f52590076c09aabab3b949f1fd15",
+    "src/orchestrator/defs/ops/stock_mins_qfq_factor_repair.py": "ca9b31a5b23d91698908bf633594085133ff0732600ed65298ff4fe01a8b8bd4",
+    "tests/test_stk_mins_qfq_factor_repair_read_reuse.py": "afdd09a6eb97cfc50c91de34061c5151f1bd2e18fbd6ebba0a4dcebe181b9377"
+  },
+  "safe_to_launch": true
+}
