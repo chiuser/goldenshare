@@ -168,10 +168,10 @@ class _Statistics:
     """Running extrema. Copying a snapshot never aliases its date lists."""
     def __init__(self):
         self.values = {}
-        self.close_values = set()
+        self.close_dates: dict[Decimal, list[str]] = {}
 
     def add(self, point):
-        self.close_values.add(point.close)
+        self.close_dates.setdefault(point.close, []).append(point.date)
         for key, value, maximum in (
             ("maxClose", point.close, True), ("minClose", point.close, False),
             ("maxDif", point.dif, True), ("minDif", point.dif, False),
@@ -188,7 +188,7 @@ class _Statistics:
     def copy(self):
         result = _Statistics()
         result.values = {key: [value, dates.copy()] for key, (value, dates) in self.values.items()}
-        result.close_values = self.close_values.copy()
+        result.close_dates = {value: dates.copy() for value, dates in self.close_dates.items()}
         return result
 
     def freeze(self):
@@ -450,11 +450,12 @@ class _Candidate:
             tail_extrema = self.tail.freeze()
             tail_price = tail_extrema.minClose if self.direction == "UP" else tail_extrema.maxClose
             broke = tail_price.value < self.start.close if self.direction == "UP" else tail_price.value > self.start.close
-            touched = self.start.close in self.tail.close_values
+            touch_dates = self.tail.close_dates.get(self.start.close, ())
+            touched = bool(touch_dates)
             if broke:
                 issues.append(Issue("终点后价格严格突破起始收盘", tail_price.dates))
             if touched:
-                issues.append(Issue("终点后价格接触起始收盘", tail_price.dates))
+                issues.append(Issue("终点后价格接触起始收盘", tuple(touch_dates)))
             relation = _internal_relations(
                 turns, ("MIN" if self.direction == "UP" else "MAX", self.start),
                 ("MAX" if self.direction == "UP" else "MIN", end), window)

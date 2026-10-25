@@ -1,5 +1,6 @@
 """Isolated resource tests: no database or network; literal event expectations."""
 import asyncio
+import time
 from dataclasses import replace
 
 import pytest
@@ -15,12 +16,24 @@ from src.biz.queries.wealth.market.index_detail_daily_wave.query import DailyWav
 
 
 def environment(monkeypatch, *, connect_delay=0, sql_delay=0, rollback_delay=0,
-                initialize_delay=0, late=False, business_only=False, connect_steps=1):
+                initialize_delay=0, late=False, business_only=False, connect_steps=1,
+                cleanup_errors=None, local_yield=False, on_rollback=None,
+                initialize_error=None):
     events = []
+    cleanup_errors = cleanup_errors or {}
+
+    async def local_close(name):
+        # Mirrors verified local teardown, never models extra network waiting.
+        events.append(name)
+        if name in cleanup_errors:
+            raise cleanup_errors[name]
+        if local_yield:
+            await asyncio.sleep(0)
+        events.append(name + ".done")
 
     class Raw:
         async def close(self):
-            events.append("raw.close")
+            await local_close("raw.close")
 
     async def connect(*args, **kwargs):
         events.append(("connect", kwargs))
@@ -38,6 +51,8 @@ def environment(monkeypatch, *, connect_delay=0, sql_delay=0, rollback_delay=0,
 
         async def rollback(self):
             events.append("rollback")
+            if on_rollback is not None:
+                on_rollback()
             await asyncio.sleep(rollback_delay)
             self.is_active = False
 
@@ -50,8 +65,8 @@ def environment(monkeypatch, *, connect_delay=0, sql_delay=0, rollback_delay=0,
             events.append("begin")
             return Transaction()
 
-        async def invalidate(self): events.append("invalidate")
-        async def close(self): events.append("connection.close")
+        async def invalidate(self): await local_close("invalidate")
+        async def close(self): await local_close("connection.close")
 
     class Dialect:
         def create_connect_args(self, url):
@@ -63,9 +78,11 @@ def environment(monkeypatch, *, connect_delay=0, sql_delay=0, rollback_delay=0,
         async def connect(self):
             await self.creator()
             await asyncio.sleep(initialize_delay)
+            if initialize_error is not None:
+                raise initialize_error
             return Connection()
 
-        async def dispose(self): events.append("dispose")
+        async def dispose(self): await local_close("dispose")
 
     def engine(url, **kwargs):
         events.append(("engine", kwargs))
@@ -89,7 +106,7 @@ def environment(monkeypatch, *, connect_delay=0, sql_delay=0, rollback_delay=0,
                 raise
             return Result()
 
-        async def close(self): events.append("session.close")
+        async def close(self): await local_close("session.close")
 
     monkeypatch.setattr(module.psycopg.AsyncConnection, "connect", connect)
     monkeypatch.setattr(module, "create_async_engine", engine)
@@ -228,3 +245,187 @@ def test_configuration_error_is_explicit_without_connecting_or_echoing_url(monke
         assert url not in str(caught.value)
     asyncio.run(run())
     assert not any(isinstance(e,tuple) and e[0]=="connect" for e in events)
+
+
+LOCAL_STEPS = ("raw.close", "invalidate", "session.close", "connection.close", "dispose")
+
+
+def assert_local_closes(events, failed=None):
+    for name in LOCAL_STEPS:
+        assert name in events, (name, events)
+        if name != failed:
+            assert name + ".done" in events, (name, events)
+    assert events.index("raw.close") < events.index("invalidate") < events.index("session.close") < events.index("connection.close") < events.index("dispose")
+
+
+def assert_no_pending_tasks():
+    assert not [task for task in asyncio.all_tasks()
+                if task is not asyncio.current_task() and not task.done()]
+
+
+def test_rollback_timeout_still_finishes_local_teardown_after_original_deadline(monkeypatch):
+    events = environment(monkeypatch, rollback_delay=.4, local_yield=True)
+    async def run():
+        b = budget(); deadline = b.deadline
+        instance = owner(b); started = time.monotonic()
+        with pytest.raises(DailyWaveBudgetExceeded):
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+        assert_local_closes(events)
+        assert instance.closed and instance.budget.deadline == deadline
+        assert events.count("rollback") == 1
+        assert_no_pending_tasks()
+        assert time.monotonic() - started < .45
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("kind", ["known", "task"])
+def test_cancellation_during_rollback_preserves_cancel_and_closes_each_resource(monkeypatch, kind):
+    stop = False
+    def cancel_known():
+        nonlocal stop
+        if kind == "known": stop = True
+    events = environment(monkeypatch, rollback_delay=.4, local_yield=True, on_rollback=cancel_known)
+    async def run():
+        b = budget(); b.check_cancelled = lambda: stop
+        instance = owner(b)
+        async def request():
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+        if kind == "known":
+            with pytest.raises(DailyWaveCancelled): await request()
+        else:
+            task = asyncio.create_task(request())
+            while "rollback" not in events: await asyncio.sleep(0)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError): await task
+        assert_local_closes(events)
+        assert instance.closed and events.count("rollback") == 1
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("stage", LOCAL_STEPS)
+@pytest.mark.parametrize("body_error", [False, True])
+def test_each_cleanup_failure_keeps_original_error_and_still_tries_other_resources(monkeypatch, stage, body_error):
+    cleanup_error = RuntimeError("independent cleanup failure")
+    original = DailyWaveSourceError("independent source failure") if body_error else None
+    events = environment(monkeypatch, cleanup_errors={stage: cleanup_error}, local_yield=True)
+    async def run():
+        instance = owner(budget())
+        with pytest.raises(type(original or cleanup_error)) as caught:
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+                if original is not None: raise original
+        assert caught.value is (original or cleanup_error)
+        assert_local_closes(events, failed=stage)
+        if original is not None:
+            assert any(stage in note for note in original.__notes__)
+        assert events.count("rollback") == (0 if body_error else 1)
+        assert instance.closed
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_read_error_is_not_hidden_when_raw_close_itself_fails(monkeypatch):
+    original = DailyWaveSourceError("original SELECT failure")
+    events = environment(monkeypatch, cleanup_errors={"raw.close": RuntimeError("close failed")})
+    async def execute(*args, **kwargs): raise original
+    monkeypatch.setattr(module.DailyWaveReadSession, "_execute", execute)
+    async def run():
+        with pytest.raises(DailyWaveSourceError) as caught:
+            async with owner(budget()) as session:
+                await session.execute_read(select(literal(1)))
+        assert caught.value is original and original.__notes__
+        assert_local_closes(events, failed="raw.close")
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_sql_timeout_with_raw_close_failure_still_cancels_running_sql(monkeypatch):
+    events = environment(monkeypatch, sql_delay=.4,
+        cleanup_errors={"raw.close": RuntimeError("raw close failed")})
+    async def run():
+        instance = owner(budget())
+        with pytest.raises(DailyWaveBudgetExceeded) as caught:
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+        assert caught.value.__notes__
+        assert events.index("raw.close") < events.index("sql.cancelled")
+        assert "rollback" not in events
+        assert_local_closes(events, failed="raw.close")
+        assert instance.closed and not instance._raw_closed
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_multiple_cleanup_errors_keep_first_and_notes_do_not_copy_secrets(monkeypatch):
+    first = RuntimeError("secret first cleanup detail")
+    events = environment(monkeypatch, cleanup_errors={
+        "invalidate": first,
+        "session.close": ValueError("secret second cleanup detail"),
+        "dispose": LookupError("secret final cleanup detail"),
+    })
+    async def run():
+        instance = owner(budget())
+        with pytest.raises(RuntimeError) as caught:
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+        assert caught.value is first
+        assert any("session.close: ValueError" in note for note in first.__notes__)
+        assert any("dispose: LookupError" in note for note in first.__notes__)
+        assert not any("secret" in note for note in first.__notes__)
+        assert all(stage in events for stage in LOCAL_STEPS)
+        assert "connection.close.done" in events
+        assert events.count("rollback") == 1 and instance.closed
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_cleanup_error_does_not_replace_original_cancelled_error_object(monkeypatch):
+    original = asyncio.CancelledError("original cancellation")
+    events = environment(monkeypatch,
+        cleanup_errors={"session.close": RuntimeError("close failed")})
+    async def run():
+        instance = owner(budget())
+        with pytest.raises(asyncio.CancelledError) as caught:
+            async with instance as session:
+                await session.execute_read(select(literal(1)))
+                raise original
+        assert caught.value is original
+        assert any("session.close: RuntimeError" in note for note in original.__notes__)
+        assert "rollback" not in events
+        assert_local_closes(events, failed="session.close")
+        assert instance.closed
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_initialization_error_not_hidden_by_engine_disposal_failure(monkeypatch):
+    original = DailyWaveSourceError("original initialization failure")
+    events = environment(monkeypatch, initialize_error=original,
+        cleanup_errors={"dispose": RuntimeError("dispose failed")})
+    async def run():
+        instance = owner(budget())
+        with pytest.raises(DailyWaveSourceError) as caught:
+            async with instance: pytest.fail("initialization should fail")
+        assert caught.value is original and any("dispose" in note for note in original.__notes__)
+        assert "raw.close.done" in events and "dispose" in events
+        assert "session.close" not in events and "connection.close" not in events
+        assert instance.closed
+        assert_no_pending_tasks()
+    asyncio.run(run())
+
+
+def test_normal_teardown_and_repeated_exit_do_not_repeat_rollback_or_closes(monkeypatch):
+    events = environment(monkeypatch, local_yield=True)
+    async def run():
+        instance = owner(budget())
+        async with instance as session:
+            await session.execute_read(select(literal(1)))
+        assert_local_closes(events)
+        before = events.copy()
+        assert await instance.__aexit__(None, None, None) is False
+        assert events == before and events.count("rollback") == 1
+        assert_no_pending_tasks()
+    asyncio.run(run())

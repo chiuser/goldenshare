@@ -260,3 +260,87 @@ def test_1300_points_are_bounded_without_repeated_scanning_or_truncated_success(
         assert len(result.sourcePoints)==800 and len(result.asofChanges)==800
         assert result.coverage.mainPointCount==800
     assert count==2600
+
+
+def touch_example(tail, direction="UP"):
+    """Package literal price paths; expected touch dates below are independent."""
+    dates=("2023-10-24","2023-10-25","2023-10-26","2023-10-27",
+           "2023-10-30","2023-10-31","2023-11-01","2023-11-02")
+    rows=rising()[:2]+[row(day,price,5,4,2)
+        for day,price in zip(dates,(110,120,*tail))]
+    if direction=="DOWN":
+        rows=[dict(item,close=str(Decimal(300)-Decimal(item["close"])),
+            dif=str(-Decimal(item["dif"])),dea=str(-Decimal(item["dea"])),
+            macd=str(-Decimal(item["macd"]))) for item in rows]
+    return rows
+
+
+def touch_issues(segment):
+    return tuple(issue for issue in segment.issues if issue.message=="终点后价格接触起始收盘")
+
+
+@pytest.mark.parametrize("direction",["UP","DOWN"])
+@pytest.mark.parametrize("tail,touch_dates,break_dates",[
+    ((110,105),(),()),
+    ((100,110),("2023-10-26",),()),
+    ((90,95),(),("2023-10-26",)),
+    ((100,90),("2023-10-26",),("2023-10-27",)),
+    ((100,110,100,90),("2023-10-26","2023-10-30"),("2023-10-31",)),
+])
+def test_touch_issue_dates_are_actual_equal_prices_in_both_directions(direction,tail,touch_dates,break_dates):
+    segment=review(touch_example(tail,direction)).priceSegments[0]
+    assert segment.direction==direction
+    assert (segment.start.close,segment.end.close)==((Decimal(100),Decimal(120))
+        if direction=="UP" else (Decimal(200),Decimal(180)))
+    assert (segment.start.date,segment.end.date)==("2023-10-23","2023-10-25")
+    assert segment.tailReview.touchedStart is bool(touch_dates)
+    assert segment.tailReview.strictlyBrokeStart is bool(break_dates)
+    assert tuple(issue.dates for issue in touch_issues(segment))==((touch_dates,) if touch_dates else ())
+    breaks=tuple(issue.dates for issue in segment.issues if issue.message=="终点后价格严格突破起始收盘")
+    assert breaks==((break_dates,) if break_dates else ())
+
+
+@pytest.mark.parametrize("direction",["UP","DOWN"])
+def test_strict_new_endpoint_discards_only_old_tail_touch_dates(direction):
+    rows=touch_example((100,130,100,90),direction)
+    before=review(rows[:5]);saved=before.to_dict()
+    reset=review(rows[:6]).priceSegments[0]
+    final=review(rows).priceSegments[0]
+    assert touch_issues(before.priceSegments[0])[0].dates==("2023-10-26",)
+    assert reset.end.date=="2023-10-27"
+    assert reset.tailReview.range==DateRange("2023-10-27","2023-10-27")
+    assert reset.tailReview.touchedStart is False and touch_issues(reset)==()
+    assert touch_issues(final)[0].dates==("2023-10-30",)
+    assert final.end.close==(Decimal(130) if direction=="UP" else Decimal(170))
+    assert final.tailReview.strictlyBrokeStart is True
+    assert before.to_dict()==saved
+
+
+@pytest.mark.parametrize("direction",["UP","DOWN"])
+def test_equal_endpoint_keeps_earliest_date_and_all_tail_touch_dates(direction):
+    rows=touch_example((100,120,100,90),direction)
+    previous=review(rows[:5]);saved=previous.to_dict()
+    final=review(rows).priceSegments[0]
+    assert final.end.date=="2023-10-25"
+    assert final.end.tiedDates==("2023-10-25","2023-10-27")
+    assert final.tailReview.range==DateRange("2023-10-25","2023-10-31")
+    assert touch_issues(final)[0].dates==("2023-10-26","2023-10-30")
+    assert final.tailReview.strictlyBrokeStart is True
+    assert previous.to_dict()==saved
+
+
+def test_statistics_copy_does_not_share_close_date_or_extreme_lists():
+    def point(day):
+        return c.DailyPoint(day,Decimal(100),Decimal(5),Decimal(4),Decimal(2))
+    original=c._Statistics()
+    original.add(point("2023-10-24"))
+    copied=original.copy()
+    old=original.freeze()
+    original.add(point("2023-10-25"))
+    assert copied.close_dates=={Decimal(100):["2023-10-24"]}
+    copied.add(point("2023-10-26"))
+    assert original.close_dates=={Decimal(100):["2023-10-24","2023-10-25"]}
+    assert copied.close_dates=={Decimal(100):["2023-10-24","2023-10-26"]}
+    assert original.freeze().maxClose.dates==("2023-10-24","2023-10-25")
+    assert copied.freeze().maxClose.dates==("2023-10-24","2023-10-26")
+    assert old.maxClose.dates==("2023-10-24",)

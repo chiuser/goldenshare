@@ -28,6 +28,7 @@ class DailyWaveReadSession:
         self.database_url = database_url
         self.engine = self.connection = self.session = self.transaction = self.raw = None
         self.aborting = self.closed = False
+        self._raw_closed = False
         self._task = None
 
     async def _creator(self):
@@ -61,12 +62,33 @@ class DailyWaveReadSession:
         except BaseException:
             pass  # The original operation error remains the caller's error.
 
-    async def _abort(self, task=None):
-        self.aborting = True
-        if self.raw is not None:
+    @staticmethod
+    def _note(error, stage, cleanup_error):
+        # Do not copy connection details or SQL parameters from exception messages.
+        error.add_note(f"日线资源收尾 {stage}: {type(cleanup_error).__name__}")
+
+    async def _close_raw(self):
+        if self.raw is not None and not self._raw_closed:
             # Direct unpooled psycopg close calls pgconn.finish, not network rollback.
             await self.raw.close()
-        await self._drain(task)
+            self._raw_closed = True
+
+    async def _abort(self, task=None):
+        self.aborting = True
+        first_error = None
+        try:
+            await self._close_raw()
+        except BaseException as error:
+            first_error = error
+        try:
+            await self._drain(task)
+        except BaseException as error:
+            if first_error is None:
+                first_error = error
+            else:
+                self._note(first_error, "task.cancel", error)
+        if first_error is not None:
+            raise first_error
 
     async def await_read_io(self, awaitable, operation_deadline):
         task = asyncio.ensure_future(awaitable)
@@ -82,11 +104,15 @@ class DailyWaveReadSession:
                     result = task.result()
                     self.budget.check()
                     return result
-        except BaseException:
-            await self._abort(task)
+        except BaseException as error:
+            try:
+                await self._abort(task)
+            except BaseException as cleanup_error:
+                self._note(error, "raw.close/task.cancel", cleanup_error)
             raise
         finally:
-            self._task = None
+            if task.done():
+                self._task = None
 
     def _sql_deadline(self):
         return min(self.budget.read_deadline,
@@ -147,36 +173,42 @@ class DailyWaveReadSession:
                 raise DailyWaveBudgetExceeded("数据库查询或锁等待超过时限") from exc
             raise
 
-    async def _release(self, awaitable):
-        task = asyncio.ensure_future(awaitable)
-        done, _ = await asyncio.wait({task}, timeout=max(0, self.budget.deadline - time.monotonic()))
-        if not done:
-            await self._abort(task)
-            raise DailyWaveBudgetExceeded("资源清理超过总时限")
-        return task.result()
-
     async def __aexit__(self, exc_type, exc, traceback):
         if self.closed:
             return False
-        try:
-            if exc_type is not None or self.aborting:
-                await self._abort(self._task)
-            elif self.transaction is not None and self.transaction.is_active:
-                await self.await_read_io(self.transaction.rollback(), self.budget.deadline)
-            if self.aborting and self.connection is not None:
-                await self._release(self.connection.invalidate())
-            if self.session is not None:
-                await self._release(self.session.close())
-            if self.connection is not None:
-                await self._release(self.connection.close())
-        finally:
+        first_error = exc
+
+        async def attempt(stage, operation):
+            nonlocal first_error
             try:
-                if self.raw is not None:
-                    await self.raw.close()
-                if self.engine is not None:
-                    await self._release(self.engine.dispose())
-            finally:
-                self.closed = True
+                await operation()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+                else:
+                    self._note(first_error, stage, error)
+
+        try:
+            if exc is None and not self.aborting and self.transaction is not None and self.transaction.is_active:
+                await attempt("rollback", lambda: self.await_read_io(
+                    self.transaction.rollback(), self.budget.deadline))
+
+            # The owner cannot accept late connections or further SQL while closing.
+            self.aborting = True
+            await attempt("raw.close", self._close_raw)
+            await attempt("task.cancel", lambda: self._drain(self._task))
+            if self.connection is not None:
+                await attempt("invalidate", self.connection.invalidate)
+            if self.session is not None:
+                await attempt("session.close", self.session.close)
+            if self.connection is not None:
+                await attempt("connection.close", self.connection.close)
+            if self.engine is not None:
+                await attempt("dispose", self.engine.dispose)
+        finally:
+            self.closed = True
+        if exc is None and first_error is not None:
+            raise first_error
         return False
 
 
