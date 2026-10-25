@@ -1,6 +1,6 @@
 # 徐小明定量结构下一阶段实施LLD v0.6
 
-更新日期：2026-10-25。当前获准实施第一阶段第一批：输入/基础记录、扫描器原样迁移及隔离测试，编码约定见§14.3.1；不读取真实行情，不实施价格候选、API或页面。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
+更新日期：2026-10-25。第一阶段第一批已完成并本地提交f30221f4b，见§14.3.2；本轮仅将第二批四项交接细化到§14.9，不编码、读取行情或运行试验。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
 
 <a id="xxm-daily-method-design"></a>
 
@@ -54,10 +54,10 @@
 |---|---|---|
 | 1. 输入与结果合同 | §14.2/14.6.1；来源、请求/实际日期、有限前段与内存对象 | 字段和边界固定，不要求补齐21日/23日尾部 |
 | 2. 基础实现 | §14.3迁扫描器/统一调用方；Biz纯函数及独立例 | 原值峰谷/平台/零柱/确认时间通过，无双份实现或Biz→scripts依赖 |
-| 3. 试验第一步 | query有界只读，取得本次内存输入/日历并调用基础函数 | 范围/日历/数值核验，主≤800、前段≤500、合计≤1300，不重算MACD |
-| 4. 试验第二步 | 候选/映射/内部关系/尾部/短反色，均在内存 | 独立例及引用/极值检查通过，无人工认可/文件完成件前置 |
+| 3. 试验第一步 | §14.9先落实App专用异步只读连接/共同截止，再有界读取、源转换和日历检查 | 主≤800、前段≤500、总≤1300，不重算MACD；连接保护不等第三批 |
+| 4. 试验第二步 | §14.9同次逐日更新基础/候选/映射/尾部/短反色，最后一次组装 | 独立例、2N扫描、引用/极值及上限预算，无人工认可/文件完成件前置 |
 | 5. 行情与几何 | §15.4.1集中1000，普通/研究日期隔离；§15.5占位和留白 | 股票/分钟不扩大，与三角同一轮交付 |
-| 6. 内存API | §15.2/15.3；只读会话注入→query→同一纯函数→schema | 实际来源小链路及正反合同验证；无文件reader/注册配置/后台任务 |
+| 6. 内存API | §15.2/15.3新异步GET接第二批已有只读工厂/query服务，注入现auth/error→schema | 实际来源小链路及正反合同验证；无第二套取数、文件reader/注册配置/后台任务 |
 | 7. 前端 | 依赖第5/6项；同次数据核对→三角/悬停/底栏说明 | 无候选/起点未知也有入口；取消和迟到响应隔离 |
 | 8. 真实验收 | §15.6真实路由/浏览器 | 1000、实际范围、右栏、详情及保护预算有证据，不声称还原算法 |
 | 9. 人工纠偏 | 本次calculationId和波段id关联；意见在对话中核清 | 接受规则修改先改两文档，再全量重算；无自动纠偏文件 |
@@ -69,7 +69,7 @@
 
 ## 1. 本步目标、依据和当前代码
 
-当前工作为§14.3.1第一阶段第一批。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。API、页面、价格候选及真实数据读取不在本批。
+第一批代码事实见§14.3.2，当前只完善第二批设计§14.9。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。本轮不开发API、页面、价格候选或真实读取代码。
 
 2026-10-22使用CodeGraph查符号与影响位置；其探索多次返回了研究子类而未展示产品计算器主体，因此对未覆盖的具体文件补做直接静态阅读。工具未找到测试关系不能解释为仓库没有测试。本次核对的是以下源码，不是运行或端到端验收：
 
@@ -764,7 +764,7 @@ calculator.py先校完整输入，再分别调用唯一scanner记录CLOSE/DIF及
 
 人工1300根上限输入（500前段+800主范围、颜色逐日交替）计算约0.1355秒，1300色段、2164已确认局部转折，进程峰值约25.45MiB；这是合成压力例，不声称其自然日就是SSE开市日，不替代真实源/完整业务查询/HTTP预算。预算失败、中途取消和正常边界均有反例/正例。计算结果未落盘。
 
-已停在本批：真实读取、日历完整性、实际日期范围、价格候选/映射/逐日变化、API和页面仍未实现或验收。第二批需先落实只读会话及查询时限再读取，接本基础对象，不另造scanner、不重算MACD；其授权和验收按统一顺序办理。
+第一批随后按管理员要求本地提交f30221f4b，未推送部署。真实读取、日历完整性、实际日期范围、价格候选/映射/逐日变化、API和页面仍未实现或验收。第二批按§14.9先落实只读会话及查询时限再读取，接同一基础计算实现，不另造scanner、不重算MACD；其授权和验收按统一顺序办理。
 
 ### 14.4 基础记录、颜色及时间顺序
 
@@ -892,11 +892,166 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 
 每次调用从本次只读输入开始，基础→候选→全部检查→结果，成功才一次返回。处理中保留的输入、数组和逐日变化全在本次内存，函数不写任何结果文件或持久化缓存。纯函数相同输入/规则得到相同计算值，calculationId/calculatedAt等请求身份可不同。
 
-每个查询前后、每个处理日及DTO装配前检查本次截止时间，以及框架已收到的取消信号；错误、已知取消或超限不返回半份ready。同步GET不承诺即时感知浏览器断连：前端先取消并忽略迟到响应，本模块业务处理至迟按本次8秒截止停止；已发出的SQL受剩余查询时限约束。不创建后台作业，没有检查点或resume；下一次从头读取/计算，进程重启也无结果可恢复。
+每个查询前后、每个处理日及DTO装配前检查本次截止时间，以及框架已收到的取消信号；错误、已知取消或超限不返回半份ready。新接口不承诺即时感知浏览器断连；前端先取消并忽略迟到响应。后端按§14.9的可中断连接/查询和共同截止处理，不靠同步线程中的前后检查冒充正在等待的SQL已停止；已发出的SQL受剩余查询时限约束。不创建后台作业，没有检查点或resume；下一次从头读取/计算，进程重启也无结果可恢复。
 
 新接口不再沿用原离线60秒计算或文件reader2秒预算：8秒从现有认证完成、进入本模块query_service业务查询时开始，覆盖本模块连接、所有有界读取、计算、DTO及失败清理；不把此前全站登录查询承诺为本模块可强制限制。前端整个计算+K线核对链仍为10秒；输入≤1MiB、≤1300根、内存≤256MiB、响应≤2MiB，不删峰/截字段凑预算。App为本模块注入同一Settings.database_url对应的专用只读会话工厂：无连接池等待，连接上限2秒，单SQL最多3秒且不超过总剩余时间，锁等待≤1秒；这些值只由DailyWaveReviewSpec提供，无新env/Settings键。当前全站get_engine未配置连接上限，不能直接假定能强制8秒；故不改全站engine，仅本模块由App新增有界只读工厂，Biz只接收session。主窗口、前段、日历在同一个≤8秒的只读REPEATABLE READ事务内读取，避免一次计算混入源刷新前后两套值；请求结束关闭会话/连接，无业务写入，不改全站隔离级别。
 
 预算包含失败清理和最终核验，是保护设计、尚未实测；不恢复暂停的预测200ms课题。若真实最小链路不能在此预算完成，报告具体耗时后先修本步设计，不擅加限、落盘或后台续算。本轮无执行结果。
+
+<a id="xxm-daily-batch-two-lld"></a>
+
+### 14.9 第一阶段第二批：代码级交接约定（待开发）
+
+本节落实方案§0.7四项要求，细化§14.2/14.5/14.6.1，不替换已确认取价规则。第一批已提供纯计算，第二批增加同源有界读取、完整候选及逐日变化；第三批才接API，第四批才交付页面。本轮仅文档，没有执行以下代码、查询或测试。
+
+#### 14.9.1 实现位置、入口及执行顺序
+
+| 位置/拟入口 | 输入、输出及唯一职责 |
+|---|---|
+| 本纯计算目录`budget.py:DailyWaveBudget` | 随Spec创建本次绝对单调截止，提供check/remaining_ms/read_deadline；App、query、calculator共用。把现_Guard的检查整理到这里，原公开函数签名及异常语义不变，不各建新8秒 |
+| `src/app/dependencies/daily_wave.py:DailyWaveReadSession` | 只负责本模块异步连接、同一只读事务、execute_read、取消及关闭。App可依赖Biz的Spec/budget，Biz不得反向导入它；Biz通过Protocol接收只读执行能力 |
+| queries目录`query.py:DailyWaveQuery` | async load_main_window/load_context_window/load_calendar，分别固定六列行情和三列日历SQL；不做源修复、全历史读取或波段计算 |
+| 同目录`query_service.py:normalize_source_row/validate_calendar/needs_more_context` | 唯一源转换、完整交易日验证、有限前段判断；不调用展示mapper，不重算MACD，不访问旧CSV/Lake |
+| `query_service.py:DailyWaveQueryService.build` | async；接本模块只读会话创建函数，创建一次budget/计算编号/计算时间，确定最终窗口并校验→关闭读事务→一次build_review→校内存合同→返回。无路由、缓存或文件 |
+| `calculator.py:_BasicRecordState/_PriceCandidateState` | 共享逐日状态，规则分别为§14.4和14.5；只依赖标准库及本目录，不持有session或读取源 |
+| `build_review` | rows及calendar、实际观察范围、as_of、calculation_id/calculated_at、spec/共同deadline/取消检查→完整内存ReviewResult；同次最后只组装一份BasicRecords |
+| `review_prefix` | 同一入口只接截至as_of的输入和相应观察范围/日历；拒绝较晚行情，不从最终峰表反推历史 |
+| `build_price_candidates` | 读取已知BasicRecords及日历，使用同一_PriceCandidateState，只产basic.asOf的最终候选/映射等数组，不产asofChanges；最终BasicRecords没有已撤下的历史pending，不能据此重建逐日变化。不得再次调用scanner，正式query不先单独调用它再调用build_review |
+
+Query只依赖模型、SQLAlchemy和本Biz域，App负责连接装配。现TradingAssistantExecutionResource/Transactions带专属线程、写事务和恢复，不能直接复用；现get_engine没有本模块所需等待上限，不能修改全站engine或另造通用事务平台。新只读工厂第二批即实现，第三批复用，不推后也不重复开发。
+
+入口签名固定如下（只读Protocol在Biz query目录，App实现它，不向Biz传App类型）：
+
+```text
+DailyWaveReadSessionProtocol.execute_read(statement: Select, parameters=None)  # async，返回已取完的tuple[Mapping]
+session_factory(*, budget) -> AsyncContextManager[DailyWaveReadSessionProtocol]
+DailyWaveQueryService(session_factory, query=None, clock=None, new_id=None)
+DailyWaveQueryService.build(*, spec=DEFAULT_SPEC, check_cancelled=None) -> ReviewResult  # async
+load_main_window(session, *, start_date: date, end_date: date, spec) -> tuple[Mapping]  # async
+load_context_window(session, *, before_date: date, spec) -> tuple[Mapping]              # async
+load_calendar(session, *, context_start: date, observation_end: date, spec) -> tuple[Mapping]  # async
+normalize_source_row(row, *, calculated_at: datetime, spec) -> dict  # 严格七字段
+validate_calendar(rows, *, context_range: DateRange, market_dates) -> tuple[CalendarDay]
+needs_more_context(normalized_rows, *, observation_range: DateRange) -> bool
+build_review(rows, *, observation_range, calendar, as_of, calculation_id, calculated_at,
+             spec=DEFAULT_SPEC, deadline=None, check_cancelled=None) -> ReviewResult
+review_prefix(rows, *, as_of, observation_range, calendar, calculation_id, calculated_at,
+              spec=DEFAULT_SPEC, deadline=None, check_cancelled=None) -> ReviewResult
+build_price_candidates(basic, *, observation_range, calendar, spec=DEFAULT_SPEC,
+                       deadline=None, check_cancelled=None) -> CandidateRecords
+```
+
+候选入口的CandidateRecords只含priceSegments/mappings/shortOppositeSegments，正式build_review使用同一_PriceCandidateState获得它，再补逐日变化及完整头部。clock默认只捕获一次当前上海时间、new_id默认一次UUID，测试可注入固定值；query默认本模块DailyWaveQuery。所有查询通过注入session内部同一budget执行，查询方法不得另传新时限。observation_range在非空结果时必须等于主范围源行实际首末；无主范围行时为null并返回empty。as_of为日线截止日期，rows/观察范围不能越过它；calculated_at是有时区的计算时间，不能早于输入末根完成时点。
+
+完整调用顺序固定：创建budget及身份→打开专用只读会话→主窗口→前段250/必要时再250→日历→源/日历/范围全部校验→关闭只读会话→build_review一次→最终引用/数量/字节检查→返回。没有行时按§15.3构造内部empty结果，不查前段或跑候选；外部HTTP仍待第三批。相同输入/规则计算值一致，calculationId/calculatedAt只由服务创建并传入纯函数。
+
+配置审计：沿用现Settings.database_url（现有DATABASE_URL及既有Settings读取规则），只供本模块工厂读取，不新增持久化位置或env键。所有限制读取DEFAULT_SPEC；本批仅新增`cleanup_seconds=0.5`，由App清理及budget测试消费，随代码发布、不可由请求调节，其余值见§14.3.1/14.8。配置异常返回明确错误，不打印连接URL或凭据。现有API、认证、全站连接和已定标记规则不改。
+
+#### 14.9.2 专用只读连接、SQL限时与取消
+
+当前核验环境为SQLAlchemy2.0.50、psycopg3.3.4、greenlet3.5.1，无需安装。新工厂使用本模块`create_async_engine`、`NullPool`和`AsyncSession`，每次build仅一个连接，不建线程池、后台作业或另一个事件循环，不调用asyncio.run。新GET未来用async def await该服务；URL/参数/响应和既有登录流程不变。采用异步是为了限制实际连接/网络等待，不把同步execute前后检查冒充等待中的取消。
+
+工厂参数固定：同一postgresql+psycopg URL、echo=False、hide_parameters=True、NullPool、无pre_ping，连接结束不留池。使用async_creator时，必须通过该dialect.create_connect_args解析URL，把主机/端口/数据库/用户及其他连接参数显式传psycopg.AsyncConnection.connect；async_creator不会自动使用URL参数，不能漏掉数据库或密码。创建者持有本请求raw psycopg连接句柄，供超时关闭。该模块不支持悄悄改成别的driver或指向别库，URL不符报配置错误。
+
+连接启动参数在本模块设置connect_timeout=2，options保留原连接所需设置并在末尾追加default_transaction_read_only=on、statement_timeout=3000、lock_timeout=1000；这些只作用本连接。async_creator取得raw句柄后先登记到本请求所有者，再返回给SQLAlchemy，不能等engine.connect成功后才登记，否则首次方言初始化查询卡住时无法关闭。客户端连接获取整体还要限2秒，涵盖DNS、多地址尝试和SQLAlchemy握手，不能把libpq单地址超时当整个连接上限。连接建立后、begin及第一个set_config SELECT之前设置connection.execution_options(isolation_level="REPEATABLE READ", postgresql_readonly=True)，开始唯一事务；AsyncSession绑定此connection，autoflush=False、expire_on_commit=False、join_transaction_mode="rollback_only"，不commit或另开事务。全部主/前段/日历读取共用这个事务中的数据，读完即关闭，不为纯计算继续占连接。
+
+8秒计时从DailyWaveQueryService.build开始，使用time.monotonic；read_deadline=deadline−0.5秒，保留本次8秒内的清理时间，不是额外加0.5秒。连接获取的客户端截止为`min(read_deadline, time.monotonic()+2)`；连接建立后的每次set_config和每次业务SELECT分别经await_read_io，操作截止各为`min(read_deadline, time.monotonic()+3)`，SELECT取完结果也包含在该次操作内。不能把连接2秒限制套在连接建立后的SQL上。
+
+每次SQL前计算remaining_ms=floor((read_deadline−now)×1000)，不足2毫秒直接超限；stmt_ms=min(3000,remaining_ms)，lock_ms=min(1000,stmt_ms−1)，禁止传0（0会关闭数据库超时）。App执行事务内参数化`SELECT set_config('statement_timeout', :stmt_ms_text, true), set_config('lock_timeout', :lock_ms_text, true)`，随后执行业务SELECT；设置SQL和业务SQL均受上述客户端操作截止及read_deadline保护。单操作限时与全局剩余时间取较小值，不在分页或补前段时重启总计时。
+
+App的`await_read_io(awaitable, operation_deadline)`每请求只允许一个in-flight操作：创建请求所有的asyncio Task，用asyncio.wait限制等待；完成即取结果。传timeout时用operation_deadline−time.monotonic()的剩余秒数，不将一种时钟的绝对值直接当作另一时钟的截止值。超时或已知取消时，请求所有者先置aborting状态，**先关闭该请求直接创建、无psycopg_pool的raw连接，再取消操作任务并在剩余清理时间内等其终止**，随后invalidate SQLAlchemy连接，释放session/事务/engine；不得取消后再无上限等driver。因为本机psycopg的ACTIVE操作取消可额外等待最多5秒，不能只用裸wait_for来声称8秒内清理完毕。连接尚未取得raw句柄时，也先置aborting再取消连接任务，不启动下一次尝试；async_creator取得raw后，在无await的登记点检查aborting/closed，已终止则立即raw.close并抛取消，绝不交给SQLAlchemy继续初始化或查询。正常登记与状态检查之间不得插入await，关闭结束后所有者置closed。
+
+成功只由请求所有者rollback只读事务一次；rollback也经await_read_io，操作截止为本次总deadline，最多使用8秒内剩余清理时间，不能裸await。超限立即走先raw.close的终止路径。随后关闭Session/Connection/Engine，不能让多个嵌套上下文各发一次网络回滚；超时、断连或取消先终止raw连接，不再尝试网络rollback，不开连接重试。所有路径都不返回半份ready，失败下一次从头；不留下继续读库/计算的Task。清理若未在总截止内终止任务，必须作为本批验收失败，先修连接处理，不能吞异常、延长预算或返回成功。没有即时获知浏览器断连时仍受这些独立时限控制；不承诺操作系统调度层面的精确硬实时。
+
+依据为[SQLAlchemy连接隔离及只读](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html)、[异步连接创建参数](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)、[PostgreSQL事务内设置](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET)、[数据库端超时](https://www.postgresql.org/docs/current/runtime-config-client.html)、[psycopg连接/取消](https://www.psycopg.org/psycopg3/docs/api/connections.html)，以及上述本机版本的connection_async.py/SQLAlchemy async engine源码。文档及源码核对不替代慢连接、慢SQL、取消及清理的实际验收。
+
+#### 14.9.3 有界SQL、前段选择、源转换与日历
+
+DailyWaveQuery只能生成下表SQL，值全部绑定为参数；不使用现宽字段load_kline_rows或无start的read_daily。不得通过WHERE去掉NULL/坏指标再声称行情连续。
+
+| 方法 | 明确查询范围和结果 |
+|---|---|
+| load_main_window | SELECT ts_code,trade_date,close,macd_dif_bfq,macd_dea_bfq,macd_bfq FROM core_serving.index_factor_pro WHERE ts_code=:code AND trade_date BETWEEN :requested_start AND :effective_end ORDER BY trade_date ASC LIMIT 801；第801行存在即超限，不截成800 |
+| load_context_window | 同六列，ts_code=:code AND trade_date>=:absolute_start AND trade_date<:before_date，ORDER BY trade_date DESC LIMIT 251；最近250入选，第251行仅证明还有更早数据。第二次before_date为已选最早日，最多再入选250，仍最多500 |
+| load_calendar | SELECT exchange,trade_date,is_open FROM core_serving.trade_calendar WHERE exchange='SSE' AND trade_date BETWEEN :context_start AND :observation_end ORDER BY trade_date ASC LIMIT 2001；读取全部自然日、不是仅is_open=true。第2001行存在即超限 |
+
+服务捕获一次上海calculatedAt；effective_end为请求上限与当时已经收盘的自然日期较早者（上海15:00前用前一自然日，15:00及以后用当日），原requestedEnd仍是2026-10-21。当前执行日在上限之后，不改变原请求。没有行只返回empty；实际首末来自主窗口，不用当前日期、21日或旧报告日期冒充。
+
+首轮前段入选250后，仅用共享柱色边界规则`needs_more_context`检查最早与主范围相交的色段及其前反色段是否已知完整，不扫描DIF、不生成候选。若尚无相交色段、前反色不存在或左端不完整，且第251行证明更早数据存在，再补一次250；否则不补。补后仍不完整保留未知，不无限扩张、不误拒已有完整后段。探测行仅校对象/日期及排序用于边界判断，不进入源转换、极值、日历计算范围或统计。
+
+源转换固定由normalize_source_row完成，禁止交展示层代办：
+
+| 源字段/现类型 | 基础字段 | 转换及拒绝规则 |
+|---|---|---|
+| ts_code/String | tsCode | 必须为字符串且等于Spec.ts_code，禁止默认对象 |
+| trade_date/DATE | date | 必须为datetime.date且不是datetime.datetime，使用isoformat；拒绝NULL/非法日期 |
+| close/Float(53) | close | 必须为有限float且>0；先str(value)再Decimal，再用现decimal_text，不做float算术/显示舍入 |
+| macd_dif_bfq/Float(53) | dif | 同有限float→str→Decimal→规范文本；允许负数和真实0 |
+| macd_dea_bfq/Float(53) | dea | 同上；不代入本地EMA |
+| macd_bfq/Float(53) | macd | 同上；H直接保留，绝不以2×(DIF−DEA)替换 |
+| 无源列 | completed | 仅在按date派生的上海15:00≤calculatedAt时填True，不把未完成行强设完成 |
+
+规范行严格七字段；bool/文本假数值/NULL/NaN/Infinity均拒绝，不补0、不跳过。H关系容差仍为0.0021，由共用基础输入校验一次执行；超限是来源错误，不修H。例4160.4500浮点转换文本4160.45属于表示规范；26.912不能变26.91或26。数据库浮点已含的精度损失不得声称由此恢复。
+
+validate_calendar校exchange='SSE'、DATE升序唯一、is_open严格bool；contextStart至observationEnd每个自然日恰有一条。行情日集合必须等于同窗is_open=true的日期集合，不只检查行数；缺日列具体日期，休市日多行情也拒绝，正常节假日不误拦。合并两批前段时重复日期拒绝，不靠去重掩盖源问题；主≤800、前段≤500、总≤1300/1MiB。全部检查完成后，才创建正式逐日状态。未选取范围之外的更早数据缺失不算本窗中间缺日。
+
+#### 14.9.4 共用类型、范围及平台在区间中的位置
+
+在现types.py补不可变CalendarDay、DateRange、PriceEndpoint、PriceSegment、MappingRecord、ShortOppositeRecord、CandidateRecords、AsOfChange和ReviewResult；源点/Turn/ColorSegment仍复用第一批类型。CalendarDay只供后端校验/偏移，字段为exchange/date/isOpen，不新增API日历数组。所有数组tuple、to_dict生成独立副本，不修改第一批BasicRecords字段或返回含义。
+
+- DateRange=`{startDate,endDate}`，均YYYY-MM-DD，含两端，startDate≤endDate。所有startSearchRange/endSearchRange/colorRange/priceRange/交集/tailReview.range统一此类型；未知或无交集为null，不用空字典或反向日期。`intersect_ranges(a,b)`取max起日/min止日，无交集返回null。
+- PriceEndpoint=`{date,closedAt,close,tiedDates[]}`，主日期取最早并列、close为规范文本，closedAt由该日期上海15:00派生。start/end、三个Validity、generated及空值严格按§14.6.1；候选ID为`sourceColorSegmentId:PRICE:UP|DOWN`，在暂定终点变化或结束时不改。
+- MappingRecord字段逐项沿§14.6.1。sourceTurnIds为原色段turnIds，priceTurnIds为平台发生区间与priceRange相交的已确认/待确认CLOSE/DIF编号；不得按确认日重分段。endpointOffsets仅DIF记录，每项`{difTurnId,priceEndpoint:START|END,tradingDayOffset}`；以完整DIF平台lastDate到端点date的SSE开市日索引差计算，禁止用自然日差或裁剪后的平台末日。
+- 主表是否收录按colorRange与observationRange相交决定；priceObservationIntersection另算。即使价格区间在主范围外，仍保留该主色段记录和说明，真实起始K线不移到主范围起日。所有被引用的前段色段、confirmed/pending Turn一并返回，辅助记录不计主范围数量。
+- 内部价格序列只用截至当日已确认的CLOSE峰谷，另补选定两端（UP起点为MIN、终点为MAX，DOWN镜像）；pending不能冒作另一个已确认高低点。`clip_turn_to_range`保留原Turn/ID，只从plateauDates筛实际相交日，以最早重合日作内部序列日期。与两端属于同一CLOSE平台/同一高低身份时只计一次；不同平台即使价格相等也分别保留。
+- internalPriceRelations按时间排序后逐个相邻高点/低点比较；任何一类不足两点先INSUFFICIENT，否则全HIGHER为RISING、全LOWER为FALLING、同时含HIGHER与LOWER为MIXED，其余含相等为EQUAL。不能把数量不足直接判趋势通过，也不删除候选。
+- ShortOppositeRecord保留previousColorSegmentId/oppositeColorSegmentId/nextColorSegmentId、barStats、priceHighs、priceLows、difTurnIds。barStats为`{previous,opposite,next}`，每项`{coloredCount,longestBar}`（longestBar沿HistogramExtreme）；priceHighs/priceLows也用previous/opposite/next三键，分别取对应色段extrema.maxClose/minClose。第三段首日已有即建立，随第三段更新；不设短柱根数/幅度门槛、不合并。
+- ReviewResult复用§14.6.1完整头部/数组及§15.3空结果约定；身份由服务传入，不在纯计算取时钟/UUID。第三批schema只验证/序列化它，不重算边界。非法、未生成、开放和未知如实保留，不用补空数组冒充有效结果。
+
+平台跨边界独立例：CLOSE平台1月3—5日都为120，候选priceRange从1月4日开始；原Turn仍为3—5日且编号含3日，内部序列用4日，不混入区间外3日。DIF平台若同样跨界，offset仍以完整5日计算。不得为了裁剪内部比较而改价格端点或全局Turn。
+
+#### 14.9.5 一次校验、逐日更新、最后一次组装
+
+第二批将第一批calculator内部拆为`_BasicRecordState`，持有两只原LocalExtremaScanner、当前已知源点、confirmedTurnsById、pendingByMetric、色段及极值；scanner文件原字节不变。build_basic_records仍为原签名/返回，使用同一状态逐行处理并freeze。现build_color_segments仍委托它。build_review将同一基础状态和_PriceCandidateState串在一条逐日循环中，不先外调build_basic_records再扫描第二次。
+
+每根已完成日的固定次序：
+
+```text
+budget.check → 加入当前源点
+柱色更新：同色/0延长；首反色令旧段截止前根、确认时点为今日15:00，今日只入新段
+CLOSE与DIF各step一次 → 更新confirmed/pending和发生区间关联
+先结束旧价格候选（不含今日反色），再建立/更新当前色段候选
+更新新确认/平台延长/尾候选移动所影响的旧色段、旧候选及映射
+更新已经出现三段的反色对照 → 记录今日变化ID → budget.check
+```
+
+pending不是只追加：尾部继续单向运行时，旧pending ID可能消失而从未成为峰。维护turnId→colorSegmentIds及turnId→priceSegmentIds反向关联；未确认尾部移动时撤掉旧引用；同ID从pending变confirmed时保ID但改类别；平台延长只加实际相交关系。所有引用最终能在turns或pendingTurns找到，不保留已经撤下的尾候选编号。
+
+已结束色段/候选仍可能在以后收到新确认峰的关联，更新当时新获知的证据；**已结束候选的价格起止、最早并列主日期及endKnownAt冻结**，不因为以后确认峰而改价窗。以前已经返回的不可变对象不被更新；这是当前新结果的证据增加，不是回写旧截止日结果。
+
+_PriceCandidateState在首根本色日按§14.5固定起点；不完整前反色则生成有理由的generated=false记录。当前有效候选分别维护三份统计：A=[起点,当前日]，用于找当前最高/最低；B=[起点,最早所选终点]，用于候选本身；T=[最早终点,当前日]，用于尾部。初始化时先扫描[起点,首根本色日]选最早终点，再分别建立B/T，不能默认B=A或T只有今日。例完整前绿100→120→110、首红115：初始终点为前绿中的120，B截止120那日，T含120/110/115，并保留价格终点早于本色段的说明。新收盘严格刷新终点时，B取截至今日A的独立快照、T重置为今日；只达到相同终点价时增加tiedDates，主日期不动，B不伸到今日，T照常延长。A/B/T中的日期都含两端，不能引用同一个可变统计对象。
+
+例100→120→90→130：终点改为130后，90进入B，使起点100不是段内最低；T只剩130当日，不再把90仅当作旧120之后的尾部。例100→120→110→120：主终点仍为第一次120，后一次仅加入tiedDates，内部区间不擅自扩大。旧段首反色时冻结B/T；今日首反色可以属于新候选的起点搜索范围，但不进入旧段统计。其余极值/关系/说明按§14.5/14.6.1，不能用统计优化改规则。
+
+新增峰谷关联只重算受影响的色段/候选内部关系，不重扫全历史DIF；起点首次选择和终点严格刷新时允许扫描该候选必要价格范围，所有扫描仍受同一budget。统计并列日期、0日和内部回调不丢；不为优化引入另一个找峰算法或百分比门槛。
+
+asofChanges仅在实际观察范围的每个已处理日保存asOf/newConfirmedTurnIds/updatedColorSegmentIds/updatedPriceSegmentIds；集合去重、按ID排序，含刚结束段、新段及被新证据影响的旧段。主范围前只建立状态。最终不可变BasicRecords/ReviewResult只freeze一次；生产主循环禁止build_basic_records(rows[:i])、review_prefix(rows[:i])或每天复制全历史。asofChanges不是恢复记录；核某个过去日期仍用当时前缀的review_prefix，不能拿最终峰表解释过去。
+
+#### 14.9.6 错误、测试与批次交付
+
+源类型/日历/连续性/范围错误用DailyWaveSourceError，原基础输入错误用DailyWaveInputError，预算/取消复用第一批异常；第三批再按§15.3统一映射HTTP码。读取失败不换CSV，不跳坏行，不新开事务重试；算法冲突属于正常记录的issues，不能误报为源缺数据。所有失败释放连接和本次状态，下一次build创建新身份、重新读取，不从旧活动状态或人工边界恢复。没有新结果文件、缓存、checkpoint或后台续算。
+
+| 开发验收 | 精确预期和反例 |
+|---|---|
+| 读取保护 | 证明连接整体2秒、多地址不累计放大；慢SQL、锁等待、客户端等待受共同截止；超时先关闭本连接再取消，无残留读任务、无新的SELECT。正常短查询不误拦，清理计入8秒；失败不修改全站engine |
+| SQL/源转换 | 显式六列、对象/起止和801/251/2001上限；探测行不计算；有限float正常转换和NULL/NaN/bool/错日期拒绝；26.912不截位、H不替换。隔离SQL测试按现ORM真实字段/DATE/Float53合同构造，标清不是正式来源证明 |
+| 日期/前段 | 250足够不补；确有更早且不足才补一次；500仍不足保未知。实际到16日标题/结果16，不强求21。日历缺自然日、行情缺开市日/多休市日均拒绝；正常节假日不误拦 |
+| 取价/平台 | §14.7全部字面例、镜像下降、最早并列、100/95冲突；跨区间平台内部用实际重合日，完整ID/offset口径保持；generated=false/开放/结束/INVALID字段与引用均合法 |
+| 单次及逐日计算 | 用spy断言每次build两只scanner合计恰好2N次。小字面例逐日快照与独立预期一致，并与同前缀review_prefix相容；另测pending撤下、旧候选后来获确认峰、初始终点在前色段、130刷新/120并列统计、旧返回不变。独立build_price_candidates只核最终候选，不拿它伪造asofChanges；不能只比较两入口彼此相等 |
+| 预算/内存 | 1300根上限人工输入覆盖长同色、长平台、逐日换色；检查完整读取/计算/合同/清理预算、输入1MiB/结果内存256MiB/序列化上限2MiB。超限明确失败，不截段/删字段；第一批0.136秒不当本批证据 |
+| 最小真实只读 | 获本批执行授权后，只查本对象及规定窗口、SSE；核实际行数/日期/值、SHOW只读与隔离、耗时和响应字节。正式源不执行写语句或建表；写入拒绝用隔离测试验证。真实缺口如实说明，不预先宣称通过 |
+
+本批代码按连接/参数→query/转换/日历→共用状态/候选→合同与独立例→最小真实只读的顺序；每一步先核本节及当前实现。测试每组≤60秒、无安装；中断重做及最后检查仍纳入同次设计预算，不落盘恢复。交付分别列第一批回归、独立例、隔离接入、真实只读的证据和限制；停在第二批验收，不自动接路由/页面。上述用例本轮均未运行。
 
 <a id="xxm-daily-wave-page-lld"></a>
 
@@ -916,7 +1071,7 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 |---|---|
 | §14.3 Biz纯计算/queries/schema | 只保一份纯函数；同源有界只读后在内存算，真实来源接入不靠自造文件 |
 | 新`src/biz/api/wealth/market/index_detail_daily_wave.py` | 新GET及参数/权限/错误响应，不做持久化，不import脚本 |
-| 新`src/app/dependencies/daily_wave.py`及现`src/app/api/v1/router.py` | 以现Settings.database_url构造仅本模块的有界只读会话，按§14.8超时，注入现require_quote_access/WebAppError。无注册路径Settings、业务表/DB/Lake写入，不改变全站engine |
+| 第二批`src/app/dependencies/daily_wave.py`及现`src/app/api/v1/router.py` | 第三批只装配已完成的专用异步只读工厂/服务及现require_quote_access/WebAppError，不再新建会话实现。无注册路径Settings、业务表/DB/Lake写入，不改变全站engine |
 | `IndexChartWorkspace.tsx`、`daily-wave/{types,apiClient,adapter,useDailyWaveReview,DailyWaveLayerUi,DailyWavePrimitive,markerGeometry}.ts/tsx` | 新内存请求/校验/状态，底栏开关/说明列表与主图三角；现renderTooltip按日期补事实，不在前端选峰/划段/重算DIF |
 | `IndexDetailPage.tsx`、controller/API、共享九转/趋势 | §15.4.1同一1000常量、普通与研究不同日期/状态，右栏不随主图换历史截止 |
 | shared detail-workspace types/viewport/workspace、nineTurnMarkerGeometry/visibleExtremaGeometry/VisibleExtremaPrimitive | §15.5增加可选留白、九转渲染矩形、共用极值测量；默认其他页不改，不造另一图表生命周期 |
@@ -925,9 +1080,9 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 
 ### 15.3 只读内存计算接口及响应
 
-拟`GET /api/v1/wealth/market/index-detail/daily-waves?tsCode=000001.SH`，沿现行情权限require_quote_access及quote_api_auth_required，不改变登录策略。只允许唯一tsCode，不接收period/path/run/日期/调参；未知/重复/非上证参数422。请求边界和预算来自唯一DailyWaveReviewSpec，App只装配，不新增配置键。HTTP响应使用no-store；无服务端结果缓存、浏览器持久化存储或文件reader。
+拟`GET /api/v1/wealth/market/index-detail/daily-waves?tsCode=000001.SH`；仅这个新路由使用async def并await第二批服务，沿现行情权限require_quote_access及quote_api_auth_required，不改变其他路由或登录策略。只允许唯一tsCode，不接收period/path/run/日期/调参；未知/重复/非上证参数422。请求边界和预算来自唯一DailyWaveReviewSpec，App只装配，不新增配置键。HTTP响应使用no-store；无服务端结果缓存、浏览器持久化存储或文件reader。
 
-流程为App注入只读session→query按14.2取得本次日线/日历→校输入→同一calculator基础与候选→校14.6.1→一次返回。sourcePoints是实际主范围投影、≤800，不含旧活动状态。内部全输入仍≤1300。成功不等于管理员已认可。
+流程为App注入第二批只读会话创建函数→await query_service按14.9读取/转换/校验并关闭读事务→同一calculator逐日基础与候选→校14.6.1→一次返回；不再独立build_basic_records后重算build_review。sourcePoints是实际主范围投影、≤800，不含旧活动状态。内部全输入仍≤1300。成功不等于管理员已认可。
 
 ready响应为14.6.1头部，status=ready；加sourcePoints[]（date/close/dif/dea/macd规范文本）、segments[]（priceSegments的主表投影）、colorSegments[]/turns[]/pendingTurns[]、mappings[]、shortOppositeSegments[]及coverage。所有被引用的前段记录齐全；只有实际主范围参与数量统计。asofChanges留本次后端检查内存，不通过接口重复传日快照。
 
@@ -941,7 +1096,7 @@ coverage固定mainPointCount、leftIncompleteColorSegmentIds/ungeneratedPriceSeg
 
 ### 15.4 页面状态、实际范围及说明入口
 
-波段核对默认关闭，无计算请求。开启/重试从新计算开始；拿到ready后，按实际observationStart/end与1000请求现K线，逐日核对后一次装配points/segments/详情。整个链10秒，计算接口最多8秒，后续K线及本地核对共用剩余时间；不无限自动重试。加载时普通行情保留，不先挂新三角。
+波段核对默认关闭，无计算请求。开启/重试从新计算开始；拿到ready后，按实际observationStart/end与1000请求现K线，逐日核对后一次装配points/segments/详情。前端整个链10秒，本模块业务处理最多8秒（不包含前置认证，见§14.9.2），后续K线及本地核对共用前端剩余时间；不无限自动重试。加载时普通行情保留，不先挂新三角。
 
 本次研究dataKey为`index:000001.SH:day:wave-review:<calculationId>`；普通key不变。只在当前页面内存保留这次结果，无localStorage/sessionStorage/IndexedDB/下载或跨请求缓存。关闭、换周期/标的、离开页面、计算请求失败/合同错误或被新请求替代时取消并释放；服务器查询受14.8时限，前端忽略迟到响应。已通过合同的计算结果，若后续真实K线比对失败，仅留在当前内存用于说明、撤下全部三角，不当ready展示；关闭/离开/重试时再释放这份说明。空间不足只影响对应标记及说明，不丢弃其余已核结果。再开启重新读取计算，拖动/缩放只浏览已有结果，不触发重算。进入/退出均按现自适应初始根数初始化，每屏45—180、步长15/四pane同步不变，不混用两套logical序号。
 
