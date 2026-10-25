@@ -1,0 +1,249 @@
+"""Read publication JSON/logs and stat only; never open Parquet or compute data SHA.
+
+Run daily BEFORE scoped repair. Pass --log/--observation for the exact run when
+compute output has not been copied to this report directory. Run/event and
+cross-run check binding verification is deliberately handled by the main runner.
+"""
+import argparse
+import hashlib
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+BASE = Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025')
+ROOT = Path('/Volumes/datasource/data_lake')
+STAGE = Path('/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj')
+FREQS = (1, 5, 15, 30, 60, 90, 120)
+DAY = '2026-10-22'
+PARENT = 'b7b7a82f-cc07-4985-aa74-a0c3f1498936'
+INDICATOR = ROOT / 'gold/indicator/stk_mins_qfq_macd_kdj'
+STATE = ROOT / 'gold/indicator/stk_mins_qfq_macd_kdj_state'
+
+
+def sha_text(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def read_json(path):
+    return json.loads(path.read_text())
+
+
+def identity(path):
+    value = path.stat()
+    assert path.is_file() and not path.is_symlink(), str(path)
+    return [value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns]
+
+
+def valid_identity(value):
+    return isinstance(value, list) and len(value) == 5 and all(type(x) is int and x >= 0 for x in value)
+
+
+def scope_for(freq, dates):
+    return {'version': 1, 'family': 'macd_kdj', 'freq': freq, 'trade_dates': list(dates)}
+
+
+def directory_for(freq, dates, root_run_id):
+    scope = scope_for(freq, dates)
+    return (STAGE / f'root={sha_text(str(ROOT))}' / f'freq={freq}' /
+            f'run_id={sha_text(root_run_id)}' / f'scope={sha_text(json.dumps(scope, sort_keys=True))}')
+
+
+def collect_completed(path, observations, snapshots):
+    def keep(value, hint=None):
+        if isinstance(value, dict):
+            stage = value.get('stage', value.get('last_stage'))
+            directory = value.get('operation_directory', value.get('directory', hint))
+            if stage == 'completed' and isinstance(directory, str):
+                snapshots.setdefault(directory, {}).update(value)
+            for key, child in value.items():
+                keep(child, key if isinstance(key, str) and key.startswith(str(STAGE)) else None)
+        elif isinstance(value, list):
+            for child in value:
+                keep(child)
+    if observations:
+        keep(read_json(path))
+    else:
+        for line in path.read_text().splitlines():
+            if 'event=stock_minute_file_publication_progress' not in line:
+                continue
+            fields = dict(re.findall(r'(\w+)=([^\s]+)', line))
+            keep(fields)
+
+
+def frozen_sizes(directory, snapshot):
+    attempts = []
+    total_stored = 0
+    for attempt in sorted((directory / 'attempts').iterdir()):
+        if not attempt.is_dir():
+            continue
+        sizes = {name: identity(attempt / f'{name}.parquet')[2]
+                 for name in ('indicator', 'state') if (attempt / f'{name}.parquet').exists()}
+        total_stored += sum(sizes.values())
+        attempts.append({'directory': str(attempt), 'bytes': sizes, 'complete': len(sizes) == 2})
+    full_sizes = {sum(item['bytes'].values()) for item in attempts if item['complete']}
+    if 'frozen_input_stat_bytes' in snapshot:
+        selected = int(snapshot['frozen_input_stat_bytes'])
+        assert selected in full_sizes, (str(directory), selected, full_sizes)
+        basis = 'completed producer snapshot; existing frozen-file stat agrees'
+    else:
+        assert len(full_sizes) == 1, ('Need completed snapshot for ambiguous frozen attempts', str(directory))
+        selected = next(iter(full_sizes))
+        basis = 'all complete frozen attempts have the same stat byte size; no file digest reread'
+    return selected, total_stored, basis, attempts
+
+
+def verify_directory(directory, freq, dates, codes, mode, snapshot, manifest):
+    assert directory.is_relative_to(STAGE) and '..' not in directory.parts
+    operation = read_json(directory / 'operation.json')
+    assert operation['scope'] == scope_for(freq, dates), str(directory)
+    assert set(operation['inputs']) == {'indicator', 'state'}
+    assert all(isinstance(x, str) and re.fullmatch('[0-9a-f]{64}', x) for x in operation['inputs'].values())
+    targets = operation['targets']
+    assert isinstance(targets, list) and targets and all(isinstance(x, str) for x in targets)
+    assert len(set(targets)) == len(targets), str(directory)
+    summary = {'frequency': freq, 'directory': str(directory), 'target_count': len(targets),
+               'promoted_files': 0, 'indicator_files': 0, 'state_files': 0,
+               'indicator_old_bytes': 0, 'state_old_bytes': 0,
+               'indicator_candidate_bytes': 0, 'state_candidate_bytes': 0,
+               'annual_rows_in_receipts': 0, 'state_rows_in_receipts': 0,
+               'scoped_2026_indicator_size_delta': 0}
+    state_days = set()
+    for target in targets:
+        formal = Path(target)
+        assert formal.is_absolute() and '..' not in formal.parts, target
+        if formal.is_relative_to(INDICATOR / f'freq={freq}'):
+            parts = formal.relative_to(INDICATOR / f'freq={freq}').parts
+            assert len(parts) == 3 and parts[0].startswith('ts_code=') and re.fullmatch(r'year=\d{4}', parts[1]) and parts[2] == 'part-000.parquet', target
+            code, year = parts[0][8:], int(parts[1][5:])
+            assert year == 2026 if mode == 'daily' else code in codes and 2014 <= year <= 2026, target
+            kind = 'indicator'
+        else:
+            parts = formal.relative_to(STATE / f'freq={freq}').parts
+            assert len(parts) == 2 and parts[0].startswith('trade_date=') and parts[1] == 'part-000.parquet', target
+            day = parts[0][11:]
+            assert day in dates and day not in state_days, target
+            state_days.add(day)
+            kind = 'state'
+        receipt = read_json(directory / 'files' / f'{sha_text(target)}.json')
+        assert receipt['target'] == target and receipt['status'] == 'promoted', target
+        assert re.fullmatch('[0-9a-f]{64}', receipt['sha256']), target
+        assert valid_identity(receipt['candidate_identity']), target
+        assert receipt['before'] is None or valid_identity(receipt['before']), target
+        assert type(receipt['row_count']) is int and receipt['row_count'] >= 0, target
+        candidate = Path(receipt['candidate'])
+        relative = candidate.relative_to(directory / 'candidates').parts
+        expected_suffix = formal.relative_to(ROOT).parts
+        assert len(relative) == len(expected_suffix) + 1 and re.fullmatch('[0-9a-f]{32}', relative[0]) and relative[1:] == expected_suffix, str(candidate)
+        assert not candidate.exists() and not candidate.is_symlink(), str(candidate)
+        assert identity(formal)[:4] == receipt['candidate_identity'][:4], target
+        old_size = receipt['before'][2] if receipt['before'] else 0
+        new_size = receipt['candidate_identity'][2]
+        summary['promoted_files'] += 1
+        summary[f'{kind}_files'] += 1
+        summary[f'{kind}_old_bytes'] += old_size
+        summary[f'{kind}_candidate_bytes'] += new_size
+        summary['annual_rows_in_receipts' if kind == 'indicator' else 'state_rows_in_receipts'] += receipt['row_count']
+        if mode == 'daily' and kind == 'indicator' and code in codes:
+            prior = manifest['groups'][f'repair_indicator_old_{freq}'].get(target)
+            assert (prior[2] if prior else 0) == old_size, ('Preflight/receipt old-size mismatch', target)
+            summary['scoped_2026_indicator_size_delta'] += new_size - old_size
+    assert state_days == set(dates), (freq, len(state_days))
+    if snapshot:
+        if 'total_file_count' in snapshot:
+            assert int(snapshot['total_file_count']) == len(targets)
+            assert int(snapshot['promoted_file_count']) == len(targets)
+        if 'verified_formal_stat_bytes' in snapshot:
+            assert int(snapshot['verified_formal_stat_bytes']) == summary['indicator_candidate_bytes'] + summary['state_candidate_bytes']
+    selected, stored, basis, attempts = frozen_sizes(directory, snapshot)
+    summary.update(frozen_input_bytes_per_complete_attempt=selected,
+                   frozen_input_bytes_all_stored_attempts=stored,
+                   frozen_input_byte_basis=basis, frozen_attempts=attempts)
+    return summary
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('mode', choices=('daily', 'repair'))
+    parser.add_argument('--log', action='append', default=[])
+    parser.add_argument('--observation', action='append', default=[])
+    parser.add_argument('--run-id')
+    args = parser.parse_args()
+    pre = read_json(BASE / 'preflight.json')
+    manifest = read_json(BASE / 'stat-manifest.json')
+    codes = set(pre['scope_codes'])
+    assert len(codes) == 26
+    dates = [DAY] if args.mode == 'daily' else manifest['trade_dates']
+    assert args.mode == 'daily' or (len(dates) == 3111 and dates[0] == '2014-01-02' and dates[-1] == DAY)
+    snapshots = {}
+    stems = ('daily', 'resume') if args.mode == 'daily' else ('repair',)
+    log_paths = [Path(p) for p in args.log] + [BASE / f'{stem}-compute.out' for stem in stems]
+    observation_paths = [Path(p) for p in args.observation] + [BASE / f'{stem}-observation.json' for stem in stems]
+    for path in dict.fromkeys(log_paths):
+        if path.exists():
+            collect_completed(path, False, snapshots)
+    for path in dict.fromkeys(observation_paths):
+        if path.exists():
+            collect_completed(path, True, snapshots)
+    if args.mode == 'daily':
+        root_run_id = read_json(BASE / 'resume-planned-steps.json')['root_run_id']
+        assert root_run_id == PARENT
+        directories = {f: directory_for(f, dates, root_run_id) for f in FREQS}
+    else:
+        assert args.run_id, 'Supply the exact repair run ID and its compute output/observation'
+        directories = {}
+        for raw in snapshots:
+            directory = Path(raw)
+            if not directory.is_relative_to(STAGE / f'root={sha_text(str(ROOT))}'):
+                continue
+            match = re.search(r'/freq=(\d+)/run_id=[0-9a-f]{64}/scope=([0-9a-f]{64})$', raw)
+            if not match:
+                continue
+            freq = int(match[1])
+            if freq not in FREQS or match[2] != sha_text(json.dumps(scope_for(freq, dates), sort_keys=True)):
+                continue
+            assert freq not in directories or directories[freq] == directory, ('Multiple repair operations for frequency', freq)
+            directories[freq] = directory
+        assert set(directories) == set(FREQS), ('Need seven exact repair completed directories', sorted(directories))
+    summaries = [verify_directory(directories[f], f, dates, codes, args.mode,
+                                  snapshots.get(str(directories[f]), {}), manifest) for f in FREQS]
+    count = sum(item['target_count'] for item in summaries)
+    indicators = sum(item['indicator_files'] for item in summaries)
+    states = sum(item['state_files'] for item in summaries)
+    assert (count, indicators, states) == ((38997, 38990, 7) if args.mode == 'daily' else (23709, 1932, 21777))
+    result = {'mode': args.mode, 'date': DAY, 'as_of': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
+              'run_id': args.run_id, 'root_run_id': root_run_id if args.mode == 'daily' else None,
+              'publication_count': 7, 'promoted_targets': count, 'indicator_files': indicators,
+              'state_files': states, 'annual_content_reads': 0, 'new_data_sha_passes': 0,
+              'run_and_check_events_validation': 'Not performed by this script; main runner verifies separately', 'publications': summaries,
+              'log_sources': [str(p) for p in dict.fromkeys(log_paths + observation_paths) if p.exists()]}
+    for label, key in (('Cd' if args.mode == 'daily' else 'Cr', 'indicator_candidate_bytes'),
+                       ('Sd' if args.mode == 'daily' else 'Sr', 'state_candidate_bytes'),
+                       ('S_indicator', 'indicator_old_bytes'), ('S_state', 'state_old_bytes'),
+                       ('P_per_complete_attempt', 'frozen_input_bytes_per_complete_attempt'),
+                       ('P_all_stored_attempts', 'frozen_input_bytes_all_stored_attempts')):
+        result[label] = sum(item[key] for item in summaries)
+    result['P'] = result['P_per_complete_attempt']
+    if args.mode == 'daily':
+        ir_before = sum(pre['groups'][str(f)][f'repair_indicator_old_{f}']['bytes'] for f in FREQS)
+        state_before = sum(pre['groups'][str(f)][f'history_state_{f}']['bytes'] for f in FREQS)
+        delta = sum(item['scoped_2026_indicator_size_delta'] for item in summaries)
+        result.update(Ir_before=ir_before, Ir_daily_size_delta=delta, Ir_after=ir_before + delta,
+                      B_before=state_before, B_after=state_before + result['Sd'],
+                      daily_verification_must_precede_repair=True,
+                      preserved_frequencies=[15, 30, 120],
+                      receipt_comparison_scope='Each final file matches its original-root persisted receipt; no separate receipt-byte snapshot was available')
+        stop = read_json(BASE / 'stop-reconciliation.json')
+        for old in stop['operations']:
+            if old['freq'] in (15, 30, 120):
+                current = next(x for x in summaries if x['frequency'] == old['freq'])
+                assert current['directory'] == old['directory'] and current['target_count'] == old['target_count']
+                assert current['indicator_candidate_bytes'] + current['state_candidate_bytes'] == old['promoted_file_bytes']
+    destination = BASE / f'{args.mode}-publication-verified.json'
+    destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({key: value for key, value in result.items() if key != 'publications'}, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

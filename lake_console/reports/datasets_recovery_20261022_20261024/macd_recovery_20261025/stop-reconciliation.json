@@ -1,0 +1,247 @@
+{
+  "as_of": "2026-10-26T00:25:13.495460+08:00",
+  "run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "status": "FAILURE",
+  "reason": "Stopped by SIGINT after temporary-file allocation exceeded planning reserve",
+  "operations": [
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=a73b1c2ae94b0372fdae2c4e5802de825f6f4e9819483734764e15d1cf1cb5b3",
+      "freq": 120,
+      "last_stage": "completed",
+      "target_count": 5571,
+      "receipt_statuses": {
+        "promoted": 5571
+      },
+      "promoted_file_bytes": 134314522
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=221f11415616957a5b9ae1f99887e8e535b370ad8a8bdfb835a20615e4b904f3",
+      "freq": 15,
+      "last_stage": "completed",
+      "target_count": 5571,
+      "receipt_statuses": {
+        "promoted": 5571
+      },
+      "promoted_file_bytes": 936500028
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=1392fece466c57a223594e0d38367c21e89bb9b4c907671c6cbcaf6fdb3b42cc",
+      "freq": 1,
+      "last_stage": "build_candidates",
+      "target_count": 5571,
+      "receipt_statuses": {
+        "validated": 53,
+        "building": 1,
+        "unstarted": 5517
+      },
+      "promoted_file_bytes": 0
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=cb355bfcb2b2bcab4e9f2ac3c790a397fef815c647d5569a17a5ed97b2528c99",
+      "freq": 30,
+      "last_stage": "completed",
+      "target_count": 5571,
+      "receipt_statuses": {
+        "promoted": 5571
+      },
+      "promoted_file_bytes": 480458440
+    }
+  ],
+  "promoted_files": 16713,
+  "promoted_frequencies": [
+    15,
+    30,
+    120
+  ],
+  "receipt_only_reconciliation": true,
+  "source_paths_checked": 79576,
+  "source_identity_changes": [],
+  "unpromoted_target_identity_changes": [],
+  "temp_files": {
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-0.tmp": [
+      16777244,
+      23134017,
+      786432000,
+      1792944871811072495,
+      1792944871811072495
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-1.tmp": [
+      16777244,
+      23134023,
+      824377344,
+      1792944879826352953,
+      1792944879826352953
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-1.tmp": [
+      16777244,
+      23134024,
+      1282670592,
+      1792944985314608272,
+      1792944985314608272
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-3.tmp": [
+      16777244,
+      23134036,
+      1178075136,
+      1792944987821024349,
+      1792944987821024349
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-2.tmp": [
+      16777244,
+      23134030,
+      1622900736,
+      1792944900519287395,
+      1792944900519287395
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-1.tmp": [
+      16777244,
+      23134021,
+      264372224,
+      1792944876316894036,
+      1792944876316894036
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S128K-0.tmp": [
+      16777244,
+      23134015,
+      461504512,
+      1792944988187317874,
+      1792944988187317874
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-2.tmp": [
+      16777244,
+      23134026,
+      528908288,
+      1792944923438390096,
+      1792944923438390096
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-3.tmp": [
+      16777244,
+      23134032,
+      834863104,
+      1792944985777928642,
+      1792944985777928642
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-3.tmp": [
+      16777244,
+      23134029,
+      8417968128,
+      1792944942333690081,
+      1792944942333690081
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-2.tmp": [
+      16777244,
+      23134025,
+      4557635584,
+      1792944907115203743,
+      1792944907115203743
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-0.tmp": [
+      16777244,
+      23134038,
+      13670547456,
+      1792944988194186261,
+      1792944988194186261
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-1.tmp": [
+      16777244,
+      23134020,
+      3158573056,
+      1792944874097662747,
+      1792944874097662747
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-4.tmp": [
+      16777244,
+      23134033,
+      16770924544,
+      1792944957813621602,
+      1792944957813621602
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-1.tmp": [
+      16777244,
+      23134022,
+      642056192,
+      1792944876325457748,
+      1792944876325457748
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S160K-0.tmp": [
+      16777244,
+      23134012,
+      346193920,
+      1792944985310537399,
+      1792944985310537399
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-2.tmp": [
+      16777244,
+      23134027,
+      1077673984,
+      1792944930694132509,
+      1792944930694132509
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S224K-0.tmp": [
+      16777244,
+      23134016,
+      73400320,
+      1792944940713804072,
+      1792944940713804072
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-3.tmp": [
+      16777244,
+      23134031,
+      2405957632,
+      1792944897440566700,
+      1792944897440566700
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-4.tmp": [
+      16777244,
+      23134035,
+      3103653888,
+      1792944986257257121,
+      1792944986257257121
+    ]
+  },
+  "temp_bytes": 62008688640,
+  "active_runs": 0,
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "pool_active": 0,
+  "pool_pending": 0,
+  "failure_events": [
+    {
+      "event": "STEP_FAILURE",
+      "step": "gold_stk_mins_qfq_macd_kdj_1m_assets",
+      "messages": [
+        "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"gold_stk_mins_qfq_macd_kdj_1m_assets\":\n",
+        "RuntimeError: Query interrupted\n",
+        "dagster._core.errors.DagsterExecutionInterruptedError\n"
+      ]
+    },
+    {
+      "event": "STEP_FAILURE",
+      "step": "gold_stk_mins_qfq_macd_kdj_5m_assets",
+      "messages": [
+        "dagster._core.errors.DagsterExecutionInterruptedError\n"
+      ]
+    },
+    {
+      "event": "PIPELINE_FAILURE",
+      "step": null,
+      "messages": [
+        "dagster._core.errors.DagsterExecutionInterruptedError\n"
+      ]
+    }
+  ],
+  "ordinary_checks_passed": 0,
+  "repair_started": false,
+  "automatic_retries": 0,
+  "extra_annual_content_reads": 0,
+  "assets_accepted": 0,
+  "remaining_original_list": 18
+}

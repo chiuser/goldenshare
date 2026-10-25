@@ -1,0 +1,364 @@
+{
+  "as_of": "2026-10-26T00:20:38.154262+08:00",
+  "date": "2026-10-22",
+  "mode": "daily",
+  "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+  "run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "root_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "status": "FAILURE",
+  "elapsed_seconds": 548.9749028682709,
+  "materializations": [
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_120m",
+      "storage_id": 7726717,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 11140,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 120,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/source_file_count": 11056,
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 11140,
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 120min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-22，11140 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_120m",
+          "source_file_count": 11056,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_120m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 11140,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 11140
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "storage_id": 7726719,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-22/part-000.parquet",
+        "dagster/row_count": 5593,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 120,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 120min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-22，5593 行。",
+        "goldenshare/next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_120m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_row_count": 11140,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11056,
+          "state_row_count": 5593
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_15m",
+      "storage_id": 7726723,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 89120,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 15,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/source_file_count": 11056,
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 89120,
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 15min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-22，89120 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_15m",
+          "source_file_count": 11056,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_15m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 89120,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 89120
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "storage_id": 7726725,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-22/part-000.parquet",
+        "dagster/row_count": 5593,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 15,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 15min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-22，5593 行。",
+        "goldenshare/next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_15m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_row_count": 89120,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11056,
+          "state_row_count": 5593
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_30m",
+      "storage_id": 7726735,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 44560,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 30,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/source_file_count": 11056,
+        "goldenshare/output_file_count": 5570,
+        "goldenshare/output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "goldenshare/replacement_row_count": 44560,
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 30min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-22，44560 行，5570 个股票年份文件。",
+        "goldenshare/next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_30m",
+          "source_file_count": 11056,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_30m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 44560,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 44560
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "storage_id": 7726737,
+      "partition": "2026-10-22",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-22/part-000.parquet",
+        "dagster/row_count": 5593,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/freq": 30,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-21/part-000.parquet",
+        "goldenshare/initialized_without_previous_state": false,
+        "goldenshare/summary": "已写入股票 30min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-22，5593 行。",
+        "goldenshare/next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-21",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_30m"
+        },
+        "goldenshare/filter_summary": {
+          "indicator_row_count": 44560,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11056,
+          "state_row_count": 5593
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    }
+  ],
+  "checks": [],
+  "failures": [
+    "StepFailureData(error=SerializableErrorInfo(message='dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"gold_stk_mins_qfq_macd_kdj_1m_assets\":\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\\n    yield from check.generator(step_events)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\\n    for user_event in _step_output_error_checked_user_event_sequence(\\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        step_context,\\n        ^^^^^^^^^^^^^\\n        _process_asset_results_to_events(step_context, user_event_sequence),\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\\n    for event in iterate_with_context(\\n                 ~~~~~~~~~~~~~~~~~~~~^\\n        lambda: op_execution_error_boundary(\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ...<7 lines>...\\n        user_event_generator,\\n        ^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\\n    with context_fn():\\n         ~~~~~~~~~~^^\\n', '  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\\n    self.gen.throw(value)\\n    ~~~~~~~~~~~~~~^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\\n    raise error_cls(\\n    ...<4 lines>...\\n    ) from e\\n'], cls_name='DagsterExecutionStepExecutionError', cause=SerializableErrorInfo(message='RuntimeError: Query interrupted\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\\n    yield\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\\n    next_output = next(iterator)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py\", line 308, in _assets\\n    write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(\\n        lake_root=lake_root_path,\\n    ...<4 lines>...\\n        publication_id=context.run.root_run_id or context.run.run_id,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py\", line 1088, in write_gold_stk_mins_qfq_macd_kdj_asset_partition\\n    write_gold_stk_mins_qfq_macd_kdj_rows(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        lake_root=lake_root,\\n        ^^^^^^^^^^^^^^^^^^^^\\n    ...<6 lines>...\\n        ),\\n        ^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py\", line 1007, in write_gold_stk_mins_qfq_macd_kdj_rows\\n    row_count = _write_indicator_group_to_year_file(\\n        connection,\\n    ...<6 lines>...\\n        publication=publication,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py\", line 792, in _write_indicator_group_to_year_file\\n    connection.execute(\\n    ~~~~~~~~~~~~~~~~~~^\\n        copy_query_to_parquet(\\n        ^^^^^^^^^^^^^^^^^^^^^^\\n    ...<25 lines>...\\n        )\\n        ^\\n    )\\n    ^\\n'], cls_name='RuntimeError', cause=SerializableErrorInfo(message='dagster._core.errors.DagsterExecutionInterruptedError\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/interrupts.py\", line 81, in _new_signal_handler\\n    raise error_cls()\\n'], cls_name='DagsterExecutionInterruptedError', cause=None, context=None), context=None), context=None), user_failure_data=None, error_source=<ErrorSource.USER_CODE_ERROR: 'USER_CODE_ERROR'>)",
+    "StepFailureData(error=SerializableErrorInfo(message='dagster._core.errors.DagsterExecutionInterruptedError\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\\n    yield from check.generator(step_events)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\\n    for user_event in _step_output_error_checked_user_event_sequence(\\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        step_context,\\n        ^^^^^^^^^^^^^\\n        _process_asset_results_to_events(step_context, user_event_sequence),\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\\n    for event in iterate_with_context(\\n                 ~~~~~~~~~~~~~~~~~~~~^\\n        lambda: op_execution_error_boundary(\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ...<7 lines>...\\n        user_event_generator,\\n        ^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\\n    next_output = next(iterator)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py\", line 297, in _assets\\n    assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        context.instance,\\n        ^^^^^^^^^^^^^^^^^\\n        partition_key,\\n        ^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py\", line 246, in assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate\\n    status = gold_stk_mins_qfq_factor_repair_status(\\n        instance,\\n        trade_date,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 127, in gold_stk_mins_qfq_factor_repair_status\\n    return _evaluate_qfq_factor_repair_records(\\n        instance,\\n    ...<3 lines>...\\n        include_event_storage_ids=include_event_storage_ids,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 333, in _evaluate_qfq_factor_repair_records\\n    storage_id = asset_check_record_event_storage_id(\\n        instance,\\n    ...<2 lines>...\\n        partition_key=trade_date,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 213, in asset_check_record_event_storage_id\\n    records = instance.get_event_records(\\n        dg.EventRecordsFilter(\\n    ...<4 lines>...\\n        limit=500,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/decorator_utils.py\", line 232, in wrapped_with_pre_call_fn\\n    return fn(*args, **kwargs)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/instance/methods/event_methods.py\", line 202, in get_event_records\\n    return self._event_storage_impl.get_event_records(event_records_filter, limit, ascending)\\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py\", line 1022, in get_event_records\\n    return self._get_event_records(\\n           ~~~~~~~~~~~~~~~~~~~~~~~^\\n        event_records_filter=event_records_filter, limit=limit, ascending=ascending\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py\", line 1059, in _get_event_records\\n    with self.index_connection() as conn, db_result(conn, query) as result:\\n                                          ~~~~~~~~~^^^^^^^^^^^^^\\n', '  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 141, in __enter__\\n    return next(self.gen)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/sqlalchemy_compat.py\", line 64, in db_result\\n    with conn.execute(query) as result:  # type: ignore (bad stubs)\\n         ~~~~~~~~~~~~^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/sqlalchemy/engine/base.py\", line 1419, in execute\\n    return meth(\\n        self,\\n        distilled_parameters,\\n        execution_options or NO_OPTIONS,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/sqlalchemy/sql/elements.py\", line 527, in _execute_on_connection\\n    return connection._execute_clauseelement(\\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        self, distilled_params, execution_options\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/sqlalchemy/engine/base.py\", line 1641, in _execute_clauseelement\\n    ret = self._execute_context(\\n        dialect,\\n    ...<8 lines>...\\n        cache_hit=cache_hit,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/sqlalchemy/engine/base.py\", line 1846, in _execute_context\\n    return self._exec_single_context(\\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        dialect, context, statement, parameters\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/sqlalchemy/engine/base.py\", line 1986, in _exec_single_context\\n    self._handle_dbapi_exception(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        e, str_statement, effective_parameters, cursor, context\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orch",
+    "JobFailureData(error=SerializableErrorInfo(message='dagster._core.errors.DagsterExecutionInterruptedError\\n', stack=['  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/api.py\", line 742, in job_execution_iterator\\n    for event in job_context.executor.execute(job_context, execution_plan):\\n                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/executor/in_process.py\", line 71, in execute\\n    yield from iter(\\n    ...<15 lines>...\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/api.py\", line 873, in __iter__\\n    yield from self.iterator(\\n    ...<2 lines>...\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/executor/in_process.py\", line 28, in inprocess_execution_iterator\\n    yield from inner_plan_execution_iterator(\\n    ...<3 lines>...\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 85, in inner_plan_execution_iterator\\n    for step_event in check.generator(dagster_event_sequence_for_step(step_context)):\\n                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 326, in dagster_event_sequence_for_step\\n    raise interrupt_error\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\\n    yield from check.generator(step_events)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\\n    for user_event in _step_output_error_checked_user_event_sequence(\\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        step_context,\\n        ^^^^^^^^^^^^^\\n        _process_asset_results_to_events(step_context, user_event_sequence),\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\\n    for user_event in user_event_sequence:\\n                      ^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\\n    for event in iterate_with_context(\\n                 ~~~~~~~~~~~~~~~~~~~~^\\n        lambda: op_execution_error_boundary(\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    ...<7 lines>...\\n        user_event_generator,\\n        ^^^^^^^^^^^^^^^^^^^^^\\n    ):\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\\n    next_output = next(iterator)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py\", line 297, in _assets\\n    assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(\\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\\n        context.instance,\\n        ^^^^^^^^^^^^^^^^^\\n        partition_key,\\n        ^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py\", line 246, in assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate\\n    status = gold_stk_mins_qfq_factor_repair_status(\\n        instance,\\n        trade_date,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 127, in gold_stk_mins_qfq_factor_repair_status\\n    return _evaluate_qfq_factor_repair_records(\\n        instance,\\n    ...<3 lines>...\\n        include_event_storage_ids=include_event_storage_ids,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 333, in _evaluate_qfq_factor_repair_records\\n    storage_id = asset_check_record_event_storage_id(\\n        instance,\\n    ...<2 lines>...\\n        partition_key=trade_date,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py\", line 213, in asset_check_record_event_storage_id\\n    records = instance.get_event_records(\\n        dg.EventRecordsFilter(\\n    ...<4 lines>...\\n        limit=500,\\n    )\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/decorator_utils.py\", line 232, in wrapped_with_pre_call_fn\\n    return fn(*args, **kwargs)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/instance/methods/event_methods.py\", line 202, in get_event_records\\n    return self._event_storage_impl.get_event_records(event_records_filter, limit, ascending)\\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py\", line 1022, in get_event_records\\n    return self._get_event_records(\\n           ~~~~~~~~~~~~~~~~~~~~~~~^\\n        event_records_filter=event_records_filter, limit=limit, ascending=ascending\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n    )\\n    ^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py\", line 1059, in _get_event_records\\n    with self.index_connection() as conn, db_result(conn, query) as result:\\n                                          ~~~~~~~~~^^^^^^^^^^^^^\\n', '  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 141, in __enter__\\n    return next(self.gen)\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/storage/sqlalchemy_compat.py\", line 64, in db_result\\n    with conn.execute(query) as result:  # type: ignore (bad stubs)\\n         ~~~~~~~~~~~~^^^^^^^\\n', '  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/py"
+  ],
+  "extra_annual_content_reads": 0
+}

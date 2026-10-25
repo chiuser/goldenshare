@@ -1,6 +1,6 @@
 # 2026-10-22 DG 数据集恢复方案与记录
 
-状态（2026-10-25，最新）：22日七频QFQ/28检查、26股因子历史repair/7项前置检查均已完成（第39、42节）。其后板块技术指标Gold→本机CH→Prod CH三项已补齐，各1,043行且三项原检查通过（第43节）。沿原109项缺失清单累计恢复91、剩18，未重复全局审计。MACD日更、九转两个sensor保持STOPPED，等23日补齐后再启用的TODO不变。
+状态（2026-10-26，最新）：22日MACD/KDJ14项及26股历史repair已完成。原失败run保留历史，通过from-failure仅补1/5/60/90，日更28项原检查及repair14条completion全部通过，现成完成判断ready。20个旧DuckDB工作文件已清理，当前工作目录为空，正式/staging记录保留；本次续跑没有自加资源阈值或人工中断。沿原109项缺失清单累计恢复105、剩九转4项，未重复全局明细审计。两sensor继续STOPPED，等23日全部补齐后启用的TODO不变。
 
 ## 1. 为什么显示109项缺失
 
@@ -1162,3 +1162,57 @@ Gold原writer载入677份来源、664,211行历史，读/算/写/候选回读合
 MACD正确顺序是先22日日更生成14项，之后对26只因子变化股票完成历史MACD repair，再通过原14条repair completion检查；日更检查通过不等于历史修复完成。当前repair op会先检查历史state目标存在（包括22日），所以不能先跑历史repair。下一步只核当前代码、已有证据及必要文件metadata，确认每日及26股历史repair实际涉及的日期、目标文件、读写次数和空间，再落入原执行方案/LLD并申请对应历史读取范围；不增加真实性能样本或全局明细审计。静态复核未发现必须先改代码才能正常完成一次MACD日更与repair的已知业务错误；重复读取合并属于可选性能优化，不自动列为补数前置。repair op未传publication_id影响中断后复用原执行记录，不影响一次正常执行的计算结果，须在失败停止/重新执行的范围说明中明确，不据此扩展为整链改造。已知26代码2014～2026来源可复用因子publication记录，1,932份/465,931,101B；这不是整个MACD链的总成本，state合并需要保留其他股票，须另核目标文件数量与大小。source discover还会探前一年，不把可能的2013输入默认为已获批准。
 
 九转当前paths.py仍将候选放在正式Lake的_staging，writer失败/续跑处理也需先按既定规则修正；未开发、未运行。MACD和九转的历史读取不在本次板块批准内，本轮没有启动它们。两股票sensor等23日数据全部补齐后再启用的TODO继续保留。
+
+## 45. 22日MACD/KDJ日更及26股历史repair最小确认
+
+管理员要求复用现成job，日更后执行repair。本轮不开发、不做性能样本或全局明细审计。最小确认只读控制记录和文件stat，结果见[预检](macd_recovery_20261025/preflight.json)。21日七state齐备，2014-01-02至22日3,111日×7的历史state仅缺22日七份；先daily后repair的原顺序可用。因子batch、26名单/hash未变，2013来源路径全部不存在，无需扩大历史范围。两sensor仍STOPPED、daemon无进程、共用pool空闲，空闲约2,715GiB。
+
+日更按现行代码读取2025/2026 QFQ（共16.3695GiB）并合并2026指标年度（已有17.175GiB）；历史repair只读26股QFQ1,932份/465,931,101B，但要保留并合并3,111日的全市场state（现有3,837,207,000B）。文件级保守上界含原28检查、候选校验、冻结输入、临时工作集及最后验收：读约254.223GiB、写64.254GiB，提议正常一次读272GiB/写72GiB/额外空间64GiB，失败停止不自动重读。这是整文件大小上界，原checks对22日做列投影/日期裁剪，不能说成五遍全列历史读取或实测磁盘成本。
+
+完整原job命令、配置、停止/中断、边界和验收见[原staging LLD第15节](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#15-2026-10-22-macdkdj日更及26股历史repair执行卡)，预算见[预算JSON](macd_recovery_20261025/budget.json)。未改业务代码；当前只是完成最小确认和执行卡，尚未读年度内容或启动正式job。
+
+2026-10-26管理员已明确批准本批具体范围和272/72/64GiB预算，按daily→原检查→26股repair→原completion顺序各正常执行一次；不改代码，失败停止不自动重读。独立静态审查通过，现进入第一步。
+
+### 45.1 已批准执行及中止事实
+
+原daily run `b7b7a82f-cc07-4985-aa74-a0c3f1498936`仅启动一次，548.975秒后FAILURE。32GiB临时预留估低，TEMP文件达57.7501GiB；按批准条件中止，未扩大额度或自动重跑，repair未启动。第一信号中断1m年度候选COPY后，原独立30m步骤仍完成；第二信号使整run退出。不是发现公式错误或源覆盖缺失，也不能把中断解释为原任务自然完成。
+
+保留15/30/120三频各5,570份年度指标及一份22日state，共16,713份正式文件、6个物化；普通28检查通过数0，因此本轮接受0项，仍待完成18项。1m保留53份已验证候选、1份building和5,517条未开始目标，没有1m正式提升。唯一收尾用receipt/stat确认来源及未提升目标未变、已提升正式身份与候选相符，未追加年度内容读取、SHA或性能测试。pool已空闲、无活动run，两sensor仍STOPPED。
+
+[本批结果](macd_recovery_20261025/summary.json)、[receipt/stat收尾](macd_recovery_20261025/stop-reconciliation.json)和[原终态及中断事件](macd_recovery_20261025/daily-run-verified.json)保留实际失败事实。遗留20个本次DuckDB工作文件共57.7501GiB，启动前目录为空、进程已退出且无打开句柄；[精确清理清单](macd_recovery_20261025/spill-cleanup-plan.json)已提交确认，当前未删除。全部正式数据、候选、冻结输入和续跑记录保留，不因清理而重启补数。
+
+此处停止后只做必要收尾与原文档记录；后续只需先根据已有执行证据确定剩余步骤、可复用结果及准确临时空间，再确认继续范围，不默认要求改公式、整链改造或新性能样本。
+
+## 46. 已批准清理与仅补未完成步骤
+
+管理员已明确批准删除精确20个DuckDB工作文件，保留正式Lake及staging续跑记录，只恢复未完成步骤；不再自行设置资源阈值中断。执行规则追加原staging LLD第16节，旧中断和预算不删除。先按清单逐项清理并记录，然后从失败run恢复四频及原28checks；日更保留15/30/120的6个父run物化，按6旧+8新核28检查，不重写已完成三频。其后仍按原26股范围执行现成历史repair和14条completion。
+
+20项清理已完成（[结果](macd_recovery_20261025/cleanup-result.json)），正式/staging删除0。恢复采用原Dagster from-failure公共API，保留原root/partition/config，启动前核4写+28check并跳过成功三频；不另写补数计算，详见原LLD16.3。
+
+日更恢复子run `31e25001-653a-40b8-8907-572891c30f95` SUCCESS：6父+8子物化、28原检查全部通过且跨run绑定正确；7频38,997文件receipt/stat收尾通过。已完成三频在daily阶段保持，进入原26股历史repair，未重跑日更。证据为 `resume-run-verified.json`及`daily-publication-verified.json`。
+
+### 46.1 已完成结果（2026-10-26）
+
+| 阶段 | run及结果 |
+| --- | --- |
+| 精确清理20个旧工作文件 | 62,008,688,640B；全部删除，正式/staging删除0，原目录保留 |
+| 原job从失败恢复 | `31e25001-653a-40b8-8907-572891c30f95` SUCCESS，593.289秒；parent/root均为原b7 run，保留15/30/120六物化，只补1/5/60/90八物化；合并14项，28原checks通过且跨run绑定一致 |
+| 原26股历史repair | `b1be4dde-70ef-45b1-aff2-0c82686a79c5` SUCCESS，384.611秒；2014-01-02至22日、七频，14条completion均通过且现成gate ready |
+
+日更receipt/stat核七频38,990年度+7 state共38,997目标；已成三频在daily阶段未重写。repair核1,932年度/20,521,382指标行及21,777 state文件，state文件合计85,106,077行含保留其他股票，不把它误说成全体股票重算。repair按原26股范围合法修正包括已成三频在内的历史行，不是重跑全市场日更。所有candidate提升身份一致，收尾没有读Parquet正文或新SHA。
+
+最后只核metadata：79,576条来源路径身份未变，595条范围外目标记录未变，无活动run、pool空闲，两sensor仍STOPPED。当前DuckDB工作目录为空；新计算工作文件已随正常结束释放，没有再次人工中断。原失败历史和staging的候选/冻结输入/receipt、原日志保留，不删除旧run或补写绿色事件。业务代码和原资源配置均未修改，无安装、真实性能样本或全局审计。
+
+本次14项完成后，按原清单累计恢复105/109，剩30/60/90/120分钟前复权九转4项；该链仍需自身候选路径修正及读取范围确认，本轮没有启动。23日补齐后再启用sensor的TODO不变。证据：[结果汇总](macd_recovery_20261025/summary.json)、[清理](macd_recovery_20261025/cleanup-result.json)、[跨run日更验收](macd_recovery_20261025/resume-run-verified.json)、[repair验收及gate](macd_recovery_20261025/repair-run-verified.json)、[receipt/stat及控制收尾](macd_recovery_20261025/final-control-status.json)。
+
+## 47. 分钟九转代码审计及原方案LLD补全（仅文档）
+
+2026-10-26按管理员要求，先补[原九转方案第12节](../../docs/design/dagster-stock-qfq-nineturn-dataset-plan.md#12-2026-10-22四个分钟分区修正方案2026-10-26待开发)和[原LLD第22节](../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#22-2026-10-22分钟九转写入修正与补齐lld待开发)，没有新建替代方案。当前只完成代码审计与文档，不表示修正已开发或四项已补齐；原清单仍105/109，余4。
+
+CodeGraph与实际实现确认：分钟候选仍由旧helper放在正式Gold的`_staging`；日线/分钟共用writer会删除失败候选，缺逐文件续跑；原source fingerprint不含实际读取的上一九转seed。仅分钟wrapper转接现有`StkMinsQfqPublication`并明确增加nineturn类型；不直接改共享日线writer，不另造一套恢复实现。plan在第一次查询前冻结stat、保留全部实际探查历史；writer绑定seed、路径集合、SQL/合同和校验版本，候选完整校验后仅一遍SHA，再同设备原子提升。日线同类旧路径是范围外待办，不能认定本轮已修好或继续按旧设计写入。
+
+原候选validator不含逐键source coverage及trade_time跨日检查，LLD已明确分钟候选复用完整性helper，提升后原四checks仍执行。四频不是整体事务，原job无固定频率顺序，不承诺一频失败就没有其他频率写入。恢复按原root及逐文件记录，只处理必要部分；正常一次摘要，失败继续所需再校验与重读另计，不自动重跑。
+
+复用已有证据：2025/2026四频共44,224份QFQ、1,654,696,422B，2026子集753,265,659B，22日输出应94,690行。这不是总读取量；原planner键查询、公式计算、候选覆盖、原checks分别计费，正常文件集合粗算已知部分8.268824GiB，另加前序/候选历史/小结果及DuckDB临时读写。需要一次键预检确定候选时再单列开销；没有新增正文读取、性能样本或资源阈值。
+
+21日seed当前身份/质量、因子修复是否满足原LLD的统一正比例缩放条件、候选和fallback历史范围尚待正式前最小确认，不预填fallback=0。后续顺序为设计确认→开发及隔离测试→必要metadata/限定键预检与具体读取批准→原22日job及四checks→唯一receipt/stat收尾。正式提交命令和代码SHA在开发验证后冻结，本轮未生成提交脚本、触发job、运行测试或写正式资源。原两sensor保持STOPPED的最近证据不因本文更新而刷新，23日补齐后启用的TODO保留。

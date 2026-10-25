@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-22",
+  "completed_at": "2026-10-26T01:31:06.635141+08:00",
+  "state": "completed_verified",
+  "business_code_changed": false,
+  "execution": "Original Dagster job from-failure reexecution, followed by original scoped repair job",
+  "cleanup": {
+    "deleted_original_spill_files": 20,
+    "deleted_original_spill_bytes": 62008688640,
+    "formal_or_staging_files_deleted": 0,
+    "duckdb_work_directory_empty_at_completion": true
+  },
+  "daily": {
+    "parent_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+    "parent_status": "FAILURE (historical interrupted attempt retained)",
+    "resume_run_id": "31e25001-653a-40b8-8907-572891c30f95",
+    "root_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+    "status": "SUCCESS",
+    "elapsed_seconds": 593.2887408733368,
+    "reused_parent_materializations": 6,
+    "new_resume_materializations": 8,
+    "combined_asset_count": 14,
+    "blocking_checks_passed": 28,
+    "cross_run_bindings_verified": true,
+    "preserved_daily_frequencies": [
+      15,
+      30,
+      120
+    ],
+    "completed_remaining_daily_frequencies": [
+      1,
+      5,
+      60,
+      90
+    ],
+    "annual_files": 38990,
+    "state_files": 7,
+    "promoted_targets": 38997
+  },
+  "repair": {
+    "run_id": "b1be4dde-70ef-45b1-aff2-0c82686a79c5",
+    "status": "SUCCESS",
+    "elapsed_seconds": 384.61142683029175,
+    "stock_codes": 26,
+    "start_date": "2014-01-02",
+    "end_date": "2026-10-22",
+    "frequencies": [
+      1,
+      5,
+      15,
+      30,
+      60,
+      90,
+      120
+    ],
+    "indicator_files": 1932,
+    "indicator_rows": 20521382,
+    "state_files": 21777,
+    "state_total_rows_including_preserved_stocks": 85106077,
+    "promoted_targets": 23709,
+    "completion_checks_passed": 14,
+    "completion_gate_ready": true,
+    "candidate_bytes": 4956070641
+  },
+  "source_identity_changes": [],
+  "out_of_scope_target_identity_changes": [],
+  "accepted_assets_this_recovery": 14,
+  "initial_missing_assets": 109,
+  "cumulative_restored_from_original_list": 105,
+  "remaining_from_original_list": 4,
+  "remaining_assets": [
+    "gold_stk_mins_qfq_nineturn_30m",
+    "gold_stk_mins_qfq_nineturn_60m",
+    "gold_stk_mins_qfq_nineturn_90m",
+    "gold_stk_mins_qfq_nineturn_120m"
+  ],
+  "active_runs": 0,
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "reenable_todo": "After 2026-10-23 datasets complete, re-enable the two sensors",
+  "performance_tests": 0,
+  "extra_annual_content_audit_reads": 0,
+  "extra_data_sha_passes": 0,
+  "global_audit_repeated": false,
+  "custom_resource_thresholds": false,
+  "interrupts_during_authorized_continuation": 0,
+  "automatic_retries": 0,
+  "authorized_reexecutions": 1,
+  "staging_records_preserved": true,
+  "historical_interrupted_attempt": "stopped-attempt-summary.json"
+}

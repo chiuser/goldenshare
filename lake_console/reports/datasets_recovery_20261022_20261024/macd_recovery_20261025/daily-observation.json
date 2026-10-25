@@ -1,0 +1,51 @@
+{
+  "as_of": "2026-10-26T00:16:01.442674+08:00",
+  "mode": "daily",
+  "run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "pid": 30236,
+  "process": "30236 05:54 169.6 6392992 Us",
+  "operations": {
+    "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=a73b1c2ae94b0372fdae2c4e5802de825f6f4e9819483734764e15d1cf1cb5b3": {
+      "event": "stock_minute_file_publication_progress",
+      "stage": "completed",
+      "validated_file_count": "5571",
+      "promoted_file_count": "5571",
+      "total_file_count": "5571",
+      "target": "-",
+      "operation_directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=a73b1c2ae94b0372fdae2c4e5802de825f6f4e9819483734764e15d1cf1cb5b3",
+      "existing_build_target_stat_bytes": "133415851",
+      "frozen_input_stat_bytes": "823060",
+      "verified_candidate_stat_bytes": "0",
+      "verified_formal_stat_bytes": "134314522",
+      "input_sha256_read_bytes": "823060",
+      "candidate_sha256_read_bytes": "134314522",
+      "formal_sha256_read_bytes": "0"
+    },
+    "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=221f11415616957a5b9ae1f99887e8e535b370ad8a8bdfb835a20615e4b904f3": {
+      "event": "stock_minute_file_publication_progress",
+      "stage": "completed",
+      "validated_file_count": "5571",
+      "promoted_file_count": "5571",
+      "total_file_count": "5571",
+      "target": "-",
+      "operation_directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=221f11415616957a5b9ae1f99887e8e535b370ad8a8bdfb835a20615e4b904f3",
+      "existing_build_target_stat_bytes": "931367557",
+      "frozen_input_stat_bytes": "4583168",
+      "verified_candidate_stat_bytes": "0",
+      "verified_formal_stat_bytes": "936500028",
+      "input_sha256_read_bytes": "4583168",
+      "candidate_sha256_read_bytes": "936500028",
+      "formal_sha256_read_bytes": "0"
+    }
+  },
+  "completed_operations": 2,
+  "candidate_sha256_read_bytes": 1070814550,
+  "frozen_input_stat_bytes": 5406228,
+  "formal_sha256_read_bytes": 0,
+  "existing_build_target_stat_bytes": 1064783408,
+  "temp_current_bytes": 61960126464,
+  "temp_observed_peak_bytes": 61960126464,
+  "free_bytes": 2852957548544,
+  "log_bytes": 9993,
+  "within_observed_limits": false
+}

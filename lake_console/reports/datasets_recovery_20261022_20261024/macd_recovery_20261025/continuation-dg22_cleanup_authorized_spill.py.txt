@@ -1,0 +1,29 @@
+"""Delete only the twenty expressly approved, unchanged, unopened spill files."""
+import json,os,shutil,subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import dagster as dg,yaml
+from dagster_postgres import PostgresRunStorage
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025');TMP=Path('/Volumes/datasource/.goldenshare_duckdb_tmp')
+plan=json.loads((BASE/'spill-cleanup-plan.json').read_text());assert plan['approval'] and len(plan['files'])==20
+def identity(p):
+ assert p.parent==TMP and p.name.startswith('duckdb_temp_storage_') and p.suffix=='.tmp'
+ assert p.is_file() and not p.is_symlink()
+ s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+for name,expected in plan['files'].items():assert identity(Path(name))==expected,name
+assert not subprocess.run(['ps','-p','30236','-o','command='],capture_output=True,text=True).stdout.strip()
+ls=subprocess.run(['/usr/sbin/lsof','-n','-P','+D',str(TMP)],capture_output=True,text=True,timeout=30);assert ls.returncode==1 and not ls.stdout.strip(),ls.stdout
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+r=PostgresRunStorage(u,should_autocreate_tables=False)
+try:assert not r.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+finally:r.dispose()
+out={'started_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'approved_files':20,'approved_bytes':plan['bytes'],'before_free_bytes':shutil.disk_usage(TMP).free,'deleted':[],'formal_or_staging_files_deleted':0}
+for name,expected in plan['files'].items():
+ p=Path(name);assert identity(p)==expected;p.unlink();out['deleted'].append(name)
+ (BASE/'cleanup-result.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+assert all(not Path(p).exists() for p in plan['files']) and TMP.is_dir()
+out.update(completed_at=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),after_free_bytes=shutil.disk_usage(TMP).free,all_20_absent=True,temporary_directory_preserved=True)
+(BASE/'cleanup-result.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in out.items() if k!='deleted'},ensure_ascii=False))

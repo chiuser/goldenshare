@@ -1,0 +1,245 @@
+{
+  "mode": "daily",
+  "date": "2026-10-22",
+  "as_of": "2026-10-26T01:18:38.234587+08:00",
+  "run_id": "31e25001-653a-40b8-8907-572891c30f95",
+  "root_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "publication_count": 7,
+  "promoted_targets": 38997,
+  "indicator_files": 38990,
+  "state_files": 7,
+  "annual_content_reads": 0,
+  "new_data_sha_passes": 0,
+  "run_and_check_events_validation": "Not performed by this script; main runner verifies separately",
+  "publications": [
+    {
+      "frequency": 1,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=1392fece466c57a223594e0d38367c21e89bb9b4c907671c6cbcaf6fdb3b42cc",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 13667266919,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 13739807426,
+      "state_candidate_bytes": 250726,
+      "annual_rows_in_receipts": 254133777,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 338728,
+      "frozen_input_bytes_per_complete_attempt": 64899325,
+      "frozen_input_bytes_all_stored_attempts": 129798650,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=1392fece466c57a223594e0d38367c21e89bb9b4c907671c6cbcaf6fdb3b42cc/attempts/c668faf1ccee4e268b974787e4e5ba66",
+          "bytes": {
+            "indicator": 64648599,
+            "state": 250726
+          },
+          "complete": true
+        },
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=1392fece466c57a223594e0d38367c21e89bb9b4c907671c6cbcaf6fdb3b42cc/attempts/fd94f6c8456b4a89aa2ac7c156b45647",
+          "bytes": {
+            "indicator": 64648599,
+            "state": 250726
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 5,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=89e4589d5b72e8f4b3b6e0056d0f08e405f66e34d6e45ba30d00325cf2382b2f",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 2744605054,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 2759111829,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 50615856,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 67704,
+      "frozen_input_bytes_per_complete_attempt": 13152983,
+      "frozen_input_bytes_all_stored_attempts": 13152983,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=89e4589d5b72e8f4b3b6e0056d0f08e405f66e34d6e45ba30d00325cf2382b2f/attempts/ce815f8edf664a3bba278d5aa014896c",
+          "bytes": {
+            "indicator": 12902254,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 15,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=221f11415616957a5b9ae1f99887e8e535b370ad8a8bdfb835a20615e4b904f3",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 931367557,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 936249299,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 16871952,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 22776,
+      "frozen_input_bytes_per_complete_attempt": 4583168,
+      "frozen_input_bytes_all_stored_attempts": 4583168,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=221f11415616957a5b9ae1f99887e8e535b370ad8a8bdfb835a20615e4b904f3/attempts/7491a5fae7d5412fa7347d5ff103866a",
+          "bytes": {
+            "indicator": 4332439,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 30,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=cb355bfcb2b2bcab4e9f2ac3c790a397fef815c647d5569a17a5ed97b2528c99",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 477732159,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 480207711,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 8435976,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 11544,
+      "frozen_input_bytes_per_complete_attempt": 2442562,
+      "frozen_input_bytes_all_stored_attempts": 2442562,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=cb355bfcb2b2bcab4e9f2ac3c790a397fef815c647d5569a17a5ed97b2528c99/attempts/e133f3271d0646ef9d02d9b3a246ecc7",
+          "bytes": {
+            "indicator": 2191833,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 60,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=00c92684d918ab6ebd037dee391e8be94814b3453736806fa8090d989d618a03",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 249518653,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 250785109,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 4217988,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 5902,
+      "frozen_input_bytes_per_complete_attempt": 1358648,
+      "frozen_input_bytes_all_stored_attempts": 1358648,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=00c92684d918ab6ebd037dee391e8be94814b3453736806fa8090d989d618a03/attempts/d57311c0483844038a40c169bbbffc18",
+          "bytes": {
+            "indicator": 1107919,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 90,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=e629e5b89190d67d83c1600109504e8173f2af50225fcd66b9ca72cb3097677a",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 190937782,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 191892267,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 3163491,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 4446,
+      "frozen_input_bytes_per_complete_attempt": 1091059,
+      "frozen_input_bytes_all_stored_attempts": 1091059,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=e629e5b89190d67d83c1600109504e8173f2af50225fcd66b9ca72cb3097677a/attempts/3a61563134704e67b3c08c9ea23396d0",
+          "bytes": {
+            "indicator": 840330,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    },
+    {
+      "frequency": 120,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=a73b1c2ae94b0372fdae2c4e5802de825f6f4e9819483734764e15d1cf1cb5b3",
+      "target_count": 5571,
+      "promoted_files": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "indicator_old_bytes": 133415851,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 134063793,
+      "state_candidate_bytes": 250729,
+      "annual_rows_in_receipts": 2108994,
+      "state_rows_in_receipts": 5593,
+      "scoped_2026_indicator_size_delta": 3016,
+      "frozen_input_bytes_per_complete_attempt": 823060,
+      "frozen_input_bytes_all_stored_attempts": 823060,
+      "frozen_input_byte_basis": "completed producer snapshot; existing frozen-file stat agrees",
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=8393bed3daa86291286b857c68206a182e9df83b31789e2a42cb513a0f28e9a4/scope=a73b1c2ae94b0372fdae2c4e5802de825f6f4e9819483734764e15d1cf1cb5b3/attempts/9041f1e21f84467880a4a374530f60b1",
+          "bytes": {
+            "indicator": 572331,
+            "state": 250729
+          },
+          "complete": true
+        }
+      ]
+    }
+  ],
+  "log_sources": [
+    "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/resume-launch.log",
+    "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/daily-compute.out",
+    "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/daily-observation.json",
+    "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/resume-observation.json"
+  ],
+  "Cd": 18492117434,
+  "Sd": 1755100,
+  "S_indicator": 18394843975,
+  "S_state": 0,
+  "P_per_complete_attempt": 88350805,
+  "P_all_stored_attempts": 153250130,
+  "P": 88350805,
+  "Ir_before": 1111441575,
+  "Ir_daily_size_delta": 454116,
+  "Ir_after": 1111895691,
+  "B_before": 3837207000,
+  "B_after": 3838962100,
+  "daily_verification_must_precede_repair": true,
+  "preserved_frequencies": [
+    15,
+    30,
+    120
+  ],
+  "receipt_comparison_scope": "Each final file matches its original-root persisted receipt; no separate receipt-byte snapshot was available"
+}

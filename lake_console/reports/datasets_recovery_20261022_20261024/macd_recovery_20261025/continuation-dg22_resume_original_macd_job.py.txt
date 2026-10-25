@@ -1,0 +1,37 @@
+"""Trigger only Dagster's original job with its native from-failure mechanism."""
+import hashlib,json,os
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import dagster as dg
+from dagster._core.execution.plan.state import KnownExecutionState
+from dagster._utils.hosted_user_process import recon_job_from_origin
+
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/macd_recovery_20261025')
+PARENT='b7b7a82f-cc07-4985-aa74-a0c3f1498936';JOB='gold_stk_mins_qfq_macd_kdj_daily_update_job'
+assert os.environ['DAGSTER_HOME']=='/Users/congming/.goldenshare/dagster_home'
+assert 'default_transaction_read_only=on' not in os.environ.get('PGOPTIONS','')
+cleanup=json.loads((BASE/'cleanup-result.json').read_text());assert cleanup['all_20_absent'] and len(cleanup['deleted'])==20
+pre=json.loads((BASE/'preflight.json').read_text())
+assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in pre['code_sha256'].items())
+with dg.DagsterInstance.get() as instance:
+ parent=instance.get_run_by_id(PARENT);assert parent and parent.status==dg.DagsterRunStatus.FAILURE and parent.job_name==JOB
+ assert parent.tags['dagster/partition']=='2026-10-22'
+ assert not instance.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+ # Official reconstruction and execution-state selection; no custom writer.
+ job=recon_job_from_origin(parent.job_code_origin)
+ steps,_=KnownExecutionState.build_resume_retry_reexecution(instance,parent)
+ expected_writes={f'gold_stk_mins_qfq_macd_kdj_{f}m_assets' for f in (1,5,60,90)}
+ completed_writes={f'gold_stk_mins_qfq_macd_kdj_{f}m_assets' for f in (15,30,120)}
+ writes={s for s in steps if s.endswith('m_assets')}
+ assert writes==expected_writes and not set(steps)&completed_writes and len(steps)==32,steps
+ assert all('check' in s for s in set(steps)-writes),steps
+ plan={'started_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'pid':os.getpid(),'parent_run_id':PARENT,'root_run_id':parent.root_run_id or PARENT,'job':JOB,'partition':'2026-10-22','steps':sorted(steps),'write_steps':sorted(writes),'skipped_successful_write_steps':sorted(completed_writes),'checks':28,'custom_resource_thresholds':False,'custom_interrupts':False,'business_code_changed':False,'configuration_inherited':True}
+ (BASE/'resume-planned-steps.json').write_text(json.dumps(plan,ensure_ascii=False,indent=2)+'\n')
+ (BASE/'resume-launcher.pid').write_text(str(os.getpid())+'\n')
+ print('Native from-failure execution:',PARENT,'4 remaining write steps and 28 original checks',flush=True)
+ with dg.execute_job(job,instance=instance,reexecution_options=dg.ReexecutionOptions.from_failure(PARENT,instance),tags=dict(parent.tags),raise_on_error=False) as result:
+  run=instance.get_run_by_id(result.run_id)
+  output={'run_id':result.run_id,'parent_run_id':run.parent_run_id,'root_run_id':run.root_run_id,'status':run.status.value,'success':result.success,'partition':run.tags.get('dagster/partition')}
+  (BASE/'resume-launch-result.json').write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n');print(json.dumps(output),flush=True)
+  assert result.success,output

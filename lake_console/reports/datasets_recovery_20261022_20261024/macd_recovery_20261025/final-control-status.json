@@ -1,0 +1,39 @@
+{
+  "as_of": "2026-10-26T01:31:06.635141+08:00",
+  "date": "2026-10-22",
+  "daily_resume_run": "31e25001-653a-40b8-8907-572891c30f95",
+  "repair_run": "b1be4dde-70ef-45b1-aff2-0c82686a79c5",
+  "complete": true,
+  "ordinary_checks_passed": 28,
+  "repair_completion_checks_passed": 14,
+  "completion_gate_ready": true,
+  "source_paths_stat_checked": 79576,
+  "source_identity_changes": [],
+  "out_of_scope_target_paths_stat_checked": 595,
+  "out_of_scope_target_identity_changes": [],
+  "current_allowed_target_files": 62517,
+  "active_runs": 0,
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "pool_active": 0,
+  "pool_pending": 0,
+  "duckdb_work_files": [],
+  "duckdb_work_directory_empty": true,
+  "business_code_unchanged": true,
+  "extra_annual_content_reads": 0,
+  "extra_data_sha_passes": 0,
+  "global_audit_repeated": false,
+  "new_resource_thresholds": false,
+  "new_interrupt_signals": 0,
+  "accepted_assets_this_recovery": 14,
+  "remaining_original_list": 4,
+  "reenable_todo": "After 2026-10-23 datasets complete, re-enable the two sensors"
+}

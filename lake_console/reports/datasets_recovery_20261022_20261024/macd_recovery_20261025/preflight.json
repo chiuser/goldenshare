@@ -1,0 +1,439 @@
+{
+  "as_of": "2026-10-26T00:01:07.003118+08:00",
+  "date": "2026-10-22",
+  "annual_content_reads": 0,
+  "formal_writes": 0,
+  "factor_status": {
+    "ready": true,
+    "trade_date": "2026-10-22",
+    "reason": "qfq factor repair rewrote history; reconciliation is required.",
+    "repair_required": true,
+    "rewrote_history": true,
+    "qfq_factor_repair_event_storage_ids": [
+      7726576,
+      7726577,
+      7726578,
+      7726579,
+      7726580,
+      7726581,
+      7726582
+    ],
+    "producer_run_id": "f23ca4a2-b7c0-459f-9c55-764cb585db26",
+    "upstream_batch_id": "qfq_factor_repair:2026-10-22:1ecb794186a4",
+    "missing_qfq_asset_keys": [],
+    "failed_qfq_asset_keys": [],
+    "repair_start_trade_date": "2014-01-02",
+    "repair_end_trade_date": "2026-10-22",
+    "selected_partition_count": 3111,
+    "repair_required_code_count": 26,
+    "repair_required_codes": [
+      "000498.SZ",
+      "000528.SZ",
+      "002250.SZ",
+      "002475.SZ",
+      "002500.SZ",
+      "002644.SZ",
+      "002838.SZ",
+      "002867.SZ",
+      "002929.SZ",
+      "300881.SZ",
+      "301261.SZ",
+      "301555.SZ",
+      "600026.SH",
+      "600218.SH",
+      "600415.SH",
+      "600477.SH",
+      "600570.SH",
+      "600685.SH",
+      "600814.SH",
+      "601222.SH",
+      "601225.SH",
+      "601966.SH",
+      "603323.SH",
+      "603373.SH",
+      "605089.SH",
+      "688046.SH"
+    ],
+    "repair_required_codes_hash": "41b905809024cb2d5d37c2feb4e3c3b9fb8c4a13919b19e4c8ffceea498da2d6",
+    "repair_required_codes_truncated": false,
+    "rewritten_file_count": 1380,
+    "rewritten_row_count": 20202727,
+    "derived_rewrite_required": true,
+    "derived_rewritten_file_count": 552,
+    "derived_rewritten_row_count": 318655,
+    "requires_derived_reconciliation": true
+  },
+  "active_runs": [],
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "daemon_process": "",
+  "pool": {
+    "limit": 1,
+    "active": 0,
+    "pending": 0
+  },
+  "target_dates_registered": 3111,
+  "prior_daily_runs": [],
+  "free_bytes": 2915359232000,
+  "small_input_stat_checks": {
+    "current_factor": true,
+    "previous_factor": true,
+    "stock_basic": true,
+    "calendar": true
+  },
+  "groups": {
+    "1": {
+      "daily_source_1_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 6271200336,
+        "missing": 0
+      },
+      "daily_source_1_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 5397081778,
+        "missing": 0
+      },
+      "daily_indicator_old_1": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 13701805114,
+        "missing": 0
+      },
+      "previous_state_1": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250707,
+        "missing": 0
+      },
+      "history_state_1": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 547335218,
+        "missing": 1
+      },
+      "repair_source_1": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 307144974,
+        "missing": 88
+      },
+      "repair_indicator_old_1": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 825912159,
+        "missing": 62
+      }
+    },
+    "5": {
+      "daily_source_5_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 1627944348,
+        "missing": 0
+      },
+      "daily_source_5_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 1399762394,
+        "missing": 0
+      },
+      "daily_indicator_old_5": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 2751731825,
+        "missing": 0
+      },
+      "previous_state_5": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250713,
+        "missing": 0
+      },
+      "history_state_5": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548239276,
+        "missing": 1
+      },
+      "repair_source_5": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 79964537,
+        "missing": 88
+      },
+      "repair_indicator_old_5": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 165883590,
+        "missing": 62
+      }
+    },
+    "15": {
+      "daily_source_15_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 663237152,
+        "missing": 0
+      },
+      "daily_source_15_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 562704072,
+        "missing": 0
+      },
+      "daily_indicator_old_15": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 933826432,
+        "missing": 0
+      },
+      "previous_state_15": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250714,
+        "missing": 0
+      },
+      "history_state_15": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548327839,
+        "missing": 1
+      },
+      "repair_source_15": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 32987950,
+        "missing": 88
+      },
+      "repair_indicator_old_15": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 56337109,
+        "missing": 62
+      }
+    },
+    "30": {
+      "daily_source_30_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 381691225,
+        "missing": 0
+      },
+      "daily_source_30_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 319739488,
+        "missing": 0
+      },
+      "daily_indicator_old_30": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 479003698,
+        "missing": 0
+      },
+      "previous_state_30": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250714,
+        "missing": 0
+      },
+      "history_state_30": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548327834,
+        "missing": 1
+      },
+      "repair_source_30": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 19218013,
+        "missing": 88
+      },
+      "repair_indicator_old_30": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 28843935,
+        "missing": 62
+      }
+    },
+    "60": {
+      "daily_source_60_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 219228762,
+        "missing": 0
+      },
+      "daily_source_60_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 182933116,
+        "missing": 0
+      },
+      "daily_indicator_old_60": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 250190904,
+        "missing": 0
+      },
+      "previous_state_60": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250714,
+        "missing": 0
+      },
+      "history_state_60": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548327838,
+        "missing": 1
+      },
+      "repair_source_60": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 11199257,
+        "missing": 88
+      },
+      "repair_indicator_old_60": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 15024839,
+        "missing": 62
+      }
+    },
+    "90": {
+      "daily_source_90_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 173667836,
+        "missing": 0
+      },
+      "daily_source_90_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 145197670,
+        "missing": 0
+      },
+      "daily_indicator_old_90": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 191456307,
+        "missing": 0
+      },
+      "previous_state_90": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250714,
+        "missing": 0
+      },
+      "history_state_90": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548325865,
+        "missing": 1
+      },
+      "repair_source_90": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 8898666,
+        "missing": 88
+      },
+      "repair_indicator_old_90": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 11466656,
+        "missing": 62
+      }
+    },
+    "120": {
+      "daily_source_120_2025": {
+        "paths": 5463,
+        "files": 5463,
+        "bytes": 126842940,
+        "missing": 0
+      },
+      "daily_source_120_2026": {
+        "paths": 5593,
+        "files": 5593,
+        "bytes": 105395385,
+        "missing": 0
+      },
+      "daily_indicator_old_120": {
+        "paths": 5592,
+        "files": 5592,
+        "bytes": 133783344,
+        "missing": 0
+      },
+      "previous_state_120": {
+        "paths": 1,
+        "files": 1,
+        "bytes": 250714,
+        "missing": 0
+      },
+      "history_state_120": {
+        "paths": 3111,
+        "files": 3110,
+        "bytes": 548323130,
+        "missing": 1
+      },
+      "repair_source_120": {
+        "paths": 364,
+        "files": 276,
+        "bytes": 6517704,
+        "missing": 88
+      },
+      "repair_indicator_old_120": {
+        "paths": 338,
+        "files": 276,
+        "bytes": 7973287,
+        "missing": 62
+      }
+    }
+  },
+  "scope_codes": [
+    "000498.SZ",
+    "000528.SZ",
+    "002250.SZ",
+    "002475.SZ",
+    "002500.SZ",
+    "002644.SZ",
+    "002838.SZ",
+    "002867.SZ",
+    "002929.SZ",
+    "300881.SZ",
+    "301261.SZ",
+    "301555.SZ",
+    "600026.SH",
+    "600218.SH",
+    "600415.SH",
+    "600477.SH",
+    "600570.SH",
+    "600685.SH",
+    "600814.SH",
+    "601222.SH",
+    "601225.SH",
+    "601966.SH",
+    "603323.SH",
+    "603373.SH",
+    "605089.SH",
+    "688046.SH"
+  ],
+  "scope_dates": 3111,
+  "source_scope_2013_files": 0,
+  "code_sha256": {
+    "src/orchestrator/defs/stk_mins_qfq_macd_kdj.py": "1facdbd47ec13d8bcc24fda798bff39d16ae1fbb747a4f40eb0c5a0b226736f6",
+    "src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py": "9fc85c5980b2451fcf5ced7062724bf31e026ee17bfa210cf13be3c6db54f056",
+    "src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py": "3bf20f5af041fa05d42dde8617cb72a65fd3642473e05451f8022378d3f6677c",
+    "src/orchestrator/defs/ops/gold_stk_mins_qfq_macd_kdj_repair.py": "996f9292838a589c2276ca9f0bc31f605378aea73fb05fe8901c9b3b88966f91",
+    "src/orchestrator/defs/io/stk_mins_qfq_publication.py": "7f8992c21b63de93a8849801d99edc70edda31b28717c8679852e13fa2f73de6"
+  }
+}

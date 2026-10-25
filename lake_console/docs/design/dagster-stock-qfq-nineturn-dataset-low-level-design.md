@@ -1,6 +1,8 @@
 # 股票前复权九转资产族低层设计
 
-状态：P0 至 P7R、分钟去价格专项 S0 至 S5 均已完成。2026-08-15 四个分钟资产的 12,272 个正式分区已全量切换为八列无价格 schema，并完成 12,272 条 materialization、80 条最近窗口 check、Reader/readiness 和分钟 sensor 恢复；日线九转完全不变。2026-08-14 的旧九列 canonical rebuild 仅保留为历史执行记录，不再代表当前正式合同。
+状态更新（2026-10-26）：第22节为22日四个分钟分区的写入修正及补齐LLD，当前仅完成代码审计与文档，未开发、未正式执行。现有两股票sensor保持STOPPED；23日数据补齐后再启用的TODO不变。
+
+历史结果：P0至P7R和分钟去价格S0至S5在2026-08-15均已完成，12,272个分钟分区切为八列，并完成当时event、check、Reader/readiness和sensor恢复。2026-08-14旧九列重建只保留为历史，不代表现行合同；日线后续独立修正的六列合同以当前代码为准，本轮不修改日线。
 
 上位方案：
 [`dagster-stock-qfq-nineturn-dataset-plan.md`](./dagster-stock-qfq-nineturn-dataset-plan.md)
@@ -174,7 +176,6 @@ class QfqNineturnPartitionWriteResult:
 GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),
-    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
     ColumnContract("up_count", "INTEGER", "连续上九转计数"),
     ColumnContract("down_count", "INTEGER", "连续下九转计数"),
     ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
@@ -200,7 +201,7 @@ daily:  (ts_code, trade_date)
 minute: (ts_code, freq, trade_time)
 ```
 
-`trade_date` 必须等于 partition key；分钟文件内 `freq` 必须等于 asset 频度。分钟最终正式 schema 精确为上述八列，不保存任何价格或量额字段；公式仍读取同频 `gold_stk_mins_qfq.close` 并在内部使用 `close_value`。日线仍保留 `close_qfq`。跨年度 compact context sidecar 可临时保存最近四根价格，但只能位于正式 staging，不能进入 candidate/final 文件或业务 Reader。
+`trade_date`必须等于partition key；分钟`trade_time`所属日期也必须相同，`freq`必须等于asset频度。分钟当前八列、日线当前六列，均不保存价格；依据是现行`asset_column_schemas.py`。本轮不改schema。公式内部仍使用上游QFQ价格；跨年度context只能在规定的staging临时保存，不能进入正式文件或业务Reader。
 
 ## 6. Path Helpers
 
@@ -236,14 +237,16 @@ gold/indicator/stock_daily_qfq_nineturn/trade_date=<date>/part-000.parquet
 gold/indicator/stk_mins_qfq_nineturn/freq=<freq>/trade_date=<date>/part-000.parquet
 ```
 
-staging 固定在同卷：
+现行规则：所有候选只能位于`/Volumes/datasource/data_lake_staging`，并在提升前检查与正式目标处于同一文件系统。不得在正式Gold内新建`_staging`。第22节定义本轮分钟writer的替代路径和恢复规则。
+
+以下是2026-10-26代码审计发现的旧路径，**不是可执行设计**：
 
 ```text
 gold/indicator/stock_daily_qfq_nineturn/_staging/run_id=<run_id>/trade_date=<date>/part-000.parquet
 gold/indicator/stk_mins_qfq_nineturn/_staging/run_id=<run_id>/freq=<freq>/trade_date=<date>/part-000.parquet
 ```
 
-writer 使用 `staging -> contract validate -> source fingerprint recheck -> os.replace`，失败时删除 staging，原目标文件保持不变。
+旧共享writer失败删除候选，亦不符合本轮失败留存/续跑要求。分钟调用本轮改为第22节；旧分钟helper删除。日线旧helper和writer现状作为范围外问题记录，不能据本文历史段落继续执行日线写入，亦不因本轮分钟修正被认定已修好。
 
 ## 7. 计算 SQL
 
@@ -283,7 +286,7 @@ nine_down_turn = CASE WHEN down_count >= 9 THEN '-9' END
 正常路径只处理目标分区：
 
 1. 读取上一 expected trade date 的九转输出，取每个股票最后一行的方向和 count 作为连续段种子。
-2. 从 QFQ source 读取目标日期所有行，以及每个目标股票前 4 根实际 bar。
+2. 计算需要目标日及每代码前4根实际bar；当前分钟实现实际读取目标年和前一年文件后在公式中计算LAG4，再筛目标日，不能把所需4根误写成物理只读4根。日线按自己的context规则执行。
 3. 计算目标日期方向与连续段；若第一段方向等于种子方向，第一段 count 在种子 count 上递增。
 4. 新股没有历史 bar 时从 0 开始。
 5. 目标代码有更早 source bar、但上一分区没有对应种子时，进入 code-scoped fallback，从该代码 source 历史精确重算。
@@ -444,7 +447,7 @@ failed_rule_names  # 转成 list，不能传 tuple
 diagnostic_ref
 ```
 
-Check 禁止 import 或调用九转 select/calculation helper。分钟检查精确覆盖文件/schema、分区与时间归属、目标/源键非空唯一、源键覆盖、计数和信号值域；不得读取目标 `close_qfq`、比较源值或重算公式。日线继续检查 `close_qfq > 0` 和逐键 `source_value_consistency`。静态门禁扫描 `qfq_nineturn_checks.py`，禁止出现 `LAG(close`、`segment_id`、`QFQ_NINETURN_COMPARISON_LAG` 等公式实现。
+Check禁止import或调用九转select/calculation helper。分钟检查覆盖文件/schema、分区与时间归属、目标/源键非空唯一、源键覆盖、计数和信号值域；不比较目标价格或重算公式。当前日线也是无价格合同，旧`close_qfq`及`source_value_consistency`文字不再代表现行检查。静态门禁扫描`qfq_nineturn_checks.py`，禁止出现`LAG(close`、`segment_id`、`QFQ_NINETURN_COMPARISON_LAG`等公式实现。
 
 ## 10. Readiness
 
@@ -1207,4 +1210,162 @@ git diff --check
 3. candidate build/audit 使用 DuckDB 2GB/1线程并按年度释放连接。候选阶段单进程峰值不高于 5.74GB；提升前总门禁峰值 10.61GB，均低于 16GiB 硬门禁。正式聚合审计峰值 4.84GB。
 4. S4 事件计划 fingerprint 为 `2140016f3d4e29384bb78dfd01838c389a5907e132059fa3e30d22dd9affa7f5`。工具新增显式 asset selection 并进入计划/物理指纹，正式计划只含四个分钟资产：12,272 条 materialization、80 条最近 20 日 check，日线候选 0。实际写入数量一致，post-plan 候选为 0；没有删除历史 event 或创建 Dagster run。
 5. S5 对 `000001.SZ` 四频各执行 10 次正式 Reader，全部逐根匹配且返回字段无价格；观测 P95 为 150/32/29/25ms。最近 5 日 readiness 检查 20/20 文件、470,832 行，失败行 0，耗时 2.11 秒。Orchestrator 专项 61 项和 16 个子测试、Foundation/API 32 项通过，Definitions 加载成功。
+
 6. reload `orchestrator` code location 后，只恢复正式 `gold_stk_mins_qfq_nineturn_update_job_sensor` origin；当前状态 `RUNNING`，2026-08-15 12:13:01 最近 tick 为 `SKIPPED — 最近 5 个分钟前复权九转分区均已 ready`，run 数 0。周六没有新增交易日，不伪造新分区触发；下一交易日只做自然观察，不改变本次正式数据结论。
+
+## 22. 2026-10-22分钟九转写入修正与补齐LLD（待开发）
+
+### 22.1 本步状态、范围及依据
+
+2026-10-26仅审计当前代码和已有报告、完善原方案与本LLD；未修改Python、运行测试/job、读取正式数据正文或写Lake/数据库。以下均是拟实施细节，不能当成已实现或已通过。开发须先获本方案确认；正式读取/写入仍单独按具体范围批准。
+
+目标仅为`gold_stk_mins_qfq_nineturn_{30,60,90,120}m`在2026-10-22的四个文件。正式根`/Volumes/datasource/data_lake`、候选根`/Volumes/datasource/data_lake_staging`；原job、四个blocking check、八列合同、公式和正式路径不变。既有MACD/QFQ已完成结果保持。不得引入备份、旧Lake、Kopia、独立九转state、Prod写入、新配置、性能样本或自行设置的资源中断阈值。
+
+本轮使用CodeGraph的`codegraph_status/explore/node/callers/impact`，并核验其未完整覆盖的工厂生成资产及测试引用。索引根为仓库根；`_write_qfq_nineturn_partition`生产调用为日线/分钟两个wrapper，分钟writer生产调用仅`assets/qfq_nineturn.py`的工厂资产；`QfqNineturnSourcePlan`仅日线/分钟planner两处构造、对应两支资产读取。未发现该plan的序列化、前端/API消费者。历史bootstrap走独立builder/writer，Reader和checks只读正式路径。该事实决定仅迁移分钟wrapper，不能直接改共享writer而影响日线。
+
+官方API依据通过Context7核对Dagster官方源码/文档：资产通过`context.run`取得run；重执行保留root/parent身份，创建run不等于提交。分钟调用沿用仓库QFQ/MACD已有的`context.run.root_run_id or context.run.run_id`写法，不新增job或改变Dagster执行器。[资产context](https://github.com/dagster-io/dagster/blob/master/docs/docs/guides/build/assets/defining-assets.md)、[重执行run实现](https://github.com/dagster-io/dagster/blob/master/python_modules/dagster/dagster/_core/instance/runs/run_domain.py)。
+
+### 22.2 当前代码事实与必须保留的语义
+
+| 当前实现 | 本次核验结论 |
+| --- | --- |
+| `assets/qfq_nineturn.py:_previous_registered_trade_date` | 取小于目标日的最大注册日；不是日历验证。22日执行前必须确认它确为21日 |
+| `qfq_nineturn.py:plan_gold_stk_mins_qfq_nineturn_source` | 正常两年QFQ、上一九转种子、候选代码历史探查、最终fallback名单；当前planner会直接读历史，不能未经范围批准用它“探一下” |
+| `_bounded_candidate_codes` | 先读两年身份/日期字段及种子找候选，另一次目标日count；候选条件为前序不足4根或缺该代码种子 |
+| `_fallback_codes_with_history` | 读候选代码各年身份字段，实际至少4根旧历史才列入回算；501个新股候选可能最终0个回算 |
+| `_build_qfq_nineturn_partition_select_sql` | 最终fallback最多500，原限制不变；不是历史查询前限制候选数 |
+| `_minute_seed_sql` | 读取上一分区各代码最后一根的方向与最大计数；有前序日期但整个文件缺失时现有helper报错，不改为静默空种子 |
+| 分钟公式/`nineturn_formula.py` | 先在两年source上做LAG4，再筛目标日；源阶段没有`<=22日`裁剪。新股不足4根输出0，老股票不能从0伪造接续 |
+| `build_qfq_nineturn_source_fingerprint` | QFQ相对路径、size、mtime摘要，不读业务正文、不含上一九转。原metadata语义保留；新输入身份另存 |
+| 旧共享writer | 开头和finally删除候选，缺逐文件恢复；候选validator没有逐键来源覆盖及`trade_time`跨日校验 |
+| `qfq_nineturn_integrity.py:audit_qfq_nineturn_integrity` | 可对指定候选路径做完整合同/分区/键/值域/来源覆盖检查，不计算公式；复用它，不能声称旧validator已覆盖这些内容 |
+| sensor与人工job | 因子、QFQ、前序九转ready在sensor中检查，人工job不执行sensor。原job含四资产与四checks、in-process及共用writer pool；四频无固定顺序，不具备整体事务 |
+
+第15节继续适用：只有每代码统一正比例缩放且键/时间不变，旧九转种子才不受QFQ历史修复影响。已完成因子repair及其来源记录可复用，但必须从其实际范围/公式核清是否满足这一条件；不能只凭`SUCCESS`、`ready=true`认定。若发现非等比例历史修正或无法确认条件，先报告并补受影响代码的scoped rebuild方案，不做全历史扫描来猜结论，也不擅自把本轮扩成九转repair。
+
+### 22.3 代码修改清单及内部输入
+
+| 文件/位置 | 具体修改 | 边界 |
+| --- | --- | --- |
+| `run_contracts/qfq_nineturn.py:QfqNineturnSourcePlan` | 末尾新增`input_file_identities`（默认None），为按路径排序的不可变tuple，每项`(Path, (st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns))`；另加`history_candidate_codes`（默认空tuple）保存实际探查的候选 | 默认值仅保持日线构造不变；分钟必须填身份，不能由writer晚抓一次stat兜底。候选名单包括没有历史路径的代码，才能发现后续新加入的历史文件。原字段和输出result不变 |
+| `qfq_nineturn.py`分钟planner | 正常source及seed在第一次查询前取身份；候选历史在其查询前扩充；每次查询后、返回前复核 | 只增加metadata保护，不改路径选择、日期、公式、fallback条件或500上限。history扩充遇到已记录路径必须核对首次身份，禁止覆盖旧身份 |
+| `qfq_nineturn.py`分钟writer | 必须接收完整`source_plan`，转入分钟发布实现 | 日线wrapper仍调用原共享writer；分钟旧参数整体迁移，不能保留可漏传种子的新旧两条分钟路径 |
+| `assets/qfq_nineturn.py`分钟工厂 | 传`source_plan`和root run身份 | 日线调用、materialization metadata结构和四资产定义不变 |
+| `io/stk_mins_qfq_publication.py` | 允许family=`nineturn`，复用原候选、锁、输入冻结、一次摘要、receipt和原子提升 | 不改qfq/macd_kdj分支行为、阈值、目录、schema或配置；九转频率仍由原normalize函数限制 |
+| `paths.py`与引用/测试 | 删除已无生产消费者的`gold_stk_mins_qfq_nineturn_staging_path`及旧分钟路径断言 | 保留正式path helper；日线旧helper不动。不得留一条仍能把分钟候选指向正式Gold的备用函数 |
+| 定向测试 | 见22.7逐项迁移和新增 | 不改业务Reader/API、历史CLI、job/sensor/检查名称和选择 |
+
+分钟writer的目标内部签名：
+
+```python
+write_gold_stk_mins_qfq_nineturn_partition(
+    *, duckdb_resource, lake_root, freq, partition_key, run_id,
+    select_sql, source_plan: QfqNineturnSourcePlan,
+) -> QfqNineturnPartitionWriteResult
+```
+
+这是DG内部调用迁移，已核生产调用一处及writer测试；日线签名不改。`run_id`由分钟asset传root或本次run ID，直接隔离测试传明确身份；不增加环境变量或运营参数。result的`source_file_count/source_fingerprint`仍以原`fingerprint_source_paths`为准，不把种子或只探查未回算的历史混进该字段。
+
+身份记录必须包括实际查询过、最终却未选为fallback的候选历史，因为它参与了“是否需要回算”的判断。无前序交易日时记录明确的None；有前序日期但文件缺失继续报错。正常两年路径集合、各候选代码历史路径集合在结束/提升前重新枚举metadata并核对，防止只检查旧路径而漏掉新加入的输入文件；不枚举其他频率或无关代码正文。stat不是源内容SHA，不能把这项保护说成全历史内容比对。
+
+### 22.4 输入说明、候选目录与写入过程
+
+复用现有publication构造参数：`family='nineturn'`、单freq、`trade_dates=(partition_key,)`、`publication_id=run_id`。现有组件将root、run、scope映射为摘要，实际目录为：
+
+```text
+/Volumes/datasource/data_lake_staging/stk_mins_qfq/nineturn/
+  root=<root摘要>/freq=<freq>/run_id=<run摘要>/scope=<scope摘要>/
+    operation.json
+    attempts/<attempt>/nineturn_inputs.parquet
+    files/<target摘要>.json
+    candidates/<candidate-id>/gold/indicator/stk_mins_qfq_nineturn/
+      freq=<freq>/trade_date=2026-10-22/part-000.parquet
+```
+
+目录是现有组件的真实规则，不再维护第二个候选path helper。测试使用临时Lake及其同级staging，测试结束两者和DuckDB工作目录都清除；正式失败现场保留，不自动清理候选或operation。
+
+`bind`的`inputs`只传一份**输入说明的SQL**，返回按确定顺序序列化的一条说明：格式版本、候选校验规则版本、公式版本、freq、partition、前序路径或None、正常/fallback路径集合、全部已读文件五字段身份、history_candidate_codes、fallback代码及计数、source_row_count、原八列名称/类型/顺序、完整计算SQL。先将字符串作为SQL字面量安全转义，再由现有bind保存并对这份小文件取摘要。它不是行情副本、资产、状态表或新配置。不能把计算SQL直接放进bind后再COPY计算一遍；也不冻结两年价格明细。
+
+每个频率的正常流程：
+
+1. 接收并核验分钟plan身份完整、freq合法、行数正、fallback名单/数量合法；源文件必须位于约定QFQ路径，种子必须位于对应前序九转正式路径，均为普通文件且路径无符号链接。planner首次取身份前即检查这些边界，writer再次检查并复核所有输入身份/集合，生成原source fingerprint。取得原publication非阻塞文件锁。
+2. 用现有`bind`冻结输入说明及唯一正式目标；同一root若已有不一致operation/receipt，拒绝复用，不另建身份躲过冲突。
+3. 同连接建立目标日source key临时表，只投影当前年QFQ的`ts_code/freq/trade_date/trade_time`并筛22日/本频；使用原source路径选择helper，不读取价格。保留原始行以检查重复键，不能先DISTINCT掩盖重复。此表只用于候选检查和股票数，不持久化为新数据集。
+4. `candidate(target)`返回`(candidate_path, None)`表示需要新建；返回`(None, row_count)`表示已有validated/promoting/promoted结果通过组件恢复核验。两个分支必须显式区分。
+5. **新候选分支**：只执行一次原`select_sql`的COPY，复核输入身份；调用现有`audit_qfq_nineturn_integrity(target_path=candidate, source_relation=<临时表>, source_paths=(), partition_key=D, freq=freq)`，要求passed、输出/来源行数均等于plan行数。股票数从目标日键表统计，完整覆盖通过后等同于输出股票数；fallback数量不得超过它。随后调用`validated`，候选fsync、仅一遍SHA并保存记录。分钟以此替代旧私有validator重复检查，日线原validator不变。
+6. **已有结果分支**：要求返回行数等于plan行数，当前目标日键表行数及股票数符合plan/fallback约束；输入说明及校验版本必须一致。跳过COPY、候选audit和`validated`，不能对None路径调用检查，也不能重写已提升文件。两分支汇合后再复核全部输入身份/集合，调用现有`promote()`处理原记录：新结果先核同设备、候选/目标身份、无符号链接，记录`promoting`后原子替换、目录fsync、记录`promoted`；已完成者跳过替换。正常同进程不再做第二遍SHA，跨进程恢复的那一遍已由现有组件核验。
+7. 两分支均按原结构返回result：目标为正式path，source行数来自plan，output行数来自新候选诊断或恢复返回值，股票数来自目标日键表，fallback数量为原名单长度；source_file_count/fingerprint沿用原口径，observed_columns取已通过完整schema检查所对应的合同列序。恢复不为重建metadata另读一次正式文件。原job继续运行四条正式checks，独立读取正式文件和目标年来源键，不用receipt替代，不重算公式。正常收尾仅核逐文件记录/stat、检查绑定及两sensor状态，不再做全局审计或SHA。
+
+输入说明必须包含本次校验规则的版本，防止以后规则变更时误把旧候选当成已按新规则通过。全量源SHA没有获准，也没有必要为此新增；五字段stat、输入集合及目标/候选摘要各自证明的范围要分别报告。
+
+### 22.5 失败、中断和继续
+
+| 记录/现场 | 处理规则 | 再读取开销 |
+| --- | --- | --- |
+| 尚未完成COPY、`building` | 保留原部分候选与记录；同输入、原目标未变才能创建新的候选完成该文件 | 重做此freq planner/计算及必要检查，原半文件不作正式结果 |
+| 已`validated`未提升 | 原输入说明必须匹配；现有组件重新核一次候选摘要，复用候选，不能再次COPY | planner/目标日键可能重新读；候选一次恢复摘要 |
+| `promoting`时进程退出 | 仅按原组件核候选是否仍在、正式文件是否对应原候选；能唯一确认才完成记录 | 对实际保留文件一次恢复摘要；不能只凭“目标存在”宣告成功 |
+| 已`promoted`但事件未完成 | 核正式文件身份及摘要，同root返回原结果，重做必要原check/event步骤 | 正式结果一次恢复摘要；不替换文件 |
+| 输入、seed、SQL/校验版本、候选、外部目标、receipt冲突或丢失 | 拒绝自动恢复，保留现场并报告 | 不通过新root或删除记录绕过，不做全历史审计补猜 |
+| 某一频率/check失败 | 以原Dagster实际执行状态和逐文件记录汇报；已完成其他频率保持 | 不承诺其他独立step已经被阻止、不回滚四频，也不自动重跑 |
+
+恢复仍需检查实际代码版本和从失败执行的step选择，再明确本次额外读写，单独获得必要授权；“预算含一次续跑估计”不等于批准自动续跑。不要修改原资源配置、添加运行时间/空间中断器，或人工给正在正常计算的job发送中断信号。
+
+### 22.6 正常、前检、续跑及收尾开销
+
+已有证据来自[MACD预检](../../reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/preflight.json)、[最终来源身份核验](../../reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/final-control-status.json)及[QFQ完成汇总](../../reports/datasets_recovery_20261022_20261024/qfq_recovery_20261025/summary.json)，本轮未新扫正式文件。
+
+四频两年44,224文件大小记为R=1,654,696,422B（1.541056GiB）；其中2026年Y=753,265,659B（0.701533GiB）。22日总输出94,690行。P=21日四份九转大小；Hc=实际候选代码所有年份的历史文件大小（含与R重合的路径）；Hf=最终fallback计算文件大小，Hf≤Hc；C=四份新候选大小；M=输入说明及小记录大小；B/W分别为DuckDB临时工作文件实际读/写量。这些符号仅用于预算，不是代码配置或新字段。
+
+| 操作 | 业务列与次数 | 文件大小口径的保守估计 |
+| --- | --- | --- |
+| planner候选/前序计数及目标日count | 身份、日期、freq；第一个SQL的source CTE有两处引用，另一个count SQL；seed一次 | 至多按3R+P计，不声称物理读了三遍全列 |
+| 候选历史探查 | 仅候选代码各年身份/日期/freq，判断是否至少4根旧历史 | Hc；不得因最终fallback为空而漏计 |
+| 原公式计算并COPY | 正常两年五字段一次，seed一次；必要fallback完整序列五字段一次 | R+P+Hf，写C；仅22日进入输出 |
+| 候选source key临时表 | 当前年、目标日四身份字段，保留重复行 | Y；只冻结目标日键，不拷贝全年数据 |
+| 完整候选检查 | schema/键/日期/值域/覆盖；来源从临时键表复用 | 按最多4C计，键表内存/临时读单列B |
+| 候选SHA | 正常一遍 | C |
+| 原四个正式checks | 正式八列及当前年目标日来源键；coverage SQL有两个source读取入口 | 按2Y+3C计；没有两年价格计算 |
+| bind输入说明及记录 | 只含路径/stat/SQL/口径 | 读M、写M，不冻结历史价格 |
+| 最后验收 | 原检查绑定、receipt、path/stat/控制状态 | 不读正文/摘要；不重复前序或全局检查 |
+
+所以一次正常执行按`4R+3Y+2P+Hc+Hf+8C+M+B`估读，写`C+M+W`，峰值新增空间约`C+M+W`加目标日键及计算内存；提升后C成为正式结果，不另复制一份。已知源集合重复计费部分`4R+3Y=8,878,582,665B=8.268824GiB`，不是整条链的精确磁盘I/O，也不是此次已批准额度。列裁剪、Parquet日期裁剪、CTE物化/缓存会减少文件正文读取，临时溢写会增加B/W；没有测量，不编造精确实际量或耗时。旧历史bootstrap的bytes/row不能保证本次候选压缩大小。
+
+必要前检分开计费：若控制记录和metadata不能证明最终fallback范围，先申请仅2025/2026身份键及21日种子的读范围，复用`_bounded_candidate_codes`取得候选，并只stat这些代码的历史路径，**此时不调用完整planner、不读更早历史正文**。这一轮至多另计`3R+P`（已知部分4.623168GiB），无正式写入。得到Hc后可以用`Hf≤Hc`核完整历史上界，无需先全量读历史才申请。正常job后会重新planner，该前检不冒充可直接续用的执行计划；两阶段已知部分合计`7R+3Y=12.891993GiB`，另加种子、候选历史和小结果等。若现有证据已能确定范围，则省去这一轮，不为了补预算数字而重复审计。
+
+中断后的继续按实际未完成freq计算。为提前解释最多同范围重做一次的开销，保守增加一份上述正常执行成本，且计入原部分候选留存占用；已验证/已提升目标通常只需一次恢复SHA和planner/键读取，实际应从receipt缩小范围。包含必要前检且四freq都重新计算的已知部分为`11R+6Y=21.160817GiB`，其他项按实际集合追加；这不批准重跑，也不表示将完整重跑四freq。没有完成过的文件可能新增C，原半文件和attempt说明继续占空间，不能在预算中假设已被删除。
+
+本轮没有对P、Hc、Hf、C、M、B/W填伪造实测值，亦未冻结新的数值额度。正式前须用有限metadata和已有记录补P、Hc等，提交具体范围/开销；不能把1.54GiB当作总量或把MACD272GiB批准挪到九转。本节当前用途是把必需/重复/恢复读取逐项说明清楚，不是已可直接执行的审批卡。
+
+### 22.7 开发约束、夹具和验收
+
+夹具先对照真实生产者`stk_mins_qfq.py`的写入和`GOLD_STK_MINS_QFQ_SCHEMA`：11列`ts_code/freq/trade_date/trade_time/open/high/low/close/vol/amount/exchange`，其中日期为DATE、分钟时间TIMESTAMP、freq INTEGER、价格量额DOUBLE、其余VARCHAR。seed按当前八列合同构造。沿用的`marker`文件只能测某些文件写入失败，不能证明真实上游接入通过；修改分钟writer测试时换成上述合同，不迁就假输入放宽实现。
+
+每项硬口径落实如下，开发交付时逐项补实际测试结果，不能以“测试全绿”代替对账：
+
+| 要求 | 代码位置 | 正向/反向验证 |
+| --- | --- | --- |
+| 四频、八列、LAG4、>=9及超过9、零/相等价格规则不变 | 原公式/contract；分钟wrapper | 字面金样本核每根结果、四频及正比例缩放；不足4根真新股为0；不允许提前裁目标日丢LAG上下文 |
+| 前序种子接续与fallback原规则不变 | 分钟planner/source plan测试 | 21日末根接22日；整前序文件缺失拒绝；老股缺单代码seed走历史；真新股无旧历史正常；500实际fallback接受、501拒绝；501候选但无旧历史不误拦 |
+| 身份从第一次读取前开始保护 | planner/input_file_identities | 正常读取后源/seed变动、fallback重叠路径变化、探查未入最终fallback的文件变化都拒绝；内容正常但身份变更也拒绝同root复用；未变者通过 |
+| 完整候选通过才写正式 | 分钟writer/原integrity helper | 缺列/错类型/重复/空键/非法信号/错误频度/跨日拒绝；行数相等但换代码或时间键也拒绝；原目标字节不变；合法NULL信号、新股0不误拦 |
+| 候选只在staging、无旧分钟分支 | publication/paths及引用测试 | 临时root和正式路径纯函数边界；异设备、越界、符号链接、并发锁、外部目标变化拒绝；无正式Lake`_staging`创建 |
+| 原SQL只COPY一次、正常候选SHA一遍 | 分钟writer及publication摘要计数测试 | bind只写输入说明；正常流程不重复计算/SHA；最终验收不读正文；隔离计数证明，不做正式性能样本 |
+| 失败留存并正确继续 | writer/publication | COPY失败、validated后、rename前后、事件前分别注入退出；部分候选保留；同root恢复有效候选/正式结果不COPY、不重写；输入/seed/SQL/规则版本变化、receipt缺失/损坏、外部目标变化拒绝 |
+| 日线与既有QFQ/MACD不受影响 | wrapper分流/shared publication | 原日线writer、日线plan默认None、历史bootstrap及既有QFQ/MACD publication定向回归；旧类型路径与行为不变 |
+| 原job/check/sensor行为不扩大 | minute asset/root身份与job测试 | 首run与子run传同一root；原四asset+四checks、pool/executor不变；不依赖固定频率顺序；不启动sensor |
+
+已有目标测试文件：`test_qfq_nineturn_writer.py`、`test_qfq_nineturn_source_plan.py`、`test_qfq_nineturn_assets.py`、`test_qfq_nineturn_checks.py`、`test_qfq_nineturn_jobs.py`、`test_qfq_nineturn_history.py`、`test_stk_mins_qfq_publication_single_digest.py`、`test_stk_mins_qfq_staging_publication.py`。公式金样本`test_qfq_nineturn_formula_golden.py`按其现有受保护启动器执行；开发前核对启动器与测试文件实际状态，不另写预期或绕过保护。
+
+不安装/同步依赖。使用本项目现有`.venv`，临时DAGSTER_HOME、DuckDB工作目录、Lake及staging全部在隔离临时目录；测试禁止连接正式instance、网络或正式源。先核资源没有正式地址，再运行定向测试与必要ruff。小规模真实合同集成必须串过真实planner→原SQL→新writer→原完整性检查，预期来自可人工逐根核算的字面样本，不能用待测helper生成expected。测试结束清除本次临时资源并验证无残留；正式staging证据不在此清理范围。
+
+### 22.8 后续执行步骤与未关闭条件
+
+1. **设计确认**：本轮只提交方案/LLD供审阅。开发目标、各代码点与测试已列清，不代表已经获准执行22日job。
+2. **开发和隔离验证**：按22.3逐项修改，执行22.7；记录实际代码SHA、每条规则对应测试、无临时残留。发现现行合同与夹具不符先纠正依据，不扩大为算法/历史框架改造。
+3. **仅必要前检**：优先复用已有QFQ/因子/控制证据；补21日四份九转metadata、相应原check/物化绑定、精确前序、统一缩放适用依据、目标缺失/既有receipt、共享pool与活动run。需要读取全市场键集合时先按22.6批准；不在此阶段额外执行原完整性检查去重复已通过证据。
+4. **冻结本链执行卡**：在本节填入实测metadata的P/Hc、需要的历史范围和预算，获明确批准。执行入口仍是原job，工作目录`lake_console/orchestrator`，正式`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，partition仅2026-10-22；保留既有DuckDB/pool配置，选且仅选四asset+四checks。正式前根据当时可用的原提交入口记录完整命令/脚本、实例、代码SHA及config摘要；本轮尚未生成或执行提交脚本，不以不完整命令冒充可执行步骤。
+5. **正式一次执行**：不另写补数计算；仅原job运行四频及四原checks。记录真实频率顺序和逐文件结果；失败不自动重跑、不自动删现场、不回滚已完成文件。如需继续，先用receipt/stat限定尚未完成部分及预算，再恢复原root。
+6. **唯一收尾**：核四原checks绑定正确及4份正式文件与receipt/stat一致；复核输入身份/集合及范围外21/23日九转stat，保持其他频率/日期不写。若前序/邻日文件原本不存在，记录为不存在，不能制造文件。销账后仅表示22日原清单109/109通过，不证明23日齐备；两个sensor仍STOPPED，TODO保留。
+
+正式前尚未关闭的事实：21日seed当前质量/身份，因子修复是否符合旧seed继续使用条件，实际候选/fallback名单与Hc，具体历史读写批准及开发后的正式提交命令。它们没有被本轮代码审计或1.54GiB源大小替代。范围变化或代码与本节不符，先同步原方案/LLD后再继续，不能先执行再补文档。

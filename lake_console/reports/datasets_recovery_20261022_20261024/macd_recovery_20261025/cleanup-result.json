@@ -1,0 +1,33 @@
+{
+  "started_at": "2026-10-26T01:00:21.306626+08:00",
+  "approved_files": 20,
+  "approved_bytes": 62008688640,
+  "before_free_bytes": 2852693766144,
+  "deleted": [
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-0.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-1.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-1.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-3.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-2.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-1.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S128K-0.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-2.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-3.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-3.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-2.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-0.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-1.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-4.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-1.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S160K-0.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-2.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S224K-0.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-3.tmp",
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-4.tmp"
+  ],
+  "formal_or_staging_files_deleted": 0,
+  "completed_at": "2026-10-26T01:00:21.412015+08:00",
+  "after_free_bytes": 2914702524416,
+  "all_20_absent": true,
+  "temporary_directory_preserved": true
+}

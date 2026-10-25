@@ -1,0 +1,45 @@
+{
+  "input_stat_bytes": {
+    "Qd": 17576626502,
+    "Id": 18441797624,
+    "U": 1754990,
+    "Qr": 465931101,
+    "Ir": 1111441575,
+    "B": 3837207000
+  },
+  "assumptions_bytes": {
+    "Cd": 21474836480,
+    "Sd": 4194304,
+    "Pd": 536870912,
+    "Cr": 1342177280,
+    "Sr": 4294967296,
+    "Pr": 2147483648,
+    "daily_temp_read": 34359738368,
+    "daily_temp_write": 34359738368,
+    "repair_temp_read": 4294967296,
+    "repair_temp_write": 4294967296,
+    "metadata_read": 2147483648,
+    "metadata_write": 536870912
+  },
+  "repair_indicator_after_daily_upper_bytes": 1610612736,
+  "read_upper_gib_with_metadata": 254.22293923888355,
+  "write_upper_gib_with_metadata": 64.25390625,
+  "requested_read_gib": 272,
+  "requested_write_gib": 72,
+  "requested_extra_space_gib": 64,
+  "counts_are_file_level_conservative_not_measured_device_io": true,
+  "automatic_retries": 0,
+  "history_state_after_daily_upper_bytes": 3841401304,
+  "approval": {
+    "answer": "批准，按此范围顺序执行",
+    "date": "2026-10-26",
+    "normal_runs": {
+      "daily": 1,
+      "repair": 1
+    },
+    "read_gib": 272,
+    "write_gib": 72,
+    "extra_space_gib": 64,
+    "automatic_retry": false
+  }
+}

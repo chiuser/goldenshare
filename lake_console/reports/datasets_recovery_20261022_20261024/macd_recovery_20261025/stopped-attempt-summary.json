@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-22",
+  "execution_date": "2026-10-26",
+  "state": "stopped_after_temp_reserve_exceeded",
+  "daily_run": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "daily_status": "FAILURE",
+  "elapsed_seconds": 548.9749028682709,
+  "normal_daily_runs": 1,
+  "normal_repair_runs": 0,
+  "promoted_frequencies": [
+    15,
+    30,
+    120
+  ],
+  "promoted_annual_files": 16710,
+  "promoted_state_files": 3,
+  "promoted_total_files": 16713,
+  "materializations": 6,
+  "ordinary_checks_passed": 0,
+  "repair_started": false,
+  "accepted_assets_this_attempt": 0,
+  "remaining_unaccepted_from_original_list": 18,
+  "temp_file_bytes_after_stop": 62008688640,
+  "temp_reserve_bytes": 34359738368,
+  "extra_space_budget_bytes": 68719476736,
+  "temp_cleanup_state": "completed",
+  "spill_cleanup_plan": "spill-cleanup-plan.json",
+  "source_identity_changes": [],
+  "unpromoted_target_identity_changes": [],
+  "source_content_reaudited": false,
+  "performance_tests": 0,
+  "automatic_retries": 0,
+  "business_code_changed": false,
+  "sensor_states": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "active_runs": 0,
+  "pool_active": 0,
+  "pool_pending": 0,
+  "failure_reason": "SIGINT after underestimated temporary storage reserve, not an observed formula or input-coverage error",
+  "stop_behavior": "First SIGINT interrupted 1m annual candidate COPY; native independent 30m step completed afterward. Second SIGINT stopped 5m before data writes and ended the run. No new run/retry was launched.",
+  "future_execution": "No further data reads/writes approved after this stop; scope and budget must be reassessed from existing receipts before any continuation.",
+  "spill_files_deleted": 20,
+  "spill_bytes_reclaimed": 62008688640,
+  "continuation_approved": true,
+  "custom_resource_thresholds_revoked": true
+}

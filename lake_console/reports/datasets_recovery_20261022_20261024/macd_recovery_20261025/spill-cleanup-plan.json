@@ -1,0 +1,160 @@
+{
+  "status": "completed",
+  "purpose": "This run only, DuckDB temporary spill files, not formal Lake or recovery candidates",
+  "source_run": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+  "files": {
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-0.tmp": [
+      16777244,
+      23134017,
+      786432000,
+      1792944871811072495,
+      1792944871811072495
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-1.tmp": [
+      16777244,
+      23134023,
+      824377344,
+      1792944879826352953,
+      1792944879826352953
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S192K-1.tmp": [
+      16777244,
+      23134024,
+      1282670592,
+      1792944985314608272,
+      1792944985314608272
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-3.tmp": [
+      16777244,
+      23134036,
+      1178075136,
+      1792944987821024349,
+      1792944987821024349
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S96K-2.tmp": [
+      16777244,
+      23134030,
+      1622900736,
+      1792944900519287395,
+      1792944900519287395
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-1.tmp": [
+      16777244,
+      23134021,
+      264372224,
+      1792944876316894036,
+      1792944876316894036
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S128K-0.tmp": [
+      16777244,
+      23134015,
+      461504512,
+      1792944988187317874,
+      1792944988187317874
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-2.tmp": [
+      16777244,
+      23134026,
+      528908288,
+      1792944923438390096,
+      1792944923438390096
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S32K-3.tmp": [
+      16777244,
+      23134032,
+      834863104,
+      1792944985777928642,
+      1792944985777928642
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-3.tmp": [
+      16777244,
+      23134029,
+      8417968128,
+      1792944942333690081,
+      1792944942333690081
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-2.tmp": [
+      16777244,
+      23134025,
+      4557635584,
+      1792944907115203743,
+      1792944907115203743
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-0.tmp": [
+      16777244,
+      23134038,
+      13670547456,
+      1792944988194186261,
+      1792944988194186261
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-1.tmp": [
+      16777244,
+      23134020,
+      3158573056,
+      1792944874097662747,
+      1792944874097662747
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_DEFAULT-4.tmp": [
+      16777244,
+      23134033,
+      16770924544,
+      1792944957813621602,
+      1792944957813621602
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-1.tmp": [
+      16777244,
+      23134022,
+      642056192,
+      1792944876325457748,
+      1792944876325457748
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S160K-0.tmp": [
+      16777244,
+      23134012,
+      346193920,
+      1792944985310537399,
+      1792944985310537399
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-2.tmp": [
+      16777244,
+      23134027,
+      1077673984,
+      1792944930694132509,
+      1792944930694132509
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S224K-0.tmp": [
+      16777244,
+      23134016,
+      73400320,
+      1792944940713804072,
+      1792944940713804072
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-3.tmp": [
+      16777244,
+      23134031,
+      2405957632,
+      1792944897440566700,
+      1792944897440566700
+    ],
+    "/Volumes/datasource/.goldenshare_duckdb_tmp/duckdb_temp_storage_S64K-4.tmp": [
+      16777244,
+      23134035,
+      3103653888,
+      1792944986257257121,
+      1792944986257257121
+    ]
+  },
+  "file_count": 20,
+  "bytes": 62008688640,
+  "no_open_handles": true,
+  "lsof_returncode": 1,
+  "lsof_stderr": "",
+  "baseline_empty": true,
+  "process_exited": true,
+  "active_runs": 0,
+  "approval": {
+    "answer": "清理20个DuckDB工作文件，保留正式结果和staging续跑记录，再完成剩余步骤",
+    "date": "2026-10-26"
+  },
+  "result": "cleanup-result.json"
+}
