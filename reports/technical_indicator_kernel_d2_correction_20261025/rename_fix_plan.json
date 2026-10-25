@@ -1,0 +1,47 @@
+{
+  "status": "authorized_before_coding",
+  "authorization": "2026-10-25 user requested LLD reinforcement, reliable limited fix, then continue D2 correction",
+  "lld": "04.4 / 19.17",
+  "scope": [
+    "executor.py rename_table and shared private SQL execution",
+    "sources/session.py history rename and failure flag",
+    "test_table_rename.py seven targeted checks"
+  ],
+  "source_rows_limit": 0,
+  "real_execution_control_objects_limit": 0,
+  "literal_rows_limit": 40,
+  "sql_logical_rows_limit": 5000,
+  "program_seconds_limit": 30,
+  "round_seconds_limit": 60,
+  "extra_retries": 0,
+  "previous_source_rows_consumed": 52895,
+  "previous_real_controls_consumed": 2,
+  "small_controls_consumed": 68,
+  "d3_real_controls_reserved": 4,
+  "preserve_evidence": [
+    "acceptance.json",
+    "resume_acceptance.json",
+    "combined_acceptance.json"
+  ],
+  "repeat_passed_samples": false,
+  "replay_failed_21_rows": "only reconstruct post-adjustment seq/close in memory and exercise original history SQL and cleanup; no source or qfq recomputation",
+  "before_sha256": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "772a7779596a9773aa6c8a4b4f076e564a314e67f36588c7c03f710bf5a2fe6e",
+    "src/foundation/technical_indicators/executor.py": "7510e2e556a6fa4440beb92866d6ce799a2ebe5beb5f923e85bfcc3790a2d3f3",
+    "src/foundation/technical_indicators/sources/session.py": "659086adee7e99071e6129d4448fbda249534e91738a127d605b01e6f7a0e9a3",
+    "src/foundation/technical_indicators/sources/contracts.py": "bf00ab9732143e351105acd8685d8a74c19c7c355be7c2a3c582bbc7b1fa340b",
+    "src/foundation/technical_indicators/sources/read_context.py": "1dcccd0687a5271d4078f17fbfaf29a59b647c3b307b4dbcef5d31428678d039",
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": "06e0c37ed6c84f2411c745f77449a8e73ff901c2e7e975d4ac7d60cd3fc72929",
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": "a0036335421cc74ed7750d8d970f706a324b28dee7d7eb7464bfc611c5d7214e",
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": "5d9b2766318e2df33f9f3b8b83bbb25f8ea9cc5fd573a288de6729e699bfa47e"
+  },
+  "test_nodes": [
+    "test_rename_reuses_released_target_and_keeps_plain_sql_inputs",
+    "test_rename_rejects_invalid_names_ownership_conflicts_and_row_counts",
+    "test_rename_sql_error_keeps_both_cleanup_names[before]",
+    "test_rename_sql_error_keeps_both_cleanup_names[after]",
+    "test_session_history_rename_and_cleanup[normal]",
+    "test_session_history_rename_and_cleanup[sql_error]",
+    "test_session_history_rename_and_cleanup[cancel]"
+  ]
+}

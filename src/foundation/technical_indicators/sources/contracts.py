@@ -58,6 +58,8 @@ class ReadRequirement:
 
 @dataclass(frozen=True, slots=True)
 class SourceBatch:
+    """One compact, coalesced RecordBatch; positions count deliveries, not reads."""
+
     columns: object
     source_first_position: int
     source_last_position: int
@@ -84,6 +86,12 @@ class PriceBatch:
 
 
 class SourceStream(Protocol):
+    """Fill max_rows across files, except the final source batch.
+
+    Release only the delivery; a previously read remainder belongs to this
+    stream until the next delivery or close. No file boundary ends a batch.
+    """
+
     def next_batch(self, max_rows: int) -> SourceBatch | None: ...
     def release_current_batch(self) -> None: ...
     def close(self) -> None: ...

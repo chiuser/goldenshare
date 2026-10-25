@@ -1,8 +1,11 @@
 """LLD §04.2/06.4/07.2 literal prices and shared-input ownership.
 
-The source below substitutes only file access. Real Arrow registration and
-DuckDB SQL are exercised; these tests do not claim Lake-source integration.
-Expected prices 5/6 and 20/24 are the independently approved LLD literals.
+The original LiteralSource tests substitute file access while exercising real
+Arrow registration and DuckDB SQL; their expected 5/6 and 20/24 values are the
+independently approved LLD literals.  The separately selected D2 final 21-row
+test uses real LakeTechnicalIndicatorPriceSource, temporary producer-contract
+daily/factor files, PriceInputSession and SQL, with one real control.  It proves
+that temporary contract boundary, not formal-Lake coverage or page performance.
 """
 
 from dataclasses import replace
@@ -23,6 +26,13 @@ from src.foundation.technical_indicators.service import TechnicalIndicatorServic
 from src.foundation.technical_indicators.sources.contracts import ReadRequirement, SourceBatch, SourceDescription
 from src.foundation.technical_indicators.sources.read_context import SourceReadContext
 from src.foundation.technical_indicators.sources.session import PriceInputSession
+
+# Only these shared helpers/fixture are imported; no existing control-creating
+# test is called.  The fixture caches by the common pytest base directory.
+from test_source_contracts import (
+    batch_assembly_files, AssemblyReadTrace, assembly_metrics, assembly_source, assembly_config,
+    track_assembly_reader, track_compact_copies, _ASSEMBLY_DATES,
+)
 
 
 def config(**kwargs):
@@ -321,3 +331,91 @@ def test_cancellation_during_basis_or_factor_preparation_keeps_declared_but_uncr
         assert errors == (), [str(item) for item in errors]
         assert not inputs._tables and not inputs._registrations
         assert not executor._live_tables and not executor._live_arrow
+
+
+def test_assembled_daily_batch_runs_one_qfq_session(batch_assembly_files, monkeypatch, record_property):
+    """LLD 18.1 final 21-row request: real Lake source, SQL and one control.
+
+    Independently declared literals: raw OHLC=10/11/9/10, first ten daily
+    factors=1, final eleven=2, latest basis=2.  Expected qfq OHLC are therefore
+    5/5.5/4.5/5 then 10/11/9/10.  Daily volume/amount remain lot/thousand_CNY.
+    """
+    from time import monotonic
+    started, trace = monotonic(), AssemblyReadTrace()
+    cfg = assembly_config(batch_assembly_files)
+    control = ExecutionControl(arrived_at=monotonic(), config=cfg)
+    cfg, request, requirement, context, _, source, description, _ = assembly_source(
+        batch_assembly_files,daily=True,adjustment="qfq",control=control,open_stream=False)
+    service = TechnicalIndicatorService(source=source, registry=None, config=cfg)
+    connection = executor = inputs = None
+    streams, delivered, cleanup = [], [], ()
+    verification_sql_rows = 0
+    calls = {"open":0,"basis":0,"factors":0}
+    original_open, original_basis, original_factors = source.open, source.prepare_basis, source.prepare_factors
+
+    def observed_open(*args, **kwargs):
+        calls["open"] += 1
+        stream = original_open(*args, **kwargs)
+        track_assembly_reader(stream, trace, monkeypatch)
+        streams.append(stream)
+        return stream
+
+    def observed_basis(*args, **kwargs):
+        calls["basis"] += 1
+        return original_basis(*args, **kwargs)
+
+    def observed_factors(*args, **kwargs):
+        calls["factors"] += 1
+        return original_factors(*args, **kwargs)
+
+    monkeypatch.setattr(source,"open",observed_open)
+    monkeypatch.setattr(source,"prepare_basis",observed_basis)
+    monkeypatch.setattr(source,"prepare_factors",observed_factors)
+    track_compact_copies(trace,monkeypatch)
+    requirement = replace(requirement, history=replace(requirement.history,preceding_rows=19))
+    values = []
+    try:
+        connection, executor = service._open_execution(control)
+        inputs = PriceInputSession(executor,source,description,requirement,read_context=context)
+        inputs.prepare()
+        batch = inputs.next_batch()
+        assert batch is not None and batch.new_row_count==21
+        assert (batch.new_first_seq,batch.new_last_seq,batch.history_rows)==(1,21,0)
+        delivered.append(batch.new_row_count)
+        assert streams[0]._current_batch is streams[0]._pending_batch is None
+        assert inputs.conversion_batches==1 and calls=={"open":1,"basis":1,"factors":1}
+        resolved = inputs.resolved_description()
+        assert resolved.basis_date==date(2026,2,2) and resolved.basis_value==2.0
+        assert resolved.volume_unit=="lot" and resolved.amount_unit=="thousand_CNY"
+        verification_sql_rows += 21
+        rows = connection.execute(
+            f'SELECT trade_date,open,high,low,close,volume,amount FROM "{batch.table_name}" ORDER BY seq').fetchall()
+        assert [row[0] for row in rows]==list(_ASSEMBLY_DATES)
+        values=[row[1:] for row in rows]
+        assert values==[(5.,5.5,4.5,5.,100.,1000.)]*10+[(10.,11.,9.,10.,100.,1000.)]*11
+        inputs.retain_required_history()
+        verification_sql_rows += 19
+        assert executor.scalar("SELECT count(*) FROM ti_history")==19
+        inputs.finish_batch()
+        assert inputs.next_batch() is None
+        assert context.source_rows==trace.actual_read_rows==21
+        assert len(trace.reader_opens)==21
+    finally:
+        cleanup=service._close_execution(control,connection,inputs=inputs)
+        assembly_metrics(record_property,"daily_qfq_final",trace,context,started,
+            real_controls=1,delivered=delivered,
+            sql_rows=(0 if executor is None else executor.sql_processed_rows)+verification_sql_rows,
+            cleanup=[str(item) for item in cleanup],
+            expected={"input":21,"sizes":[21],"qfq_close_first":5.0,"qfq_close_last":10.0,
+                      "conversion_batches":1,"retained_history":19},
+            source_calls=calls,stop_requested_at=control.stop_requested_at,
+            sql_step_logical_rows=0 if executor is None else executor.sql_processed_rows,
+            verification_sql_logical_rows=verification_sql_rows,
+            resources_released_at=control.resources_released_at,
+            monitor_join_elapsed_ms=control.monitor_join_elapsed_ms,
+            value_samples=[] if not values else [values[0],values[-1]])
+        assert not cleanup
+        if inputs is not None:
+            assert inputs._closed and not inputs._registrations and not inputs._tables
+        if executor is not None:assert not executor._live_arrow and not executor._live_tables
+        assert all(reader.closed for reader in trace.readers)

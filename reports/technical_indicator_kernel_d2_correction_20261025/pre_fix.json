@@ -1,0 +1,9 @@
+{
+  "status": "defect_reproduced",
+  "expected_delivery_after_source_end": 2,
+  "observed_first_delivery": 1,
+  "physical_data_read_rows": 0,
+  "real_controls": 0,
+  "input": "two structural reader objects, one row marker each; no Arrow/Parquet/SQL operation",
+  "basis": "LLD total <=8192 must await full source EOF"
+}

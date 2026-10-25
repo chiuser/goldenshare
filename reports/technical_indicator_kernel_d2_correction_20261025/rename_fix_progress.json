@@ -1,0 +1,117 @@
+{
+  "status": "passed",
+  "nodes": {
+    "tests/foundation/technical_indicators/test_table_rename.py::test_rename_reuses_released_target_and_keeps_plain_sql_inputs": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": null,
+        "literal_rows": 3,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 10
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_rename_rejects_invalid_names_ownership_conflicts_and_row_counts": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": null,
+        "literal_rows": 3,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 3
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_rename_sql_error_keeps_both_cleanup_names[before]": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": null,
+        "literal_rows": 1,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 2
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_rename_sql_error_keeps_both_cleanup_names[after]": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": null,
+        "literal_rows": 1,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 2
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_session_history_rename_and_cleanup[normal]": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": false,
+        "literal_rows": 21,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 99
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_session_history_rename_and_cleanup[sql_error]": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": true,
+        "literal_rows": 3,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 8
+      }
+    },
+    "tests/foundation/technical_indicators/test_table_rename.py::test_session_history_rename_and_cleanup[cancel]": {
+      "setup": "passed",
+      "call": "passed",
+      "teardown": "passed",
+      "metrics": {
+        "cleanup_errors": [],
+        "final_live_arrow": [],
+        "final_live_tables": [],
+        "inputs_failed": true,
+        "literal_rows": 3,
+        "real_controls": 0,
+        "source_rows": 0,
+        "sql_logical_rows": 8
+      }
+    }
+  },
+  "literal_rows": 35,
+  "source_rows": 0,
+  "real_controls": 0,
+  "real_control_attempts": 0,
+  "sql_logical_rows": 132,
+  "elapsed_seconds": 0.8164720409549773,
+  "pytest_exit_code": 0
+}

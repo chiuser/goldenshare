@@ -22,6 +22,12 @@ class SourceReadContext:
             self._source_file_bytes += size_bytes
 
     def record_price_rows(self, rows: int) -> None:
+        """Charge a first physical read once, before copying or delivery.
+
+        Delivering a buffered remainder does not charge it again. A rejected
+        over-limit read is not admitted to this counter; diagnostics separately
+        record actual reader rows, including that rejected read.
+        """
         if self._source_rows + rows > self.config.max_input_rows:
             raise ResourceLimitError("Source price rows exceed max_input_rows")
         self._source_rows += rows

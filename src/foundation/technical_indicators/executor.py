@@ -68,6 +68,31 @@ class DuckDBExecutor:
         self._known_tables.add(name)
 
     def execute(self, step: SqlStep) -> ExecutionStats:
+        return self._execute_step(step)
+
+    def rename_table(
+        self, old_name: str, new_name: str, *, processed_rows: int,
+    ) -> ExecutionStats:
+        """Rename an owned table and retire its old name before checking stop.
+
+        If the driver raises, both names remain eligible for IF EXISTS cleanup:
+        the statement may have failed before or after the database renamed it.
+        """
+        self._assert_owner()
+        self._validate_name(old_name)
+        self._validate_name(new_name)
+        if old_name == new_name or old_name not in self._live_tables:
+            raise ValueError("Rename requires a live owned table and a different target name")
+        if new_name in self._live_tables or new_name in self._live_arrow:
+            raise ValueError("Rename target is already an active resource")
+        return self._execute_step(SqlStep(
+            "rename_table", f'ALTER TABLE "{old_name}" RENAME TO "{new_name}"',
+            (), (old_name,), (new_name,), processed_rows,
+        ), renamed_from=old_name)
+
+    def _execute_step(
+        self, step: SqlStep, *, renamed_from: str | None = None,
+    ) -> ExecutionStats:
         self._assert_owner()
         if not isinstance(step, SqlStep) or type(step.processed_rows) is not int or step.processed_rows < 0:
             raise ValueError("SQL steps require a nonnegative logical row count")
@@ -86,6 +111,10 @@ class DuckDBExecutor:
             try:
                 self._live_tables.update(step.output_tables)
                 cursor = self.connection.execute(step.sql, step.bindings)
+                if renamed_from is not None:
+                    # The native call succeeded. Match the actual name before
+                    # any later cancellation can interrupt the handoff.
+                    self._live_tables.remove(renamed_from)
                 description = cursor.description
                 if description and len(description) == 1 and description[0][0] == "Count":
                     count = cursor.fetchone()

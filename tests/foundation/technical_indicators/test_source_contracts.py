@@ -1,9 +1,13 @@
-"""LLD §06.8: three tiny canonical files, no service or formal-data access.
+"""LLD §06.8 and D2 correction: real temporary Arrow/SQL, no formal-data access.
 
 The literal minute schema follows DG's GOLD_STK_MINS_QFQ_SCHEMA and the existing
 Foundation major_index_mins_contract. Period SQL uses in-memory Arrow with
 literal producer types; it does not claim weekly/monthly file integration.
-Only this module's tmp_path_factory fixture creates three Parquet files.
+The original tests use three tiny canonical files.  The separately selected
+D2 correction nodes reuse the approved 32768-row diagnostic fixture and create
+four minute, 21 daily and 21 factor temporary Parquet files once, according to
+the approved 10022 price / 21 factor record budget.  Source/schema and SQL are
+real; isolated stop signals do not claim full cancellation or formal-Lake proof.
 """
 
 from dataclasses import replace
@@ -245,3 +249,418 @@ def test_close_failure_retains_unreleased_reader_for_final_cleanup():
     assert stream._closed
     stream.close()
     assert reader.calls == 2
+
+
+# D2 correction acceptance, LLD 06.6 / 18.1 / 19.11.  This fixture declares
+# producer fields literally: asset_column_schemas.py GOLD_STK_MINS_QFQ_SCHEMA
+# (around line 500), SILVER_STOCK_DAILY_SCHEMA (587), SILVER_ADJ_FACTOR_SCHEMA
+# (623).  It never imports the producer to manufacture its own expected values.
+# Only the named new nodes below are intended for this bounded acceptance run.
+from time import monotonic
+import json
+
+
+_ASSEMBLY_DATES = (
+    date(2026, 1, 5), date(2026, 1, 6), date(2026, 1, 7), date(2026, 1, 8), date(2026, 1, 9),
+    date(2026, 1, 12), date(2026, 1, 13), date(2026, 1, 14), date(2026, 1, 15), date(2026, 1, 16),
+    date(2026, 1, 19), date(2026, 1, 20), date(2026, 1, 21), date(2026, 1, 22), date(2026, 1, 23),
+    date(2026, 1, 26), date(2026, 1, 27), date(2026, 1, 28), date(2026, 1, 29), date(2026, 1, 30),
+    date(2026, 2, 2),
+)
+_ASSEMBLY_FIXTURE_CACHE = {}
+_ASSEMBLY_NEW_RECORDS = {"price":0,"factor":0}
+
+
+@pytest.fixture(scope="session")
+def batch_assembly_files(tmp_path_factory):
+    """Shared by the three explicitly selected modules; build only once.
+
+    New price records: 10001 minute + 21 daily = 10022.  The additional 21
+    factor records are not price input rows and are recorded separately.
+    Numeric generation and Parquet writing use real DuckDB SQL, not Python
+    price arithmetic.  The zero-row annual file is a real empty file.
+    """
+    root = (tmp_path_factory.getbasetemp() / "ti_d2_batch_assembly").resolve()
+    if root in _ASSEMBLY_FIXTURE_CACHE:
+        return _ASSEMBLY_FIXTURE_CACHE[root]
+    manifest = root / "fixture_manifest.json"
+    if manifest.exists():
+        result = SimpleNamespace(root=root,
+            minute_paths=tuple(root / item for item in json.loads(manifest.read_text())["minute_paths"]),
+            day_paths=tuple(root / f"silver/quote/stock_daily/trade_date={day}/part-000.parquet"
+                            for day in _ASSEMBLY_DATES),
+            factor_paths=tuple(root / f"silver/quote/adj_factor/trade_date={day}/part-000.parquet"
+                               for day in _ASSEMBLY_DATES))
+        _ASSEMBLY_FIXTURE_CACHE[root] = result
+        return result
+    if root.exists():
+        raise RuntimeError("An incomplete assembly fixture must not be silently overwritten")
+    root.mkdir()
+    minute_paths = []
+    con = duckdb.connect(":memory:", config={"threads": 1, "memory_limit": "128MiB",
+                                             "max_temp_directory_size": "0B"})
+    try:
+        for year, rows, offset in ((2020, 5000, 0), (2021, 0, 0), (2022, 5000, 5000), (2023, 1, 10000)):
+            path = root / f"gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year={year}/part-000.parquet"
+            path.parent.mkdir(parents=True)
+            con.execute("""COPY (
+                WITH numbered AS (
+                  SELECT i, CAST($start_day AS DATE) + CAST(floor(i/240) AS INTEGER) AS day,
+                         CAST(i + $offset + 1 AS DOUBLE) AS price FROM range($row_count) r(i)
+                ), bars AS (
+                  SELECT *, CAST(day AS TIMESTAMP) + CASE WHEN i%240<120
+                    THEN INTERVAL 9 HOUR + INTERVAL 31 MINUTE + (i%240)*INTERVAL 1 MINUTE
+                    ELSE INTERVAL 13 HOUR + INTERVAL 1 MINUTE + (i%240-120)*INTERVAL 1 MINUTE END AS bar_time
+                  FROM numbered
+                ) SELECT '600000.SH'::VARCHAR AS ts_code, 1::INTEGER AS freq,
+                    day::DATE AS trade_date, bar_time::TIMESTAMP AS trade_time,
+                    price AS open, price+0.1 AS high, price-0.1 AS low, price AS close,
+                    100.0::DOUBLE AS vol, 1000.0::DOUBLE AS amount, 'SSE'::VARCHAR AS exchange
+                  FROM bars ORDER BY bar_time
+                ) TO $target (FORMAT PARQUET, ROW_GROUP_SIZE 8192)""",
+                {"start_day": date(year, 1, 2), "offset": offset,
+                 "row_count": rows, "target": str(path)})
+            minute_paths.append(path)
+        day_paths, factor_paths = [], []
+        for number, day in enumerate(_ASSEMBLY_DATES):
+            path = root / f"silver/quote/stock_daily/trade_date={day}/part-000.parquet"
+            path.parent.mkdir(parents=True)
+            con.execute("""COPY (SELECT '600000.SH'::VARCHAR AS ts_code, $day::DATE AS trade_date,
+                10.0::DOUBLE AS open, 11.0::DOUBLE AS high, 9.0::DOUBLE AS low,
+                10.0::DOUBLE AS close, 10.0::DOUBLE AS pre_close,
+                0.0::DOUBLE AS change_amount, 0.0::DOUBLE AS pct_chg,
+                100.0::DOUBLE AS vol, 1000.0::DOUBLE AS amount)
+                TO $target (FORMAT PARQUET)""", {"day": day, "target": str(path)})
+            factor_path = root / f"silver/quote/adj_factor/trade_date={day}/part-000.parquet"
+            factor_path.parent.mkdir(parents=True)
+            con.execute("""COPY (SELECT '600000.SH'::VARCHAR AS ts_code,
+                $day::DATE AS trade_date, $factor::DOUBLE AS adj_factor)
+                TO $target (FORMAT PARQUET)""", {"day": day,
+                    "factor": 1.0 if number < 10 else 2.0, "target": str(factor_path)})
+            day_paths.append(path)
+            factor_paths.append(factor_path)
+    finally:
+        con.close()
+    manifest.write_text(json.dumps({"minute_paths": [str(p.relative_to(root)) for p in minute_paths],
+        "created_price_rows": 10022, "created_factor_rows": 21, "created_total_records":10043}, sort_keys=True))
+    result = SimpleNamespace(root=root, minute_paths=tuple(minute_paths), day_paths=tuple(day_paths),
+                             factor_paths=tuple(factor_paths))
+    _ASSEMBLY_FIXTURE_CACHE[root] = result
+    _ASSEMBLY_NEW_RECORDS.update(price=10022,factor=21)
+    return result
+
+
+class AssemblyReadTrace:
+    """Count actual native returned rows, including a rejected last read."""
+    def __init__(self):
+        self.actual_read_rows = 0
+        self.reader_opens = []
+        self.readers = []
+        self.physical_batches = []
+        self.close_attempts = []
+        self.fail_close_paths = set()
+        self.after_read = None
+        self.copy_calls = self.copied_bytes = None
+        self.peak_owned_arrow_bytes = None
+        self.delivered_sizes = []
+        self.sql_logical_rows = 0
+
+    def observe_owned(self, stream):
+        current, pending = stream._current_batch, stream._pending_batch
+        self.peak_owned_arrow_bytes = max(self.peak_owned_arrow_bytes or 0,
+            (0 if current is None else current.nbytes) + (0 if pending is None else pending.nbytes))
+
+
+class _AssemblyReader:
+    def __init__(self, reader, trace, path):
+        self.reader, self.trace, self.path = reader, trace, str(path)
+        self.closed = False
+
+    def read_next_batch(self):
+        batch = self.reader.read_next_batch()
+        self.trace.actual_read_rows += batch.num_rows
+        self.trace.physical_batches.append(batch.num_rows)
+        if self.trace.after_read is not None:
+            self.trace.after_read(batch)
+        return batch
+
+    def close(self):
+        self.trace.close_attempts.append(self.path)
+        if self.path in self.trace.fail_close_paths:
+            raise OSError("injected assembly reader close failure")
+        self.reader.close()
+        self.reader = None
+        self.closed = True
+
+
+def track_assembly_reader(stream, trace, monkeypatch):
+    original = stream._open_file
+
+    def open_file(path):
+        original(path)
+        trace.reader_opens.append(str(path))
+        reader = _AssemblyReader(stream._reader, trace, path)
+        trace.readers.append(reader)
+        stream._reader = reader
+
+    monkeypatch.setattr(stream, "_open_file", open_file)
+
+
+def track_compact_copies(trace, monkeypatch):
+    original = pa.concat_arrays
+    trace.copy_calls = trace.copied_bytes = 0
+
+    def copied(arrays, *args, **kwargs):
+        result = original(arrays, *args, **kwargs)
+        trace.copy_calls += 1
+        trace.copied_bytes += result.nbytes
+        assert result.offset == 0
+        for source_array in arrays:
+            input_buffers = {b.address for b in source_array.buffers() if b is not None and b.size}
+            assert not input_buffers.intersection(b.address for b in result.buffers() if b is not None and b.size)
+        return result
+
+    monkeypatch.setattr(pa, "concat_arrays", copied)
+
+
+def assembly_config(files, *, limit=1500000):
+    return replace(KernelConfig.from_settings(Settings(_env_file=None)),
+        goldenshare_lake_root=str(files.root), batch_rows=8192, max_input_rows=limit)
+
+
+def assembly_source(files, *, daily=False, adjustment=None, control=None, limit=1500000, open_stream=True):
+    cfg = assembly_config(files,limit=limit)
+    request = CalculationRequest("stock", "600000.SH", "day" if daily else "1m",
+        (CalculationInstance("price", "price", {}),), adjustment=adjustment or ("none" if daily else "qfq"))
+    history = HistoryRequirement(frozenset(("open", "high", "low", "close", "volume", "amount")),
+                                 0, True, (), "No indicator is calculated")
+    requirement = ReadRequirement(request, history, 8192, None, None)
+    context, control = SourceReadContext(cfg), control or _Control()
+    source = LakeTechnicalIndicatorPriceSource(cfg)
+    description = source.describe(request, requirement, control=control, read_context=context)
+    stream = source.open(SimpleNamespace(control=control), description, requirement, read_context=context) if open_stream else None
+    return cfg, request, requirement, context, control, source, description, stream
+
+
+def assembly_metrics(record_property, case, trace, context, started, *, real_controls=0,
+                     delivered=(), sql_rows=0, cleanup=(), expected=None, **extra):
+    payload = dict(case=case, actual_read_rows=trace.actual_read_rows,
+        real_control_objects=real_controls, delivered_sizes=list(trace.delivered_sizes or delivered), source_rows=context.source_rows,
+        reader_opens=trace.reader_opens, physical_batch_sizes=trace.physical_batches,
+        source_files=context.source_files, source_file_bytes=context.source_file_bytes,
+        reader_close_attempts=trace.close_attempts, reader_closed=[r.closed for r in trace.readers],
+        compact_copy_calls=trace.copy_calls, compact_copy_bytes=trace.copied_bytes,
+        peak_owned_arrow_bytes=trace.peak_owned_arrow_bytes,
+        sql_logical_rows=trace.sql_logical_rows if trace.sql_logical_rows else sql_rows,
+        fixture_created_price_rows=_ASSEMBLY_NEW_RECORDS["price"],
+        fixture_created_factor_rows=_ASSEMBLY_NEW_RECORDS["factor"],
+        cleanup=list(cleanup), elapsed_ms=(monotonic()-started)*1000, expected=expected, **extra)
+    record_property("d2_batch_metrics", json.dumps(payload, default=str, sort_keys=True))
+    _ASSEMBLY_NEW_RECORDS.update(price=0,factor=0)
+
+
+def consume_assembly_stream(stream, trace, context, expected_sizes, *, position_column=None):
+    con = duckdb.connect(":memory:", config={"threads": 1, "memory_limit": "128MiB",
+                                             "max_temp_directory_size": "0B"})
+    delivered, observations, sql_rows = [], [], 0
+    try:
+        for number, expected_size in enumerate(expected_sizes):
+            batch = stream.next_batch(8192)
+            if batch is not None:trace.delivered_sizes.append(batch.selected_rows)
+            assert batch is not None and batch.selected_rows == expected_size
+            assert batch.source_first_position == (1 if not delivered else sum(delivered)+1)
+            assert batch.source_last_position == sum(delivered)+expected_size
+            assert batch.columns.num_rows == expected_size
+            trace.observe_owned(stream)
+            con.register("ti_assembly_arrow", batch.columns)
+            trace.sql_logical_rows += expected_size
+            con.execute("CREATE TEMP TABLE ti_assembly_copy AS SELECT * FROM ti_assembly_arrow")
+            con.unregister("ti_assembly_arrow")
+            pending = stream._pending_batch
+            stream.release_current_batch()
+            assert stream._current_batch is None and stream._pending_batch is pending
+            key = position_column or "close"
+            trace.sql_logical_rows += expected_size
+            observations.append(con.execute(f'SELECT count(*),min("{key}"),max("{key}") FROM ti_assembly_copy').fetchone())
+            sql_rows += expected_size*2
+            con.execute("DROP TABLE ti_assembly_copy")
+            delivered.append(expected_size)
+            if number == 0 and expected_sizes == (8192, 1809):
+                assert context.source_rows == 10000 and trace.actual_read_rows == 10000
+                assert stream._delivered == 8192 and pending is not None and pending.num_rows == 1808
+                assert len(trace.reader_opens) == 3  # first, empty, second; last file is not prefetched
+        assert stream.next_batch(8192) is None
+        assert stream.next_batch(8192) is None
+        assert stream._delivered == sum(expected_sizes)
+        return delivered, observations, sql_rows
+    finally:
+        con.close()
+
+
+def test_existing_fixture_delivers_four_full_batches(monkeypatch, record_property):
+    from scripts.diagnostics.technical_indicator_d2_acceptance import (
+        FIXTURE, inspect_fixture, validate_fixture, create_fixture_reader,
+    )
+    from src.foundation.clients.local_lake.technical_indicator_price_source import _LakePriceStream
+    started, trace = monotonic(), AssemblyReadTrace()
+    metadata = inspect_fixture(FIXTURE)
+    validate_fixture(metadata)  # exact count/footer/resource checks precede the data reader
+    cfg = replace(KernelConfig.from_settings(Settings(_env_file=None)), batch_rows=8192)
+    context = SourceReadContext(cfg)
+    context.record_file(FIXTURE, metadata["bytes"])
+    request = _request(security_type="stock", ts_code="600000.SH", adjustment="qfq")
+    requirement = ReadRequirement(request, HistoryRequirement(frozenset(("close",)),0,True,(),"fixture"),8192,None,None)
+    description = SimpleNamespace(price_paths=())
+    stream = _LakePriceStream(description, requirement, _Control(), context)
+    reader = _AssemblyReader(create_fixture_reader(FIXTURE), trace, FIXTURE)
+    trace.reader_opens.append(str(FIXTURE)); trace.readers.append(reader)
+    stream._reader = reader
+    delivered, sql_rows = [], 0
+    track_compact_copies(trace, monkeypatch)
+    try:
+        delivered, observations, sql_rows = consume_assembly_stream(stream, trace, context,
+            (8192,8192,8192,8192), position_column="i")
+        assert observations == [(8192,0,8191),(8192,8192,16383),(8192,16384,24575),(8192,24576,32767)]
+        assert context.source_rows == trace.actual_read_rows == 32768
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"existing_fixture",trace,context,started,
+            delivered=delivered,sql_rows=sql_rows,expected={"sizes":[8192,8192,8192,8192],"input":32768})
+
+
+def test_assembly_crosses_files_and_consumes_pending_once(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files)
+    track_assembly_reader(stream,trace,monkeypatch); track_compact_copies(trace,monkeypatch)
+    delivered, sql_rows = [], 0
+    try:
+        assert description.price_paths == batch_assembly_files.minute_paths
+        delivered, observations, sql_rows = consume_assembly_stream(stream,trace,context,(8192,1809))
+        assert observations == [(8192,1.0,8192.0),(1809,8193.0,10001.0)]
+        assert context.source_rows == trace.actual_read_rows == 10001
+        assert trace.reader_opens == [str(path) for path in batch_assembly_files.minute_paths]
+        assert trace.copy_calls > 0
+        assert trace.peak_owned_arrow_bytes < 64*1024*1024
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"cross_files",trace,context,started,
+            delivered=delivered,sql_rows=sql_rows,expected={"sizes":[8192,1809],"pending":1808,"input":10001})
+
+
+def test_daily_files_deliver_one_final_batch(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    track_assembly_reader(stream,trace,monkeypatch); track_compact_copies(trace,monkeypatch)
+    delivered, sql_rows = [], 0
+    try:
+        assert description.price_paths == batch_assembly_files.day_paths
+        delivered, observations, sql_rows = consume_assembly_stream(stream,trace,context,(21,))
+        assert observations == [(21,10.0,10.0)]
+        assert context.source_rows == trace.actual_read_rows == 21
+        assert stream._pending_batch is None
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"daily_final",trace,context,started,
+            delivered=delivered,sql_rows=sql_rows,expected={"sizes":[21],"input":21})
+
+
+def test_stop_while_assembling_discards_partial_batch(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    track_assembly_reader(stream,trace,monkeypatch)
+    trace.after_read = lambda batch: setattr(control,"stopped",True) if trace.actual_read_rows==21 else None
+    try:
+        with pytest.raises(CalculationCancelledError):stream.next_batch(8192)
+        assert trace.actual_read_rows == 21 and stream._delivered == 0
+        assert stream._current_batch is stream._pending_batch is None
+        assert stream._failed
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"assembling_cancel",trace,context,started,
+            expected={"max_input":21,"delivered":0,"error":"CalculationCancelledError"})
+
+
+def test_input_limit_rejects_before_copy_or_delivery(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True,limit=20)
+    track_assembly_reader(stream,trace,monkeypatch)
+    original, copied_after_limit = pa.concat_arrays, []
+    def copy_checked(arrays,*args,**kwargs):
+        if trace.actual_read_rows>20:copied_after_limit.append(True)
+        return original(arrays,*args,**kwargs)
+    monkeypatch.setattr(pa,"concat_arrays",copy_checked)
+    try:
+        with pytest.raises(ResourceLimitError,match="max_input_rows"):stream.next_batch(8192)
+        assert trace.actual_read_rows == 21 and context.source_rows == 20
+        assert not copied_after_limit and stream._delivered == 0
+        assert stream._current_batch is stream._pending_batch is None
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"input_limit",trace,context,started,
+            expected={"actual_input":21,"accepted_input":20,"delivered":0})
+
+
+def test_copy_failure_releases_local_batches(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    track_assembly_reader(stream,trace,monkeypatch)
+    original = pa.concat_arrays
+    def fail_copy(arrays,*args,**kwargs):
+        if trace.actual_read_rows==10:raise MemoryError("injected compact-copy allocation failure")
+        return original(arrays,*args,**kwargs)
+    monkeypatch.setattr(pa,"concat_arrays",fail_copy)
+    try:
+        with pytest.raises(ResourceLimitError) as error:stream.next_batch(8192)
+        assert isinstance(error.value.__cause__,MemoryError)
+        assert trace.actual_read_rows == 10 and stream._failed and stream._delivered == 0
+        assert stream._current_batch is stream._pending_batch is None
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"copy_failure",trace,context,started,
+            expected={"max_input":10,"delivered":0,"error":"ResourceLimitError"})
+
+
+def test_concat_failure_releases_local_batches(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    stream._files = iter(description.price_paths[:11])
+    track_assembly_reader(stream,trace,monkeypatch)
+    def fail_concat(*args,**kwargs):raise pa.ArrowInvalid("injected incompatible assembly schema")
+    monkeypatch.setattr(pa,"concat_batches",fail_concat)
+    try:
+        with pytest.raises(SourceContractError) as error:stream.next_batch(8192)
+        assert isinstance(error.value.__cause__,pa.ArrowInvalid)
+        assert trace.actual_read_rows == 11 and stream._failed and stream._delivered == 0
+        assert stream._current_batch is stream._pending_batch is None
+    finally:
+        stream.close()
+        assembly_metrics(record_property,"concat_failure",trace,context,started,
+            expected={"max_input":11,"delivered":0,"error":"SourceContractError"})
+
+
+def test_close_failure_keeps_reader_for_final_cleanup(batch_assembly_files, monkeypatch, record_property):
+    started, trace = monotonic(), AssemblyReadTrace()
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    track_assembly_reader(stream,trace,monkeypatch)
+    trace.fail_close_paths.add(str(description.price_paths[-1]))
+    try:
+        with pytest.raises(ResourceCleanupError):stream.next_batch(8192)
+        retained = stream._reader
+        assert retained is not None and not retained.closed
+        assert stream._failed and not stream._closed and stream._delivered == 0
+        assert stream._current_batch is stream._pending_batch is None
+        with pytest.raises(ResourceCleanupError):stream.close()
+        assert stream._reader is retained and not stream._closed
+        trace.fail_close_paths.clear()
+        stream.close()
+        assert stream._reader is None and stream._closed and retained.closed
+        attempts = len(trace.close_attempts)
+        stream.close()
+        assert len(trace.close_attempts)==attempts
+        assert trace.actual_read_rows==21
+    finally:
+        trace.fail_close_paths.clear()
+        stream.close()
+        assembly_metrics(record_property,"close_failure",trace,context,started,
+            expected={"max_input":21,"delivered":0,"error":"ResourceCleanupError","retry_close":True},
+            injected_cleanup_error="reader close retained until successful close")

@@ -1,0 +1,124 @@
+{
+  "stage": "D2 cross-file batching correction",
+  "basis": "LLD 06.6-06.9 / 18.1 / 19.11 / 19.13",
+  "docs_commit": "1598c9540",
+  "code_files": [
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py",
+    "src/foundation/technical_indicators/sources/contracts.py",
+    "src/foundation/technical_indicators/sources/read_context.py"
+  ],
+  "tests_only": [
+    "test_source_contracts",
+    "test_price_adjustment",
+    "test_errors_and_cleanup"
+  ],
+  "limits": {
+    "read_rows": 52895,
+    "sql_logical_rows": 5000000,
+    "wall_seconds": 300,
+    "new_real_controls": 2,
+    "small_control_baseline": 66,
+    "small_control_after_this_stage_max": 68,
+    "extra_retries": 0
+  },
+  "fixtures": {
+    "existing": {
+      "path": "/private/tmp/indicator_lld_probe_20261022/fixture.parquet",
+      "expected_rows": 32768,
+      "stat_bytes": 386178
+    },
+    "new_minute_target_rows": [
+      5000,
+      5000,
+      1,
+      0
+    ],
+    "new_daily_target_rows": 21,
+    "new_factor_rows": 21,
+    "max_created_price_rows": 10022
+  },
+  "cases": [
+    {
+      "name": "existing_fixture",
+      "max_read_rows": 32768,
+      "real_controls": 0
+    },
+    {
+      "name": "cross_files",
+      "max_read_rows": 10001,
+      "real_controls": 0
+    },
+    {
+      "name": "daily_final_batch",
+      "max_read_rows": 21,
+      "real_controls": 0
+    },
+    {
+      "name": "pending_cancel",
+      "max_read_rows": 10000,
+      "real_controls": 1
+    },
+    {
+      "name": "assembling_stop",
+      "max_read_rows": 21,
+      "real_controls": 0
+    },
+    {
+      "name": "input_limit",
+      "max_read_rows": 21,
+      "real_controls": 0
+    },
+    {
+      "name": "copy_failure",
+      "max_read_rows": 10,
+      "real_controls": 0
+    },
+    {
+      "name": "concat_failure",
+      "max_read_rows": 11,
+      "real_controls": 0
+    },
+    {
+      "name": "cleanup_failure",
+      "max_read_rows": 21,
+      "real_controls": 0
+    },
+    {
+      "name": "daily_qfq_session",
+      "max_read_rows": 21,
+      "real_controls": 1
+    }
+  ],
+  "before_sha256": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "fae64fd3a796dcd762dbbab1915005f717341f6d43eab46d38262b2ae024d903",
+    "src/foundation/technical_indicators/sources/contracts.py": "879088b2c19c78f66fc269cbad8167627294fbd3aa1a7ea3281922623d804585",
+    "src/foundation/technical_indicators/sources/read_context.py": "813abf8b7da02efb3e7be6d286018f87086e95326e9b9dea768f2587d9f23fe9",
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": "06e0c37ed6c84f2411c745f77449a8e73ff901c2e7e975d4ac7d60cd3fc72929",
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": "a0036335421cc74ed7750d8d970f706a324b28dee7d7eb7464bfc611c5d7214e",
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": "5d9b2766318e2df33f9f3b8b83bbb25f8ea9cc5fd573a288de6729e699bfa47e",
+    "src/foundation/technical_indicators/sources/session.py": "659086adee7e99071e6129d4448fbda249534e91738a127d605b01e6f7a0e9a3"
+  },
+  "boundaries": {
+    "formal_lake_read": false,
+    "formal_write": false,
+    "network_or_services": false,
+    "dependency_changes": false,
+    "D3": false
+  },
+  "execution": {
+    "runner": "/private/tmp/technical_indicator_d2_correction_run_20261025.py",
+    "pytest_flags": [
+      "-q",
+      "--maxfail=1",
+      "-p no:cacheprovider",
+      "-o junit_family=legacy"
+    ],
+    "plugin_autoload": false,
+    "selected_function_count": 10,
+    "fixtures_reviewed": "Three selected test modules, imported helper module, tmp_path_factory; tests/web/conftest.py not applicable",
+    "side_effects": "Temporary canonical Parquet/manifest, in-memory DuckDB, two real control monitors, stage reports only",
+    "unaffected_tests": "Reuse previous D1/D2 evidence; no broad suite or service startup",
+    "producer_schema_evidence": "asset_column_schemas.py GOLD_STK_MINS_QFQ_SCHEMA / SILVER_STOCK_DAILY_SCHEMA / SILVER_ADJ_FACTOR_SCHEMA",
+    "note": "Input overflow metrics include native-read 21 separately from charged 20"
+  }
+}

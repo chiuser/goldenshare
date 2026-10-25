@@ -1,0 +1,65 @@
+{
+  "status": "accepted_after_targeted_rename_repair",
+  "scope": "D2 batch correction and table-rename registration only",
+  "old_evidence": "combined_acceptance.json",
+  "old_passed_nodes_reused": 9,
+  "old_failed_node_preserved": 1,
+  "old_failed_node_reexecuted": false,
+  "repair_evidence": "rename_fix_acceptance.json",
+  "repair_checks_passed": 7,
+  "evidence_explanation": "Original failed node already proved qfq values and retained history; seven new checks prove corrected name registration/cleanup using real SQL. This is not a full 10/10 rerun.",
+  "cumulative_source_rows": 52895,
+  "cumulative_real_controls": 2,
+  "small_control_after_stage": 68,
+  "d3_real_controls_reserved": 4,
+  "new_literal_rows": 35,
+  "new_sql_logical_rows": 132,
+  "cumulative_sql_logical_rows": 95898,
+  "repair_run_seconds": 0.8164720409549773,
+  "before_unchanged": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": true,
+    "src/foundation/technical_indicators/executor.py": false,
+    "src/foundation/technical_indicators/sources/session.py": false,
+    "src/foundation/technical_indicators/sources/contracts.py": true,
+    "src/foundation/technical_indicators/sources/read_context.py": true,
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": true,
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": true,
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": true
+  },
+  "d3_started": false,
+  "committed": false,
+  "new_dependencies": false,
+  "formal_data_access": false,
+  "plan_reconciliation": [
+    {
+      "requirement": "full batches and final short batch",
+      "code": "_LakePriceStream.next_batch",
+      "proof": "old existing_fixture/cross_files/daily_final passed; 8192x4,8192/1809,21"
+    },
+    {
+      "requirement": "charge pending rows only once, reject before copying",
+      "code": "next_batch + SourceReadContext.record_price_rows",
+      "proof": "old cross_files + input_limit passed; 10001 not11809; read21/admitted20"
+    },
+    {
+      "requirement": "compact copies, no prefetch, release on stop/failure",
+      "code": "_copy_rows/next_batch/release_current_batch/close",
+      "proof": "old copy/concat/reader-close/pending-cancel/assembling-cancel checks passed"
+    },
+    {
+      "requirement": "qfq and volume/amount unchanged",
+      "code": "unchanged PriceAdjustmentCalculation and three source SQL files",
+      "proof": "old failed node passed value/quantity assertions before cleanup failure; unchanged hashes"
+    },
+    {
+      "requirement": "history and both cleanup lists consistent",
+      "code": "DuckDBExecutor.rename_table + PriceInputSession.retain_required_history",
+      "proof": "7 new passed checks; real SQL and original retain_history.sql, zero source/control increase"
+    },
+    {
+      "requirement": "D1/business contracts/configuration and service ownership preserved",
+      "code": "D1 files and service.py untouched; original open/close reused",
+      "proof": "scoped diff and implementation review; no API/frontend/DG changes this round"
+    }
+  ]
+}

@@ -1,8 +1,11 @@
 """LLD §04.2/11/13: connection ownership and partial initialization failures.
 
-Driver/resource substitutes explicitly verify call order and error precedence;
-test_executor.py covers the actual in-memory DuckDB boundary. No service or
-database process, network, source files or installations are involved.
+The original driver/resource substitutes verify call order and error precedence;
+test_executor.py covers the actual in-memory DuckDB boundary.  The separately
+selected D2 pending-batch cancellation test uses the real source with shared
+temporary producer-contract files, one real control and the real private
+in-memory DuckDB connection.  No database process, network, formal-Lake source,
+installation or running-SQL interruption claim is involved in that new test.
 """
 
 from time import monotonic
@@ -13,6 +16,11 @@ from src.foundation.technical_indicators.configuration import KernelConfig
 from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceCleanupError
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators import service as implementation
+
+from test_source_contracts import (
+    batch_assembly_files, AssemblyReadTrace, assembly_metrics, assembly_source, assembly_config,
+    track_assembly_reader, track_compact_copies,
+)
 
 
 def config():
@@ -177,3 +185,57 @@ def test_cleanup_target_is_measured_from_first_stop_not_restarted_at_close(monke
     assert len(errors) == 1 and isinstance(errors[0], ResourceCleanupError)
     assert connection.closed and events[-1] == "connection.close"
     assert control.resources_released_at == 2.1
+
+
+def test_pending_batch_cancel_releases_stream(batch_assembly_files, monkeypatch, record_property):
+    """The one real-control pending-cancellation request in LLD 18.1.
+
+    Exactly the first 10000 target rows are physically read.  The final one-row
+    file must remain unopened; delivered source positions are 1..8192 and the
+    compact remainder is 1808 rows until cancellation.
+    """
+    started, trace = monotonic(), AssemblyReadTrace()
+    cfg = assembly_config(batch_assembly_files)
+    control = ExecutionControl(arrived_at=monotonic(), config=cfg)
+    cfg, request, requirement, context, _, source, description, _ = assembly_source(
+        batch_assembly_files,control=control,open_stream=False)
+    service = implementation.TechnicalIndicatorService(source=source,registry=None,config=cfg)
+    connection = stream = None
+    delivered, cleanup = [], ()
+    try:
+        connection, executor = service._open_execution(control)
+        stream = source.open(executor,description,requirement,read_context=context)
+        track_assembly_reader(stream,trace,monkeypatch)
+        track_compact_copies(trace,monkeypatch)
+        batch = stream.next_batch(8192)
+        assert batch.selected_rows==8192
+        assert (batch.source_first_position,batch.source_last_position)==(1,8192)
+        delivered.append(batch.selected_rows)
+        trace.observe_owned(stream)
+        pending = stream._pending_batch
+        assert pending is not None and pending.num_rows==1808
+        assert context.source_rows==trace.actual_read_rows==10000
+        assert trace.reader_opens==[str(path) for path in batch_assembly_files.minute_paths[:3]]
+        stream.release_current_batch()
+        assert stream._pending_batch is pending
+        del batch,pending
+        control.request_stop("cancel")
+        with pytest.raises(CalculationCancelledError):stream.next_batch(8192)
+        assert trace.actual_read_rows==10000 and stream._delivered==8192
+        assert stream._current_batch is stream._pending_batch is None
+        assert stream._failed
+    finally:
+        cleanup=service._close_execution(control,connection,inputs=stream)
+        assembly_metrics(record_property,"pending_cancel",trace,context,started,
+            real_controls=1,delivered=delivered,cleanup=[str(item) for item in cleanup],
+            expected={"actual_input":10000,"sizes":[8192],"pending_before_stop":1808,
+                      "error":"CalculationCancelledError"},
+            stop_requested_at=control.stop_requested_at,resources_released_at=control.resources_released_at,
+            monitor_join_elapsed_ms=control.monitor_join_elapsed_ms,
+            stop_to_cleanup_ms=None if control.stop_requested_at is None or control.resources_released_at is None
+              else (control.resources_released_at-control.stop_requested_at)*1000)
+        assert not cleanup
+        assert stream is None or (stream._closed and stream._reader is None)
+        assert control.interrupt_callback is None
+        assert control.monitor is None or not control.monitor.is_alive()
+        assert all(reader.closed for reader in trace.readers)

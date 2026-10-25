@@ -1,0 +1,25 @@
+{
+  "status": "paused_after_unexpected_fixture_setup_error",
+  "docs_commit": "1598c9540",
+  "passed_cases": 1,
+  "setup_errors": 1,
+  "not_run": 8,
+  "actual_read_rows": 32768,
+  "remaining_read_rows": 20127,
+  "real_control_objects": 0,
+  "remaining_real_controls": 2,
+  "sql_logical_rows": 65536,
+  "remaining_sql_logical_rows": 4934464,
+  "runner_elapsed_seconds": 0.9093772079795599,
+  "created_new_parquet_files": [],
+  "partial_fixture_directory": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1935/ti_d2_batch_assembly",
+  "unchanged_session_and_source_sql": {
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": true,
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": true,
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": true,
+    "src/foundation/technical_indicators/sources/session.py": true
+  },
+  "no_automatic_retry": true,
+  "cause": "First fixture COPY failed while binding a positional parameter to the target filename; no new Parquet exists. The cross-file stream test has not executed.",
+  "next": "Correct the fixture COPY target parameter handling, retain completed evidence and run only the nine not-completed nodes within remaining budget after resume."
+}

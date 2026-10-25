@@ -170,17 +170,22 @@ class PriceInputSession:
         if self._batch is None or self._failed or self._closed or self._retained:
             raise RuntimeError("No unfinished input batch to retain")
         wanted = self.requirement.history.preceding_rows
-        if wanted:
-            sql = (_SQL / "retain_history.sql").read_text().format(
-                output_table="ti_history_next", input_table=self._batch.table_name)
-            self._execute("retain_input_history", sql, (self._batch.table_name,),
-                          "ti_history_next", self._batch.new_row_count+self._history_rows, (wanted,))
-            self._drop("ti_history")
-            # Transfer the independent small table without copying it again.
-            self._execute("replace_input_history",
-                "ALTER TABLE ti_history_next RENAME TO ti_history",
-                ("ti_history_next",), "ti_history", min(wanted, self._rows))
-            self._tables.remove("ti_history_next")
+        try:
+            if wanted:
+                sql = (_SQL / "retain_history.sql").read_text().format(
+                    output_table="ti_history_next", input_table=self._batch.table_name)
+                self._execute("retain_input_history", sql, (self._batch.table_name,),
+                              "ti_history_next", self._batch.new_row_count+self._history_rows, (wanted,))
+                self._drop("ti_history")
+                # The owner remembers both names until the executor confirms
+                # the rename; failures retain everything needed for cleanup.
+                self._own_table("ti_history")
+                self.executor.rename_table("ti_history_next", "ti_history",
+                                           processed_rows=min(wanted, self._rows))
+                self._tables.remove("ti_history_next")
+        except BaseException:
+            self._failed = True
+            raise
         self._history_rows = min(wanted, self._rows)
         self._retained = True
 

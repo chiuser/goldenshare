@@ -1,0 +1,85 @@
+{
+  "status": "paused_after_unexpected_fixture_setup_error",
+  "stage": "paused",
+  "cases": [
+    {
+      "node": "tests/foundation/technical_indicators/test_source_contracts.py::test_existing_fixture_delivers_four_full_batches",
+      "phase": "call",
+      "outcome": "passed",
+      "duration_seconds": 0.3513084170408547,
+      "metrics": {
+        "actual_read_rows": 32768,
+        "case": "existing_fixture",
+        "cleanup": [],
+        "compact_copy_bytes": 786432,
+        "compact_copy_calls": 12,
+        "delivered_sizes": [
+          8192,
+          8192,
+          8192,
+          8192
+        ],
+        "elapsed_ms": 38.22716698050499,
+        "expected": {
+          "input": 32768,
+          "sizes": [
+            8192,
+            8192,
+            8192,
+            8192
+          ]
+        },
+        "fixture_created_factor_rows": 0,
+        "fixture_created_price_rows": 0,
+        "peak_owned_arrow_bytes": 196608,
+        "physical_batch_sizes": [
+          8192,
+          8192,
+          8192,
+          8192
+        ],
+        "reader_close_attempts": [
+          "/private/tmp/indicator_lld_probe_20261022/fixture.parquet"
+        ],
+        "reader_closed": [
+          true
+        ],
+        "reader_opens": [
+          "/private/tmp/indicator_lld_probe_20261022/fixture.parquet"
+        ],
+        "real_control_objects": 0,
+        "source_file_bytes": 386178,
+        "source_files": 1,
+        "source_rows": 32768,
+        "sql_logical_rows": 65536
+      }
+    },
+    {
+      "node": "tests/foundation/technical_indicators/test_source_contracts.py::test_assembly_crosses_files_and_consumes_pending_once",
+      "phase": "setup",
+      "outcome": "failed",
+      "duration_seconds": 0.020243791863322258
+    }
+  ],
+  "actual_read_rows": 32768,
+  "real_control_objects": 0,
+  "sql_logical_rows": 65536,
+  "baseline_peak_bytes": 114376704,
+  "peak_bytes": 172752896,
+  "collected_nodes": [
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_existing_fixture_delivers_four_full_batches",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_assembly_crosses_files_and_consumes_pending_once",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_daily_files_deliver_one_final_batch",
+    "tests/foundation/technical_indicators/test_errors_and_cleanup.py::test_pending_batch_cancel_releases_stream",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_stop_while_assembling_discards_partial_batch",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_input_limit_rejects_before_copy_or_delivery",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_copy_failure_releases_local_batches",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_concat_failure_releases_local_batches",
+    "tests/foundation/technical_indicators/test_source_contracts.py::test_close_failure_keeps_reader_for_final_cleanup",
+    "tests/foundation/technical_indicators/test_price_adjustment.py::test_assembled_daily_batch_runs_one_qfq_session"
+  ],
+  "elapsed_seconds": 0.9093772079795599,
+  "pytest_exit_code": 1,
+  "small_control_after_stage": 66,
+  "failure_accounting": "failure_accounting.json"
+}

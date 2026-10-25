@@ -1,0 +1,35 @@
+{
+  "status": "authorized_resume",
+  "scope": "fix three fixture COPY bindings and run only nine unfinished nodes",
+  "prior_evidence": "acceptance.json",
+  "excluded_node": "test_existing_fixture_delivers_four_full_batches",
+  "remaining_read_rows": 20127,
+  "remaining_real_controls": 2,
+  "remaining_sql_logical_rows": 4934464,
+  "remaining_run_seconds": 299.09062279202044,
+  "parameter_method": "COPY and query use explicit named parameters with dict bindings; no value/schema/assertion changes",
+  "new_fixture_price_rows": 10022,
+  "new_fixture_factor_rows": 21,
+  "temp_policy": "new pytest base directory; old incomplete directory retained",
+  "evidence_policy": "new resume files, no overwrite old failure or passed result",
+  "extra_retries": 0,
+  "before_runtime_sha256": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "772a7779596a9773aa6c8a4b4f076e564a314e67f36588c7c03f710bf5a2fe6e",
+    "src/foundation/technical_indicators/sources/contracts.py": "bf00ab9732143e351105acd8685d8a74c19c7c355be7c2a3c582bbc7b1fa340b",
+    "src/foundation/technical_indicators/sources/read_context.py": "1dcccd0687a5271d4078f17fbfaf29a59b647c3b307b4dbcef5d31428678d039",
+    "src/foundation/technical_indicators/sources/session.py": "659086adee7e99071e6129d4448fbda249534e91738a127d605b01e6f7a0e9a3",
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": "06e0c37ed6c84f2411c745f77449a8e73ff901c2e7e975d4ac7d60cd3fc72929",
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": "a0036335421cc74ed7750d8d970f706a324b28dee7d7eb7464bfc611c5d7214e",
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": "5d9b2766318e2df33f9f3b8b83bbb25f8ea9cc5fd573a288de6729e699bfa47e"
+  },
+  "runner": "/private/tmp/technical_indicator_d2_resume_run_20261025.py",
+  "selected_function_count": 9,
+  "sql_accounting": "actual SQL-step/test-query logical inputs plus 10022 price and 21 factor fixture generation records, charged once",
+  "report_files": [
+    "resume_plan.json",
+    "resume_progress.json",
+    "resume_acceptance.json",
+    "resume_junit.xml",
+    "combined_acceptance.json"
+  ]
+}

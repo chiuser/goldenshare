@@ -246,18 +246,20 @@ class LakeTechnicalIndicatorPriceSource:
 
 
 class _LakePriceStream:
-    """Exactly one file reader and one outstanding Arrow batch per request."""
+    """Fill each delivery across files; retain only one already-read remainder."""
 
     def __init__(self, description, requirement, control, read_context):
         self._description, self._requirement = description, requirement
         self._control, self._context = control, read_context
         self._files = iter(description.price_paths)
         self._fragment = self._scanner = self._reader = self._current_batch = None
+        self._pending_batch = self._current_path = None
         self._exhausted = self._closed = self._failed = False
         self._delivered = 0
 
     def _open_file(self, path):
         pa, ds, fs, _ = _arrow()
+        self._current_path = path
         request = self._requirement.request
         predicate = ds.field("ts_code") == request.ts_code
         if request.period.endswith("m"):
@@ -284,6 +286,29 @@ class _LakePriceStream:
         if self._reader is not None:
             self._reader.close()
         self._reader = self._scanner = self._fragment = None
+        self._current_path = None
+
+    def _copy_rows(self, batch, offset, length):
+        """Copy selected columns so a small slice does not retain a file buffer."""
+        pa, _, _, _ = _arrow()
+        selected = columns = column = result = None
+        try:
+            self._control.check_active()
+            selected = batch.slice(offset, length)
+            columns = []
+            for column in selected.columns:
+                self._control.check_active()
+                columns.append(pa.concat_arrays([column]))
+                self._control.check_active()
+            result = pa.RecordBatch.from_arrays(columns, schema=selected.schema)
+            self._control.check_active()
+            return result
+        except MemoryError as exc:
+            raise ResourceLimitError("Copying the source batch exceeded available memory") from exc
+        except (pa.ArrowInvalid, pa.ArrowTypeError, TypeError, ValueError) as exc:
+            raise SourceContractError("Source columns could not form a compact batch") from exc
+        finally:
+            batch = selected = columns = column = result = None
 
     def next_batch(self, max_rows):
         if self._closed or self._failed:
@@ -294,15 +319,24 @@ class _LakePriceStream:
             raise SourceContractError("The source batch size is fixed for the request")
         if self._exhausted:
             return None
-        batch = None
+        batch = piece = assembled = result = None
+        pieces = []
+        assembled_rows = 0
         try:
-            while True:
+            while assembled_rows < max_rows:
                 self._control.check_active()
+                if self._pending_batch is not None:
+                    # This compact remainder was charged on its first read.
+                    piece, self._pending_batch = self._pending_batch, None
+                    pieces.append(piece)
+                    assembled_rows += piece.num_rows
+                    piece = None
+                    continue
                 if self._reader is None:
                     path = next(self._files, None)
                     if path is None:
                         self._exhausted = True
-                        return None
+                        break
                     self._open_file(path)
                     self._control.check_active()
                 try:
@@ -315,22 +349,57 @@ class _LakePriceStream:
                     continue
                 self._control.check_active()
                 if not batch.num_rows:
-                    del batch
+                    batch = None
                     continue
                 self._context.record_price_rows(batch.num_rows)
-                first = self._delivered + 1
-                self._delivered += batch.num_rows
-                self._current_batch = batch
-                return SourceBatch(batch, first, self._delivered, None, batch.num_rows,
-                                   self._context.source_files, self._context.source_file_bytes)
-        except TechnicalIndicatorError:
-            batch = None
+                if batch.num_rows > max_rows:
+                    raise SourceContractError("The file reader exceeded the request batch size")
+                take = min(max_rows - assembled_rows, batch.num_rows)
+                piece = self._copy_rows(batch, 0, take)
+                if take < batch.num_rows:
+                    self._pending_batch = self._copy_rows(batch, take, batch.num_rows-take)
+                pieces.append(piece)
+                assembled_rows += take
+                batch = piece = None
+            if not assembled_rows:
+                return None
+            self._control.check_active()
+            if len(pieces) == 1:
+                assembled = pieces[0]
+            else:
+                pa, _, _, _ = _arrow()
+                try:
+                    assembled = pa.concat_batches(pieces)
+                except MemoryError as exc:
+                    raise ResourceLimitError("Combining source batches exceeded available memory") from exc
+                except (pa.ArrowInvalid, pa.ArrowTypeError, TypeError, ValueError) as exc:
+                    raise SourceContractError("Source batch schemas could not be combined") from exc
+            pieces.clear()
+            self._control.check_active()
+            result = SourceBatch(assembled, self._delivered+1,
+                                 self._delivered+assembled_rows, None, assembled_rows,
+                                 self._context.source_files, self._context.source_file_bytes)
+            self._current_batch = assembled
+            self._delivered += assembled_rows
+            return result
+        except BaseException as exc:
             self._failed = True
-            raise
-        except Exception as exc:
-            batch = None
-            self._failed = True
+            self._current_batch = self._pending_batch = None
+            pieces.clear()
+            batch = piece = assembled = result = None
+            self._files = iter(())
+            try:
+                self._close_reader()
+            except BaseException as cleanup:
+                exc.add_note(f"Source reader cleanup failed: {type(cleanup).__name__}: {cleanup}")
+            if isinstance(exc, TechnicalIndicatorError) or not isinstance(exc, Exception):
+                raise
+            if isinstance(exc, MemoryError):
+                raise ResourceLimitError("The source reader exceeded available memory") from exc
             raise SourceReadError("The source stream did not complete normally") from exc
+        finally:
+            pieces.clear()
+            batch = piece = assembled = result = None
 
     def release_current_batch(self):
         self._current_batch = None
@@ -339,10 +408,11 @@ class _LakePriceStream:
         if self._closed:
             return
         self.release_current_batch()
+        self._pending_batch = None
+        self._files = iter(())
         try:
             self._close_reader()
         except Exception as exc:
             self._failed = True
             raise ResourceCleanupError("The source reader did not close") from exc
-        self._files = iter(())
         self._closed = True
