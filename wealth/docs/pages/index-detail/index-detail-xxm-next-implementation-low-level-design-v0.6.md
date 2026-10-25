@@ -896,6 +896,8 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 
 每个查询前后、每个处理日及DTO装配前检查本次截止时间，以及框架已收到的取消信号；错误、已知取消或超限不返回半份ready。新接口不承诺即时感知浏览器断连；前端先取消并忽略迟到响应。后端按§14.9的可中断连接/查询和共同截止处理，不靠同步线程中的前后检查冒充正在等待的SQL已停止；已发出的SQL受剩余查询时限约束。不创建后台作业，没有检查点或resume；下一次从头读取/计算，进程重启也无结果可恢复。
 
+第三批API如何将同一次截止传给查询服务、一直检查到JSON编码结束，以及取消的具体处理顺序，固定按§15.3.1—15.3.2；不能只检查服务返回前，漏掉响应处理。
+
 新接口不再沿用原离线60秒计算或文件reader2秒预算：8秒从现有认证完成、进入本模块query_service业务查询时开始，覆盖本模块连接、所有有界读取、计算、DTO及失败清理；不把此前全站登录查询承诺为本模块可强制限制。前端整个计算+K线核对链仍为10秒；输入≤1MiB、≤1300根、内存≤256MiB、响应≤2MiB，不删峰/截字段凑预算。App为本模块注入同一Settings.database_url对应的专用只读会话工厂：无连接池等待，连接上限2秒，单SQL最多3秒且不超过总剩余时间，锁等待≤1秒；这些值只由DailyWaveReviewSpec提供，无新env/Settings键。当前全站get_engine未配置连接上限，不能直接假定能强制8秒；故不改全站engine，仅本模块由App新增有界只读工厂，Biz只接收session。主窗口、前段、日历在同一个≤8秒的只读REPEATABLE READ事务内读取，避免一次计算混入源刷新前后两套值；请求结束关闭会话/连接，无业务写入，不改全站隔离级别。
 
 预算包含失败清理和最终核验，是保护设计、尚未实测；不恢复暂停的预测200ms课题。若真实最小链路不能在此预算完成，报告具体耗时后先修本步设计，不擅加限、落盘或后台续算。本轮无执行结果。
@@ -942,6 +944,8 @@ review_prefix(rows, *, as_of, observation_range, calendar, calculation_id, calcu
 build_price_candidates(basic, *, observation_range, calendar, spec=DEFAULT_SPEC,
                        deadline=None, check_cancelled=None) -> CandidateRecords
 ```
+
+上表为第二批已实现签名。第三批仅为服务build追加可选deadline参数，具体签名及传递按§15.3.1；未传时保留原行为。其他已完成入口和返回值不变，不将拟增加的参数冒称已实现。
 
 候选入口的CandidateRecords只含priceSegments/mappings/shortOppositeSegments，正式build_review使用同一_PriceCandidateState获得它，再补逐日变化及完整头部。clock默认只捕获一次当前上海时间、new_id默认一次UUID，测试可注入固定值；query默认本模块DailyWaveQuery。所有查询通过注入session内部同一budget执行，查询方法不得另传新时限。observation_range在非空结果时必须等于主范围源行实际首末；无主范围行时为null并返回empty。as_of为日线截止日期，rows/观察范围不能越过它；calculated_at是有时区的计算时间，不能早于输入末根完成时点。
 
@@ -1189,6 +1193,59 @@ coverage固定mainPointCount、leftIncompleteColorSegmentIds/ungeneratedPriceSeg
 错误码拟DAILY_WAVE_INVALID_REQUEST（422）、DAILY_WAVE_SOURCE_INVALID（503）、DAILY_WAVE_CALCULATION_FAILED（503）、DAILY_WAVE_BUDGET_EXCEEDED（503），开发前在现wealth/docs/system/exception-code-registry.md登记；不复用旧文件损坏码或已有XXM含义。错误走注入WebAppError，不返回半份ready或自动换旧算法/CSV。新代码未实现，不改原K线/XXM DTO。
 
 数字/日期匹配必须逐日一一对应真实K线：研究规范文本转同一有限number，与K线未格式化close/DIF/DEA/柱逐项数值相等，例如4160.450=4160.45；禁止toFixed后比文字、±1点或MACD容差，原文本仍留本次对象。缺/重/错日、任一值不符只停研究层，说明“行情与研究结果不一致，暂不显示波段”，不改来源或前端重算。0.0021仅源内部关系检查，不用作两次读数匹配容差。
+
+<a id="xxm-daily-wave-api-handoff-lld"></a>
+
+#### 15.3.1 同一次截止时间覆盖最终响应（第三批待实现）
+
+2026-10-25管理员要求补清两处接线后提交文档、等待下一步指令。本节及15.3.2—15.3.3仅为后续编码约定，不表示第三批已开发或验收。范围和顺序与方案§0.10一致。
+
+当前代码依据：query_service.py的build在内部创建DailyWaveBudget，返回ReviewResult而不返回budget；budget.py已支持有限的绝对deadline并取较早值。不能在服务返回后重新给DTO一个8秒，也不能把截止时间加入对外结果字段。后续落点固定如下：
+
+| 位置 | 编码要求 |
+|---|---|
+| 新Biz API `src/biz/api/wealth/market/index_detail_daily_wave.py` | require_quote_access依赖及参数校验通过后，进入业务时创建一次`budget = DailyWaveBudget(DEFAULT_SPEC, check_cancelled=check_cancelled)`；紧接调用已有服务build并传`deadline=budget.deadline`、同一DEFAULT_SPEC及同一取消检查函数。认证耗时仍不计入本模块8秒 |
+| 已有query_service.py的build | 第三批签名为`async def build(self, *, spec=DEFAULT_SPEC, check_cancelled=None, deadline=None) -> ReviewResult`；内部改用`DailyWaveBudget(spec, deadline=deadline, check_cancelled=check_cancelled)`。API传来的截止较早，故内部沿用该值，不能覆盖成now+8；不传时保持第二批原有行为。原budget继续传给session_factory、原deadline继续传给build_review，无新SQL或重算 |
+| 同一新API的私有`_build_response(result, *, budget)`及新schema文件`src/biz/schemas/wealth/market/index_detail_daily_wave.py` | 只投影已有结果、校验和编码；不取数、不补值、不生成编号或重算波段。schema负责ready/empty各自精确字段和类型，extra=forbid；数字/日期文本不改类型或舍入，合法null保留 |
+
+处理顺序不可调换：
+
+1. 服务返回后先用API保留的原budget.check。取result.to_dict；ready仅将priceSegments改名为segments并移除asofChanges，不增删业务事实；empty继续只保留§15.3九个头部字段，不人为补数组。
+2. 对对应ready/empty DTO调用`model_validate(payload, strict=True)`，再将校验后模型的`model_dump(mode="json")`结果作为后续唯一payload，不以exclude_none移除合法null；投影及DTO前后各检查原budget。校验失败走既定DAILY_WAVE_CALCULATION_FAILED，不能自动丢字段后当成功。
+3. 使用`json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")`得到最终body。编码前后检查原budget；`len(body) <= DEFAULT_SPEC.max_response_bytes`才允许成功，超过走既定DAILY_WAVE_BUDGET_EXCEEDED，不截断。原完整内存结果校验保留，最终HTTP字节还要另核一次。
+4. 用此body构造`Response(content=body, media_type="application/json", headers={"Cache-Control":"no-store"})`，返回前最后检查原budget。ready/empty均走同一流程；不返回字典让框架在函数外另做JSON转换，不使用流式发送半份结果。路由仍声明对应响应schema用于OpenAPI；直接Response绕过框架二次验证，因此第2步不能省略。
+
+检查使用原budget.deadline，失效条件仍是now>=deadline；不另开DTO时限、wait_for、线程或后台任务，不给错误清理额外延时。超时后只生成既定小型错误响应，不再装配成功body，也不反复检查已失效deadline形成错误处理循环。此限制覆盖服务和本地响应生成，不承诺网络发送完成时间或操作系统硬实时。失败后丢弃本次结果，重试从头；不落盘、不恢复。
+
+依据：[FastAPI直接返回Response](https://fastapi.tiangolo.com/advanced/response-directly/)、[Pydantic模型校验](https://docs.pydantic.dev/latest/concepts/models/)、[JSON兼容输出](https://docs.pydantic.dev/latest/concepts/serialization/)，已用Context7核对；不安装或升级库。
+
+#### 15.3.2 禁止缓存及取消的准确落点（第三批待实现）
+
+**禁止缓存。**不能只给路由内的成功Response加头：现App `src/app/exceptions/web.py`的异常处理器另建JSONResponse，认证失败甚至发生在路由函数执行前。保持统一code/message/request_id及WebAppError现有构造参数，采用以下限定改动：
+
+- 在该App文件增加私有`_response_headers(request) -> dict[str,str]`；仅当method为GET且`request.url.path == "/api/v1/wealth/market/index-detail/daily-waves"`时返回`{"Cache-Control":"no-store"}`，否则返回空字典。查询参数不影响path匹配；不按前缀、未设置的request.state或是否进入业务函数判断，不改变其他路径/方法。
+- 该文件现有WebAppError、RequestValidationError、StarletteHTTPException及Exception四类处理器的每一个JSONResponse分支（含提前返回）均传`headers=_response_headers(request)`。只添加本接口响应头，不改原状态、错误正文/请求编号、处理器顺序、鉴权或中间件；对其他路径，空headers保持现有Content-Type/Length生成行为。Biz只使用注入的error_factory，不反向import App helper。
+- 新API的200 ready/empty由15.3.1设置no-store。422参数错误、401及已有403、三类503业务失败和兜底500由上述处理器覆盖。403不是新增权限规则；当前鉴权未触发403时仅用独立替身覆盖处理器路径。框架未预期异常仍保留原internal_error/500，不改成新的业务码；真实业务失败按§15.3既定503分类。
+
+**取消。**新async GET在业务开始时捕获当前asyncio.Task，向budget和service传同一个同步check_cancelled函数，检查该Task存在且cancelling()>0；不新建取消监听任务、不轮询网络、不改变全站取消策略。数据库等待及关闭继续用第二批原逻辑，API在DTO/JSON前后同样检查。
+
+API异常处理固定先`except asyncio.CancelledError: raise`，保持原对象；再处理DailyWaveCancelled，将其转为asyncio.CancelledError并保留原因为cause。两种均置于普通Exception或业务错误映射之前，不包装成DAILY_WAVE_CALCULATION_FAILED、503或500，不新增499/取消错误码。已观察到取消后不再发查询、生成DTO或开始新的计算。取消传播本身不制造HTTP成功/失败JSON，故不为取消强行造一份带缓存头的响应；凡实际生成的上述HTTP响应才检查no-store。未即时获知浏览器断连仍按原8秒保护，不能宣称即时断连已被感知。
+
+#### 15.3.3 上述两处的开发验收（尚未运行）
+
+新增专用`tests/web/test_wealth_index_detail_daily_wave_api.py`，并在现`tests/test_index_detail_daily_wave_query.py`补deadline传递回归。独立字面响应及真实类型以第二批合同为依据；替身只隔离数据库/耗时步骤，不替代schema、原异常处理器或响应编码。
+
+| 必测场景 | 预期及禁止项 |
+|---|---|
+| 服务未传/传入deadline、无效deadline | 默认直调仍按原8秒；传入较早值时session及计算沿同一截止，拒绝非法值，不能重置。已有第二批测试保持 |
+| 计算用7.8秒，响应再用0.3秒（可控单调时钟） | 最终503/DAILY_WAVE_BUDGET_EXCEEDED且no-store，无ready/半份JSON；同样前段加正常0.1秒应成功，不能因新增保护误拦 |
+| 投影/DTO/JSON各阶段超过截止，以及恰到截止 | 每个阶段均用原截止拒绝；不因数据已算完就返回成功、不另外申请8秒 |
+| ready/empty的严格schema及最终字节 | 最终body是已核同一bytes，Content-Type为application/json；2MiB边界内可过、超出明确失败。数字文本、空值及九头部保持；无priceSegments旧字段/asofChanges或额外字段 |
+| 200 ready/empty、422、401、已有403、各503及500 | 经真实路由/原处理器生成的响应均有Cache-Control:no-store，错误仍为原code/message/request_id；鉴权开关正反例保持，无权限不得调用service |
+| 其他路径/方法及早于业务的错误 | 同一App的原XXM/行情或最小其他路由正常/错误响应不新增no-store，原状态/正文/Content-Type不变；新路由在参数校验或鉴权失败、未创建budget时仍有no-store |
+| 原asyncio取消、DailyWaveCancelled及取消发生于等待/响应阶段 | 原取消保持，后者只在API转换；无错误JSON、不新查询/重试，无继续运行的任务。资源关闭仍遵守§14.9.9；不靠只断言closed标志验收 |
+
+测试使用现有环境、单组60秒内，时间反例用可控时钟而非实际睡8秒；500用测试客户端允许读取错误响应的设置，不因客户端重抛而漏测响应头。开发时仍需按§15.6做新路由最小真实只读接入验收；上述替身通过不能冒称真实API已接通。本轮仅写入约定并做文档/当前代码核对，不实现这些函数、增加测试代码、访问数据库或推进第三批。
 
 ### 15.4 页面状态、实际范围及说明入口
 
