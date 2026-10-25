@@ -1,6 +1,6 @@
 # 股票前复权九转资产族低层设计
 
-状态更新（2026-10-26）：第22节为22日四个分钟分区的写入修正及补齐LLD，当前仅完成代码审计与文档，未开发、未正式执行。现有两股票sensor保持STOPPED；23日数据补齐后再启用的TODO不变。
+状态更新（2026-10-26）：第22节分钟写入修正已完成开发，189项定向测试通过，具体证据与限制见22.9。未执行正式数据读取或补齐，四项仍待补；本轮未操作sensor，23日数据补齐后再启用的TODO不变。
 
 历史结果：P0至P7R和分钟去价格S0至S5在2026-08-15均已完成，12,272个分钟分区切为八列，并完成当时event、check、Reader/readiness和sensor恢复。2026-08-14旧九列重建只保留为历史，不代表现行合同；日线后续独立修正的六列合同以当前代码为准，本轮不修改日线。
 
@@ -1213,11 +1213,11 @@ git diff --check
 
 6. reload `orchestrator` code location 后，只恢复正式 `gold_stk_mins_qfq_nineturn_update_job_sensor` origin；当前状态 `RUNNING`，2026-08-15 12:13:01 最近 tick 为 `SKIPPED — 最近 5 个分钟前复权九转分区均已 ready`，run 数 0。周六没有新增交易日，不伪造新分区触发；下一交易日只做自然观察，不改变本次正式数据结论。
 
-## 22. 2026-10-22分钟九转写入修正与补齐LLD（待开发）
+## 22. 2026-10-22分钟九转写入修正与补齐LLD
 
 ### 22.1 本步状态、范围及依据
 
-2026-10-26仅审计当前代码和已有报告、完善原方案与本LLD；未修改Python、运行测试/job、读取正式数据正文或写Lake/数据库。以下均是拟实施细节，不能当成已实现或已通过。开发须先获本方案确认；正式读取/写入仍单独按具体范围批准。
+本节最初为2026-10-26代码审计后的待开发设计；随后管理员要求先提交再落地代码，方案及证据已提交`7bbf11cd`，本轮完成开发与隔离验证，实际结果见22.9。开发通过不等于正式数据通过；正式读取/写入仍按具体范围批准。
 
 目标仅为`gold_stk_mins_qfq_nineturn_{30,60,90,120}m`在2026-10-22的四个文件。正式根`/Volumes/datasource/data_lake`、候选根`/Volumes/datasource/data_lake_staging`；原job、四个blocking check、八列合同、公式和正式路径不变。既有MACD/QFQ已完成结果保持。不得引入备份、旧Lake、Kopia、独立九转state、Prod写入、新配置、性能样本或自行设置的资源中断阈值。
 
@@ -1248,10 +1248,10 @@ git diff --check
 | 文件/位置 | 具体修改 | 边界 |
 | --- | --- | --- |
 | `run_contracts/qfq_nineturn.py:QfqNineturnSourcePlan` | 末尾新增`input_file_identities`（默认None），为按路径排序的不可变tuple，每项`(Path, (st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns))`；另加`history_candidate_codes`（默认空tuple）保存实际探查的候选 | 默认值仅保持日线构造不变；分钟必须填身份，不能由writer晚抓一次stat兜底。候选名单包括没有历史路径的代码，才能发现后续新加入的历史文件。原字段和输出result不变 |
-| `qfq_nineturn.py`分钟planner | 正常source及seed在第一次查询前取身份；候选历史在其查询前扩充；每次查询后、返回前复核 | 只增加metadata保护，不改路径选择、日期、公式、fallback条件或500上限。history扩充遇到已记录路径必须核对首次身份，禁止覆盖旧身份 |
+| `qfq_nineturn.py`分钟planner | 正常source及seed在第一次查询前取身份；候选历史在其查询前扩充；每次查询后、返回前复核。`_bounded_candidate_codes`内部两条SQL通过可选`after_query`回调逐次复核，仅分钟传入 | 只增加metadata保护，不改路径选择、日期、公式、fallback条件或500上限。日线不传回调、行为不变；history扩充遇到已记录路径必须核对首次身份，禁止覆盖旧身份 |
 | `qfq_nineturn.py`分钟writer | 必须接收完整`source_plan`，转入分钟发布实现 | 日线wrapper仍调用原共享writer；分钟旧参数整体迁移，不能保留可漏传种子的新旧两条分钟路径 |
 | `assets/qfq_nineturn.py`分钟工厂 | 传`source_plan`和root run身份 | 日线调用、materialization metadata结构和四资产定义不变 |
-| `io/stk_mins_qfq_publication.py` | 允许family=`nineturn`，复用原候选、锁、输入冻结、一次摘要、receipt和原子提升 | 不改qfq/macd_kdj分支行为、阈值、目录、schema或配置；九转频率仍由原normalize函数限制 |
+| `io/stk_mins_qfq_publication.py` | 增加family=`nineturn`；`validated`增加可选`expected_identity=None`，九转传业务校验身份，在写validated记录前核对摘要所读文件身份；仅nineturn的promoted记录保存/核对`promoted_identity` | 复用原锁、输入冻结、一次摘要及原子提升，不改qfq/macd_kdj默认行为、记录内容、阈值、目录、schema或配置；九转频率由原normalize函数限制 |
 | `paths.py`与引用/测试 | 删除已无生产消费者的`gold_stk_mins_qfq_nineturn_staging_path`及旧分钟路径断言 | 保留正式path helper；日线旧helper不动。不得留一条仍能把分钟候选指向正式Gold的备用函数 |
 | 定向测试 | 见22.7逐项迁移和新增 | 不改业务Reader/API、历史CLI、job/sensor/检查名称和选择 |
 
@@ -1284,7 +1284,7 @@ write_gold_stk_mins_qfq_nineturn_partition(
 
 目录是现有组件的真实规则，不再维护第二个候选path helper。测试使用临时Lake及其同级staging，测试结束两者和DuckDB工作目录都清除；正式失败现场保留，不自动清理候选或operation。
 
-`bind`的`inputs`只传一份**输入说明的SQL**，返回按确定顺序序列化的一条说明：格式版本、候选校验规则版本、公式版本、freq、partition、前序路径或None、正常/fallback路径集合、全部已读文件五字段身份、history_candidate_codes、fallback代码及计数、source_row_count、原八列名称/类型/顺序、完整计算SQL。先将字符串作为SQL字面量安全转义，再由现有bind保存并对这份小文件取摘要。它不是行情副本、资产、状态表或新配置。不能把计算SQL直接放进bind后再COPY计算一遍；也不冻结两年价格明细。
+`bind`的`inputs`只传一份**输入说明的SQL**，返回按确定顺序序列化的一条说明：格式版本、候选校验规则版本、公式版本、freq、partition、前序路径或None、正常/fallback路径集合、全部已读文件五字段身份、history_candidate_codes、fallback代码及计数、source_row_count、原八列名称/类型/顺序、完整计算SQL。前两个版本由contract中的`QFQ_NINETURN_MINUTE_INPUT_VERSION=1`和`QFQ_NINETURN_MINUTE_VALIDATION_VERSION=1`集中定义，仅表示内部说明格式与候选规则，不是运行开关，公式版本不改。先将字符串作为SQL字面量安全转义，再由现有bind保存并对这份小文件取摘要。它不是行情副本、资产、状态表或新配置。不能把计算SQL直接放进bind后再COPY计算一遍；也不冻结两年价格明细。
 
 每个频率的正常流程：
 
@@ -1292,11 +1292,13 @@ write_gold_stk_mins_qfq_nineturn_partition(
 2. 用现有`bind`冻结输入说明及唯一正式目标；同一root若已有不一致operation/receipt，拒绝复用，不另建身份躲过冲突。
 3. 同连接建立目标日source key临时表，只投影当前年QFQ的`ts_code/freq/trade_date/trade_time`并筛22日/本频；使用原source路径选择helper，不读取价格。保留原始行以检查重复键，不能先DISTINCT掩盖重复。此表只用于候选检查和股票数，不持久化为新数据集。
 4. `candidate(target)`返回`(candidate_path, None)`表示需要新建；返回`(None, row_count)`表示已有validated/promoting/promoted结果通过组件恢复核验。两个分支必须显式区分。
-5. **新候选分支**：只执行一次原`select_sql`的COPY，复核输入身份；调用现有`audit_qfq_nineturn_integrity(target_path=candidate, source_relation=<临时表>, source_paths=(), partition_key=D, freq=freq)`，要求passed、输出/来源行数均等于plan行数。股票数从目标日键表统计，完整覆盖通过后等同于输出股票数；fallback数量不得超过它。随后调用`validated`，候选fsync、仅一遍SHA并保存记录。分钟以此替代旧私有validator重复检查，日线原validator不变。
+5. **新候选分支**：只执行一次原`select_sql`的COPY，复核输入身份；在完整audit前后核候选五字段身份，要求passed、输出/来源行数均等于plan行数。audit调用为`audit_qfq_nineturn_integrity(target_path=candidate, source_relation=<临时表>, source_paths=(), partition_key=D, freq=freq)`。股票数从目标日键表统计，完整覆盖通过后等同于输出股票数；fallback数量不得超过它。调用`validated(..., expected_identity=<audit身份>)`，候选fsync、仅一遍SHA，摘要读取身份必须仍等于audit身份，才保存validated记录；不一致保留building，不能留下下次可复用的错误校验记录。分钟以此替代旧私有validator重复检查，日线原validator不变。
 6. **已有结果分支**：要求返回行数等于plan行数，当前目标日键表行数及股票数符合plan/fallback约束；输入说明及校验版本必须一致。跳过COPY、候选audit和`validated`，不能对None路径调用检查，也不能重写已提升文件。两分支汇合后再复核全部输入身份/集合，调用现有`promote()`处理原记录：新结果先核同设备、候选/目标身份、无符号链接，记录`promoting`后原子替换、目录fsync、记录`promoted`；已完成者跳过替换。正常同进程不再做第二遍SHA，跨进程恢复的那一遍已由现有组件核验。
 7. 两分支均按原结构返回result：目标为正式path，source行数来自plan，output行数来自新候选诊断或恢复返回值，股票数来自目标日键表，fallback数量为原名单长度；source_file_count/fingerprint沿用原口径，observed_columns取已通过完整schema检查所对应的合同列序。恢复不为重建metadata另读一次正式文件。原job继续运行四条正式checks，独立读取正式文件和目标年来源键，不用receipt替代，不重算公式。正常收尾仅核逐文件记录/stat、检查绑定及两sensor状态，不再做全局审计或SHA。
 
 输入说明必须包含本次校验规则的版本，防止以后规则变更时误把旧候选当成已按新规则通过。全量源SHA没有获准，也没有必要为此新增；五字段stat、输入集合及目标/候选摘要各自证明的范围要分别报告。
+
+2026-10-26隔离反例澄清了现有组件两处不足，因此在开发中先补本节实现细节，未改变既定验收目标：原promoted恢复只核内容摘要，不能发现同内容重写的身份变化；原validated不能把业务audit身份传入摘要步骤。最小修正如上表。仅nineturn在rename后保存正式文件五字段`promoted_identity`；恢复时要求身份匹配再核摘要。若中断在promoting，仍按原协议先用候选身份前四字段、文件位置及摘要唯一确认rename结果（ctime会因rename合法变化），确认后才保存正式五字段身份。其他family不新增该字段和条件；可选expected_identity默认None不影响原调用。原组件没有满足这两项要求，不能仅增加family白名单就宣称完成。正常摘要次数仍一遍，不增加历史读取。
 
 ### 22.5 失败、中断和继续
 
@@ -1355,13 +1357,15 @@ write_gold_stk_mins_qfq_nineturn_partition(
 | 日线与既有QFQ/MACD不受影响 | wrapper分流/shared publication | 原日线writer、日线plan默认None、历史bootstrap及既有QFQ/MACD publication定向回归；旧类型路径与行为不变 |
 | 原job/check/sensor行为不扩大 | minute asset/root身份与job测试 | 首run与子run传同一root；原四asset+四checks、pool/executor不变；不依赖固定频率顺序；不启动sensor |
 
-已有目标测试文件：`test_qfq_nineturn_writer.py`、`test_qfq_nineturn_source_plan.py`、`test_qfq_nineturn_assets.py`、`test_qfq_nineturn_checks.py`、`test_qfq_nineturn_jobs.py`、`test_qfq_nineturn_history.py`、`test_stk_mins_qfq_publication_single_digest.py`、`test_stk_mins_qfq_staging_publication.py`。公式金样本`test_qfq_nineturn_formula_golden.py`按其现有受保护启动器执行；开发前核对启动器与测试文件实际状态，不另写预期或绕过保护。
+目标测试文件为`test_qfq_nineturn_writer.py`、新增`test_qfq_nineturn_minute_publication.py`、`test_qfq_nineturn_source_plan.py`、`test_qfq_nineturn_assets.py`、`test_qfq_nineturn_checks.py`、`test_qfq_nineturn_jobs.py`、`test_qfq_nineturn_history.py`、`test_stk_mins_qfq_publication_single_digest.py`、`test_stk_mins_qfq_staging_publication.py`。既有契约消费者再核`test_qfq_nineturn_governance.py`和`test_qfq_nineturn_readiness.py`。公式金样本文件`test_qfq_nineturn_formula_golden.py`的字面量保持不改。开发时核实没有九转专用受保护启动器，现有停牌runner也不包含本套件，因此不套用其他域scope，不安装新工具。
+
+隔离回归使用现有`.venv`、pytest及系统`sandbox-exec`：禁止网络、`/Volumes`和正式`.goldenshare`目录访问，将`TMPDIR`、测试`DAGSTER_HOME`、pytest basetemp以及配置DuckDB默认临时路径全部指向一个任务临时根。仅在测试进程内将现有连接函数的默认settings替换为相同配置但不同temp_directory，不改业务SQL、resource接口或项目配置；各测试显式替身仍按其原边界生效。只跑上述文件的小型人工夹具，不用正式数据或性能测试。运行日志和数量归档，临时脚本/策略/Lake/staging/工作目录在结束后清除并核验。
 
 不安装/同步依赖。使用本项目现有`.venv`，临时DAGSTER_HOME、DuckDB工作目录、Lake及staging全部在隔离临时目录；测试禁止连接正式instance、网络或正式源。先核资源没有正式地址，再运行定向测试与必要ruff。小规模真实合同集成必须串过真实planner→原SQL→新writer→原完整性检查，预期来自可人工逐根核算的字面样本，不能用待测helper生成expected。测试结束清除本次临时资源并验证无残留；正式staging证据不在此清理范围。
 
 ### 22.8 后续执行步骤与未关闭条件
 
-1. **设计确认**：本轮只提交方案/LLD供审阅。开发目标、各代码点与测试已列清，不代表已经获准执行22日job。
+1. **设计确认（已完成）**：管理员已要求提交后按LLD开发，原方案及证据提交`7bbf11cd`；这不表示已经获准执行22日job。
 2. **开发和隔离验证**：按22.3逐项修改，执行22.7；记录实际代码SHA、每条规则对应测试、无临时残留。发现现行合同与夹具不符先纠正依据，不扩大为算法/历史框架改造。
 3. **仅必要前检**：优先复用已有QFQ/因子/控制证据；补21日四份九转metadata、相应原check/物化绑定、精确前序、统一缩放适用依据、目标缺失/既有receipt、共享pool与活动run。需要读取全市场键集合时先按22.6批准；不在此阶段额外执行原完整性检查去重复已通过证据。
 4. **冻结本链执行卡**：在本节填入实测metadata的P/Hc、需要的历史范围和预算，获明确批准。执行入口仍是原job，工作目录`lake_console/orchestrator`，正式`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，partition仅2026-10-22；保留既有DuckDB/pool配置，选且仅选四asset+四checks。正式前根据当时可用的原提交入口记录完整命令/脚本、实例、代码SHA及config摘要；本轮尚未生成或执行提交脚本，不以不完整命令冒充可执行步骤。
@@ -1369,3 +1373,22 @@ write_gold_stk_mins_qfq_nineturn_partition(
 6. **唯一收尾**：核四原checks绑定正确及4份正式文件与receipt/stat一致；复核输入身份/集合及范围外21/23日九转stat，保持其他频率/日期不写。若前序/邻日文件原本不存在，记录为不存在，不能制造文件。销账后仅表示22日原清单109/109通过，不证明23日齐备；两个sensor仍STOPPED，TODO保留。
 
 正式前尚未关闭的事实：21日seed当前质量/身份，因子修复是否符合旧seed继续使用条件，实际候选/fallback名单与Hc，具体历史读写批准及开发后的正式提交命令。它们没有被本轮代码审计或1.54GiB源大小替代。范围变化或代码与本节不符，先同步原方案/LLD后再继续，不能先执行再补文档。
+
+### 22.9 代码落地及隔离验证结果（2026-10-26）
+
+开发已按22.3至22.7完成，未提交本轮新代码、未推送。新增/修改五个源文件和四个测试文件；`paths.py`已有其他任务的修改，本轮只删除旧分钟staging函数，未混入或回退其余改动。完整代码SHA、测试分组、首次失败与重跑、清理边界见[验证汇总](../../reports/datasets_recovery_20261022_20261024/nineturn_write_fix_20261026/summary.json)。
+
+| 约束 | 实际落点 | 验证结果 |
+| --- | --- | --- |
+| 读取前固定来源/seed身份，保护正常变化与fallback | 分钟planner、`_nineturn_file_identity`、`validate_minute_nineturn_source_plan`和plan末尾字段 | source-plan14项通过：四频、真新股、前序缺失、500/501及合法501候选、每次查询后变化、重叠/未回算历史、集合新增与错误计划 |
+| 完整候选通过再提升，一次COPY/SHA，正确留存和继续 | 分钟writer及nineturn publication；两处身份窗口按22.4先补细节再修正 | writer组41项及10子测试通过：真实11列QFQ/八列seed人工样本、字面计数5/6、缺列/类型/键/日期/值域反例、COPY期输入变化、各记录阶段续跑、身份冲突、锁/同设备/路径边界 |
+| root身份转交、原四资产与检查合同 | 分钟asset传完整plan及root ID；不改job/check/sensor | assets组4项及8子测试通过；调用转交使用替身，未声称正式Dagster从失败重执行已验收 |
+| 不影响既有调用/公式/消费者 | 日线原writer、原QFQ/MACD调用默认值、history和Reader/readiness保持 | 原八文件回归共130项通过，另有4子测试；涵盖真实QFQ/MACD小型writer、publication一次摘要/中断/续跑、原九转公式金样本、checks/jobs/history/governance/readiness |
+
+四组不重叠，共189项定向测试；全部在临时资源中完成，未跑正式性能样本。五个源文件与四个测试文件Ruff通过，修改引用/格式检查通过；CodeGraph已执行`sync/status`，索引正常。影响面为DG内部plan与writer，不触及Prod、Foundation/API合同或任务拓扑。
+
+测试过程中真实发现并修正的两处边界没有放宽预期：原promoted会接受同内容重写，现仅nineturn核正式五字段身份；完整audit到validated之间的替换会在保存validated前拒绝，记录仍为building，后续可正常重建。source-plan测试最初的schema探测遗漏`hive_partitioning=false`，按真实读取合同修正探测，11列预期未改。
+
+原回归首次129项通过，另一项因MACD函数显式传入的默认DuckDB settings未被测试隔离入口重定向，被sandbox拦在正式临时路径访问处；没有读取行情或写正式数据。仅修正测试进程内该默认参数的temp_directory后单独重跑1项通过，没有改MACD业务代码、放宽沙箱或重跑其余129项。首次及重跑日志均保留。
+
+所有本次测试Lake、staging、DuckDB工作目录、pytest目录与临时执行脚本均已清除；仅归档日志、源文件SHA及脚本文本作依据，没有删除正式数据或既有staging。人工夹具按现行生产者合同构造，不能替代真实前序seed质量、因子等比例条件和历史范围确认。22.8的正式前条件仍未关闭，原缺失清单仍余四项。

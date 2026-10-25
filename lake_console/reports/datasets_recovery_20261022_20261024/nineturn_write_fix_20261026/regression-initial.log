@@ -1,0 +1,91 @@
+........................................................................ [ 55%]
+......F...................................................           [100%]
+=================================== FAILURES ===================================
+_________ test_macd_state_failure_preserves_annual_output_then_resumes _________
+
+self = PosixPath('/Volumes/datasource/.goldenshare_duckdb_tmp'), mode = 511
+parents = True, exist_ok = True
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileExistsError: [Errno 17] File exists: '/Volumes/datasource/.goldenshare_duckdb_tmp'
+
+../../../../miniconda3/lib/python3.13/pathlib/_local.py:722: FileExistsError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0')
+
+    def test_macd_state_failure_preserves_annual_output_then_resumes(tmp_path):
+        root = tmp_path / "lake"
+        stk_mins_qfq.write_gold_stk_mins_qfq_rows_to_year_files(
+            lake_root=root,
+            freq=5,
+            qfq_select_sql=_sql(day=PRIOR),
+            replace_trade_dates=(PRIOR,),
+        )
+        _write(root, operation="source")
+        source_paths = tuple(_target(root, code) for code in CODES)
+>       _, previous_states, _ = stk_mins_qfq_macd_kdj.write_gold_stk_mins_qfq_macd_kdj_rows(
+            lake_root=root,
+            freq=5,
+            source_qfq_paths=source_paths,
+            target_trade_dates=(PRIOR,),
+        )
+
+tests/test_stk_mins_qfq_staging_publication.py:335: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/orchestrator/defs/stk_mins_qfq_macd_kdj.py:945: in write_gold_stk_mins_qfq_macd_kdj_rows
+    ) as publication, connect_configured_duckdb(duckdb_settings) as connection:
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+src/orchestrator/defs/duckdb_connection.py:60: in connect_configured_duckdb
+    settings.temp_directory.mkdir(parents=True, exist_ok=True)
+../../../../miniconda3/lib/python3.13/pathlib/_local.py:731: in mkdir
+    if not exist_ok or not self.is_dir():
+                           ^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/pathlib/_abc.py:465: in is_dir
+    return S_ISDIR(self.stat(follow_symlinks=follow_symlinks).st_mode)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/Volumes/datasource/.goldenshare_duckdb_tmp')
+follow_symlinks = True
+
+    def stat(self, *, follow_symlinks=True):
+        """
+        Return the result of the stat() system call on this path, like
+        os.stat() does.
+        """
+>       return os.stat(self, follow_symlinks=follow_symlinks)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       PermissionError: [Errno 1] Operation not permitted: '/Volumes/datasource/.goldenshare_duckdb_tmp'
+
+../../../../miniconda3/lib/python3.13/pathlib/_local.py:515: PermissionError
+----------------------------- Captured stdout call -----------------------------
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=freeze_inputs validated_file_count=0 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=5a447a72f8de644d0f0f9bbf1898b1c2160e92edbe0bb2430b7980f683e9fe16/scope=36cfdf7aa5f70a3e7681771ac4e022efa4a923fb19651cd5292251e1cdb75eb6 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=0 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=0 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=build_candidates validated_file_count=0 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=5a447a72f8de644d0f0f9bbf1898b1c2160e92edbe0bb2430b7980f683e9fe16/scope=36cfdf7aa5f70a3e7681771ac4e022efa4a923fb19651cd5292251e1cdb75eb6 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=validate_candidates validated_file_count=2 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=5a447a72f8de644d0f0f9bbf1898b1c2160e92edbe0bb2430b7980f683e9fe16/scope=36cfdf7aa5f70a3e7681771ac4e022efa4a923fb19651cd5292251e1cdb75eb6 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=2873 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=2873 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=promote_files validated_file_count=2 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=5a447a72f8de644d0f0f9bbf1898b1c2160e92edbe0bb2430b7980f683e9fe16/scope=36cfdf7aa5f70a3e7681771ac4e022efa4a923fb19651cd5292251e1cdb75eb6 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=2873 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=2873 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=completed validated_file_count=2 promoted_file_count=2 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=5a447a72f8de644d0f0f9bbf1898b1c2160e92edbe0bb2430b7980f683e9fe16/scope=36cfdf7aa5f70a3e7681771ac4e022efa4a923fb19651cd5292251e1cdb75eb6 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=2873 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=2873 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=freeze_inputs validated_file_count=0 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=0 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=0 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=build_candidates validated_file_count=0 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115 existing_build_target_stat_bytes=2873 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=validate_candidates validated_file_count=2 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115 existing_build_target_stat_bytes=2873 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=3040 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=3040 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=promote_files validated_file_count=2 promoted_file_count=0 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115 existing_build_target_stat_bytes=2873 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=3040 verified_formal_stat_bytes=0 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=3040 formal_sha256_read_bytes=0
+[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=completed validated_file_count=2 promoted_file_count=2 total_file_count=2 target=- operation_directory=/private/tmp/nineturn_regression_25wix_ec/pytest/test_macd_state_failure_preser0/lake_staging/stk_mins_qfq/qfq/root=6249437a6e94458077debf99de476abba3437e802cd1fdcfccd9e20f3a6f0e8a/freq=5/run_id=41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d/scope=894cc526ce79958054959b9faac94256ed6ec7d50e29a4beb83d24091a56b115 existing_build_target_stat_bytes=2873 frozen_input_stat_bytes=1520 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=3040 input_sha256_read_bytes=1520 candidate_sha256_read_bytes=3040 formal_sha256_read_bytes=0
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: 4 warnings
+lake_console/orchestrator/tests/test_qfq_nineturn_history.py: 44 warnings
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_stk_mins_qfq_staging_publication.py::test_macd_state_failure_preserves_annual_output_then_resumes
+1 failed, 129 passed, 48 warnings, 4 subtests passed in 9.67s

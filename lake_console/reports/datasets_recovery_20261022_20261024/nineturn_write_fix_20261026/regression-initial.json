@@ -1,0 +1,15 @@
+{
+  "exit_code": 1,
+  "files": [
+    "tests/test_stk_mins_qfq_publication_single_digest.py",
+    "tests/test_stk_mins_qfq_staging_publication.py",
+    "tests/test_qfq_nineturn_formula_golden.py",
+    "tests/test_qfq_nineturn_checks.py",
+    "tests/test_qfq_nineturn_jobs.py",
+    "tests/test_qfq_nineturn_history.py",
+    "tests/test_qfq_nineturn_governance.py",
+    "tests/test_qfq_nineturn_readiness.py"
+  ],
+  "elapsed_seconds": 9.74562504189089,
+  "isolation": "sandbox-exec denies network, Volumes and formal .goldenshare; only DuckDB temporary path replaced in test process"
+}

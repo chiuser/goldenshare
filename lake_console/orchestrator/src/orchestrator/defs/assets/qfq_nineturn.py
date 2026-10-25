@@ -320,12 +320,9 @@ def _build_minute_asset(*, freq: int, source_asset):
                 lake_root=root,
                 freq=freq,
                 partition_key=partition_key,
-                run_id=context.run_id,
+                run_id=context.run.root_run_id or context.run.run_id,
                 select_sql=select_sql,
-                source_paths=plan.source_paths,
-                fingerprint_source_paths=plan.fingerprint_source_paths,
-                source_row_count=plan.source_row_count,
-                fallback_recomputed_code_count=len(plan.fallback_codes),
+                source_plan=plan,
             )
         except Exception:
             log.stdout(

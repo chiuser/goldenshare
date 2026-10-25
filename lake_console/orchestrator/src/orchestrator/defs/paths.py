@@ -528,25 +528,6 @@ def gold_stk_mins_qfq_nineturn_path(
     )
 
 
-def gold_stk_mins_qfq_nineturn_staging_path(
-    root: Path,
-    run_id: str,
-    freq: int | str,
-    partition_key: str,
-) -> Path:
-    return lake_path(
-        root,
-        GOLD,
-        "indicator",
-        "stk_mins_qfq_nineturn",
-        "_staging",
-        _qfq_nineturn_run_id_part(run_id),
-        f"freq={normalize_qfq_nineturn_minute_freq(freq)}",
-        f"trade_date={partition_key}",
-        "part-000.parquet",
-    )
-
-
 def gold_stk_mins_qfq_macd_kdj_path(
     root: Path,
     freq: int | str,

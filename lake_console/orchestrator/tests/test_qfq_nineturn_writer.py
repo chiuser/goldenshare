@@ -1,4 +1,5 @@
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -8,14 +9,12 @@ import duckdb
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_nineturn_path,
-    gold_stk_mins_qfq_nineturn_staging_path,
     gold_stock_daily_qfq_nineturn_path,
     gold_stock_daily_qfq_nineturn_staging_path,
 )
 from orchestrator.defs.qfq_nineturn import (
     GOLD_STK_MINS_QFQ_NINETURN_COLUMNS,
     GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
-    write_gold_stk_mins_qfq_nineturn_partition,
     write_gold_stock_daily_qfq_nineturn_partition,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -49,19 +48,26 @@ def _daily_select_sql(*, trade_date: str = TRADE_DATE) -> str:
     """
 
 
-def _minute_select_sql(*, freq: int = 60, trade_date: str = TRADE_DATE) -> str:
-    return f"""
-    SELECT *
-    FROM (
-      VALUES
-        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 10:30:00', 1::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR),
-        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 11:30:00', 2::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
-    ) AS rows(ts_code, freq, trade_date, trade_time, up_count, down_count, nine_up_turn, nine_down_turn)
-    ORDER BY ts_code, trade_time
-    """
-
-
 class QfqNineturnWriterTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Keep the existing daily writer tests isolated from its default
+        # configured DuckDB spill directory. Business validation is unchanged.
+        directory = TemporaryDirectory(prefix="nineturn_daily_test_", dir="/private/tmp")
+        self.addCleanup(directory.cleanup)
+        work = Path(directory.name) / "duckdb"
+
+        @contextmanager
+        def isolated_connection():
+            with duckdb.connect(":memory:", config={"temp_directory": str(work)}) as connection:
+                yield connection
+
+        seam = patch(
+            "orchestrator.defs.resources.connect_configured_duckdb",
+            isolated_connection,
+        )
+        seam.start()
+        self.addCleanup(seam.stop)
+
     def test_contract_schemas_and_paths_are_exact(self) -> None:
         self.assertEqual(
             GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
@@ -110,17 +116,6 @@ class QfqNineturnWriterTests(unittest.TestCase):
             / f"trade_date={TRADE_DATE}/part-000.parquet",
         )
         self.assertEqual(
-            gold_stk_mins_qfq_nineturn_staging_path(
-                root,
-                "run-1",
-                120,
-                TRADE_DATE,
-            ),
-            root
-            / "gold/indicator/stk_mins_qfq_nineturn/_staging/run_id=run-1/freq=120"
-            / f"trade_date={TRADE_DATE}/part-000.parquet",
-        )
-        self.assertEqual(
             tuple(
                 normalize_qfq_nineturn_minute_freq(freq)
                 for freq in QFQ_NINETURN_MINUTE_FREQS
@@ -158,34 +153,6 @@ class QfqNineturnWriterTests(unittest.TestCase):
         self.assertEqual(result.source_file_count, 1)
         self.assertEqual(result.observed_columns, GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS)
         self.assertEqual(len(rows), 2)
-
-    def test_minute_partition_is_validated_then_promoted(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            lake_root = Path(temp_dir)
-            source_path = lake_root / "gold/source.parquet"
-            _write_source_marker(source_path)
-            result = write_gold_stk_mins_qfq_nineturn_partition(
-                duckdb_resource=DuckDBResource(),
-                lake_root=lake_root,
-                freq=60,
-                partition_key=TRADE_DATE,
-                run_id="run-1",
-                select_sql=_minute_select_sql(),
-                source_paths=(source_path,),
-                source_row_count=2,
-            )
-            with duckdb.connect(database=":memory:") as connection:
-                observed_columns = tuple(
-                    row[0]
-                    for row in connection.execute(
-                        f"DESCRIBE SELECT * FROM {read_parquet(result.target_path, hive_partitioning=False)}"
-                    ).fetchall()
-                )
-
-        self.assertEqual(result.output_row_count, 2)
-        self.assertEqual(result.stock_code_count, 1)
-        self.assertEqual(result.observed_columns, GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
-        self.assertEqual(observed_columns, GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
 
     def test_contract_failure_does_not_replace_existing_target(self) -> None:
         invalid_queries = {
@@ -235,33 +202,6 @@ class QfqNineturnWriterTests(unittest.TestCase):
                     )
 
                 self.assertEqual(target_path.read_bytes(), previous_bytes)
-
-    def test_minute_frequency_mismatch_does_not_promote(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            lake_root = Path(temp_dir)
-            source_path = lake_root / "gold/source.parquet"
-            target_path = gold_stk_mins_qfq_nineturn_path(
-                lake_root,
-                60,
-                TRADE_DATE,
-            )
-            _write_source_marker(source_path)
-            _write_source_marker(target_path)
-            previous_bytes = target_path.read_bytes()
-
-            with self.assertRaises(ValueError):
-                write_gold_stk_mins_qfq_nineturn_partition(
-                    duckdb_resource=DuckDBResource(),
-                    lake_root=lake_root,
-                    freq=60,
-                    partition_key=TRADE_DATE,
-                    run_id="run-1",
-                    select_sql=_minute_select_sql(freq=30),
-                    source_paths=(source_path,),
-                    source_row_count=2,
-                )
-
-            self.assertEqual(target_path.read_bytes(), previous_bytes)
 
     def test_source_fingerprint_change_does_not_promote(self) -> None:
         with TemporaryDirectory() as temp_dir:

@@ -1,0 +1,92 @@
+{
+  "as_of": "2026-10-26T07:37:06.814613+08:00",
+  "date_to_recover": "2026-10-22",
+  "docs_commit": "7bbf11cd",
+  "code_status": "implemented_uncommitted",
+  "formal_execution_started": false,
+  "formal_content_reads": 0,
+  "formal_writes": 0,
+  "performance_samples": 0,
+  "new_installs": 0,
+  "new_runtime_configuration": false,
+  "old_missing_list_remaining": 4,
+  "sensors_changed": false,
+  "validation": {
+    "minute_and_daily_writer": {
+      "passed": 41,
+      "subtests_passed": 10,
+      "evidence": "test agent execution; temporary resources deleted"
+    },
+    "minute_source_plan": {
+      "passed": 14,
+      "evidence": "planner agent sandbox-exec execution; owned empty TMPDIR removed"
+    },
+    "asset_contract_and_root_forwarding": {
+      "passed": 4,
+      "subtests_passed": 8,
+      "evidence": "review agent temporary-context execution; planner/SQL/writer replaced only for parameter forwarding"
+    },
+    "existing_regressions": {
+      "unique_passed": 130,
+      "initial_passed": 129,
+      "initial_failed": 1,
+      "retry_passed": 1,
+      "retry_scope": "only failing MACD test; no business code change",
+      "initial_failure": "test runner redirected shared connection defaults but missed MACD explicit duckdb_settings default; sandbox denied the formal temp path before computation",
+      "evidence": [
+        "regression-initial.log",
+        "regression-initial.json",
+        "regression-retry.log",
+        "regression-retry.json"
+      ]
+    },
+    "unique_test_cases_passed": 189,
+    "ruff": "passed on five source and four test paths (paths.py includes pre-existing unrelated changes)",
+    "diff_check": "passed on task changes",
+    "codegraph": "explore/impact plus direct consumer audit; root CLI sync/status completed, index up to date",
+    "raw_log_format": "Raw execution logs retain three original traceback trailing spaces; source/docs/JSON whitespace checked strictly, raw-log check excludes only end-of-line spaces without modifying the evidence."
+  },
+  "corrected_findings": [
+    "Promoted nineturn target could be rewritten externally with identical bytes and still resume; added nineturn-only promoted identity check, retained failing expected result.",
+    "Candidate could change between business audit and validated; optional expected_identity is compared before saving validated, leaving building on mismatch.",
+    "Source-plan schema probe initially omitted hive_partitioning=false; fixed the probe to match the actual producer reading contract without changing eleven-column expected schema."
+  ],
+  "evidence_limits": [
+    "Synthetic eleven-column QFQ and eight-column seed fixtures follow verified current producer schemas; no formal data validation or upstream Prod-to-DG execution.",
+    "Dagster root identity tests verify argument forwarding with substitutes; do not claim a real formal Dagster reexecution."
+  ],
+  "pending_before_formal_execution": [
+    "current previous-day seed quality/identity",
+    "factor repair satisfies uniform positive scaling and key invariance",
+    "actual candidate/fallback history scope and budget",
+    "explicit formal read/write approval and exact original job submission"
+  ],
+  "source_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py": "e7c940beb8d1ea8308c607140e6d0d522c2afbb89d7b308efb73c8637268c5a5",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py": "8b26891ab5b1e7c4ed6ad65b020bdc399a5aa0ae8b2f2d9300e3789871690852",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py": "8e0045eba90a21b7427abe45f41b34be3cef77ca24a17fd9ed0a7a30b9df08e0",
+    "lake_console/orchestrator/src/orchestrator/defs/io/stk_mins_qfq_publication.py": "c7db5e54de124f1919d673e5d7ad3e1a8767f548321749f114f3e307996b58bb",
+    "lake_console/orchestrator/src/orchestrator/defs/paths.py": "46b3ce4f102d5088e678937b1eebdefa77a7358b9716d4c86aa33e91d9ce2278",
+    "lake_console/orchestrator/tests/test_qfq_nineturn_writer.py": "88bd10cf958b75106d4a3b698757600f940d3bd56691dd935276e6ec520c8377",
+    "lake_console/orchestrator/tests/test_qfq_nineturn_minute_publication.py": "f77ed375bb7941a587c6d72662567c7ea8edc606a2d41ff7ffa6277b8e959004",
+    "lake_console/orchestrator/tests/test_qfq_nineturn_source_plan.py": "88dce5eb7067dca2a1b2fdaf84f396222755eb8058133123d6370f16ba98ebd0",
+    "lake_console/orchestrator/tests/test_qfq_nineturn_assets.py": "3984f1fc72754d3950be33e0293d7af95d101b36bed6c2bb6017445959cab88e"
+  },
+  "untouched_behavior": [
+    "daily writer",
+    "original formulas and eight-column minute output",
+    "QFQ/MACD defaults and receipt format",
+    "original job/check/sensor topology",
+    "historical bootstrap and readers"
+  ],
+  "cleanup": {
+    "regression_work_root": "/private/tmp/nineturn_regression_25wix_ec",
+    "regression_work_root_exists": false,
+    "test_agent_resources_removed": true,
+    "planner_agent_resources_removed": true,
+    "formal_or_existing_staging_deleted": 0,
+    "retained": "only report logs/source hashes and text copies of test scripts"
+  },
+  "source_hash_basis": "Development validation used the working tree. paths.py included a pre-existing Raw index staging hunk; only the minute nineturn helper deletion belongs to this commit.",
+  "paths_py_expected_commit_sha256": "d594c896ecd3f8ae0b22954f205d0fcdf5d278c696e97f6a7bcec59de648afb0"
+}

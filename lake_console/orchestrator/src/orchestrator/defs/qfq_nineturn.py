@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
-from collections.abc import Sequence
+import stat
+from collections.abc import Callable, Sequence
+from datetime import date
 from pathlib import Path
 
 import duckdb
@@ -15,13 +18,17 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
 from orchestrator.defs.nineturn_formula import build_nineturn_formula_select_sql
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_nineturn_path,
-    gold_stk_mins_qfq_nineturn_staging_path,
     gold_stock_daily_qfq_nineturn_path,
     gold_stock_daily_qfq_nineturn_staging_path,
     gold_stock_daily_qfq_path,
+)
+from orchestrator.defs.qfq_nineturn_integrity import (
+    audit_qfq_nineturn_integrity,
+    qfq_nineturn_source_paths_for_partition,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -32,8 +39,11 @@ from orchestrator.defs.run_contracts.column_schema import ColumnContract
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_COMPARISON_LAG,
     QFQ_NINETURN_FALLBACK_CODE_LIMIT,
+    QFQ_NINETURN_MINUTE_INPUT_VERSION,
+    QFQ_NINETURN_MINUTE_VALIDATION_VERSION,
     QFQ_NINETURN_SIGNAL_THRESHOLD,
     QFQ_NINETURN_SOURCE_CONTEXT_TRADE_DAYS,
+    QFQ_NINETURN_VERSION,
     QfqNineturnPartitionWriteResult,
     QfqNineturnSourcePlan,
     normalize_qfq_nineturn_minute_freq,
@@ -333,16 +343,11 @@ def plan_gold_stk_mins_qfq_nineturn_source(
     previous_trade_date: str | None,
 ) -> QfqNineturnSourcePlan:
     normalized_freq = normalize_qfq_nineturn_minute_freq(freq)
-    target_year = int(partition_key[:4])
     source_root = (
         Path(lake_root) / "gold" / "quote" / "stk_mins_qfq" / f"freq={normalized_freq}"
     )
-    source_paths = tuple(
-        sorted(
-            path
-            for year in (target_year - 1, target_year)
-            for path in source_root.glob(f"ts_code=*/year={year}/part-000.parquet")
-        )
+    source_paths = _minute_nineturn_source_paths(
+        lake_root=lake_root, freq=normalized_freq, partition_key=partition_key
     )
     if not source_paths:
         raise FileNotFoundError(
@@ -358,6 +363,26 @@ def plan_gold_stk_mins_qfq_nineturn_source(
         if previous_trade_date is not None
         else None
     )
+    identities: dict[Path, tuple[int, int, int, int, int]] = {}
+    for path in source_paths + (
+        (previous_partition_path,) if previous_partition_path is not None else ()
+    ):
+        _record_minute_nineturn_input_identity(
+            identities,
+            path=path,
+            lake_root=lake_root,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            previous_partition_path=previous_partition_path,
+        )
+
+    def after_query() -> None:
+        if _minute_nineturn_source_paths(
+            lake_root=lake_root, freq=normalized_freq, partition_key=partition_key
+        ) != source_paths:
+            raise ValueError("Minute nine-turn normal source path set changed.")
+        _assert_nineturn_input_identities(identities)
+
     candidate_paths_by_code = _minute_paths_by_code(source_root)
     source_row_count, candidate_codes = _bounded_candidate_codes(
         connection,
@@ -365,14 +390,25 @@ def plan_gold_stk_mins_qfq_nineturn_source(
         partition_key=partition_key,
         previous_partition_path=previous_partition_path,
         freq=normalized_freq,
+        after_query=after_query,
     )
+    history_paths = tuple(
+        path
+        for code in candidate_codes
+        for path in candidate_paths_by_code.get(code, ())
+    )
+    for path in history_paths:
+        _record_minute_nineturn_input_identity(
+            identities,
+            path=path,
+            lake_root=lake_root,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            previous_partition_path=previous_partition_path,
+        )
     fallback_codes = _fallback_codes_with_history(
         connection,
-        history_paths=tuple(
-            path
-            for code in candidate_codes
-            for path in candidate_paths_by_code.get(code, ())
-        ),
+        history_paths=history_paths,
         candidate_codes=candidate_codes,
         partition_key=partition_key,
         freq=normalized_freq,
@@ -382,7 +418,7 @@ def plan_gold_stk_mins_qfq_nineturn_source(
         for code in fallback_codes
         for path in candidate_paths_by_code.get(code, ())
     )
-    return QfqNineturnSourcePlan(
+    plan = QfqNineturnSourcePlan(
         source_paths=source_paths,
         fingerprint_source_paths=tuple(
             sorted(set(source_paths).union(fallback_source_paths))
@@ -391,7 +427,231 @@ def plan_gold_stk_mins_qfq_nineturn_source(
         fallback_codes=fallback_codes,
         previous_partition_path=previous_partition_path,
         source_row_count=source_row_count,
+        input_file_identities=tuple(sorted(identities.items())),
+        history_candidate_codes=tuple(candidate_codes),
     )
+    validate_minute_nineturn_source_plan(
+        lake_root=lake_root,
+        freq=normalized_freq,
+        partition_key=partition_key,
+        source_plan=plan,
+    )
+    return plan
+
+
+def _nineturn_file_identity(path: Path) -> tuple[int, int, int, int, int]:
+    """Return one regular file's identity without following arbitrary symlinks."""
+
+    path = Path(path)
+    if not path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"Nine-turn input path must be absolute: {path}")
+    for part in (path, *path.parents):
+        if (
+            part in (Path("/tmp"), Path("/var"))
+            and part.resolve() == Path("/private") / part.name
+        ):
+            continue
+        if part.is_symlink():
+            raise ValueError(f"Nine-turn path contains a symlink: {path}")
+    value = path.lstat()
+    if not stat.S_ISREG(value.st_mode):
+        raise ValueError(f"Nine-turn input must be a regular file: {path}")
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _minute_nineturn_source_paths(
+    *, lake_root: Path, freq: int, partition_key: str
+) -> tuple[Path, ...]:
+    target_year = date.fromisoformat(partition_key).year
+    source_root = Path(lake_root) / "gold" / "quote" / "stk_mins_qfq" / f"freq={freq}"
+    return tuple(
+        sorted(
+            path
+            for year in (target_year - 1, target_year)
+            for path in source_root.glob(f"ts_code=*/year={year}/part-000.parquet")
+        )
+    )
+
+
+def _minute_nineturn_source_code(*, lake_root: Path, freq: int, path: Path) -> str:
+    source_root = Path(lake_root) / "gold" / "quote" / "stk_mins_qfq" / f"freq={freq}"
+    try:
+        parts = path.relative_to(source_root).parts
+    except ValueError as error:
+        raise ValueError(f"Minute nine-turn source path is outside its QFQ scope: {path}") from error
+    if (
+        len(parts) != 3
+        or not parts[0].startswith("ts_code=")
+        or not parts[0].removeprefix("ts_code=")
+        or not parts[1].startswith("year=")
+        or not parts[1].removeprefix("year=").isdigit()
+        or parts[2] != "part-000.parquet"
+    ):
+        raise ValueError(f"Invalid minute nine-turn QFQ source path: {path}")
+    return parts[0].removeprefix("ts_code=")
+
+
+def _check_minute_nineturn_input_path(
+    *,
+    lake_root: Path,
+    freq: int,
+    partition_key: str,
+    path: Path,
+    previous_partition_path: Path | None,
+) -> None:
+    if path != previous_partition_path:
+        _minute_nineturn_source_code(lake_root=lake_root, freq=freq, path=path)
+        return
+    seed_root = (
+        Path(lake_root) / "gold" / "indicator" / "stk_mins_qfq_nineturn" / f"freq={freq}"
+    )
+    try:
+        parts = path.relative_to(seed_root).parts
+        seed_date = date.fromisoformat(parts[0].removeprefix("trade_date="))
+    except (ValueError, IndexError) as error:
+        raise ValueError(f"Invalid previous minute nine-turn partition: {path}") from error
+    if (
+        len(parts) != 2
+        or parts[0] != f"trade_date={seed_date.isoformat()}"
+        or parts[1] != "part-000.parquet"
+        or seed_date >= date.fromisoformat(partition_key)
+    ):
+        raise ValueError(f"Invalid previous minute nine-turn partition: {path}")
+
+
+def _record_minute_nineturn_input_identity(
+    identities: dict[Path, tuple[int, int, int, int, int]],
+    *,
+    path: Path,
+    lake_root: Path,
+    freq: int,
+    partition_key: str,
+    previous_partition_path: Path | None,
+) -> None:
+    _check_minute_nineturn_input_path(
+        lake_root=lake_root,
+        freq=freq,
+        partition_key=partition_key,
+        path=path,
+        previous_partition_path=previous_partition_path,
+    )
+    observed = _nineturn_file_identity(path)
+    if path in identities and identities[path] != observed:
+        raise ValueError(f"Minute nine-turn input changed before history query: {path}")
+    identities.setdefault(path, observed)
+
+
+def _assert_nineturn_input_identities(
+    identities: dict[Path, tuple[int, int, int, int, int]],
+) -> None:
+    for path, expected in identities.items():
+        if _nineturn_file_identity(path) != expected:
+            raise ValueError(f"Minute nine-turn input file changed: {path}")
+
+
+def validate_minute_nineturn_source_plan(
+    *,
+    lake_root: Path,
+    freq: int | str,
+    partition_key: str,
+    source_plan: QfqNineturnSourcePlan,
+) -> None:
+    """Recheck the exact minute inputs and discovered path sets without row reads."""
+
+    normalized_freq = normalize_qfq_nineturn_minute_freq(freq)
+    records = source_plan.input_file_identities
+    if not isinstance(records, tuple) or not records:
+        raise ValueError("Minute nine-turn source plan requires frozen input identities.")
+    identities: dict[Path, tuple[int, int, int, int, int]] = {}
+    for path, identity in records:
+        if (
+            not isinstance(path, Path)
+            or not isinstance(identity, tuple)
+            or len(identity) != 5
+            or any(type(value) is not int for value in identity)
+            or path in identities
+        ):
+            raise ValueError("Invalid minute nine-turn frozen input identity.")
+        _check_minute_nineturn_input_path(
+            lake_root=lake_root,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            path=path,
+            previous_partition_path=source_plan.previous_partition_path,
+        )
+        identities[path] = identity
+    if records != tuple(sorted(identities.items())):
+        raise ValueError("Minute nine-turn input identities must be sorted and unique.")
+    source_paths = _minute_nineturn_source_paths(
+        lake_root=lake_root, freq=normalized_freq, partition_key=partition_key
+    )
+    if source_paths != source_plan.source_paths:
+        raise ValueError("Minute nine-turn normal source path set changed.")
+    candidate_codes = source_plan.history_candidate_codes
+    if (
+        not isinstance(candidate_codes, tuple)
+        or any(
+            not isinstance(code, str)
+            or not code
+            or code != code.strip()
+            or any(character in code for character in "/\\*?[]")
+            for code in candidate_codes
+        )
+        or candidate_codes != tuple(sorted(set(candidate_codes)))
+    ):
+        raise ValueError("Minute nine-turn history candidates must be sorted and unique.")
+    if (
+        not isinstance(source_plan.fallback_codes, tuple)
+        or source_plan.fallback_codes != _normalize_fallback_codes(source_plan.fallback_codes)
+    ):
+        raise ValueError("Minute nine-turn fallback codes must be normalized and unique.")
+    if not set(source_plan.fallback_codes).issubset(candidate_codes):
+        raise ValueError("Minute nine-turn fallback codes are outside the probed candidates.")
+    recorded_history_paths = tuple(
+        path
+        for path in identities
+        if path != source_plan.previous_partition_path
+        and _minute_nineturn_source_code(
+            lake_root=lake_root, freq=normalized_freq, path=path
+        ) in candidate_codes
+    )
+    source_root = (
+        Path(lake_root) / "gold" / "quote" / "stk_mins_qfq" / f"freq={normalized_freq}"
+    )
+    current_history_paths = tuple(
+        sorted(
+            path
+            for code in candidate_codes
+            for path in (source_root / f"ts_code={code}").glob("year=*/part-000.parquet")
+        )
+    )
+    if current_history_paths != recorded_history_paths:
+        raise ValueError("Minute nine-turn candidate history path set changed.")
+    expected_paths = set(source_paths).union(recorded_history_paths)
+    if source_plan.previous_partition_path is not None:
+        expected_paths.add(source_plan.previous_partition_path)
+    if set(identities) != expected_paths:
+        raise ValueError("Minute nine-turn frozen input paths do not match its source plan.")
+    expected_fallback_paths = tuple(
+        path
+        for path in recorded_history_paths
+        if _minute_nineturn_source_code(
+            lake_root=lake_root, freq=normalized_freq, path=path
+        ) in source_plan.fallback_codes
+    )
+    if source_plan.fallback_source_paths != expected_fallback_paths:
+        raise ValueError("Minute nine-turn fallback source path set changed.")
+    if source_plan.fingerprint_source_paths != tuple(
+        sorted(set(source_paths).union(expected_fallback_paths))
+    ):
+        raise ValueError("Minute nine-turn fingerprint source path set changed.")
+    _assert_nineturn_input_identities(identities)
 
 
 def write_gold_stock_daily_qfq_nineturn_partition(
@@ -434,35 +694,151 @@ def write_gold_stk_mins_qfq_nineturn_partition(
     partition_key: str,
     run_id: str,
     select_sql: str,
-    source_paths: Sequence[Path],
-    fingerprint_source_paths: Sequence[Path] | None = None,
-    source_row_count: int,
-    fallback_recomputed_code_count: int = 0,
+    source_plan: QfqNineturnSourcePlan,
 ) -> QfqNineturnPartitionWriteResult:
     normalized_freq = normalize_qfq_nineturn_minute_freq(freq)
-    return _write_qfq_nineturn_partition(
-        duckdb_resource=duckdb_resource,
+    validate_minute_nineturn_source_plan(
         lake_root=lake_root,
-        partition_key=partition_key,
         freq=normalized_freq,
-        select_sql=select_sql,
-        source_paths=source_paths,
-        fingerprint_source_paths=fingerprint_source_paths,
-        source_row_count=source_row_count,
-        fallback_recomputed_code_count=fallback_recomputed_code_count,
-        target_path=gold_stk_mins_qfq_nineturn_path(
-            lake_root,
-            normalized_freq,
-            partition_key,
-        ),
-        staging_path=gold_stk_mins_qfq_nineturn_staging_path(
-            lake_root,
-            run_id,
-            normalized_freq,
-            partition_key,
-        ),
-        schema=GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
+        partition_key=partition_key,
+        source_plan=source_plan,
     )
+    fallback_count = len(source_plan.fallback_codes)
+    if source_plan.source_row_count <= 0:
+        raise ValueError("QFQ nine-turn source row count must be positive.")
+    if fallback_count > QFQ_NINETURN_FALLBACK_CODE_LIMIT:
+        raise ValueError("QFQ nine-turn fallback code count exceeds the daily-run limit.")
+    target_path = gold_stk_mins_qfq_nineturn_path(
+        lake_root, normalized_freq, partition_key,
+    )
+    source_fingerprint = build_qfq_nineturn_source_fingerprint(
+        lake_root=lake_root,
+        source_paths=source_plan.fingerprint_source_paths,
+    )
+    with StkMinsQfqPublication(
+        lake_root=lake_root,
+        family="nineturn",
+        freq=normalized_freq,
+        trade_dates=(partition_key,),
+        publication_id=run_id,
+    ) as publication, duckdb_resource.connect() as connection:
+        publication.bind(
+            connection,
+            inputs={"nineturn_inputs": _minute_nineturn_input_sql(
+                source_plan=source_plan, freq=normalized_freq,
+                partition_key=partition_key, select_sql=select_sql,
+            )},
+            targets=(target_path,),
+        )
+        current_paths = qfq_nineturn_source_paths_for_partition(
+            lake_root=lake_root, partition_key=partition_key, freq=normalized_freq,
+        )
+        if not current_paths:
+            raise FileNotFoundError("Minute QFQ target-year source files are missing.")
+        connection.execute(f"""
+            CREATE TEMP TABLE nineturn_source_keys AS
+            SELECT CAST(ts_code AS VARCHAR) AS ts_code,
+              CAST(freq AS INTEGER) AS freq,
+              CAST(trade_date AS DATE) AS trade_date,
+              CAST(trade_time AS TIMESTAMP) AS trade_time
+            FROM {_read_parquet_paths(current_paths)}
+            WHERE CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
+              AND CAST(freq AS INTEGER) = {normalized_freq}
+        """)
+        source_row_count, stock_code_count = connection.execute(
+            "SELECT count(*), count(DISTINCT ts_code) FROM nineturn_source_keys"
+        ).fetchone()
+        if (
+            int(source_row_count) != source_plan.source_row_count
+            or fallback_count > int(stock_code_count)
+        ):
+            raise ValueError("Minute QFQ target-day source counts differ from the plan.")
+        validate_minute_nineturn_source_plan(
+            lake_root=lake_root, freq=normalized_freq,
+            partition_key=partition_key, source_plan=source_plan,
+        )
+        candidate, reused_row_count = publication.candidate(target_path)
+        if candidate is not None:
+            connection.execute(copy_query_to_parquet(select_sql, candidate))
+            validate_minute_nineturn_source_plan(
+                lake_root=lake_root, freq=normalized_freq,
+                partition_key=partition_key, source_plan=source_plan,
+            )
+            candidate_identity = _nineturn_file_identity(candidate)
+            diagnostics = audit_qfq_nineturn_integrity(
+                connection, target_path=candidate, source_paths=(),
+                partition_key=partition_key, freq=normalized_freq,
+                source_relation="nineturn_source_keys",
+            )
+            if _nineturn_file_identity(candidate) != candidate_identity:
+                raise ValueError("Minute nine-turn candidate changed during integrity validation.")
+            if (
+                not diagnostics.passed
+                or diagnostics.checked_row_count != source_plan.source_row_count
+                or diagnostics.source_row_count != source_plan.source_row_count
+            ):
+                raise ValueError(
+                    "Minute nine-turn candidate failed integrity: "
+                    f"rules={diagnostics.failed_rule_names}, "
+                    f"output_rows={diagnostics.checked_row_count}, "
+                    f"source_rows={diagnostics.source_row_count}."
+                )
+            output_row_count = diagnostics.checked_row_count
+            publication.validated(
+                target_path, candidate, output_row_count,
+                expected_identity=candidate_identity,
+            )
+        else:
+            if reused_row_count != source_plan.source_row_count:
+                raise ValueError("Recovered minute nine-turn row count differs from the plan.")
+            output_row_count = int(reused_row_count)
+        validate_minute_nineturn_source_plan(
+            lake_root=lake_root, freq=normalized_freq,
+            partition_key=partition_key, source_plan=source_plan,
+        )
+        publication.promote()
+    return QfqNineturnPartitionWriteResult(
+        target_path=target_path,
+        source_row_count=source_plan.source_row_count,
+        output_row_count=output_row_count,
+        stock_code_count=int(stock_code_count),
+        fallback_recomputed_code_count=fallback_count,
+        source_file_count=len(source_plan.fingerprint_source_paths),
+        source_fingerprint=source_fingerprint,
+        observed_columns=GOLD_STK_MINS_QFQ_NINETURN_COLUMNS,
+    )
+
+
+def _minute_nineturn_input_sql(
+    *, source_plan: QfqNineturnSourcePlan, freq: int,
+    partition_key: str, select_sql: str,
+) -> str:
+    """Bind actual inputs and rules without computing historical prices twice."""
+    value = {
+        "input_version": QFQ_NINETURN_MINUTE_INPUT_VERSION,
+        "validation_version": QFQ_NINETURN_MINUTE_VALIDATION_VERSION,
+        "formula_version": QFQ_NINETURN_VERSION,
+        "freq": freq,
+        "partition_key": partition_key,
+        "previous_partition_path": (
+            str(source_plan.previous_partition_path)
+            if source_plan.previous_partition_path is not None else None
+        ),
+        "source_paths": [str(path) for path in source_plan.source_paths],
+        "fallback_source_paths": [str(path) for path in source_plan.fallback_source_paths],
+        "fingerprint_source_paths": [str(path) for path in source_plan.fingerprint_source_paths],
+        "input_file_identities": [
+            [str(path), identity]
+            for path, identity in source_plan.input_file_identities
+        ],
+        "history_candidate_codes": source_plan.history_candidate_codes,
+        "fallback_codes": source_plan.fallback_codes,
+        "source_row_count": source_plan.source_row_count,
+        "schema": [(column.name, column.type) for column in GOLD_STK_MINS_QFQ_NINETURN_SCHEMA],
+        "select_sql": select_sql,
+    }
+    value_sql = duckdb_string(json.dumps(value, sort_keys=True, separators=(",", ":")))
+    return f"SELECT {value_sql}::VARCHAR AS input_manifest"
 
 
 def _build_qfq_nineturn_select_sql(
@@ -852,6 +1228,7 @@ def _bounded_candidate_codes(
     partition_key: str,
     previous_partition_path: Path | None,
     freq: int | None,
+    after_query: Callable[[], None] | None = None,
 ) -> tuple[int, tuple[str, ...]]:
     source_rows = _source_identity_rows_sql(source_paths, freq=freq)
     seed_rows = (
@@ -888,6 +1265,8 @@ def _bounded_candidate_codes(
         ORDER BY target_codes.ts_code
         """
     ).fetchall()
+    if after_query is not None:
+        after_query()
     source_row_count = int(
         connection.execute(
             f"""
@@ -897,6 +1276,8 @@ def _bounded_candidate_codes(
             """
         ).fetchone()[0]
     )
+    if after_query is not None:
+        after_query()
     if source_row_count <= 0:
         raise ValueError(
             f"QFQ source has no rows for target partition {partition_key}."

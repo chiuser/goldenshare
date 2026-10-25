@@ -1,0 +1,8 @@
+{
+  "exit_code": 0,
+  "files": [
+    "tests/test_stk_mins_qfq_staging_publication.py::test_macd_state_failure_preserves_annual_output_then_resumes"
+  ],
+  "elapsed_seconds": 0.32816783292219043,
+  "isolation": "sandbox-exec denies network, Volumes and formal .goldenshare; only DuckDB temporary path replaced in test process"
+}

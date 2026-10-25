@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-
 QFQ_NINETURN_COMPARISON_LAG = 4
 QFQ_NINETURN_SIGNAL_THRESHOLD = 9
 QFQ_NINETURN_VERSION = 1
+QFQ_NINETURN_MINUTE_INPUT_VERSION = 1
+QFQ_NINETURN_MINUTE_VALIDATION_VERSION = 1
 QFQ_NINETURN_MINUTE_FREQS = (30, 60, 90, 120)
 QFQ_NINETURN_HISTORY_CHECK_WINDOW = 20
 QFQ_NINETURN_SENSOR_WINDOW_DAILY = 10
@@ -55,3 +56,7 @@ class QfqNineturnSourcePlan:
     fallback_codes: tuple[str, ...]
     previous_partition_path: Path | None
     source_row_count: int
+    input_file_identities: tuple[
+        tuple[Path, tuple[int, int, int, int, int]], ...
+    ] | None = None
+    history_candidate_codes: tuple[str, ...] = ()

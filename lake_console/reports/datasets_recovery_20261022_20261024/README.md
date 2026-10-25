@@ -1,6 +1,6 @@
 # 2026-10-22 DG 数据集恢复方案与记录
 
-状态（2026-10-26，最新）：22日MACD/KDJ14项及26股历史repair已完成。原失败run保留历史，通过from-failure仅补1/5/60/90，日更28项原检查及repair14条completion全部通过，现成完成判断ready。20个旧DuckDB工作文件已清理，当前工作目录为空，正式/staging记录保留；本次续跑没有自加资源阈值或人工中断。沿原109项缺失清单累计恢复105、剩九转4项，未重复全局明细审计。两sensor继续STOPPED，等23日全部补齐后启用的TODO不变。
+状态（2026-10-26，最新）：22日MACD/KDJ及26股历史repair已完成，原清单累计恢复105/109。九转写入修正也已开发并通过189项隔离定向测试（第48节），尚未正式补数，故仍余九转4项。方案/原LLD及MACD小型证据已提交`7bbf11cd`，本轮新代码尚未提交、未推送。没有新增正式读取/写入或全局审计，没有操作sensor；23日全部补齐后启用的TODO保留。此前20个DuckDB工作文件清理及两sensor STOPPED为第46节的执行证据，本轮不冒充刷新控制状态。
 
 ## 1. 为什么显示109项缺失
 
@@ -1207,7 +1207,7 @@ MACD正确顺序是先22日日更生成14项，之后对26只因子变化股票�
 
 ## 47. 分钟九转代码审计及原方案LLD补全（仅文档）
 
-2026-10-26按管理员要求，先补[原九转方案第12节](../../docs/design/dagster-stock-qfq-nineturn-dataset-plan.md#12-2026-10-22四个分钟分区修正方案2026-10-26待开发)和[原LLD第22节](../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#22-2026-10-22分钟九转写入修正与补齐lld待开发)，没有新建替代方案。当前只完成代码审计与文档，不表示修正已开发或四项已补齐；原清单仍105/109，余4。
+2026-10-26按管理员要求，先补[原九转方案第12节](../../docs/design/dagster-stock-qfq-nineturn-dataset-plan.md#12-2026-10-22四个分钟分区修正方案)和[原LLD第22节](../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#22-2026-10-22分钟九转写入修正与补齐lld)，没有新建替代方案。当前只完成代码审计与文档，不表示修正已开发或四项已补齐；原清单仍105/109，余4。
 
 CodeGraph与实际实现确认：分钟候选仍由旧helper放在正式Gold的`_staging`；日线/分钟共用writer会删除失败候选，缺逐文件续跑；原source fingerprint不含实际读取的上一九转seed。仅分钟wrapper转接现有`StkMinsQfqPublication`并明确增加nineturn类型；不直接改共享日线writer，不另造一套恢复实现。plan在第一次查询前冻结stat、保留全部实际探查历史；writer绑定seed、路径集合、SQL/合同和校验版本，候选完整校验后仅一遍SHA，再同设备原子提升。日线同类旧路径是范围外待办，不能认定本轮已修好或继续按旧设计写入。
 
@@ -1216,3 +1216,13 @@ CodeGraph与实际实现确认：分钟候选仍由旧helper放在正式Gold的`
 复用已有证据：2025/2026四频共44,224份QFQ、1,654,696,422B，2026子集753,265,659B，22日输出应94,690行。这不是总读取量；原planner键查询、公式计算、候选覆盖、原checks分别计费，正常文件集合粗算已知部分8.268824GiB，另加前序/候选历史/小结果及DuckDB临时读写。需要一次键预检确定候选时再单列开销；没有新增正文读取、性能样本或资源阈值。
 
 21日seed当前身份/质量、因子修复是否满足原LLD的统一正比例缩放条件、候选和fallback历史范围尚待正式前最小确认，不预填fallback=0。后续顺序为设计确认→开发及隔离测试→必要metadata/限定键预检与具体读取批准→原22日job及四checks→唯一receipt/stat收尾。正式提交命令和代码SHA在开发验证后冻结，本轮未生成提交脚本、触发job、运行测试或写正式资源。原两sensor保持STOPPED的最近证据不因本文更新而刷新，23日补齐后启用的TODO保留。
+
+## 48. 分钟九转按LLD开发及隔离验证（2026-10-26）
+
+管理员要求先提交再按LLD落地。原方案、两份原LLD、恢复记录及小型证据按28文件白名单提交`7bbf11cd`，未推送，排除了25MB stat清单、PID及重复临时日志。随后按[原LLD22.9](../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#229-代码落地及隔离验证结果2026-10-26)完成分钟专用改动：查询前固定输入、完整候选校验、staging发布、一次摘要、失败留存及同root继续；日线writer、原公式、八列合同、job/check/sensor拓扑、QFQ/MACD默认行为保持。
+
+隔离测试发现并落实两处身份保护：仅nineturn的正式文件被同内容重写也拒绝恢复；候选若在业务audit后被替换，不能生成可供下次误复用的validated记录。这两项先同步原LLD再实现，其他调用的默认行为及receipt内容不变。独立代码复核通过。
+
+四组共189项测试通过：writer41、source-plan14、asset合同/参数转交4、原八文件回归130；另有各组子测试。回归首轮129通过，1项被沙箱拦在未重定向的MACD测试默认临时目录；仅纠正测试隔离参数后单独重跑该例通过，没有修改MACD业务代码或放宽隔离。原公式字面金样本保持，未做性能测试或安装依赖。五源文件/四测试Ruff、文档及差异格式检查通过，CodeGraph已同步。
+
+所有测试使用小人工合同夹具及临时资源；本轮没有运行正式job、读取正式行情或修改sensor。测试Lake/staging/工作目录/脚本已清除，仅留验证记录，正式数据及既有staging删除0。真实seed质量、因子等比例条件、实际历史范围/预算和正式批准仍待后续关闭，清单余4不变。新代码和本节更新尚未提交。证据：[验证汇总及代码SHA](nineturn_write_fix_20261026/summary.json)、[原回归](nineturn_write_fix_20261026/regression-initial.log)、[唯一失败例隔离重跑](nineturn_write_fix_20261026/regression-retry.log)。

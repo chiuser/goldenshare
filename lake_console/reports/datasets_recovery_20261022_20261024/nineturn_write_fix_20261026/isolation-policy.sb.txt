@@ -1,0 +1,5 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny file-read* file-write* (subpath "/Volumes"))
+(deny file-read* file-write* (subpath "/Users/congming/.goldenshare"))

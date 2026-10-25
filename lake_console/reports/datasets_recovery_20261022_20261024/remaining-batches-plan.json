@@ -445,21 +445,24 @@
       "count": 4,
       "remaining_after_success": 0,
       "required_checks": 4,
-      "state": "design_documented_pending_development",
+      "state": "implemented_verified_in_isolation_pending_execution",
       "physical_models": {
         "gold_stk_mins_qfq_nineturn_30m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_60m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_90m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date={partition_key}/part-000.parquet",
         "gold_stk_mins_qfq_nineturn_120m": "data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date={partition_key}/part-000.parquet"
       },
-      "execution_blocker": "Original plan section 12 and LLD section 22 now document minute-only staging/publication and input protection. Development not started. Before execution confirm prior seed validity, candidate history scope and explicit read/write authorization; no new formal reads or writes in this documentation step.",
-      "design_plan": "../../docs/design/dagster-stock-qfq-nineturn-dataset-plan.md#12-2026-10-22四个分钟分区修正方案2026-10-26待开发",
-      "low_level_design": "../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#22-2026-10-22分钟九转写入修正与补齐lld待开发",
-      "design_status": "code_audited_documented_not_implemented",
-      "development_started": false,
+      "execution_blocker": "Minute-only staging/publication and input protection implemented; 189 scoped tests pass. Formal execution not started: confirm prior seed validity, factor scaling condition, candidate history scope/budget and explicit formal read/write authorization. Four assets remain missing.",
+      "design_plan": "../../docs/design/dagster-stock-qfq-nineturn-dataset-plan.md#12-2026-10-22四个分钟分区修正方案",
+      "low_level_design": "../../docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md#22-2026-10-22分钟九转写入修正与补齐lld",
+      "design_status": "implemented_isolated_verified",
+      "development_started": true,
       "formal_execution_started": false,
       "global_content_reading_approved": false,
-      "design_update_date": "2026-10-26"
+      "design_update_date": "2026-10-26",
+      "development_completed": true,
+      "isolated_validation_passed": true,
+      "implementation_evidence": "nineturn_write_fix_20261026/summary.json"
     }
   ],
   "progress_update": {

@@ -1,0 +1,17 @@
+import os,sys,json,time
+from pathlib import Path
+from dataclasses import replace
+from unittest.mock import patch
+root=Path(sys.argv[1])
+os.environ["TMPDIR"]=str(root/"scratch")
+os.environ["DAGSTER_HOME"]=str(root/"dagster")
+os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"]="1"
+import pytest
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb,DEFAULT_DUCKDB_CONNECTION_SETTINGS
+settings=replace(DEFAULT_DUCKDB_CONNECTION_SETTINGS,temp_directory=root/"duckdb")
+files=["tests/test_stk_mins_qfq_publication_single_digest.py","tests/test_stk_mins_qfq_staging_publication.py","tests/test_qfq_nineturn_formula_golden.py","tests/test_qfq_nineturn_checks.py","tests/test_qfq_nineturn_jobs.py","tests/test_qfq_nineturn_history.py","tests/test_qfq_nineturn_governance.py","tests/test_qfq_nineturn_readiness.py"]
+started=time.monotonic()
+with patch.object(connect_configured_duckdb.__wrapped__,"__defaults__",(settings,)):
+    code=pytest.main(["-q","-p","no:cacheprovider","--basetemp",str(root/"pytest"),*files])
+(root/"result.json").write_text(json.dumps({"exit_code":code,"files":files,"elapsed_seconds":time.monotonic()-started,"isolation":"sandbox-exec denies network, Volumes and formal .goldenshare; only DuckDB temporary path replaced in test process"},indent=2)+"\n")
+sys.exit(code)

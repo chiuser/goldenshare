@@ -73,9 +73,10 @@ def _save(path: Path, value: dict) -> None:
 class StkMinsQfqPublication:
     """Keep candidates and per-file receipts outside the destination lake.
 
-    A caller may reuse a publication_id only for identical replacement rows and
-    targets. Dagster reexecution passes its root run ID; direct callers get an
-    independent operation unless they explicitly request a previous one.
+    A caller may reuse a publication_id only for identical frozen inputs and
+    targets. Inputs may contain replacement rows or an execution input description.
+    Dagster reexecution passes its root run ID; direct callers get an independent
+    operation unless they explicitly request a previous one.
     """
 
     def __init__(
@@ -87,7 +88,7 @@ class StkMinsQfqPublication:
         trade_dates: tuple[str, ...],
         publication_id: str | None = None,
     ) -> None:
-        if family not in {"qfq", "macd_kdj"}:
+        if family not in {"qfq", "macd_kdj", "nineturn"}:
             raise ValueError("Unsupported QFQ publication family")
         if lake_root.is_symlink():
             raise ValueError("QFQ destination root cannot be a symlink")
@@ -249,6 +250,15 @@ class StkMinsQfqPublication:
                 or not self._valid_identity(receipt["candidate_identity"])
             ):
                 raise ValueError("QFQ file receipt has invalid validation fields")
+        if (
+            self.scope["family"] == "nineturn"
+            and receipt["status"] == "promoted"
+            and (
+                receipt.get("promoted_identity") is None
+                or not self._valid_identity(receipt["promoted_identity"])
+            )
+        ):
+            raise ValueError("Nine-turn receipt has an invalid promoted identity")
         return receipt
 
     @staticmethod
@@ -351,7 +361,7 @@ class StkMinsQfqPublication:
     def bind(
         self, connection, *, inputs: dict[str, str], targets: tuple[Path, ...]
     ) -> None:
-        """Freeze only this call's replacement rows, never its entire price history."""
+        """Freeze replacement rows or an input description, never full price history."""
         self.targets = tuple(self._target(target) for target in targets)
         self.target_set = set(self.targets)
         self._progress("freeze_inputs", force=True)
@@ -475,7 +485,10 @@ class StkMinsQfqPublication:
         self.unstarted_targets.pop(target, None)
         return path, None
 
-    def validated(self, target: Path, candidate: Path, row_count: int) -> None:
+    def validated(
+        self, target: Path, candidate: Path, row_count: int,
+        *, expected_identity: tuple[int, int, int, int, int] | None = None,
+    ) -> None:
         target = self._target(target)
         receipt = self._receipt(target)
         self._check_bound_receipt(target, receipt)
@@ -489,6 +502,8 @@ class StkMinsQfqPublication:
         with candidate.open("rb") as stream:
             os.fsync(stream.fileno())
         digest, identity = self._stable_digest(candidate)
+        if expected_identity is not None and tuple(identity) != expected_identity:
+            raise ValueError("QFQ candidate changed after business validation")
         if self._receipt(target) != receipt:
             raise ValueError("QFQ build receipt changed during digest")
         receipt.update(
@@ -521,7 +536,17 @@ class StkMinsQfqPublication:
     def _verify_receipt_file(self, target: Path, receipt: dict) -> None:
         if receipt["status"] == "promoted":
             try:
+                if (
+                    self.scope["family"] == "nineturn"
+                    and _identity(target) != receipt["promoted_identity"]
+                ):
+                    raise ValueError("Nine-turn promoted file identity changed")
                 self._verify_file_once(target, receipt, target)
+                if (
+                    self.scope["family"] == "nineturn"
+                    and self.verified_files[target]["identity"] != receipt["promoted_identity"]
+                ):
+                    raise ValueError("Nine-turn promoted file identity changed during verification")
             except ValueError as error:
                 raise ValueError("Completed QFQ target changed or disappeared") from error
             return
@@ -540,6 +565,8 @@ class StkMinsQfqPublication:
                 if identity[:4] != receipt["candidate_identity"][:4]:
                     raise ValueError("QFQ promoting paths conflict during validation")
                 receipt["status"] = "promoted"
+                if self.scope["family"] == "nineturn":
+                    receipt["promoted_identity"] = identity
                 self._save_receipt(target, receipt)
                 self._remember_file(target, receipt, target, identity)
                 return
@@ -591,6 +618,8 @@ class StkMinsQfqPublication:
             if identity is None or identity[:4] != receipt["candidate_identity"][:4]:
                 raise ValueError("QFQ published file identity mismatch")
             receipt["status"] = "promoted"
+            if self.scope["family"] == "nineturn":
+                receipt["promoted_identity"] = identity
             self._save_receipt(target, receipt)
             self._remember_file(target, receipt, target, identity)
             self.promoted_count += 1
