@@ -18,6 +18,12 @@ def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 
 
+def _response_headers(request: Request) -> dict[str, str]:
+    if request.method == "GET" and request.url.path == "/api/v1/wealth/market/index-detail/daily-waves":
+        return {"Cache-Control": "no-store"}
+    return {}
+
+
 def _error_payload(request: Request, *, code: str, message: str) -> dict[str, str | None]:
     return {
         "code": code,
@@ -41,6 +47,7 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_payload(request, code=exc.code, message=exc.message),
+            headers=_response_headers(request),
         )
 
     @app.exception_handler(RequestValidationError)
@@ -54,10 +61,12 @@ def install_exception_handlers(app: FastAPI) -> None:
                     code="validation_error",
                     message="登录参数校验失败，请检查用户名和密码",
                 ),
+                headers=_response_headers(request),
             )
         if request.url.path.startswith('/api/v1/wealth/data-center/'):
             return JSONResponse(status_code=422,content=_error_payload(
-                request,code='DC_REQUEST_INVALID',message='公告查询参数不合法，请检查日期、筛选条件或页码'))
+                request,code='DC_REQUEST_INVALID',message='公告查询参数不合法，请检查日期、筛选条件或页码'),
+                headers=_response_headers(request))
         operator_error = _operator_forbidden_validation_error(exc)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -66,6 +75,7 @@ def install_exception_handlers(app: FastAPI) -> None:
                 code=operator_error[0] if operator_error else "validation_error",
                 message=operator_error[1] if operator_error else str(exc.errors()),
             ),
+            headers=_response_headers(request),
         )
 
     @app.exception_handler(StarletteHTTPException)
@@ -79,6 +89,7 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_payload(request, code=code, message=str(exc.detail)),
+            headers=_response_headers(request),
         )
 
     @app.exception_handler(Exception)
@@ -86,4 +97,5 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_error_payload(request, code="internal_error", message="Internal server error"),
+            headers=_response_headers(request),
         )

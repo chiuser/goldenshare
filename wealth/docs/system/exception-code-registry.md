@@ -425,3 +425,17 @@
 HTTP异常仍复用已登记XXMF_*，没有新增HTTP异常码。200响应的reasonCode新增`NO_ENTRY_RANGE`（本周期没有合格钝化收盘范围）和`NO_CONFIRMATION_IN_HORIZON`（在20根探测内没有后续结构条件）。`ENTRY_ONLY`保留已核实的钝化范围；`PRECISION_PENDING`保留ROUNDING_BOUNDARY/NARROW_INTERVAL/CALIBRATION_FAILED，不能当作确定无结构。
 
 范围排除原因：PRICE_NOT_EXTREME、DIF_NOT_DIVERGENT、WRONG_COLOR_OR_ZERO、INSUFFICIENT_BARS、PRECISION_UNRESOLVED。目标前提排除原因：CANCEL_BEFORE_TARGET、EARLY_STRUCTURE、COLOR_OR_ZERO、NO_TARGET_SOLUTION、PRECISION_UNRESOLVED；分别说明消失、提前形成、零柱／换段、该目标无解或边界待核验。它们是后端条件事实的解释枚举，不是HTTP失败码。
+
+
+## 上证日线波段核对API（2026-10-25，第三批已实现，未部署）
+
+依据[下一阶段LLD §15.3](../pages/index-detail/index-detail-xxm-next-implementation-low-level-design-v0.6.md#xxm-daily-wave-api-handoff-lld)，仅作用于GET /api/v1/wealth/market/index-detail/daily-waves；沿用现鉴权及code/message/request_id错误格式。先登记再编码；本批隔离及最小真实API验收见该LLD §15.3.5，待管理员验收，未部署。
+
+| 异常码 | HTTP | 触发及恢复 |
+| --- | --- | --- |
+| DAILY_WAVE_INVALID_REQUEST | 422 | tsCode缺失、空白、未知/重复参数或非上证；不进行源查询 |
+| DAILY_WAVE_SOURCE_INVALID | 503 | 只读连接/查询、源类型/字段、SSE日历或连续性不符合合同；不换源、不补值 |
+| DAILY_WAVE_CALCULATION_FAILED | 503 | 已知计算输入/结果合同、DTO校验或响应编码失败；无半份成功结果，可从头重试 |
+| DAILY_WAVE_BUDGET_EXCEEDED | 503 | 同一次8秒、根数、输入/内存或最终响应字节超过原限制；不放宽、不截断 |
+
+认证错误沿用既有401/403，未分类错误沿用internal_error/500；取消继续传播，不新增499或计算失败包。该GET实际生成的成功/空/错误响应均禁止缓存，其他路径/方法不改变。

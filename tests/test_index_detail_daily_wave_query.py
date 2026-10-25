@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy.dialects import postgresql
@@ -15,6 +16,7 @@ from src.biz.queries.wealth.market.index_detail_daily_wave.query import DailyWav
 from src.biz.queries.wealth.market.index_detail_daily_wave import query_service as module
 from src.biz.services.wealth.market.index_detail_daily_wave.budget import DailyWaveBudgetExceeded
 from src.biz.services.wealth.market.index_detail_daily_wave.budget import DailyWaveInputError
+from src.biz.services.wealth.market.index_detail_daily_wave import budget as budget_module
 from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
 from src.biz.services.wealth.market.index_detail_daily_wave.types import DateRange
 
@@ -176,3 +178,82 @@ def test_output_contract_error_is_not_misclassified_as_source_error(monkeypatch)
     monkeypatch.setattr(module,"build_review",broken)
     with pytest.raises(DailyWaveInputError,match="不存在的色段"):
         asyncio.run(service(FakeQuery()).build(spec=SPEC))
+
+
+@pytest.mark.parametrize("deadline,expected",[(None,108.0),(105.0,105.0),(120.0,108.0)])
+def test_deadline_default_earlier_and_later_values_reach_session_and_calculator(monkeypatch,deadline,expected):
+    # Independent clock: the existing eight seconds starts at literal 100.
+    monkeypatch.setattr(budget_module,"time",SimpleNamespace(monotonic=lambda:100.0))
+    original=module.build_review
+    calculation_deadlines=[]
+    def build(*args,**kwargs):
+        calculation_deadlines.append(kwargs["deadline"])
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,"build_review",build)
+    events=[]
+    result=asyncio.run(service(FakeQuery(),events).build(spec=SPEC,deadline=deadline))
+    assert result.status=="ready"
+    assert events==[("enter",expected),"closed"]
+    assert calculation_deadlines==[expected]
+
+
+@pytest.mark.parametrize("deadline",[99.0,100.0])
+def test_expired_deadline_stops_before_creating_a_session(monkeypatch,deadline):
+    monkeypatch.setattr(budget_module,"time",SimpleNamespace(monotonic=lambda:100.0))
+    events=[];query=FakeQuery()
+    with pytest.raises(DailyWaveBudgetExceeded):
+        asyncio.run(service(query,events).build(spec=SPEC,deadline=deadline))
+    assert events==[] and query.calls==[]
+
+
+@pytest.mark.parametrize("deadline",[True,"105",float("nan"),float("inf"),-float("inf")])
+def test_invalid_deadline_is_rejected_before_any_read(deadline):
+    events=[];query=FakeQuery()
+    with pytest.raises(DailyWaveInputError,match="deadline"):
+        asyncio.run(service(query,events).build(spec=SPEC,deadline=deadline))
+    assert events==[] and query.calls==[]
+
+
+def test_time_spent_reading_does_not_restart_the_supplied_deadline(monkeypatch):
+    now=[100.0]
+    monkeypatch.setattr(budget_module,"time",SimpleNamespace(monotonic=lambda:now[0]))
+    class AdvancingQuery(FakeQuery):
+        async def load_main_window(self,*args,**kwargs):
+            result=await super().load_main_window(*args,**kwargs)
+            now[0]=101.0
+            return result
+        async def load_context_window(self,*args,**kwargs):
+            result=await super().load_context_window(*args,**kwargs)
+            now[0]=102.0
+            return result
+        async def load_calendar(self,*args,**kwargs):
+            result=await super().load_calendar(*args,**kwargs)
+            now[0]=103.0
+            return result
+    original=module.build_review
+    def build(*args,**kwargs):
+        assert kwargs["deadline"]==105.0
+        assert now[0]==103.0
+        now[0]=104.0
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,"build_review",build)
+    events=[];query=AdvancingQuery()
+    result=asyncio.run(service(query,events).build(spec=SPEC,deadline=105.0))
+    assert result.status=="ready"
+    assert events==[("enter",105.0),"closed"]
+    assert [name for name,_ in query.calls]==["main","context","calendar"]
+
+
+def test_deadline_reached_after_main_read_closes_without_starting_more_reads(monkeypatch):
+    now=[100.0]
+    monkeypatch.setattr(budget_module,"time",SimpleNamespace(monotonic=lambda:now[0]))
+    class ExpiringQuery(FakeQuery):
+        async def load_main_window(self,*args,**kwargs):
+            result=await super().load_main_window(*args,**kwargs)
+            now[0]=105.0
+            return result
+    events=[];query=ExpiringQuery()
+    with pytest.raises(DailyWaveBudgetExceeded):
+        asyncio.run(service(query,events).build(spec=SPEC,deadline=105.0))
+    assert events==[("enter",105.0),"closed"]
+    assert [name for name,_ in query.calls]==["main"]

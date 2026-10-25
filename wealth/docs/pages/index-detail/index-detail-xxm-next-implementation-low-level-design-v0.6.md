@@ -1,6 +1,6 @@
 # 徐小明定量结构下一阶段实施LLD v0.6
 
-更新日期：2026-10-25。第一阶段第一批已完成并本地提交f30221f4b，见§14.3.2；第二批已实现并提交21257189d，独立审计的两处问题已修复并通过针对性验收，见§14.9.9，待管理员验收；原真实只读证据见§14.9.8；尚未接API或页面。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
+更新日期：2026-10-25。第一阶段第一批已提交f30221f4b，第二批及修复已提交21257189d/0cfec7f9；第三批API已实现并完成隔离及最小真实只读验收，未部署，待管理员验收，见§15.3.5。页面、三角和1000根仍待第四批。**当前实施顺序以方案§0.5和本文§0.4为准。**日线试验见§14，三角页面及统一1000根见§15；内存结果合同见§14.6.1。当前日线试验不落盘、不恢复，失败下次从头算；请求日期上限10月21日，先用已有连续范围。首批任务1、2、9及五项决定保留在§13、当前暂缓，预测工作量/性能研究仍暂停。试验约定不等于作者最终规则；此前局部结果不等于完整算法通过。
 
 <a id="xxm-daily-method-design"></a>
 
@@ -69,7 +69,7 @@
 
 ## 1. 本步目标、依据和当前代码
 
-第一批代码事实见§14.3.2，第二批实现及验收证据见§14.9.8。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。本轮仅开发第二批的真实只读接入和价格候选；不开发API、页面或旧标签算法。
+第一批代码事实见§14.3.2，第二批实现及验收证据见§14.9.8，第三批API验收见§15.3.5。此前首批两位确认/未换色纠错、取消独立换色及必要集成按§13保留，未改任务范围；第2—9节为完整逐峰方法设计，第10—12节为此前研究范围与结果，均不是本轮立即执行入口。本轮只实现第三批API，复用第二批读取和候选；不开发页面或旧标签算法。
 
 2026-10-22使用CodeGraph查符号与影响位置；其探索多次返回了研究子类而未展示产品计算器主体，因此对未覆盖的具体文件补做直接静态阅读。工具未找到测试关系不能解释为仓库没有测试。本次核对的是以下源码，不是运行或端到端验收：
 
@@ -900,7 +900,7 @@ DIF段内最大/最小值、全部峰谷、各峰谷确认日、与价格端点�
 
 新接口不再沿用原离线60秒计算或文件reader2秒预算：8秒从现有认证完成、进入本模块query_service业务查询时开始，覆盖本模块连接、所有有界读取、计算、DTO及失败清理；不把此前全站登录查询承诺为本模块可强制限制。前端整个计算+K线核对链仍为10秒；输入≤1MiB、≤1300根、内存≤256MiB、响应≤2MiB，不删峰/截字段凑预算。App为本模块注入同一Settings.database_url对应的专用只读会话工厂：无连接池等待，连接上限2秒，单SQL最多3秒且不超过总剩余时间，锁等待≤1秒；这些值只由DailyWaveReviewSpec提供，无新env/Settings键。当前全站get_engine未配置连接上限，不能直接假定能强制8秒；故不改全站engine，仅本模块由App新增有界只读工厂，Biz只接收session。主窗口、前段、日历在同一个≤8秒的只读REPEATABLE READ事务内读取，避免一次计算混入源刷新前后两套值；请求结束关闭会话/连接，无业务写入，不改全站隔离级别。
 
-预算包含失败清理和最终核验，是保护设计、尚未实测；不恢复暂停的预测200ms课题。若真实最小链路不能在此预算完成，报告具体耗时后先修本步设计，不擅加限、落盘或后台续算。本轮无执行结果。
+预算包含失败清理和最终核验；第二批读取/计算证据见§14.9.8，第三批API最小真实链路及隔离超时反例见§15.3.5，不恢复暂停的预测200ms课题。若后续真实链路不能在此预算完成，报告具体耗时后先修本步设计，不擅加限、落盘或后台续算；本次证据不等于线上P95或全站硬实时保证。
 
 <a id="xxm-daily-batch-two-lld"></a>
 
@@ -945,7 +945,7 @@ build_price_candidates(basic, *, observation_range, calendar, spec=DEFAULT_SPEC,
                        deadline=None, check_cancelled=None) -> CandidateRecords
 ```
 
-上表为第二批已实现签名。第三批仅为服务build追加可选deadline参数，具体签名及传递按§15.3.1；未传时保留原行为。其他已完成入口和返回值不变，不将拟增加的参数冒称已实现。
+上表保留第二批签名。第三批已为服务build追加可选deadline参数，当前准确签名及传递见§15.3.1；未传时保留原行为，其他入口和返回值不变。
 
 候选入口的CandidateRecords只含priceSegments/mappings/shortOppositeSegments，正式build_review使用同一_PriceCandidateState获得它，再补逐日变化及完整头部。clock默认只捕获一次当前上海时间、new_id默认一次UUID，测试可注入固定值；query默认本模块DailyWaveQuery。所有查询通过注入session内部同一budget执行，查询方法不得另传新时限。observation_range在非空结果时必须等于主范围源行实际首末；无主范围行时为null并返回empty。as_of为日线截止日期，rows/观察范围不能越过它；calculated_at是有时区的计算时间，不能早于输入末根完成时点。
 
@@ -1176,11 +1176,11 @@ asofChanges仅在实际观察范围的每个已处理日保存asOf/newConfirmedT
 | `IndexDetailPage.tsx`、controller/API、共享九转/趋势 | §15.4.1同一1000常量、普通与研究不同日期/状态，右栏不随主图换历史截止 |
 | shared detail-workspace types/viewport/workspace、nineTurnMarkerGeometry/visibleExtremaGeometry/VisibleExtremaPrimitive | §15.5增加可选留白、九转渲染矩形、共用极值测量；默认其他页不改，不造另一图表生命周期 |
 
-当前已完成第一批基础日线记录及scanner迁移，见14.3.2；第二批价格候选、query和专用会话工厂已实现，本轮修复验收见14.9.9。API、页面和三角列表仍待后批。运行时禁止Biz→scripts/qtf/App反向依赖，不把基础函数通过当作API或页面通过。
+当前已完成第一批基础记录及第二批候选/query/专用会话工厂，见14.3.2/14.9.8—14.9.9；第三批API已实现，验收见15.3.5。页面和三角列表仍待第四批。运行时禁止Biz→scripts/qtf/App反向依赖，不把API通过当作页面或作者完整规则通过。
 
 ### 15.3 只读内存计算接口及响应
 
-拟`GET /api/v1/wealth/market/index-detail/daily-waves?tsCode=000001.SH`；仅这个新路由使用async def并await第二批服务，沿现行情权限require_quote_access及quote_api_auth_required，不改变其他路由或登录策略。只允许唯一tsCode，不接收period/path/run/日期/调参；未知/重复/非上证参数422。请求边界和预算来自唯一DailyWaveReviewSpec，App只装配，不新增配置键。HTTP响应使用no-store；无服务端结果缓存、浏览器持久化存储或文件reader。
+已实现`GET /api/v1/wealth/market/index-detail/daily-waves?tsCode=000001.SH`；仅这个新路由使用async def并await第二批服务，沿现行情权限require_quote_access及quote_api_auth_required，不改变其他路由或登录策略。只允许唯一tsCode，不接收period/path/run/日期/调参；未知/重复/非上证参数422。请求边界和预算来自唯一DailyWaveReviewSpec，App只装配，不新增配置键。HTTP响应使用no-store；无服务端结果缓存、浏览器持久化存储或文件reader。
 
 流程为App注入第二批只读会话创建函数→await query_service按14.9读取/转换/校验并关闭读事务→同一calculator逐日基础与候选→校14.6.1→一次返回；不再独立build_basic_records后重算build_review。sourcePoints是实际主范围投影、≤800，不含旧活动状态。内部全输入仍≤1300。成功不等于管理员已认可。
 
@@ -1190,17 +1190,17 @@ coverage固定mainPointCount、leftIncompleteColorSegmentIds/ungeneratedPriceSeg
 
 若请求范围内没有任何已完成行，200 status=empty，头部仅schemaVersion/tsCode/period/status/ruleId/calculationId/calculatedAt/requestedStart/requestedEnd；不含虚构observation/context/asOf/segments。已有范围只到上限之前仍可ready，页面明确实际范围，不能说“没有波段”或“还未生成文件”。
 
-错误码拟DAILY_WAVE_INVALID_REQUEST（422）、DAILY_WAVE_SOURCE_INVALID（503）、DAILY_WAVE_CALCULATION_FAILED（503）、DAILY_WAVE_BUDGET_EXCEEDED（503），开发前在现wealth/docs/system/exception-code-registry.md登记；不复用旧文件损坏码或已有XXM含义。错误走注入WebAppError，不返回半份ready或自动换旧算法/CSV。新代码未实现，不改原K线/XXM DTO。
+错误码DAILY_WAVE_INVALID_REQUEST（422）、DAILY_WAVE_SOURCE_INVALID（503）、DAILY_WAVE_CALCULATION_FAILED（503）、DAILY_WAVE_BUDGET_EXCEEDED（503）已在开发前向现wealth/docs/system/exception-code-registry.md登记并实现；不复用旧文件损坏码或已有XXM含义。错误走注入WebAppError，不返回半份ready或自动换旧算法/CSV，不改原K线/XXM DTO。
 
 数字/日期匹配必须逐日一一对应真实K线：研究规范文本转同一有限number，与K线未格式化close/DIF/DEA/柱逐项数值相等，例如4160.450=4160.45；禁止toFixed后比文字、±1点或MACD容差，原文本仍留本次对象。缺/重/错日、任一值不符只停研究层，说明“行情与研究结果不一致，暂不显示波段”，不改来源或前端重算。0.0021仅源内部关系检查，不用作两次读数匹配容差。
 
 <a id="xxm-daily-wave-api-handoff-lld"></a>
 
-#### 15.3.1 同一次截止时间覆盖最终响应（第三批待实现）
+#### 15.3.1 同一次截止时间覆盖最终响应（第三批已实现）
 
-2026-10-25管理员要求补清两处接线后提交文档、等待下一步指令。本节及15.3.2—15.3.3仅为后续编码约定，不表示第三批已开发或验收。范围和顺序与方案§0.10一致。
+2026-10-25先按管理员要求完成两处设计并提交50eca37b，随后批准按详细计划实现。本节及15.3.2已按原约定完成，测试和实际证据见15.3.5；不将开发前文稿核对混同运行验收。范围与方案§0.10—0.12一致。
 
-当前代码依据：query_service.py的build在内部创建DailyWaveBudget，返回ReviewResult而不返回budget；budget.py已支持有限的绝对deadline并取较早值。不能在服务返回后重新给DTO一个8秒，也不能把截止时间加入对外结果字段。后续落点固定如下：
+代码依据：开发前query_service.py的build仅在内部创建DailyWaveBudget；第三批按下表追加可选deadline，返回值仍只有ReviewResult，不返回budget。budget.py原有的有限绝对deadline及取较早值行为不变。不能在服务返回后重新给DTO一个8秒，也不能把截止时间加入对外结果字段。当前落点固定如下：
 
 | 位置 | 编码要求 |
 |---|---|
@@ -1219,7 +1219,7 @@ coverage固定mainPointCount、leftIncompleteColorSegmentIds/ungeneratedPriceSeg
 
 依据：[FastAPI直接返回Response](https://fastapi.tiangolo.com/advanced/response-directly/)、[Pydantic模型校验](https://docs.pydantic.dev/latest/concepts/models/)、[JSON兼容输出](https://docs.pydantic.dev/latest/concepts/serialization/)，已用Context7核对；不安装或升级库。
 
-#### 15.3.2 禁止缓存及取消的准确落点（第三批待实现）
+#### 15.3.2 禁止缓存及取消的准确落点（第三批已实现）
 
 **禁止缓存。**不能只给路由内的成功Response加头：现App `src/app/exceptions/web.py`的异常处理器另建JSONResponse，认证失败甚至发生在路由函数执行前。保持统一code/message/request_id及WebAppError现有构造参数，采用以下限定改动：
 
@@ -1231,7 +1231,7 @@ coverage固定mainPointCount、leftIncompleteColorSegmentIds/ungeneratedPriceSeg
 
 API异常处理固定先`except asyncio.CancelledError: raise`，保持原对象；再处理DailyWaveCancelled，将其转为asyncio.CancelledError并保留原因为cause。两种均置于普通Exception或业务错误映射之前，不包装成DAILY_WAVE_CALCULATION_FAILED、503或500，不新增499/取消错误码。已观察到取消后不再发查询、生成DTO或开始新的计算。取消传播本身不制造HTTP成功/失败JSON，故不为取消强行造一份带缓存头的响应；凡实际生成的上述HTTP响应才检查no-store。未即时获知浏览器断连仍按原8秒保护，不能宣称即时断连已被感知。
 
-#### 15.3.3 上述两处的开发验收（尚未运行）
+#### 15.3.3 上述两处的开发验收（已执行，结果见15.3.5）
 
 新增专用`tests/web/test_wealth_index_detail_daily_wave_api.py`，并在现`tests/test_index_detail_daily_wave_query.py`补deadline传递回归。独立字面响应及真实类型以第二批合同为依据；替身只隔离数据库/耗时步骤，不替代schema、原异常处理器或响应编码。
 
@@ -1245,7 +1245,49 @@ API异常处理固定先`except asyncio.CancelledError: raise`，保持原对象
 | 其他路径/方法及早于业务的错误 | 同一App的原XXM/行情或最小其他路由正常/错误响应不新增no-store，原状态/正文/Content-Type不变；新路由在参数校验或鉴权失败、未创建budget时仍有no-store |
 | 原asyncio取消、DailyWaveCancelled及取消发生于等待/响应阶段 | 原取消保持，后者只在API转换；无错误JSON、不新查询/重试，无继续运行的任务。资源关闭仍遵守§14.9.9；不靠只断言closed标志验收 |
 
-测试使用现有环境、单组60秒内，时间反例用可控时钟而非实际睡8秒；500用测试客户端允许读取错误响应的设置，不因客户端重抛而漏测响应头。开发时仍需按§15.6做新路由最小真实只读接入验收；上述替身通过不能冒称真实API已接通。本轮仅写入约定并做文档/当前代码核对，不实现这些函数、增加测试代码、访问数据库或推进第三批。
+测试使用现有环境、单组60秒内，时间反例用可控时钟而非实际睡8秒；500用测试客户端允许读取错误响应的设置，不因客户端重抛而漏测响应头。按§15.6另做新路由最小真实只读接入验收，上述替身通过不能冒称真实API已接通。前轮仅写约定并提交文档；本轮已按15.3.4开发并执行，真实与隔离证据分别见15.3.5。
+
+#### 15.3.4 第三批执行约定（2026-10-25，已实现并完成本轮验收）
+
+上列15.3.1—15.3.3为前轮已确认设计；管理员批准详细计划后按本节执行，证据见15.3.5。执行入口为方案§0.11，不重复审批既定规则；遇到新口径或阻塞先停止说明。开工前CodeGraph已核DailyWaveQueryService及install_exception_handlers影响面，并直接读App装配、auth、错误处理、数据生产者和测试；当时已有服务/工厂、API/schema未实现，现均按本节接通。十文件范围与方案一致，无新配置或环境变量。
+
+| 顺序 | 文件与编码要求 | 独立测试及完成条件 |
+|---|---|---|
+| 1 | 先同步两文档，向现exception-code-registry.md追加§15.3四个码，保留其他工作 | 文档、硬口径及实际来源对账，不能先写代码再补约定 |
+| 2 | 新schemas/wealth/market/index_detail_daily_wave.py完整建模§14.6.1所有嵌套字段。ready/empty、confirmed/pending分别建模；数字/日期为规范文本，不继承旧float/date DTO；全部extra=forbid，必需但可null字段仍required，不用任意dict代替事实 | 独立字面/可人工核算输入证明字段、null、编号/引用、日期/数量/状态；错类型/额外字段/重复悬挂引用拒绝；只校合同，不重算波段 |
+| 3 | query_service.build按15.3.1追加deadline=None；只传给现DailyWaveBudget，原读取/计算路径保持 | 在现query测试补默认、较早值及非法值，证明session和calculator沿同一截止，默认不变，无新查询/扫描 |
+| 4 | 新api/wealth/market/index_detail_daily_wave.py提供build_router(*, session_factory, auth_dependency, error_factory)。API内构造现DailyWaveQueryService(session_factory)，不接同步get_db_session。唯一tsCode严格为000001.SH；缺失/空白/未知/重复/非上证均422。按15.3.1处理DTO/同一最终bytes，15.3.2处理取消 | 新tests/web/test_wealth_index_detail_daily_wave_api.py覆盖真实路由/原handler；替身只隔离源或耗时，关键预期为独立字面；不调用被测dump生成expected |
+| 5 | App api/v1/router.py只新增一次该build_router装配，传现daily_wave_session_factory、require_quote_access、WebAppError。exceptions/web.py按15.3.2给所有JSONResponse分支传精确路径helper；不改factory、auth、WebAppError构造及中间件 | 鉴权开关正反例、未授权不调用service；200/422/401/已有403/503/500带no-store，其他路径/方法和早返回正文不变；新路由仅挂一次 |
+| 6 | 跑新API组、原query及必要第二批/共享错误回归，再三份架构和文档检查 | 15.3.3全部场景、接触日期新修复及取消实际经过既有关闭路径；tests/web的autouse会使用临时内存SQLite，不误称无DB或正式库验收，不改conftest绕过 |
+| 7 | 用真实新GET、现鉴权及正式专用只读工厂做一次有界来源验收；主/前段/日历/计算均现原链 | 只读取core_serving.index_factor_pro六列及trade_calendar三列，固定000001.SH/SSE及Spec日期/数量；核实际范围、条数、规范原值、引用、最终字节、耗时、readonly/关闭和无残留任务；仅记录统计，不保存源/响应正文 |
+| 8 | 两文档补实际对账及未覆盖项；CodeGraph sync/status、差异/引用和明确文件范围检查 | 只证明第三批API接入，不宣称模型已还原；停止，不提交、部署或进入第四批 |
+
+错误分类按明确类型：先原样asyncio取消、再将DailyWaveCancelled转取消；DailyWaveBudgetExceeded→DAILY_WAVE_BUDGET_EXCEEDED/503；DailyWaveSourceError及底层SQLAlchemyError、psycopg.Error→DAILY_WAVE_SOURCE_INVALID/503；DailyWaveInputError、Pydantic ValidationError及响应JSON编码的已知错误→DAILY_WAVE_CALCULATION_FAILED/503。只在编码调用处处理其TypeError/ValueError/OverflowError，不能用总except Exception或按异常文字把其他程序错误吞成503；其余交现App internal_error/500。原异常作为cause保留，对外用固定安全中文，不透传SQL/参数/URL。上述分类在新API边界处理，不改变第二批异常对象/清理说明。
+
+8秒开始点仍是认证、参数通过后进入业务，覆盖至本地Response构造完成；连接2秒/单SQL3秒/锁1秒及8秒内预留0.5秒清理不变。主≤800、前段≤500、总≤1300、输入≤1MiB、结果内存≤256MiB和最终响应≤2MiB不变。独立单组测试≤60秒，真实最小请求按8秒处理预算验收；失败不额外给重试时间，排查后重试从头，最终核验仍受单组限制，不无限等待。无新结果文件/缓存/检查点；复用前批来源证据，只补HTTP实际接通这一缺口，不重跑三年逐段研究或旧扫描器验收。真正遇到未考虑的合同/环境问题，按管理员要求停止，不靠安装依赖、关鉴权、放宽预算或改算法绕过。
+
+#### 15.3.5 第三批实际实现及验收证据（2026-10-25，提交前验收记录，未部署）
+
+范围严格为15.3.4约定十文件。先落方案§0.11/本节执行约定及四个错误码，再开发；不改旧正式API合同、Spec、原算法、scanner、只读工厂、鉴权或源SQL，上述六份实现SHA与开工前一致。新Biz API/schema没有反向导入App/scripts/QTF。错误码登记原64730字节保持，只追加本接口条目。
+
+| 要求 | 当前代码 | 证据 |
+|---|---|---|
+| 完整严格字段、原值与空值 | 新schema的DailyWaveReadyDto/EmptyDto及全部嵌套模型；新API _build_response | API83项含独立九头部/中性日线字面、真实producer小链独立100→130及5/7/9 DIF峰断言；pending/confirmed、合法null、额外字段/错类型/编号/引用/日期/数量和内部映射反例 |
+| 共用8秒直到最终bytes | query_service.build追加deadline；API原budget贯穿投影/DTO/dump/JSON/Response | query新增12例先证旧入口失败，现34项通过；API五阶段各核正常7.8+0.1、恰8、超限7.8+0.3；最终中文UTF-8恰2MiB/超1字节，字符数均小于上限，不能错误用字符数代替 |
+| 明确合同错，不掩盖500 | 新API只捕明确类型；投影先检查必需键及重名 | 新3反例先证缺priceSegments/asofChanges错误500、原segments被覆盖后错误200，再补明确guard改为合同503，无缺省或总KeyError兜底；未知程序错仍为500 |
+| 参数、auth和单次装配 | build_router及App router注入原factory/auth/error | 缺/空/重复/未知/非上证422，鉴权开关及401/已有403、不进入服务；实际App仅挂一次新路由，原XXM及预测路由存在，OpenAPI声明ready/empty |
+| 全部响应no-store，其他请求不变 | 新成功Response及App _response_headers/四类handler的六个JSONResponse分支 | 200/422/401/403/各503/500及相邻路径/其他方法/验证早返回；共享旧处理4项通过，保code/message/request_id |
+| 取消保留并关闭原资源 | 新API先处理取消，沿原QueryService/ReadSession关闭 | 原取消对象、内部取消cause、DTO阶段cancelling；真实endpoint→原服务→原ReadSession（仅驱动替身）取消，raw先关闭、五项done、rollback不重试、无pending，不只测service直接raise |
+
+测试命令沿本项目现有环境：`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider`。API专用文件83项3.34秒；四个第二批文件169项2.68秒（58基础+43候选+34连接+34查询）；共享auth验证/坏JSON的4项2.17秒；根指定三份架构16项10.97秒，共272项全部通过，未跑旧研究/冻结行情测试。web用原autouse临时内存SQLite；没有正式DB写入，没有安装/升级。4条既有Starlette/TestClient弃用警告保留，不为清警告安装新依赖。
+
+最小真实验收为一次进程内TestClient/ASGI请求，使用实际App聚合router、现require_quote_access及daily_wave_session_factory；本机quote_api_auth_required原为False，未临时关鉴权或替换真实业务源。目标为现DATABASE_URL的PostgreSQL：仅core_serving.index_factor_pro约定六列、000001.SH既定范围与有限前段，trade_calendar三列/SSE；另在同一原连接只读SELECT current_setting核readonly/isolation。观察包装仅统计原调用，不改变SQL/事务/预算；不启动全站lifespan、真实HTTP监听或其他业务后台任务。
+
+HTTP200/ready、Cache-Control:no-store、application/json；实际主2023-10-24—2026-10-21共725，context自2022-10-13保留250、总975，calendar1470。原查询读数为主725/前251（含探测1），未将探测行补入正式输入。turns694、pending2、color87、segments/mappings/shortOpposite各65；所有725根的close/DIF/DEA/MACD规范文本与同次源float的Decimal(str)逐项相等，无容差。完整引用及主范围数量亦核对。
+
+响应617816字节，请求实测0.7512秒（含本次只读状态核对）；readonly=on、isolation=repeatable read，事务不活动、raw/Connection均closed、残留业务任务0。全进程峰值RSS记录为268845056字节（约256.39MiB，包含完整App导入和验收观察），不把它与原结果对象256MiB校验混同，也不据此宣称全站进程内存达标；原结果对象限制仍由未改的validate_review_result执行并通过。本轮未保存行情或响应正文，只有本节统计记录。
+
+独立复核完成schema/同一截止/no-store/取消/错误分类，并单独复核最终投影guard增量，无未处理阻碍。CodeGraph status/impact及开发后sync/status已使用；图未覆盖的新符号通过当前源码/AST及真实路由补核。文档/链接/差异及明确文件范围检查通过。以上不等于浏览器/1000根、线上部署/P95或作者完整标签准确率；这些仍待相应后批。本批结束，不自动提交、部署或进入第四批。
 
 ### 15.4 页面状态、实际范围及说明入口
 
@@ -1320,4 +1362,4 @@ API异常处理固定先`except asyncio.CancelledError: raise`，保持原对象
 | 真实路由及保护 | 真实API/浏览器核实际行数、读取范围、响应字节/耗时及说明位置；专用只读连接/单SQL/总截止限制有正常与超时例，不改全站连接。模拟/Figma不代替真实接入或算法验证 |
 | 现行通用要求 | 数据合同、加载/空/错/重试、来源、可访问说明、布局、真实链路和共享回归适用；DB迁移/写湖/调度/交易/预测新增功能不适用。异常码先按15.3登记；无新增Settings待填写 |
 
-Figma说明列表设计已经认可。第一批基础记录/scanner迁移结果见14.3.2；第二批候选/query/专用会话工厂已实现，原只读证据见14.9.8，本轮修复见14.9.9；API/页面未开发，真实API/浏览器尚未验收。后续按§0.4逐步开发和验收，不以基础测试或已有Figma宣布方法正确。
+Figma说明列表设计已经认可。第一批结果见14.3.2；第二批候选/query/专用工厂见14.9.8—14.9.9；第三批API及最小真实只读验收见15.3.5。页面、三角、1000根和浏览器仍待第四批，后续按§0.4逐步开发和验收，不以本次API或已有Figma宣布作者完整方法正确。

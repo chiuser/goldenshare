@@ -115,8 +115,8 @@ class DailyWaveQueryService:
         self.clock = clock or (lambda: datetime.now(SHANGHAI))
         self.new_id = new_id or uuid4
 
-    async def build(self, *, spec=DEFAULT_SPEC, check_cancelled=None):
-        budget = DailyWaveBudget(spec, check_cancelled=check_cancelled)
+    async def build(self, *, spec=DEFAULT_SPEC, check_cancelled=None, deadline=None):
+        budget = DailyWaveBudget(spec, deadline=deadline, check_cancelled=check_cancelled)
         budget.check()
         when = self.clock()
         if not isinstance(when, datetime) or when.tzinfo is None or when.utcoffset() is None:

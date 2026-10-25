@@ -7,6 +7,7 @@ from src.app.runtime.announcement_archive_lifespan import include_data_center
 from src.app.auth.api import admin, admin_users, auth, users
 from src.app.auth.dependencies import require_quote_access
 from src.app.dependencies import get_db_session
+from src.app.dependencies.daily_wave import daily_wave_session_factory
 from src.app.exceptions import WebAppError
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
@@ -14,7 +15,7 @@ from src.biz.api import realtime as biz_realtime
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import context as wealth_market_context
 from src.biz.api.wealth.market import index_detail as wealth_market_index_detail
-from src.biz.api.wealth.market import index_detail_xxm, index_detail_xxm_forecast
+from src.biz.api.wealth.market import index_detail_daily_wave, index_detail_xxm, index_detail_xxm_forecast
 from src.biz.api.wealth.market import (
     index_detail_nine_turn as wealth_market_index_detail_nine_turn,
 )
@@ -62,6 +63,10 @@ router.include_router(biz_market.router)
 router.include_router(biz_realtime.router)
 router.include_router(wealth_market_context.router)
 router.include_router(wealth_market_index_detail.router)
+router.include_router(index_detail_daily_wave.build_router(
+    session_factory=daily_wave_session_factory, auth_dependency=require_quote_access,
+    error_factory=WebAppError,
+))
 router.include_router(index_detail_xxm.build_router(
     db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
 ))
