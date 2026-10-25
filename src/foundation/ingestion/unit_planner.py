@@ -260,8 +260,9 @@ class DatasetUnitPlanner:
             return [None]
         if date_model.date_axis in {"none", "month_window"}:
             return [None]
+        # Source exchange filters (for example SH/SZ/BJ) do not select a calendar.
         open_dates = self.dao.trade_calendar.get_open_dates(
-            str(request.params.get("exchange") or self.settings.default_exchange),
+            self.settings.default_exchange,
             request.start_date,
             request.end_date,
         )

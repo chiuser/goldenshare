@@ -1,6 +1,6 @@
 # DatasetExecutionPlan 执行计划与可靠执行
 
-更新时间：2026-09-10。状态：现行模型与执行约束说明。原重构主案和 M-1～M8 索引中的有效规则归入本文；历史步骤不是当前实施计划。本文区分代码事实与尚须按需求验证的可靠性目标。
+更新时间：2026-10-25（新增第 9 节区间维护修复方案与 LLD）。状态：现行模型与执行约束说明。原重构主案和 M-1～M8 索引中的有效规则归入本文；历史步骤不是当前实施计划。本文区分代码事实与尚须按需求验证的可靠性目标。
 
 ## 1. 主链与职责
 
@@ -176,4 +176,66 @@ Workflow step 引用 dataset action，Schedule 绑定动作或 workflow；二者
 - [维护模型护栏](/Users/congming/github/goldenshare/tests/architecture/test_dataset_maintenance_refactor_guardrails.py)、[codebook 护栏](/Users/congming/github/goldenshare/tests/architecture/test_dataset_codebook_guardrails.py)。
 - 旧执行模型防回流、依赖边界与通用验证入口见 [子系统架构基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md#architecture-guardrails)。
 
-本次只合并文档、纠正现状描述，不新增字段、状态机、Worker、迁移或生产动作，也不宣称完成未验收的长任务与运行态治理目标。
+2026-09-10 的文档整合只合并文档、纠正现状描述，不新增字段、状态机、Worker、迁移或生产动作，也不宣称完成未验收的长任务与运行态治理目标。2026-10-25 获准的修复范围单列如下。
+
+## 9. 2026-10-25：涨跌停区间维护修复方案与 LLD
+
+### 9.1 目标、依据与授权边界
+
+管理员要求先查原开发文档、补修复方案，再修复区间任务。当前未找到独立的 `limit_list_d` Prod 开发说明；Git 历史中的 `limit-list-d-prod-raw-db-lake-export-plan.md` 只覆盖生产 Raw 到 Lake 的导出，已退役，不恢复。本次在本执行主案记录方案和 LLD，不改 Lake。
+
+目标：对包含开市日的每日涨跌停名单区间，按现有交易日历和源接口枚举生成实际请求，消除有交易日却生成零执行单元的问题。范围仅为 Foundation 日期展开代码、回归测试及本节；不改变 DatasetDefinition、输入字段、API/CLI、源参数、表结构、写入和 TaskRun 状态合同，不部署、不提交补数任务、不修改历史成功记录。其他数据集只做受影响路径回归。
+
+事实依据：
+
+- 修复前 22:50 的只读记录：生产任务 `16801` 输入为 2026-10-21—23，筛选为 `limit_type=[U,D,Z]`、`exchange=[SH,SZ,BJ]`；计划中的 `unit_count=0`，获取和写入都是 0，却显示成功。当时 10 月 22 日涨跌停 Raw、Serving 均为 0 行；21、23 日分别已有 74、100 行。管理员随后已通过单日任务补数，这些行数仅作事故时点证据。
+- 生产 SSE 日历的 21、22、23 日均为开市日。10 月 22 日源接口只筛 `limit_type=U` 返回 33 行，增加 `exchange=SH` 返回 19 行；指定 `600192.SH` 的默认字段请求返回 1 行，并含 `trade_date/ts_code/limit`。本次复用同会话的有界只读证据，不重取全历史。
+- 源合同见 doc_id 298：[涨跌停列表（新）](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/打板专题数据/0298_涨跌停列表（新）.md)。`exchange=SH/SZ/BJ` 是源接口筛选；平台日历的 `exchange=SSE` 是日期依据，两者不能互相代用。
+
+### 9.2 当前代码与影响面审计
+
+`DatasetRequestValidator` 会把省略的源接口交易所补成 `[SH,SZ,BJ]`。`DatasetUnitPlanner._resolve_anchors()` 原先将 `request.params.exchange` 转为字符串传给 `TradeCalendarDAO.get_open_dates()`，实际查询的名称成为 `['SH', 'SZ', 'BJ']`，没有匹配日历，所以没有进入请求构造和下载。清空页面筛选不能修复此问题，因为 validator 会补回默认集合。
+
+CodeGraph 已使用 `codegraph_search`、`codegraph_callers`、`codegraph_impact`，覆盖 `_resolve_anchors`、`DatasetUnitPlanner` 及 resolver 调用方；再核对当前实现和全部 Definition。直接调用日期展开的路径包括 generic、`dc_member`、`ths_member`、`stk_factor_pro`、`etf_share_size`；后两者有专用路径，按现有测试回归。当前带 `exchange` 输入的五个数据集中，只有 `limit_list_d` 使用这段按开市日展开的区间逻辑；`stock_basic/stock_company/ths_index` 为无时间模型，`trade_cal` 为自然日模型。
+
+入口和消费者为：手动任务页面 `frontend/src/pages/ops-v21-task-manual-tab.tsx` → `/api/v1/ops/manual-actions` → `ManualActionCommandService` 预检 → `DatasetActionResolver`；实际运行由 `TaskRunDispatcher` 再构建计划，Schedule、Workflow 和 CLI 也复用该链。修复只发生在 Foundation，不新增跨层依赖。前端继续提交相同日期及筛选集合，无需修改控件。板块热度是下游消费者，不修改其零行检查，也不把零执行单元任务当成源已完成的证明。
+
+### 9.3 实现设计、配置与读写边界
+
+1. `_resolve_anchors()` 的开市日区间查询直接使用 `self.settings.default_exchange`；不再读取源筛选中的 `exchange`。不增加按数据集名称判断的分支。
+2. `default_exchange` 是现有 Settings 配置，默认 `SSE`，环境变量名为 `DEFAULT_EXCHANGE`；由 `get_settings()` 读取现有环境及 `GOLDENSHARE_ENV_FILE` 指定的文件（默认 `.env`）。来源、持久化及加载方式保持现状；本次只统一该日期查询与已有指数月历等路径的用法，不新增配置或持久化位置。
+3. 日期取出后仍由现有枚举展开和 `_limit_list_params()` 生成请求。3 个开市日 × 3 种类型 × 3 个交易所必须生成 27 个 unit；指定 SZ、U 时为 3 个 unit。每个请求的 `exchange` 必须是 SH、SZ 或 BJ 单值，业务日期传给 Tushare 时仍为 `YYYYMMDD`。
+4. 单日直接使用指定日期，仍为 9 个默认 unit；不进入区间日历查询。周线区间继续按当前周末规则压缩；自然日及无时间路径不受此处修改影响。
+5. 只含休市日的区间继续允许生成空计划。本次不增加全局空计划错误，不改变其状态行为；对真实包含开市日的本次样本，用准确日期和 unit 数量证明不会再次形成空任务。
+6. 规划只读日历，不调用 Tushare、不写 Raw/Serving 或 Ops。正式执行的按 unit 提交、幂等键和取消流程均复用现有实现。本次真实验收只读取有界日历后在本地生成计划，不执行 writer。
+
+### 9.4 失败、中断、续跑与性能预算
+
+本修复不新增执行器、状态、并发或续跑机制。规划失败不产生业务写入；在相同意图下重新规划只重复一次日历读取和枚举展开。正式同步已提交 unit 的保留、取消和重复执行边界沿用第 5 节，不宣称本次补全了尚未验收的通用长任务恢复能力。
+
+验收固定为 2026-10-21—25：最多 5 行日历、3 个开市日和 27 个 unit；每次只读 SQL 超时 15 秒。中断后重做只重复上述范围；最终验收同样不扩大范围。内存只新增最多 27 个现有 PlanUnitSnapshot，不读取涨跌停全量明细，不发下载请求。正式补数的请求量仍按日期 × 类型 × 交易所及现有分页计算，单页 2500 行、串行拉取与 unit 提交配置均不改变；本次不开展大范围同步或扩展长任务能力。
+
+### 9.5 硬口径、测试与验收
+
+下表为开发前的验收约束；实现及验证完成后在原表更新结果，不能仅以 TaskRun 成功作为通过依据。
+
+| 硬口径 | 实现位置 | 正向与反向验证 | 状态 |
+| --- | --- | --- | --- |
+| 日历取现有配置；源交易所不得参与日历名称选择 | `unit_planner.py::_resolve_anchors` | 使用真实 ORM 和隔离日历，默认及显式 SH/SZ/BJ 集合都得到 21、22、23 日；SZ/U 子集仍读取 SSE 日历 | 已实现、隔离及真实日历验证通过 |
+| 源参数及默认全选不变，不漏日期和枚举 | 现有 validator、enum 展开、`_limit_list_params` | 独立字面日期/类型/交易所组合核对完整 27 个请求；子集 3 个请求，不能扩成全选 | 已验证 |
+| 单日、休市及其他日期模型保持现行行为 | 现有 point/natural-day/week 路径 | 单日 9 个；24—25 日休市范围 0 个；普通 A 股日线、指数周线、自然日与无时间回归 | 本次用例及现有 resolver/API 回归通过；既有月末 helper 测试失败另记下文 |
+| 回归必须能抓住原始缺陷 | 新增 `tests/test_limit_list_range_planning.py` | 改实现前先运行新测试，确认含交易日区间因 0 unit 失败；修复后相同夹具和预期通过 | 修复前 5 失败、5 通过；修复后新增 10 项均通过 |
+| 与入口消费者和真实日历一致 | resolver、现有 Ops API/runtime 测试 | 现有 resolver/planner/API/runtime 回归；通过规定脚本读取最多 5 行生产日历，本地生成计划核对 27 个请求，不提交任务 | 已验证本地规划；未部署、未执行生产下载 |
+
+隔离测试日历依据：23:03:19（北京时间）通过 `bash scripts/psql-remote.sh`、READ ONLY 事务及 15 秒 SQL 超时，读取生产 `core_serving.trade_calendar` 的 `exchange/trade_date/is_open`，日期仅 21—25 日、最多 5 行；实际为 21—23 日开市，24—25 日休市。使用真实 `TradeCalendar` schema 和独立字面预期；不会把 DAO 固定成不论交易所参数都返回同一组日期的替身，否则原始错误也会通过。将这 5 行装入本地隔离内存库、调用当前 resolver，验证默认 27、SZ/U 子集 3、单日 9、纯休市范围 0 个请求；没有调用下载或 writer，也没有创建 TaskRun。
+
+### 9.6 本轮验证记录与交付边界
+
+- 新增回归 [test_limit_list_range_planning.py](/Users/congming/github/goldenshare/tests/test_limit_list_range_planning.py) 的 10 项用例覆盖完整组合、子集、单日、休市、非法源交易所、既有日历配置、普通日线和指数周线。修复前 5 项因空计划失败，修复后 10 项通过；保留同一组独立预期。
+- 新增回归、现有 unit planner、resolver、registry 合跑：198 通过，1 项既有失败。失败为 `test_planner_compresses_trade_dates_to_month_end` 调用已移除的 `_compress_to_month_end`；核对修改前 HEAD，方法已经不存在而测试仍在引用。本次不恢复旧 helper，也不修改该测试以掩盖失败。
+- `tests/web/test_ops_manual_actions_api.py`、`tests/web/test_ops_runtime.py`：112 通过，均为隔离测试。
+- 子系统依赖、dataset runtime registry、codebook 三项架构测试文件：11 通过。`ingestion-lint-definitions`、文档完整性检查和 `git diff --check` 通过。
+- 临时真实验收证据为 `/private/tmp/limit_list_range_calendar_acceptance.json` 和 `/private/tmp/limit_list_range_real_acceptance_20261025.json`，后者记录日历、27 个源请求参数及本轮源码 SHA-256。它们是本轮本地审计文件，不是生产数据或长期仓库事实源。
+- 本轮只修改本主案、Foundation 一处日期查询及新增回归文件；未变更 contract、页面、配置值或依赖方向，未进行生产写入、历史状态修补、部署或补数。CodeGraph 影响面已记录于 9.2；本次规划修复无待确认的实现边界，生产应用和正式下载验收尚未执行。
+
+单元/隔离集成不替代正式下载验收；本次仅声称修复规划路径，生产发版与补数另行授权。
