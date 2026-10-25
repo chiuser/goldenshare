@@ -1,7 +1,90 @@
 {
-  "status": "not_started",
-  "tests_run": 0,
-  "sql_executed": 0,
-  "real_controls_created": 0,
-  "reason": "LLD21.1 MACD SQL reads ti_price_new; actual PriceBatch only exposes ti_price_window, while LLD07.3 forbids reading undeclared source tables"
+  "status": "minimal_fixture_fix_and_finite_resume_passed",
+  "D3_complete": false,
+  "pending_D3": "final requirement-by-requirement stage closeout audit; no additional calculation tests requested",
+  "pytest": {
+    "current_passed": 9,
+    "current_failed": 0,
+    "previous_passed_not_rerun": 11,
+    "combined_distinct_passed": 20,
+    "remaining_from_original_list": 0,
+    "historical_failed_attempts_preserved": 1,
+    "automatic_retries": 0
+  },
+  "consumed": {
+    "input_rows": 21127,
+    "sql_logical_rows": 1324657,
+    "new_real_controls": 4
+  },
+  "remaining": {
+    "input_rows": 78873,
+    "sql_logical_rows": 3675343,
+    "new_real_controls": 0
+  },
+  "resume_delta": {
+    "input_rows": 29,
+    "sql_logical_rows": 235,
+    "real_controls": 0,
+    "fixture_rows": 2
+  },
+  "program_seconds": 1.3130117920227349,
+  "combined_program_seconds": 15.425854417029768,
+  "weekly": {
+    "directory": "week_end=2026-10-23",
+    "file_trade_date": "20261023",
+    "file_end_dates": [
+      "20261020",
+      "20261021"
+    ],
+    "output_times": [
+      "2026-10-19"
+    ],
+    "as_of": [
+      "2026-10-20",
+      "2026-10-21"
+    ],
+    "qfq_close": [
+      5.0,
+      6.0
+    ],
+    "source_rows_each": 1,
+    "converted_batches_each": 0,
+    "cleanup": "passed"
+  },
+  "previous_failure": {
+    "node": "tests/foundation/technical_indicators/test_empty_results.py::test_current_week_updates_keep_one_bar_and_actual_cutoff",
+    "expected": "one current week at 2026-10-19, source_as_of=2026-10-20",
+    "actual": "empty success; source_rows=0; no weekly indicator input",
+    "cause": "test fixture directory trade_date=20261023 conflicts with LLD05 and producer paths.py:1438 week_end=2026-10-23; source date-part regex excludes it",
+    "classification": "test fixture and pre-execution audit omission; no demonstrated weekly algorithm defect",
+    "evidence": [
+      "test_empty_results.py:54",
+      "technical_indicator_price_source.py:29,103-108",
+      "paths.py:1438-1439",
+      "LLD05 source table"
+    ],
+    "cleanup": "failed-week service returned after normal cleanup; recorded live_tables/live_arrow both empty; all 4 genuine-control requests already passed assert_closed"
+  },
+  "baseline_file": "resume_baseline_20261026.json",
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance",
+  "checks": {
+    "protected_files_unchanged": 63,
+    "independent_reference_unchanged": true,
+    "old_records_preserved": true,
+    "long_reference_generated_or_loaded": false,
+    "new_real_controls": 0,
+    "recorded_new_call_live_tables_and_arrow": "all empty",
+    "standalone_fetch_cleanup_assertion": "passed",
+    "changed_test_AST": "passed",
+    "original_HTML_links_tables_design_snippets": "passed",
+    "scoped_diff_whitespace": "passed",
+    "repository_docs_integrity": "passed"
+  },
+  "scope_safety": {
+    "formal_lake_read": false,
+    "formal_database_or_DG_started": false,
+    "dependency_install_or_upgrade": false,
+    "git_commit_or_push": false
+  },
+  "next": "D3 final requirement-by-requirement closeout audit and scoped commit preparation; D4/API/page/DG migration remains outside this acceptance"
 }

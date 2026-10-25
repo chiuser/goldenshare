@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/Users/congming/github/goldenshare/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "tests/foundation/technical_indicators/test_contracts.py::test_result_contract_matches_literal_top_level_and_copies_mutable_field_inputs",
+    "tests/foundation/technical_indicators/test_contracts.py::test_d1_has_no_fake_calculation_or_source_import_side_effects",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_kernel_has_no_reverse_or_dg_dependencies",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_d1_import_requires_no_database_or_arrow",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_d3_fixed_sql_resources_and_output_dependency_boundary",
+    "tests/foundation/technical_indicators/test_history_and_paging.py::test_complete_service_initial_and_before",
+    "tests/foundation/technical_indicators/test_indicator_literals.py::test_literal_formulas_initialization_and_period_edges",
+    "tests/foundation/technical_indicators/test_smoothing_boundaries.py::test_three_video_macd_parameter_sets_share_input_not_state",
+    "tests/foundation/technical_indicators/test_batch_lifecycle.py::test_daily_21_files_deliver_one_indicator_batch_and_nulls",
+    "tests/foundation/technical_indicators/test_empty_results.py::test_complete_service_empty_before",
+    "tests/foundation/technical_indicators/test_empty_results.py::test_complete_service_empty_range_retains_read_history",
+    "tests/foundation/technical_indicators/test_empty_results.py::test_current_week_updates_keep_one_bar_and_actual_cutoff",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_missing_result_field_row_and_type_fail_whole_request",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_stop_and_source_read_failure_do_not_become_empty_success",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_actual_input_limit_and_cleanup_failure_remain_errors",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_strict_utf8_exact_limit_and_nonfinite_errors",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_result_fetch_continues_after_short_batch_and_preserves_fetch_error",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_borrowed_tables_and_fixed_template_boundaries"
+  ],
+  "timeout_seconds": 30,
+  "automatic_retries": 0,
+  "returncode": 1,
+  "timed_out": false,
+  "elapsed_seconds": 14.112842625007033
+}

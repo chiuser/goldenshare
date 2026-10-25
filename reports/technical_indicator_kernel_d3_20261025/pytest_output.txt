@@ -1,0 +1,45 @@
+...........F
+=================================== FAILURES ===================================
+___________ test_current_week_updates_keep_one_bar_and_actual_cutoff ___________
+
+d3_data = <d3_support.D3State object at 0x103b87cb0>
+
+    def test_current_week_updates_keep_one_bar_and_actual_cutoff(d3_data):
+        import duckdb
+
+        state = d3_data
+        with state.case("current_week_updates"):
+            root = state.root / "weekly"
+            path = root / "silver/quote/stock_weekly/trade_date=20261023/part-000.parquet"
+            path.parent.mkdir(parents=True)
+            config = replace(state.config, goldenshare_lake_root=str(root))
+            con = duckdb.connect(":memory:", config={"threads":1,"max_temp_directory_size":"0B"})
+            try:
+                for as_of, close in (("20261020",5.0),("20261021",6.0)):
+                    replacement = root / "current_week_replacement.parquet"
+                    state.query(con, "fixture_current_week", """COPY (SELECT '600000.SH'::VARCHAR AS ts_code,
+                        '20261023'::VARCHAR AS trade_date,$as_of::VARCHAR AS end_date,
+                        10::DECIMAL(18,4) AS open,14::DECIMAL(18,4) AS high,
+                        8::DECIMAL(18,4) AS low,12::DECIMAL(18,4) AS close,
+                        5::DECIMAL(18,4) AS open_qfq,7::DECIMAL(18,4) AS high_qfq,
+                        4::DECIMAL(18,4) AS low_qfq,$close::DECIMAL(18,4) AS close_qfq,
+                        20::DECIMAL(18,4) AS open_hfq,28::DECIMAL(18,4) AS high_hfq,
+                        16::DECIMAL(18,4) AS low_hfq,24::DECIMAL(18,4) AS close_hfq,
+                        12::DECIMAL(20,4) AS vol,34::DECIMAL(20,4) AS amount)
+                        TO $target (FORMAT PARQUET)""", rows=1,
+                        bindings={"as_of":as_of,"close":close,"target":str(replacement)})
+                    replacement.replace(path)
+                    state.fixture_rows += 1
+                    cutoff = date(2026,10,20) if as_of=="20261020" else date(2026,10,21)
+                    result, service, source = state.run(request(period="week", end=cutoff), config=config)
+>                   assert result.times == (date(2026,10,19),)
+E                   assert () == (datetime.date(2026, 10, 19),)
+E
+E                     Right contains one more item: datetime.date(2026, 10, 19)
+E                     Use -v to get more diff
+
+tests/foundation/technical_indicators/test_empty_results.py:76: AssertionError
+=========================== short test summary info ============================
+FAILED tests/foundation/technical_indicators/test_empty_results.py::test_current_week_updates_keep_one_bar_and_actual_cutoff
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 11 passed in 13.47s

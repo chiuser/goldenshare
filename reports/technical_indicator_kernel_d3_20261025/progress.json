@@ -1,26 +1,5002 @@
 {
-  "status": "documentation_revision_complete_development_not_resumed",
-  "stage": "D3 step5 before indicator SQL implementation",
-  "evidence": [
-    "src/foundation/technical_indicators/sources/session.py:160-162",
-    "src/foundation/technical_indicators/sources/contracts.py:73-81",
-    "LLD07.3",
-    "LLD21.1"
+  "status": "minimal_fixture_fix_and_finite_resume_passed",
+  "executed_cases": [
+    {
+      "case": "fixture_and_independent_reference",
+      "status": "passed",
+      "elapsed_seconds": 12.170198457781225,
+      "input_rows": 0,
+      "sql_logical_rows": 88257,
+      "real_controls": 0
+    },
+    {
+      "case": "initial_and_before",
+      "status": "passed",
+      "elapsed_seconds": 0.5926367500796914,
+      "input_rows": 19002,
+      "sql_logical_rows": 1169637,
+      "real_controls": 2
+    },
+    {
+      "case": "literal_formulas_and_period_edges",
+      "status": "passed",
+      "elapsed_seconds": 0.06332579208537936,
+      "input_rows": 3,
+      "sql_logical_rows": 269,
+      "real_controls": 0
+    },
+    {
+      "case": "three_video_macd_parameter_sets",
+      "status": "passed",
+      "elapsed_seconds": 0.08105608308687806,
+      "input_rows": 2051,
+      "sql_logical_rows": 65704,
+      "real_controls": 0
+    },
+    {
+      "case": "daily_short",
+      "status": "passed",
+      "elapsed_seconds": 0.03609254211187363,
+      "input_rows": 21,
+      "sql_logical_rows": 305,
+      "real_controls": 0
+    },
+    {
+      "case": "empty_before",
+      "status": "passed",
+      "elapsed_seconds": 0.012009874917566776,
+      "input_rows": 0,
+      "sql_logical_rows": 4,
+      "real_controls": 1
+    },
+    {
+      "case": "empty_range",
+      "status": "passed",
+      "elapsed_seconds": 0.034575958736240864,
+      "input_rows": 21,
+      "sql_logical_rows": 245,
+      "real_controls": 1
+    },
+    {
+      "case": "current_week_updates",
+      "status": "failed",
+      "error_type": "AssertionError",
+      "error": "assert () == (datetime.date(2026, 10, 19),)\n  \n  Right contains one more item: datetime.date(2026, 10, 19)\n  Use -v to get more diff",
+      "elapsed_seconds": 0.016604666132479906,
+      "input_rows": 0,
+      "sql_logical_rows": 1,
+      "real_controls": 0
+    },
+    {
+      "case": "current_week_updates",
+      "status": "passed",
+      "elapsed_seconds": 0.6343884579837322,
+      "input_rows": 2,
+      "sql_logical_rows": 42,
+      "real_controls": 0
+    },
+    {
+      "case": "output_contract_missing_field",
+      "status": "passed",
+      "elapsed_seconds": 0.015952541958540678,
+      "input_rows": 3,
+      "sql_logical_rows": 17,
+      "real_controls": 0
+    },
+    {
+      "case": "output_contract_missing_row",
+      "status": "passed",
+      "elapsed_seconds": 0.013976332731544971,
+      "input_rows": 3,
+      "sql_logical_rows": 20,
+      "real_controls": 0
+    },
+    {
+      "case": "output_contract_wrong_type",
+      "status": "passed",
+      "elapsed_seconds": 0.014159333892166615,
+      "input_rows": 3,
+      "sql_logical_rows": 17,
+      "real_controls": 0
+    },
+    {
+      "case": "stop_and_read_failure",
+      "status": "passed",
+      "elapsed_seconds": 0.020901374984532595,
+      "input_rows": 6,
+      "sql_logical_rows": 12,
+      "real_controls": 0
+    },
+    {
+      "case": "input_limit_and_cleanup_failure",
+      "status": "passed",
+      "elapsed_seconds": 0.022203916683793068,
+      "input_rows": 6,
+      "sql_logical_rows": 39,
+      "real_controls": 0
+    },
+    {
+      "case": "strict_utf8_boundaries",
+      "status": "passed",
+      "elapsed_seconds": 0.0008125831373035908,
+      "input_rows": 0,
+      "sql_logical_rows": 0,
+      "real_controls": 0
+    },
+    {
+      "case": "complete_result_fetch",
+      "status": "passed",
+      "elapsed_seconds": 0.007101084105670452,
+      "input_rows": 3,
+      "sql_logical_rows": 9,
+      "real_controls": 0
+    },
+    {
+      "case": "borrowed_tables_and_fixed_templates",
+      "status": "passed",
+      "elapsed_seconds": 0.029867291916161776,
+      "input_rows": 3,
+      "sql_logical_rows": 79,
+      "real_controls": 0
+    }
   ],
-  "executed_cases": [],
-  "input_rows": 0,
-  "sql_logical_rows": 0,
-  "real_controls": 0,
+  "input_rows": 21127,
+  "sql_logical_rows": 1324657,
+  "real_controls": 4,
+  "fixture_rows": 10049,
+  "elapsed_seconds": 14.900795625057071,
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance",
+  "queries": [
+    {
+      "name": "fixture_numbered_prices",
+      "logical_input_rows": 10001,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.012855708133429289
+    },
+    {
+      "name": "fixture_minute_parquet",
+      "logical_input_rows": 10001,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.48870904231444
+    },
+    {
+      "name": "fixture_times",
+      "logical_input_rows": 10001,
+      "status": "passed",
+      "output_rows": 10001,
+      "elapsed_seconds": 0.0016192500479519367
+    },
+    {
+      "name": "reference_macd_default",
+      "logical_input_rows": 20002,
+      "status": "passed",
+      "output_rows": 10001,
+      "elapsed_seconds": 5.32594154169783
+    },
+    {
+      "name": "reference_kdj_default",
+      "logical_input_rows": 20002,
+      "status": "passed",
+      "output_rows": 10001,
+      "elapsed_seconds": 4.514162709005177
+    },
+    {
+      "name": "reference_windows",
+      "logical_input_rows": 10001,
+      "status": "passed",
+      "output_rows": 10001,
+      "elapsed_seconds": 0.016335458029061556
+    },
+    {
+      "name": "reference_macd9",
+      "logical_input_rows": 4102,
+      "status": "passed",
+      "output_rows": 2051,
+      "elapsed_seconds": 0.7780684591270983
+    },
+    {
+      "name": "reference_macd10",
+      "logical_input_rows": 4102,
+      "status": "passed",
+      "output_rows": 2051,
+      "elapsed_seconds": 0.8272562911733985
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0006381249986588955
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003004171885550022
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003466252237558365
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002460000105202198
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00034745829179883003
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002461671829223633
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003237496130168438
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002470831386744976
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003139167092740536
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00022249994799494743
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002928338944911957
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002405419945716858
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00030029192566871643
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00022391695529222488
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002899998798966408
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00023141596466302872
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002937079407274723
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00023020897060632706
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002966253086924553
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002221246249973774
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003026253543794155
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00021687475964426994
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00029116682708263397
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00022862525656819344
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003027082420885563
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00023783277720212936
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00033295759931206703
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002305000089108944
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00030800001695752144
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002266671508550644
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0004798341542482376
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00031833304092288017
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003344169817864895
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00024458300322294235
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003303750418126583
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00022958312183618546
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003186250105500221
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00023749982938170433
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003170832060277462
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00022849999368190765
+    },
+    {
+      "name": "fixture_daily",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0003009168431162834
+    },
+    {
+      "name": "fixture_factor",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0002348329871892929
+    },
+    {
+      "name": "fixture_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.000544500071555376
+    },
+    {
+      "name": "fixture_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00034620799124240875
+    },
+    {
+      "name": "fixture_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.00031025009229779243
+    },
+    {
+      "name": "fixture_current_week",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0010040830820798874
+    },
+    {
+      "name": "fixture_current_week",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.43004137510433793
+    },
+    {
+      "name": "fixture_current_week",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.000729207880795002
+    },
+    {
+      "name": "executor_d3_read_fixture",
+      "logical_input_rows": 3,
+      "output_rows": 3,
+      "status": "passed",
+      "elapsed_seconds": 0.00021362490952014923
+    },
+    {
+      "name": "executor_select_result",
+      "logical_input_rows": 3,
+      "output_rows": 3,
+      "status": "passed",
+      "elapsed_seconds": 0.00021062511950731277
+    },
+    {
+      "name": "executor_select_result",
+      "logical_input_rows": 3,
+      "output_rows": 1,
+      "status": "failed",
+      "elapsed_seconds": 0.00015691574662923813
+    }
+  ],
+  "calls": [
+    {
+      "real_control": true,
+      "period": "1m",
+      "status": "passed",
+      "source_rows": 10001,
+      "sql_logical_rows": 608757,
+      "batches": [
+        8192,
+        1809
+      ],
+      "source_open_calls": 1,
+      "template_reads": [
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_window.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_segment.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/rolling_mean.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql"
+      ],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "initialize_state",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1023,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1023,
+          "output_rows": 1023,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1024,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 620,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 620,
+          "output_rows": 620,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 621,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 16384,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 9,
+          "output_rows": 9,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 90112,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 8192,
+          "output_rows": 1000,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1000,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 8192,
+          "output_rows": 249,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 249,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 1809,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 1809,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 2058,
+          "output_rows": 2058,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2060,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2060,
+          "output_rows": 785,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 785,
+          "output_rows": 785,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 786,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 1811,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 1811,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 1811,
+          "output_rows": 547,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 547,
+          "output_rows": 547,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 548,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 2058,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 3867,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 9,
+          "output_rows": 9,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 2058,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 20148,
+          "output_rows": 1809,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 2809,
+          "output_rows": 1000,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1000,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 2058,
+          "output_rows": 249,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 249,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 1000,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 1000,
+          "output_rows": 1000,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": true,
+      "period": "1m",
+      "status": "passed",
+      "source_rows": 9001,
+      "sql_logical_rows": 560880,
+      "batches": [
+        8192,
+        809
+      ],
+      "source_open_calls": 1,
+      "template_reads": [
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_window.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_segment.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/rolling_mean.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql"
+      ],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "initialize_state",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 1023,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1023,
+          "output_rows": 1023,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1024,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 8194,
+          "output_rows": 620,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 620,
+          "output_rows": 620,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 621,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 8192,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 16384,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 9,
+          "output_rows": 9,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 8192,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 90112,
+          "output_rows": 8192,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 8192,
+          "output_rows": 1000,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1000,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 8192,
+          "output_rows": 249,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 249,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 809,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 809,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 1058,
+          "output_rows": 1058,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 1060,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 809,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 810,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 811,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 811,
+          "output_rows": 178,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 178,
+          "output_rows": 178,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 179,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 1058,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 1867,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 809,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 9,
+          "output_rows": 9,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1058,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 9148,
+          "output_rows": 809,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 1809,
+          "output_rows": 1000,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1000,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 1058,
+          "output_rows": 249,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 249,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 1000,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 1000,
+          "output_rows": 1000,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 3,
+      "sql_logical_rows": 269,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "initialize_state",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "initialize_state",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 5,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 5,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 5,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 4,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "kdj_segment",
+          "logical_input_rows": 5,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 4,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 36,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "1m",
+      "status": "passed",
+      "source_rows": 2051,
+      "sql_logical_rows": 65704,
+      "batches": [
+        2051
+      ],
+      "source_open_calls": 1,
+      "template_reads": [
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+        "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql"
+      ],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 2051,
+          "output_rows": 2051,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 2051,
+          "output_rows": 2051,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 2051,
+          "output_rows": 2051,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 2053,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 8204,
+          "output_rows": 2051,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 2051,
+          "output_rows": 2051,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 2051,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 2051,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 2051,
+          "output_rows": 2051,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 21,
+      "sql_logical_rows": 305,
+      "batches": [
+        21
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "prepare_basis",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "prepare_factors",
+          "logical_input_rows": 0,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "adjust_price",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 42,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 21,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 21,
+          "output_rows": 19,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 19,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": true,
+      "period": "1m",
+      "status": "passed",
+      "source_rows": 0,
+      "sql_logical_rows": 4,
+      "batches": [],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": true,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 21,
+      "sql_logical_rows": 245,
+      "batches": [
+        21
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "prepare_basis",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "prepare_factors",
+          "logical_input_rows": 0,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "adjust_price",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 21,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 23,
+          "output_rows": 20,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 20,
+          "output_rows": 20,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 21,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 42,
+          "output_rows": 21,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 21,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "week",
+      "status": "passed",
+      "source_rows": 0,
+      "sql_logical_rows": 0,
+      "batches": [],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "week",
+      "status": "passed",
+      "source_rows": 1,
+      "sql_logical_rows": 20,
+      "batches": [
+        1
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "week",
+      "status": "passed",
+      "source_rows": 1,
+      "sql_logical_rows": 20,
+      "batches": [
+        1
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "OutputContractError",
+      "error": "The indicator table does not match its declared columns",
+      "source_rows": 3,
+      "sql_logical_rows": 17,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "d3_test_corrupt_result",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "OutputContractError",
+      "error": "The indicator did not return exactly the new price rows",
+      "source_rows": 3,
+      "sql_logical_rows": 20,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "d3_test_corrupt_result",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "OutputContractError",
+      "error": "The indicator table does not match its declared columns",
+      "source_rows": 3,
+      "sql_logical_rows": 17,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "d3_test_corrupt_result",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "CalculationCancelledError",
+      "error": "D3 deliberately injected stop",
+      "source_rows": 3,
+      "sql_logical_rows": 12,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "SourceReadError",
+      "error": "D3 deliberate source-read failure",
+      "source_rows": 3,
+      "sql_logical_rows": 0,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "ResourceLimitError",
+      "error": "Source price rows exceed max_input_rows",
+      "source_rows": 3,
+      "sql_logical_rows": 0,
+      "batches": [],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "ResourceCleanupError",
+      "error": "Technical indicator resource cleanup failed",
+      "source_rows": 3,
+      "sql_logical_rows": 39,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 3,
+      "sql_logical_rows": 79,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "create_parameters",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_smoothing_limits",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "create_state",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "create_output",
+          "logical_input_rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_first_output",
+          "logical_input_rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "macd_segment",
+          "logical_input_rows": 5,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "append_segment",
+          "logical_input_rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "step_name": "update_state",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "read_segment_bounds",
+          "logical_input_rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rolling_mean",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "bollinger_bands",
+          "logical_input_rows": 6,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 9,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "retain_input_history",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 1,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "CalculationExecutionError",
+      "error": "Declared SQL resource is unavailable: retain_tail.sql",
+      "source_rows": 0,
+      "sql_logical_rows": 0,
+      "batches": [],
+      "source_open_calls": 0,
+      "template_reads": [],
+      "steps": [],
+      "live_tables": [],
+      "live_arrow": []
+    }
+  ],
+  "template_reads": [
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_window.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_segment.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/rolling_mean.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_window.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/kdj_segment.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/rolling_mean.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/merge_batch.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/retain_tail.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/output/sql/select_result.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+    "/Users/congming/github/goldenshare/src/foundation/technical_indicators/calculation/sql/macd_segment.sql"
+  ],
   "remaining": {
-    "input_rows": 100000,
-    "sql_logical_rows": 5000000,
-    "real_controls": 4
+    "input_rows": 78873,
+    "sql_logical_rows": 3675343,
+    "new_real_controls": 0
   },
-  "changed_code": [
-    "executor.py:read_control_row (not tested)"
-  ],
-  "proposal": "Use PriceBatch.table_name only; select first new seq for first seed, select state.last_seq < seq <= segment endpoint for recursive segments, and explicitly update LLD inputs/bindings/row accounting before continuing. Do not change D2 or expose another input table.",
-  "previous_issue": "LLD21.1 MACD SQL reads ti_price_new; actual PriceBatch only exposes ti_price_window, while LLD07.3 forbids reading undeclared source tables",
-  "decision": "Administrator approved delivered-table revision; original scheme and LLD04/07/08/19.21/21/22 synchronized. Documentation only.",
-  "documentation_checks": "passed; no runtime acceptance"
+  "resume_delta": {
+    "input_rows": 29,
+    "sql_logical_rows": 235,
+    "real_controls": 0,
+    "fixture_rows": 2
+  },
+  "combined_program_seconds": 15.425854417029768,
+  "baseline_file": "resume_baseline_20261026.json"
 }

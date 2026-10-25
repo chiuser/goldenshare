@@ -156,7 +156,7 @@ def test_parameter_rules_allow_real_variations_without_period_or_multiplier_cap(
 
 def test_result_contract_matches_literal_top_level_and_copies_mutable_field_inputs():
     assert tuple(field.name for field in fields(CalculationResult)) == (
-        "kernel_version", "series", "requested", "source", "price_adjustment", "times", "source_as_of", "calculations", "range", "statistics",
+        "kernel_version", "series", "requested", "source", "price_adjustment", "times", "source_as_of", "calculations", "range", "statistics", "msg",
     )
     source_values = [None, 11.0]
     values = CalculationValues("ma", "ma", "1.0.0", (("period", 2),), (("value", source_values),))
@@ -173,10 +173,10 @@ def test_d1_has_no_fake_calculation_or_source_import_side_effects():
     assert not hasattr(package, "calculate")
     assert "OutputField" in vars(calculation)
     assert "OutputField" not in vars(importlib.import_module(package.__name__ + ".contracts"))
-    # D2 adds real ownership/control methods; a placeholder business calculate
-    # must still not be published before D3 implements the complete operation.
+    # D3 publishes the complete service operation, while keeping the package
+    # free of a global calculate function and import-time database resources.
     from src.foundation.technical_indicators.service import TechnicalIndicatorService
-    assert not hasattr(TechnicalIndicatorService, "calculate")
+    assert callable(TechnicalIndicatorService.calculate)
 
 
 def test_dependency_copies_both_parameter_container_levels():

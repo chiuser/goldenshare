@@ -1,11 +1,12 @@
-"""D2 request resource ownership; the complete calculate entry belongs to D3."""
+"""Synchronous indicator service; one request owns one SQL connection."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from time import monotonic
 
 from .configuration.settings import KernelConfig
-from .errors import ResourceCleanupError
+from .errors import ResourceCleanupError, SourceContractError, SourceUnsupportedError
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
 
@@ -51,6 +52,102 @@ class TechnicalIndicatorService:
         self.registry = registry
         self.config = config
         self.control = control
+
+    @staticmethod
+    def _describe_output_instances(plan):
+        """Copy public result metadata without exposing the execution plan."""
+        from .output.contracts import OutputFieldDescription, OutputInstanceDescription
+
+        return tuple(
+            OutputInstanceDescription(
+                instance_id=identity,
+                calculation_id=plan.nodes[index].definition.calculation_id,
+                algorithm_version=plan.nodes[index].definition.algorithm_version,
+                parameters=plan.nodes[index].parameters,
+                fields=tuple(OutputFieldDescription(
+                    name=field.name, sql_type=field.sql_type, nullable=field.nullable,
+                    initialization_rule=field.initialization_rule,
+                ) for field in plan.nodes[index].definition.output_fields),
+            ) for identity, index in plan.instances
+        )
+
+    def calculate(self, request):
+        """Compute the requested region and return a detached immutable result."""
+        from .calculation.engine import CalculationEngine
+        from .calculation.history import combine_history_and_fields
+        from .contracts import CalculationStatistics, normalize_request_and_validate_all_instances
+        from .output.collector import OutputCollector
+        from .output.encoding import measure_result_utf8
+        from .sources.contracts import ReadRequirement, SourceDescription
+        from .sources.read_context import SourceReadContext
+        from .sources.session import PriceInputSession
+
+        control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
+        normalized = normalize_request_and_validate_all_instances(request, self.config)
+        plan = self.registry.expand_dependencies(normalized)
+        instances = self._describe_output_instances(plan)
+        history = combine_history_and_fields(plan)
+        requirement = ReadRequirement(
+            normalized, history, self.config.batch_rows,
+            history_start=None, processing_end=normalized.end,
+        )
+        read_context = SourceReadContext(self.config)
+        control.check_active()
+        description = self.source.describe(
+            normalized, requirement, control=control, read_context=read_context,
+        )
+        if not isinstance(description, SourceDescription):
+            raise SourceContractError("Source must return the declared source description")
+        if (description.input_adjustment, normalized.adjustment) not in description.supported_adjustment_paths:
+            raise SourceUnsupportedError("Source does not support the requested adjustment")
+        connection = executor = inputs = engine = output = None
+        result = primary_error = None
+        try:
+            control.check_active()
+            connection, executor = self._open_execution(control)
+            inputs = PriceInputSession(
+                executor, self.source, description, requirement, read_context=read_context,
+            )
+            engine = CalculationEngine(executor, plan)
+            output = OutputCollector(executor=executor, request=normalized, instances=instances)
+            inputs.prepare()
+            engine.prepare()
+            while True:
+                control.check_active()
+                batch = inputs.next_batch()
+                if batch is None:
+                    break
+                engine.consume(batch)
+                output.append_new_rows(engine.output_for(batch))
+                inputs.retain_required_history()
+                engine.release_batch_tables()
+                inputs.finish_batch()
+                control.check_active()
+            engine.finish()
+            statistics = CalculationStatistics(
+                source_rows=read_context.source_rows,
+                sql_processed_rows=executor.sql_processed_rows,
+                source_files=read_context.source_files,
+                source_file_bytes=read_context.source_file_bytes,
+                source_data_passes=1,
+                price_conversion_batches=inputs.conversion_batches,
+                elapsed_ms=(control.clock() - control.arrived_at) * 1000,
+            )
+            result = output.build_result(
+                inputs.resolved_description(), statistics,
+                read_start=inputs.read_start, read_end=inputs.read_end,
+            )
+            measure_result_utf8(result, control=control, max_bytes=self.config.max_output_bytes)
+            control.check_active()
+        except BaseException as exc:
+            primary_error = exc
+        finally:
+            cleanup_errors = self._close_execution(
+                control, connection, engine=engine, inputs=inputs, output=output,
+            )
+        raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
+        control.check_active()
+        return result
 
     def _open_execution(self, control: ExecutionControl):
         connection = None

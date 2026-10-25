@@ -6,7 +6,10 @@ import re
 import threading
 
 from .calculation.calculation import ExecutionStats, SqlStep
-from .errors import CalculationExecutionError, ResourceLimitError, TechnicalIndicatorError
+from .errors import (
+    CalculationExecutionError, OutputContractError, OutputReadError,
+    ResourceLimitError, TechnicalIndicatorError,
+)
 from .execution_control import ExecutionControl
 
 
@@ -153,6 +156,133 @@ class DuckDBExecutor:
             self._raise_execution_error(exc)
         finally:
             self._executing = False
+
+    def read_control_row(self, step: SqlStep, *, expected_columns):
+        """Read one fixed smoothing-control row, never indicator values."""
+        self._assert_owner()
+        if step.name not in ("read_smoothing_limits", "read_segment_bounds"):
+            raise CalculationExecutionError("Unknown calculation control query")
+        if step.output_tables or type(step.processed_rows) is not int or step.processed_rows < 0:
+            raise CalculationExecutionError("Control queries must be read-only and counted")
+        for name in step.input_tables:
+            self._validate_name(name)
+        self.control.check_active()
+        started_at = self.control.clock()
+        failed, row_count, phase = True, 0, "control_query_failed"
+        self._executing = True
+        try:
+            cursor = self.connection.execute(step.sql, step.bindings)
+            actual = tuple((column[0], str(column[1])) for column in (cursor.description or ()))
+            if actual != tuple(expected_columns):
+                error = CalculationExecutionError("Control query columns do not match its fixed contract")
+                error.reason, error.step_name = "control_columns", step.name
+                raise error
+            phase = "control_fetch_failed"
+            self.control.check_active()
+            row = cursor.fetchone()
+            self.control.check_active()
+            row_count = int(row is not None)
+            extra = cursor.fetchone()
+            self.control.check_active()
+            row_count += int(extra is not None)
+            if row is None or extra is not None:
+                error = CalculationExecutionError("Control query must return exactly one row")
+                error.reason, error.step_name = "control_row_count", step.name
+                raise error
+            failed = False
+            return tuple(row)
+        except Exception as exc:
+            self.control.check_active()
+            if isinstance(exc, TechnicalIndicatorError):
+                raise
+            from duckdb import OutOfMemoryException
+            if isinstance(exc, OutOfMemoryException):
+                raise ResourceLimitError("DuckDB query memory limit was exceeded") from exc
+            error = CalculationExecutionError("Calculation control query or fetch failed")
+            error.reason, error.step_name = phase, step.name
+            raise error from exc
+        finally:
+            self.control._note_sql_returned()
+            self._executing = False
+            self._statistics.append(ExecutionStats(
+                step.name, (self.control.clock() - started_at) * 1000,
+                step.processed_rows, row_count, failed,
+            ))
+
+    def read_result(self, step: SqlStep, *, expected_columns, max_rows: int):
+        """Fully fetch a fixed collector query without exposing a live cursor."""
+        self._assert_owner()
+        stages = {"inspect_columns": "inspect", "check_batch_rows": "append",
+                  "count_tail": "final_query", "select_result": "final_query"}
+        if step.name not in stages or step.output_tables:
+            raise ValueError("Only fixed read-only output steps are supported")
+        if type(max_rows) is not int or max_rows < 0:
+            raise ValueError("Output read limit must be a nonnegative integer")
+        if type(step.processed_rows) is not int or step.processed_rows < 0:
+            raise ValueError("Output steps require a nonnegative logical row count")
+        for name in step.input_tables:
+            self._validate_name(name)
+        self.control.check_active()
+        started_at = self.control.clock()
+        rows, actual_count, failed = [], 0, True
+        stage, reason = stages[step.name], "query_failed"
+        self._executing = True
+        try:
+            cursor = self.connection.execute(step.sql, step.bindings)
+            actual = tuple((column[0], str(column[1])) for column in (cursor.description or ()))
+            expected = tuple(expected_columns)
+            actual_names = tuple(name for name, _ in actual)
+            expected_names = tuple(name for name, _ in expected)
+            if actual != expected:
+                field_reason = ("missing_fields" if set(expected_names) - set(actual_names)
+                                else "unexpected_fields" if actual_names != expected_names
+                                else "type_mismatch")
+                raise OutputContractError(
+                    "Output query columns do not match their fixed contract",
+                    reason=field_reason, stage=stage,
+                    expected_fields=expected, actual_fields=actual,
+                )
+            reason = "fetch_failed"
+            if step.name == "select_result":
+                stage = "final_fetch"
+            while True:
+                self.control.check_active()
+                batch = cursor.fetchmany(8192)
+                self.control.check_active()
+                if not batch:
+                    break
+                actual_count += len(batch)
+                if actual_count > max_rows:
+                    raise OutputContractError(
+                        "Output fetch exceeded its declared result limit",
+                        reason="fetch_count_mismatch", stage=stage,
+                        expected_count=max_rows, actual_count=actual_count,
+                    )
+                if any(len(row) != len(expected) for row in batch):
+                    raise OutputContractError(
+                        "Output rows have incomplete fields", reason="missing_fields", stage=stage,
+                    )
+                rows.extend(tuple(row) for row in batch)
+            failed = False
+            return tuple(rows)
+        except Exception as exc:
+            self.control.check_active()
+            if isinstance(exc, TechnicalIndicatorError):
+                raise
+            from duckdb import OutOfMemoryException
+            if isinstance(exc, OutOfMemoryException):
+                raise ResourceLimitError("DuckDB query memory limit was exceeded") from exc
+            raise OutputReadError(
+                "Output query or result fetch failed", reason=reason,
+                stage=stage, step_name=step.name,
+            ) from exc
+        finally:
+            self.control._note_sql_returned()
+            self._executing = False
+            self._statistics.append(ExecutionStats(
+                step.name, (self.control.clock() - started_at) * 1000,
+                step.processed_rows, actual_count, failed,
+            ))
 
     def register_arrow(self, name: str, batch) -> None:
         self._assert_owner()

@@ -184,8 +184,6 @@ class OutputRange:
     actual_start: TimePosition | None
     actual_end: TimePosition | None
     count: int
-    has_more: bool
-    next_before: TimePosition | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,6 +209,7 @@ class CalculationResult:
     calculations: tuple[CalculationValues, ...]
     range: OutputRange
     statistics: CalculationStatistics
+    msg: str
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "times", tuple(self.times))

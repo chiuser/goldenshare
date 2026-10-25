@@ -1,0 +1,45 @@
+{
+  "status": "documentation_complete_runtime_pending",
+  "date": "2026-10-26",
+  "scope": "read_range_handoff and per_request_SQL_template_reading",
+  "checks": {
+    "read_range_required_keywords_and_service_call": true,
+    "source_and_page_ranges_separate": true,
+    "global_unknown_dates_not_inferred": true,
+    "timezone_order_and_date_semantics": true,
+    "existing_error_and_cleanup_rules": true,
+    "fixed_loader_signature": true,
+    "class_permissions_before_dictionary_hit": true,
+    "distinct_packages_and_readonly_session": true,
+    "all_five_consumers_migrate": true,
+    "partial_constructor_and_failed_cleanup_release": true,
+    "same_acceptance_scope_and_budget": true,
+    "component_summary_and_latest_status": true,
+    "runtime_sql_test_config_unchanged": true
+  },
+  "code_files_hash_checked": 51,
+  "validation": [
+    "repository documentation integrity passed",
+    "HTML table/local links/anchors passed",
+    "Python/JSON design snippets parsed",
+    "scoped whitespace passed",
+    "two independent read-only reviews passed after wording refinements"
+  ],
+  "execution": {
+    "sql": 0,
+    "pytest": 0,
+    "source_rows": 0,
+    "new_real_controls": 0
+  },
+  "remaining": {
+    "input_rows": 100000,
+    "sql_logical_rows": 5000000,
+    "real_controls": 4
+  },
+  "not_claimed": [
+    "runtime implementation of these two fixes",
+    "D3 numerical acceptance",
+    "complete D3 service",
+    "performance/production readiness"
+  ]
+}

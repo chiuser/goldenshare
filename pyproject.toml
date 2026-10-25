@@ -53,6 +53,8 @@ exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "fr
 [tool.setuptools.package-data]
 "src.foundation.dao.announcement_archive" = ["pg_migrations/*.sql", "pg_migrations/*.json"]
 "src.foundation.technical_indicators.sources" = ["sql/*.sql"]
+"src.foundation.technical_indicators.calculation" = ["sql/*.sql"]
+"src.foundation.technical_indicators.output" = ["sql/*.sql"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

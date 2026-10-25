@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/Users/congming/github/goldenshare/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "tests/foundation/technical_indicators/test_empty_results.py::test_current_week_updates_keep_one_bar_and_actual_cutoff",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_missing_result_field_row_and_type_fail_whole_request",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_stop_and_source_read_failure_do_not_become_empty_success",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_actual_input_limit_and_cleanup_failure_remain_errors",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_strict_utf8_exact_limit_and_nonfinite_errors",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_result_fetch_continues_after_short_batch_and_preserves_fetch_error",
+    "tests/foundation/technical_indicators/test_d3_output_failures.py::test_borrowed_tables_and_fixed_template_boundaries"
+  ],
+  "timeout_seconds": 30,
+  "automatic_retries": 0,
+  "status": "passed",
+  "elapsed_before_seconds": 14.112842625007033,
+  "returncode": 0,
+  "timed_out": false,
+  "elapsed_seconds": 1.3130117920227349,
+  "validation_elapsed_seconds": 15.425854417029768
+}

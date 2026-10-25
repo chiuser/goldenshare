@@ -48,3 +48,33 @@ def test_d2_runtime_sql_resources_are_explicitly_declared_for_packaging():
     assert "sql/*.sql" in patterns["src.foundation.technical_indicators.sources"]
     expected = {"stage_input.sql", "adjust_price.sql", "retain_history.sql"}
     assert {path.name for path in (PACKAGE / "sources/sql").glob("*.sql")} == expected
+
+
+def test_d3_fixed_sql_resources_and_output_dependency_boundary():
+    """Actual package files, not a claim that a wheel was built or installed."""
+    import tomllib
+
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    patterns = config["tool"]["setuptools"]["package-data"]
+    expected = {
+        "calculation": {"smoothing_parameters.sql","rolling_mean.sql","bollinger_bands.sql",
+                        "macd_first.sql","macd_segment.sql","kdj_window.sql","kdj_segment.sql"},
+        "output": {"merge_batch.sql","retain_tail.sql","select_result.sql"},
+    }
+    for part, names in expected.items():
+        assert "sql/*.sql" in patterns["src.foundation.technical_indicators."+part]
+        assert {path.name for path in (PACKAGE/part/"sql").glob("*.sql")} == names
+    # Output accepts a small immutable description, never the private plan.
+    for name in ("contracts.py","collector.py","result.py"):
+        tree = ast.parse((PACKAGE/"output"/name).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node,ast.ImportFrom):
+                assert not any(word in (node.module or "").split(".") for word in ("dependencies","registry","engine"))
+                assert all(alias.name!="CalculationPlan" for alias in node.names)
+    # Product calculation and output code must not contain the removed page-
+    # probing fields; ordinary indicator lookback is a separate requirement.
+    for part in (PACKAGE/"contracts.py",PACKAGE/"output"):
+        paths = part.rglob("*.py") if part.is_dir() else (part,)
+        for path in paths:
+            text = path.read_text()
+            assert "has_more" not in text and "next_before" not in text

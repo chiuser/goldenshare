@@ -1,0 +1,75 @@
+{
+  "status": "paused_not_accepted",
+  "date": "2026-10-26",
+  "changed_code": [
+    "src/foundation/technical_indicators/calculation/calculation.py",
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py",
+    "src/foundation/technical_indicators/calculation/indicators/bollinger_bands.py",
+    "src/foundation/technical_indicators/calculation/indicators/kdj.py",
+    "src/foundation/technical_indicators/calculation/indicators/macd.py",
+    "src/foundation/technical_indicators/calculation/indicators/moving_average.py",
+    "src/foundation/technical_indicators/calculation/indicators/price.py",
+    "src/foundation/technical_indicators/contracts.py",
+    "src/foundation/technical_indicators/errors.py",
+    "src/foundation/technical_indicators/executor.py",
+    "src/foundation/technical_indicators/calculation/engine.py",
+    "src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql",
+    "src/foundation/technical_indicators/calculation/sql/kdj_segment.sql",
+    "src/foundation/technical_indicators/calculation/sql/kdj_window.sql",
+    "src/foundation/technical_indicators/calculation/sql/macd_first.sql",
+    "src/foundation/technical_indicators/calculation/sql/macd_segment.sql",
+    "src/foundation/technical_indicators/calculation/sql/rolling_mean.sql",
+    "src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql",
+    "src/foundation/technical_indicators/calculation/sql_templates.py",
+    "tests/foundation/technical_indicators/d3_support.py"
+  ],
+  "issues": [
+    {
+      "id": "output_read_range",
+      "kind": "LLD handoff omission",
+      "evidence": [
+        "LLD04.1 build_result(description, statistics)",
+        "LLD11 call sequence",
+        "sources/session.py:30,133-135",
+        "sources/contracts.py:SourceDescription",
+        "contracts.py:SourceResult and CalculationStatistics"
+      ],
+      "problem": "D2 records read_start/read_end but neither argument to OutputCollector.build_result contains them. The existing output contract requires the actual read range, which cannot be inferred from the returned tail.",
+      "proposal": "Explicitly pass inputs.read_start/read_end from the service as named arguments to build_result, define their date/time and empty semantics in the original LLD, and migrate the single new-library call; do not reread source or expand SourceDescription/Statistics."
+    },
+    {
+      "id": "duplicate_sql_template_reads",
+      "kind": "implementation differs from LLD21.6",
+      "evidence": [
+        "calculation/indicators/macd.py:68-70",
+        "calculation/indicators/kdj.py:116-118",
+        "calculation/sql_templates.py:load_sql_templates"
+      ],
+      "problem": "Each calculation constructor loads its templates. Three MACD parameter sets in one request read identical SQL files three times; the common smoothing file also repeats across MACD/KDJ.",
+      "proposal": "Load code-declared template text once per request during engine preparation and distribute read-only references to each calculation. Share only unrendered text; retain separate parameters, table names and state. No cross-request cache."
+    }
+  ],
+  "executed": {
+    "source_rows": 0,
+    "sql_logical_rows": 0,
+    "real_controls": 0,
+    "pytest_cases": 0,
+    "temporary_source_writes": 0
+  },
+  "remaining": {
+    "input_rows": 100000,
+    "sql_logical_rows": 5000000,
+    "real_controls": 4
+  },
+  "checks_completed": [
+    "six indicator files AST parse only",
+    "three engine support files whitespace only"
+  ],
+  "not_completed": [
+    "runtime SQL numerical checks",
+    "full calculate and output",
+    "D3 tests and package resource checks",
+    "D3 acceptance"
+  ],
+  "side_effects": "no install, upgrade, commit, push, formal DB/Lake read/write or API/page/DG changes"
+}
