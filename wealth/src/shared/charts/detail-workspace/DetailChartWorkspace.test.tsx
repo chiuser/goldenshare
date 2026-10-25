@@ -163,12 +163,12 @@ class ControlledResizeObserver implements ResizeObserver {
     this.observed.delete(target);
   }
 
-  trigger(target: Element, width: number) {
+  trigger(target: Element, width: number, height = 0) {
     this.callback([
       {
         borderBoxSize: [] as unknown as ResizeObserverSize[],
         contentBoxSize: [] as unknown as ResizeObserverSize[],
-        contentRect: { bottom: 0, height: 0, left: 0, right: width, top: 0, width, x: 0, y: 0, toJSON: () => ({}) },
+        contentRect: { bottom: height, height, left: 0, right: width, top: 0, width, x: 0, y: 0, toJSON: () => ({}) },
         devicePixelContentBoxSize: [] as unknown as ResizeObserverSize[],
         target,
       },
@@ -181,6 +181,55 @@ const mainLines: DetailChartLineDefinition[] = [
 ];
 
 describe("DetailChartWorkspace", () => {
+  it("updates only main price padding without recreating charts or changing the time range", () => {
+    const height = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+    const points = makePoints(300);
+    const rendered = render(workspaceElement(points, "daily", "shared:padding:day", mainLines, undefined,
+      { top: 44, bottom: 44 }));
+    const charts = [...chartMock.charts];
+    const range = charts[0]!.timeScale().getVisibleLogicalRange();
+    expect(charts[0]!.rightPriceScale.applyOptions).toHaveBeenCalledWith({ scaleMargins: { top: 0.22, bottom: 0.22 } });
+    charts.slice(1).forEach((chart) => expect(chart.rightPriceScale.applyOptions).not.toHaveBeenCalled());
+
+    rendered.rerender(workspaceElement(points, "daily", "shared:padding:day", mainLines, undefined,
+      { top: 60, bottom: 44 }));
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    expect(charts[0]!.rightPriceScale.applyOptions).toHaveBeenLastCalledWith({ scaleMargins: { top: 0.3, bottom: 0.22 } });
+    expect(charts[0]!.timeScale().getVisibleLogicalRange()).toEqual(range);
+    rendered.rerender(workspaceElement(points, "daily", "shared:padding:day"));
+    expect(charts[0]!.rightPriceScale.applyOptions).toHaveBeenLastCalledWith({ scaleMargins: { top: 0.12, bottom: 0.12 } });
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    height.mockRestore();
+  });
+
+  it("handles height-only changes and reports insufficient space without applying illegal margins", () => {
+    vi.useFakeTimers();
+    const height = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1193);
+    const points = makePoints(300);
+    const rendered = render(workspaceElement(points, "daily", "shared:height:day", mainLines, undefined,
+      { top: 44, bottom: 44 }));
+    const chart = chartMock.charts[0]!;
+    const range = chart.timeScale().getVisibleLogicalRange();
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    const observer = resizeObserverMock.instances.at(-1)!;
+    act(() => { observer.trigger(host, 1193, 100); vi.runAllTimers(); });
+    expect(chart.rightPriceScale.applyOptions).toHaveBeenLastCalledWith({ scaleMargins: { top: 0.44, bottom: 0.44 } });
+    expect(chart.timeScale().getVisibleLogicalRange()).toEqual(range);
+    const count = chart.rightPriceScale.applyOptions.mock.calls.length;
+    act(() => { observer.trigger(host, 1193, 80); vi.runAllTimers(); });
+    expect(screen.getByRole("status")).toHaveTextContent("图表空间不足");
+    expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledTimes(count);
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    act(() => { observer.trigger(host, 1193, 200); vi.runAllTimers(); });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(chart.rightPriceScale.applyOptions).toHaveBeenLastCalledWith({ scaleMargins: { top: 0.22, bottom: 0.22 } });
+    rendered.unmount();
+    height.mockRestore();
+    width.mockRestore();
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     chartMock.reset();
     resizeObserverMock.reset();
@@ -759,6 +808,28 @@ describe("DetailChartWorkspace", () => {
     vi.useRealTimers();
   });
 
+  it("does not start chart dragging from a focusable research detail but still drags from the plot", () => {
+    renderWorkspace(makePoints(300), "daily", "shared:interactive-details");
+    const area = document.querySelector(".detail-chart-area")!;
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 1000 });
+    const initial = chartMock.charts[0].timeScale().getVisibleLogicalRange();
+    const details = document.createElement("div");
+    details.dataset.detailChartInteractive = "true";
+    details.tabIndex = 0;
+    details.textContent = "可滚动波段事实";
+    area.appendChild(details);
+    fireEvent.mouseDown(details, { button: 0, clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 600 });
+    fireEvent.mouseUp(window);
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual(initial);
+    fireEvent.mouseDown(host, { button: 0, clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 600 });
+    fireEvent.mouseUp(window);
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).not.toEqual(initial);
+    details.remove();
+  });
+
   it("cleans up observers, chart subscriptions and chart instances on unmount", () => {
     const rendered = renderWorkspace(makePoints(300), "daily", "shared:cleanup:day");
     const observer = resizeObserverMock.instances.at(-1)!;
@@ -793,6 +864,7 @@ function workspaceElement(
   dataKey: string,
   lines = mainLines,
   primitives?: DetailChartWorkspaceProps["mainPrimitives"],
+  mainPriceScalePaddingPx?: DetailChartWorkspaceProps["mainPriceScalePaddingPx"],
 ) {
   return (
     <DetailChartWorkspace
@@ -802,6 +874,7 @@ function workspaceElement(
       dataKey={dataKey}
       mainLines={lines}
       mainPrimitives={primitives}
+      mainPriceScalePaddingPx={mainPriceScalePaddingPx}
       panelAriaLabels={{
         kline: "共享K线主图",
         macd: "共享MACD",

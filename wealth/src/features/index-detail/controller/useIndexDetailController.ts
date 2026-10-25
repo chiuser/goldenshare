@@ -11,6 +11,7 @@ import {
   buildIndexDetailViewModel,
 } from "../api/indexDetailViewModelAdapter";
 import { buildTrendChannelViewModel } from "../api/trendChannelAdapter";
+import { INDEX_DAILY_HISTORY_LIMIT } from "../model/indexDetailConstants";
 import {
   collectIndexPartialReasons,
   normalizeIndexTsCode,
@@ -93,7 +94,7 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
         }
 
         const kline = await fetchIndexDetailKline(
-          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: 300, debug },
+          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: INDEX_DAILY_HISTORY_LIMIT, debug },
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
@@ -183,7 +184,7 @@ function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
 }
 
 async function requestTrend(endDate: string, signal: AbortSignal): Promise<TrendChannelViewModel> {
-  const response = await fetchTrendChannel({ endDate, limit: 300 }, { signal });
+  const response = await fetchTrendChannel({ endDate, limit: INDEX_DAILY_HISTORY_LIMIT }, { signal });
   return buildTrendChannelViewModel(response);
 }
 

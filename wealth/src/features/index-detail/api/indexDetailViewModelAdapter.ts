@@ -112,7 +112,7 @@ export function marketDirectionClass(direction: MarketDirection): string {
   return directionClass(direction);
 }
 
-function toCandlePoint(bar: IndexDetailKlineResponseDto["bars"][number]): IndexCandlePoint {
+export function toCandlePoint(bar: IndexDetailKlineResponseDto["bars"][number]): IndexCandlePoint {
   return {
     time: toIsoDate(bar.tradeDate),
     fullDate: toIsoDate(bar.tradeDate),

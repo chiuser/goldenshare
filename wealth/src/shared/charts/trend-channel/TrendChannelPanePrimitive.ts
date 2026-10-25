@@ -14,7 +14,12 @@ export class TrendChannelPanePrimitive implements ISeriesPrimitive<Time> {
   private attachedParameters: SeriesAttachedParameter<Time> | null = null;
   private readonly view = new TrendChannelPaneView(this);
 
-  constructor(private readonly lines: TrendChannelLine[]) {}
+  constructor(private lines: TrendChannelLine[]) {}
+
+  setLines(lines: TrendChannelLine[]): void {
+    this.lines = lines;
+    this.attachedParameters?.requestUpdate();
+  }
 
   attached(parameters: SeriesAttachedParameter<Time>) {
     this.attachedParameters = parameters;

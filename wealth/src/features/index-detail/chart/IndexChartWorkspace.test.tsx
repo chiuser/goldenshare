@@ -8,6 +8,9 @@ import { buildIndexDetailViewModel } from "../api/indexDetailViewModelAdapter";
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { IndexChartWorkspace } from "./IndexChartWorkspace";
 import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
+import { dailyWaveKlineFixture, dailyWaveReadyFixture } from "../daily-wave/dailyWaveFixtures.test-support";
+import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
+import type { DailyWaveReviewState } from "../daily-wave/types";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
@@ -25,6 +28,27 @@ vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
 
 describe("IndexChartWorkspace adapter", () => {
   beforeEach(() => workspaceMock.reset());
+
+  it("updates asynchronous research trend content without replacing chart primitives or changing the selected overlay", () => {
+    const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
+    const review: DailyWaveReviewState = { supported: true, enabled: true, phase: "ready", response: dailyWaveReadyFixture(),
+      candles: dailyWaveKlineFixture().bars.map(toCandlePoint), dataKey: "index:000001.SH:day:wave-review:literal-review",
+      errorMessage: "", toggle: vi.fn(), retry: vi.fn(), close: vi.fn() };
+    const props = { nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel, review };
+    const { rerender } = render(<IndexChartWorkspace {...props} trend={null} trendPhase="loading" />);
+    const first = latestProps();
+    const trend = { droppedCount: 0, status: "READY" as const, points: [{ time: "2023-10-26", close: 120,
+      shortUpper: 122, shortLower: 115, longUpper: 125, longLower: 112 }] };
+    rerender(<IndexChartWorkspace {...props} trend={trend} trendPhase="ready" />);
+    expect(latestProps().mainPrimitives).toBe(first.mainPrimitives);
+    expect(latestProps().mainLines).toBe(first.mainLines);
+    expect(latestProps().dataKey).toBe(first.dataKey);
+    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "TREND_CHANNEL" } });
+    const selected = latestProps();
+    rerender(<IndexChartWorkspace {...props} trend={{ ...trend, points: [{ ...trend.points[0]!, shortUpper: 123 }] }} trendPhase="ready" />);
+    expect(latestProps().mainPrimitives).toBe(selected.mainPrimitives);
+    expect(latestProps().mainLines).toBe(selected.mainLines);
+  });
 
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));

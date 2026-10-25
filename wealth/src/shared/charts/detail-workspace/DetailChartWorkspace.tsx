@@ -53,6 +53,7 @@ import {
   resolveAdaptiveVisibleCount,
   resolveDetailChartPlotWidth,
   resolveInitialRange,
+  resolveMainPriceScaleMargins,
   resolveRangeAfterPointCountChange,
   resolveSharedRightPriceScaleWidth,
   resolveVisibleCount,
@@ -102,6 +103,7 @@ interface DetailChartRuntime {
   applyIndicatorRanges: (range: DetailChartLogicalRange) => void;
   getRange: () => DetailChartLogicalRange | null;
   queuePriceScaleAlignment: () => void;
+  applyMainPriceScalePadding: (height?: number) => void;
 }
 
 interface IndicatorAxisPriceLines {
@@ -120,6 +122,7 @@ export function DetailChartWorkspace({
   dataKey,
   mainLines,
   mainLayerAccessory,
+  mainPriceScalePaddingPx,
   mainPrimitives,
   macdPrimitives,
   panelAriaLabels,
@@ -145,6 +148,9 @@ export function DetailChartWorkspace({
   const [sharedCrosshair, setSharedCrosshair] = useState<SharedCrosshairState | null>(null);
   const [timeAxisMarkers, setTimeAxisMarkers] = useState<DetailChartTimeAxisMarker[]>([]);
   const runtimeRef = useRef<DetailChartRuntime | null>(null);
+  const mainPaddingRef = useRef(mainPriceScalePaddingPx);
+  mainPaddingRef.current = mainPriceScalePaddingPx;
+  const [mainPaddingUnavailable, setMainPaddingUnavailable] = useState(false);
   const viewportRef = useRef<DetailChartViewportRefState>({
     dataKey,
     lastMeasuredHostWidth: null,
@@ -216,6 +222,17 @@ export function DetailChartWorkspace({
     const volumeChart = createPaneChart(chartRefs.current.volume, 112, "volume");
     const kdjChart = createPaneChart(chartRefs.current.kdj, 112, "kdj");
     const rightPriceScales = charts.map((chart) => chart.priceScale("right"));
+    let appliedMainMargins = { top: 0.12, bottom: 0.12 };
+    const applyMainPriceScalePadding = (height = chartRefs.current.kline?.clientHeight ?? 0) => {
+      const margins = resolveMainPriceScaleMargins(height, mainPaddingRef.current);
+      setMainPaddingUnavailable(margins === null);
+      if (!margins) return;
+      if (margins.top !== appliedMainMargins.top || margins.bottom !== appliedMainMargins.bottom) {
+        rightPriceScales[0]!.applyOptions({ scaleMargins: margins });
+        appliedMainMargins = margins;
+      }
+    };
+    applyMainPriceScalePadding();
     let sharedRightPriceScaleWidth = RIGHT_PRICE_SCALE_WIDTH;
     let priceScaleAlignmentFrame = 0;
     chartArea.style.setProperty(
@@ -472,6 +489,7 @@ export function DetailChartWorkspace({
       applyIndicatorRanges,
       getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
       queuePriceScaleAlignment,
+      applyMainPriceScalePadding,
     };
     runtimeRef.current = runtime;
     const visibleRangeHandlers: Array<{ chart: IChartApi; handler: () => void }> = [];
@@ -538,7 +556,7 @@ export function DetailChartWorkspace({
     let dragState: { pointerId: number | null; startX: number; startRange: { from: number; to: number } } | null = null;
     const startDrag = (clientX: number, target: EventTarget | null, button: number, pointerId: number | null = null) => {
       if (dragState || button !== 0) return;
-      if (target instanceof Element && target.closest("button,select")) return;
+      if (target instanceof Element && target.closest("button,select,[data-detail-chart-interactive]")) return;
       const startRange = klineChart.timeScale().getVisibleLogicalRange();
       if (!startRange) return;
       dragState = { pointerId, startRange, startX: clientX };
@@ -601,14 +619,19 @@ export function DetailChartWorkspace({
 
     let resizeFrame = 0;
     let pendingKlineWidth: number | null = null;
+    let pendingKlineHeight: number | null = null;
     const resizeObserver = new ResizeObserver((entries) => {
       queueTimeAxisMarkerUpdate();
       queuePriceScaleAlignment();
       const klineEntry = entries.find((entry) => entry.target === chartRefs.current.kline);
-      if (klineEntry) pendingKlineWidth = klineEntry.contentRect.width;
+      if (klineEntry) {
+        pendingKlineWidth = klineEntry.contentRect.width;
+        pendingKlineHeight = klineEntry.contentRect.height;
+      }
       window.cancelAnimationFrame(resizeFrame);
       resizeFrame = window.requestAnimationFrame(() => {
         if (pendingKlineWidth === null) return;
+        if (pendingKlineHeight !== null) applyMainPriceScalePadding(pendingKlineHeight);
         const viewport = viewportRef.current;
         viewport.lastMeasuredHostWidth = pendingKlineWidth;
         if (viewport.dataKey === dataKey && !viewport.userAdjusted && viewport.pointCount > 0) {
@@ -622,6 +645,7 @@ export function DetailChartWorkspace({
           }
         }
         pendingKlineWidth = null;
+        pendingKlineHeight = null;
       });
     });
     resizeObserver.observe(chartRefs.current.kline);
@@ -653,6 +677,10 @@ export function DetailChartWorkspace({
   }, [candleData, commitViewportRange, crosshairPresentation, dataKey, mainLines, points, primitives, timeAxisPlacement, timeMode]);
 
   useEffect(() => {
+    runtimeRef.current?.applyMainPriceScalePadding();
+  }, [mainPriceScalePaddingPx?.top, mainPriceScalePaddingPx?.bottom]);
+
+  useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || runtime.macdPrimitives === macdLayers) return;
     runtime.macdPrimitives.forEach(primitive => runtime.macdSeries.detachPrimitive(primitive));
@@ -682,6 +710,8 @@ export function DetailChartWorkspace({
           overlay={(
             <>
               {mainLayerAccessory}
+              {mainPaddingUnavailable ? <span role="status" style={{ position: "absolute", left: 8,
+                top: "calc(var(--detail-chart-panel-header-height, 28px) + 8px)" }}>图表空间不足</span> : null}
               {latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}
               {points.length > 0 ? (
                 <DetailChartZoomControls

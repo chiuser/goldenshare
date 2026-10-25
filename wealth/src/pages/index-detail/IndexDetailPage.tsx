@@ -30,6 +30,9 @@ import {
 import { fetchMarketMajorIndices } from "../../features/major-indices/api/marketMajorIndicesApi";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import { useDailyWaveReview } from "../../features/index-detail/daily-wave/useDailyWaveReview";
+import { useDailyWaveCompanionLayers } from "../../features/index-detail/daily-wave/useDailyWaveCompanionLayers";
+import { INDEX_DAILY_HISTORY_LIMIT } from "../../features/index-detail/model/indexDetailConstants";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
@@ -57,12 +60,22 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
   const nineTurnRegistry = useNineTurnSeriesRegistry({
+    dailyLimit: INDEX_DAILY_HISTORY_LIMIT,
     endDate: viewModel?.asOfTradeDate ?? null,
     load: loadIndexNineTurnSeries,
     subjectType: "index",
     supportedPeriods: viewModel?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
     supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
     tsCode: normalizedTsCode,
+  });
+  const waveReview = useDailyWaveReview({ tsCode: normalizedTsCode, activePeriod });
+  const waveReady = waveReview.phase === "ready" && waveReview.response?.status === "ready";
+  const waveLayers = useDailyWaveCompanionLayers({
+    active: waveReady,
+    endDate: waveReady && waveReview.response?.status === "ready" ? waveReview.response.observationEnd : null,
+    tsCode: normalizedTsCode,
+    supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
+    supportsTrend: viewModel?.capabilities.supportsTrendChannel ?? false,
   });
   const forecast = useXxmForecast({
     active: activeTab === "technical" && hasData,
@@ -200,12 +213,15 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
         ) : (
           activePeriod === "day" ? (
             <IndexChartWorkspace
-              nineTurnLayer={nineTurnLayer}
+              review={waveReview}
+              nineTurnLayer={waveReady ? waveLayers.nineTurnLayer : nineTurnLayer}
               onNineTurnRetry={() => {
-                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+                if (waveReady) waveLayers.retryNineTurn();
+                else if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
-              trend={controller.trend}
-              trendPhase={controller.trendPhase}
+              onTrendRetry={waveReady ? waveLayers.retryTrend : controller.retryTrend}
+              trend={waveReady ? waveLayers.trend : controller.trend}
+              trendPhase={waveReady ? waveLayers.trendPhase : controller.trendPhase}
               viewModel={viewModel}
             />
           ) : (

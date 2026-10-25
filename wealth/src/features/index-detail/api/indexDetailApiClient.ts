@@ -32,7 +32,7 @@ export function fetchIndexDetailPageInit(
 }
 
 export function fetchIndexDetailKline(
-  params: { tsCode: string; period: "day"; endDate?: string; limit?: number; debug?: 0 | 1 },
+  params: { tsCode: string; period: "day"; startDate?: string; endDate?: string; limit?: number; debug?: 0 | 1 },
   options: FetchOptions = {},
 ): Promise<IndexDetailKlineResponseDto> {
   return fetchIndexDetail<IndexDetailKlineResponseDto>("kline", params, options);

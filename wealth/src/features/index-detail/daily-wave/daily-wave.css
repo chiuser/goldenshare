@@ -1,0 +1,52 @@
+.daily-wave-controls {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--cs-space-8);
+  min-width: 0;
+  position: relative;
+}
+.daily-wave-controls > button { flex-shrink: 0; }
+.daily-wave-state {
+  color: var(--cs-color-text-secondary);
+  font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.daily-wave-explain-button { color: var(--cs-color-brand) !important; }
+.daily-wave-explanation-panel {
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--cs-radius-card, 10px);
+  bottom: calc(100% + 8px);
+  box-shadow: var(--cs-shadow-panel);
+  color: var(--cs-color-text-primary);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  height: 240px;
+  max-width: var(--daily-wave-panel-width, 640px);
+  padding: var(--cs-space-12);
+  position: absolute;
+  width: min(640px, var(--daily-wave-panel-width, 640px));
+  z-index: 25;
+}
+.daily-wave-explanation-title { align-items: center; display: flex; flex: 0 0 24px; justify-content: space-between; margin-bottom: var(--cs-space-8); }
+.daily-wave-explanation-title strong { font-size: 15px; }
+.daily-wave-explanation-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; width: 100%; }
+.daily-wave-explanation-row { border-bottom: 1px solid var(--cs-color-border-subtle); display: grid; gap: 4px; padding: 10px 0; overflow-wrap: anywhere; }
+.daily-wave-explanation-row > strong { font-weight: 700; }
+.daily-wave-id { color: var(--cs-color-text-muted); font-size: 10px; overflow-wrap: anywhere; }
+.daily-wave-range { color: var(--cs-color-text-secondary); font-size: 11px; margin: 0 0 8px; }
+.daily-wave-source-message { color: var(--cs-color-warning); }
+.daily-wave-legend { align-items: center; color: var(--cs-color-text-secondary); display: inline-flex; gap: 12px; font-size: 10px; margin-left: 8px; overflow: hidden; white-space: nowrap; }
+.daily-wave-legend > span { align-items: center; display: inline-flex; gap: 5px; }
+.daily-wave-legend img { flex-shrink: 0; }
+.daily-wave-tooltip-details { border-top: 1px solid var(--cs-color-border-subtle); margin-top: 8px; max-height: 45vh; overflow: auto; overflow-wrap: anywhere; padding-top: 8px; pointer-events: auto; overscroll-behavior: contain; }
+.daily-wave-tooltip-details section + section { border-top: 1px solid var(--cs-color-border-subtle); margin-top: 8px; padding-top: 8px; }
+.daily-wave-tooltip-details section { display: grid; font-size: 10px; gap: 4px; }
+.daily-wave-trend-error { background: transparent; border: 0; color: var(--cs-color-warning); font-size: 10px; }
+.daily-wave-bottom-bar { align-items: center; display: flex; gap: 8px; min-width: 0; width: 100%; }
+.daily-wave-bottom-bar > .detail-chart-indicator-tabs { flex: 0 1 auto; }

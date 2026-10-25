@@ -1,5 +1,6 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import { IndexDetailApiError } from "./indexDetailApiClient";
+import { INDEX_DAILY_HISTORY_LIMIT } from "../model/indexDetailConstants";
 
 export interface TrendChannelRawResponse {
   instrument: { ts_code: "000001.SH"; name: string; security_type: "index" };
@@ -58,7 +59,7 @@ export async function fetchTrendChannel(
   url.searchParams.set("ts_code", "000001.SH");
   url.searchParams.set("period", "day");
   url.searchParams.set("end_date", params.endDate);
-  url.searchParams.set("limit", String(params.limit ?? 300));
+  url.searchParams.set("limit", String(params.limit ?? INDEX_DAILY_HISTORY_LIMIT));
   const response = await wealthFetch(url, { method: "GET", signal: options.signal });
   if (!response.ok) {
     let code = `HTTP_${response.status}`;

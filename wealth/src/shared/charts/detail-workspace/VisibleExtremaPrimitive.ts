@@ -7,7 +7,6 @@ import type {
   Time,
 } from "lightweight-charts";
 
-import { formatPriceAxisValue } from "./detailChartFormatters";
 import {
   resolveVisibleExtrema,
   resolveVisibleIndexRange,
@@ -18,15 +17,14 @@ import {
 import {
   EXTREMA_ARROW_HALF_HEIGHT,
   EXTREMA_ARROW_WING_LENGTH,
-  EXTREMA_FONT_SIZE,
+  EXTREMA_FONT_FAMILY_FALLBACK,
   EXTREMA_LINE_WIDTH,
-  resolveVisibleExtremaMarkerLayout,
+  measureVisibleExtremaMarker,
+  visibleExtremaFont,
   type VisibleExtremaMarkerLayout,
 } from "./visibleExtremaGeometry";
 
 const EXTREMA_COLOR_FALLBACK = "#e5eef9";
-const EXTREMA_FONT_FAMILY_FALLBACK = '"DIN Alternate", "Roboto Mono", "SF Mono", monospace';
-const EXTREMA_FONT_WEIGHT = 600;
 
 interface VisibleExtremaCache {
   endIndex: number;
@@ -73,7 +71,7 @@ export class VisibleExtremaPrimitive implements ISeriesPrimitive<Time> {
 
     target.useMediaCoordinateSpace(({ context, mediaSize }) => {
       context.save();
-      context.font = `${EXTREMA_FONT_WEIGHT} ${EXTREMA_FONT_SIZE}px ${resolveExtremaFontFamily()}`;
+      context.font = visibleExtremaFont(resolveExtremaFontFamily());
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = EXTREMA_LINE_WIDTH;
@@ -117,17 +115,16 @@ export class VisibleExtremaPrimitive implements ISeriesPrimitive<Time> {
     const anchorX = attached.chart.timeScale().timeToCoordinate(extremum.time);
     const y = attached.series.priceToCoordinate(extremum.value);
     if (anchorX === null || y === null) return;
-    const verticalPadding = Math.max(EXTREMA_FONT_SIZE / 2, EXTREMA_ARROW_HALF_HEIGHT);
-    if (y < verticalPadding || y > mediaSize.height - verticalPadding) return;
-
-    const label = formatPriceAxisValue(extremum.value);
-    const layout = resolveVisibleExtremaMarkerLayout({
+    const measured = measureVisibleExtremaMarker({
       anchorX,
       mediaWidth: mediaSize.width,
-      textWidth: context.measureText(label).width,
+      mediaHeight: mediaSize.height,
+      value: extremum.value,
+      measureTextWidth: (label) => context.measureText(label).width,
       y,
     });
-    if (!layout) return;
+    if (!measured) return;
+    const { label, layout } = measured;
 
     drawOpenArrowLine(context, layout);
     context.textAlign = layout.textAlign;
@@ -174,7 +171,7 @@ function resolveExtremaColor(): string {
   return resolveRootToken("--cs-color-text-primary", EXTREMA_COLOR_FALLBACK);
 }
 
-function resolveExtremaFontFamily(): string {
+export function resolveExtremaFontFamily(): string {
   return resolveRootToken("--cs-font-family-number", EXTREMA_FONT_FAMILY_FALLBACK);
 }
 

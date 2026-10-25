@@ -37,6 +37,64 @@ _INDEX_CODES = (
 )
 
 
+def test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap_and_default(app_client, db_session) -> None:
+    """Synthetic fixture, not real trading history: 1001 eligible weekday bars.
+
+    IndexFactorPro's DATE/Float columns and the current API's factor-only query
+    are the producer contract. The one extra later bar checks the end boundary;
+    literal close/MACD values independently expose truncation or reseeding.
+    """
+    _ensure_index_detail_tables(db_session)
+    days = []
+    cursor = _TRADE_DATE
+    while len(days) < 1001:
+        if cursor.weekday() < 5:
+            days.append(cursor)
+        cursor -= timedelta(days=1)
+    days.reverse()
+    db_session.add_all([
+        TradeCalendar(exchange="SSE", trade_date=_TRADE_DATE, is_open=True,
+                      pretrade_date=days[-2]),
+        IndexBasic(ts_code=_INDEX_CODE, name="上证指数", market="SSE"),
+    ])
+    for index, day in enumerate(days):
+        factor = _factor_row(ts_code=_INDEX_CODE, trade_date=day, close=float(100 + index))
+        factor.macd_dif_bfq = -0.873123
+        factor.macd_dea_bfq = -1.110111
+        factor.macd_bfq = 0.473976
+        db_session.add(factor)
+    db_session.add(_factor_row(ts_code=_INDEX_CODE, trade_date=_TRADE_DATE + timedelta(days=1), close=99999.0))
+    db_session.commit()
+    url = "/api/v1/wealth/market/index-detail/kline"
+    params = {"tsCode": _INDEX_CODE, "period": "day", "endDate": _TRADE_DATE.isoformat()}
+
+    response = app_client.get(url, params={**params, "limit": "1000"})
+    assert response.status_code == 200
+    payload = response.json()
+    bars = payload["bars"]
+    assert payload["meta"]["limit"] == 1000
+    assert payload["meta"]["count"] == len(bars) == 1000
+    assert [bar["tradeDate"] for bar in bars] == [day.isoformat() for day in days[1:]]
+    assert bars[0]["close"] == 101.0
+    assert bars[-1]["close"] == 1100.0
+    assert all(bar["factors"]["macd"] == {"dif": -0.873123, "dea": -1.110111, "macd": 0.473976}
+               for bar in bars)
+
+    default_response = app_client.get(url, params=params)
+    assert default_response.status_code == 200
+    previous = default_response.json()
+    assert previous["meta"]["limit"] == previous["meta"]["count"] == 300
+    assert [bar["close"] for bar in previous["bars"]] == [float(801 + index) for index in range(300)]
+    assert previous["bars"] == bars[-300:]
+
+    short_response = app_client.get(url, params={**params, "startDate": days[-2].isoformat(), "limit": "1000"})
+    assert short_response.status_code == 200
+    short = short_response.json()
+    assert short["meta"]["limit"] == 1000
+    assert short["meta"]["count"] == 2
+    assert [bar["tradeDate"] for bar in short["bars"]] == [days[-2].isoformat(), "2026-08-10"]
+
+
 def _ensure_index_detail_tables(db_session) -> None:
     bind = db_session.get_bind()
     for table in [

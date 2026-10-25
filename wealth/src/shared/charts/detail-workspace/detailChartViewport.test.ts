@@ -7,6 +7,7 @@ import {
   resolveAdaptiveVisibleCount,
   resolveDetailChartPlotWidth,
   resolveInitialRange,
+  resolveMainPriceScaleMargins,
   resolveRangeAfterPointCountChange,
   resolveSharedRightPriceScaleWidth,
   resolveVisibleCount,
@@ -16,6 +17,20 @@ import {
 } from "./detailChartViewport";
 
 describe("detailChartViewport", () => {
+  it("keeps default margins and converts pixel padding without reducing it", () => {
+    expect(resolveMainPriceScaleMargins(0)).toEqual({ top: 0.12, bottom: 0.12 });
+    expect(resolveMainPriceScaleMargins(400, { top: 44, bottom: 44 })).toEqual({ top: 0.12, bottom: 0.12 });
+    expect(resolveMainPriceScaleMargins(200, { top: 44, bottom: 44 })).toEqual({ top: 0.22, bottom: 0.22 });
+    expect(resolveMainPriceScaleMargins(100, { top: 44, bottom: 12 })).toEqual({ top: 0.44, bottom: 0.12 });
+  });
+
+  it.each([
+    [0, 44, 44], [-1, 44, 44], [Number.NaN, 44, 44], [Number.POSITIVE_INFINITY, 44, 44],
+    [200, -1, 44], [200, 44, Number.NaN], [88, 44, 44], [80, 44, 44],
+  ])("rejects unusable main padding (%s, %s, %s)", (height, top, bottom) => {
+    expect(resolveMainPriceScaleMargins(height, { top, bottom })).toBeNull();
+  });
+
   it("uses the widest measured right price scale with the configured minimum", () => {
     expect(resolveSharedRightPriceScaleWidth([56, 72, 88, 64])).toBe(88);
     expect(resolveSharedRightPriceScaleWidth([72.1, 72, 64, 0])).toBe(73);

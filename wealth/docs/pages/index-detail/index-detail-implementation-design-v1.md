@@ -30,7 +30,7 @@
 | 事实源单一 | 名单、行情、因子、权重、贡献与通道各有唯一后端事实源 | query/service + DTO | 字段逐项源映射 |
 | 契约先行 | 独立 DTO 合同已提升为 `1.3.1`，字段结构不变并冻结 A 股/停牌与贡献排序语义 | schema/API types | schema extra forbid + TS typecheck |
 | 配置一致 | 复用 `majorIndices` 和现有 local minute 配置，不新增页面常量 | config service/capability | 10 code 与 profile 矩阵 |
-| 默认显式 | 默认日线、基本行情页签、300 根、权重完整批次 | schema defaults/adapter | 缺参、边界、负向测试 |
+| 默认显式 | 默认日线、基本行情页签；第四批页面日线请求1000根（后端省略参数仍300），权重完整批次 | schema defaults/adapter | 缺参、边界、负向测试 |
 | 排序确定 | 贡献点数值降序、null 置底、weight/code 决胜；K 线时间升序 | service + query | 正/零/负/null 与同贡献样本 |
 | 性能前置 | 小查询、权重全量批次与虚拟化、趋势缓存、分钟限页 | query/cache/reader | P95 与 payload 门禁 |
 | 状态标准化 | 页面状态与各模块状态分开 | response dataStatus + HTTP error | 成功态 READY/DELAYED/EMPTY/PARTIAL；Error/Forbidden 走 HTTP |

@@ -34,6 +34,7 @@ export function useNineTurnChartLayer({
   const mainPrimitives = useMemo(() => [primitive], [primitive]);
   return {
     droppedMarkerCount: adaptation.droppedMarkerCount,
+    markers: adaptation.markers as readonly (typeof adaptation.markers)[number][],
     mainPrimitives,
   };
 }

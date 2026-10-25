@@ -48,6 +48,7 @@ interface DetailChartWorkspaceBaseProps {
   crosshairPresentation?: DetailChartCrosshairPresentation;
   mainLines: DetailChartLineDefinition[];
   mainLayerAccessory?: ReactNode;
+  mainPriceScalePaddingPx?: { top: number; bottom: number };
   mainPrimitives?: ISeriesPrimitive<Time>[];
   macdPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;

@@ -8,6 +8,19 @@ export const TARGET_PIXELS_PER_BAR = 9.5;
 export const RIGHT_PRICE_SCALE_WIDTH = 56;
 export const LATEST_RANGE_TOLERANCE = 0.5;
 
+export function resolveMainPriceScaleMargins(
+  hostHeight: number,
+  padding?: { top: number; bottom: number },
+): { top: number; bottom: number } | null {
+  if (padding === undefined) return { top: 0.12, bottom: 0.12 };
+  if (!Number.isFinite(hostHeight) || hostHeight <= 0 ||
+      !Number.isFinite(padding.top) || padding.top < 0 ||
+      !Number.isFinite(padding.bottom) || padding.bottom < 0) return null;
+  const top = Math.max(0.12, padding.top / hostHeight);
+  const bottom = Math.max(0.12, padding.bottom / hostHeight);
+  return top + bottom < 1 ? { top, bottom } : null;
+}
+
 export interface DetailChartLogicalRange {
   from: number;
   to: number;

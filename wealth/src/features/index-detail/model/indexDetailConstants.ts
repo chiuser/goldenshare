@@ -1,5 +1,7 @@
 import type { IndexIndicatorTab, IndexPeriodKey } from "./indexDetailTypes";
 
+export const INDEX_DAILY_HISTORY_LIMIT = 1000;
+
 export const INDEX_PERIOD_OPTIONS: Array<{ key: IndexPeriodKey; label: string }> = [
   { key: "timeShare", label: "分时" },
   { key: "day", label: "日K" },

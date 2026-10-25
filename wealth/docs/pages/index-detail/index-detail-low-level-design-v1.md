@@ -865,7 +865,7 @@ SQL 只负责集合取数。贡献点使用上述 Decimal 公式计算并舍入�
 ts_code=000001.SH
 period=day
 end_date=<asOfTradeDate>
-limit=<与日线 kline 一致，默认 300>
+limit=<指数页面显式1000；后端省略参数仍默认300>
 ```
 
 实际响应关键字段也是 snake_case：`data_status`、`trade_date`、`short_channel`、`long_channel`、`combined_state`。`trendChannelAdapter.ts` 只负责把该旧契约映射成指数图表内部类型，不向后端再包一层 Wealth endpoint。
@@ -1604,3 +1604,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | v1.2 | 2026-08-11 | 修正 MA null 低层口径：删除 A500/固定日期特例；增加按实际历史根数判断的条件查询、PARTIAL 规则和性能复验门禁；DTO 提升为 1.0.1 | Codex |
 | v1.1 | 2026-08-11 | 完成 M0：落生产因子覆盖/性能审计、冻结独立 DTO 1.0.0、登记异常码；记录深市量额分叉、当时 A500 MA250 空值与真实 2000 行性能限制；量额最终来源已由 v1.3 修订 | Codex |
 | v1 | 2026-08-11 | 基于最新 Figma、三件套、当前代码、CodeGraph、生产字段审计与分钟 Lake 合同形成首版 LLD；冻结文件结构、DTO、SQL、状态机、趋势 primitive、共享图表、测试和实施顺序 | Codex |
+
+
+### 26. 第四批波段核对与页面1000根（2026-10-26，开发完成，待管理员浏览器验收）
+
+指数详情页普通日线与研究核对K线、趋势和指数日线九转统一显式请求1000根；研究按实际日期范围，普通右栏/预测仍保持普通日期。后端省略limit仍300、上限2000不变；股票300/分钟500不变。完整本批约定、依赖/失败/预算与验收以[定量结构下一阶段LLD §15.7](index-detail-xxm-next-implementation-low-level-design-v0.6.md#xxm-daily-wave-batch-four)及其15.4—15.6为准，不复制另一套规则。此前各节300根实测为历史证据，不能改写成1000已验收；本批代码、自动测试及真实只读API核对已完成，浏览器验收尚未完成，实际结果见该文§15.7.1。

@@ -16,6 +16,14 @@ describe("TrendChannelPanePrimitive autoscale", () => {
       priceRange: { minValue: 10, maxValue: 25 },
     });
   });
+
+  it("updates lines on the same primitive and clears unavailable trend data", () => {
+    const primitive = new TrendChannelPanePrimitive([line(0, 1, 10, 20)]);
+    primitive.setLines([line(0, 1, 30, 40)]);
+    expect(primitive.autoscaleInfo(0 as never, 1 as never)).toEqual({ priceRange: { minValue: 30, maxValue: 40 } });
+    primitive.setLines([]);
+    expect(primitive.autoscaleInfo(0 as never, 1 as never)).toBeNull();
+  });
 });
 
 function line(fromLogical: number, toLogical: number, fromValue: number, toValue: number): TrendChannelLine {

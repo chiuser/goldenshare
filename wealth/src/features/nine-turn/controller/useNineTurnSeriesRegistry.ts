@@ -33,6 +33,7 @@ interface RegistryEntry {
 }
 
 interface UseNineTurnSeriesRegistryOptions {
+  dailyLimit?: number;
   endDate: string | null;
   load: NineTurnSeriesLoader;
   subjectType: NineTurnSubjectType;
@@ -42,6 +43,7 @@ interface UseNineTurnSeriesRegistryOptions {
 }
 
 export function useNineTurnSeriesRegistry({
+  dailyLimit = 300,
   endDate,
   load,
   subjectType,
@@ -54,12 +56,12 @@ export function useNineTurnSeriesRegistry({
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const supportedKey = supportedPeriods.join(",");
   const supportedSet = useMemo(() => new Set(supportedPeriods), [supportedKey]);
-  const scopeKey = `${subjectType}|${tsCode}|${endDate ?? ""}|${supportedKey}|${supportsNineTurn}`;
+  const scopeKey = `${subjectType}|${tsCode}|${endDate ?? ""}|${supportedKey}|${supportsNineTurn}|${dailyLimit}`;
 
   const keyFor = useCallback((period: NineTurnPeriod) => {
-    const limit = period === "day" ? 300 : 500;
+    const limit = period === "day" ? dailyLimit : 500;
     return `${subjectType}|${tsCode}|${period}||${endDate ?? ""}|${limit}|`;
-  }, [endDate, subjectType, tsCode]);
+  }, [dailyLimit, endDate, subjectType, tsCode]);
 
   const clear = useCallback(() => {
     entriesRef.current.forEach((entry) => entry.controller?.abort());
@@ -100,7 +102,7 @@ export function useNineTurnSeriesRegistry({
       const response: NineTurnSeriesDto = await load(
         {
           endDate,
-          limit: period === "day" ? 300 : 500,
+          limit: period === "day" ? dailyLimit : 500,
           period,
           subjectType,
           tsCode,
@@ -132,7 +134,7 @@ export function useNineTurnSeriesRegistry({
       });
       refresh();
     }
-  }, [endDate, keyFor, load, subjectType, supportedSet, supportsNineTurn, tsCode]);
+  }, [dailyLimit, endDate, keyFor, load, subjectType, supportedSet, supportsNineTurn, tsCode]);
 
   const retry = useCallback(async (period: NineTurnPeriod): Promise<void> => {
     const key = keyFor(period);

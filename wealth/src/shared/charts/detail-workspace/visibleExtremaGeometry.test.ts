@@ -5,10 +5,33 @@ import {
   EXTREMA_LINE_LENGTH,
   EXTREMA_MIN_LINE_LENGTH,
   EXTREMA_TEXT_GAP,
+  measureVisibleExtremaMarker,
+  visibleExtremaFont,
   resolveVisibleExtremaMarkerLayout,
 } from "./visibleExtremaGeometry";
 
 describe("visibleExtremaGeometry", () => {
+  it("shares the actual formatted text, font and enclosing rectangle with both primitives", () => {
+    const labels: string[] = [];
+    expect(visibleExtremaFont("Test Number")).toBe("600 12px Test Number");
+    const result = measureVisibleExtremaMarker({ anchorX: 100, y: 80, value: 50,
+      mediaWidth: 300, mediaHeight: 200, measureTextWidth: (label) => { labels.push(label); return 28; } });
+    expect(labels).toEqual(["50.00"]);
+    expect(result?.rect).toEqual({ left: 99.25, top: 74, width: 64.75, height: 12 });
+    expect(result?.layout.textX).toBe(136);
+    expect(result?.label).toBe("50.00");
+    expect(measureVisibleExtremaMarker({ anchorX: 250, y: 80, value: 50,
+      mediaWidth: 300, mediaHeight: 200, measureTextWidth: () => 28 })?.rect)
+      .toEqual({ left: 186, top: 74, width: 64.75, height: 12 });
+  });
+
+  it("rejects vertically clipped or unmeasurable extrema instead of reserving fictional labels", () => {
+    expect(measureVisibleExtremaMarker({ anchorX: 100, y: 2, value: 50,
+      mediaWidth: 300, mediaHeight: 200, measureTextWidth: () => 28 })).toBeNull();
+    expect(measureVisibleExtremaMarker({ anchorX: 100, y: 80, value: 50,
+      mediaWidth: 300, mediaHeight: 200, measureTextWidth: () => Number.NaN })).toBeNull();
+  });
+
   it("extends right from a left-side anchor and keeps the arrow tip on the K line", () => {
     expect(resolveVisibleExtremaMarkerLayout({
       anchorX: 100,
