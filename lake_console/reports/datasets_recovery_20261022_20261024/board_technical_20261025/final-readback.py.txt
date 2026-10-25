@@ -1,0 +1,47 @@
+"""Final stat/control/count reconciliation only. No history data scan."""
+import json,os,subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import yaml,dagster as dg
+from dagster._config.post_process import post_process_config
+from dagster_postgres import PostgresRunStorage,PostgresScheduleStorage
+from orchestrator.defs.resources import defs as resource_defs
+from orchestrator.defs.paths import gold_dc_daily_technical_path,silver_trade_calendar_path
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/board_technical_20261025');ROOT=Path('/Volumes/datasource/data_lake');DAY='2026-10-22'
+pre=json.loads((BASE/'preflight.json').read_text());manifest=json.loads((BASE/'source-stat-manifest.json').read_text())
+def identity(p):
+ assert all(not q.is_symlink() for q in (p,*p.parents))
+ if not p.is_file():return None
+ s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+changed=[p for p,s in manifest['sources'].items() if identity(Path(p))!=s];assert not changed
+assert identity(silver_trade_calendar_path(ROOT))==manifest['calendar_identity']
+neighbors={d:identity(gold_dc_daily_technical_path(ROOT,d)) for d in ('2026-10-21','2026-10-23')};assert neighbors==manifest['neighbors']
+gold_stat=identity(gold_dc_daily_technical_path(ROOT,DAY));local_comp=json.loads((BASE/'local-full-field-comparison.json').read_text());assert local_comp['passed'] and local_comp['gold_stat']==gold_stat
+jobs=('gold_dc_daily_technical_update_job','ch_dc_daily_technical_update_job','prod_ch_dc_daily_technical_sync_job')
+runs=[json.loads((BASE/(j+'-verified.json')).read_text()) for j in jobs]
+for r in runs:
+ assert r['status']=='SUCCESS' and len(r['materializations'])==len(r['checks'])==1 and not r['failures']
+ m=r['materializations'][0];c=r['checks'][0]
+ assert m['metadata']['dagster/row_count']==1043 and c['passed'] and c['blocking'] and c['target_storage_id']==m['storage_id'] and c['partition']==DAY
+meta=runs[0]['materializations'][0]['metadata'];assert meta['goldenshare/total_elapsed_ms']<=15000
+assert not Path(meta['goldenshare/staging_path']).exists()
+settings={'readonly':2,'max_execution_time':30,'timeout_before_checking_execution_speed':0,'max_rows_to_read':100000,'max_bytes_to_read':64*1024**2,'max_result_rows':2000,'result_overflow_mode':'throw','read_overflow_mode':'throw','max_memory_usage':256*1024**2}
+counts={}
+for name in ('clickhouse','prod_clickhouse'):
+ raw=resource_defs.resources[name];v=post_process_config(raw._config_schema.config_type,raw._convert_to_config_dictionary());assert v.success
+ with type(raw)(**v.value).get_connection() as c:
+  rows=c.execute("SELECT trade_date,count() FROM goldenshare_serving.board_fact_technical_daily WHERE trade_date IN (toDate('2026-10-21'),toDate('2026-10-22'),toDate('2026-10-23')) GROUP BY trade_date ORDER BY trade_date LIMIT 10",settings=settings)
+ counts[name]={str(d):n for d,n in rows};assert counts[name].get(DAY,0)==1043
+ for d in ('2026-10-21','2026-10-23'):assert counts[name].get(d,0)==pre['clickhouse'][name]['date_counts'].get(d,0)
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+rs=PostgresRunStorage(u,should_autocreate_tables=False);ss=PostgresScheduleStorage(u,should_autocreate_tables=False)
+try:
+ active=rs.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100);assert not active
+ states=[{'name':s.name,'status':s.status.value} for s in ss.all_instigator_state() if s.name in ('gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor')]
+ assert len(states)==2 and all(s['status']=='STOPPED' for s in states)
+ daemon=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip();assert not daemon
+finally:rs.dispose();ss.dispose()
+out={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'date':DAY,'status':'completed_verified','run_order':[{'job':r['job'],'run_id':r['run_id'],'status':r['status'],'elapsed_seconds':r['elapsed_seconds'],'materialization_storage_id':r['materializations'][0]['storage_id']} for r in runs],'assets_restored':3,'blocking_checks_passed':3,'rows_each':1043,'local_full_business_comparison':True,'prod_full_business_comparison':'native blocking check passed, content/key/updated_at mismatches zero','source_files':len(manifest['sources']),'source_stat_bytes':pre['source']['stat_bytes'],'source_stat_changes':changed,'calendar_unchanged':True,'neighbors_unchanged':True,'gold_stat':gold_stat,'candidate_file_absent':True,'clickhouse_date_counts':counts,'stock_sensor_states':states,'active_runs':0,'daemon_running':False,'normal_executions_per_job':1,'automatic_retries':0,'global_audit_repeated':False,'historical_price_read_passes':1,'writer_elapsed_ms':meta['goldenshare/total_elapsed_ms'],'writer_peak_memory_bytes':meta['goldenshare/peak_memory_bytes'],'history_rows':meta['goldenshare/source_row_count'],'gold_output_bytes':gold_stat[2],'budget_read_mib':256,'budget_file_write_mib':32,'budget_extra_space_mib':64,'physical_device_io':'not instrumented; file bytes and original run counters do not equal physical I/O; no repeated history data scan','remaining_count_from_original_list':18}
+(BASE/'summary.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n');print(json.dumps(out,ensure_ascii=False))

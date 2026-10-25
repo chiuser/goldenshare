@@ -1,0 +1,76 @@
+import json
+import os
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster._config.post_process import post_process_config
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage, PostgresScheduleStorage
+from orchestrator.defs.resources import defs as resource_defs
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.assets.dc_daily_technical import _calendar_dates
+from orchestrator.defs.paths import silver_trade_calendar_path, silver_dc_daily_path, gold_dc_daily_technical_path
+
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging')
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024')
+OUT=BASE/'board_technical_20261025';DAY='2026-10-22'
+OUT.mkdir(exist_ok=True)
+
+def identity(p):
+    assert all(not x.is_symlink() for x in (p,*p.parents)),str(p)
+    if not p.is_file():return None
+    s=p.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+result={'date':DAY,'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'formal_writes':0,'historical_price_content_reads':0,'checks':{}}
+with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+    days=_calendar_dates(c,silver_trade_calendar_path(ROOT),DAY)
+    sources={str(silver_dc_daily_path(ROOT,d)):identity(silver_dc_daily_path(ROOT,d)) for d in days}
+    assert len(sources)==677 and all(sources.values())
+    total=sum(s[2] for s in sources.values());assert total<=48*1024**2
+    p=silver_dc_daily_path(ROOT,DAY)
+    n,unique,bad=c.execute("SELECT count(*),count(distinct (ts_code,trade_date,category)),count(*) FILTER(WHERE ts_code IS NULL OR category IS NULL OR trade_date IS NULL OR trade_date<>DATE '2026-10-22') FROM read_parquet(?,hive_partitioning=false)",[str(p)]).fetchone()
+    assert n==unique==1043 and bad==0
+    result['source']={'files':len(sources),'stat_bytes':total,'rows_on_target_date':n,'unique_keys_on_target_date':unique,'calendar_identity':identity(silver_trade_calendar_path(ROOT))}
+result['target_gold']=identity(gold_dc_daily_technical_path(ROOT,DAY))
+result['neighbor_gold']={d:identity(gold_dc_daily_technical_path(ROOT,d)) for d in ('2026-10-21','2026-10-23')}
+old=json.loads((BASE/'resume_20261025/batch2-final.json').read_text());prior=next(x for x in old['files'] if x['asset']=='silver_dc_daily')
+assert sources[str(silver_dc_daily_path(ROOT,DAY))][1:4]==prior['stat']
+assert ROOT.parent.is_mount() and ROOT.stat().st_dev==STAGE.stat().st_dev
+result['space']={'free_bytes':shutil.disk_usage(STAGE).free,'same_device':True};assert result['space']['free_bytes']>=64*1024**2
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+rs=PostgresRunStorage(u,should_autocreate_tables=False);es=PostgresEventLogStorage(u,should_autocreate_tables=False);ss=PostgresScheduleStorage(u,should_autocreate_tables=False)
+try:
+    active=rs.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+    result['active_runs']=[{'id':r.run_id,'job':r.job_name,'status':r.status.value} for r in active]
+    result['partition_exists']=es.has_dynamic_partition('cn_a_dc_daily_trade_days',DAY)
+    result['sensor_states']=[{'name':s.name,'status':s.status.value} for s in ss.all_instigator_state() if 'dc_daily_technical' in s.name or s.name in ('gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor')]
+    result['daemon_process']=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip()
+    assert not active and result['partition_exists'] and not result['daemon_process']
+finally:rs.dispose();es.dispose();ss.dispose()
+settings={'readonly':2,'max_execution_time':30,'timeout_before_checking_execution_speed':0,'max_rows_to_read':100000,'max_bytes_to_read':64*1024**2,'max_result_rows':2000,'result_overflow_mode':'throw','read_overflow_mode':'throw','max_memory_usage':256*1024**2}
+result['clickhouse']={}
+for name in ('clickhouse','prod_clickhouse'):
+    raw=resource_defs.resources[name]
+    resolved=post_process_config(raw._config_schema.config_type,raw._convert_to_config_dictionary());assert resolved.success,name
+    resource=type(raw)(**resolved.value)
+    with resource.get_connection() as client:
+        db=client.execute("SELECT name FROM system.databases WHERE name='goldenshare_serving' LIMIT 1",settings=settings);assert db
+        table=client.execute("SELECT engine,partition_key,sorting_key FROM system.tables WHERE database='goldenshare_serving' AND name='board_fact_technical_daily' LIMIT 1",settings=settings);assert len(table)==1
+        columns=client.execute("SELECT name,type,comment FROM system.columns WHERE database='goldenshare_serving' AND table='board_fact_technical_daily' ORDER BY position LIMIT 100",settings=settings)
+        # Prod writer cannot inspect optional skipping-index metadata (497).
+        # This date-filtered single-table audit uses the verified primary sort key.
+        skipping={'status':'not_queried','reason':'Prod metadata privilege 497; not needed for date-prefix filter'}
+        assert table[0][0].endswith('MergeTree') and table[0][2].lstrip('(').startswith('trade_date')
+        plan=client.execute("EXPLAIN indexes=1 SELECT count() FROM goldenshare_serving.board_fact_technical_daily WHERE trade_date=toDate('2026-10-22')",settings=settings)
+        counts=client.execute("SELECT trade_date,count() FROM goldenshare_serving.board_fact_technical_daily WHERE trade_date IN (toDate('2026-10-21'),toDate('2026-10-22'),toDate('2026-10-23')) GROUP BY trade_date ORDER BY trade_date LIMIT 10",settings=settings)
+        result['clickhouse'][name]={'table':table,'columns':columns,'skipping_indexes':skipping,'count_plan':[x[0] for x in plan],'date_counts':{str(d):n for d,n in counts}}
+result['safe_to_launch']=result['target_gold'] is None and all(x['date_counts'].get(DAY,0)==0 for x in result['clickhouse'].values())
+(OUT/'source-stat-manifest.json').write_text(json.dumps({'trade_dates':list(days),'sources':sources,'calendar_identity':result['source']['calendar_identity'],'neighbors':result['neighbor_gold']},ensure_ascii=False,indent=2)+'\n')
+(OUT/'preflight.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+print(json.dumps({'source':result['source'],'target_gold':result['target_gold'],'active_runs':result['active_runs'],'daemon_process':result['daemon_process'],'clickhouse':{k:{'table':v['table'],'date_counts':v['date_counts'],'columns':len(v['columns'])} for k,v in result['clickhouse'].items()},'safe_to_launch':result['safe_to_launch']},ensure_ascii=False,indent=2))
+assert result['safe_to_launch'],'Targets already present or preflight needs review; no task started'

@@ -1,0 +1,114 @@
+{
+  "as_of": "2026-10-25T23:36:31.470507+08:00",
+  "job": "gold_dc_daily_technical_update_job",
+  "run_id": "4890e8c3-2221-46e5-99d8-bd14515a885b",
+  "status": "SUCCESS",
+  "elapsed_seconds": 7.52550196647644,
+  "materializations": [
+    {
+      "asset": "gold_dc_daily_technical",
+      "storage_id": 7726601,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "dagster/row_count": 1043,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "trade_date",
+          "category",
+          "close",
+          "ma_5",
+          "ma_10",
+          "ma_15",
+          "ma_20",
+          "ma_30",
+          "ma_60",
+          "ma_120",
+          "ma_250",
+          "kdj_k",
+          "kdj_d",
+          "kdj_j",
+          "macd_dif",
+          "macd_dea",
+          "macd",
+          "boll_mid",
+          "boll_upper",
+          "boll_lower",
+          "observation_count",
+          "params_key",
+          "indicator_version"
+        ],
+        "goldenshare/trade_date": "2026-10-22",
+        "goldenshare/target_path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/source_file_count": 677,
+        "goldenshare/source_row_count": 664211,
+        "goldenshare/written_row_count": 1043,
+        "goldenshare/series_count": 1043,
+        "goldenshare/null_warmup_counts": {
+          "boll_lower": 15,
+          "boll_mid": 15,
+          "boll_upper": 15,
+          "ma_10": 14,
+          "ma_120": 36,
+          "ma_15": 15,
+          "ma_20": 15,
+          "ma_250": 98,
+          "ma_30": 15,
+          "ma_5": 11,
+          "ma_60": 24
+        },
+        "goldenshare/duplicate_key_count": 0,
+        "goldenshare/input_rejection_count": 0,
+        "goldenshare/duckdb_elapsed_ms": 691.07,
+        "goldenshare/parquet_write_elapsed_ms": 3.332,
+        "goldenshare/validation_elapsed_ms": 5.016,
+        "goldenshare/total_elapsed_ms": 1337.872,
+        "goldenshare/peak_memory_bytes": 739016704,
+        "goldenshare/staging_path": "/Volumes/datasource/data_lake_staging/dc_board/run_id=61fdafbd206840b9856be74873a5ba5d/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/skipped_existing": false,
+        "goldenshare/write_mode": "duckdb_set_based_staging_atomic_replace",
+        "goldenshare/params_key": "ma_5_10_15_20_30_60_120_250__macd_12_26_9__kdj_9_3_3__boll_20_2",
+        "goldenshare/indicator_version": "v1"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_dc_daily_technical",
+      "name": "gold_dc_daily_technical_core_check",
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-22",
+      "target_storage_id": 7726601,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 1043,
+        "goldenshare/close_difference_count": 0,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rules": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/key_difference_count": 0,
+        "goldenshare/observed_schema": null,
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/reason_code": "ready",
+        "goldenshare/source_file_path": "/Volumes/datasource/data_lake/silver/board/dc_daily/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/source_path": "/Volumes/datasource/data_lake/silver/board/dc_daily/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/target_path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/warmup_failure_counts": {
+          "ma_10": 0,
+          "ma_120": 0,
+          "ma_15": 0,
+          "ma_20": 0,
+          "ma_250": 0,
+          "ma_30": 0,
+          "ma_5": 0,
+          "ma_60": 0
+        }
+      }
+    }
+  ],
+  "failures": []
+}

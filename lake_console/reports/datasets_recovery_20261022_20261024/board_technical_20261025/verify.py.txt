@@ -1,0 +1,41 @@
+"""Only the three approved board runs; no history content reads or writes."""
+import json,os,sys
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresRunStorage,PostgresEventLogStorage
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/board_technical_20261025')
+DAY='2026-10-22'
+JOBS={'gold_dc_daily_technical_update_job':'gold_dc_daily_technical','ch_dc_daily_technical_update_job':'ch_dc_daily_technical','prod_ch_dc_daily_technical_sync_job':'prod_ch_dc_daily_technical'}
+job=sys.argv[1];asset=JOBS[job]
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+rs=PostgresRunStorage(u,should_autocreate_tables=False);es=PostgresEventLogStorage(u,should_autocreate_tables=False)
+try:
+ r=rs.get_run_records(dg.RunsFilter(job_name=job,tags={'dagster/partition':DAY}),limit=1)
+ assert len(r)==1,'No run found; do not relaunch before reviewing launch evidence'
+ rr=r[0];run=rr.dagster_run
+ pre=json.loads((BASE/'preflight.json').read_text());assert rr.create_timestamp.timestamp()>=datetime.fromisoformat(pre['as_of']).timestamp()
+ fetched=es.get_records_for_run(run.run_id,of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,dg.DagsterEventType.ASSET_CHECK_EVALUATION,dg.DagsterEventType.STEP_FAILURE,dg.DagsterEventType.PIPELINE_FAILURE},limit=30)
+ assert not fetched.has_more
+ mats=[];checks=[];failures=[]
+ for rec in fetched.records:
+  ev=rec.event_log_entry.dagster_event
+  if ev.event_type==dg.DagsterEventType.ASSET_MATERIALIZATION:
+   m=rec.asset_materialization;assert m.asset_key.to_user_string()==asset and m.partition==DAY
+   meta={k:getattr(v,'value',str(v)) for k,v in m.metadata.items() if k!='dagster/column_schema'}
+   mats.append({'asset':asset,'storage_id':rec.storage_id,'metadata':meta})
+  elif ev.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+   c=ev.event_specific_data;t=c.target_materialization_data
+   checks.append({'asset':c.asset_key.to_user_string(),'name':c.check_name,'passed':c.passed,'blocking':c.blocking,'partition':c.partition,'target_storage_id':t.storage_id if t else None,'metadata':{k:getattr(v,'value',str(v)) for k,v in c.metadata.items()}})
+  else:failures.append(str(ev.event_specific_data)[:4000])
+ out={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'job':job,'run_id':run.run_id,'status':run.status.value,'elapsed_seconds':rr.end_time-rr.start_time if rr.end_time and rr.start_time else None,'materializations':mats,'checks':checks,'failures':failures}
+ (BASE/(job+'-verified.json')).write_text(json.dumps(out,ensure_ascii=False,indent=2,default=str)+'\n')
+ print(json.dumps(out,ensure_ascii=False,default=str))
+ assert run.status==dg.DagsterRunStatus.SUCCESS and len(mats)==len(checks)==1 and not failures
+ assert mats[0]['metadata']['dagster/row_count']==1043
+ c=checks[0];assert c['asset']==asset and c['name']==asset+'_core_check' and c['passed'] and c['blocking'] and c['partition'] in (None,DAY) and c['target_storage_id']==mats[0]['storage_id']
+ if asset=='gold_dc_daily_technical':assert mats[0]['metadata']['goldenshare/total_elapsed_ms']<=15000
+finally:rs.dispose();es.dispose()

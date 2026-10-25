@@ -1,0 +1,411 @@
+{
+  "date": "2026-10-22",
+  "as_of": "2026-10-25T23:34:44.400446+08:00",
+  "formal_writes": 0,
+  "historical_price_content_reads": 0,
+  "checks": {},
+  "source": {
+    "files": 677,
+    "stat_bytes": 37590608,
+    "rows_on_target_date": 1043,
+    "unique_keys_on_target_date": 1043,
+    "calendar_identity": [
+      16777244,
+      1912308,
+      89590,
+      1779599225007770939,
+      1779599225008092650
+    ]
+  },
+  "target_gold": null,
+  "neighbor_gold": {
+    "2026-10-21": [
+      16777244,
+      22455904,
+      153020,
+      1792590382376103488,
+      1792590382381353046
+    ],
+    "2026-10-23": null
+  },
+  "space": {
+    "free_bytes": 2915377201152,
+    "same_device": true
+  },
+  "active_runs": [],
+  "partition_exists": true,
+  "sensor_states": [
+    {
+      "name": "gold_dc_daily_technical_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "prod_ch_dc_daily_technical_continuity_sensor",
+      "status": "RUNNING"
+    },
+    {
+      "name": "gold_dc_daily_technical_update_job_sensor",
+      "status": "RUNNING"
+    },
+    {
+      "name": "gold_dc_daily_technical_repair_job_sensor",
+      "status": "RUNNING"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "ch_dc_daily_technical_update_job_sensor",
+      "status": "RUNNING"
+    }
+  ],
+  "daemon_process": "",
+  "clickhouse": {
+    "clickhouse": {
+      "table": [
+        [
+          "MergeTree",
+          "toYYYYMM(trade_date)",
+          "trade_date, category, ts_code"
+        ]
+      ],
+      "columns": [
+        [
+          "ts_code",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "trade_date",
+          "Date",
+          ""
+        ],
+        [
+          "category",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "close",
+          "Float64",
+          ""
+        ],
+        [
+          "ma_5",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_10",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_15",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_20",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_30",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_60",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_120",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_250",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "kdj_k",
+          "Float64",
+          ""
+        ],
+        [
+          "kdj_d",
+          "Float64",
+          ""
+        ],
+        [
+          "kdj_j",
+          "Float64",
+          ""
+        ],
+        [
+          "macd_dif",
+          "Float64",
+          ""
+        ],
+        [
+          "macd_dea",
+          "Float64",
+          ""
+        ],
+        [
+          "macd",
+          "Float64",
+          ""
+        ],
+        [
+          "boll_mid",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "boll_upper",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "boll_lower",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "observation_count",
+          "UInt32",
+          ""
+        ],
+        [
+          "params_key",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "indicator_version",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "updated_at",
+          "DateTime",
+          ""
+        ]
+      ],
+      "skipping_indexes": {
+        "status": "not_queried",
+        "reason": "Prod metadata privilege 497; not needed for date-prefix filter"
+      },
+      "count_plan": [
+        "Expression ((Project names + Projection))",
+        "  Aggregating",
+        "    Expression (Before GROUP BY)",
+        "      Filter ((WHERE + Change column names to column identifiers))",
+        "        ReadFromMergeTree (goldenshare_serving.board_fact_technical_daily)",
+        "        Indexes:",
+        "          Min-Max",
+        "            Keys:",
+        "              trade_date",
+        "            Condition: (trade_date in [20748, 20748])",
+        "            Parts: 0/46",
+        "            Granules: 0/86",
+        "          Partition",
+        "            Keys:",
+        "              toYYYYMM(trade_date)",
+        "            Condition: (toYYYYMM(trade_date) in [202610, 202610])",
+        "            Parts: 0/0",
+        "            Granules: 0/0",
+        "          PrimaryKey",
+        "            Keys:",
+        "              trade_date",
+        "            Condition: (trade_date in [20748, 20748])",
+        "            Parts: 0/0",
+        "            Granules: 0/0",
+        "          Ranges: 0"
+      ],
+      "date_counts": {
+        "2026-10-21": 1043
+      }
+    },
+    "prod_clickhouse": {
+      "table": [
+        [
+          "MergeTree",
+          "toYYYYMM(trade_date)",
+          "trade_date, category, ts_code"
+        ]
+      ],
+      "columns": [
+        [
+          "ts_code",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "trade_date",
+          "Date",
+          ""
+        ],
+        [
+          "category",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "close",
+          "Float64",
+          ""
+        ],
+        [
+          "ma_5",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_10",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_15",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_20",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_30",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_60",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_120",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "ma_250",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "kdj_k",
+          "Float64",
+          ""
+        ],
+        [
+          "kdj_d",
+          "Float64",
+          ""
+        ],
+        [
+          "kdj_j",
+          "Float64",
+          ""
+        ],
+        [
+          "macd_dif",
+          "Float64",
+          ""
+        ],
+        [
+          "macd_dea",
+          "Float64",
+          ""
+        ],
+        [
+          "macd",
+          "Float64",
+          ""
+        ],
+        [
+          "boll_mid",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "boll_upper",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "boll_lower",
+          "Nullable(Float64)",
+          ""
+        ],
+        [
+          "observation_count",
+          "UInt32",
+          ""
+        ],
+        [
+          "params_key",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "indicator_version",
+          "LowCardinality(String)",
+          ""
+        ],
+        [
+          "updated_at",
+          "DateTime",
+          ""
+        ]
+      ],
+      "skipping_indexes": {
+        "status": "not_queried",
+        "reason": "Prod metadata privilege 497; not needed for date-prefix filter"
+      },
+      "count_plan": [
+        "Expression ((Project names + Projection))",
+        "  Aggregating",
+        "    Expression (Before GROUP BY)",
+        "      Filter ((WHERE + Change column names to column identifiers))",
+        "        ReadFromMergeTree (goldenshare_serving.board_fact_technical_daily)",
+        "        Indexes:",
+        "          Min-Max",
+        "            Keys:",
+        "              trade_date",
+        "            Condition: (trade_date in [20748, 20748])",
+        "            Parts: 0/46",
+        "            Granules: 0/86",
+        "          Partition",
+        "            Keys:",
+        "              toYYYYMM(trade_date)",
+        "            Condition: (toYYYYMM(trade_date) in [202610, 202610])",
+        "            Parts: 0/0",
+        "            Granules: 0/0",
+        "          PrimaryKey",
+        "            Keys:",
+        "              trade_date",
+        "            Condition: (trade_date in [20748, 20748])",
+        "            Parts: 0/0",
+        "            Granules: 0/0",
+        "          Ranges: 0"
+      ],
+      "date_counts": {
+        "2026-10-21": 1043
+      }
+    }
+  },
+  "safe_to_launch": true
+}

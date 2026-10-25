@@ -1,0 +1,7 @@
+{
+  "schema_matches_v4": true,
+  "columns": 25,
+  "both_endpoints": true,
+  "stock_sensors_stopped": true,
+  "preflight_optional_index_query_497": "No business write; omitted optional metadata query; no history content reread"
+}

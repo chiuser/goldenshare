@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-22",
+  "gold_rows": 1043,
+  "local_rows": 1043,
+  "compared_columns": [
+    "ts_code",
+    "trade_date",
+    "category",
+    "close",
+    "ma_5",
+    "ma_10",
+    "ma_15",
+    "ma_20",
+    "ma_30",
+    "ma_60",
+    "ma_120",
+    "ma_250",
+    "kdj_k",
+    "kdj_d",
+    "kdj_j",
+    "macd_dif",
+    "macd_dea",
+    "macd",
+    "boll_mid",
+    "boll_upper",
+    "boll_lower",
+    "observation_count",
+    "params_key",
+    "indicator_version"
+  ],
+  "difference_rows": 0,
+  "gold_stat": [
+    16777244,
+    23000148,
+    151343,
+    1792942555780765896,
+    1792942555786511796
+  ],
+  "passed": true,
+  "scope": "one single-day read each, no historical recomputation"
+}

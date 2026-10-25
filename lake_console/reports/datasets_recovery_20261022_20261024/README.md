@@ -1,6 +1,6 @@
 # 2026-10-22 DG 数据集恢复方案与记录
 
-状态（2026-10-25，最新）：22日七频QFQ/28检查已完成（第39节）；其后26股因子历史repair也已完成，run `f23ca4a2-b7c0-459f-9c55-764cb585db26` SUCCESS，7项真实因子检查通过且消费者ready，见第42节。沿原109项缺失清单累计恢复88、剩21，前置七检查不再扣减资产数，未重复全局审计。MACD日更、九转两个sensor保持STOPPED，等23日补齐后再启用的TODO不变。
+状态（2026-10-25，最新）：22日七频QFQ/28检查、26股因子历史repair/7项前置检查均已完成（第39、42节）。其后板块技术指标Gold→本机CH→Prod CH三项已补齐，各1,043行且三项原检查通过（第43节）。沿原109项缺失清单累计恢复91、剩18，未重复全局审计。MACD日更、九转两个sensor保持STOPPED，等23日补齐后再启用的TODO不变。
 
 ## 1. 为什么显示109项缺失
 
@@ -1134,3 +1134,31 @@ S只采用旧目录/stat的39144份/7.518GiB作测算背景，实际目标未冻
 证据：[原任务日志](factor_repair_20261022/launch.log)、[run/检查/文件验收](factor_repair_20261022/run-verified.json)、[结果汇总](factor_repair_20261022/summary.json)、[真实消费者及控制状态](factor_repair_20261022/final-control-status.json)。实际执行源码SHA已保存于[预检](factor_repair_20261022/execution-preflight.json)。操作脚本从/private/tmp清除，正式staging的恢复记录保留；Git提交由后续提交阶段单独记录。
 
 本次解除因子修复前置，**剩余资产仍21项**，不能因补七条检查再减七。后续MACD/KDJ14项除日更外还需按现行流程处理这26代码的历史指标修复，再核原读取范围/预算；九转4项仍需候选位置及失败处理修正，板块3项按原批次。本轮未启动这些任务。两个sensor仍STOPPED，无活动run或daemon；23日补齐后再启用的TODO继续保留。
+
+## 43. 修改提交及22日板块技术指标三步补齐
+
+因子repair代码、测试及执行证据已按40文件白名单提交 `1f54c5297`，未推送，其他工作区改动保留。本节板块执行是提交后的下一批，管理员单独批准历史读取和Gold→本机CH→Prod CH一次正常执行，读256MiB、写32MiB、额外空间64MiB，失败停止、不自动重读，不改代码。原方案/LLD见[板块LLD第15节](../../docs/design/dagster-dc-daily-technical-indicators-low-level-design.md#15-2026-10-22-板块三项补齐执行卡已完成)。
+
+有界预检通过：677份历史来源共37,590,608B；22日Silver1,043个唯一业务键，来源身份与已恢复证据一致；Gold与两端CH22日都缺失，双端在线schema与V4的25列、引擎、分区和完整排序一致。两股票sensor保持STOPPED、daemon未运行、无活动run。首次Prod可选跳数索引元数据查询被权限497拒绝；没有业务写入，省去非必要清单后完成预检，无权限或配置变更。证据见[预检](board_technical_20261025/preflight.json)和[schema核验](board_technical_20261025/schema-review.json)。
+
+三步均一次正常执行，无自动重跑：
+
+| 顺序 | job/run | 结果 |
+| --- | --- | --- |
+| 1 | `gold_dc_daily_technical_update_job` / `4890e8c3-2221-46e5-99d8-bd14515a885b` | SUCCESS，1,043行，原blocking检查通过；run耗时7.526秒 |
+| 2 | `ch_dc_daily_technical_update_job` / `dcf5f252-c3aa-4801-b13e-a5012a1f184b` | SUCCESS，1,043行，原blocking检查通过；run耗时7.137秒 |
+| 3 | `prod_ch_dc_daily_technical_sync_job` / `76480b90-680d-428a-a467-c0219396175b` | SUCCESS，1,043行，原blocking检查通过；run耗时9.277秒 |
+
+Gold原writer载入677份来源、664,211行历史，读/算/写/候选回读合计1,337.872ms，峰值内存739,016,704B（约704.78MiB），正式输出151,343B。MA/BOLL合法预热NULL保持原样，输入拒绝及重复键为0。Gold与本机22日24个业务字段逐键比较差异0；Prod原检查完成本机/Prod完整业务列与updated_at检查，缺键、多键、重复键、内容差异及时间落后均0。
+
+最后只做源/邻日stat、目标日与邻日CH计数、控制状态核验：677份来源及日历身份未变，21/23日Gold身份未变，两端CH21日各1,043行、23日各0行保持不变；候选文件已由原writer提升、原路径不存在。两股票sensor仍STOPPED，daemon没有运行，无活动run。没有修改代码、配置、分区和sensor，没有新性能样本或全局审计；历史价格明细只读一轮。设备实际I/O及瞬时spill未单独采样，不能把35.849MiB源文件大小或现有计数当作精确磁盘读写量；CH内部parts/merge也不在文件写入计数中。
+
+预检可选索引清单权限497和收尾报告metadata键前缀误用只发生在审计脚本；后者使用已保存的原run证据修正断言，未重跑业务任务或历史读取。三原run本身没有失败。完整证据见[本批汇总](board_technical_20261025/summary.json)、[本机完整字段比较](board_technical_20261025/local-full-field-comparison.json)及该目录三份run-verified.json。
+
+## 44. 剩余18项与下一步边界
+
+按原清单逐项销账，剩余股票MACD/KDJ指标7项、state7项，及30/60/90/120分钟九转4项；没有重新扫描其他数据集。因子repair前置已通过，不能把七项检查再次扣减为资产完成量。
+
+MACD正确顺序是先22日日更生成14项，之后对26只因子变化股票完成历史MACD repair，再通过原14条repair completion检查；日更检查通过不等于历史修复完成。当前repair op会先检查历史state目标存在（包括22日），所以不能先跑历史repair。下一步只核当前代码、已有证据及必要文件metadata，确认每日及26股历史repair实际涉及的日期、目标文件、读写次数和空间，再落入原执行方案/LLD并申请对应历史读取范围；不增加真实性能样本或全局明细审计。静态复核未发现必须先改代码才能正常完成一次MACD日更与repair的已知业务错误；重复读取合并属于可选性能优化，不自动列为补数前置。repair op未传publication_id影响中断后复用原执行记录，不影响一次正常执行的计算结果，须在失败停止/重新执行的范围说明中明确，不据此扩展为整链改造。已知26代码2014～2026来源可复用因子publication记录，1,932份/465,931,101B；这不是整个MACD链的总成本，state合并需要保留其他股票，须另核目标文件数量与大小。source discover还会探前一年，不把可能的2013输入默认为已获批准。
+
+九转当前paths.py仍将候选放在正式Lake的_staging，writer失败/续跑处理也需先按既定规则修正；未开发、未运行。MACD和九转的历史读取不在本次板块批准内，本轮没有启动它们。两股票sensor等23日数据全部补齐后再启用的TODO继续保留。

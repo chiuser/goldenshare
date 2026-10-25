@@ -595,3 +595,102 @@ P1 通过，但正式 writer 必须固定采用“单次临时关系 + 逐交易
 - 现有 `dc_board` M3-M9 行为是否无回退。
 
 未完成项必须标明原因和风险，不能用“后续再看”算完成。
+
+## 15. 2026-10-22 板块三项补齐执行卡（已完成）
+
+管理员已明确批准“批准，按三步顺序执行”，覆盖本节必要历史读取和一次Gold→本机CH→Prod CH三步补齐，读256MiB、写32MiB、额外空间64MiB，失败停止不自动重读。本节已按批准范围进入执行；复用现有实现，不改代码。
+
+### 15.1 目标、已有事实和授权边界
+
+本执行卡只处理22日的 `gold_dc_daily_technical`、`ch_dc_daily_technical`、`prod_ch_dc_daily_technical` 三项，依次使用现有 Gold、本机 ClickHouse、Prod ClickHouse job及各自原核心检查。不新增或修改代码、公式、schema、配置、入口、分区、sensor或状态表，不运行性能样本，不重跑已完成的板块 Raw/Silver。
+
+已有证据为恢复报告 `datasets_recovery_20261022_20261024/resume_20261025/batch2-final.json`：22日分类 Raw/Silver各1,043行、成员各98,530行、行情各1,043行，六项及六项检查通过，邻日未变。该结果是当时完成事实，执行前仍需核同日来源身份和目标现状，不能把旧证据当作当前连接/目标状态。按原缺失集合，三项全部完成后只扣这三项，不重新扫描其他数据集。
+
+Gold现行实现需要历史上下文，不能把只补一个分区当作只读22日。本节15.3的历史读取及正常一次计算已获管理员单独批准，股票因子修复的授权与本项分开记录。
+
+### 15.2 当前实现、配置和读写位置
+
+代码依据如下，实际执行不另写计算或发布入口：
+
+| 步骤 | 当前代码和范围 | 正式目标 |
+| --- | --- | --- |
+| Gold | `assets/dc_daily_technical.py::write_gold_dc_daily_technical_partition`；按SSE日历取2024-01-02至22日的Silver路径；每32文件校验schema并载入同一DuckDB临时关系，原SQL计算指标，仅输出22日 | `/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet` |
+| 本机CH | `assets/dc_daily_technical_serving.py::ch_dc_daily_technical`；显式读取22日Gold业务列，增加本次上海时间 `updated_at`，一次批量发布 | resource `clickhouse`的 `goldenshare_serving.board_fact_technical_daily`，只22日 |
+| Prod CH | 同文件 `prod_ch_dc_daily_technical`；先完整取得本机22日显式列含 `updated_at`，非空后再连接Prod并一次批量发布 | resource `prod_clickhouse`的同名表，只22日 |
+
+Gold候选经 `io/dc_board_candidate.py`生成，位于 `/Volumes/datasource/data_lake_staging/dc_board/run_id=<uuid>/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet`；回读schema、键、行数等通过，同文件系统检查后 `os.replace()`。没有业务备份、Kopia或正式目标旁临时文件。当前writer异常会清理自己的候选，没有QFQ publication的receipt复用能力；失败不承诺直接复用已删除候选。
+
+复用 `DuckDBResource`现行配置：`memory_limit=16GB`、`threads=4`、`preserve_insertion_order=false`，临时目录 `/Volumes/datasource/.goldenshare_duckdb_tmp`、spill上限512GB。上述是既有配置上限，不是预计实际占用，本次不改变全局或单任务连接设置。spill量若非零须单列实际开销，不能只按Parquet文件大小声称没有临时I/O；空间/读取预算条件不成立则停止，不放宽配置。
+
+CH连接仍从 `resources.py`使用各自 `CLICKHOUSE_*` 与 `PROD_CLICKHOUSE_*` 环境来源，不复制凭证、不混用两个resource、不新增持久设置。writer保持现有 `SET lightweight_deletes_sync = 1`、同日 `DELETE`、确认同日计数为0、显式列一次 `INSERT`、再次计数的顺序；不改为DDL、`ALTER TABLE DELETE`、整月分区删除、异步提交或 `OPTIMIZE FINAL`。
+
+### 15.3 历史读取、检查和正常一次预算
+
+必要历史仅为 `silver/board/dc_daily` 在2024-01-02至2026-10-22的全部预期SSE开市日，读取六列 `ts_code,trade_date,category,close,high,low`，另读必要schema/footer及既有Silver日历。2026-10-25前一轮元数据676文件37,531,917B，加已有22日Silver记录58,691B，推导为677文件37,590,608B（约35.849MiB）；这是旧元数据和完成报告推导，未重新读取正式内容或确认当前文件未变。读取前按当前日历和stat冻结准确文件数/字节，不以普通周一至周五推断交易日，也不因677是旧估计就忽略额外或缺失输入。
+
+本次不再获取Raw source proof，不请求Tushare，不重扫Raw历史。Gold正式核心检查只读取22日Gold与同日Silver，不重复读取历史或重算完整指标。后续本机CH的原检查也只读同日Gold和本机同日行；Prod CH原检查只读取本机/Prod同日行。保留MA/BOLL合法warmup NULL，不为统一类型而填0。
+
+| 项目 | 拟执行/验收成本及停止条件 |
+| --- | --- |
+| 正常历史计算 | 一次677文件上下文读取，32文件/批约22批；六列进入一个临时关系，随后计算22日；源明细不读第二遍做独立公式审计 |
+| Gold文件与结果预算 | 历史文件/schema/footer、Gold候选回读、三个原检查及一次必要收尾合计暂按256MiB文件及有界结果读取、32MiB文件/日志/小型报告写入、64MiB额外候选与报告空间测算；其中Gold候选暂留4MiB上限。执行前stat/现状不符合即重新测算，不自行扩大 |
+| 内存和临时I/O | 沿既有16GB/4线程配置；原7月611日单日0.664秒/526MB只作旧参考，不作为本次保证。DuckDB临时关系是内存工作集，若实际spill或额外空间超过本卡假设则停，不把512GB配置上限当本次批准空间 |
+| 两处CH | 预计每端1,043行、每端一个同步INSERT，原核心检查及一次同日收尾；这些是业务行/有界结果预算，不能当作CH内部parts、delete mask、后台merge的精确物理读写量 |
+| 耗时 | Gold沿原单目标日读/算/写/回读≤15秒门禁；当前代码没有相应15秒自动中断，超限记录阶段并停止后续链，不调整超时掩盖。CLI加载及每个CH发布/检查暂留各2分钟，整批正常观察预算10分钟，不以等待日志为空为由重跑 |
+| 失败后继续 | 默认失败即停，不自动第二次历史读取。若Gold必须重新运行，至少再计一次完整历史输入、其候选及检查，上述读取/写入/空间额外额度和现场另行确认；旧批准不覆盖任意重试。仅CH失败时不重跑Gold或历史计算 |
+| 最后验收 | 复用三run的物化/检查metadata及已记录源stat，只做一次目标日必要读回；不做全局audit、不重新扫描677份历史、不追加摘要遍历或性能样本 |
+
+该预算依据执行前已有规模制定，不是已测物理设备I/O，也不是原生代码已经实施的自动硬限。管理员已按“正常一次，包含原检查和下述有界收尾；失败不自动再读”批准，实际结果见15.8。不以本次小规模板块文件体积抵扣其他股票历史任务的读取额度。
+
+### 15.4 正式启动前的有界检查建议
+
+以下为启动前检查条件；本次已获批准并完成预检，现场结果见15.7。
+
+1. 核正式Lake/staging挂载、无符号链接、同设备、读写权限与剩余空间；记录Gold目标及21/23日邻日Gold stat。读取已有日历规划677个左右的预期输入，stat核全部所需Silver及22日来源与已有身份一致；缺失预期文件则停，不使用其他日期替代。
+2. 只读核22日Silver当前行数、日期/唯一业务键，预期1,043；读必要schema、source stat并冻结本次来源。若与已有完成证据不符先解释，不直接重跑Raw/Silver。输入全历史行数仅可复用可靠footer计数或原writer metadata，不为估规模先扫六列历史。
+3. 检查当前目标Gold是否存在、本机/Prod目标22日count；旧缺失结果不能代替当前检查。若Gold已存在且对应现行检查/源事实已通过，复用而不为本次任务重跑历史；若CH已有行，先按当前明确列投影核对该日是否已齐备，完全一致则不重复发布，有差异先说明，不能以补缺失为名无条件覆盖。
+4. CH连接复用已有resource；先限定单表读取当前 `system.tables` 的engine/partition_key/sorting_key及必要 `system.columns`，核与V4迁移/现行字段合同一致。预期MergeTree、月分区 `toYYYYMM(trade_date)`、排序前缀 `trade_date`，但须由当前schema确认；缺表/漂移不自行执行DDL或迁移。
+5. 计数和收尾查询只过滤 `trade_date=2026-10-22`，显式字段；明细最多2,000行、超时30秒、扫描上限100,000行/64MiB、超限抛错不接收截断结果。必要元数据限表名，不列举全库业务明细。上述为审计查询保护，不修改原生writer或其他任务的连接profile。
+6. 只读检查相关活动run/并发writer、板块sensor和daemon当前状态，确认不会发生同日写入冲突或范围外自动补数。本卡不授权启停daemon/sensor、修改cursor或注册分区；缺动态分区或需调整自动化时停下说明。既已停止的股票MACD/九转sensor保持原状态，不因本板块完成而启用。
+
+### 15.5 精确执行顺序和验收
+
+工作目录：`/Users/congming/github/goldenshare/lake_console/orchestrator`。正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，使用已有项目 `.venv/bin/dg`，不使用会隐式同步依赖的入口，不安装依赖。三个job均无新增config：
+
+```sh
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job gold_dc_daily_technical_update_job --partition 2026-10-22
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job ch_dc_daily_technical_update_job --partition 2026-10-22
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job prod_ch_dc_daily_technical_sync_job --partition 2026-10-22
+```
+
+每条命令仅在前一步SUCCESS且该run目标资产及原blocking检查通过后执行。保存run_id/root_run_id、目标日期、物化storage_id和检查绑定；检查分别为 `gold_dc_daily_technical_core_check`、`ch_dc_daily_technical_core_check`、`prod_ch_dc_daily_technical_core_check`。每run只查本次有界事件，确认无截断/失败，不重查全局历史。
+
+- Gold：schema、目标日1,043行及与22日Silver的主键/close关系、数值有限性、warmup等由原check验证；目标路径只22日，21/23邻日stat不变，历史Silver输入stat不变。候选回读是原writer动作，不另重算公式。
+- 本机CH：原check验证行数、键、日期、版本；它没有逐业务字段与Gold比较。收尾额外保留一次22日Gold显式业务列与本机同日列的逐键完整比较，最多1,043行附近，超2,000停止；NULL保持NULL，不重新计算历史指标。
+- Prod CH：原check已比较两端同日完整业务列、缺/多键、重复键及 `updated_at`不落后；优先复用该check结果，不再全表对比。必要提交后收尾只核22日count与metadata，无新一轮历史读取。
+
+若本机收尾不一致，停止Prod发布。CH的同日DELETE与INSERT不是整体事务；删除成功后插入失败可能留下空目标，不能因run失败就宣称未写入。此时先精确读回同日计数/键和本run事件，保持已经成功的Gold/本机结果，不删其他日，不清表，不用备份或runless event补绿。只在重新确认现场及本日重发范围后，重跑失败的原生CH job一次；不得自动重复整个三步链。
+
+### 15.6 本次ClickHouse规则复核
+
+本卡已读取 `clickhouse-best-practices` 技能及适用规则，不是CH架构或schema迁移授权：
+
+- Per `schema-pk-filter-on-orderby`、`agent-discovery-schema`：按现行V4排序前缀trade_date限定目标日，并在执行前限定单表核当前schema；不因旧文档DDL直接假定在线结构一致。
+- Per `agent-query-safety`：审计查询设置日期、结果/扫描/超时边界，超限失败，不把LIMIT当成扫描上限；实际连接与执行结果见15.7～15.8。
+- Per `insert-batch-size`：现有1,043行同日单批达到规则所列1,000最低量；不拆逐行，不为达到理想10K而混入其他日期。
+- Per `insert-mutation-avoid-delete`、`insert-mutation-avoid-update`：保留现行同日轻量DELETE及INSERT，不执行ALTER UPDATE/DELETE或整月DROP；非事务失败风险按15.5处理。
+- Per `insert-async-small-batches`、`insert-optimize-avoid-final`：这是各端一次同步补齐，不属于高频小批，不引入异步设置，不运行OPTIMIZE FINAL。JOIN算法/ANY/过滤前置规则和新增跳数索引在该单表发布链不适用，不因此新增查询或索引。
+
+本节规则审查在执行前完成，后续经管理员明确批准完成有界预检及三步正式执行；当前结果见15.8，不再处于草案状态。
+
+### 15.7 本次执行前核验（2026-10-25）
+
+修改及因子恢复证据已提交 `1f54c5297`，本节板块执行记录属于提交后的下一批。`board_technical_20261025/preflight.json`记录677份Silver共37,590,608B、22日1,043个唯一键，来源22日与既有恢复证据身份相同；Gold22日不存在，两端CH22日均0行、21日均1,043行、23日0行。`schema-review.json`已将两端在线25列(name,type)、MergeTree、月分区及完整排序与V4精确比较，通过。股票MACD/九转sensor均STOPPED，daemon无进程、无活动run，动态分区已存在。首次元数据查询因Prod账号无system.data_skipping_indices权限中断，未产生正式写入；后续省去非必要的该查询，不改权限、不读取历史行情内容，只完成必要预检。
+
+### 15.8 正式执行与验收结果
+
+2026-10-25按Gold→本机CH→Prod CH完成三个原job，各一次正常执行、各1,043行、各原blocking检查通过。run依次为 `4890e8c3-2221-46e5-99d8-bd14515a885b`、`dcf5f252-c3aa-4801-b13e-a5012a1f184b`、`76480b90-680d-428a-a467-c0219396175b`；物化storage_id依次7726601、7726627、7726653，check均绑定本run物化及22日。
+
+Gold输入677份/664,211行，writer总耗时1,337.872ms，峰值内存739,016,704B，输出151,343B，满足15秒门禁；原check无失败、无输入拒绝/重复键，合法warmup NULL保留。本机额外一次22日24列完整业务比较差异0；Prod原check的内容、缺/多键、重复及updated_at落后均0。最后只核元数据和三天计数：所有来源/日历及邻日Gold身份未变；两端21日1,043行、22日1,043行、23日0行；候选文件不存在，两个股票sensor保持STOPPED、daemon未运行、无活动run。没有全局审计、第二轮历史价格读取、代码/配置变更或真实性能样本。设备物理I/O与瞬时spill未单独采样，不将文件字节当作精确物理读取量。
+
+首次Prod可选跳数索引元数据查询无权限497，省去非必要查询后继续必要预检；Gold审计脚本误用未带goldenshare/前缀的耗时键，按已保存原run证据修正断言，未重跑业务job。三原run都SUCCESS，未自动续跑。执行、验收和每步证据见恢复报告第43节及 `board_technical_20261025/summary.json`；本次从原缺失清单扣三项，剩18。

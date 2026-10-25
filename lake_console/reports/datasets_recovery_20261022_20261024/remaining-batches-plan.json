@@ -2,11 +2,11 @@
   "date": "2026-10-22",
   "created_at": "2026-10-24T14:12:56.713709+08:00",
   "basis": "remaining-missing-after-major-index.json; no global rescan",
-  "remaining_count": 21,
+  "remaining_count": 18,
   "batch_count": 11,
   "required_check_targets": 136,
   "all_assets_exactly_once": true,
-  "new_runtime_reads": "Approved one normal 2026-10-22 QFQ job plus original checks; no additional global audit",
+  "new_runtime_reads": "Approved QFQ and factor repair already completed; board 2024-01-02..2026-10-22 one normal history read completed with original checks and bounded single-day reconciliation; no global audit",
   "new_source_calls": 0,
   "formal_execution": true,
   "batches": [
@@ -163,12 +163,17 @@
       "count": 2,
       "remaining_after_success": 39,
       "required_checks": 2,
-      "state": "awaiting_history_read_approval",
+      "state": "completed_verified",
       "physical_models": {
         "gold_dc_daily_technical": "data_lake/gold/board/dc_daily_technical/trade_date={partition_key}/part-000.parquet",
         "ch_dc_daily_technical": null
       },
-      "execution_blocker": "板块Raw/Silver已恢复；Gold指标需明确批准2024-01-02至22日约677文件35.85MiB历史读取，之后本机/Prod CH才可发布"
+      "execution_blocker": null,
+      "evidence": "board_technical_20261025/summary.json",
+      "history_reading_approved": true,
+      "rows_each": 1043,
+      "checks_passed": 2,
+      "actual_remaining_after_success": 19
     },
     {
       "number": 5,
@@ -212,11 +217,16 @@
       "count": 1,
       "remaining_after_success": 37,
       "required_checks": 1,
-      "state": "awaiting_history_read_approval",
+      "state": "completed_verified",
       "physical_models": {
         "prod_ch_dc_daily_technical": null
       },
-      "execution_blocker": "板块Raw/Silver已恢复；Gold指标需明确批准2024-01-02至22日约677文件35.85MiB历史读取，之后本机/Prod CH才可发布"
+      "execution_blocker": null,
+      "evidence": "board_technical_20261025/summary.json",
+      "history_reading_approved": true,
+      "rows_each": 1043,
+      "checks_passed": 1,
+      "actual_remaining_after_success": 18
     },
     {
       "number": 7,
@@ -441,10 +451,10 @@
     }
   ],
   "progress_update": {
-    "updated_at": "2026-10-25T21:41:29.451875+08:00",
-    "formal_runs_started": 18,
-    "additional_assets_restored": 49,
-    "remaining_count": 21,
+    "updated_at": "2026-10-25T23:39:04.264893+08:00",
+    "formal_runs_started": 21,
+    "additional_assets_restored": 52,
+    "remaining_count": 18,
     "batch1_state": "completed_verified",
     "batch1_source_rows": 820,
     "batch1_expected_codes": 820,
@@ -474,14 +484,15 @@
       "stock_resume_20261025/batch8-final.json",
       "qfq_recovery_20261025/run-verified.json",
       "qfq_recovery_20261025/summary.json",
-      "qfq_recovery_20261025/final-control-state.json"
+      "qfq_recovery_20261025/final-control-state.json",
+      "board_technical_20261025/summary.json"
     ],
     "note": "Initial phase fields and remaining_after_success retain the original planned-order scenario; actual_remaining_after_success and current progress record the approved stock-first execution. No global audit repeated.",
     "index_daily_silver_gold_write_fix": "verified_in_isolation_and_bounded_real_sample",
     "batch1_raw_staging_fix": "verified_in_isolation_and_bounded_real_sample",
     "batch5_state": "completed_verified",
-    "formal_checks_passed": 101,
-    "remaining_check_targets": 35,
+    "formal_checks_passed": 104,
+    "remaining_check_targets": 32,
     "minute_raw_silver_write_fix": "verified",
     "minute_tests_passed": 311,
     "minute_subtests_passed": 21,
@@ -518,19 +529,24 @@
     },
     "batch9_state": "completed_verified",
     "stock_qfq_formal_recovery": "78a6791a-a540-42b3-9ac3-e27abda235c6",
-    "stock_qfq_annual_read_approval": "executed once within approved scope; original 28 checks passed"
+    "stock_qfq_annual_read_approval": "executed once within approved scope; original 28 checks passed",
+    "batch4_state": "completed_verified",
+    "batch6_state": "completed_verified",
+    "board_technical_runs": [
+      "4890e8c3-2221-46e5-99d8-bd14515a885b",
+      "dcf5f252-c3aa-4801-b13e-a5012a1f184b",
+      "76480b90-680d-428a-a467-c0219396175b"
+    ]
   },
   "scope_total_count": 70,
-  "restored_count": 49,
+  "restored_count": 52,
   "next_plan_review": {
-    "evidence": "README.md section 40",
+    "evidence": "README.md sections 43-44",
     "proposed_batch_order": [
-      "dc technical Gold/local/prod (3)",
-      "factor repair prerequisite via existing flow",
-      "MACD/KDJ and state (14)",
-      "nineturn after staging fix (4)"
+      "MACD/KDJ daily 14 -> scoped 26-code MACD history repair -> original completion gate",
+      "nineturn 4 after approved staging fix and read scope"
     ],
-    "current_remaining": 21,
+    "current_remaining": 18,
     "formal_execution_this_review": false,
     "business_code_changed_this_review": false,
     "known_code_fix_required": "stock QFQ nineturn candidate path and failure/resume handling",
@@ -561,5 +577,19 @@
     "history_rewrite_completed": true,
     "normal_executions": 1,
     "automatic_retries": 0
+  },
+  "board_technical_recovery": {
+    "state": "completed_verified",
+    "approval": "one normal Gold -> local CH -> Prod CH, read256MiB/write32MiB/extra64MiB, stop on failure, no automatic reread",
+    "evidence": "board_technical_20261025/summary.json",
+    "assets": 3,
+    "checks": 3,
+    "rows_each": 1043,
+    "run_ids": [
+      "4890e8c3-2221-46e5-99d8-bd14515a885b",
+      "dcf5f252-c3aa-4801-b13e-a5012a1f184b",
+      "76480b90-680d-428a-a467-c0219396175b"
+    ],
+    "code_changed": false
   }
 }

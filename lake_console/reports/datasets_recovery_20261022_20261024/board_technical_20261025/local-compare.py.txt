@@ -1,0 +1,25 @@
+"""One bounded comparison of 22nd Gold and local serving, no historical prices."""
+import json
+from pathlib import Path
+from dagster._config.post_process import post_process_config
+from orchestrator.defs.resources import defs as resource_defs
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.paths import gold_dc_daily_technical_path
+from orchestrator.defs.run_contracts.dc_daily_technical_serving import DC_DAILY_TECHNICAL_SERVING_COLUMNS
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/board_technical_20261025');DAY='2026-10-22'
+v=json.loads((BASE/'ch_dc_daily_technical_update_job-verified.json').read_text());assert v['status']=='SUCCESS' and len(v['checks'])==1 and v['checks'][0]['passed']
+columns=', '.join(DC_DAILY_TECHNICAL_SERVING_COLUMNS)
+path=gold_dc_daily_technical_path(Path('/Volumes/datasource/data_lake'),DAY)
+with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+ gold=c.execute(f"SELECT {columns} FROM read_parquet(?,hive_partitioning=false) WHERE trade_date=DATE '2026-10-22' ORDER BY trade_date,category,ts_code LIMIT 2000",[str(path)]).fetchall()
+raw=resource_defs.resources['clickhouse'];r=post_process_config(raw._config_schema.config_type,raw._convert_to_config_dictionary());assert r.success
+settings={'readonly':2,'max_execution_time':30,'timeout_before_checking_execution_speed':0,'max_rows_to_read':100000,'max_bytes_to_read':64*1024**2,'max_result_rows':2000,'result_overflow_mode':'throw','read_overflow_mode':'throw','max_memory_usage':256*1024**2}
+with type(raw)(**r.value).get_connection() as client:
+ local=client.execute(f"SELECT {columns} FROM goldenshare_serving.board_fact_technical_daily WHERE trade_date=toDate('2026-10-22') ORDER BY trade_date,category,ts_code LIMIT 2000",settings=settings)
+assert len(gold)==len(local)==1043
+differences=[i for i,(a,b) in enumerate(zip(gold,local,strict=True)) if tuple(a)!=tuple(b)]
+s=path.stat()
+result={'date':DAY,'gold_rows':len(gold),'local_rows':len(local),'compared_columns':list(DC_DAILY_TECHNICAL_SERVING_COLUMNS),'difference_rows':len(differences),'gold_stat':[s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns],'passed':not differences,'scope':'one single-day read each, no historical recomputation'}
+(BASE/'local-full-field-comparison.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False))
+assert not differences

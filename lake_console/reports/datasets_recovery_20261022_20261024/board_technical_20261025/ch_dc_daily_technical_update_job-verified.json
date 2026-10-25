@@ -1,0 +1,83 @@
+{
+  "as_of": "2026-10-25T23:37:24.819462+08:00",
+  "job": "ch_dc_daily_technical_update_job",
+  "run_id": "dcf5f252-c3aa-4801-b13e-a5012a1f184b",
+  "status": "SUCCESS",
+  "elapsed_seconds": 7.137139081954956,
+  "materializations": [
+    {
+      "asset": "ch_dc_daily_technical",
+      "storage_id": 7726627,
+      "metadata": {
+        "dagster/uri": "clickhouse://goldenshare_serving.board_fact_technical_daily?trade_date=2026-10-22",
+        "dagster/row_count": 1043,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "trade_date",
+          "category",
+          "close",
+          "ma_5",
+          "ma_10",
+          "ma_15",
+          "ma_20",
+          "ma_30",
+          "ma_60",
+          "ma_120",
+          "ma_250",
+          "kdj_k",
+          "kdj_d",
+          "kdj_j",
+          "macd_dif",
+          "macd_dea",
+          "macd",
+          "boll_mid",
+          "boll_upper",
+          "boll_lower",
+          "observation_count",
+          "params_key",
+          "indicator_version",
+          "updated_at"
+        ],
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/clickhouse_table": "goldenshare_serving.board_fact_technical_daily",
+        "goldenshare/source_asset": "gold_dc_daily_technical",
+        "goldenshare/source_path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/replace_mode": "sync_delete_then_insert",
+        "goldenshare/lightweight_deletes_sync": 1,
+        "goldenshare/null_semantics": "MA/BOLL warmup NULL preserved"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "ch_dc_daily_technical",
+      "name": "ch_dc_daily_technical_core_check",
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-22",
+      "target_storage_id": 7726627,
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 1043,
+        "goldenshare/date_mismatch_count": 0,
+        "goldenshare/duplicate_key_count": 0,
+        "goldenshare/expected_gold_row_count": 1043,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rules": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet",
+        "goldenshare/input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-22/part-000.parquet"
+        ],
+        "goldenshare/invalid_identity_count": 0,
+        "goldenshare/metadata_mismatch_count": 0,
+        "goldenshare/null_semantics": "MA/BOLL warmup NULL preserved",
+        "goldenshare/partition_key": "2026-10-22",
+        "goldenshare/reason_code": "ready",
+        "goldenshare/target_row_count": 1043,
+        "goldenshare/target_table": "goldenshare_serving.board_fact_technical_daily"
+      }
+    }
+  ],
+  "failures": []
+}
