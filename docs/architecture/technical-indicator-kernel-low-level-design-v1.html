@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>技术指标计算内核 · 代码级LLD v1</title><style>
 :root{--ink:#152d3b;--muted:#58717d;--line:#dce5e9;--blue:#315f80;--bg:#eff4f5;--paper:white}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}a{color:#266787;text-underline-offset:4px}aside{position:fixed;top:0;left:0;bottom:0;width:255px;padding:25px 18px;overflow:auto;background:#132e3c;color:white}aside strong{font-size:18px;display:block;margin-bottom:18px}aside a{display:flex;gap:9px;color:#d5e7ec;text-decoration:none;font-size:12px;line-height:1.5;padding:8px 3px;border-bottom:1px solid #ffffff12}aside span{color:#88b8c7;min-width:21px}main{max-width:1500px;margin-left:255px;padding:40px 45px 80px;min-width:0}.hero{background:linear-gradient(120deg,#193a4c,#315f75);color:white;border-radius:18px;padding:32px;margin-bottom:28px}.hero a{color:#bce5f1}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:8px 0}.badge{display:inline-block;font-size:13px;padding:4px 10px;border-radius:7px;background:#ffffff18;margin:5px 5px 0 0}section{padding:30px 34px;background:var(--paper);border:1px solid var(--line);border-radius:14px;margin-bottom:24px;min-width:0;overflow:hidden}h2{font-size:25px;line-height:1.5;margin:0 0 22px}h2 small{font-size:15px;color:#a47836;margin-right:12px}h3{font-size:19px;margin:28px 0 12px}p{margin:12px 0}strong{font-weight:650}.table-wrap{overflow:auto;max-width:100%;margin:20px 0;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;min-width:780px;font-size:13px}th{background:#eaf1f4;text-align:left}th,td{vertical-align:top;border-bottom:1px solid var(--line);padding:12px 14px;min-width:120px}tbody tr:last-child td{border-bottom:0}td:first-child{font-weight:600;min-width:130px}pre{padding:20px;background:#102b3a;color:#e2f0f3;border-radius:10px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto;max-width:100%}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}p code,li code,td code{background:#eaf1f4;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.diagram{overflow:auto;background:#fbfcfd;border:1px solid var(--line);border-radius:10px;margin:15px 0 24px}.diagram svg{width:100%;min-width:760px;height:auto;display:block;font-family:inherit;color:var(--ink)}.diagram text{fill:currentColor}.diagram text[fill="white"]{fill:white}ul,ol{padding-left:24px}li{margin:8px 0}footer{color:var(--muted);font-size:13px}.toolbar{display:flex;justify-content:flex-end;margin-bottom:12px}.toolbar button{border:1px solid var(--line);background:white;border-radius:7px;padding:7px 14px;color:var(--ink);cursor:pointer}@media(max-width:1050px){aside{width:210px}main{margin-left:210px;padding:24px}section{padding:25px}}@media(max-width:760px){aside{position:static;width:auto;max-height:175px;padding:15px 18px}aside strong{margin-bottom:7px}aside nav{display:flex;gap:12px;overflow:auto}aside a{min-width:150px;max-width:150px;border:0}main{margin:0;padding:16px}section{padding:20px 16px}.hero{padding:24px 20px}.hero h1{font-size:27px}h2{font-size:22px}pre{font-size:12px}table{min-width:800px}}@media print{aside,.toolbar{display:none}main{margin:0;padding:0;max-width:none}body{background:white}section{border:0;break-before:page;padding:10px 0;overflow:visible}pre{white-space:pre-wrap;color:#152d3b;background:#f1f5f6}.table-wrap{overflow:visible}table{min-width:0;font-size:10px}th,td{min-width:0;padding:5px}.hero{background:#eaf1f4;color:#152d3b}}
-</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>最初设计核验范围（历史证据，不据此重新运行）</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-25 · v1.0.0</p><span class="badge">D1/D2已提交 · 阶段收尾完成</span><span class="badge">D3具备开发条件 · 本轮未启动</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>最初设计核验范围（历史证据，不据此重新运行）</h2><p>本节记录最初编写LLD时的设计实验及其原预算，不授权本轮重新运行。后续开发验收只使用§17/18.1/19.10—19.13的固定安排。最初设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
+</style></head><body><aside><strong>代码级LLD · v1</strong><nav><a href="#s00"><span>00</span>最初设计核验范围（历史证据，不据此重新运行）</a><a href="#s01"><span>01</span>目标、范围与不能改变的规则</a><a href="#s02"><span>02</span>当前代码依据与关键差异</a><a href="#s03"><span>03</span>文件组织：每个文件负责什么</a><a href="#s04"><span>04</span>对象、方法与调用合同</a><a href="#s05"><span>05</span>请求、时间、分页与标准输入</a><a href="#s06"><span>06</span>读取实现：来源清单、一次遍历与预算</a><a href="#s07"><span>07</span>复合依赖、复权及同请求复用</a><a href="#s08"><span>08</span>SQL表、批次与资源归属</a><a href="#s09"><span>09</span>参数范围、安全分段与数学边界</a><a href="#s10"><span>10</span>精度：明确门槛、独立预期与有限样本</a><a href="#s11"><span>11</span>完整调用步骤与异常收尾</a><a href="#s12"><span>12</span>连接、进程、工作线程与有限等待</a><a href="#s13"><span>13</span>取消、到期和中断控制的精确步骤</a><a href="#s14"><span>14</span>输出、版本与成功空结果</a><a href="#s15"><span>15</span>错误合同与重试</a><a href="#s16"><span>16</span>配置审计与逐阶段内存估算</a><a href="#s17"><span>17</span>有界验证计划：输入、次数、耗时与停止门槛</a><a href="#s18"><span>18</span>测试文件、字面夹具与正反验收</a><a href="#s19"><span>19</span>消费者、迁移边界与后续编码顺序</a><a href="#s20"><span>20</span>设计确认、最终审计与开发条件</a><a href="#s21"><span>21</span>SQL模板的编码定义与本轮设计实验记录</a><a href="#s22"><span>22</span>对照方案25项的逐项审计</a><a href="#s23"><span>23</span>依据与核验范围</a></nav></aside><main><div class="toolbar"><button onclick="window.print()">打印 / 保存PDF</button></div><div class="hero"><h1>技术指标计算内核 · 代码级LLD</h1><p>文件与对象、SQL步骤、资源生命周期、量化预算及25项对账</p><p><a href="technical-indicator-kernel-component-design-v1.html">返回组件设计方案</a> · 2026-10-25 · v1.0.0</p><span class="badge">D1/D2已提交 · 阶段收尾完成</span><span class="badge">MACD交接文档已统一 · 尚未恢复编码</span><span class="badge">数值SQL有界核验 · 不等于完整验收</span></div><section id="s00"><h2><small>00</small>最初设计核验范围（历史证据，不据此重新运行）</h2><p>本节记录最初编写LLD时的设计实验及其原预算，不授权本轮重新运行。后续开发验收只使用§17/18.1/19.10—19.13的固定安排。最初设计实验只使用 <code>.venv</code> 已安装的DuckDB 1.5.5、Python 3.13.5，在 <code>/private/tmp</code> 隔离执行，不安装依赖、不访问正式数据、不实现内核模块。</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -355,7 +355,7 @@ scripts/diagnostics/technical_indicator_resources.py  # 后续有界验收入口
 <p><code>CalculationSession</code>记录executor引用、内部表清单、已处理新输入数、状态表名与初始化标记。<strong>不在Python保存EMA/DEA/K/D值</strong>；段末只通过SQL更新状态。服务负责连接，读取负责输入，engine负责指标状态，collector负责返回结果，各方只清自己资源。</p>
 <p>Definition另有静态<code>public: bool</code>：五项业务能力为true，共用<code>window_mean</code>/<code>window_range</code>定义为false。它们同样由registry维护，<code>resolve</code>只供合法业务计算ID，内部<code>resolve_dependency</code>才可取非公开定义；list/describe业务能力不发布这些内部步骤。该标记不来自业务参数或env，不增加任意调用内部SQL的入口，避免把“声明依赖”写成实际找不到的对象。moving_average.py管理window_mean定义，kdj.py管理window_range定义，BOLL只引用同版本均值，不复制均值算法。</p>
 <p><code>TechnicalIndicatorService.__init__(*, source: PriceSource, registry: CalculationRegistry, config: KernelConfig, control: ExecutionControl | None=None)</code>只接收已解析依赖，不读全局env。没有注入control的同步库调用，在calculate进入时新建本次control并按配置启动必要中断控制；App注入的control保留最早到达时间，不重新计时。普通服务可复用其不可变定义/来源工厂，每次调用的connection/session/control都必须新建；绑定特定control的服务对象只用于该次请求。SourceDescription/SourceStream不得放进共享单例的可变字段。</p>
-<p><code>ExecutionStats</code>固定包含step_name、elapsed_ms、logical_input_rows、output_rows及是否失败；它不保存价格值。结果的<code>sql_processed_rows</code>定义为各SqlStep实际传入表/段的<strong>逻辑输入行数之和</strong>，同一批被多个步骤使用分别计量；不是DuckDB内部所有operator的行数。开发profiling另记累计operator处理量/报告扫描行，不能用逻辑计数冒充物理I/O或优化器实际工作。<code>source_rows</code>只计首次实际读到的本证券匹配K线一次；成功时等于全部交付新行，失败时可包含已经读到但尚未交付的半批/余量，文件数/物理大小/重复读取单独记；不可可靠取得的实际物理读取字节保持未知，不填写伪数字。</p>
+<p><code>ExecutionStats</code>固定包含step_name、elapsed_ms、logical_input_rows、output_rows及是否失败；它不保存价格值。结果的<code>sql_processed_rows</code>定义为各SqlStep实际传入表/段的<strong>逻辑输入行数之和</strong>，同一批被多个步骤使用分别计量；不是DuckDB内部所有operator的行数。开发profiling另记累计operator处理量/报告扫描行，不能用逻辑计数冒充物理I/O或优化器实际工作。MACD各步骤的唯一逻辑输入计量见§21.1：读取借用K线表的步骤按该表已有行数计，不因WHERE只输出一段就只记段行；该值仍不代表物理扫描。<code>source_rows</code>只计首次实际读到的本证券匹配K线一次；成功时等于全部交付新行，失败时可包含已经读到但尚未交付的半批/余量，文件数/物理大小/重复读取单独记；不可可靠取得的实际物理读取字节保持未知，不填写伪数字。</p>
 <h3>04.1 依赖、结果表及实际调用方法的完整合同</h3>
 <p>下列字段由<code>calculation/calculation.py</code>定义，根<code>contracts.py</code>只维护业务请求/结果；<code>sources/contracts.py</code>维护来源交接。引用方向为计算对象使用来源表说明，来源不import指标实现。<code>OutputField</code>仅在calculation.py定义，发现模块引用同一份，不复制定义。以下补齐已有对象之间的交接，不增加公开接口。</p>
 <h4>1. 注册和每请求实例</h4>
@@ -842,6 +842,8 @@ CROSS JOIN ti_anchor a;
 </table></div>
 <p>TABLE_ROLES、SQL_FILES及FIXED_SQL_STEPS都是内置类的只读常量，不能由业务或env指定；同一role的名字/生命周期重复或冲突在prepare前拒绝。§21示例省略的表后缀按此表生成。不同参数/节点有不同node_index，不会同名覆盖；不同请求连接独立。这些只是现有固定SQL表的名称和归属声明，不引入对象池或通用权限系统。</p>
 <p>engine.prepare从每个计算对象类内固定SQL_FILES和FIXED_SQL_STEPS取得本对象允许的步骤名，构造只读allowed_step_names并传入本节点session；步骤名采用文件名（去掉.sql）或固定辅助步骤名，重复声明启动失败。业务不能提供/改写该集合。SqlStep.sql只允许该对象调用固定加载函数/固定辅助函数生成，不给调用方提供任意SQL正文入口，不靠步骤名声称验证任意SQL正文，也不增加SQL解析器。</p>
+<p><strong>本批K线表的唯一交接。</strong> 指标只从当前<code>PriceBatch.table_name</code>取得K线表。D2实际交付<code>ti_price_window</code>，含<code>new_row_count</code>根新行和<code>history_rows</code>根前置历史；<code>ti_price_new</code>仅是读取模块内部表，不能因为同连接中存在就加入指标readable_tables或从指标SQL直接引用。engine在consume前核当前批并将该table_name作为只读输入；MACD固定模板的<code>{{price}}</code>只映射此名称，不新增PriceBatch字段、第二张交付表、价格复制或预取。其它自有state/parameters/work/output仍按固定TABLE_ROLES生成，借用K线不登记为自有、不允许写删。</p>
+<p>MACD首根与后续段的不同数值绑定、状态接续、错误和计量见§21.1；未实现者不得根据示例中的表名自行另找输入。相同规则适用于原批次复用检查，不增加指标名分支、SQL解析器或任意权限开关。</p>
 <p>CalculationSession.execute的固定步骤：检查本请求仍活动→核step.name属于本session.allowed_step_names且不是control_read_steps中的SELECT→核读写表角色与上述集合→执行器原有先登记/停止检查/安全绑定/计量→返回ExecutionStats。两条控制SELECT只能用§07.4的read_control_row，不能提交后遗失返回值。不得把未经核验的SQL文本交给该方法；指标代码不得直接调用session.executor.execute、连接execute或通用drop来绕过这些检查。prepare时readable_tables只含已经可用的自有状态；consume前engine再加入当批K线和声明依赖，release_batch后清当批集合。drop_owned_table(name, *, cleanup=False)先核自有清单；正常批末固定用drop_table，只有engine.close调用release的统一收尾路径设置cleanup=True并用cleanup_drop。归属检查不会因cleanup跳过，业务/指标consume不能开启清理模式。停止后的清理沿§11/13专用入口，不重新开启普通业务SQL。</p>
 <p>当前D1的CalculationSession尚无这些方法/集合，当前D2执行器只核受控名称并登记资源，尚不核每指标归属；上述方法在D3实现，D2修正不改它们。来源、输出仍由各自模块管理，不借此扩大成全系统权限框架。固定SQL文件、角色和代码审查共同保证内部代码不误用；不声称可以安全执行任意不可信SQL。共用模板若改变公式、初始化或输出含义，必须同步版本及其MA/BOLL等全部消费者，不能仅改一方。</p>
 <p>这些约束只在已确认的多指标、批次接续和失败场景中验收：看相同均值是否只算一次、不同参数是否分开、借用表越界是否在SQL前失败、旧批说明是否拒绝。不追加参数交叉矩阵或新的测试类别。</p>
@@ -913,7 +915,7 @@ FROM bounds;
 <tr>
 <td><code>ti_price_new</code></td>
 <td>≤8192新行</td>
-<td>读取模块创建；全指标、输出和必要历史完成后drop</td>
+<td>仅读取模块内部创建/引用/删除；不通过PriceBatch另行交付，指标不得按名称读取</td>
 </tr>
 <tr>
 <td><code>ti_history</code> / <code>ti_history_next</code></td>
@@ -923,7 +925,7 @@ FROM bounds;
 <tr>
 <td><code>ti_price_window</code></td>
 <td>新行＋所需尾部，≤8192+W−1</td>
-<td>当批窗口计算使用；不推进旧行递推；批末drop</td>
+<td>D2通过PriceBatch.table_name唯一交付的只读K线表；窗口可使用历史，MACD按21.1只递推新编号；读取模块批末drop</td>
 </tr>
 <tr>
 <td><code>ti_mean_&lt;node&gt;</code> / <code>ti_range_&lt;node&gt;</code></td>
@@ -2555,6 +2557,11 @@ FROM {{result_table}};
 <p><strong>本轮澄清。</strong> 第03节更正已过期的D2未落地状态；第21.3节输出尾部改名明确复用04.4的rename_table和归属清单顺序，防止D3重现旧缺陷；第14.5节改为实际_executing和工作线程检查，不创建不存在的active_call。原失败节点Reader关闭由监测记录支持，其最终Reader断言未执行，报告不再混写。上述只是既定规则准确化，无新增业务拍板或测试组合。</p>
 <p><strong>D3开工条件满足。</strong> 计算定义、输入字段/历史、依赖及固定SQL/辅助步骤和参数、输出说明、结果完整读取、异常原因、版本及消费者迁移都已有具体合同。D3需同次更新OutputRange/msg、所有新库构造/测试、固定SQL清单及包资源；当前正式API/页面没有使用新库，不因此授权迁移现行接口。原合批读取52895根与两个真实Control额度已用完，修复新增来源/真实Control均0；小调用保持68/72，D3预留4个（完整服务读取合计19023根），其余D3输入≤100000/SQL逻辑≤5000000及既定时限不变。没有待管理员新增拍板的方向问题，下一次获准开发时按19.13步骤5/6执行，不跳过本步代码和LLD核对。</p>
 <p>本轮没有新跑测试/SQL或正式数据，使用保存的原265项有效回归/架构/数量/异常/包资源记录、原合批证据和7项修复证据；静态文档检查不能替代运行验收。完整wheel安装、既有pypinyin锁差异、D4资源/并发及页面性能仍属明确后续范围，不阻止在现有获准环境按D3开发，也不宣称这些已通过。</p>
+<p><strong>当前状态：MACD交接修订已确认并统一到LLD（2026-10-25）。</strong>第19.21、21.1节已明确唯一交付表、首根/段绑定、状态接续、失败及计量；原开工暂停记录保留。本轮只修文档，尚未恢复编码或运行SQL/测试/Control，D3未完成。记录：reports/technical_indicator_kernel_d3_20261025/audit.md。</p><h3 id="d3-execution-20261025">D3本次执行计划（管理员已确认，2026-10-25）</h3><p>本轮获准完成D3步骤5/6，尚未实施完成。先补CalculationSession、固定SQL加载和控制行读取；再实现两内部窗口及price/MA/BOLL/MACD/KDJ、engine和内置注册；随后迁移OutputRange/msg及本库消费者，补完整结果读取、输出、严格编码和calculate。7份计算SQL、3份输出SQL及两项包资源声明同次交付。实现位置、精确合同及固定语句仍按LLD第04/07/09/14/19.13/21节，不新增配置或通用框架。</p><p>只修改本内核、本库测试、原两文及本轮报告，保持dev-interface、现有依赖和配置。长样本仅最终验收运行，10001根原10项加price核验、9001根翻页复用同一独立参考前缀、2051根一次三套MACD；21日线合批、当前周及必要小错误沿19.10。真实完整服务4请求/19023根；总输入≤100000、SQL逻辑≤5000000（含参考）、单程序≤30秒、整轮≤5分钟，失败及最后核对计入，额外自动重试0。报告位于reports/technical_indicator_kernel_d3_20261025，执行前保存plan.json，逐项更新progress.json、acceptance.json及audit.md。</p><p>非预期错误、设计遗漏/冲突或预算不足立即停止，保留上下文、已完成量、清理结果及剩余预算后讨论。执行测试前逐函数核对fixture/conftest副作用；不重跑已通过D2整组，不安装/升级，不改API/页面/XXM、App并发及DG，不借D4额度。最终逐条对账；D3不代表整页性能或DG退出条件满足。</p><h3>19.21 2026-10-25已确认：MACD只使用当前批交付表，文档完成后再恢复D3</h3>
+<p>管理员同意本次修订，要求先统一LLD再汇报。本轮只修改原两文并补文档审计记录，不继续52行read_control_row草稿、不写指标/SQL/engine/output、不运行计算或创建真实Control。原暂停事实及当时未执行的预算记录保留在audit.md历史段；19.20保留已批准执行计划，不能把文档修复写成D3完成。</p>
+<p>落实位置：04.1指明MACD计量落点；07.3限定当前PriceBatch唯一只读输入；08说明ti_price_new是读取内部表；21.1给出两个模板的精确输入/单参数绑定、状态进度、Count失败、P/S逐步计量与8192+1809例子；21.6同步固定文件清单；22项12同步审计要求。复核依据为sources/session.py:153—164与sources/contracts.py:73—85；CodeGraph explore辅助核调用关系，实际交付表以当前代码为准。</p>
+<p>不改D2或PriceBatch，不暴露第二输入表，不新增SQL文件、复制、来源扫描、状态查询、配置或测试类别。均值等窗口计算继续使用必要历史，MACD只递推新编号；公式、复权、误差、七计算/三输出SQL清单、资源生命周期和既定预算均不变。源读取/SQL/真实Control仍为0，D3剩余输入100000/逻辑SQL5000000/真实Control4。</p>
+<p>下一步动作：先按本节和21.1核对固定模板、表角色、绑定及计量映射，然后在管理员后续恢复开发指令下继续19.13步骤5；完成后接步骤6，最后仅运行18.1/19.10原定有限验收。非预期遗漏、错误或超预算仍立即保留证据停止讨论，不自动重跑。无新增业务方向待拍板；当前只确认文档具备这处交接的编码细节，不宣称完整实现或性能已验收。</p>
 </section><section id="s20"><h2><small>20</small>设计确认、最终审计与开发条件</h2><p>本节保留原方案25项设计冻结时的确认及复核记录。“设计覆盖”与实现/性能验收分开；初始配置和依赖选型仍已确认。当前D1/D2及其修正已阶段完成并提交，依据、限制和D3进入条件见§19.19；§19.6/04.2保留内部合同修订依据，本节历史冻结记录不能替代实际阶段验收。后续若发现真实来源/运行行为与设计冲突，仍按既定变更流程处理，不擅自换方案。</p>
 <h3>20.0 本轮管理员已确认的五项决定</h3>
 <div class="table-wrap"><table>
@@ -2793,25 +2800,28 @@ FROM {{result_table}};
 </ul>
 <p>此历史结论保留当时设计审计与三项专项复核的判断；D2开工复核已发现§19.6的交接缺口，当前D2执行条件以§04.2及该节已确认修订为准，不冒充运行实现或生产验收已经通过。</p>
 </section><section id="s21"><h2><small>21</small>SQL模板的编码定义与本轮设计实验记录</h2><h3>21.1 MACD单段完整数据流</h3>
-<p>受控表名由各计算对象的固定表角色和序号生成，经共用加载函数核验；engine不拼指标公式。以下省略内部序号后缀，绑定参数<code>?</code>只传本段新输入终点。<code>ti_macd_parameters</code>来自§09的三组参数合并，字段<code>fast,slow,signal,af,bf,aslow,bslow,ag,bg,segment_rows</code>；state字段顺序<code>last_seq,origin_price,ema_fast_offset,ema_slow_offset,dea</code>。origin_price为固定首价，offset是内部数值表示，不能被消费者当原始EMA。仅请求级状态在prepare阶段建表：</p>
+<p><strong>输入与表名。</strong> 本节已按2026-10-25管理员确认修订，与D2真实交接统一。MACD只能借用当前<code>PriceBatch.table_name</code>；当前实现是<code>ti_price_window</code>，其中新K线范围由<code>new_first_seq/new_last_seq</code>给定，历史数量由<code>history_rows</code>说明。以下<code>{{price}}</code>是固定模板的内部表名标记，仅绑定engine核对的当前table_name，不是业务参数；其它MACD自有表名省略node序号后缀。MACD不得直接读取来源内部<code>ti_price_new</code>，不得重新复制一张新K线表来绕过交接。</p>
+<p><strong>两个模板的数值绑定不同。</strong> <code>macd_first.sql</code>只有一个<code>?</code>，绑定元组固定为<code>(batch.new_first_seq,)</code>，用编号相等选本批第一根新K线，不用全表ORDER BY/LIMIT选择可能存在的旧行。<code>macd_segment.sql</code>也只有一个<code>?</code>，但绑定固定为<code>(next_end,)</code>；该值来自本批的<code>read_segment_bounds</code>，不是new_last_seq以外另行推算的价格或业务可填参数。两者均使用已核非bool整数、安全绑定；生成表名不拼业务instance_id。模板与绑定分别由MACD固定代码构造，不在通用engine/Session增加MACD名分支。</p>
+<p><code>ti_macd_parameters</code>来自§09的三组参数合并，字段<code>fast,slow,signal,af,bf,aslow,bslow,ag,bg,segment_rows</code>；state字段顺序<code>last_seq,origin_price,ema_fast_offset,ema_slow_offset,dea</code>。origin_price为固定首价，offset只是内部数值表示。prepare只登记并建立本节点请求级参数及空state表，不读取K线、不设initialized：</p>
 <pre><code class="language-sql">CREATE TEMP TABLE ti_macd_state(last_seq BIGINT, origin_price DOUBLE,
     ema_fast_offset DOUBLE, ema_slow_offset DOUBLE, dea DOUBLE);
 </code></pre>
-<pre><code class="language-sql">-- 每批consume开始前先登记本节点输出表归属及执行器资源，再执行CREATE
+<p>以下为执行顺序示例，每个CREATE/INSERT/UPDATE仍各自一个固定SqlStep，不能把代码块整体交给一次execute。<code>{{price}}</code>实际只读表在每批映射，不能硬编码为ti_price_new：</p>
+<pre><code class="language-sql">-- 每批consume开始前登记并创建本节点空输出表
 CREATE TEMP TABLE ti_macd_output(seq BIGINT,dif DOUBLE,dea DOUBLE,hist DOUBLE);
--- macd_first.sql，仅该实例从未见过输入时执行；只取首根新行
+-- macd_first.sql：仅本节点首次非空输入执行，bindings=(batch.new_first_seq,)
 INSERT INTO ti_macd_state
-SELECT seq,close,0.0,0.0,0.0 FROM ti_price_new ORDER BY seq LIMIT 1;
--- 文件到此结束；下一条为MACD代码中单独登记的macd_first_output步骤
+SELECT b.seq,b.close,0.0,0.0,0.0 FROM {{price}} b WHERE b.seq=?;
+-- 文件到此结束；以下为单独登记的macd_first_output固定辅助步骤
 INSERT INTO ti_macd_output
 SELECT last_seq AS seq,0.0 AS dif,0.0 AS dea,0.0 AS hist FROM ti_macd_state;
 
--- macd_segment.sql；next_end由SQL least(last_seq+segment_rows,new_last_seq)给出
+-- macd_segment.sql：bindings=(next_end,)，next_end由read_segment_bounds取得
 CREATE TEMP TABLE ti_macd_work AS
 WITH x AS (
  SELECT b.seq,b.seq-s.last_seq AS j,b.close-s.origin_price AS x,p.*,
         s.ema_fast_offset AS seed_fast,s.ema_slow_offset AS seed_slow,s.dea AS seed_dea
- FROM ti_price_new b CROSS JOIN ti_macd_state s CROSS JOIN ti_macd_parameters p
+ FROM {{price}} b CROSS JOIN ti_macd_state s CROSS JOIN ti_macd_parameters p
  WHERE b.seq&gt;s.last_seq AND b.seq&lt;=?
 ), e AS (
  SELECT *,
@@ -2833,10 +2843,69 @@ SELECT seq,ef,es,dif,next_dea AS dea,2.0*(dif-next_dea) AS hist FROM a;
 INSERT INTO ti_macd_output SELECT seq,dif,dea,hist FROM ti_macd_work;
 UPDATE ti_macd_state SET last_seq=w.seq,ema_fast_offset=w.ef,ema_slow_offset=w.es,dea=w.dea
 FROM (SELECT * FROM ti_macd_work ORDER BY seq DESC LIMIT 1) w;
--- 这里只表示session.drop_owned_table(work)的动作，禁止另提交DROP文本
+-- 示意清理动作；实际仅调用session.drop_owned_table(work)，不另提交DROP文本
 DROP TABLE ti_macd_work;
 </code></pre>
-<p>每批ti_macd_output只存新行。首次非空批先单独执行macd_first，再单独执行macd_first_output；两者分别检查取消和记录ExecutionStats，全部成功才将session.initialized置True。前者input_tables仅本批price_new，processed_rows为本批新行数、输出1；后者仅读state一行、输出1。两条语句不得一次execute提交；任一步失败即整次失败清理，不在同一请求继续或重试。首根空输入不执行。后续批次只建空output并接续state，不重复初始化。每次段末固定追加结果、更新state一次、drop work，再按§07.4读取下一段；所有新行完成才交collector。collector保存独立尾部后release_batch删本批output，state留到下批。参数和指标状态不取回Python运算。</p>
+<p><strong>初始化、跨批与错误的固定顺序。</strong> engine先将当前批及只读K线名交给本节点Session，再调用consume。首次有新行时执行macd_first，input_tables仅为<code>(batch.table_name,)</code>，output_tables仅为本节点state；既有Count必须为1，否则CalculationExecutionError并附固定步骤名/实际数量。随后单独执行macd_first_output，仅读state，写本节点output，Count也必须为1；两步都成功才置initialized=True。首根严格0，不对空输入执行这两步。任一步失败或取消都立即结束整次请求，保留全部已登记名称供原finally清理，不能重试首根、继续后续段或返回部分结果。</p>
+<p>首次初始化后的第一次read_segment_bounds必须得到last_seq等于本批new_first_seq；已初始化节点进入后续批时，第一次必须等于本批new_first_seq−1。每段完成后再次读取时，last_seq必须等于刚处理的next_end。直接复用§07.4已经读取的三个控制整数核对，不另查状态、不把EMA/DEA取回Python。错批、终点或状态进度不符沿现有CalculationExecutionError/control_bounds失败，不扩大为行情质量检查。</p>
+<p>每段仅选<code>state.last_seq &lt; seq &lt;= next_end</code>，因此不再递推历史尾部，也不重复输出首根。循环固定为read_segment_bounds→0行则结束本批，否则生成work→按既有Count核该段输出行数→追加output→UPDATE本节点末状态一次→drop work→再次读终点。生成work及追加结果的Count都应为本次segment_rows、UPDATE应为1；数量不符按CalculationExecutionError停止并记录步骤，不额外扫描COUNT。只有首根的正常批会自然得到segment_rows=0，不执行空段SQL。所有新行完成后交collector；其保存结果并保留必要输入历史后，才由engine释放本批output，state留到下一批。失败沿原统一清理，不变更D2连接、监控、历史保存或释放方法。</p>
+<p><strong>每个步骤的计量写死，不能让开发自行选择。</strong> 设<code>P=batch.new_row_count+batch.history_rows</code>（当前借用表已有行数），<code>S=read_segment_bounds.segment_rows</code>（本段新行数）。P/S均来自已有批次/控制说明，不新增计数查询；processed_rows不增加source_rows。以下是实际传入表的保守逻辑计数，不声称DuckDB真的读取了相同数量的物理行或字节。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>固定步骤</th>
+<th>input_tables / output_tables</th>
+<th>bindings</th>
+<th>processed_rows / 预期output_rows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每批创建空output</td>
+<td>空 / 本节点output</td>
+<td>空</td>
+<td>0 / 0</td>
+</tr>
+<tr>
+<td>macd_first</td>
+<td>当前batch.table_name / 本节点state</td>
+<td><code>(batch.new_first_seq,)</code></td>
+<td>P / 1</td>
+</tr>
+<tr>
+<td>macd_first_output</td>
+<td>本节点state / 本节点output</td>
+<td>空</td>
+<td>1 / 1</td>
+</tr>
+<tr>
+<td>macd_segment</td>
+<td>当前batch.table_name、本节点state、parameters / 本节点work</td>
+<td><code>(next_end,)</code></td>
+<td>P+2 / S</td>
+</tr>
+<tr>
+<td>追加本段输出</td>
+<td>本节点work / 本节点output</td>
+<td>空</td>
+<td>S / S</td>
+</tr>
+<tr>
+<td>更新本节点末状态</td>
+<td>本节点work、state / 本节点state</td>
+<td>空</td>
+<td>S+1 / 1</td>
+</tr>
+<tr>
+<td>释放work及批末output</td>
+<td>仅自有表，经drop_owned_table</td>
+<td>无普通SqlStep</td>
+<td>0；释放耗时另计</td>
+</tr>
+</tbody>
+</table></div>
+<p>prepare的空state DDL计0，参数CTAS及其控制读取仍按§09.2/07.4的3行/1行，read_segment_bounds仍计2行；不因本次修订改变其它指标的计量定义。即使一个8192读取批次含多个数学段，每段macd_segment仍分别计P+2，不只记S、不只在第一段记P。公式不等于实际operator工作量，实际扫描/耗时待既定验收另记；原5000000逻辑行预算及停止规则不变。</p>
+<p><strong>已确认场景中的具体检查。</strong> 默认10001根请求含MA250，第一批1～8192；第二批借用表含历史7944～8192共249根及新8193～10001共1809根，故P=2058。MACD第二批起始last_seq=8192，只处理新1809根，默认两数学段1024+785；两次段值SQL各计2060逻辑输入行，不能把249根历史再次递推或把首根8193输出为0。此检查放入原10001组合场景，9001翻页仍复用独立参考前缀，不另跑长历史或新增分批矩阵。原字面样本继续核真正首根严格0；原归属反向检查证明即使读取模块内部ti_price_new存在，指标也不能将它加入input_tables绕过交接。固定模板/装配检查还须确认<code>{{price}}</code>只取当前批table_name，不能只靠SqlStep表清单声称任意SQL正文安全。</p>
 <h3>21.2 KDJ单段完整数据流</h3>
 <p><code>ti_rsv_new(seq,rsv)</code>先由§09高低窗口SQL输出新行；<code>ti_kdj_parameters(k_period,d_period,ak,bk,ad,bd,segment_rows)</code>由相同系数模板kind='kd'生成；state由KDJ自己的prepare先登记再建表，并初始化一行<code>(last_seq=0,k=50.0,d=50.0)</code>；MACD不创建它。</p>
 <pre><code class="language-sql">-- 先登记本节点输出表归属及执行器资源，再每批创建一次；不是每段重建
@@ -3095,15 +3164,15 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </tr>
 <tr>
 <td>macd_first.sql</td>
-<td>首次新close/seq、已登记的本节点state表</td>
-<td>仅一条INSERT，取首价origin_price，offset/DEA为0；不写output</td>
-<td>本节点首次有输入仅执行一次；首条严格0由单独固定macd_first_output写output，两步都成功才置initialized；0输入不执行；不初始化KDJ</td>
+<td>当前PriceBatch.table_name只读映射{{price}}；唯一绑定new_first_seq；本节点state</td>
+<td>seq相等只取本批首根，INSERT状态；offset/DEA为0，不写output；逻辑输入P</td>
+<td>仅首次执行，Count=1；单独macd_first_output成功才initialized；不直接引用ti_price_new；详见21.1</td>
 </tr>
 <tr>
 <td>macd_segment.sql</td>
-<td>新close/seq、固定origin_price和上一段offset/DEA、三组系数、本段末seq</td>
-<td>§21.1当前段两EMA差、DEA及2倍柱；输出work的seq,ef,es,dif,dea,hist</td>
-<td>文件负责段值计算；本对象固定步骤追加本段输出→UPDATE自身末状态一次→释放work；不另调update_state.sql</td>
+<td>当前PriceBatch.table_name只读映射{{price}}、本节点state/parameters；唯一绑定next_end</td>
+<td>last_seq之后至next_end的新行；逻辑输入P+2、输出S行work，字段seq,ef,es,dif,dea,hist</td>
+<td>固定追加S行→UPDATE自身state一次→释放work；历史不递推；输入/绑定/计量/Count检查按21.1；无update_state.sql</td>
 </tr>
 <tr>
 <td>kdj_window.sql</td>
@@ -3230,9 +3299,9 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 </tr>
 <tr>
 <td>12SQL步骤与状态</td>
-<td>§08～09、11、21</td>
-<td>模板字段、先后、段末SQL状态、history独立表、旧行不递推</td>
-<td>已写明</td>
+<td>§07.3、08～09、11、19.21、21.1/21.6</td>
+<td>当前PriceBatch唯一交付表、首根/段绑定、状态单次接续、P/S逐步计量；复用10001组合/字面/归属反例核历史不递推</td>
+<td>已写明；2026-10-25交接修订已确认，仅文档完成，运行待D3</td>
 </tr>
 <tr>
 <td>13输出合同与版本</td>
@@ -3325,4 +3394,4 @@ FROM w WHERE seq&gt;=? AND seq&lt;=?;
 <li>Apache Arrow：<a href="https://arrow.apache.org/docs/23.0/python/generated/pyarrow.dataset.Scanner.html">23.0.1 Scanner</a>、<a href="https://pypi.org/project/pyarrow/23.0.1/">官方发布包</a>。本轮选型与版本已确认；仅用于读取及列批组织。PyArrow23.0.1已经按管理员许可安装于项目.venv并在D2完成原合同读取验收；紧凑复制、跨文件合批及表改名登记修正现已提交4afa7aa0，完成范围与有界证据见§19.19；不等于D4资源性能已验收。</li>
 </ul>
 <p>本轮未联网请求行情、未扫描正式Lake、未运行DG/生产API或全参数计算。仅使用现有依赖执行有界合成SQL、读当前代码和官方资料；没有安装、升级或修改套件。</p>
-</section><footer>本文件是编码设计，运行事实以当前代码及后续真实验收证据为准。D1/D2及合批登记修正已提交，阶段收尾和D3进入条件见第19.19节；本轮未开发D3/D4，后续顺序仍按第19.13节，控制调用分配见第18.1节；原失败记录保留，不以设计文档冒充实现。</footer></main></body></html>
+</section><footer>本文件是编码设计，运行事实以当前代码及后续真实验收证据为准。D1/D2及合批登记修正已提交，阶段收尾和D3进入条件见第19.19节；本轮MACD交接修订已统一，见第19.21节；尚未恢复D3编码，D4未启动，后续顺序仍按第19.13节，控制调用分配见第18.1节；原失败记录保留，不以设计文档冒充实现。</footer></main></body></html>

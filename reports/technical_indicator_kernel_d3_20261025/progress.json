@@ -1,0 +1,26 @@
+{
+  "status": "documentation_revision_complete_development_not_resumed",
+  "stage": "D3 step5 before indicator SQL implementation",
+  "evidence": [
+    "src/foundation/technical_indicators/sources/session.py:160-162",
+    "src/foundation/technical_indicators/sources/contracts.py:73-81",
+    "LLD07.3",
+    "LLD21.1"
+  ],
+  "executed_cases": [],
+  "input_rows": 0,
+  "sql_logical_rows": 0,
+  "real_controls": 0,
+  "remaining": {
+    "input_rows": 100000,
+    "sql_logical_rows": 5000000,
+    "real_controls": 4
+  },
+  "changed_code": [
+    "executor.py:read_control_row (not tested)"
+  ],
+  "proposal": "Use PriceBatch.table_name only; select first new seq for first seed, select state.last_seq < seq <= segment endpoint for recursive segments, and explicitly update LLD inputs/bindings/row accounting before continuing. Do not change D2 or expose another input table.",
+  "previous_issue": "LLD21.1 MACD SQL reads ti_price_new; actual PriceBatch only exposes ti_price_window, while LLD07.3 forbids reading undeclared source tables",
+  "decision": "Administrator approved delivered-table revision; original scheme and LLD04/07/08/19.21/21/22 synchronized. Documentation only.",
+  "documentation_checks": "passed; no runtime acceptance"
+}

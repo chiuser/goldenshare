@@ -1,0 +1,7 @@
+{
+  "status": "not_started",
+  "tests_run": 0,
+  "sql_executed": 0,
+  "real_controls_created": 0,
+  "reason": "LLD21.1 MACD SQL reads ti_price_new; actual PriceBatch only exposes ti_price_window, while LLD07.3 forbids reading undeclared source tables"
+}

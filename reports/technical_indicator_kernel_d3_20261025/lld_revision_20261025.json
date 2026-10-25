@@ -1,0 +1,34 @@
+{
+  "status": "documentation_checks_passed",
+  "scope": "approved MACD batch handoff revision only",
+  "checks": {
+    "sql_uses_delivered_table_twice": true,
+    "no_direct_source_internal_table_in_sql": true,
+    "first_binds_exact_new_first_seq": true,
+    "segment_uses_state_and_next_end": true,
+    "macd_math_unchanged": true,
+    "first_is_separate_from_zero_output": true,
+    "per_step_measurement_defined": true,
+    "existing_scope_preserved": true,
+    "current_status_matches_both_docs": true
+  },
+  "validation": [
+    "repository docs integrity passed",
+    "HTML table widths/local links/anchors passed",
+    "Python/JSON design snippet parse passed",
+    "scoped diff whitespace passed"
+  ],
+  "execution": {
+    "sql": 0,
+    "tests": 0,
+    "source_rows": 0,
+    "new_real_controls": 0
+  },
+  "not_proven": [
+    "SQL numerical execution",
+    "complete D3 service",
+    "resource or UI performance"
+  ],
+  "no_code_changes_this_turn": true,
+  "independent_review": "passed after two status-reference wording corrections; no algorithm/interface issue"
+}
