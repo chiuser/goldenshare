@@ -19,9 +19,29 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS,
 )
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_RAW_COLUMN_TYPES,
+    STK_FACTOR_PRO_SILVER_COLUMN_TYPES,
+)
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_column_specs,
+)
+from orchestrator.tushare_download.contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_CONTRACT,
+)
+
+RAW_TUSHARE_STK_FACTOR_PRO_SCHEMA = tuple(
+    ColumnContract(field.name, STK_FACTOR_PRO_RAW_COLUMN_TYPES[field.name], field.description)
+    for field in STK_FACTOR_PRO_CONTRACT.fields
+)
+SILVER_STOCK_FACTOR_PRO_SCHEMA = tuple(
+    ColumnContract(
+        field.name,
+        STK_FACTOR_PRO_SILVER_COLUMN_TYPES[field.name],
+        "标准化交易日，DATE" if field.name == "trade_date" else field.description,
+    )
+    for field in STK_FACTOR_PRO_CONTRACT.fields
 )
 
 RAW_DAILY_BASIC_SCHEMA = tuple(ColumnContract(*spec) for spec in DAILY_BASIC_COLUMN_SPECS)

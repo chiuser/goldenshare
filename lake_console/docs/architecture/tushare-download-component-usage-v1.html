@@ -12,11 +12,11 @@
 </head>
 <body>
 <header>
-<p class="meta">业务开发接入 / 使用与排障 / v1 · 2026-10-22</p>
+<p class="meta">业务开发接入 / 使用与排障 / v1 · 更新于2026-10-26</p>
 <h1>tushare数据下载组件<br>业务调用使用文档</h1>
 <p>业务提供完整契约名和下载范围；组件完成请求、分页、有限重试和进度通知，逐个返回完整 unit。业务决定如何校验、保存到哪里、怎样保存。</p>
 <p class="meta">依据：组件初版 <code>64f8db2ab</code>、修正 <code>0fb10442a</code>、开发收尾 <code>c50327f87</code>，以及本文编写时的当前源码。本文说明已实现接口，不新增功能或请求参数。</p>
-<div class="note notice"><strong>先确认能否调用：</strong>组件开发已完成；正式 <code>CONTRACTS</code>、<code>BINDINGS</code>、<code>SDK_ADAPTERS</code> 当前为空，尚没有可直接下载的真实数据集。本文示例的 <code>contract_name</code> 必须由后续数据集接入交付提供，不能直接填 Tushare 接口名或测试契约名就开始下载。真实数据集接入与最小真实验证属于后续 T15，见<a href="../design/dagster-tushare-download-component-low-level-design-v1.html#component-closeout">收尾范围</a>。</div>
+<div class="note notice" id="stock-factor-registration-20261026"><strong>当前可用的真实契约：</strong>截至2026-10-26，正式<code>CONTRACTS</code>和<code>BINDINGS</code>已登记唯一的<code>stk_factor_pro</code>，固定直接HTTP，支持<code>BY_POINT</code>和<code>BY_OBJECT_RANGE</code>；<code>SDK_ADAPTERS</code>仍为空。业务可按该名称和已登记模式调用；其他接口名或测试契约名未因此获得支持，六模式示例须按各契约实际支持范围选择。名称版本后缀绑定已解除，独立version和完整内容比较保留。第一批已核真实HTTP四次正常请求、5行261字段及小页2/2/1的一致性；详见<a href="../design/dagster-tushare-download-component-low-level-design-v1.html#stock-factor-registration-20261026">本次登记与证据范围</a>。这不表示日更资产、正式写入、历史回刷或bootstrap已完成。</div>
 </header>
 <nav aria-label="使用文档目录"><ol>
 <li><a href="#start">接入前与快速使用</a></li><li><a href="#configuration">配置怎么读取</a></li><li><a href="#task">调用接口与任务输入</a></li>
@@ -122,7 +122,7 @@ def download_by_date(contract_name, dates, save_unit, *,
 
 <section id="task">
 <h2>3. 调用接口与任务输入</h2>
-<div class="note notice"><strong>2026-10-22命名规则更新：</strong>后续业务契约名直接使用源数据集名，例如<code>stk_factor_pro</code>；版本单独维护，不放在名称中。当前实现仍有版本后缀校验，须在数据集接入开发中同步调整后才能按新名称登记和调用；本说明不是已完成该调整的声明。具体要求见<a href="../design/dagster-stock-technical-factor-onboarding-plan-v1.md#download-contract-registration">股票技术因子接入方案第6节</a>。</div>
+<div class="note notice"><strong>2026-10-26命名实现已更新：</strong>契约名直接使用源数据集名，当前正式名称为<code>stk_factor_pro</code>，不加来源前缀或<code>@1</code>；版本单独维护。名称仍须在正式登记表中存在，不能仅因源接口有同名API就直接使用。完整定义与登记要求见<a href="../design/dagster-stock-technical-factor-onboarding-plan-v1.md#download-contract-registration">股票技术因子接入方案第6节</a>。</div>
 <pre><code class="language-python" data-example="public_imports">from orchestrator.tushare_download import (
     DownloadTask, DownloadMode, TimeRange, ObjectTimeRange,
     DownloadControl, DownloadProgress, DownloadProgressEvent,
@@ -421,7 +421,7 @@ def start_download(contract_name, dates, save_unit):
 <h2>11. 常见问题排查</h2>
 <div class="table-wrap"><table><thead><tr><th>看到什么</th><th>先查什么</th></tr></thead><tbody>
 <tr><td>刚创建下载器就失败</td><td>看是否 1001；检查当前运行进程是否真正拿到了启动配置，不要只确认磁盘有一份 .env。</td></tr>
-<tr><td>填了 daily 等接口名，进入 with 就 1101</td><td>业务填写的是完整契约名还是 api_name？该契约及请求 mapping 是否已登记？当前交付尚无真实登记。</td></tr>
+<tr><td>填了 daily 等接口名，进入 with 就 1101</td><td>先核该完整契约及请求mapping是否已登记。当前正式仅登记stk_factor_pro；名称虽与源API一致，其他接口名仍不能绕过登记。不要追加@1或使用测试契约名。</td></tr>
 <tr><td>传了一个时间区间，迟迟没有完整结果</td><td>BY_RANGE 是整个范围一个 unit，BY_OBJECT_RANGE 是每个对象整个范围一个 unit。需要逐日交付时选契约支持的点模式并提供日期清单。</td></tr>
 <tr><td>有分页进度但累计完成行数不涨</td><td>completed_row_count 只累计完整 unit；看 unit_row_count。父范围探测 page_accepted=false 的行不会计入最终数据。</td></tr>
 <tr><td>100% 后业务保存失败</td><td>100% 是下载并排序完成，不是提交成功；查看原业务异常及最终 summary，按业务保存记录恢复。</td></tr>
@@ -446,7 +446,7 @@ def start_download(contract_name, dates, save_unit):
 <li><a href="../design/dagster-tushare-request-common-module-comparison-v1.html">技术方案</a>、<a href="../design/dagster-tushare-download-component-low-level-design-v1.html">LLD 与开发验收记录</a>；本文用于业务使用，设计文档保留内部实现与历史审计依据。</li>
 </ul>
 <p><strong>业务接入完成前：</strong>确认真实契约已登记且经过相应真实核验；任务模式和输入范围符合契约；完整字段检查和日级日期归一化在业务侧完成；完整 unit 保存成功才更新业务提交记录；需要响应页面时有业务下载线程；回调快速且可失败；取消、保存失败、重试耗尽、空结果和提前退出均有明确处理。</p>
-<p class="muted" id="doc-validation">本文验证范围：公开字段、枚举及默认值与当前代码对账；6 段 Python 示例完成语法检查，主要调用、六模式、回调、线程、取消和异常处理使用组件既有隔离夹具验证；链接、锚点和文档完整性检查通过。这些验证不使用真实 token、不请求 Tushare，不代表真实数据集接入或正式写入已验收。</p>
+<p class="muted" id="doc-validation">初版2026-10-22的文档验证包括公开字段/枚举/默认值对账、6段Python示例语法和组件隔离夹具；当时未请求Tushare。2026-10-26新增stk_factor_pro第一批登记及基础接入证据见<a href="../design/dagster-tushare-download-component-low-level-design-v1.html#stock-factor-registration-20261026">当前登记记录</a>；有界真实请求只证明该股票/范围及小页行为，不代表日更资产、正式写入或整个数据集已验收。本文通用示例仍须使用已登记且支持相应模式的契约。</p>
 </section>
 </main>
 <footer>本文只描述组件与业务的调用边界。数据集具体字段、参数及源请求能力仍以该数据集登记的完整契约和真实核验为准。</footer>

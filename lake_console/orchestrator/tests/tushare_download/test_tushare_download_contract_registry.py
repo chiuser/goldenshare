@@ -41,7 +41,8 @@ def test_contract_registry_rejects_duplicate_fields_names_and_reserved_parameter
     c = contract()
     for invalid in (
         replace(c, fields=(c.fields[0], c.fields[0])),
-        replace(c, contract_name="fixture.daily@latest"),
+        replace(c, contract_name=""),
+        replace(c, version=""),
         replace(
             c, parameters=c.parameters + (ParameterRule("token", SourceKind.STRING),)
         ),
@@ -52,6 +53,14 @@ def test_contract_registry_rejects_duplicate_fields_names_and_reserved_parameter
         ContractRegistry((c, c))
     with pytest.raises(DownloadError):
         ContractRegistry((c,)).resolve("fixture.daily@2")
+
+
+def test_contract_name_and_version_are_independent():
+    original = replace(contract(), contract_name="fixture_daily", version="1")
+    changed = replace(original, version="2")
+    assert ContractRegistry((original,)).resolve("fixture_daily") is original
+    assert ContractRegistry((changed,)).resolve("fixture_daily") is changed
+    assert not ContractRegistry.same_content(original, changed)
 
 
 def test_next_offset_alone_is_rejected_before_source_creation():

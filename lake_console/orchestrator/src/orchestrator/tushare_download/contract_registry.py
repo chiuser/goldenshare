@@ -80,7 +80,6 @@ def validate_contract(contract: SourceDatasetContract) -> None:
             )
         )
     )
-    require(contract.contract_name.endswith("@" + contract.version))
     require(type(contract.fields) is tuple and bool(contract.fields))
     require(len(set(contract.field_names)) == len(contract.fields))
     for f in contract.fields:

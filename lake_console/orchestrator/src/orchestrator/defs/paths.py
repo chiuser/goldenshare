@@ -39,6 +39,11 @@ from orchestrator.defs.run_contracts.moneyflow import (
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
 )
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    RecordRef,
+    normalize_stk_factor_pro_trade_date,
+    validate_stk_factor_pro_identifier,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
@@ -1437,3 +1442,64 @@ def gold_major_index_mins_nineturn_staging_path(
         f"trade_date={_major_index_mins_partition_component(partition_key)}",
         "part-000.parquet",
     )
+
+
+def _stk_factor_pro_confined_path(root: Path, *parts: str, staging: bool = False) -> Path:
+    """Compute a controlled path without creating directories or files."""
+    root = Path(root)
+    base = root.resolve(strict=False)
+    retired = Path("/Volumes/datasource/goldenshare-tushare-lake")
+    forbidden = (retired, Path(DEFAULT_LAKE_ROOT)) if staging else (retired,)
+    if any(base == target or target in base.parents for target in forbidden):
+        raise ValueError("stk_factor_pro路径不能使用退役Lake或在正式Lake内放staging")
+    result = root.joinpath(*parts)
+    if not result.resolve(strict=False).is_relative_to(base):
+        raise ValueError("stk_factor_pro路径越界或符号链接指向范围外")
+    return result
+
+
+def raw_stk_factor_pro_path(root: Path, partition_key: str) -> Path:
+    day = (
+        partition_key if partition_key == PATH_TEMPLATE_PARTITION_KEY
+        else normalize_stk_factor_pro_trade_date(partition_key)
+    )
+    return _stk_factor_pro_confined_path(
+        root, RAW, "tushare", "stk_factor_pro", f"trade_date={day}", "data.parquet",
+    )
+
+
+def silver_stock_factor_pro_path(root: Path, partition_key: str) -> Path:
+    day = (
+        partition_key if partition_key == PATH_TEMPLATE_PARTITION_KEY
+        else normalize_stk_factor_pro_trade_date(partition_key)
+    )
+    return _stk_factor_pro_confined_path(
+        root, SILVER, "stock_factor_pro", f"trade_date={day}", "data.parquet",
+    )
+
+
+def stk_factor_pro_run_staging_root(
+    staging_root: Path, run_id: str, partition_key: str,
+) -> Path:
+    return _stk_factor_pro_confined_path(
+        staging_root, "stk_factor_pro",
+        f"trade_date={normalize_stk_factor_pro_trade_date(partition_key)}",
+        f"run_id={validate_stk_factor_pro_identifier(run_id)}", staging=True,
+    )
+
+
+def stk_factor_pro_record_path(
+    run_root: Path, reference: RecordRef, *, expected_run_id: str,
+) -> Path:
+    """Locate an intent/diagnostic record; no record bytes or digests are read."""
+    expected_run_id = validate_stk_factor_pro_identifier(expected_run_id)
+    if (
+        not isinstance(reference, RecordRef)
+        or reference.creator_run_id != expected_run_id
+        or Path(run_root).name != f"run_id={expected_run_id}"
+    ):
+        raise ValueError("记录所属run与已核run目录不符")
+    relative = reference.relative_path
+    if relative == "source/day" or relative.startswith("source/day/"):
+        raise ValueError("日下载没有source/day缓存记录")
+    return _stk_factor_pro_confined_path(run_root, relative, staging=True)

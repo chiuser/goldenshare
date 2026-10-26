@@ -1,0 +1,98 @@
+{
+  "scope": "consumer",
+  "implemented_slice": "G-regression:test_stk_factor_pro_definitions.py:1",
+  "case_names": [
+    "StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution"
+  ],
+  "expected_count": 1,
+  "startup_probe": null,
+  "expected_resource_gate": true,
+  "network_targets": {},
+  "network_before": {},
+  "root": "/private/tmp/stock-suspend-isolated-5lxh3vin",
+  "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "argv": [
+    "/opt/homebrew/bin/uv",
+    "run",
+    "--offline",
+    "--no-sync",
+    "--no-env-file",
+    "--no-config",
+    "--no-python-downloads",
+    "--cache-dir",
+    "/private/tmp/stock-suspend-isolated-5lxh3vin/allowed/uv-cache",
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/stock-suspend-isolated-5lxh3vin/allowed/capability.sb",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python",
+    "-I",
+    "-B",
+    "/private/tmp/stock-suspend-isolated-5lxh3vin/allowed/bootstrap.py"
+  ],
+  "env_keys": [
+    "LANG",
+    "PATH",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+    "TMPDIR"
+  ],
+  "policy_sha256": "089fa88fad73ddf013bbf0fa4f85a444a536f5cf0bcf6d5611a03faaff808a60",
+  "policy": "(version 1)\n(allow default)\n(deny file-read* file-write* network*)\n(allow file-read*\n  (subpath \"/System/Library\") (subpath \"/usr/lib\") (subpath \"/usr/share\")\n  (subpath \"/Users/congming/miniconda3/bin\")\n  (subpath \"/Users/congming/miniconda3/lib\")\n  (subpath \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv\")\n  (literal \"/dev/null\") (literal \"/dev/urandom\") (literal \"/\"))\n(allow file-write-data (literal \"/dev/null\"))\n(allow file-read* file-write* (subpath \"/private/tmp/stock-suspend-isolated-5lxh3vin/allowed\"))\n(allow file-read-metadata\n  (literal \"/private\") (literal \"/private/tmp\") (literal \"/tmp\")\n  (literal \"/private/tmp/stock-suspend-isolated-5lxh3vin\"))\n(allow file-read*\n  (literal \"/Users/congming/github/goldenshare/lake_console/docs/design/dagster-event-history-retention-governance-plan.md\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/pyproject.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/__init__.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_check_event_retention.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_check_incremental_governance.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_governance_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_duckdb_connection.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_definitions.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_bse_history_recovery.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_lake_readiness.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_freeze_policy.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m5b_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m5e_job_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m6_history.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m6g_sensor_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_replace_from_raw.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_strict_audit.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_freshness_guard.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_raw_checks.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_raw_repair.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_mins_daily_continuity_sensors.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_bootstrap.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_integration.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_merge.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_readiness.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_writer.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_suspend_d_checks.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_suspend_d_sensor.py\"))\n(allow file-read-metadata (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/__init__.py\"))\n(allow file-read-metadata (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak\"))\n(allow file-read-metadata\n  (literal \"/\")\n  (literal \"/Users\")\n  (literal \"/Users/congming\")\n  (literal \"/Users/congming/github\")\n  (literal \"/Users/congming/github/goldenshare\")\n  (literal \"/Users/congming/github/goldenshare/lake_console\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin\")\n  (literal \"/Users/congming/miniconda3\")\n  (literal \"/Users/congming/miniconda3/bin\"))\n(allow file-read-metadata\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/dg.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/dg.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/pyproject.toml\"))\n\n(allow file-read* (subpath \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator\"))\n",
+  "runtime_environment": {
+    "root": "/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26",
+    "device": 16777232,
+    "inode": 122110853,
+    "config_sha256": "1ba7c66df2028603e7df0078ab72378906260db101b7270000aa4d3be76dc3b9",
+    "python": "/Users/congming/miniconda3/bin/python3.13"
+  },
+  "selected_policy": "/private/tmp/stock-suspend-isolated-5lxh3vin/allowed/capability.sb",
+  "selected_policy_text": "(version 1)\n(allow default)\n(deny file-read* file-write* network*)\n(allow file-read*\n  (subpath \"/System/Library\") (subpath \"/usr/lib\") (subpath \"/usr/share\")\n  (subpath \"/Users/congming/miniconda3/bin\")\n  (subpath \"/Users/congming/miniconda3/lib\")\n  (subpath \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv\")\n  (literal \"/dev/null\") (literal \"/dev/urandom\") (literal \"/\"))\n(allow file-write-data (literal \"/dev/null\"))\n(allow file-read* file-write* (subpath \"/private/tmp/stock-suspend-isolated-5lxh3vin/allowed\"))\n(allow file-read-metadata\n  (literal \"/private\") (literal \"/private/tmp\") (literal \"/tmp\")\n  (literal \"/private/tmp/stock-suspend-isolated-5lxh3vin\"))\n(allow file-read*\n  (literal \"/Users/congming/github/goldenshare/lake_console/docs/design/dagster-event-history-retention-governance-plan.md\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/pyproject.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/__init__.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_check_event_retention.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_check_incremental_governance.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_governance_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_duckdb_connection.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_definitions.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_bse_history_recovery.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_lake_readiness.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_freeze_policy.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m5b_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m5e_job_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m6_history.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_m6g_sensor_contracts.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_replace_from_raw.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_mins_silver_strict_audit.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_freshness_guard.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_raw_checks.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_daily_raw_repair.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_mins_daily_continuity_sensors.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_bootstrap.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_integration.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_merge.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_readiness.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_writer.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_suspend_d_checks.py\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_suspend_d_sensor.py\"))\n(allow file-read-metadata (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/__init__.py\"))\n(allow file-read-metadata (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak\"))\n(allow file-read-metadata\n  (literal \"/\")\n  (literal \"/Users\")\n  (literal \"/Users/congming\")\n  (literal \"/Users/congming/github\")\n  (literal \"/Users/congming/github/goldenshare\")\n  (literal \"/Users/congming/github/goldenshare/lake_console\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin\")\n  (literal \"/Users/congming/miniconda3\")\n  (literal \"/Users/congming/miniconda3/bin\"))\n(allow file-read-metadata\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/dg.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/dg.toml\")\n  (literal \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/pyproject.toml\"))\n\n(allow file-read* (subpath \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator\"))\n",
+  "test_source_sha256": {
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_definitions.py": "4b6c9974de03ba0c76393cfd89bf99c909eee8433f314aca741cfe38e139acea"
+  },
+  "source_read_root": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator",
+  "source_files": [],
+  "source_sha256": {},
+  "before": [
+    {
+      "path": "sentinel.txt",
+      "dev": 16777232,
+      "inode": 137424976,
+      "mode": 33188,
+      "size": 34,
+      "mtime_ns": 1792973424819960759,
+      "sha256": "d90c3e355177e8c84bf16109e0f14b4d70275bc1228401d5b12ea00fc1e228fd"
+    }
+  ],
+  "passed": true,
+  "resource_gate_passed": true,
+  "startup_evidence": null,
+  "after": [
+    {
+      "path": "sentinel.txt",
+      "dev": 16777232,
+      "inode": 137424976,
+      "mode": 33188,
+      "size": 34,
+      "mtime_ns": 1792973424819960759,
+      "sha256": "d90c3e355177e8c84bf16109e0f14b4d70275bc1228401d5b12ea00fc1e228fd"
+    }
+  ],
+  "denied_unchanged": true,
+  "network_after": {},
+  "exit_code": 0,
+  "stop_reason": null,
+  "pytest": {
+    "slice": "G-regression:test_stk_factor_pro_definitions.py:1",
+    "completed": 1,
+    "failures": 0,
+    "subtests_completed": 0,
+    "connection_count": 0,
+    "passed": true
+  },
+  "elapsed_ms": 2530,
+  "stdout": "{\"native_self_check_passed\": true, \"negative_completed\": 7}\n{\"pytest_argv\": [\"-c\", \"/dev/null\", \"--rootdir\", \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests\", \"--confcutdir\", \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests\", \"--ignore-glob\", \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/*\", \"--noconftest\", \"-p\", \"no:cacheprovider\", \"--import-mode=importlib\", \"--basetemp\", \"/private/tmp/stock-suspend-isolated-5lxh3vin/allowed/pytest\", \"-x\", \"-q\", \"-s\", \"/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_definitions.py::StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution\"], \"implemented_slice\": \"G-regression:test_stk_factor_pro_definitions.py:1\"}\n{\"consumer_connection_bindings\": {\"orchestrator.defs.duckdb_connection\": \"_consumer_direct_connection\", \"orchestrator.defs.resources\": \"_reject_formal_duckdb_connection\"}, \"collected\": 1}\n{\"case\": \"test_stk_factor_pro_definitions.py::StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution\", \"started\": true}\n.{\"case\": \"test_stk_factor_pro_definitions.py::StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution\", \"completed\": 1, \"elapsed_ms\": 1443}\n\n=============================== warnings summary ===============================\ntest_stk_factor_pro_definitions.py::StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution\n  /Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/\n    fields = getattr(model, \"__fields__\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 1.45s\n",
+  "stderr": ""
+}

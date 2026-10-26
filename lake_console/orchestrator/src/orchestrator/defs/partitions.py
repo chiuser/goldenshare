@@ -1,6 +1,11 @@
 import dagster as dg
 
+from orchestrator.defs.run_contracts.stk_factor_pro import STK_FACTOR_PRO_PARTITIONS
 from orchestrator.defs.run_contracts.stock_monthly import STOCK_MONTHLY_PARTITIONS
+
+cn_a_stock_factor_pro_trade_days = dg.DynamicPartitionsDefinition(
+    name=STK_FACTOR_PRO_PARTITIONS,
+)
 
 cn_a_stock_months = dg.DynamicPartitionsDefinition(name=STOCK_MONTHLY_PARTITIONS)
 

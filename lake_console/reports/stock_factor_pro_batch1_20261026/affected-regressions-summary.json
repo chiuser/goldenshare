@@ -1,0 +1,29 @@
+{
+  "pure_regression": {
+    "tests": 34,
+    "passed": true,
+    "log": "affected-pure-regressions.log"
+  },
+  "asset_governance": {
+    "tests": 12,
+    "subtests": 513,
+    "passed": true,
+    "isolated_batches": 2,
+    "log": "asset-governance-isolated.log"
+  },
+  "run_contract_static": {
+    "tests": 113,
+    "passed": true,
+    "isolated_batches": 15,
+    "log": "run-contract-static-isolated.log"
+  },
+  "total_test_functions": 159,
+  "formal_instance_or_lake_or_network_access": false,
+  "full_project_definitions": {
+    "executed": true,
+    "passed": true,
+    "test_functions": 1,
+    "report": "definitions-resource-result.json",
+    "scope": "Separate protected Definitions suite; not included in the 159 affected regressions."
+  }
+}

@@ -47,5 +47,11 @@ class DatasetTransportMapping:
         return result
 
 
-# Concrete datasets/SDK methods require T15 evidence before registration.
-BINDINGS = ()
+# Dataset onboarding owns source evidence; this binding never selects an SDK fallback.
+BINDINGS = (
+    TransportBinding(
+        dataset_id="stk_factor_pro",
+        source_api_name="stk_factor_pro",
+        http_path_rule="base",
+    ),
+)

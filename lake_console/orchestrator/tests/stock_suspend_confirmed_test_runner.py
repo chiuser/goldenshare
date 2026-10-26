@@ -115,6 +115,7 @@ INTEGRATION_SOURCE_FILES = (
     "defs/run_contracts/sensor_tags.py",
 )
 CONSUMER_SUITES = {
+    "test_stk_factor_pro_definitions.py": 1,
     "test_stk_mins_silver_freeze_policy.py": 5,
     "test_suspend_d_checks.py": 7,
     "test_stock_daily_raw_checks.py": 22,
@@ -319,7 +320,9 @@ def verify_runtime_environment_identity(expected: dict) -> None:
         raise RuntimeError("runtime_environment_changed")
 
 
-def policy_for(root: Path, *, scope: str = "isolation") -> str:
+def policy_for(
+    root: Path, *, scope: str = "isolation", test_file: Path | None = None,
+) -> str:
     """Keep resource isolation; consumer tests may read the project source tree."""
     package_init = PROJECT / "tests/__init__.py"
     if package_init.is_symlink() or package_init.read_bytes() != b"\n":
@@ -341,6 +344,14 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
             raise RuntimeError("consumer_source_root_must_be_a_regular_directory")
         files.append(PROJECT.parent / "docs/design/dagster-event-history-retention-governance-plan.md")
         files.append(PROJECT / "tests/test_asset_check_event_retention.py")
+    stock_factor_definitions = (
+        scope == "consumer"
+        and test_file == PROJECT / "tests/test_stk_factor_pro_definitions.py"
+    )
+    if stock_factor_definitions:
+        # load_from_defs_folder reads this exact project configuration. It does
+        # not need any runtime env, business file or project-root read grant.
+        files.append(PROJECT / "pyproject.toml")
     if scope == "root-guard":
         repo = PROJECT.parents[1]
         inventory_paths = [Path(name) for name in json.loads((root / "allowed/source-inventory.json").read_text())]
@@ -359,6 +370,12 @@ def policy_for(root: Path, *, scope: str = "isolation") -> str:
             raise RuntimeError(f"Source allowlist must contain regular files: {path}")
     literals = "\n".join(f"  (literal {json.dumps(str(p))})" for p in sorted(set(files) | directories))
     metadata_paths = []
+    if stock_factor_definitions:
+        metadata_paths.extend((
+            PROJECT / "dg.toml",
+            PROJECT / "src/dg.toml",
+            PROJECT / "src/pyproject.toml",
+        ))
     if scope == "root-guard":
         metadata_paths.extend(repo / name for name in (
             "src/foundation/clients/local_lake/stock_mins_reader.py",
@@ -502,7 +519,7 @@ def run_isolation_child(root: Path, batch: str, expected_count: int,
     (denied / "sentinel.txt").write_text("synthetic denied resource fixture\n")
     runtime_identity = runtime_environment_identity()
     policy = allowed / "capability.sb"
-    policy.write_text(policy_for(root, scope=scope))
+    policy.write_text(policy_for(root, scope=scope, test_file=test_file))
     bootstrap = allowed / "bootstrap.py"
     source = (
         "import importlib.util, sys\n"
