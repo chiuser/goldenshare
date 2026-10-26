@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Users/congming/github/goldenshare/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_one_unrepresentable_macd_component_rejects_before_price_rows",
+    "tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_output_description_copies_external_containers",
+    "tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_read_range_rejects_internal_handoff_errors",
+    "tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_unknown_global_dates_are_not_inferred_from_read_range",
+    "tests/foundation/technical_indicators/test_d3_engine_extension.py::test_new_calculation_and_kdj_boundaries_use_existing_engine",
+    "tests/foundation/technical_indicators/test_d3_engine_extension.py::test_template_cache_readonly_cancellation_and_repeat_cleanup"
+  ],
+  "timeout_seconds": 30,
+  "automatic_retries": 0,
+  "status": "passed",
+  "elapsed_before_seconds": 15.862637042067945,
+  "returncode": 0,
+  "timed_out": false,
+  "elapsed_seconds": 1.4802520000375807,
+  "validation_elapsed_seconds": 17.342889042105526
+}

@@ -1,90 +1,112 @@
 {
-  "status": "minimal_fixture_fix_and_finite_resume_passed",
-  "D3_complete": false,
-  "pending_D3": "final requirement-by-requirement stage closeout audit; no additional calculation tests requested",
+  "status": "D3_complete",
+  "D3_complete": true,
+  "completed_scope": "LLD D3 steps5 and6; no D4 or formal consumer migration",
+  "implementation_commit": "1fcac21a44ca6ff5a89a29bec55ba3d2adb789bf",
+  "current_changes_committed": false,
+  "git_push": false,
   "pytest": {
-    "current_passed": 9,
-    "current_failed": 0,
-    "previous_passed_not_rerun": 11,
-    "combined_distinct_passed": 20,
-    "remaining_from_original_list": 0,
-    "historical_failed_attempts_preserved": 1,
+    "required_passed": 6,
+    "required_failed": 0,
+    "required_setup_or_teardown_errors": 0,
+    "original_passed_not_rerun": 20,
+    "combined_distinct_passed_items": 26,
+    "historical_failed_attempts_preserved": 2,
     "automatic_retries": 0
   },
   "consumed": {
-    "input_rows": 21127,
-    "sql_logical_rows": 1324657,
-    "new_real_controls": 4
+    "input_rows": 21130,
+    "sql_logical_rows": 1324739,
+    "real_controls": 4,
+    "fixture_rows": 10052
   },
   "remaining": {
-    "input_rows": 78873,
-    "sql_logical_rows": 3675343,
-    "new_real_controls": 0
+    "input_rows": 78870,
+    "sql_logical_rows": 3675261,
+    "real_controls": 0
   },
-  "resume_delta": {
-    "input_rows": 29,
-    "sql_logical_rows": 235,
+  "required_resume_delta": {
+    "input_rows": 3,
+    "sql_logical_rows": 82,
     "real_controls": 0,
-    "fixture_rows": 2
+    "fixture_rows": 3
   },
-  "program_seconds": 1.3130117920227349,
-  "combined_program_seconds": 15.425854417029768,
-  "weekly": {
-    "directory": "week_end=2026-10-23",
-    "file_trade_date": "20261023",
-    "file_end_dates": [
-      "20261020",
-      "20261021"
-    ],
-    "output_times": [
-      "2026-10-19"
-    ],
-    "as_of": [
-      "2026-10-20",
-      "2026-10-21"
-    ],
-    "qfq_close": [
-      5.0,
-      6.0
-    ],
-    "source_rows_each": 1,
-    "converted_batches_each": 0,
-    "cleanup": "passed"
+  "source_price_rows_added": 0,
+  "fixture_files_written": 3,
+  "program_seconds": 1.4802520000375807,
+  "combined_program_seconds": 17.342889042105526,
+  "ledger_elapsed_seconds": 16.882576584350318,
+  "time_semantics": "combined_program_seconds includes all prior failed/successful pytest programs and startup; ledger_elapsed_seconds is the narrower internal state clock",
+  "cleanup": {
+    "owned_directory": {
+      "root": "/private/tmp/ti_d3_required_qg4x1o5y",
+      "removed": true,
+      "status": "passed",
+      "errors": []
+    },
+    "new_call_live_tables_and_arrow": "all empty",
+    "engine_and_template_cleanup_errors": "explicitly empty",
+    "coefficient_rejection_cleanup": "original error has no cleanup notes; live tables and arrow empty"
   },
-  "previous_failure": {
-    "node": "tests/foundation/technical_indicators/test_empty_results.py::test_current_week_updates_keep_one_bar_and_actual_cutoff",
-    "expected": "one current week at 2026-10-19, source_as_of=2026-10-20",
-    "actual": "empty success; source_rows=0; no weekly indicator input",
-    "cause": "test fixture directory trade_date=20261023 conflicts with LLD05 and producer paths.py:1438 week_end=2026-10-23; source date-part regex excludes it",
-    "classification": "test fixture and pre-execution audit omission; no demonstrated weekly algorithm defect",
-    "evidence": [
-      "test_empty_results.py:54",
-      "technical_indicator_price_source.py:29,103-108",
-      "paths.py:1438-1439",
-      "LLD05 source table"
-    ],
-    "cleanup": "failed-week service returned after normal cleanup; recorded live_tables/live_arrow both empty; all 4 genuine-control requests already passed assert_closed"
-  },
-  "baseline_file": "resume_baseline_20261026.json",
-  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance",
   "checks": {
-    "protected_files_unchanged": 63,
+    "protected_files_unchanged": 66,
     "independent_reference_unchanged": true,
-    "old_records_preserved": true,
-    "long_reference_generated_or_loaded": false,
-    "new_real_controls": 0,
-    "recorded_new_call_live_tables_and_arrow": "all empty",
-    "standalone_fetch_cleanup_assertion": "passed",
-    "changed_test_AST": "passed",
-    "original_HTML_links_tables_design_snippets": "passed",
-    "scoped_diff_whitespace": "passed",
-    "repository_docs_integrity": "passed"
+    "old_record_prefixes_unchanged": true,
+    "source_fixture_created_once": true,
+    "two_modules_share_one_restored_state": true,
+    "original_six_function_files_unchanged": true,
+    "long_reference_not_generated_or_loaded": true
   },
+  "evidence_files": [
+    "execution_owned_fixture_20261026.json",
+    "pytest_owned_fixture_output.txt",
+    "fixture_owned_20261026.json",
+    "required_fixture_baseline_20261026.json",
+    "d3_final_audit.json",
+    "d3_requirement_reconciliation_20261026.md"
+  ],
+  "historical_evidence_retained": [
+    "execution_20261026.json",
+    "pytest_output.txt",
+    "resume_baseline_20261026.json",
+    "execution_resume_20261026.json",
+    "pytest_resume_output.txt",
+    "acceptance_gap_baseline_20261026.json",
+    "execution_required_20261026.json",
+    "pytest_required_output.txt",
+    "required_acceptance_pause_20261026.json"
+  ],
+  "pending_D3": [],
+  "new_review_decisions": [],
+  "unverified_later_scope": [
+    "D4 memory/RSS/full capacity and concurrency/FIFO",
+    "full-service real cancellation/timeout and ASGI",
+    "formal API/page/XXM adoption",
+    "DG technical-indicator retirement",
+    "wheel build/install"
+  ],
   "scope_safety": {
     "formal_lake_read": false,
     "formal_database_or_DG_started": false,
     "dependency_install_or_upgrade": false,
-    "git_commit_or_push": false
+    "product_SQL_or_configuration_changed_this_resume": false,
+    "formal_API_or_page_changed": false,
+    "git_commit_this_resume": false,
+    "git_push": false
   },
-  "next": "D3 final requirement-by-requirement closeout audit and scoped commit preparation; D4/API/page/DG migration remains outside this acceptance"
+  "next": "D4 LLD and implementation-plan audit before approved development; do not assume full performance or DG retirement ready",
+  "final_static_checks": {
+    "original_HTML_ids_tables_links": "passed",
+    "LLD_design_Python_JSON_syntax": "passed",
+    "repository_docs_integrity": "passed",
+    "scoped_tracked_diff_whitespace": "passed",
+    "test_AST_and_preflight": "passed"
+  },
+  "independent_closeout_review": {
+    "status": "passed",
+    "scope": "current original design/LLD19.28/22.1 and saved execution/report state; no rerun",
+    "D3_remaining": [],
+    "later_stages_not_started": true,
+    "current_changes_uncommitted": true
+  }
 }

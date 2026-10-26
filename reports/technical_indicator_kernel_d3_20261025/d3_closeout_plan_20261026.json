@@ -1,0 +1,30 @@
+{
+  "status": "paused_on_required_acceptance_omissions",
+  "implementation_commit": "1fcac21a44ca6ff5a89a29bec55ba3d2adb789bf",
+  "basis": [
+    "LLD19.20 steps5/6",
+    "LLD04.5/07.5/14/21/22",
+    "original approved finite acceptance"
+  ],
+  "scope": "read current implementation and saved evidence; map requirements to code/SQL/tests and report; correct completion status only after audit passes",
+  "forbidden": [
+    "no new calculation test",
+    "no source read",
+    "no new real control",
+    "no dependency/config/formula/API/page/DG change",
+    "no D4 development"
+  ],
+  "budget_at_start": {
+    "source_rows": 21127,
+    "sql_logical_rows": 1324657,
+    "real_controls": 4
+  },
+  "added_budget": {
+    "source_rows": 0,
+    "sql_logical_rows": 0,
+    "real_controls": 0
+  },
+  "stop": "actual omission or design/code/evidence conflict; preserve report and discuss without fixing or retesting",
+  "output": "reports/technical_indicator_kernel_d3_20261025/d3_final_audit.json and audit.md; update original two documents and acceptance state only to verified scope",
+  "final_audit_file": "d3_final_audit.json"
+}

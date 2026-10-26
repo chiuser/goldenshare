@@ -2,8 +2,9 @@
 
 Producer contracts are technical_indicator_contracts.MINUTE_SCHEMA/DAILY_SCHEMA/
 PERIOD_SCHEMA, based on the actual DG producer schemas already checked in D2.
-All files are isolated under pytest's temporary directory. Only timing/stop
-signals are substituted in the explicitly named small tests; SQL stays real.
+All files are isolated in an owned temporary directory. The required-check
+resume restores accounting without reopening an earlier pytest directory.
+Only timing/stop signals are substituted in small tests; SQL stays real.
 """
 
 from contextlib import contextmanager
@@ -11,7 +12,7 @@ from datetime import date
 import io
 import json
 from pathlib import Path
-from tempfile import gettempdir
+from tempfile import TemporaryDirectory
 import threading
 from time import monotonic
 
@@ -131,18 +132,12 @@ class D3State:
         self.config = KernelConfig.from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
 
     @classmethod
-    def resume_saved(cls, saved: dict, *, elapsed_before: float):
-        """Restore the approved small remainder without rebuilding references."""
-        root = Path(saved["fixture_root"]).resolve(strict=True)
-        assert root.name == "ti_d3_acceptance" and root.is_dir()
-        assert root.is_relative_to(Path(gettempdir()).resolve())
-        literal = root / "literal"
-        for day in ("2026-01-05", "2026-01-06", "2026-01-07"):
-            assert (literal / f"silver/quote/stock_daily/trade_date={day}/part-000.parquet").is_file(), (
-                "Missing saved literal file; do not rebuild the D3 fixture"
-            )
+    def resume_saved(cls, saved: dict, *, elapsed_before: float, root: Path):
+        """Restore only saved accounting; the caller owns this run's root."""
+        root = root.resolve(strict=True)
+        assert root.parent == Path("/private/tmp") and root.name.startswith("ti_d3_required_")
         state = cls(root)
-        state.literal_root = literal
+        state.literal_root = root / "literal"
         for field, key in (("input_rows", "input_rows"), ("sql_rows", "sql_logical_rows"),
                            ("real_controls", "real_controls"), ("fixture_rows", "fixture_rows")):
             value = saved[key]
@@ -158,6 +153,73 @@ class D3State:
         state.status = "running_approved_resume"
         return state
 
+    def prepare_required_literals(self):
+        """Only three producer-shaped files, never a long fixture/reference."""
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        from src.foundation.technical_indicators.service import connect_private_memory_instance
+
+        # Independent copy of SILVER_STOCK_DAILY_SCHEMA in the current DG
+        # run_contracts/asset_column_schemas.py; do not infer it from a query.
+        expected = (
+            ("ts_code", pa.string()), ("trade_date", pa.date32()),
+            *((name, pa.float64()) for name in (
+                "open", "high", "low", "close", "pre_close", "change_amount",
+                "pct_chg", "vol", "amount",
+            )),
+        )
+        self.fixture_files = []
+        connection = None
+        primary_error = None
+        try:
+            connection = connect_private_memory_instance(self.config)
+            for text, price in (("2026-01-05", 10.0), ("2026-01-06", 12.0), ("2026-01-07", 11.0)):
+                path = self.literal_root / f"silver/quote/stock_daily/trade_date={text}/part-000.parquet"
+                path.parent.mkdir(parents=True)
+                copied = self.query(connection, "fixture_required_literal", """COPY (
+                    SELECT '600000.SH'::VARCHAR AS ts_code, $day::DATE AS trade_date,
+                        $price::DOUBLE AS open, $price::DOUBLE AS high,
+                        $price::DOUBLE AS low, $price::DOUBLE AS close,
+                        $price::DOUBLE AS pre_close, 0.0::DOUBLE AS change_amount,
+                        0.0::DOUBLE AS pct_chg, 100.0::DOUBLE AS vol, 1000.0::DOUBLE AS amount
+                    ) TO $target (FORMAT PARQUET)""", rows=1,
+                    bindings={"day": date.fromisoformat(text), "price": price, "target": str(path)})
+                assert copied == [(1,)]
+                self.fixture_rows += 1
+                self.save()
+                reader = pq.ParquetFile(path)
+                metadata_error = None
+                try:
+                    assert reader.metadata.num_rows == 1
+                    actual = tuple((field.name, field.type) for field in reader.schema_arrow)
+                    assert actual == expected
+                    self.fixture_files.append({
+                        "path": str(path), "rows": 1,
+                        "fields": [(name, str(data_type)) for name, data_type in actual],
+                    })
+                except BaseException as error:
+                    metadata_error = error
+                    raise
+                finally:
+                    try:
+                        reader.close()
+                    except BaseException as error:
+                        if metadata_error is None:
+                            raise
+                        metadata_error.add_note(f"Fixture metadata cleanup: {type(error).__name__}: {error}")
+                self.save()
+        except BaseException as error:
+            primary_error = error
+            raise
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except BaseException as error:
+                    if primary_error is None:
+                        raise
+                    primary_error.add_note(f"Fixture connection cleanup: {type(error).__name__}: {error}")
+
     def save(self):
         REPORT.mkdir(parents=True, exist_ok=True)
         (REPORT / "progress.json").write_text(json.dumps({
@@ -168,6 +230,7 @@ class D3State:
             "fixture_root": str(self.root),
             "queries": self.queries, "calls": self.calls,
             "template_reads": self.template_reads,
+            "fixture_files": getattr(self, "fixture_files", []),
         }, ensure_ascii=False, indent=2, default=str) + "\n")
 
     def budget(self):
@@ -343,19 +406,70 @@ def d3_data(tmp_path_factory, request):
         selected = tuple(dict.fromkeys(item.nodeid.split("[", 1)[0] for item in items))
         assert selected == tuple(resume["node_ids"])
         assert len(items) == resume["expected_items"]
-        assert resume["baseline_file"] == "resume_baseline_20261026.json"
-        saved = json.loads((REPORT / resume["baseline_file"]).read_text())["progress.json"]
-        assert saved["fixture_root"] == resume["reuse_fixture_root"]
-        root = Path(saved["fixture_root"]).resolve(strict=True)
-        if root in _CACHE:
-            return _CACHE[root]
-        state = D3State.resume_saved(saved, elapsed_before=resume["elapsed_before_seconds"])
-        state._resume_limits = (resume["source_input_rows_upper_bound"],
-                                resume["sql_logical_rows_upper_bound"], resume["new_real_controls"])
-        state.budget()
-        _CACHE[root] = state
-        state.save()
-        return state
+        assert plan["status"] == "approved_D3_owned_fixture_resume"
+        assert resume["baseline_file"] == "required_fixture_baseline_20261026.json"
+        assert resume["fixture_mode"] == "owned_required_literals"
+        baseline = REPORT / resume["baseline_file"]
+        if baseline in _CACHE:
+            return _CACHE[baseline]
+        saved = json.loads(baseline.read_text())["progress.json"]
+        lifecycle_record = REPORT / "fixture_owned_20261026.json"
+        assert not lifecycle_record.exists(), "Do not recreate a fixture after a prior attempt"
+        temporary = TemporaryDirectory(dir="/private/tmp", prefix="ti_d3_required_")
+        root = Path(temporary.name)
+        state = None
+
+        def finish_owned_directory():
+            from src.foundation.technical_indicators.service import raise_primary_or_cleanup_error_if_any
+
+            errors = []
+            try:
+                temporary.cleanup()
+            except BaseException as error:
+                errors.append(error)
+            removed = not root.exists()
+            if not removed and not errors:
+                errors.append(RuntimeError("The owned D3 fixture directory remains after cleanup"))
+            record = dict(root=str(root), removed=removed, status="failed" if errors else "passed",
+                          errors=[f"{type(error).__name__}: {error}" for error in errors])
+            try:
+                lifecycle_record.write_text(json.dumps(record, indent=2) + "\n")
+            except BaseException as error:
+                errors.append(error)
+            _CACHE.pop(baseline, None)
+            if state is not None:
+                if errors:
+                    state.status = "failed_fixture_cleanup_stop_without_retry"
+                try:
+                    state.save()
+                except BaseException as error:
+                    errors.append(error)
+            raise_primary_or_cleanup_error_if_any(None, tuple(errors))
+
+        # Registered immediately: pytest also invokes this finalizer if setup
+        # fails before returning a state. The closure holds the directory owner
+        # until the session finishes, including both importing test modules.
+        request.addfinalizer(finish_owned_directory)
+        try:
+            state = D3State.resume_saved(saved, elapsed_before=resume["elapsed_before_seconds"], root=root)
+            state._resume_limits = (resume["source_input_rows_upper_bound"],
+                                    resume["sql_logical_rows_upper_bound"], resume["new_real_controls"])
+            state.budget()
+            state.save()
+            with state.case("required_fixture_three_literals"):
+                state.prepare_required_literals()
+                assert state.fixture_rows - saved["fixture_rows"] == resume["fixture_rows_upper_bound"] == 3
+                assert state.references == {} and state.times == ()
+            _CACHE[baseline] = state
+            return state
+        except BaseException as error:
+            if state is not None:
+                state.status = "failed_fixture_preparation_stop_without_retry"
+                try:
+                    state.save()
+                except BaseException as save_error:
+                    error.add_note(f"Fixture failure record: {type(save_error).__name__}: {save_error}")
+            raise
     root = (tmp_path_factory.getbasetemp() / "ti_d3_acceptance").resolve()
     if root in _CACHE:
         return _CACHE[root]

@@ -1,0 +1,47 @@
+E
+==================================== ERRORS ====================================
+_ ERROR at setup of test_one_unrepresentable_macd_component_rejects_before_price_rows _
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x101f829e0>, _basetemp=None, _retention_count=3, _retention_policy='all')
+request = <SubRequest 'd3_data' for <Function test_one_unrepresentable_macd_component_rejects_before_price_rows>>
+
+    @pytest.fixture(scope="session")
+    def d3_data(tmp_path_factory, request):
+        plan = json.loads((REPORT / "plan.json").read_text())
+        resume = plan.get("resume")
+        if resume is not None:
+            # Reject an accidental full-suite command before opening any source or
+            # running SQL. Parameterized cases keep their original fixed variants.
+            items = request.session.items
+            selected = tuple(dict.fromkeys(item.nodeid.split("[", 1)[0] for item in items))
+            assert selected == tuple(resume["node_ids"])
+            assert len(items) == resume["expected_items"]
+            assert resume["baseline_file"] in (
+                "resume_baseline_20261026.json", "acceptance_gap_baseline_20261026.json",
+            )
+            saved = json.loads((REPORT / resume["baseline_file"]).read_text())["progress.json"]
+            assert saved["fixture_root"] == resume["reuse_fixture_root"]
+>           root = Path(saved["fixture_root"]).resolve(strict=True)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/foundation/technical_indicators/d3_support.py:351:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance')
+strict = True
+
+    def resolve(self, strict=False):
+        """
+        Make the path absolute, resolving all symlinks on the way and also
+        normalizing it.
+        """
+
+>       return self.with_segments(os.path.realpath(self, strict=strict))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964'
+
+../../miniconda3/lib/python3.13/pathlib/_local.py:670: FileNotFoundError
+=========================== short test summary info ============================
+ERROR tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_one_unrepresentable_macd_component_rejects_before_price_rows
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 error in 0.27s

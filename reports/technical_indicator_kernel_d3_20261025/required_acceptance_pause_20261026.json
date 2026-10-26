@@ -1,0 +1,50 @@
+{
+  "status": "failed_setup_stopped_no_retry",
+  "D3_complete": false,
+  "node": "tests/foundation/technical_indicators/test_d3_required_acceptance.py::test_one_unrepresentable_macd_component_rejects_before_price_rows",
+  "phase": "d3_data fixture before D3State initialization",
+  "expected": "reuse previously saved literal Parquet files at the approved fixture_root",
+  "actual": "fixture_root parent no longer exists; Path.resolve(strict=True) raises FileNotFoundError",
+  "missing_fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance",
+  "cause": "the recovery harness depends on a disposable pytest directory from an earlier program",
+  "deletion_actor": "not established; do not infer another task or pytest caused it",
+  "test_bodies_executed": 0,
+  "planned_test_bodies_unexecuted": 6,
+  "setup_errors": 1,
+  "product_execution_started": false,
+  "added_input_rows": 0,
+  "added_SQL_logical_rows": 0,
+  "added_real_controls": 0,
+  "added_fixture_rows": 0,
+  "consumed": {
+    "input_rows": 21127,
+    "sql_logical_rows": 1324657,
+    "real_controls": 4
+  },
+  "remaining": {
+    "input_rows": 78873,
+    "sql_logical_rows": 3675343,
+    "real_controls": 0
+  },
+  "program_seconds": 0.4367826250381768,
+  "combined_program_seconds": 15.862637042067945,
+  "cleanup": "no ExecutionControl, connection, SQL or data fixture was created in this attempt; nothing to release",
+  "checks": {
+    "old_progress_lists_and_counters_unchanged": true,
+    "protected_file_hashes_unchanged": 64,
+    "independent_reference_hash_unchanged": true,
+    "original_HTML_ids_tables_links": "passed",
+    "LLD_design_Python_JSON_syntax": "passed",
+    "repository_docs_integrity": "passed",
+    "scoped_tracked_diff_whitespace": "passed",
+    "two_new_test_AST_and_whitespace": "passed"
+  },
+  "code_written_before_execution": [
+    "tests/foundation/technical_indicators/test_d3_required_acceptance.py",
+    "tests/foundation/technical_indicators/test_d3_engine_extension.py",
+    "tests/foundation/technical_indicators/d3_support.py"
+  ],
+  "static_test_correction": "read_result uses the existing select_result step; the executor allowlist and product code were not changed",
+  "proposed_next": "First document a bounded independent three-row literal fixture and restore accounting separately from the expired directory. Reuse existing producer schema and service path; recreate no long references, rerun no original20, then run only the same six pending checks. No implementation or retry authorized after this new failure yet.",
+  "automatic_retries": 0
+}

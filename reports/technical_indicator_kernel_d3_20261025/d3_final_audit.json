@@ -1,0 +1,291 @@
+{
+  "status": "D3_complete",
+  "D3_complete": true,
+  "scope": "D3 steps5 and6 only; original plan/LLD25-item stage reconciliation",
+  "implementation_commit": "1fcac21a44ca6ff5a89a29bec55ba3d2adb789bf",
+  "latest_uncommitted_scope": "two required-test files, d3_support recovery, original design/LLD and reports",
+  "all_25_requirements_fully_audited": true,
+  "requirements": [
+    {
+      "item": 1,
+      "requirement": "范围与实现位置",
+      "implementation": "`TI/` 位于Foundation；`service.py:74,152,165`仅库服务；读取实现为 `src/foundation/clients/local_lake/technical_indicator_price_source.py:61`",
+      "evidence": "`tests/architecture/test_technical_indicator_dependencies.py:11,23,53`的边界、无可选依赖导入、输出依赖检查已在原20项通过；D2阶段收尾记录复用",
+      "stage_conclusion": "D3实现范围已落实。源码检索未见正式App/API/前端/QTF导入新库；未将D3库接口接到正式页面。App装配为D4，现行消费者迁移在后续阶段。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 2,
+      "requirement": "计算对象与说明",
+      "implementation": "`calculation/calculation.py:21,45,54,309`；`registry.py:26,40,47,53,59`；`discovery/catalog.py:38,46`；内置装配 `indicators/__init__.py:4`",
+      "evidence": "D1 `test_contracts.py:102`逐定义字面；`test_registry_dependencies.py:329,350`同一定义发现/来源声明；原D3五公开+两内部与固定包清单已过",
+      "stage_conclusion": "新对象经过真实Engine的既定要求由新增 `test_d3_engine_extension.py:117`覆盖，**本轮6项已通过**。不得用D1直接调用prepare/consume的 `test_registry_dependencies.py:316`替代。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 3,
+      "requirement": "请求合同",
+      "implementation": "`contracts.py:69-126`单证券/周期/一种目标，默认qfq，全部结构校验先于I/O；`service.py:88-96`参数/计划再来源；`calculation/dependencies.py:41-55`全部公开请求先验再factory",
+      "evidence": "D1 `test_contracts.py:29,45,50,56,70,84`默认/每种单目标、非法/未知参数、日期、组合上限；`test_registry_dependencies.py:145`全部先校验。原D3首请求11项在一个完整调用",
+      "stage_conclusion": "已有请求规则证据适用，0根仍做参数准备，空结果不绕过校验。16项容量/10000输出的实际组合压力属于D4，本轮不增加请求目标/开关。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 4,
+      "requirement": "读取合同与来源清单",
+      "implementation": "来源 `technical_indicator_price_source.py:92,139,180,210,248,313`；`sources/contracts.py`；流独立持读取位置，合并8192、最后短批；`SourceReadContext`请求内计数",
+      "evidence": "D2原真实600000.SH日线/因子/周/月各1目标行、4文件935239B，见D2修正 `stage_closeout.md`。原D310001→8192+1809、9001→8192+809、21日线文件→一批，`test_history_and_paging.py:56`、`test_batch_lifecycle.py:16`",
+      "stage_conclusion": "已验批准来源的有界接入和合批，不是全市场/全历史验收。仅股票七分钟qfq、已声明指数七分钟none、股票日线三口径、股票周/月已有三口径列；指数日/周/月仍未接入。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 5,
+      "requirement": "读取与执行连接",
+      "implementation": "`service.py:152-192`同service创建和关闭私有连接，先停monitor后清engine/input/output再连接；实际读取时间由 `sources/session.py:133-135`→`service.py:136-139`→`collector.py:357`；模板 `sql_templates.py:32`、`engine.py:77,168`",
+      "evidence": "原D3每个完整请求均检查live_tables/live_arrow空、监控结束；`test_history_and_paging.py:66,82`、空请求两项；包文本单次I/O/不同请求重新读在原20项通过；Collector部分加载失败 `test_d3_output_failures.py:274-285`",
+      "stage_conclusion": "内部读取时间异常的纯合同、模板缓存/取消/重复close的直接检查由新增6项覆盖，**本轮6项已通过**。同服务连接所有权已实现；不声称App线程接线通过。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 6,
+      "requirement": "历史/分页/输出",
+      "implementation": "`calculation/history.py:24`合并字段/max前置/递推要求；`sources/session.py:87-168,169`从来源起点递推、保留必要窗口；`collector.py:300,317`输出阶段按范围和limit选择；`output/sql/retain_tail.sql:1`只绑定limit，`select_result.sql:1`完整升序",
+      "evidence": "原D3独立前缀比较首请求10001、向前9001、均返回1000、不交叠；`test_history_and_paging.py:23,56`。21根日线前19为NULL，20/21根有值；MA10001仅真实3根全部NULL在 `test_indicator_literals.py:35`",
+      "stage_conclusion": "历史与输出区间分离已验，不强求输入输出相等。Engine非当前batch/Collector旧编号直接反例由新增扩展函数覆盖，**本轮6项已通过**。没有额外一根、has_more或next_before；向前请求真的0输出才msg提示到头。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 7,
+      "requirement": "最新周期K线",
+      "implementation": "`sources/session.py:115-124`拒绝将后来版本回放为周中；标准化period_start/end/source_as_of；`output/result.py:83-86`返回周/月实际截止",
+      "evidence": "原周线失败是测试目录错，修为 `week_end=2026-10-23`后两次source_as_of20/21、同一个Monday19、close5/6、0转换通过，`test_empty_results.py:48`；D2原历史版本拒绝证据沿用",
+      "stage_conclusion": "当前周一根持续更新已验；不补生成历史版本，不证明来源具备周中历史快照。D2来源边界未扩展。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 8,
+      "requirement": "独立复权对象",
+      "implementation": "`sources/price_adjustment.py:13,22`独立SQL能力；来源 `prepare_basis:213`按qfq反向/latest、hfq正向/earliest；`sources/session.py:137-151`按需转换，已是目标直接读",
+      "evidence": "原D3 `test_batch_lifecycle.py:16`：latest basis2、close5×10+10×11、量额不变、1转换；首分钟请求转换0；当前周close已有qfq且转换0。D2 `test_price_adjustment.py`及真实小样本记录",
+      "stage_conclusion": "批内价格一次准备，各指标只借用。全球最新/最早因子全历史不由这几个临时样本证明，D2报告已保留限制；本轮不重算周/月复权、不加任意基准日。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 9,
+      "requirement": "复合依赖与复用",
+      "implementation": "`calculation/dependencies.py:53-92`按上下文/指标/版本/参数/初始化去重；`engine.py:102-135`按拓扑唯一node一次；`moving_average.py:90`与BOLL同均值依赖",
+      "evidence": "原首组合14次rolling_mean=7独立周期×2批，MA20/BOLL20复用；重复MA两身份同结果且3独立均值，`test_indicator_literals.py:33,54`；2051根三套MACD不同参数/状态，`test_smoothing_boundaries.py:14`",
+      "stage_conclusion": "D3依赖执行和当前请求内复用已验；旧批和新对象补验本轮已通过。一次请求一个计算名额、排队并发未装配，是D4，不把一连接证明扩大为并发证明。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 10,
+      "requirement": "初始化和边界",
+      "implementation": "`macd.py:103-118`从当前batch首根绑定、offset/state与首输出字面0；`kdj.py:147-180`先50再正常递推；`kdj_window.sql`平区间50；`rolling_mean.sql:1`完整窗口；`bollinger_bands.sql:3`stddev_pop",
+      "evidence": "原字面测试 `test_indicator_literals.py:14`验证MA首NULL、N1、BOLL总体方差/倍率0及11、MACD手工分数/首0及signal1、平区间KDJ；2051三套首9字段严格0",
+      "stage_conclusion": "非50首根KDJ以及K1/D1分开恒等的有辨别力预期由新增3根扩展函数补验，**本轮6项已通过**。旧平50样本不能证明这两项，不能据旧测试宣布该要求完成。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 11,
+      "requirement": "参数与数值安全",
+      "implementation": "`calculation.py:26,83`正整数/有限非负、直接快慢关系，无统一周期上限；`smoothing_parameters.sql:1-14`BIGINT/DOUBLE可表示、指数界256、段≤1024及n1；`macd.py:42-43`任一NULL传递；`calculation.py:248-284`控制行检验；KDJ每分量n1按SQLCASE",
+      "evidence": "原默认与视频9/65/9、10/69/10、多段/字面精度已过，D1 `test_contracts.py:137`MA10001允许/倍率11允许、非法类型/快慢关系拒绝",
+      "stage_conclusion": "单分量slow=2**60真实参数SQL拒绝由新增 `test_d3_required_acceptance.py:27`，K1/D1由扩展函数覆盖，均**本轮6项已通过**。不穷举参数，不宣称全数值域精度保证。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 12,
+      "requirement": "SQL步骤与状态",
+      "implementation": "`CalculationSession:203,219,226,235`先登记/读写归属；`macd.py:110-142`P=batch新数+窗口历史，segment绑定next_end，P+2/appendS/updateS+1；`kdj.py:152-183`新range数+2/appendS/updateS+1；各段只一处UPDATE；`engine.py:143`反向释放",
+      "evidence": "原首组合跨8192，第二批含249历史，macd_segment最后两次logical_rows2060，独立前缀精度连续；`test_history_and_paging.py:70-74`。原借用表读/删反例 `test_d3_output_failures.py:202`，SQL前统计不变",
+      "stage_conclusion": "当前PriceBatch唯一公开表和新seq过滤落实；历史不再次递推，Python仅取安全段长和位置、组织执行，不做指标加减乘除。新对象/旧批直接补验本轮已通过；不重构D2。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 13,
+      "requirement": "输出合同与版本",
+      "implementation": "`service.py:57`读取前生成小不可变说明，输出不接plan；`contracts.py:183,201`三字段OutputRange/msg；`output/result.py:67-131`读范围与页范围分开/版本/空msg；`collector.py:357-392`最终统计含COUNT及fetch；`encoding.py:49`UTF8逐片计量",
+      "evidence": "原首组合实际参数/版本、空before完整字段/默认参数、0输出但来源21且保留read时间，周as_of，UTF8确界/非有限失败均过",
+      "stage_conclusion": "新说明外部容器变化、读范围非法、未知global日期不回填这3项由新增纯合同函数补验，**本轮6项已通过**。结果对象关闭连接后独立存在；未改正式API/DTO。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 14,
+      "requirement": "精度与独立预期",
+      "implementation": "`d3_reference.py:23,43,134`原价HUGEINT独立MACD/KDJ/窗口，未调用被测helper；字面公式；测试 `d3_support.py:381`A=1e−8、R=1e−10；近0只记录不强制归0",
+      "evidence": "原10001/9001页、2051三套及字面逐字段、日期/NULL精确。已保存参考9个MACD序列近0仅seq1；2051测试 `test_smoothing_boundaries.py:31`对应9字段actual严格0，近0符号差异0。页内近0位置0",
+      "stage_conclusion": "上述是有限样本证据，未保存普通非零actual不另造逐点报告。新KDJ3根使用LLD独立字面并已通过；不替XXM符号/交叉消费者验收。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 15,
+      "requirement": "资源测试方案",
+      "implementation": "LLD16/17已定义H200000、表估算/峰值/取消预算；当前D3每批资源生命周期在 `service.py:117-124`、`engine.py:143-202`、`collector.py:317`",
+      "evidence": "D3 saved步骤/逻辑输入记账、文件批次记录和有界实际清理；没有执行资源压力矩阵",
+      "stage_conclusion": "**D4明确未验**：逐表RSS估算/实测、6H资源量级、取消重试及尾部成本；不能由D3有界样本速度推导全容量内存。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 16,
+      "requirement": "资源边界",
+      "implementation": "`configuration/settings.py:13-60`及Settings19项；`contracts.py:114`实例/输出上限；`sources/read_context.py:16,24`5000文件/150万输入；来源投影rowgroup阈值；`encoding.py:49-69`超5000000整次失败",
+      "evidence": "D1配置值/正向反向直接关系；原D3输入max2触发、UTF8等于边界允许超1拒绝，不截断；`test_d3_output_failures.py:104,122`",
+      "stage_conclusion": "**D4未验**：150万、16项、10000输出实际压力、低内存OOM和32MiB保护合理性。只将小边界规则判为已有证据，容量门槛不冒充压力验收。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 17,
+      "requirement": "耗时统计",
+      "implementation": "`execution_control.py:22`最早arrived基准；executor各step finally统计，失败仍计；`collector.py:382`最终输出前取累计SQL/elapsed；`d3_support.py:247`case/finally计全部耗时",
+      "evidence": "原progress保存参考88257逻辑行、所有失败/成功及总21127/1324657/4；test完整取回/错误仍统计；6项本轮增量须同样记录",
+      "stage_conclusion": "本轮新增3输入、82逻辑SQL、0真实Control，程序1.480秒，含全部历史失败累计17.343秒。单次有限程序用时不等于P95；D4队列/端到端/20次P95/其它接口影响未验。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 18,
+      "requirement": "内存和并发",
+      "implementation": "库每请求新connection/session/control，定义只读、请求字典不跨请求；Settings `technical_indicator_max_concurrent_requests=2,max_waiting_requests=2`仅既定配置",
+      "evidence": "原首/前页两个独立调用模板分别读取一次、状态独立；D1计划对象不同请求不共享",
+      "stage_conclusion": "**D4未实现/未验**：App准入/FIFO/工作线程装配、2并发2等待、总RSS/Web基线。2/2是已确认初值，不是当前已有调度能力，也不是RSS硬限制。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 19,
+      "requirement": "取消和截止",
+      "implementation": "`execution_control.py:26,67,76,98,130`统一截止/20ms重复interrupt/解绑并join；`service.py:165`SQL线程回到清理后才停monitor/关表/连接；SQL与读前后check_active",
+      "evidence": "D2基础真实中断/清理证据复用。D3 **4真实Control仅正常完成**：分钟10001、分钟9001、分钟0源空before、日线21源但空range；saved4calls均passed且存活清单空。D3失败路径是D3Control替身信号+真实SQL",
+      "stage_conclusion": "D3正常路径监控创建和关闭已有证据，不证明完整库真实长SQL取消/原生I/O停止时延。**D4未验**：T0/6/8/10、真正命中长SQL及文件读取、App断连/线程完成、取消清理目标。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 20,
+      "requirement": "临时落盘",
+      "implementation": "`service.py:18-28`temp_directory空、max_temp_directory_size0B、自动扩展下载关闭；source仅读，不向正式Lake写",
+      "evidence": "原私有内存连接正常运行、D2设置核验；本轮代码没有改动这些设置",
+      "stage_conclusion": "禁spill配置已落地。**D4未验**：低内存失败反例及完整请求临时磁盘0、进程RSS；不因连接正常就说OOM边界通过。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 21,
+      "requirement": "配置审计",
+      "implementation": "`src/foundation/config/settings.py:67-123`19字段/env别名与默认；`TI/configuration/settings.py:37,53`同一Settings解析，单项/已知直接关系；来源/执行器只读本次config",
+      "evidence": "D1 `test_configuration.py`原阶段配置值、映射和直接关系拒绝证据，D2收尾确认相关代码不变；D3未新增配置/依赖升级",
+      "stage_conclusion": "D1配置合同已验。D4队列/过期/部署容量消费者落地和初值实测仍待；不穷举配置组合，不暗加周期上限。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 22,
+      "requirement": "失败与重试",
+      "implementation": "`service.py:32,143-149`主错误保留/清理错误附记，正常清理失败也报错；executor160/212固定错误stage/reason；`result.py:131`正常EOF且0输出唯一空成功；`collector.py:398`逐资源清理",
+      "evidence": "原缺列/缺行/错类型、短fetch继续至空、fetch原异常、stop/read/limit/cleanup、严格编码等反例已过，`test_d3_output_failures.py:39,65,104,122,141`。原失败与一次授权续跑保留",
+      "stage_conclusion": "新增模板取消、清理失败finally及重复close已通过。原故障使用控制替身和真实SQL；既有cleanup注入发生在真实清理后，不能说其证明失败DROP的后果。旧夹具准备失败保留，已按19.27恢复；无自动重试、吞错为空或未完成待验项。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 23,
+      "requirement": "职责不回流",
+      "implementation": "新TI包不依赖App/Ops/Biz/QTF/DG；source外部负责行情质量/完整性；输入只做普通类型投影、必要内部批次合同，不生成交易日历、不逐根价格质量扫描，无旧Reader/指标fallback",
+      "evidence": "原架构边界测试及当前源码逐文件读取；only固定SQL模板/数据参数绑定；`test_d3_output_failures.py:202`借用表与模板反例",
+      "stage_conclusion": "本轮无质量审计单元、停牌/退市/日历新逻辑、旧Gold回退或第二数据通道。没有新反向依赖。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 24,
+      "requirement": "消费者和顺序",
+      "implementation": "新完整入口仅 `service.py:74`，root包仍合同/发现；库内result构造统一msg/三字段，无旧字段兼容；当前外部正式源/API/页面未import新库",
+      "evidence": "原D3架构测试53确认输出不认识plan、固定资源及删除翻页探测字段；D1无假入口改为完整入口断言。当前引用搜索未发现外部正式消费者",
+      "stage_conclusion": "D3库内部迁移可对账。**D4/后续未做**：正式API/DTO/页面主要区域批请求、XXM迁移和版本取消、DG技术指标任务停止/数据清退；不因D3完成自动进入。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    },
+    {
+      "item": 25,
+      "requirement": "最终逐条对账",
+      "implementation": "本清单逐项对应原LLD22；原产品提交1fcac21a、D1/D2阶段收尾、D3失败/续跑/预算报告均保留",
+      "evidence": "原20项只在各自原场景内有效；本轮6项全部通过，3份夹具一次生成、累计计量及清理均有保存证据，原准备失败和原始日志继续保留",
+      "stage_conclusion": "原25项按D3步骤5/6范围完成对账；原20项加本轮6项均有通过证据，66份受保护文件指纹及独立参考未变。D1/D2复用原证据；D4及正式迁移仍未验，不标为整个项目完成。",
+      "scope": "D3 steps5/6; D1/D2 evidence reused; D4 excluded"
+    }
+  ],
+  "required_acceptance": {
+    "status": "passed",
+    "test_items": 6,
+    "original_passed_items_not_rerun": 20,
+    "combined_distinct_passed_items": 26,
+    "original_test_files_unchanged": true,
+    "command_record": "execution_owned_fixture_20261026.json",
+    "lifecycle_record": "fixture_owned_20261026.json",
+    "automatic_retries": 0
+  },
+  "consumed": {
+    "input_rows": 21130,
+    "sql_logical_rows": 1324739,
+    "real_controls": 4,
+    "fixture_rows": 10052
+  },
+  "delta": {
+    "input_rows": 3,
+    "sql_logical_rows": 82,
+    "real_controls": 0,
+    "fixture_rows": 3
+  },
+  "program_seconds": 1.4802520000375807,
+  "cumulative_program_seconds": 17.342889042105526,
+  "protected_files_unchanged": 66,
+  "independent_reference_unchanged": true,
+  "old_record_prefixes_unchanged": true,
+  "source_price_rows_added": 0,
+  "real_controls_added": 0,
+  "formal_data_modified": false,
+  "dependencies_changed": false,
+  "D3_remaining": [],
+  "new_review_decisions": [],
+  "D4_not_started": [
+    "application admission/FIFO and bounded queue",
+    "resource/capacity and RSS benchmarks",
+    "full service real timeout/cancellation/ASGI",
+    "formal API/page/XXM adoption",
+    "DG technical-indicator job/data retirement"
+  ],
+  "historical_failures_preserved": [
+    "resume_baseline_20261026.json",
+    "execution_20261026.json",
+    "required_acceptance_pause_20261026.json",
+    "execution_required_20261026.json",
+    "required_fixture_baseline_20261026.json"
+  ],
+  "near_zero_existing_evidence": {
+    "reference_sets": 3,
+    "fields_each": [
+      "dif",
+      "dea",
+      "hist"
+    ],
+    "reference_near_zero_positions_each": [
+      1
+    ],
+    "2051_request": "existing strict actual==0 assertion covers all9 first values, sign differences0",
+    "initial_and_before_return_ranges": "no reference near-zero positions in returned pages",
+    "new_calculation": false
+  },
+  "codegraph_tools": [
+    "codegraph_explore",
+    "prior codegraph sync/status"
+  ],
+  "codegraph_scope": "test-only resume_saved caller, current service/engine/output chain and actual contract consumers; graph supplemented with current source/rg due irrelevant broad symbol matches",
+  "details_file": "d3_requirement_reconciliation_20261026.md",
+  "final_static_checks": {
+    "original_HTML_ids_tables_links": "passed",
+    "LLD_design_Python_JSON_syntax": "passed",
+    "repository_docs_integrity": "passed",
+    "scoped_tracked_diff_whitespace": "passed",
+    "test_AST_and_preflight": "passed"
+  },
+  "independent_closeout_review": {
+    "status": "passed",
+    "scope": "current original design/LLD19.28/22.1 and saved execution/report state; no rerun",
+    "D3_remaining": [],
+    "later_stages_not_started": true,
+    "current_changes_uncommitted": true
+  }
+}
