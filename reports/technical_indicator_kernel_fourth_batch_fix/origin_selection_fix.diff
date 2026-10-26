@@ -1,0 +1,43 @@
+--- before/LakePriceLocator._select
++++ after/LakePriceLocator._select
+@@ -2,7 +2,7 @@
+         request, history = self.requirement.request, self.requirement.history
+         maximum = self.source._config.max_input_rows
+         groups, rows, targets = [], 0, 0
+-        origin = False
++        candidates_exhausted = False
+         complete = False
+         # Paths hold only partition descriptions. Older footers are opened only
+         # if the newer groups did not already provide the necessary history.
+@@ -29,21 +29,25 @@
+                 if target_known and (actual == 0 or (
+                         not needs_origin and rows >= actual + history.warmup_rows)):
+                     complete = True
+-                    origin = path_index == 0 and index == 0
++                    candidates_exhausted = path_index == 0 and index == 0
+                     break
+             self._close_metadata()
+             metadata = group_metadata = None
+             if complete:
+                 break
+         else:
+-            origin = True
++            candidates_exhausted = True
+         actual = min(targets, request.limit)
+         if not actual:
+-            return (), PriceReadSelection(None, None, None, None, 0, 0, origin, ())
+-        wanted = rows if origin else actual + history.warmup_rows
+-        if wanted > maximum or (history.requires_source_origin and not origin):
++            return (), PriceReadSelection(None, None, None, None, 0, 0, candidates_exhausted, ())
++        needs_origin = history.requires_source_origin or actual + history.warmup_rows > maximum
++        # Counting the oldest group does not select all of its rows. First
++        # keep the finite requested range; only then decide whether its lower
++        # bound is the actual source origin.
++        wanted = rows if needs_origin else min(rows, actual + history.warmup_rows)
++        origin = candidates_exhausted and wanted == rows
++        if wanted > maximum or (needs_origin and not origin):
+             raise ResourceLimitError("The selected input exceeds the request's historical capacity")
+-        wanted = min(rows, wanted)
+         # Locate the target/read lower bounds without retaining all timestamps.
+         boundary_groups = {}
+         positions, included, newer = {}, [], 0

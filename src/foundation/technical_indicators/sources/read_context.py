@@ -11,6 +11,7 @@ class SourceReadContext:
         self.config = config
         self._files: dict[Path, int] = {}
         self._source_rows = 0
+        self._locator_rows = 0
         self._source_file_bytes = 0
 
     def record_file(self, path: Path, size_bytes: int) -> None:
@@ -31,6 +32,15 @@ class SourceReadContext:
         if self._source_rows + rows > self.config.max_input_rows:
             raise ResourceLimitError("Source price rows exceed max_input_rows")
         self._source_rows += rows
+
+    @property
+    def locator_rows(self) -> int:
+        return self._locator_rows
+
+    def record_locator_rows(self, rows: int) -> None:
+        if type(rows) is not int or rows < 0:
+            raise ValueError("Locator rows require a nonnegative integer")
+        self._locator_rows += rows
 
     @property
     def source_files(self) -> int:

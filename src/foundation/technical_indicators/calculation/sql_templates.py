@@ -18,6 +18,7 @@ _PACKAGE_FILES = MappingProxyType({
     "src.foundation.technical_indicators.calculation": frozenset({
         "smoothing_parameters.sql", "rolling_mean.sql", "bollinger_bands.sql",
         "macd_first.sql", "macd_segment.sql", "kdj_window.sql", "kdj_segment.sql",
+        "macd_warmup.sql", "kdj_warmup.sql",
     }),
     "src.foundation.technical_indicators.output": frozenset({
         "merge_batch.sql", "retain_tail.sql", "select_result.sql",

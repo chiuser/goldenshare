@@ -7,15 +7,17 @@ from typing import ClassVar
 from ...contracts import Parameters, _freeze_parameters
 from ...errors import CalculationExecutionError, ResourceCleanupError
 from ..calculation import CalculationDefinition, CalculationOutput, ControlReadStep, Dependency, OutputField, ParameterSpec, SqlStep
-from ..history import HistoryRequirement
+from ..history import (
+    HistoryRequirement, INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS,
+)
 from ..sql_templates import render_sql
 
 DEFINITION = CalculationDefinition(
-    calculation_id="kdj", algorithm_version="1.0.0", description="高低窗口、RSV及K/D/J",
+    calculation_id="kdj", algorithm_version="2.0.0", description="高低窗口、RSV及K/D/J",
     parameter_specs=(ParameterSpec("window", "positive_integer", 9), ParameterSpec("k_period", "positive_integer", 3), ParameterSpec("d_period", "positive_integer", 3)),
     input_fields=frozenset({"high", "low", "close"}),
     output_fields=tuple(OutputField(name, name, "DOUBLE", False, "窗口不足使用已有行；平区间RSV=50") for name in ("k", "d", "j")),
-    initialization="递推前K=D=50", history_rule="窗口需要window−1根；K/D从来源起点递推",
+    initialization="递推前K=D=50", history_rule="首输出前覆盖window−1并按参数求有限预热；达到来源真实起点时K=D50",
     units=tuple((name, "dimensionless") for name in ("k", "d", "j")),
 )
 
@@ -42,9 +44,9 @@ class WindowRangeCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
+    def input_requirement(self, session, max_input_rows):
         return HistoryRequirement(DEFINITION.input_fields, dict(self.parameters)["window"] - 1,
-                                  False, (), WINDOW_RANGE_DEFINITION.initialization)
+                                  dict(self.parameters)["window"] - 1, False, (), WINDOW_RANGE_DEFINITION.initialization)
 
     def dependencies(self):
         return ()
@@ -80,11 +82,12 @@ class KDJCalculation:
     SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
     TABLE_ROLES: ClassVar = MappingProxyType({
         "parameters": ("ti_kdj_parameters", "state"),
+        "warmup": ("ti_kdj_warmup", "state"),
         "state": ("ti_kdj_state", "state"),
         "work": ("ti_kdj_work", "batch"),
         "output": ("ti_kdj_output", "batch"),
     })
-    SQL_FILES: ClassVar = ("smoothing_parameters.sql", "kdj_segment.sql")
+    SQL_FILES: ClassVar = ("smoothing_parameters.sql", "kdj_segment.sql", "kdj_warmup.sql")
     FIXED_SQL_STEPS: ClassVar = MappingProxyType({
         "create_parameters": """CREATE TEMP TABLE {{parameters}} AS
             WITH k AS ({{smoothing}}), d AS ({{smoothing}})
@@ -98,6 +101,9 @@ class KDJCalculation:
         "append_segment": "INSERT INTO {{output}} SELECT seq,k,d,j FROM {{work}}",
         "update_state": """UPDATE {{state}} SET last_seq=w.seq,k=w.k,d=w.d
             FROM (SELECT seq,k,d FROM {{work}} ORDER BY seq DESC LIMIT 1) w""",
+        "read_warmup_rows": ControlReadStep(
+            "SELECT warmup_rows, requires_source_origin FROM {{warmup}}",
+            ("warmup",), (), (("warmup_rows", "BIGINT"), ("requires_source_origin", "BOOLEAN")), 1),
         "read_smoothing_limits": ControlReadStep(
             "SELECT segment_rows AS safe_rows FROM {{parameters}}",
             ("parameters",), (), (("safe_rows", "INTEGER"),), 1),
@@ -113,9 +119,25 @@ class KDJCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
-        return HistoryRequirement(DEFINITION.input_fields, dict(self.parameters)["window"] - 1,
-                                  True, ("last_seq", "k", "d"), DEFINITION.initialization)
+    def input_requirement(self, session, max_input_rows):
+        warmup = session.declare_owned_table("warmup")
+        parameters = session.table_roles["parameters"][0]
+        window = dict(self.parameters)["window"]
+        try:
+            self._check_count(session.execute(SqlStep("kdj_warmup",
+                render_sql(session.sql_templates["kdj_warmup.sql"],
+                           tables={"parameters": parameters, "warmup": warmup}),
+                (MIN_RECURSIVE_WARMUP_ROWS, INITIALIZATION_ERROR_BUDGET,
+                 window, max_input_rows), (parameters,), (warmup,), 1)), 1)
+        except CalculationExecutionError as exc:
+            if "warmup_search_not_terminated" in str(exc.__cause__):
+                exc.reason, exc.step_name = "warmup_search_not_terminated", "kdj_warmup"
+            raise
+        rows, origin = session.read_control_row("read_warmup_rows")
+        if not origin and not window - 1 <= rows <= max_input_rows:
+            session._control_error("read_warmup_rows", "control_bounds")
+        return HistoryRequirement(DEFINITION.input_fields, window - 1,
+                                  rows, origin, ("last_seq", "k", "d"), DEFINITION.initialization)
 
     def dependencies(self):
         return (Dependency("range", "window_range", "1.0.0",

@@ -104,7 +104,7 @@ def test_five_definitions_match_independent_lld_literals(module, identifier, par
     assert definition.calculation_id == identifier
     assert definition.validate_parameters({}) == parameters
     assert tuple(field.name for field in definition.output_fields) == outputs
-    assert definition.algorithm_version == "1.0.0"
+    assert definition.algorithm_version == ("2.0.0" if identifier in {"macd", "kdj"} else "1.0.0")
     assert definition.supported_periods == ("1m", "5m", "15m", "30m", "60m", "90m", "120m", "day", "week", "month")
     assert all(field.sql_type == "DOUBLE" for field in definition.output_fields)
     assert definition.public is True

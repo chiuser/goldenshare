@@ -13,6 +13,7 @@ from ..contracts import CalculationRequest, CalculationResult, CalculationStatis
 from ..errors import CalculationExecutionError, OutputContractError, ResourceCleanupError
 from ..executor import DuckDBExecutor
 from ..sources.contracts import PriceBatch, SourceDescription
+from ..time_range import range_filter
 from .contracts import OutputInstanceDescription
 from .result import build_calculation_result
 
@@ -298,21 +299,7 @@ class OutputCollector:
                            expected_count=batch.new_row_count, actual_count=stats.output_rows)
 
     def _range_filter(self):
-        minute = self.request.period.endswith("m")
-        time_key = "trade_time" if minute else "period_start"
-        terms, bindings = [], []
-        for value, column, operator in (
-            (self.request.start, "period_end" if self.request.period in ("week", "month") else time_key, ">="),
-            (self.request.end, time_key, "<="),
-            (self.request.before, time_key, "<"),
-        ):
-            if value is not None:
-                # Input SQL uses local TIMESTAMP, never the host's timezone.
-                if minute and isinstance(value, datetime):
-                    value = value.replace(tzinfo=None)
-                terms.append(_column(column) + " " + operator + " ?")
-                bindings.append(value)
-        return " AND ".join(terms) or "TRUE", tuple(bindings)
+        return range_filter(self.request)
 
     def _retain(self, batch: PriceBatch) -> None:
         columns = ", ".join(_column(name) for name in self._columns)
@@ -356,10 +343,13 @@ class OutputCollector:
 
     def build_result(
         self, description: SourceDescription, statistics: CalculationStatistics,
-        *, read_start: TimePosition | None, read_end: TimePosition | None,
+        *, read_start: TimePosition | None, read_end: TimePosition | None, expected_rows: int,
     ) -> CalculationResult:
         self._assert_open()
         try:
+            if type(expected_rows) is not int or not 0 <= expected_rows <= self.request.limit:
+                self._contract("fetch_count_mismatch", "final_query", "Invalid expected output count",
+                               expected_count=expected_rows, actual_count=self._tail_rows)
             rows = ()
             if "ti_output_tail" in self._tables:
                 counts = self._read(
@@ -370,6 +360,9 @@ class OutputCollector:
                 if len(counts) != 1 or type(counts[0][0]) is not int or counts[0][0] != self._tail_rows:
                     self._contract("fetch_count_mismatch", "final_query", "The final output count changed",
                                    expected_count=self._tail_rows, actual_count=counts)
+                if counts[0][0] != expected_rows:
+                    self._contract("fetch_count_mismatch", "final_query", "Final output differs from the selected target count",
+                                   expected_count=expected_rows, actual_count=counts[0][0])
                 rows = self._read(
                     "select_result", self._template("select_result.sql", tables={"tail": "ti_output_tail"},
                                                     fragments={"columns": ", ".join(_column(name) for name in self._columns)}),
@@ -379,6 +372,9 @@ class OutputCollector:
                 if len(rows) != counts[0][0]:
                     self._contract("fetch_count_mismatch", "final_fetch", "The final fetch omitted output rows",
                                    expected_count=counts[0][0], actual_count=len(rows))
+            elif expected_rows:
+                self._contract("fetch_count_mismatch", "final_query", "Selected output has no result table",
+                               expected_count=expected_rows, actual_count=0)
             final_statistics = replace(
                 statistics, sql_processed_rows=self.executor.sql_processed_rows,
                 elapsed_ms=(self.executor.control.clock() - self.executor.control.arrived_at) * 1000,

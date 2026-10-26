@@ -194,8 +194,8 @@ def test_session_history_rename_and_cleanup(rename_execution, mode):
         (CalculationInstance("price", "price", {}),), adjustment="qfq")
     rows, keep = (21, 19) if mode == "normal" else (3, 2)
     requirement = ReadRequirement(request, HistoryRequirement(frozenset(("close",)), keep,
-        True, (), "Literal post-adjustment history"), 8192, None, None)
-    inputs = PriceInputSession(s.executor, None, None, requirement, read_context=None)
+        None, True, (), "Literal post-adjustment history"), 8192, None, None)
+    inputs = PriceInputSession(s.executor, None, requirement, read_context=None)
     s.inputs = inputs
     # Start at the already materialized input boundary; no file/source is used.
     inputs._own_table("ti_price_window")

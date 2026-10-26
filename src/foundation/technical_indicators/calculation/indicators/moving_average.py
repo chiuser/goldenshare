@@ -39,9 +39,9 @@ class WindowMeanCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
+    def input_requirement(self, session, max_input_rows):
         return HistoryRequirement(DEFINITION.input_fields, dict(self.parameters)["period"] - 1,
-                                  False, (), DEFINITION.initialization)
+                                  dict(self.parameters)["period"] - 1, False, (), DEFINITION.initialization)
 
     def dependencies(self):
         return ()
@@ -83,9 +83,9 @@ class MovingAverageCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
+    def input_requirement(self, session, max_input_rows):
         return HistoryRequirement(DEFINITION.input_fields, dict(self.parameters)["period"] - 1,
-                                  False, (), DEFINITION.initialization)
+                                  dict(self.parameters)["period"] - 1, False, (), DEFINITION.initialization)
 
     def dependencies(self):
         return (Dependency("mean", "window_mean", "1.0.0", self.parameters),)

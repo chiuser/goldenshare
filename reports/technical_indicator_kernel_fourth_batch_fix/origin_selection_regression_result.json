@@ -1,0 +1,155 @@
+{
+  "status": "passed_selection_unit_only",
+  "cases": [
+    {
+      "case": "oldest_group_4000_select_1500",
+      "expected": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      },
+      "actual": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "oldest_group_4000_capacity_2000",
+      "expected": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      },
+      "actual": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "short_target_from_start_keeps_only_550",
+      "expected": {
+        "target_rows": 50,
+        "input_rows": 550,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      },
+      "actual": {
+        "target_rows": 50,
+        "input_rows": 550,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "1600_first_page_keeps_1500",
+      "expected": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      },
+      "actual": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "600_oldest_page_returns_all",
+      "expected": {
+        "target_rows": 600,
+        "input_rows": 600,
+        "preceding_rows": 0,
+        "reached_source_origin": true
+      },
+      "actual": {
+        "target_rows": 600,
+        "input_rows": 600,
+        "preceding_rows": 0,
+        "reached_source_origin": true
+      }
+    },
+    {
+      "case": "1600_origin_with_long_warmup",
+      "expected": {
+        "target_rows": 1000,
+        "input_rows": 1600,
+        "preceding_rows": 600,
+        "reached_source_origin": true
+      },
+      "actual": {
+        "target_rows": 1000,
+        "input_rows": 1600,
+        "preceding_rows": 600,
+        "reached_source_origin": true
+      }
+    },
+    {
+      "case": "4000_cannot_fit_origin_in_1600",
+      "expected": {
+        "error": "ResourceLimitError"
+      },
+      "actual": {
+        "error": "ResourceLimitError"
+      }
+    }
+  ],
+  "before_defect_reproduced": [
+    {
+      "case": "oldest_group_4000_select_1500",
+      "actual_before": {
+        "target_rows": 1000,
+        "input_rows": 4000,
+        "preceding_rows": 3000,
+        "reached_source_origin": true
+      },
+      "expected_after": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "oldest_group_4000_capacity_2000",
+      "actual_before": {
+        "error": "ResourceLimitError"
+      },
+      "expected_after": {
+        "target_rows": 1000,
+        "input_rows": 1500,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    },
+    {
+      "case": "short_target_from_start_keeps_only_550",
+      "actual_before": {
+        "target_rows": 50,
+        "input_rows": 4000,
+        "preceding_rows": 3950,
+        "reached_source_origin": true
+      },
+      "expected_after": {
+        "target_rows": 50,
+        "input_rows": 550,
+        "preceding_rows": 500,
+        "reached_source_origin": false
+      }
+    }
+  ],
+  "elapsed_seconds": 0.2019084170460701,
+  "price_input_rows": 0,
+  "sql_logical_rows": 0,
+  "locator_key_rows": 0,
+  "real_controls": 0,
+  "source_sha256": "a6188044eef6e418b80dac4eb1909be1bd8413032c09488d557d55eb043f8fa5",
+  "coverage": "Actual selection control flow; metadata and key readers substituted. No file, SQL, indicator or service integration acceptance."
+}

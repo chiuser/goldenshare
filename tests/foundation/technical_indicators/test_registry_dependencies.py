@@ -41,8 +41,8 @@ class BorrowedPriceCalculation:
     parameters: Parameters
     declared_dependencies: tuple[Dependency, ...] = ()
 
-    def input_requirement(self):
-        return HistoryRequirement(frozenset({"close"}), 0, False, (), "Every current bar")
+    def input_requirement(self, session, max_input_rows):
+        return HistoryRequirement(frozenset({"close"}), 0, 0, False, (), "Every current bar")
 
     def dependencies(self):
         return self.declared_dependencies
@@ -226,7 +226,7 @@ def test_request_local_sharing_retains_instance_identity_and_stable_dependency_o
         ("boll", (("period", 20),)), ("ma", (("period", 21),)),
         ("window_mean", (("period", 21),)),
     ]
-    assert combine_history_and_fields(plan).fields == frozenset({"close"})
+    assert combine_history_and_fields(node.calculation.input_requirement(None, 1500000) for node in plan.nodes).fields == frozenset({"close"})
 
 
 def test_multiple_roles_keep_declared_order_and_share_completed_upstream():

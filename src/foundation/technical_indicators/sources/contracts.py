@@ -17,6 +17,36 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
+class PriceReadSelection:
+    target_start: TimePosition | None
+    target_end: TimePosition | None
+    read_start: TimePosition | None
+    read_end: TimePosition | None
+    target_rows: int
+    preceding_rows: int
+    reached_source_origin: bool
+    row_groups: tuple[tuple[int, ...], ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "row_groups", tuple(tuple(group) for group in self.row_groups))
+        if (type(self.target_rows) is not int or self.target_rows < 0
+                or type(self.preceding_rows) is not int or self.preceding_rows < 0
+                or type(self.reached_source_origin) is not bool):
+            raise ValueError("Selection counts and source-origin flag have invalid types")
+        for group in self.row_groups:
+            if (not group or any(type(i) is not int or i < 0 for i in group)
+                    or tuple(sorted(set(group))) != group):
+                raise ValueError("Selected row groups must be nonempty, ordered and unique")
+        positions = (self.target_start, self.target_end, self.read_start, self.read_end)
+        if self.target_rows == 0:
+            if self.preceding_rows or any(p is not None for p in positions) or self.row_groups:
+                raise ValueError("An empty target cannot carry price input")
+        elif (any(p is None for p in positions)
+                or not self.read_start <= self.target_start <= self.target_end == self.read_end):
+            raise ValueError("Selected input and target ranges are inconsistent")
+
+
+@dataclass(frozen=True, slots=True)
 class SourceDescription:
     source_id: str
     contract_version: str
@@ -34,6 +64,7 @@ class SourceDescription:
     supports_partial_period: bool
     supported_adjustment_paths: tuple[tuple[Adjustment, Adjustment], ...]
     converted: bool
+    selection: PriceReadSelection
     price_paths: tuple[Path, ...] = ()
     factor_paths: tuple[tuple[date, Path], ...] = ()
     source_projection: tuple[str, ...] = ()
@@ -45,6 +76,8 @@ class SourceDescription:
         object.__setattr__(self, "factor_paths", tuple((day, Path(path)) for day, path in self.factor_paths))
         object.__setattr__(self, "source_projection", tuple(self.source_projection))
         object.__setattr__(self, "standard_projection", tuple(tuple(item) for item in self.standard_projection))
+        if not isinstance(self.selection, PriceReadSelection) or len(self.price_paths) != len(self.selection.row_groups):
+            raise ValueError("Selected price paths and row groups must correspond")
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,11 +130,16 @@ class SourceStream(Protocol):
     def close(self) -> None: ...
 
 
+class SourceLocator(Protocol):
+    def describe(self) -> SourceDescription: ...
+    def close(self) -> None: ...
+
+
 class PriceSource(Protocol):
-    def describe(
-        self, request: CalculationRequest, requirement: ReadRequirement, *,
-        control: ExecutionControl, read_context: SourceReadContext,
-    ) -> SourceDescription: ...
+    def create_locator(
+        self, executor: DuckDBExecutor, requirement: ReadRequirement, *,
+        read_context: SourceReadContext,
+    ) -> SourceLocator: ...
 
     def open(
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,

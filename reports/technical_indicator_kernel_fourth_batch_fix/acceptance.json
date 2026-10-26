@@ -1,0 +1,19 @@
+{
+  "phase": "第四批-修复开发",
+  "status": "full_acceptance_not_run_origin_unit_passed",
+  "passed_nodes": [],
+  "failed_test_nodes": [],
+  "note": "Source-origin selection logic corrected and scoped unit regression passed. Parquet, SQL, indicator accuracy and complete-service acceptance remain unrun; other development remains paused.",
+  "counters": {
+    "input_rows": 0,
+    "sql_logical_rows": 0,
+    "locator_rows": 0,
+    "real_controls": 0,
+    "elapsed_seconds": 0.2019084170460701
+  },
+  "unit_regression": {
+    "result_file": "origin_selection_regression_result.json",
+    "cases_passed": 7,
+    "before_defects_reproduced": 3
+  }
+}

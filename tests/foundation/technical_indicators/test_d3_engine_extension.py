@@ -56,8 +56,8 @@ class _BorrowedCloseCalculation:
         self.parameters = parameters
         self.events = events
 
-    def input_requirement(self):
-        return HistoryRequirement(frozenset({"close"}), 0, False, (), "目标价格原样")
+    def input_requirement(self, session, max_input_rows):
+        return HistoryRequirement(frozenset({"close"}), 0, 0, False, (), "目标价格原样")
 
     def dependencies(self):
         return (Dependency("price", "price", "1.0.0", ()),)

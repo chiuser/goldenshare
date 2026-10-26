@@ -245,7 +245,7 @@ class CalculationSession:
             if name in owned:
                 owned.remove(name)
 
-    def read_control_row(self, step_name: str, bindings: tuple = ()) -> tuple[int | None, ...]:
+    def read_control_row(self, step_name: str, bindings: tuple = ()) -> tuple[int | bool | None, ...]:
         from .sql_templates import render_sql
 
         self.executor.control.check_active()
@@ -278,6 +278,12 @@ class CalculationSession:
                     or not previous <= endpoint <= batch.new_last_seq
                     or size != endpoint - previous or not 0 <= size <= 1024):
                 self._control_error(step_name, "control_bounds")
+        elif step_name == "read_warmup_rows":
+            if len(row) != 2 or type(row[1]) is not bool:
+                self._control_error(step_name, "control_types")
+            rows, origin = row
+            if (origin and rows is not None) or (not origin and (type(rows) is not int or rows < 0)):
+                self._control_error(step_name, "control_bounds")
         else:
             raise CalculationExecutionError("The declared SELECT is not a calculation control step")
         return row
@@ -307,7 +313,7 @@ class BatchCalculationOutputs:
 
 
 class Calculation(Protocol):
-    def input_requirement(self) -> HistoryRequirement: ...
+    def input_requirement(self, session: CalculationSession, max_input_rows: int) -> HistoryRequirement: ...
     def dependencies(self) -> tuple[Dependency, ...]: ...
     def prepare(self, session: CalculationSession) -> None: ...
     def consume(self, batch: PriceBatch, session: CalculationSession) -> CalculationOutput: ...

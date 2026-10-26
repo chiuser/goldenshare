@@ -3,8 +3,9 @@
 from pathlib import Path
 
 from ..calculation.calculation import SqlStep
-from ..errors import ResourceCleanupError, SourceContractError, SourceUnsupportedError
-from .contracts import PriceBatch
+from ..errors import ResourceCleanupError, ResourceLimitError, SourceContractError, SourceUnsupportedError
+from ..time_range import check_period_cutoff
+from .contracts import PriceBatch, SourceDescription
 from .price_adjustment import PriceAdjustmentCalculation, VALUE_FIELDS
 
 _SQL = Path(__file__).parent / "sql"
@@ -12,14 +13,15 @@ _FIELD_ORDER = ("open", "high", "low", "close", "volume", "amount")
 
 
 class PriceInputSession:
-    def __init__(self, executor, source, description, requirement, *, read_context):
+    def __init__(self, executor, source, requirement, *, read_context):
         self.executor = executor
         self.source = source
-        self.description = description
+        self.description = None
         self.requirement = requirement
         self.read_context = read_context
         self._resolved = None
         self._stream = None
+        self._locator = None
         self._tables: list[str] = []
         self._registrations: list[str] = []
         self._prepared = self._closed = self._failed = self._exhausted = False
@@ -42,28 +44,70 @@ class PriceInputSession:
             raise RuntimeError("Input session cannot be prepared in this state")
         self.executor.control.check_active()
         request = self.requirement.request
-        path = (self.description.input_adjustment, request.adjustment)
-        if path not in self.description.supported_adjustment_paths:
-            raise SourceUnsupportedError("Source does not support the requested adjustment")
-        projected = {name for name, _ in self.description.standard_projection}
-        if projected != set(self.fields) | set(self.time_fields):
-            raise SourceContractError("Source projection does not match the required standard fields")
         try:
+            self._locator = self.source.create_locator(
+                self.executor, self.requirement, read_context=self.read_context)
+            self.description = self._locator.describe()
+            if not isinstance(self.description, SourceDescription):
+                raise SourceContractError("Source must return the declared source description")
+            self._validate_selection()
+            path = (self.description.input_adjustment, request.adjustment)
+            if path not in self.description.supported_adjustment_paths:
+                raise SourceUnsupportedError("Source does not support the requested adjustment")
+            projected = {name for name, _ in self.description.standard_projection}
+            if projected != set(self.fields) | set(self.time_fields):
+                raise SourceContractError("Source projection does not match the required standard fields")
+            self._locator.close()
+            self._locator = None
             resolved = self.description
-            if path[0] != path[1]:
+            if self.description.selection.target_rows and path[0] != path[1]:
                 self._own_table("ti_anchor")
                 resolved = self.source.prepare_basis(self.executor, self.description, self.requirement,
                     table_name="ti_anchor", read_context=self.read_context)
                 if resolved.basis_date is None or resolved.basis_value is None:
                     raise SourceContractError("Converted daily prices require an actual basis")
-            self._stream = self.source.open(self.executor, resolved, self.requirement,
-                                           read_context=self.read_context)
+            if self.description.selection.target_rows:
+                self._stream = self.source.open(self.executor, resolved, self.requirement,
+                                               read_context=self.read_context)
+            else:
+                self._exhausted = True
             self.executor.control.check_active()
             self._resolved = resolved
             self._prepared = True
         except BaseException:
             self._failed = True
             raise
+
+    def _validate_selection(self):
+        selection = self.description.selection
+        history = self.requirement.history
+        request = self.requirement.request
+        if selection.target_rows > request.limit:
+            raise SourceContractError("Selection exceeds the requested output count")
+        if selection.target_rows + selection.preceding_rows > self.executor.control.config.max_input_rows:
+            raise ResourceLimitError("Selected input exceeds max_input_rows")
+        if selection.target_rows:
+            if not selection.reached_source_origin and (
+                history.requires_source_origin or selection.preceding_rows < history.warmup_rows
+            ):
+                raise ResourceLimitError("Selected input cannot satisfy the required warmup")
+            for stamp in (selection.target_start, selection.target_end, selection.read_start, selection.read_end):
+                from datetime import date, datetime
+                from zoneinfo import ZoneInfo
+                minute = request.period.endswith("m")
+                if (minute and (not isinstance(stamp, datetime) or stamp.tzinfo is None
+                        or stamp.utcoffset() != stamp.astimezone(ZoneInfo("Asia/Shanghai")).utcoffset())
+                        or not minute and type(stamp) is not date):
+                    raise SourceContractError("Selected time positions do not match the period")
+
+    def _check_delivered_count(self):
+        selection = self.description.selection
+        expected = selection.target_rows + selection.preceding_rows
+        if self._rows != expected:
+            error = SourceContractError("Price delivery differs from the selected input count")
+            error.reason = "selection_count_mismatch"
+            error.expected_count, error.actual_count = expected, self._rows
+            raise error
 
     def resolved_description(self):
         if not self._prepared:
@@ -95,6 +139,7 @@ class PriceInputSession:
         try:
             batch = self._stream.next_batch(self.requirement.batch_rows)
             if batch is None:
+                self._check_delivered_count()
                 self._exhausted = True
                 return None
             # A conforming SourceStream skips empty Arrow batches; a source
@@ -114,15 +159,7 @@ class PriceInputSession:
             self._registrations.remove(registration)
             self._stream.release_current_batch()
             del batch
-            end = self.requirement.request.end
-            if self.requirement.request.period in ("week", "month") and end is not None:
-                # This checks the meaning of a historical cutoff, not prices or
-                # completeness. A later final bar must not masquerade as Tuesday.
-                later_version = self.executor.scalar(
-                    "SELECT EXISTS(SELECT 1 FROM ti_raw_new WHERE period_start <= ? "
-                    "AND ? < period_end AND source_as_of > ?)", (end, end, end))
-                if later_version:
-                    raise SourceUnsupportedError("Source has only a later version of the unfinished period")
+            check_period_cutoff(self.executor, "ti_raw_new", self.requirement.request)
             metadata = self.executor.scalar(
                 f"SELECT struct_pack(n := count(*), first_time := min({self.time_key}), "
                 f"last_time := max({self.time_key})) FROM ti_raw_new")
@@ -202,6 +239,12 @@ class PriceInputSession:
         if self._closed:
             return
         errors = []
+        if self._locator is not None:
+            try:
+                self._locator.close()
+                self._locator = None
+            except BaseException as exc:
+                errors.append(exc)
         for name in tuple(reversed(self._registrations)):
             try:
                 self.executor.cleanup_unregister(name)

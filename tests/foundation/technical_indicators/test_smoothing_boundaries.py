@@ -36,7 +36,7 @@ def test_three_video_macd_parameter_sets_share_input_not_state(d3_data, monkeypa
         assert dict(result.calculations[2].parameters) == {"fast":10,"slow":69,"signal":10}
         assert len({tuple(actual[identity]["dif"]) for identity in actual}) == 3
         assert_templates_once(state.calls[-1], {
-            "smoothing_parameters.sql","macd_first.sql","macd_segment.sql",
+            "smoothing_parameters.sql","macd_first.sql","macd_segment.sql","macd_warmup.sql",
             "merge_batch.sql","retain_tail.sql","select_result.sql",
         })
         assert_closed(service)

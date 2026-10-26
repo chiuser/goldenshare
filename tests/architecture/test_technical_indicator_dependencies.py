@@ -58,7 +58,8 @@ def test_d3_fixed_sql_resources_and_output_dependency_boundary():
     patterns = config["tool"]["setuptools"]["package-data"]
     expected = {
         "calculation": {"smoothing_parameters.sql","rolling_mean.sql","bollinger_bands.sql",
-                        "macd_first.sql","macd_segment.sql","kdj_window.sql","kdj_segment.sql"},
+                        "macd_first.sql","macd_segment.sql","kdj_window.sql","kdj_segment.sql",
+                        "macd_warmup.sql","kdj_warmup.sql"},
         "output": {"merge_batch.sql","retain_tail.sql","select_result.sql"},
     }
     for part, names in expected.items():

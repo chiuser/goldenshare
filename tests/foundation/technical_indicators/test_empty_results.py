@@ -24,22 +24,23 @@ def test_complete_service_empty_before(d3_data):
         assert result.msg == "已经加载全部数据了"
         assert values(result) == {"macd":{"dif":(),"dea":(),"hist":()}}
         assert dict(result.calculations[0].parameters) == {"fast":12,"slow":26,"signal":9}
-        assert result.calculations[0].algorithm_version == "1.0.0"
+        assert result.calculations[0].algorithm_version == "2.0.0"
         assert_closed(service)
 
 
-def test_complete_service_empty_range_retains_read_history(d3_data):
+def test_complete_service_empty_range_does_not_read_price_history(d3_data):
     state = d3_data
     with state.case("empty_range"):
         result, service, source = state.run(request(
             (CalculationInstance("macd", "macd", {}),), period="day", start=date(2026,2,3)), real=True)
         assert result.times == () and result.range.count == 0
         assert result.range.actual_start is result.range.actual_end is None
-        assert result.statistics.source_rows == 21 and source.batches == [21]
-        assert result.source.read_start == date.fromisoformat(DAILY_DATES[0])
-        assert result.source.read_end == date.fromisoformat(DAILY_DATES[-1])
-        assert result.price_adjustment.basis_date == date(2026,2,2)
-        assert result.price_adjustment.basis_value == 2.0
+        assert result.statistics.source_rows == 0 and source.batches == []
+        assert source.open_calls == 0
+        assert result.source.read_start is None
+        assert result.source.read_end is None
+        assert result.price_adjustment.basis_date is None
+        assert result.price_adjustment.basis_value is None
         assert result.msg == "" and result.source_as_of is None
         assert values(result) == {"macd":{"dif":(),"dea":(),"hist":()}}
         assert_closed(service)

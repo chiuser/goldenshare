@@ -160,7 +160,7 @@ class DuckDBExecutor:
     def read_control_row(self, step: SqlStep, *, expected_columns):
         """Read one fixed smoothing-control row, never indicator values."""
         self._assert_owner()
-        if step.name not in ("read_smoothing_limits", "read_segment_bounds"):
+        if step.name not in ("read_smoothing_limits", "read_segment_bounds", "read_warmup_rows"):
             raise CalculationExecutionError("Unknown calculation control query")
         if step.output_tables or type(step.processed_rows) is not int or step.processed_rows < 0:
             raise CalculationExecutionError("Control queries must be read-only and counted")

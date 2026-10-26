@@ -23,6 +23,7 @@ class CalculationEngine:
         self._failed = False
         self._closed = False
         self._last_seq = 0
+        self._history_requirement = None
         self._template_texts: dict[tuple[str, str], str] = {}
 
     def _check_ready(self) -> None:
@@ -61,7 +62,7 @@ class CalculationEngine:
         control_reads = {}
         for name, value in fixed.items():
             if isinstance(value, ControlReadStep):
-                if name not in {"read_smoothing_limits", "read_segment_bounds"}:
+                if name not in {"read_smoothing_limits", "read_segment_bounds", "read_warmup_rows"}:
                     raise CalculationExecutionError("Unknown fixed calculation control SELECT")
                 if any(role not in table_roles for role in value.input_roles):
                     raise CalculationExecutionError("Control SELECT references an undeclared owned table")
@@ -95,6 +96,25 @@ class CalculationEngine:
                 )
                 node.calculation.prepare(session)
             self._prepared = True
+        except BaseException:
+            self._failed = True
+            raise
+
+    def resolve_history_requirement(self, max_input_rows: int):
+        """Resolve prepared parameters once, before the source reads prices."""
+        from .history import combine_history_and_fields
+
+        self._check_ready()
+        if type(max_input_rows) is not int or max_input_rows <= 0:
+            raise CalculationExecutionError("History resolution requires a positive input capacity")
+        if self._history_requirement is not None or self._batch is not None or self._last_seq:
+            raise CalculationExecutionError("History requirements can only be resolved once before input")
+        try:
+            requirements = tuple(node.calculation.input_requirement(
+                self.sessions[node.node_index], max_input_rows,
+            ) for node in self.plan.nodes)
+            self._history_requirement = combine_history_and_fields(requirements)
+            return self._history_requirement
         except BaseException:
             self._failed = True
             raise

@@ -77,7 +77,7 @@ class TracedSource:
     def __getattr__(self, name):
         return getattr(self.actual, name)
 
-    def describe(self, request, requirement, *, control, read_context):
+    def create_locator(self, executor, requirement, *, read_context):
         self.context = read_context
         record = read_context.record_price_rows
 
@@ -86,7 +86,7 @@ class TracedSource:
             return record(rows)
 
         read_context.record_price_rows = observed_rows
-        return self.actual.describe(request, requirement, control=control, read_context=read_context)
+        return self.actual.create_locator(executor, requirement, read_context=read_context)
 
     def open(self, executor, description, requirement, *, read_context):
         self.open_calls += 1

@@ -24,7 +24,7 @@ ParameterValue = int | float | str | bool | None
 Parameters = tuple[tuple[str, int | float], ...]
 PERIODS: tuple[Period, ...] = ("1m", "5m", "15m", "30m", "60m", "90m", "120m", "day", "week", "month")
 TIMEZONE = "Asia/Shanghai"
-KERNEL_VERSION = "1.0.0"
+KERNEL_VERSION = "2.0.0"
 _IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 _SECURITY = re.compile(r"[0-9]{6}\.(?:SH|SZ|BJ)\Z")
 
@@ -192,7 +192,7 @@ class CalculationStatistics:
     sql_processed_rows: int
     source_files: int
     source_file_bytes: int
-    source_data_passes: int
+    locator_rows: int
     price_conversion_batches: int
     elapsed_ms: float
 

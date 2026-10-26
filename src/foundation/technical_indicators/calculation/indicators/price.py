@@ -31,8 +31,8 @@ class PriceCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
-        return HistoryRequirement(DEFINITION.input_fields, 0, False, (), DEFINITION.initialization)
+    def input_requirement(self, session, max_input_rows):
+        return HistoryRequirement(DEFINITION.input_fields, 0, 0, False, (), DEFINITION.initialization)
 
     def dependencies(self):
         return ()

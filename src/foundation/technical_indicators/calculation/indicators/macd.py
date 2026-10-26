@@ -7,15 +7,18 @@ from typing import ClassVar
 from ...contracts import Parameters, _freeze_parameters
 from ...errors import CalculationExecutionError, ResourceCleanupError
 from ..calculation import CalculationDefinition, CalculationOutput, ControlReadStep, OutputField, ParameterSpec, SqlStep
-from ..history import HistoryRequirement
+from ..history import (
+    HistoryRequirement, INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS,
+    PRICE_ABSOLUTE_BOUND,
+)
 from ..sql_templates import render_sql
 
 DEFINITION = CalculationDefinition(
-    calculation_id="macd", algorithm_version="1.0.0", description="两EMA、DIF、DEA及两倍差值柱",
+    calculation_id="macd", algorithm_version="2.0.0", description="两EMA、DIF、DEA及两倍差值柱",
     parameter_specs=(ParameterSpec("fast", "positive_integer", 12), ParameterSpec("slow", "positive_integer", 26), ParameterSpec("signal", "positive_integer", 9)),
     input_fields=frozenset({"close"}),
     output_fields=tuple(OutputField(name, name, "DOUBLE", False, "首条DIF/DEA/柱严格0") for name in ("dif", "dea", "hist")),
-    initialization="首个close初始化两EMA，DEA为0", history_rule="从来源约定起点递推；展示/分页不重置",
+    initialization="首个close初始化两EMA，DEA为0", history_rule="首输出前按参数求有限预热；达到来源真实起点时采用原初始化；批次不重置",
     units=tuple((name, "source_price_unit") for name in ("dif", "dea", "hist")),
     parameter_relations=(("fast", "slow"),),
 )
@@ -28,11 +31,12 @@ class MACDCalculation:
     SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
     TABLE_ROLES: ClassVar = MappingProxyType({
         "parameters": ("ti_macd_parameters", "state"),
+        "warmup": ("ti_macd_warmup", "state"),
         "state": ("ti_macd_state", "state"),
         "work": ("ti_macd_work", "batch"),
         "output": ("ti_macd_output", "batch"),
     })
-    SQL_FILES: ClassVar = ("smoothing_parameters.sql", "macd_first.sql", "macd_segment.sql")
+    SQL_FILES: ClassVar = ("smoothing_parameters.sql", "macd_first.sql", "macd_segment.sql", "macd_warmup.sql")
     FIXED_SQL_STEPS: ClassVar = MappingProxyType({
         "create_parameters": """CREATE TEMP TABLE {{parameters}} AS
             WITH f AS ({{smoothing}}), s AS ({{smoothing}}), g AS ({{smoothing}})
@@ -52,6 +56,9 @@ class MACDCalculation:
         "update_state": """UPDATE {{state}} SET
             last_seq=w.seq, ema_fast_offset=w.ef, ema_slow_offset=w.es, dea=w.dea
             FROM (SELECT seq,ef,es,dea FROM {{work}} ORDER BY seq DESC LIMIT 1) w""",
+        "read_warmup_rows": ControlReadStep(
+            "SELECT warmup_rows, requires_source_origin FROM {{warmup}}",
+            ("warmup",), (), (("warmup_rows", "BIGINT"), ("requires_source_origin", "BOOLEAN")), 1),
         "read_smoothing_limits": ControlReadStep(
             "SELECT segment_rows AS safe_rows FROM {{parameters}}",
             ("parameters",), (), (("safe_rows", "INTEGER"),), 1),
@@ -67,8 +74,23 @@ class MACDCalculation:
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))
 
-    def input_requirement(self):
-        return HistoryRequirement(DEFINITION.input_fields, 0, True,
+    def input_requirement(self, session, max_input_rows):
+        warmup = session.declare_owned_table("warmup")
+        parameters = session.table_roles["parameters"][0]
+        try:
+            self._check_count(session.execute(SqlStep("macd_warmup",
+                render_sql(session.sql_templates["macd_warmup.sql"],
+                           tables={"parameters": parameters, "warmup": warmup}),
+                (MIN_RECURSIVE_WARMUP_ROWS, INITIALIZATION_ERROR_BUDGET,
+                 PRICE_ABSOLUTE_BOUND, max_input_rows), (parameters,), (warmup,), 1)), 1)
+        except CalculationExecutionError as exc:
+            if "warmup_search_not_terminated" in str(exc.__cause__):
+                exc.reason, exc.step_name = "warmup_search_not_terminated", "macd_warmup"
+            raise
+        rows, origin = session.read_control_row("read_warmup_rows")
+        if not origin and rows > max_input_rows:
+            session._control_error("read_warmup_rows", "control_bounds")
+        return HistoryRequirement(DEFINITION.input_fields, 0, rows, origin,
             ("last_seq", "origin_price", "ema_fast_offset", "ema_slow_offset", "dea"),
             DEFINITION.initialization)
 

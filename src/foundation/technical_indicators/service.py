@@ -74,11 +74,10 @@ class TechnicalIndicatorService:
     def calculate(self, request):
         """Compute the requested region and return a detached immutable result."""
         from .calculation.engine import CalculationEngine
-        from .calculation.history import combine_history_and_fields
         from .contracts import CalculationStatistics, normalize_request_and_validate_all_instances
         from .output.collector import OutputCollector
         from .output.encoding import measure_result_utf8
-        from .sources.contracts import ReadRequirement, SourceDescription
+        from .sources.contracts import ReadRequirement
         from .sources.read_context import SourceReadContext
         from .sources.session import PriceInputSession
 
@@ -86,32 +85,22 @@ class TechnicalIndicatorService:
         normalized = normalize_request_and_validate_all_instances(request, self.config)
         plan = self.registry.expand_dependencies(normalized)
         instances = self._describe_output_instances(plan)
-        history = combine_history_and_fields(plan)
-        requirement = ReadRequirement(
-            normalized, history, self.config.batch_rows,
-            history_start=None, processing_end=normalized.end,
-        )
         read_context = SourceReadContext(self.config)
-        control.check_active()
-        description = self.source.describe(
-            normalized, requirement, control=control, read_context=read_context,
-        )
-        if not isinstance(description, SourceDescription):
-            raise SourceContractError("Source must return the declared source description")
-        if (description.input_adjustment, normalized.adjustment) not in description.supported_adjustment_paths:
-            raise SourceUnsupportedError("Source does not support the requested adjustment")
         connection = executor = inputs = engine = output = None
         result = primary_error = None
         try:
             control.check_active()
             connection, executor = self._open_execution(control)
-            inputs = PriceInputSession(
-                executor, self.source, description, requirement, read_context=read_context,
-            )
             engine = CalculationEngine(executor, plan)
-            output = OutputCollector(executor=executor, request=normalized, instances=instances)
-            inputs.prepare()
             engine.prepare()
+            history = engine.resolve_history_requirement(self.config.max_input_rows)
+            requirement = ReadRequirement(
+                normalized, history, self.config.batch_rows,
+                history_start=None, processing_end=normalized.end,
+            )
+            inputs = PriceInputSession(executor, self.source, requirement, read_context=read_context)
+            inputs.prepare()
+            output = OutputCollector(executor=executor, request=normalized, instances=instances)
             while True:
                 control.check_active()
                 batch = inputs.next_batch()
@@ -129,13 +118,14 @@ class TechnicalIndicatorService:
                 sql_processed_rows=executor.sql_processed_rows,
                 source_files=read_context.source_files,
                 source_file_bytes=read_context.source_file_bytes,
-                source_data_passes=1,
+                locator_rows=read_context.locator_rows,
                 price_conversion_batches=inputs.conversion_batches,
                 elapsed_ms=(control.clock() - control.arrived_at) * 1000,
             )
             result = output.build_result(
                 inputs.resolved_description(), statistics,
                 read_start=inputs.read_start, read_end=inputs.read_end,
+                expected_rows=inputs.resolved_description().selection.target_rows,
             )
             measure_result_utf8(result, control=control, max_bytes=self.config.max_output_bytes)
             control.check_active()
