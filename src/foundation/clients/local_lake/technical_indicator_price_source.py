@@ -136,7 +136,7 @@ class LakeTechnicalIndicatorPriceSource:
         except (OSError, ValueError) as exc:
             raise SourceReadError("The declared source partitions cannot be enumerated") from exc
 
-    def _inspect(self, path, projection, schema, control, read_context):
+    def _inspect(self, path, projection, schema, control, read_context, *, row_groups=None):
         """Footer-only protection; never reads or audits individual values."""
         pa, _, _, pq = _arrow()
         control.check_active()
@@ -151,7 +151,7 @@ class LakeTechnicalIndicatorPriceSource:
                 if name not in actual.names or name not in expected or not _matches_type(pa, actual.field(name).type, expected[name]):
                     raise SourceContractError("The projected source schema does not match its declared contract")
             metadata = reader.metadata
-            for group_index in range(metadata.num_row_groups):
+            for group_index in (range(metadata.num_row_groups) if row_groups is None else row_groups):
                 control.check_active()
                 group = metadata.row_group(group_index)
                 projected_bytes = sum(group.column(i).total_uncompressed_size
@@ -177,38 +177,23 @@ class LakeTechnicalIndicatorPriceSource:
                     else:
                         raise ResourceCleanupError("Source metadata handle did not close") from exc
 
-    def describe(self, request, requirement, *, control, read_context):
-        contract = price_contract(request)
-        control.check_active()
-        root = self._root()
-        control.check_active()
-        base = root / contract.relative_root
-        if request.period.endswith("m"):
-            base /= "freq=" + request.period[:-1]
-            if request.security_type == "stock":
-                base /= "ts_code=" + request.ts_code
-        price_paths = tuple(path for _, path in self._partition_paths(root, base, request, control))
-        projection, standard = source_projection(contract, requirement.history.fields, request.adjustment)
-        for path in price_paths:
-            self._inspect(path, projection, contract.schema, control, read_context)
-        conversion = contract.input_adjustment != request.adjustment
-        factor_paths = self._partition_paths(root, root / "silver/quote/adj_factor", request, control, factors=True) if conversion else ()
-        basis_rule = ("latest_available_factor" if request.adjustment == "qfq" else "earliest_available_factor") if conversion else (
-            "latest_published_factor" if request.adjustment == "qfq" else None)
-        return SourceDescription(
-            source_id=contract.source_id, contract_version="1", input_adjustment=contract.input_adjustment,
-            basis_rule=basis_rule, basis_date=None, basis_value=None, price_unit="CNY" if request.security_type == "stock" else "index_point",
-            volume_unit=contract.volume_unit, amount_unit=contract.amount_unit, timezone="Asia/Shanghai",
-            period_label_rule="trade_time" if contract.period_kind == "minute" else "period_start",
-            history_origin_rule="earliest_available_formal_partition", available_through=None,
-            supports_partial_period=contract.period_kind in ("week", "month"),
-            supported_adjustment_paths=contract.adjustment_paths, converted=conversion,
-            price_paths=price_paths, factor_paths=factor_paths,
-            source_projection=projection, standard_projection=standard,
-        )
+    def create_locator(self, executor, requirement, *, read_context):
+        from .technical_indicator_price_locator import LakePriceLocator
+        return LakePriceLocator(self, executor, requirement, read_context=read_context)
 
     def open(self, executor, description, requirement, *, read_context):
-        return _LakePriceStream(description, requirement, executor.control, read_context)
+        label_bounds = None
+        if requirement.request.period in ("week", "month") and description.selection.target_rows:
+            # The same period_end formulas used by source_projection; never
+            # compare a Friday physical label against a Tuesday cutoff.
+            period_end = ("?::DATE + INTERVAL 4 DAY" if requirement.request.period == "week"
+                          else "?::DATE + INTERVAL 1 MONTH - INTERVAL 1 DAY")
+            label_bounds = executor.scalar(
+                "SELECT struct_pack(first_label := strftime(?::DATE, '%Y%m%d'), "
+                "last_label := strftime(" + period_end + ", '%Y%m%d'))",
+                (description.selection.read_start, description.selection.read_end))
+        return _LakePriceStream(description, requirement, executor.control, read_context,
+                                label_bounds=label_bounds)
 
     def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
         name = _table_name(table_name)
@@ -248,10 +233,12 @@ class LakeTechnicalIndicatorPriceSource:
 class _LakePriceStream:
     """Fill each delivery across files; retain only one already-read remainder."""
 
-    def __init__(self, description, requirement, control, read_context):
+    def __init__(self, description, requirement, control, read_context, *, label_bounds=None):
         self._description, self._requirement = description, requirement
         self._control, self._context = control, read_context
         self._files = iter(description.price_paths)
+        self._row_groups = dict(zip(description.price_paths, description.selection.row_groups))
+        self._label_bounds = label_bounds
         self._fragment = self._scanner = self._reader = self._current_batch = None
         self._pending_batch = self._current_path = None
         self._exhausted = self._closed = self._failed = False
@@ -262,19 +249,18 @@ class _LakePriceStream:
         self._current_path = path
         request = self._requirement.request
         predicate = ds.field("ts_code") == request.ts_code
+        selection = self._description.selection
         if request.period.endswith("m"):
-            if request.end is not None:
-                predicate &= ds.field("trade_time") <= pa.scalar(request.end.replace(tzinfo=None), type=pa.timestamp("us"))
-            if request.before is not None:
-                predicate &= ds.field("trade_time") < pa.scalar(request.before.replace(tzinfo=None), type=pa.timestamp("us"))
+            predicate &= ds.field("trade_time") >= pa.scalar(selection.read_start.replace(tzinfo=None), type=pa.timestamp("us"))
+            predicate &= ds.field("trade_time") <= pa.scalar(selection.read_end.replace(tzinfo=None), type=pa.timestamp("us"))
         elif request.period == "day":
-            if request.end is not None:
-                predicate &= ds.field("trade_date") <= request.end
-            if request.before is not None:
-                predicate &= ds.field("trade_date") < request.before
-        # Week/month upper bounds select candidate partitions; source Friday
-        # labels are never compared to a Tuesday request in Arrow.
-        self._fragment = ds.ParquetFileFormat().make_fragment(str(path), filesystem=fs.LocalFileSystem())
+            predicate &= ds.field("trade_date") >= selection.read_start
+            predicate &= ds.field("trade_date") <= selection.read_end
+        else:
+            predicate &= ds.field("trade_date") >= self._label_bounds["first_label"]
+            predicate &= ds.field("trade_date") <= self._label_bounds["last_label"]
+        self._fragment = ds.ParquetFileFormat().make_fragment(
+            str(path), filesystem=fs.LocalFileSystem(), row_groups=list(self._row_groups[path]))
         self._scanner = ds.Scanner.from_fragment(
             self._fragment, columns=list(self._description.source_projection), filter=predicate,
             batch_size=self._requirement.batch_rows, batch_readahead=0, fragment_readahead=0,

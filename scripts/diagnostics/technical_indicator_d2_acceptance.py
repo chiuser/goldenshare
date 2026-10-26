@@ -13,6 +13,7 @@ from pathlib import Path
 import resource
 import sys
 from time import monotonic
+from zoneinfo import ZoneInfo
 
 import pyarrow.dataset as ds
 import pyarrow.fs as fs
@@ -26,7 +27,7 @@ from src.foundation.technical_indicators.calculation.history import HistoryRequi
 from src.foundation.technical_indicators.configuration import KernelConfig
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import ReadRequirement, SourceDescription
+from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceDescription
 from src.foundation.technical_indicators.sources.read_context import SourceReadContext
 from src.foundation.technical_indicators.sources.session import PriceInputSession
 
@@ -52,7 +53,8 @@ def inspect_fixture(path):
                            if metadata.schema.column(j).name in projected)
                        for i in range(metadata.num_row_groups)), default=0)
         return dict(path=str(path), bytes=size, rows=metadata.num_rows,
-                    projected_row_group_bytes=largest)
+                    projected_row_group_bytes=largest,
+                    row_groups=tuple(range(metadata.num_row_groups)))
 
 
 def validate_fixture(metadata):
@@ -119,6 +121,19 @@ def peak_bytes():
     return value if sys.platform == 'darwin' else value * 1024
 
 
+
+class _FixedLocator:
+    """Own no I/O; preserve the diagnostic's explicitly approved file list."""
+    def __init__(self, description):
+        self.description = description
+
+    def describe(self):
+        return self.description
+
+    def close(self):
+        pass
+
+
 def verify_fixture(config, report):
     metadata = inspect_fixture(FIXTURE)
     validate_fixture(metadata)
@@ -132,26 +147,44 @@ def verify_fixture(config, report):
     connection = inputs = None
     context = SourceReadContext(config)
     context.record_file(FIXTURE, metadata['bytes'])
-    request = CalculationRequest('stock', '600000.SH', '1m', (CalculationInstance('ma', 'ma', {}),))
-    requirement = ReadRequirement(request, HistoryRequirement(frozenset(('close',)), 0, True, (),
+    request = CalculationRequest('stock', '600000.SH', '1m', (CalculationInstance('ma', 'ma', {}),), limit=10000)
+    requirement = ReadRequirement(request, HistoryRequirement(frozenset(('close',)), 0, None, True, (),
         initial_null_rule='diagnostic fixture'), BATCH_ROWS, None, None)
-    description = SourceDescription('diagnostic_fixture', '1', 'qfq', 'fixture', None, None,
-        'CNY', 'share', 'CNY', 'Asia/Shanghai', 'trade_time', 'fixture_start', None, False,
-        (('qfq', 'qfq'),), False, source_projection=('i', 'trade_time', 'close'),
-        standard_projection=(('trade_date', 'CAST(b.trade_time AS DATE)'),
-                             ('trade_time', 'CAST(b.trade_time AS TIMESTAMP)'),
-                             ('close', 'CAST(b.close AS DOUBLE)')))
     stage = report['fixture'] = dict(status='running', batches=[], source_rows=0)
     try:
         connection, executor = service._open_execution(control)
+        # The D2 fixture lacks a security-code column, so its named-file
+        # source cannot use the production Lake locator. Read only its known
+        # position/time keys to describe the same bounded 32768-row stream.
+        bounds = executor.scalar(
+            'SELECT struct_pack(first_time:=min(trade_time),last_time:=max(trade_time),'
+            'target_start:=min(trade_time) FILTER (WHERE i>=?)) '
+            'FROM read_parquet(?,hive_partitioning=false)',
+            (EXPECTED_ROWS-request.limit, str(FIXTURE)))
+        description = SourceDescription('diagnostic_fixture', '1', 'qfq', 'fixture', None, None,
+            'CNY', 'share', 'CNY', 'Asia/Shanghai', 'trade_time', 'fixture_start', None, False,
+            (('qfq', 'qfq'),), False,
+            selection=PriceReadSelection(bounds['target_start'].replace(tzinfo=ZoneInfo('Asia/Shanghai')),
+                bounds['last_time'].replace(tzinfo=ZoneInfo('Asia/Shanghai')),
+                bounds['first_time'].replace(tzinfo=ZoneInfo('Asia/Shanghai')),
+                bounds['last_time'].replace(tzinfo=ZoneInfo('Asia/Shanghai')),
+                10000, EXPECTED_ROWS - 10000, True, (metadata['row_groups'],)),
+            price_paths=(FIXTURE,), source_projection=('i', 'trade_time', 'close'),
+            standard_projection=(('trade_date', 'CAST(b.trade_time AS DATE)'),
+                                 ('trade_time', 'CAST(b.trade_time AS TIMESTAMP)'),
+                                 ('close', 'CAST(b.close AS DOUBLE)')))
         stream = _LakePriceStream(description, requirement, control, context)
+        stream._files = iter(())  # The existing reader already owns the one named file.
         stream._reader = reader  # Only file access is selected; actual stream/session execute.
 
         class Source:
+            def create_locator(self, executor, requirement, *, read_context):
+                return _FixedLocator(description)
+
             def open(self, *args, **kwargs):
                 return stream
 
-        inputs = PriceInputSession(executor, Source(), description, requirement, read_context=context)
+        inputs = PriceInputSession(executor, Source(), requirement, read_context=context)
         inputs.prepare()
         while (batch := inputs.next_batch()) is not None:
             if len(stage['batches']) >= 4:
@@ -205,20 +238,18 @@ def verify_real_sources(config, report):
         report['real_sources'].append(item)
         context = SourceReadContext(local)
         request = CalculationRequest('stock', '600000.SH', period, (CalculationInstance('price','price',{}),))
-        history = HistoryRequirement(frozenset(('close','volume','amount')), 0, True, (), initial_null_rule='source')
+        history = HistoryRequirement(frozenset(('close','volume','amount')), 0, None, True, (), initial_null_rule='source')
         requirement = ReadRequirement(request, history, 3, None, None)
         contract = price_contract(request)
         physical, standard = source_projection(contract, history.fields, 'qfq')
-        description = SourceDescription(contract.source_id, '1', contract.input_adjustment,
-            'latest_available_factor' if period=='day' else 'latest_published_factor', None, None,
-            'CNY', contract.volume_unit, contract.amount_unit, 'Asia/Shanghai', 'period_start',
-            'explicit_one_file_acceptance', None, period!='day', contract.adjustment_paths,
-            period=='day', (paths[period],), ((date(2026,10,15),paths['factor']),) if period=='day' else (),
-            physical, standard)
         try:
             connection, executor = service._open_execution(control)
-            target_rows = executor.scalar('SELECT count(*) FROM read_parquet(?,hive_partitioning=false) WHERE ts_code=?',
+            _, time_projection = source_projection(contract, frozenset(), request.adjustment)
+            normalized_times = ", ".join(f'{expression} AS "{name}"' for name, expression in time_projection)
+            bounds = executor.scalar('SELECT struct_pack(n:=count(*),lo:=min(period_start),hi:=max(period_start)) '
+                'FROM (SELECT ' + normalized_times + ' FROM read_parquet(?,hive_partitioning=false) b WHERE ts_code=?)',
                 (str(paths[period]), request.ts_code))
+            target_rows = bounds['n']
             if not 0 < target_rows <= 3:
                 raise ValueError('Real price target count is outside the approved 1..3 rows')
             if period == 'day':
@@ -227,10 +258,29 @@ def verify_real_sources(config, report):
                 if not 0 < factor_rows <= 3:
                     raise ValueError('Real factor target count is outside the approved 1..3 rows')
                 item['factor_target_rows'] = factor_rows
+            with pq.ParquetFile(paths[period]) as parquet:
+                row_groups = tuple(range(parquet.metadata.num_row_groups))
+            description = SourceDescription(contract.source_id, '1', contract.input_adjustment,
+                'latest_available_factor' if period=='day' else 'latest_published_factor', None, None,
+                'CNY', contract.volume_unit, contract.amount_unit, 'Asia/Shanghai', 'period_start',
+                'explicit_one_file_acceptance', None, period!='day', contract.adjustment_paths,
+                period=='day', PriceReadSelection(bounds['lo'],bounds['hi'],bounds['lo'],bounds['hi'],
+                    target_rows,0,True,(row_groups,)),
+                (paths[period],), ((date(2026,10,15),paths['factor']),) if period=='day' else (),
+                physical, standard)
+            # Keep the original four-file approval boundary. Only the locator
+            # description is fixed; price/adjustment SQL still uses real source.
+            class NamedFileSource:
+                def create_locator(self, executor, requirement, *, read_context):
+                    return _FixedLocator(description)
+
+                def __getattr__(self, name):
+                    return getattr(source, name)
+
             item['target_rows_before_read'] = target_rows
             persist(report)
             source._inspect(paths[period], physical, contract.schema, control, context)
-            inputs = PriceInputSession(executor, source, description, requirement, read_context=context)
+            inputs = PriceInputSession(executor, NamedFileSource(), requirement, read_context=context)
             inputs.prepare()
             batch = inputs.next_batch()
             assert batch is not None and batch.new_row_count == target_rows

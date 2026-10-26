@@ -112,7 +112,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                             "low": (10.0, 12.0, 11.0), "close": (10.0, 12.0, 11.0),
                             "volume": (100.0, 100.0, 100.0), "amount": (1000.0, 1000.0, 1000.0),
                         }
-                        assert result.statistics.sql_processed_rows == 38
+                        assert result.statistics.sql_processed_rows == 41
                     else:
                         with pytest.raises(OutputContractError) as caught:
                             returned = state.run(selected, real=False, config=config)
@@ -162,7 +162,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                         assert call["source_rows"] == 3 and call["batches"] == [3]
                         assert call["source_open_calls"] == 1
                         assert call["status"] == ("passed" if mode == "normal" else "failed")
-                        assert executor.sql_processed_rows == 38
+                        assert executor.sql_processed_rows == 41
                         assert final_read.logical_input_rows == 3 and final_read.output_rows == actual_count
                         assert final_read.failed is (mode == "over")
                         assert executor.connection is connection and not executor._executing
@@ -177,7 +177,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                             raise
                         call_error.add_note(f"Final count cleanup assertion: {type(error).__name__}: {error}")
             assert (state.input_rows - before[0], state.sql_rows - before[1],
-                    state.real_controls - before[2]) == (9, 117, 0)
+                    state.real_controls - before[2]) == (9, 126, 0)
             details["status"] = "passed"
         except BaseException as error:
             primary_error = error

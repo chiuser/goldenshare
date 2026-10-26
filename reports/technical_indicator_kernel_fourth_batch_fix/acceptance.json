@@ -1,19 +1,96 @@
 {
   "phase": "第四批-修复开发",
-  "status": "full_acceptance_not_run_origin_unit_passed",
-  "passed_nodes": [],
-  "failed_test_nodes": [],
-  "note": "Source-origin selection logic corrected and scoped unit regression passed. Parquet, SQL, indicator accuracy and complete-service acceptance remain unrun; other development remains paused.",
+  "status": "complete_within_approved_scope",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#fourth-batch-fix",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#fourth-batch-fix"
+  ],
+  "executed_nodes": [
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_default_two_pages_and_shared_input",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_used_parameters_choose_dynamic_warmup",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_1600_history_returns_1000_then_600_then_empty",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_short_origin_is_allowed_when_required_warmup_exceeds_capacity",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_daily_files_are_combined_and_adjustment_basis_is_page_independent",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_period_keys_use_existing_time_semantics",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_warmup_control_and_selection_contracts",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_locator_failure_and_cleanup_are_not_empty_success",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_d3_fixed_sql_resources_and_output_dependency_boundary"
+  ],
+  "result": "9 passed, one execution, no automatic retry",
+  "program_elapsed_seconds": 5.919301499612629,
+  "cumulative_elapsed_seconds": 6.653039124734073,
   "counters": {
-    "input_rows": 0,
-    "sql_logical_rows": 0,
-    "locator_rows": 0,
-    "real_controls": 0,
-    "elapsed_seconds": 0.2019084170460701
+    "input_rows": 22630,
+    "sql_logical_rows": 399477,
+    "locator_rows": 29053,
+    "real_controls": 0
   },
-  "unit_regression": {
-    "result_file": "origin_selection_regression_result.json",
-    "cases_passed": 7,
-    "before_defects_reproduced": 3
-  }
+  "remaining": {
+    "input_rows": 12370,
+    "sql_logical_rows": 600523,
+    "locator_rows": 10947,
+    "real_controls": 0,
+    "program_seconds": 30,
+    "total_seconds": 293.34696087526595
+  },
+  "accounting": {
+    "actual_price_rows": 8983,
+    "fixture_and_new_reference_rows": 13647,
+    "call_sql_logical_rows": 369804,
+    "fixture_and_reference_sql_logical_rows": 29647,
+    "closed_connection_rejection_probes": 21,
+    "direct_parameter_control_sql_logical_rows": 5
+  },
+  "precision": {
+    "absolute": 1e-08,
+    "relative": 1e-10,
+    "warmup_initialization_error_budget": 2.5e-09,
+    "minimum_recursive_warmup": 500,
+    "tested_macd_warmup_rows": {
+      "12/26/9": 500,
+      "9/65/9": 1163,
+      "10/69/10": 1235
+    },
+    "dates_counts_nulls": "exact",
+    "macd_first_input_row": "strict zero",
+    "reference": "saved D3 independent references plus two new original HUGEINT 4000-row references"
+  },
+  "verified_behaviors": [
+    "default two pages each read 1500 and return 1000",
+    "three MACD parameter sets share 2235 input rows",
+    "1600 history returns 1000 then 600 then empty",
+    "short complete origin is allowed within actual capacity",
+    "21 daily files coalesced; both pages use latest source adjustment basis 2",
+    "current partial week updates; later-only version rejected",
+    "strict fixed SQL/control and unrepresentable coefficient rejection",
+    "cancellation, key-read and cleanup failures are not empty success",
+    "three target-count handoff failures rejected at intended stages"
+  ],
+  "cleanup": {
+    "calculate_calls": 21,
+    "real_connections_closed": true,
+    "table_and_arrow_registrations_empty": true,
+    "locator_and_stream_handles_closed": true,
+    "owned_fixture_directory_removed": true,
+    "injected_cleanup_failure_not_reported_success": true
+  },
+  "protected_d3_files_unchanged": 49,
+  "acceptance_code_files_unchanged": 52,
+  "independent_audits": {
+    "source_and_evidence": "passed_readonly",
+    "consumer_migration_and_scope": "passed_readonly"
+  },
+  "historical_origin_unit_result": "origin_selection_regression_result.json",
+  "execution_record": "execution_resume_01.json",
+  "stdout": "execution_resume_01_stdout.txt",
+  "not_executed": [
+    "old D2/D3 full suites",
+    "formal Lake reads or writes",
+    "original D4 concurrency/RSS/real interrupt acceptance",
+    "API/page/XXM integration or DG retirement",
+    "wheel build or installation"
+  ],
+  "new_decisions_required": [],
+  "commit": "included_in_task_scoped_commit_on_user_request",
+  "final_checks": "final_static_checks.json"
 }

@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "docs_integrity_stdout": "[PASS] dead-absolute-links\n[PASS] ds-store-noise\n[PASS] tushare-index-consistency\n\nDocs integrity check passed.\n",
+  "html_anchor_and_phase_report_link_files": 2,
+  "python_ast_files": 60,
+  "protected_original_d3_files": 49,
+  "acceptance_code_fingerprints": 52,
+  "git_diff_check": "passed",
+  "elapsed_seconds": 0.18388220807537436,
+  "codegraph_sync": "passed",
+  "codegraph_status": "4507 files indexed, no pending warning",
+  "codegraph_sync_seconds": 0.347947,
+  "no_product_tests_rerun": true
+}

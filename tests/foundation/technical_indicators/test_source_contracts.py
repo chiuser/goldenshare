@@ -31,7 +31,7 @@ from src.foundation.technical_indicators.errors import (
     CalculationCancelledError, ResourceCleanupError, ResourceLimitError,
     SourceContractError, SourceUnsupportedError,
 )
-from src.foundation.technical_indicators.sources.contracts import ReadRequirement
+from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement
 from src.foundation.technical_indicators.sources.read_context import SourceReadContext
 
 
@@ -45,6 +45,11 @@ def _config(root, **kwargs):
 class _Control:
     """Only stop signaling is isolated; real Arrow/DuckDB are not replaced."""
     stopped = False
+    cleanup_ready = False
+    clock = staticmethod(__import__("time").monotonic)
+
+    def _note_sql_returned(self):
+        pass
 
     def check_active(self):
         if self.stopped:
@@ -59,8 +64,40 @@ def _request(**kwargs):
 
 
 def _requirement(request, fields=frozenset(("close",)), batch_rows=2):
-    return ReadRequirement(request, HistoryRequirement(fields, 0, True, (), "No initial NULL"),
+    return ReadRequirement(request, HistoryRequirement(fields, 0, None, True, (), "No initial NULL"),
                            batch_rows, None, request.end)
+
+
+def _describe(source, requirement, *, control, read_context):
+    """Exercise the real locator using a request-owned, short-lived executor.
+
+    Only this old direct-source helper owns the metadata connection; the full
+    service continues to create its sole connection itself. No helper runs at
+    import time or is used by the new phase's acceptance fixture.
+    """
+    from src.foundation.technical_indicators.executor import DuckDBExecutor
+    control.config = source._config
+    connection = duckdb.connect(":memory:", config={"threads": 1, "memory_limit": "128MiB",
+                                                    "max_temp_directory_size": "0B"})
+    executor = DuckDBExecutor(connection, control)
+    locator = source.create_locator(executor, requirement, read_context=read_context)
+    try:
+        description = locator.describe()
+        locator.close()
+        return description
+    except BaseException as primary:
+        if isinstance(control, _Control):
+            control.cleanup_ready = True
+        else:
+            for error in control.stop_monitor():
+                primary.add_note(f"Locator control cleanup: {error}")
+        try:
+            locator.close()
+        except BaseException as error:
+            primary.add_note(f"Locator cleanup: {error}")
+        raise
+    finally:
+        connection.close()
 
 
 @pytest.fixture(scope="module")
@@ -99,8 +136,8 @@ def test_real_forward_stream_interleaves_sql_without_restarting_or_empty_file_eo
     requirement = _requirement(request)
     context, control = SourceReadContext(config), _Control()
     source = LakeTechnicalIndicatorPriceSource(config)
-    description = source.describe(request, requirement, control=control, read_context=context)
-    assert description.price_paths == paths
+    description = _describe(source, requirement, control=control, read_context=context)
+    assert description.price_paths == (paths[0], paths[2])
     assert description.source_projection == ("ts_code", "trade_date", "trade_time", "close")
     assert description.available_through is None
     stream = source.open(SimpleNamespace(control=control), description, requirement, read_context=context)
@@ -143,7 +180,7 @@ def test_filtered_end_and_before_share_original_prefix(minute_files):
     requirement = _requirement(request)
     context, control = SourceReadContext(config), _Control()
     source = LakeTechnicalIndicatorPriceSource(config)
-    description = source.describe(request, requirement, control=control, read_context=context)
+    description = _describe(source, requirement, control=control, read_context=context)
     stream = source.open(SimpleNamespace(control=control), description, requirement, read_context=context)
     values = []
     try:
@@ -162,19 +199,19 @@ def test_cancellation_and_file_count_fail_before_data_reader(minute_files, monke
     control, request = _Control(), _request()
     context = SourceReadContext(replace(config, max_source_files=2))
     with pytest.raises(ResourceLimitError, match="max_source_files"):
-        source.describe(request, _requirement(request), control=control, read_context=context)
+        _describe(source, _requirement(request), control=control, read_context=context)
     assert context.source_files == 2
     original = source._inspect
     visited = []
 
-    def cancel_after_first(path, *args):
-        original(path, *args)
+    def cancel_after_first(path, *args, **kwargs):
+        original(path, *args, **kwargs)
         visited.append(path)
         control.stopped = True
 
     monkeypatch.setattr(source, "_inspect", cancel_after_first)
     with pytest.raises(CalculationCancelledError):
-        source.describe(request, _requirement(request), control=control, read_context=SourceReadContext(config))
+        _describe(source, _requirement(request), control=control, read_context=SourceReadContext(config))
     assert len(visited) == 1
 
 
@@ -184,11 +221,11 @@ def test_row_group_protection_and_unsupported_paths_are_not_empty_success(minute
     source = LakeTechnicalIndicatorPriceSource(config)
     request = _request()
     with pytest.raises(ResourceLimitError, match="row group"):
-        source.describe(request, _requirement(request), control=_Control(), read_context=SourceReadContext(config))
+        _describe(source, _requirement(request), control=_Control(), read_context=SourceReadContext(config))
     for request in (_request(adjustment="qfq"), _request(period="day"),
                     _request(security_type="stock", adjustment="none")):
         with pytest.raises(SourceUnsupportedError):
-            source.describe(request, _requirement(request), control=_Control(), read_context=SourceReadContext(config))
+            _describe(source, _requirement(request), control=_Control(), read_context=SourceReadContext(config))
 
 
 def test_daily_and_period_projections_use_literal_producer_types_in_memory():
@@ -234,7 +271,7 @@ def test_close_failure_retains_unreleased_reader_for_final_cleanup():
             if self.fail:
                 raise OSError("literal close failure")
 
-    stream = _LakePriceStream(SimpleNamespace(price_paths=()), SimpleNamespace(batch_rows=2), _Control(), object())
+    stream = _LakePriceStream(SimpleNamespace(price_paths=(), selection=PriceReadSelection(None, None, None, None, 0, 0, False, ())), SimpleNamespace(batch_rows=2), _Control(), object())
     reader = FailingReader()
     stream._reader = reader
     with pytest.raises(ResourceCleanupError):
@@ -433,11 +470,11 @@ def assembly_source(files, *, daily=False, adjustment=None, control=None, limit=
     request = CalculationRequest("stock", "600000.SH", "day" if daily else "1m",
         (CalculationInstance("price", "price", {}),), adjustment=adjustment or ("none" if daily else "qfq"))
     history = HistoryRequirement(frozenset(("open", "high", "low", "close", "volume", "amount")),
-                                 0, True, (), "No indicator is calculated")
+                                 0, None, True, (), "No indicator is calculated")
     requirement = ReadRequirement(request, history, 8192, None, None)
     context, control = SourceReadContext(cfg), control or _Control()
     source = LakeTechnicalIndicatorPriceSource(cfg)
-    description = source.describe(request, requirement, control=control, read_context=context)
+    description = _describe(source, requirement, control=control, read_context=context)
     stream = source.open(SimpleNamespace(control=control), description, requirement, read_context=context) if open_stream else None
     return cfg, request, requirement, context, control, source, description, stream
 
@@ -488,7 +525,7 @@ def consume_assembly_stream(stream, trace, context, expected_sizes, *, position_
             if number == 0 and expected_sizes == (8192, 1809):
                 assert context.source_rows == 10000 and trace.actual_read_rows == 10000
                 assert stream._delivered == 8192 and pending is not None and pending.num_rows == 1808
-                assert len(trace.reader_opens) == 3  # first, empty, second; last file is not prefetched
+                assert len(trace.reader_opens) == 2  # empty file skipped during key location; last file is not prefetched
         assert stream.next_batch(8192) is None
         assert stream.next_batch(8192) is None
         assert stream._delivered == sum(expected_sizes)
@@ -509,8 +546,8 @@ def test_existing_fixture_delivers_four_full_batches(monkeypatch, record_propert
     context = SourceReadContext(cfg)
     context.record_file(FIXTURE, metadata["bytes"])
     request = _request(security_type="stock", ts_code="600000.SH", adjustment="qfq")
-    requirement = ReadRequirement(request, HistoryRequirement(frozenset(("close",)),0,True,(),"fixture"),8192,None,None)
-    description = SimpleNamespace(price_paths=())
+    requirement = ReadRequirement(request, HistoryRequirement(frozenset(("close",)),0,None,True,(),"fixture"),8192,None,None)
+    description = SimpleNamespace(price_paths=(), selection=PriceReadSelection(None, None, None, None, 0, 0, False, ()))
     stream = _LakePriceStream(description, requirement, _Control(), context)
     reader = _AssemblyReader(create_fixture_reader(FIXTURE), trace, FIXTURE)
     trace.reader_opens.append(str(FIXTURE)); trace.readers.append(reader)
@@ -534,11 +571,11 @@ def test_assembly_crosses_files_and_consumes_pending_once(batch_assembly_files, 
     track_assembly_reader(stream,trace,monkeypatch); track_compact_copies(trace,monkeypatch)
     delivered, sql_rows = [], 0
     try:
-        assert description.price_paths == batch_assembly_files.minute_paths
+        assert description.price_paths == tuple(batch_assembly_files.minute_paths[i] for i in (0, 2, 3))
         delivered, observations, sql_rows = consume_assembly_stream(stream,trace,context,(8192,1809))
         assert observations == [(8192,1.0,8192.0),(1809,8193.0,10001.0)]
         assert context.source_rows == trace.actual_read_rows == 10001
-        assert trace.reader_opens == [str(path) for path in batch_assembly_files.minute_paths]
+        assert trace.reader_opens == [str(batch_assembly_files.minute_paths[i]) for i in (0, 2, 3)]
         assert trace.copy_calls > 0
         assert trace.peak_owned_arrow_bytes < 64*1024*1024
     finally:
@@ -582,7 +619,11 @@ def test_stop_while_assembling_discards_partial_batch(batch_assembly_files, monk
 
 def test_input_limit_rejects_before_copy_or_delivery(batch_assembly_files, monkeypatch, record_property):
     started, trace = monotonic(), AssemblyReadTrace()
-    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True,limit=20)
+    *_, context, control, source, description, stream = assembly_source(batch_assembly_files,daily=True)
+    # Range selection now checks capacity before opening prices. This old unit
+    # explicitly targets the separate read-before-copy protection, so lower
+    # only its accounting allowance after a valid selection has been made.
+    context.config = replace(context.config, max_input_rows=20)
     track_assembly_reader(stream,trace,monkeypatch)
     original, copied_after_limit = pa.concat_arrays, []
     def copy_checked(arrays,*args,**kwargs):

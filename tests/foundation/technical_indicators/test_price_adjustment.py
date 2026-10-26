@@ -23,7 +23,7 @@ from src.foundation.technical_indicators.configuration import KernelConfig
 from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceLimitError, SourceUnsupportedError
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import ReadRequirement, SourceBatch, SourceDescription
+from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceBatch, SourceDescription
 from src.foundation.technical_indicators.sources.read_context import SourceReadContext
 from src.foundation.technical_indicators.sources.session import PriceInputSession
 
@@ -88,7 +88,22 @@ class LiteralSource:
             "latest" if input_adjustment == "qfq" else None, None, None, "yuan", "shares", "yuan",
             "Asia/Shanghai", "day", "source_start", None, True,
             (("none", "none"), ("none", "qfq"), ("none", "hfq"), ("qfq", "qfq")), False,
+            selection=PriceReadSelection(days[0], days[-1], days[0], days[-1], 2, 0, True, ()),
             standard_projection=tuple((name, f'b."{name}"') for name in fields))
+
+    def create_locator(self, executor, requirement, *, read_context):
+        # This test source already owns producer-shaped literal Arrow batches.
+        # The factory creates no table, reader or connection.
+        description = self.description
+
+        class Locator:
+            def describe(self):
+                return description
+
+            def close(self):
+                pass
+
+        return Locator()
 
     def open(self, executor, description, requirement, *, read_context):
         self.open_calls += 1
@@ -123,10 +138,10 @@ def open_session(target="qfq", *, input_adjustment="none", preceding_rows=1, bat
                            missing_factor=missing_factor)
     request = CalculationRequest("stock", "600000.SH", "day",
         (CalculationInstance("price", "price", {}),), adjustment=target)
-    history = HistoryRequirement(frozenset(("close", "volume")), preceding_rows, True, (),
+    history = HistoryRequirement(frozenset(("close", "volume")), preceding_rows, None, True, (),
                                 initial_null_rule="literal")
     requirement = ReadRequirement(request, history, 2, None, None)
-    session = PriceInputSession(executor, source, source.description, requirement, read_context=context)
+    session = PriceInputSession(executor, source, requirement, read_context=context)
     return service, connection, executor, control, source, context, session
 
 
@@ -209,7 +224,9 @@ def test_period_cutoff_rejects_future_information_but_keeps_valid_partial_and_co
     source.stream = LiteralStream(context, (batch,))
     requirement = replace(previous.requirement,
                           request=replace(previous.requirement.request, period=period, end=cutoff))
-    inputs = PriceInputSession(executor, source, source.description, requirement, read_context=context)
+    source.description = replace(source.description,
+        selection=PriceReadSelection(start, start, start, start, 1, 0, True, ()))
+    inputs = PriceInputSession(executor, source, requirement, read_context=context)
     try:
         inputs.prepare()
         if rejected:
@@ -243,7 +260,8 @@ def test_description_copies_both_levels_of_source_plan_without_freezing_borrowed
     context = SourceReadContext(config())
     original = LiteralSource(context).description
     paths, factors, projection = [Path("/x")], [[date(2026, 1, 5), Path("/f")]], [["close", 'b."close"']]
-    description = replace(original, price_paths=paths, factor_paths=factors, standard_projection=projection)
+    description = replace(original, price_paths=paths, factor_paths=factors, standard_projection=projection,
+        selection=replace(original.selection, row_groups=((0,),)))
     paths.clear(); factors[0][1] = Path("/other"); projection[0][1] = "wrong"
     assert description.price_paths == (Path("/x"),)
     assert description.factor_paths == ((date(2026, 1, 5), Path("/f")),)
@@ -376,7 +394,7 @@ def test_assembled_daily_batch_runs_one_qfq_session(batch_assembly_files, monkey
     values = []
     try:
         connection, executor = service._open_execution(control)
-        inputs = PriceInputSession(executor,source,description,requirement,read_context=context)
+        inputs = PriceInputSession(executor,source,requirement,read_context=context)
         inputs.prepare()
         batch = inputs.next_batch()
         assert batch is not None and batch.new_row_count==21

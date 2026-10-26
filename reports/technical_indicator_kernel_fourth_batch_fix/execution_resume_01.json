@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "exit_code": 0,
+  "program_elapsed_seconds": 5.919301499612629,
+  "cumulative_elapsed_seconds": 6.1212099166586995,
+  "input_rows": 22630,
+  "sql_logical_rows": 399477,
+  "locator_rows": 29053,
+  "real_controls": 0,
+  "completed_nodes": [
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_default_two_pages_and_shared_input",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_used_parameters_choose_dynamic_warmup",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_1600_history_returns_1000_then_600_then_empty",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_short_origin_is_allowed_when_required_warmup_exceeds_capacity",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_daily_files_are_combined_and_adjustment_basis_is_page_independent",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_period_keys_use_existing_time_semantics",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_warmup_control_and_selection_contracts",
+    "tests/foundation/technical_indicators/test_fourth_batch_fix.py::test_locator_failure_and_cleanup_are_not_empty_success",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_d3_fixed_sql_resources_and_output_dependency_boundary"
+  ],
+  "fixture_cleanup": "owned_directory_removed",
+  "remaining": {
+    "input_rows": 12370,
+    "sql_logical_rows": 600523,
+    "locator_rows": 10947,
+    "real_controls": 0,
+    "program_seconds": 30,
+    "total_seconds": 293.8787900833413
+  }
+}

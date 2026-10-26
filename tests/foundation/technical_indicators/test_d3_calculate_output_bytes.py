@@ -34,8 +34,11 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
             source_files = [{"path": str(path), "bytes": path.stat().st_size} for path in paths]
             source_file_bytes = sum(item["bytes"] for item in source_files)
             details["source_files"] = source_files
+            # Independent count: original 38 service rows plus three one-row
+            # locate_stage steps. Scalar metadata queries keep the established
+            # zero logical-row accounting. No warmup SQL is needed for price.
             expected = {
-                "kernel_version": "1.0.0",
+                "kernel_version": "2.0.0",
                 "series": {
                     "security_type": "stock", "ts_code": "600000.SH", "period": "day",
                     "adjustment": "none", "timezone": "Asia/Shanghai", "price_unit": "CNY",
@@ -65,8 +68,8 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                 }],
                 "range": {"actual_start": "2026-01-05", "actual_end": "2026-01-07", "count": 3},
                 "statistics": {
-                    "source_rows": 3, "sql_processed_rows": 38, "source_files": 3,
-                    "source_file_bytes": source_file_bytes, "source_data_passes": 1,
+                    "source_rows": 3, "sql_processed_rows": 41, "source_files": 3,
+                    "source_file_bytes": source_file_bytes, "locator_rows": 3,
                     "price_conversion_batches": 0, "elapsed_ms": 0.0,
                 },
                 "msg": "",
@@ -131,7 +134,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                                      actual_matches_expected=actual_bytes == expected_bytes,
                                      actual_payload=json.loads(actual_bytes))
                         assert actual_bytes == expected_bytes
-                        assert result.statistics.sql_processed_rows == 38
+                        assert result.statistics.sql_processed_rows == 41
                     else:
                         with pytest.raises(ResourceLimitError) as caught:
                             returned = state.run(selected, real=False, config=config)
@@ -166,7 +169,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                                      error=str(closed.value), logical_input_rows=1)
                         assert call["source_rows"] == 3 and call["batches"] == [3]
                         assert call["source_open_calls"] == 1
-                        assert executor.sql_processed_rows == 38
+                        assert executor.sql_processed_rows == 41
                         assert not executor._live_tables and not executor._live_arrow
                         assert control.cleanup_ready and control.resources_released_at == 0.0
                         entry["cleanup_status"] = "passed"
@@ -184,7 +187,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
 
             assert len(opened) == 3 and len(details["calls"]) == 3
             assert (state.input_rows - before[0], state.sql_rows - before[1],
-                    state.real_controls - before[2]) == (9, 117, 0)
+                    state.real_controls - before[2]) == (9, 126, 0)
             details["status"] = "passed"
         except BaseException as error:
             primary_error = error

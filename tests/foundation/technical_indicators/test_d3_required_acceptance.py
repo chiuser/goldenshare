@@ -21,7 +21,7 @@ from src.foundation.technical_indicators.output.contracts import (
 from src.foundation.technical_indicators.output.result import (
     build_calculation_result, normalize_read_range,
 )
-from src.foundation.technical_indicators.sources.contracts import SourceDescription
+from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
 
 
 def test_one_unrepresentable_macd_component_rejects_before_price_rows(d3_data):
@@ -76,7 +76,7 @@ def test_read_range_rejects_internal_handoff_errors(d3_data):
     state = d3_data
     with state.case("read_range_rejects_internal_handoff_errors"):
         selected = request(period="day", adjustment="none")
-        statistics = CalculationStatistics(21, 0, 0, 0, 1, 0, 0.0)
+        statistics = CalculationStatistics(21, 0, 0, 0, 0, 0, 0.0)
         first, last = date(2026, 1, 5), date(2026, 2, 2)
         assert normalize_read_range(
             request=selected, statistics=replace(statistics, source_rows=0),
@@ -132,8 +132,9 @@ def test_unknown_global_dates_are_not_inferred_from_read_range(d3_data):
             history_origin_rule="source_start", available_through=None,
             supports_partial_period=True, supported_adjustment_paths=(("none", "none"),),
             converted=False,
+            selection=PriceReadSelection(None, None, None, None, 0, 0, False, ()),
         )
-        statistics = CalculationStatistics(21, 0, 21, 0, 1, 0, 0.0)
+        statistics = CalculationStatistics(21, 0, 21, 0, 0, 0, 0.0)
         arguments = dict(
             request=selected, instances=instances, statistics=statistics, rows=(),
             columns=("seq", "trade_date", "period_start", "period_end", "source_as_of", "value_0_0"),
