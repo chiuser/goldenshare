@@ -1,460 +1,481 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：2026-10-12已确认九天自动窗口，待实现；本轮只更新文档。最近一次历史运行记录为2026-10-05（§25），不代表当前服务或调度状态。
+状态：2026-10-26 管理员已确认单job九日更新与取消整批时间期限；本轮只更新设计，以下改动尚未落地。现行代码仍须按本LLD开发、隔离验收后才能另行申请正式执行。
 
-对应 [技术方案](dagster-anns-d-onboarding-plan-v1.md)，共同使用 R01–R12。采用 [接入模板](../templates/dagster-dataset-onboarding-template.html) 的身份、字段矩阵、§7A、预算、检查、写入与验收要求；未测性能必须在 P0 补齐。
+对应[技术方案](dagster-anns-d-onboarding-plan-v1.md)，约束编号R01—R10以方案第10节为准。遵守[编码规范](../../orchestrator/CODING_STANDARDS.md)、[性能治理](dagster-data-pipeline-performance-governance.md)、[schema contract](dagster-asset-schema-contract-design.md)及[接入模板7A](../templates/dagster-dataset-onboarding-template.html#source-contract-budget)。
 
-## 1. 三层时间语义与范围
+本文以完整的新执行设计替换被取消的技术设计，不保留两套长期执行路径。既有事实和历史批准仅由第12节的报告索引追溯。
 
-| 层次 | 合同 |
-|---|---|
-| 时间输入 | ISO日期点或闭区间；起点2020-01-01；自动窗口按计划触发日D（Asia/Shanghai）冻结为D-7..D+1；历史bootstrap及手工入口原边界不自动放宽 |
-| 执行 unit | Tushare 按单日分页；bootstrap 按月读取、按日提交；分页单位不是分区 |
-| freshness/audit | 检查预期日期是否有本次完整更新证据及有效文件；零行合法，不要求每日有公告；九日刷新及当天/次日预取不证明源端永久完整，新tick仍重拉 |
+## 1. 开发边界与已有代码依据
 
-分区使用专属DailyPartitionsDefinition，从2020-01-01开始、时区Asia/Shanghai；调整结束偏移使实际分区包含当天及次日，并同步asset和两个check，具体偏移以现有Dagster版本的日期边界测试确认。不依赖股票/指数交易日，不注册共享动态分区。源时间ann_date和rec_time独立；发布时间可能跨日，不能据其替代公告日期。本节为待实现设计，当前分区尚无该结束偏移。
+### 1.1 固定目标
 
-Bootstrap 固定 2020-01-01..2026-09-30。首次接线后按相同日更新实现补 2026-10-01..启用前一天；若范围为空则不创建工作。正式 schedule 启用前必须对账此区间，不能只跑七天。
+- 每天08:00 Asia/Shanghai生成一个job运行，自动日期严格为计划日D−7..D+1九日；例如2026-10-26为19..27。
+- 无整批总时限；计划时刻只决定日期与去重身份，实际开始/结束时间仅记录进度和耗时。
+- 同一job内按日期顺序尝试九日；单日数据错误不阻断其他日，公共资源错误停止。取消不等于失败后自动重试。
+- 数据集、文件、schema、检查名称不改；不改变其他数据集的资源、全局并发或自动任务。
+- 本轮不重做Prod初始化、不下载PDF、不新增页面、sensor、数据库、摘要资产或独立执行入口。
+- 不以历史CLI/runless事件模式承担正式日更；不修改公共TushareResource的其他消费者。
 
-## 2. 模块和接线点（实现状态见§13）
+### 1.2 修改位置
 
-路径相对于 `lake_console/orchestrator/src/orchestrator/`；实施前再次核对当前分拆规则，保持一个职责一个模块，不写通用万能入口。
+路径相对于 `lake_console/orchestrator/src/orchestrator/`。
 
-| 模块 | 职责 |
-|---|---|
-| `defs/anns_d_contract.py` | 六字段/schema、日期输入、全字段身份与源类型验证 |
-| `defs/prod_db/anns_d.py` | 批准白名单、只读 SQL、月服务端游标、有限 preflight |
-| `defs/anns_d_source.py` | 显式六字段 Tushare 分页、有界调用、限流/配额/取消 |
-| `defs/anns_d_io.py` | 页 Parquet、DuckDB UNION DISTINCT、候选检查与原子提升 |
-| `defs/bootstrap/anns_d_history.py` / `anns_d_history_cli.py` | plan/capture/build/audit/promote；独立事件补录入口不混入每日链 |
-| `defs/anns_d_execution.py` | 日执行器、提交证据复核、取消与续跑 |
-| `defs/anns_d_checkpoint.py` | 原子 run-scoped checkpoint、指纹恢复、并发锁；不新增永久状态表 |
-| `defs/assets/anns_d.py` | 薄 asset，调用日执行器并返回交付 metadata |
-| `defs/checks/anns_d_checks.py` | 分区一致的文件合同和交付对账 checks |
-| `defs/jobs/anns_d.py`、`defs/schedules/anns_d.py` | 日job、保留08:00的九日请求计划和共享窗口预算；钟点调整未确认 |
-| `defs/run_contracts/anns_d.py` | 唯一公告执行 policy/run config，集中默认值及校验 |
-| 现有 `paths.py`、`catalog/lake_assets.py`、schema 合同与 `definitions.py` | 增加本 asset/path/schema/definitions，不改变其它资产行为 |
+| 文件/符号 | 实施职责 |
+| --- | --- |
+| `defs/schedules/anns_d.py::raw_anns_d_update_schedule` | 从九个日请求改为一个范围请求，显式配置和固定批次身份 |
+| `defs/jobs/anns_d.py::raw_anns_d_update_job` | 保持asset+原两项checks选择；不放业务循环、取源、SQL或写文件 |
+| `defs/assets/anns_d.py::raw_tushare_anns_d` | 范围上下文、逐日执行helper、各日metadata；末尾仅一个MaterializeResult |
+| `defs/anns_d_window.py` | 冻结范围、单次执行循环、按日结果和恢复；去掉前日成功门禁及总期限 |
+| `defs/anns_d_execution.py` | 复用 `update_announcement_day` 的完整capture/build/promote，保留提交与取消边界 |
+| `defs/anns_d_checkpoint.py` | 保留请求计数/间隔/未决请求恢复；移除总期限，保存单次执行信息 |
+| `defs/checks/anns_d_checks.py` | 核验helper显式接收day；两个检查节点逐日发出正确分区与物化目标的结果 |
+| `defs/run_contracts/anns_d.py` | 移除已取消配置，集中执行版本和配置校验；请求控制保持 |
+| `defs/anns_d_cli.py` | 参数和只写文件语义保持，复用同一范围执行helper；plan仍零写入 |
+| `defs/bootstrap/anns_d_event_files.py`、`anns_d_history_plan.py`、`anns_d_history_execution.py`、`anns_d_history_cli.py` | 只改证据配置解析的耦合，不改变历史SQL、范围或执行方式 |
+| `defs/catalog/lake_assets.py` | 从公告source_request_policy删除整批时间预算；历史event_policy保留`SUPPORTS_RUNLESS_EVENT_BACKFILL`，字段及路径合同保持 |
+| `defs/anns_d_partitions.py`、`paths.py`、schema模块 | 核验并保留当前定义，没有必要则不改 |
 
-测试在 orchestrator/tests 下，按 contract/source/bootstrap/io/checks/schedule 分组。后续名称须与现有工程规则核对，禁止据拟定文件名推断已接线。
+当前代码的 `context.partition_key`、只返回一日MaterializeResult及基于单日上下文的checks不能直接用于范围运行。CodeGraph已覆盖上述入口、window/day执行helper、CLI、checks与测试；原始代码核验补充了catalog及bootstrap证据消费者。没有跨Prod/Ops/biz依赖变更。
 
-不 import Prod DatasetDefinition/DAO/TaskRun；Prod 表通过 resource 和受控 SQL 读取。现有只读资源可复用，交易日校验、非空代码、通用全量 DataFrame helper 不可复用。
+## 2. 资产、字段与时间合同
 
-## 3. 逐字段合同（模板 §7A）
+### 2.1 稳定身份
 
-| 源字段 | Tushare 输入值 | Prod bootstrap 来源 | Raw 物理类型/可空 | 转换、消费者 |
-|---|---|---|---|---|
-| ann_date | YYYYMMDD 字符串 | 原始 JSON 的 ann_date | VARCHAR / yes | 原值；解析仅用于检查目录一致，不写回；日期查询 |
-| ts_code | 字符串或 NULL | 原始 JSON 的 ts_code | VARCHAR / yes | 不 trim/不股票池过滤；代码查询 |
-| name | 字符串或 NULL | 原始 JSON 的 name | VARCHAR / yes | 原值；未来名称查询 |
-| title | 字符串或 NULL | 原始 JSON 的 title | VARCHAR / yes | 原值；未来文件命名由下载层负责 |
-| url | 字符串或 NULL | 原始 JSON 的 url | VARCHAR / yes | 原值；未来下载层校验与跳过 |
-| rec_time | 无时区文本或 NULL | 原始 JSON 的 rec_time | VARCHAR / yes | 不转 TIMESTAMP；查询展示，不能用于分区 |
+| 对象 | 名称/定义 |
+| --- | --- |
+| asset | `raw_tushare_anns_d` |
+| job | `raw_anns_d_update_job` |
+| schedule | `raw_anns_d_update_schedule` |
+| 文件合同check | `raw_tushare_anns_d_file_contract_check` |
+| 交付check | `raw_tushare_anns_d_delivery_reconciliation_check` |
+| partition model | catalog现有 `ann_date_partition_raw_anns_d` |
+| partitions_def | 现有 `anns_d_natural_days`，2020-01-01起，Asia/Shanghai，end_offset=2 |
 
-固定顺序即上表顺序。日期 schema 可空不等于允许把无法归属请求日期的记录无声归档；此类异常阻断整个候选并保存证据，不丢弃行。其余缺值均保留，不强制代码匹配股票正则；例如 155162.SH 债券公告仍属于源全集。
+保留check名称以维护既有事件身份；资产及两个check继续绑定相同partitions_def，保持blocking=True。不得增加同义新check、伪造日期资产依赖或注册交易日动态分区。
 
-不写 id、row_key_hash、group_key、api_name、fetched_at、raw_payload、source、created_at、updated_at、下载状态或文件 SHA。内部执行数据可以另带 cursor/checksum，但最终 COPY 必须仅投影六字段。
+时间输入、执行与完整性分开：自动输入按计划日冻结；一次运行九日、源逐日分页、文件逐日提交；完整性按本次观察及检查判断，合法零行不是缺失，当天/次日预取不是永久齐备。
 
-### 3.1 完全重复语义
+### 2.2 六字段矩阵
 
-相等指六字段逐个值相等，NULL 等于 NULL，NULL 不等于空字符串；保留空白、大小写及字符原值。DuckDB DISTINCT 的 NULL 语义符合重复消除需求；不得先归一化再 DISTINCT。
+| 源字段 | 源/Raw表示 | 可空与规则 |
+| --- | --- | --- |
+| ann_date | 源YYYYMMDD字符串 / VARCHAR | schema可空，但缺值或非法日期无法归属目标日时整个日候选失败 |
+| ts_code | 字符串 / VARCHAR | 可空，不trim，不用股票池或正则过滤债券等公告 |
+| name | 字符串 / VARCHAR | 可空，原值保留 |
+| title | 字符串 / VARCHAR | 可空，原值保留 |
+| url | 字符串 / VARCHAR | 可空，不以URL合并元数据 |
+| rec_time | 源发布时间文本 / VARCHAR | 可空，不转时区，不作为公告日期 |
 
-构建使用显式六列：`SELECT DISTINCT <six columns> FROM (existing UNION ALL new_pages)`；不依赖 hash 作为唯一判定，不按 URL 或三元组去重。两条相同代码/标题而 URL 不同（包括 NULL）必须同时存在。这是用户最终简化规则，早先“有 URL 覆盖无 URL”的方案不适用。
+字段顺序固定为上表顺序。缺列、额外未知字段、非缺失数值/对象、错误日期或跨请求日数据均明确拒绝该日，不能删行/补列/转字符串后当作成功。仅SDK的NA/NaT/NaN还原为None；NULL、空串、空白不同。
 
-元数据保留六字段版本；下载器可以让多条元数据关联同一 PDF，这是后续合同，不在 Raw 中合并行。
+合并仅使用六字段 `DISTINCT(existing UNION ALL incoming)`。不同URL、NULL与非NULL、不同rec_time等版本都保留；源本次未返回不构成删除理由。definition metadata继续注册稳定schema，运行metadata只写本日path、rows、observed_columns及交付证据。
 
-## 4. 来源合同与 SQL
+源依据：doc_id=176，[本地源文档](../../../docs/sources/tushare/大模型语料/0176_上市公司全量公告.md)。沿用既有源字段、空页和缺值证据，本次不改request builder参数、不扩大源请求页大小。
 
-### 4.1 Prod 只读白名单
-
-唯一业务表 `raw_tushare.anns_d`。允许在服务器内部读取 raw_payload 并提取六个批准业务值；完整 raw_payload 禁止输出。id 和类型化 ann_date 只作为排序、范围、恢复及月计划过滤，id 可以进入内部 staging cursor，不进入 Raw。禁止其它业务列、Ops 表、任意表名/SQL 透传和 Prod 写入。
-
-月起止和上界 id 绑定参数；只读属性在业务 SQL 前建立，优先 `ProdPostgresResource.connect_readonly_transaction()`。月内使用 repeatable read 只读快照，设置 cursor_tuple_fraction=1.0，不与全历史共享事务。读取结束 rollback/close。
-
-已实现的六业务字段投影如下；真实 helper 另返回类型化分区日期和 keys_present 校验标记，不进入 Raw：
-
-```sql
-SELECT id,
-       raw_payload::jsonb -> 'ann_date' AS ann_date,
-       raw_payload::jsonb -> 'ts_code' AS ts_code,
-       raw_payload::jsonb -> 'name' AS name,
-       raw_payload::jsonb -> 'title' AS title,
-       raw_payload::jsonb -> 'url' AS url,
-       raw_payload::jsonb -> 'rec_time' AS rec_time
-FROM raw_tushare.anns_d
-WHERE ann_date >= %(month_start)s AND ann_date < %(month_end)s
-  AND id <= %(upper_id)s
-ORDER BY ann_date, id;
-```
-
-使用 JSON 值投影而非随意 `::text`，驱动得到原始字符串或 NULL；字符串以外类型、缺少声明字段、非法 JSON、源 ann_date 和类型化 ann_date 不一致必须显式识别。缺键与显式 NULL 的检查在服务器端逐批有界校验中进行，源 helper 可显式回传仅用于校验的 keys_present 布尔值（不进入 Raw），不靠 `->` 返回 NULL 判断键存在。禁止把异常数字转换成字符串后宣称源镜像。
-
-EXPLAIN 检查月日期过滤索引、ann_date/id 排序及 JSON 解析成本。P0实测旧ORDER BY id LIMIT会扫描约838万无关记录，禁止沿用；改用日期前导稳定排序，测试必须断言该排序。81 月直接路径若重复全表扫描或排序代价不可接受，P0 停止并修订源读取计划，不能硬跑，也不擅改 Prod 索引。
-
-月事务内以服务端游标 fetchmany=10,000；每批转换六字段列式批次并写 staging shard。Python 不累积月全集。中途退出未完成月份从头重新 capture（新 attempt 目录），不把新快照拼到旧 capture 中；已完成月候选和已提升文件可复用。capture cursor 是证据，不承诺跨事务恢复旧快照。
-
-计划冻结每月边界、upper_id、范围计数/六字段统计、目标冲突、合同版本。月 capture 必须在同快照获得计数并读回对账；全历史不宣称统一时间快照。发现源 schema 或月份统计异常停止，不扩大白名单。执行期避免同范围 Prod 重置/重放，最终再做有界汇总核验。
-
-### 4.2 Tushare
-
-专用 builder 只生成 `anns_d(ann_date=YYYYMMDD, fields=<six>, limit=2000, offset=<cursor>)`。历史范围先展开日期，不能把大区间一次请求后认为完成；不传 ts_code/title，避免源全集被过滤。
-
-SDK值规范：只将pandas表示的缺失值（已实测url为float NaN）还原为None，保留空字符串/空白；非缺失float、数值、对象仍阻断。该步骤是传输层缺失值还原，不是源字段填补；必须用SDK样本和NULL/空字符串反例测试。
-
-字段实测见方案 §2.1；MCP 描述上限与源文档差异已记录。MCP 高 offset 能力有限，不作为生产分页上限。SDK 返回列必须明确包含六字段；合法零行页仍须有 schema。异常无字段响应、类型错误、非成功请求均失败，不能作为空日。
-
-每页先检查取消/配额，调用后再检查取消；原始页完整写入与 checkpoint 原子记录后才推进 offset。短页结束，满页继续；终止证据保存末页 offset、长度和累计页数。推进量为实际行数。超过单日请求预算、重复页导致无进展或截止时间时失败，不提升截断结果。
-
-调用必须有 30 秒硬截止和可取消控制：公告专用 adapter 使用可终止调用进程，每 ≤1 秒观察取消，取消最多 5 秒释放调用；子进程只调用现有资源，不输出 token。API 失败最多三次尝试，同一页重试不推进 cursor。实现前核验现有 SDK 与进程生命周期，隔离测试证明子进程不遗留；不擅改共享 TushareResource 行为。
-
-请求结束至下次请求至少 5 秒，退避/服务端限流要求只能增加等待；重试也计入预算。日进程重启重新 capture 当日，避免 offset 动态变化时混合旧页；已提交其它日期不重做，已完整 capture 可按指纹继续 build/promote。
-
-## 5. 配置审计
-
-执行默认值及schedule常量已集中到`defs/run_contracts/anns_d.py`；旧七日接线见历史§15。本表补充待实现的九日合同，不证明新配置已部署。运营覆盖仅从已声明job/CLI参数进入，不散落env、页面和脚本。
-
-| 配置/常量 | 默认 | 来源/持久化 | 消费者、依赖与生效 |
-|---|---|---|---|
-| start_date/end_date | 手工必填；bootstrap 固定范围 | CLI/job config，run checkpoint | planner，闭区间校验；每 run 冻结 |
-| ANNOUNCEMENT_REFRESH_DAYS | 7，含义仍为向前回刷天数，不改成9 | run_contracts/anns_d.py合同常量 | announcement_refresh_dates保留D-7..D-1，再加入D、D+1；九日范围写入窗口tags/checkpoint，无新增运营偏移开关 |
-| schedule_time/timezone | 08:00 / Asia/Shanghai | schedule 定义，STOPPED；不加第二套 env | 请求计划与自然日判断；重载生效 |
-| page_size | 2000 | 合同常量，不提供任意增大入口 | builder；末页/满页测试 |
-| prod_fetch_rows | 10000 | policy，run 记录 | capture；只影响 fetch 缓冲 |
-| interval_seconds | 5 | job/CLI config、run 记录 | API limiter；必须有限且≥0，debug 可调 |
-| max_attempts/call_timeout/cancel_grace | 3 / 30s / 5s | policy | adapter；请求预算含重试 |
-| max_day_requests/max_window_requests | 100 / 350 | policy，window 运行意图及共享预算 checkpoint | 日执行器/调度；窗口日期 run 不各自重置350 |
-| max_window_seconds | 3600 | policy，窗口起止记录 | scheduler/admission；超时停止新日期领取 |
-| max_month_rows/month_deadline/sql_timeout | 200万 / 1800s / 60s | policy | Prod capture；不把 SQL timeout 当整月时限 |
-| duckdb_memory/threads/spill_limit | 2GB / 2 / 20GB | 专用连接设置，run 记录 | writer/check；不得修改其它资产全局默认16GB等 |
-| min_free_reserve | 5GiB | policy | volume/space gate，额外加输出预测与spill预算 |
-| root/staging | 正式路径固定，见方案 | 现行 paths 与专用 path helper | 所有读写；禁止旧路径/env fallback |
-| TUSHARE_TOKEN、ProdPostgresResource 既有连接 env | 复用既有来源，不新增默认秘密 | 现有环境资源，不复制到 checkpoint | API/只读 source；run 日志脱敏 |
-
-仅暴露日期和请求间隔；其它预算调整须更新合同与实测，不自动变成前端输入项。所有生效配置以非敏感值出现在计划/运行摘要，schedule 停启状态在 Dagster 可见。
-
-九个日期run共享窗口配额必须跨进程同步：run-scoped window checkpoint保存领用请求数、截止时间与请求未决标志，文件锁保护原子领用；超时/退出的未决请求按已消耗计，避免少计。它只约束这一次窗口意图，不计算数据readiness，不是持久公告状态表。手工补拉以新窗口id执行；bootstrap不消耗Tushare配额。
-
-P0 需核验配置与当前 project concurrency、DuckDBResource、schedule 装配及所有消费者；若以上 defaults 不能在预算内完成，先落回两份文档，不在代码静默降级。
-
-## 6. 文件状态机与事务边界
-
-`PLANNED → CAPTURING → CAPTURED → BUILT → VALIDATED → PROMOTED → EVENTS_REPORTED`，任一步可 CANCELLED/FAILED。状态只描述执行，不是独立业务事实。
-
-1. 创建 run-scoped staging 前检查卷真实挂载、UUID/路径、写权限、空闲空间、root/staging 同文件系统及目标冲突；正式执行前授权。磁盘缺失不得创建假 /Volumes 目录。
-2. 逐页写独立 Parquet 临时文件，fsync、原子改名，再写包含页范围/行数/指纹的 checkpoint；中断后仅接纳校验成功的页。无有效末页证据不能 build。
-3. Bootstrap 月页用 DuckDB 显式投影六列、DISTINCT、按 ann_date 写每日候选；83 个历史空日的文件需单独生成正确 schema。日更新读取该日已有文件和新页合并，不用 Python 逐行大表写入。
-4. build/audit 的 DuckDB 配置限制内存和 spill 到 run-scoped staging，长查询采用独立有界执行和取消中断，≤30 秒更新可见阶段。执行预算包括写前、写后和 checks，不只测 API。
-5. VALIDATED 保存来源页计数/尾页、输入与重复计数、目标行数、schema、文件 SHA 和已有文件基线；源页原始字符串不改变，未知额外源字段阻断契约漂移。
-6. 同日文件锁保护基线核验与 promote；已有文件发生变化停止重建。锁只是协调，不是公告状态。目标必须是普通安全文件，不通过符号链接写盘。
-7. 同文件系统 `os.replace(candidate, final)`、fsync 父目录后记录 PROMOTED。逐日事务，不声称月份/全范围整体原子性。窗口内已成功日不回滚。
-8. 若 rename 成功而 checkpoint 或 event 失败，恢复读取文件 SHA 与已冻结候选证据；相符补记/补报，不重新请求源或覆盖文件；不符停止人工审计。
-9. 如果 cancelled/failed，已提交文件保留，未提升 candidate 和异常页保留。禁止自动清 staging、备份或 Kopia。
-
-新增 checkpoint 的理由：event 无法证明页已落盘和 rename 前后位置；Parquet 无法保存执行 cursor/共享请求配额；隔离测试不能替代中断持久化；已有其它数据集 checkpoint 语义不能直接复用。故仅使用 run-scoped 执行证据，不建永久 manifest/readiness 表或 summary asset。
-
-## 7. Checks、交付数量与观测
-
-### 7.1 文件合同 check
-
-文件存在及路径合法；hive_partitioning=false 时物理列顺序/类型符合六 VARCHAR；零行允许；所有非空日期等于目录日期，空/错日期是分区合同错误；六字段重复组为零；缺 URL/rec_time/code/title 不因非空键规则拒绝。
-
-这是文件自身检查，不重做源请求或重算其它业务资产。asset/check 都绑定同一个日 partitions_def，测试同时断言定义属性、AssetCheckEvaluation.partition 和隔离 instance 的持久事件分区。
-
-### 7.2 交付对账 check
-
-本轮原始页数/尾页已完成，页行数合计一致；`目标集合 = DISTINCT(已有集合 UNION 源集合)`。bootstrap 目标等于源六字段去重集合。记录：source_rows、existing_rows、duplicate_rows、new_unique_rows、written_rows、readback_rows、missing_url、missing_rec_time、rejected_rows。非完全重复过滤数必须为零。
-
-用 DuckDB 对当日已有/源/candidate 做集合差与聚合，证明已有记录未丢、新唯一记录未漏；不要只比 count。checks 不再依赖远程 Prod/Tushare，可使用 run-scoped交付证据及 materialization metadata 引用指纹。证据丢失时不能猜绿色，失败并提示重新形成可验证证据；此情况不自动删除正式文件。
-
-合法零行页的失败/成功 schema 必须区分；空日交付需要完整末页证据，不能靠零行 Parquet 自证源查询成功。
-
-### 7.3 观测与事件独立
-
-结构化进度字段：run/window id、phase、month/date、offset、page_count、rows_captured、days_completed、days_total、requests_used/budget、last_business_progress_at、updated_at、cancelled/reason。源总数未知时不显示行百分比；日期完成百分比可展示，ETA 暂无法估算。
-
-业务 commit 与 Dagster 状态分开。事件失败可能使 run 不成功，但已提交文件有效；恢复按物理事实补报。bootstrap runless 事件包含文件 SHA、schema版本、源计数及 green check；先 plan 数量/已存在事件，再批准样本和全量补报。同文件 SHA/事件身份重放不重复灌事件。
-
-## 8. 调度与手工执行合同
-
-一个日asset/job，定时schedule生成D-7..D+1九个有partition_key的RunRequest，run_key=`anns_d:<scheduled_local_date>:<target_date>`。目标日期按先旧后新提交，优先级由窗口实际长度生成，不能保留写死的7；队列执行顺序仍由窗口admission核验。日及bootstrap锁保证同分区唯一writer；工作窗口源调用并发默认1。
-
-schedule代码默认STOPPED，实例已显式设置的启停状态保持；cron保留每日08:00、Asia/Shanghai，22:00尚未确认。不同日tick的九日窗口重新请求相同目标日期；同tick不重复提交，原窗口续跑保持范围、预算与截止。window截止后未完成日期在失败摘要可见，手工补拉，不把任务标成功。
-
-拟历史 CLI 子命令 plan/capture/build/audit/promote/report-events，各阶段接受已验证计划身份；默认只读 plan，不把单一 `--apply` 混合文件与事件。拟日补拉入口接受闭区间、间隔，拆日期，支持失败日期重试与物理续跑，不接受 SQL、table 或任意根路径。
-
-本文件没有发布可执行命令，P1/P2 形成真实 help 后再补 runbook，禁止按拟命令直接操作正式环境。
-
-## 9. P0 性能测量和成本对账
-
-在实现业务写入前填入以下证据；设计文档完成不能替代本门禁。
-
-| 必须补测 | 方法、上限与退出要求 |
-|---|---|
-| 当前 Prod 范围/月份 | 有界日期聚合最多81月/2465日，缺日期/非法源字段服务器内统计；不导出完整payload |
-| 查询执行计划 | 首/中/末月 EXPLAIN，不默认 EXPLAIN ANALYZE 全月；记录索引、扫描、排序、SQL时间与连接数 |
-| 类型保真 | 每年最多100条六字段样本及已知缺URL/rec_time样本，确认JSON键/字符串/NULL；抽查不等于全表证明 |
-| 单批内存/Parquet压缩 | 限定最多10,000条业务字段，只在 /private/tmp 写隔离候选；RSS、源字节、Parquet大小、耗时、schema/集合一致 |
-| 源空页/SDK截止 | 真实空日和2000满页/尾页；有界真实adapter调用，SDK schema及取消测试；不写正式Lake |
-| 历史文件/时间/空间 | 用各年分布与代表性批次外推，列最坏余量与误差；按正式+candidate+shards+spill+5GiB reserve测空间 |
-| 九日稳态与峰值 | 按历史35次/日重复九次情景估算315次基础请求，五秒间隔等待约26.25分钟；另加重试/API/writer/check耗时，验证≤60min/350请求，不外推为已实测峰值 |
-
-预计正式文件2,465，源读取81个主要连接；实际 fetch/SQL次数必须测量，不把12,064,049/10,000向上取整当真实fetch总数。日期写 partition 与读取 unit 不同；小文件成本按日期/代码查询和维护频率评估，不套固定MB阈值。
-
-超预算、未知类型、目标冲突、磁盘不足时 fail closed，保留证据；禁止缩小股票池、减少fields、截止未完成分页或把未读数据算完成。P0 若不能闭合成本先修订本方案，不进入P1。
-
-## 10. 约束—代码—测试—真实验收矩阵
-
-| 约束 | 拟实现点 | 正向/负向测试 | 最小真实验收 |
-|---|---|---|---|
-| R01/R02 | contract、六列COPY、Prod projection | 六字符串/NULL保真；系统字段、类型漂移、trim反例 | 六字段源/Prod样本与文件schema |
-| R03 | DISTINCT、集合审计 | 完全重复丢弃；URL NULL/非NULL、空白、rec_time不同、同标题保留 | 155162.SH两条版本均在目标 |
-| R04/R06 | natural-day planner/check | 周末/空日成功；股票池过滤禁止；缺URL/rec_time合法；错日期阻断 | 合法空日+债券样本 |
-| R05 | readonly source、Tushare builder | SQL白名单/绑定/只读先行；禁止Ops/任意SQL/Prod fallback | 源连接/SQL/只读事务证据 |
-| R07 | source/capture/shards | 多批不累积；满页续取/短页停；异常无schema失败 | 峰值日分页、fetch内存/请求数量 |
-| R08 | checkpoint/io/lock | 各边界崩溃、取消、基线竞争、磁盘失效；禁止半写正式文件 | 批准样本运行—取消—续跑—读回 |
-| R09 | schedule/window/partitions/source/bridge | D-7..D+1九日、跨月/年、周末、重复tick及跨午夜恢复；当天/次日允许、D+2越界；新tick晚发/空页补入；历史入口边界不扩大 | 九日请求计划、分区/check一致、补入与幂等、共享预算及衔接缺口 |
-| R10 | event reporting | rename后event失败不回滚；补报幂等、终态一致 | 已提交文件SHA不变+事件补报 |
-| R11/R12 | scope/plan/entrypoints | 默认STOPPED、plan零写入、无Silver/Gold/永久状态表 | definitions及正式只读审计 |
-| 配置/预算 | policy/window/admission | 区间反转/非有限间隔、请求共享耗尽、timeout、子进程退出、进度单调 | 配额/最长无更新间隔/ETA证据 |
-
-测试必须有真正反例，不仅复述实现。失败与取消后日 run 的活动步骤进入一致终态；物理文件已提交不能因观测状态失败删除或回滚。
-
-## 11. 验收顺序、授权及遗留风险
-
-P0只读核验与 /private/tmp 基准 → P1隔离开发验收 → P2 definitions/partition/check事件测试 → P3获批样本与全量文件 → P4获批事件补录、衔接补拉、日任务验收及调度启用。正式样本、全量文件、事件、调度分别留下批准与对账证据。
-
-设计轮完成两份文档和索引；随后P0已完成只读核验及临时基准，见§12；没有新增资产、resource、checks、schedule，未触发Prod/Lake写入。动态 definitions、完整月性能及最小真实写入尚未完成，不能声称可投入运行。
-
-CodeGraph query/impact与当前实现核对覆盖入口、TushareResource、Prod只读源、通用分页、路径、catalog和现有下载器消费链。共享资源其它消费者不随本专项改行为；未来前端和下载器合同尚未迁移。当前技术风险为源offset分页可变、7天之外迟到、Prod JSON解析/排序成本、磁盘容量，以及跨月源变化；按本文实测与阻断处理，不引入双轨兜底。
+## 3. 请求、日期和执行身份
 
 <a id="automatic-announcement-window"></a>
 
-### 11.1 九日自动窗口补充设计（2026-10-12，源码实现、未正式验收）
+### 3.1 自动范围
 
-自动范围为闭区间D-7..D+1，共9天，D只从计划触发时刻在Asia/Shanghai推导。例如2026-10-12触发，预期字面列表为10月5、6、7、8、9、10、11、12、13日。Prod两天窗口独立实现，不能共用其自动范围或Ops代码。
+`announcement_refresh_dates(scheduled)`继续在Asia/Shanghai计算D−7..D+1。以字面九日数组作为测试expected，不调用待测helper生成expected。
 
-**日期校验与消费者迁移。** announcement_dates仍禁止last>=today，仅作为历史已结束范围验证；新纯函数announcement_date_range只校验/枚举日期。自动窗口由announcement_window_dates根据冻结计划时刻核验恰好D-7..D+1，再把已验证日期传给execution/capture/request builder；builder只接受窗口内的日unit，D+2及窗口外请求拒绝。历史CLI、history plan、bridge和event-files继续消费原announcement_dates；bootstrap固定范围与衔接边界不变，没有全局取消未来日期检查。
+新运行使用执行格式版本2；这是公告执行信息版本，不能提升六字段数据合同的 `ANNOUNCEMENT_VERSION=1`。执行版本为内部常量，不是运营输入或环境变量。
 
-**冻结与恢复。** schedule现有started_at标签来自scheduled_execution_time，窗口范围/身份/policy在首次执行冻结；恢复使用同一标签和checkpoint，不用datetime.now重算。当前window_id和run_key含tick日期，日目录由window_id/day生成，可沿用：新tick使用新窗口证据并从源重新capture，已物化分区不能成为跳过源的理由；同窗口完整capture可续build/promote，已提交日可复用，未完成capture重新拉取。若重载期间旧七日窗口尚在执行，先核验并完成或取消旧窗口，新九日tick不复用其身份和admission；不删除旧文件或checkpoint。
+保留内部tags中的 `anns_d/window_id`、`anns_d/start_date`、`anns_d/end_date`、`anns_d/automatic`。现有 `anns_d/started_at` 名称不另改，但其含义严格为计划时刻；不读它计算是否允许执行。增加内部 `anns_d/execution_version=2`，并将版本、计划日、范围用于整个执行身份。
 
-**文件与完成口径。** 保持六字段镜像、已有UNION新页全字段DISTINCT、读回集合差、基线指纹和逐文件原子替换。合法零行照常形成文件/交付证据；它只表示请求时观察完整，下一tick仍请求该日，不将当天/次日标为永久封闭。asset与两项check共用扩展后的专属分区，文件、事件、readiness消费者不得把预取当作连续日期必有数据。
+身份生成集中在 `anns_d_window.py`，例如：
 
-| 实现落点 | 所有消费者、持久化及验收要求 |
-| --- | --- |
-| run_contracts/anns_d.py、anns_d_window.py、schedules/anns_d.py | 回刷常量7不改含义；增加当天/次日，长度9及优先级动态生成；窗口tags/admission和预算保存冻结范围；schedule求值只产生9个请求，不读写Lake/instance或扫描数据 |
-| anns_d_partitions.py、assets/anns_d.py、checks/anns_d_checks.py、definitions/catalog | 分区实际可包含D和D+1，检查定义和事件分区一致；更远未来不能借分区开放绕过源窗口校验；元数据schema及正式路径不变 |
-| anns_d_contract.py、anns_d_source.py及日期校验全部调用方 | 明确自动观察/历史闭合的意图边界；已验证unit日期格式与归属，builder仍显式ann_date/六字段/limit/offset；未来源码请求必须有合法窗口，不能靠全局当前日期放行 |
-| anns_d_execution.py、anns_d_checkpoint.py、anns_d_io.py | 新tick真实capture，原tick恢复；350请求/3600秒共享窗口、100请求/日、2000行/页、5秒间隔及进程/内存/事务预算均不变，不新增永久状态实体 |
+~~~python
+window_id = sha256(
+    f"anns_d:update:2:{scheduled_local_date}:{first}:{last}".encode()
+).hexdigest()[:32]
+run_key = build_asset_update_run_key(
+    subject="anns_d",
+    unit_id=f"update:2:{scheduled_local_date}:{first}:{last}",
+)
+~~~
 
-**性能与门禁。** 每tick至多9个日run、9个正式日文件提交、成功路径9个materialization及18个check结果，检查只读对应单日及交付证据。真实请求量按九日sum(floor(N_day/2000)+1)加重试计；9×单日100不能绕开窗口350总限额。315次基础请求只是原历史35次/日重复九次的情景，余量35次不是保证；九日实际容量和60分钟内完成性未验收。超请求或时间预算时保留已提交日，未完成明确失败，不静默减日期或提预算。
+run_key只用于去重，不从它解析日期或配置；不得含event storage id。新身份与既有未完成执行不碰撞，同一tick重复求值则保持同一身份。未来实施时同步[run key方案](dagster-run-key-governance-optimization-plan.md)及[run key LLD](dagster-run-key-governance-low-level-design.md)，本轮不提前声称运行合同已实现。
 
-**验收。** 修订test_anns_d_contract/source/window/definitions/execution/io等测试，独立固定字面预期覆盖9日、跨月年/周末、UTC到北京时间跨日、未来分区与事件一致、D+2/窗口外拒绝及历史入口反例。通过两个不同tick，模拟首轮次日空页、下一轮新增公告和重叠日迟到记录，证明真正请求并补入、完全重复零新增、缺URL/rec_time与源版本保留；同窗口跨午夜取消/进程退出/续跑范围与deadline不变，乱序不请求源、共享预算耗尽失败、状态失败不回滚文件。隔离definitions检查与最小真实九日运行分别记录参数、页数、计数、集合差、RSS、最长进度间隔及耗时；正式运行、文件/事件写入和实例配置调整仍需明确执行授权。
+### 3.2 单个RunRequest
 
-已使用CodeGraph explore分析窗口、源请求及Prod日期策略，并补查日期校验调用方、分区/asset/check接线、已有合并/恢复和readiness/事件消费者，完成后sync/status。没有增加跨工程依赖或业务状态实体；readiness/事件继续消费物理交付与对应分区。本轮没有调整08:00 cron、正式实例启停、任何预算或正式数据库/Lake数据，未将历史P0–P4验收升级为正式九日验收。
+schedule只返回一个请求，结构为：
 
-**配置补充审计。** `anns_d/automatic`为内部运行意图标签，schedule为九日窗口固定生成字符串`true`，缺省不设置表示手工历史意图，不接受其他值；与既有window_id/start_date/end_date/started_at一起持久化于Dagster run tags。消费者只有窗口tags校验与execution admission，窗口日期进一步传入日capture/request；不进入Raw、env、Settings或用户表单，不是可调未来偏移。已有`ANNOUNCEMENT_REFRESH_DAYS=7`含义和预算不变。专属分区`end_offset=2`为代码固定边界，修改后随code location重载生效，不扩大手工未来同步；相关[Dagster官方分区API](https://docs.dagster.io/api/dagster/partitions)及固定current_time回归共同核验其实际末分区为D+1。
+~~~python
+RunRequest(
+    run_key=run_key,
+    partition_key=None,
+    run_config={
+        "ops": {
+            "raw_tushare_anns_d": {
+                "config": {"interval_seconds": AnnouncementPolicy().interval_seconds}
+            }
+        }
+    },
+    tags={
+        **frozen_announcement_tags,
+        "dagster/asset_partition_range_start": first,
+        "dagster/asset_partition_range_end": last,
+    },
+)
+~~~
 
-### 11.2 源码与隔离验收记录（2026-10-12）
+不同时设置 `dagster/partition`，也不在job默认tags中遗留单日标签；不保留逐目标日priority。schedule不取源、不读Lake、不开instance、不写执行checkpoint；缺少计划时刻或非法时区时明确失败，不用当前时间猜测替代。
 
-| 硬口径 | 代码/消费者 | 验收 |
+范围请求不会走单日分区的自动config解析，因此必须显式传config。项目校验要核对：版本、window id、ISO端点、九日长度、与计划日一致、Dagster范围一致、D+2不允许。不能指望框架只根据tags完成这些业务校验。
+
+### 3.3 手工和续跑
+
+当前单日手工materialize仍支持；手工历史闭区间继续使用 `announcement_dates` 的已结束日期约束，不因自动D+1放宽。单日上下文也统一通过 `context.partition_keys` 获取一元素列表；禁止自动批次退回逐日子job。
+
+无公告批次tags的手工运行生成新的内部版本2身份；携带批次tags的恢复必须完整一致，不接受缺版本的旧执行身份自动套用新设计。CLI的参数、plan/run含义、默认plan及不写DG事件边界保持；不发布新的任意SQL、表名或根路径入口。
+
+同一执行恢复使用原window id、计划时间、范围及有效policy，不按恢复时钟重算。恢复须是Dagster支持的显式重新执行，不能用“重复schedule求值”代替，后者本来会被run_key去重。
+
+## 4. 单job编排与文件阶段
+
+### 4.1 范围asset
+
+资产声明 `BackfillPolicy.single_run()`，使用 `context.partition_keys`。该声明不会自动把schedule九请求合成一请求，必须同时实施第3节。
+
+资产仅负责接线，业务循环放入 `anns_d_window.py` 的范围执行helper。复用现有 `update_announcement_day`、source和io，不复制下载/合并算法。建议接口：
+
+~~~python
+execute_announcement_window(
+    days, *, tags, policy, control, store_factory, call_factory
+) -> dict[str, AnnouncementDayDelivery]
+~~~
+
+返回只包含每日本次交付的计数、路径、identity和checkpoint引用，不包含公告明细。内部for循环保证先旧后新，取消原“前一天必须成功”的跨日门禁；不再依赖队列顺序来决定是否允许读取。
+
+~~~text
+验证固定意图并取得本次执行锁
+加载执行checkpoint及请求计数
+for day in fixed_days:
+    检查取消及公共资源
+    若该日已提交，核对交付证据和物理指纹后复用
+    否则执行原单日capture → build → validate → promote
+    单日可恢复错误：记failed并继续下一个日期
+    公共错误/取消：保存当前状态并退出，不再领取日期
+全部可执行日期已尝试：
+    若有失败：保存准确摘要，抛批次失败
+    否则返回九份独立交付结果
+~~~
+
+数据错误不能仅用宽泛 `except Exception: continue` 吞掉。异常必须按第5节分类，未知错误停止。源码中已保留的源响应校验、候选完整性检查不因为改批次而弱化。
+
+### 4.2 正式物化的时机
+
+文件阶段全部成功后，asset逐日调用：
+
+~~~python
+context.add_asset_metadata(day_metadata, partition_key=day)
+~~~
+
+每一日metadata使用原 `build_materialization_metadata`：包含该日uri、written_rows、observed_columns、source_rows、existing_rows、new_unique_rows、capture_complete、末页证据、`goldenshare/announcement_checkpoint`及完整identity。不得在九日上复用最后一天的metadata。
+
+完成后只 `return MaterializeResult()` 一次，框架为范围中的每个日分区生成一条物化。不得在循环中返回九次MaterializeResult，不额外手工发出九条相同物化，不把一份整批行数写到每个日期。
+
+如果文件阶段有一天失败，循环仍尝试其他可执行日，末尾抛错；已提交文件保留，本次尚不生成九条范围物化，两个检查节点也不启动。进度和失败摘要须明确“文件已提交”和“检查已通过”不同。同一执行恢复完成缺日后，再生成正确的九条物化。
+
+业务文件不可因事件失败而回滚。这个实现不承诺文件一提交就有正式物化；不能在文档或UI摘要里宣称部分日已经通过本次DG检查。
+
+## 5. 执行checkpoint、错误与取消
+
+### 5.1 持久化位置和内容
+
+沿用执行staging，不新增永久业务状态：
+
+~~~text
+data_lake_staging/anns_d/windows/<window_id>/execution.json
+data_lake_staging/anns_d/windows/<window_id>/budget.json
+data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
+~~~
+
+`execution.json`替换本次设计不再需要的admission职责；旧文件保持历史现场，不自动迁移或删除。身份包括execution_version、固定日期列表、计划时间、有效policy及字段合同；进度包括：
+
+- phase、active_run_id、current_day、actual_started_at、updated_at；
+- attempted_days、files_completed、failed_days及各日phase/reason；
+- 每日checkpoint引用及交付指纹，当前来源页/offset和请求消耗；
+- 文件完成量/总量；检查进度由各自节点日志和原生检查事件记录，不把心跳或文件提交量当成检查完成量。
+
+时间只用于可见进度与耗时，不能据其拒绝新日期、分页或续跑。checkpoint通过现有原子JSON写入和fsync持久化；先验证身份再写，不能覆盖不匹配的执行意图。
+
+`budget.json`保留 `window_id, identity, requests, day_requests, in_flight, next_request`，不生成或消费整批deadline。identity绑定同一固定范围、有效policy和执行版本，计数、间隔和未决请求只由当前执行持锁修改。
+
+初始化和崩溃恢复必须固定：取得本次执行锁→校验不存在同身份的旧执行现场→原子写零计数budget→原子写execution→才允许领取源请求。仅budget存在且identity一致、requests=0、无day_requests、in_flight=False时，可完成被中断的初始化；budget已有消耗却无execution，或execution存在却缺失/损坏budget，均停止，不从零重建配额。正常恢复先严格读回两个文件的身份再领取请求；测试覆盖这两个原子写之间退出以及首个请求后退出。
+
+两个check节点在同一run内可能并发，不能以max_concurrent_runs=1推断它们串行。检查节点不共同累加execution.json；各自发出带check_name、day、evaluated_count/total、phase和updated_at的结构化进度日志及原生检查事件，最终按本run的两个check结果汇总。无需新增共享检查计数文件，也避免read-modify-write丢更新。
+
+### 5.2 失败分类
+
+| 类别 | 示例及判断依据 | 后续 |
 | --- | --- | --- |
-| 九日窗口、自然日和冻结时刻 | window、schedule；已有常量7保持 | window/definitions：10月12日字面5..13、UTC跨日、月年/周末、无时区拒绝；九个run_key同tick不变，优先级9..1 |
-| 今天/明天合法，更远及历史入口反例 | date_range/历史dates分开；window_dates核验；execution/capture/request传递窗口 | source/window/contract/history/events回归：D+2及篡改端点拒绝，手工/历史未来仍拒绝 |
-| 未来分区物化与check一致 | 专属partitions end_offset=2；asset及两项check共用 | 固定current_time末分区13且无14；临时Lake按真实九日admission完成前8日，再物化次日，非空/空页均形成同partition的物化及两条通过check事件 |
-| 新tick重新capture并补入；同tick恢复 | window_id/day证据、既有merge/原子替换 | 相邻tick实际18次日请求，重叠日补晚发版本，首轮次日空页下轮补入；第三tick累计27次请求，完全重复不增加目标；缺URL/rec_time保留 |
-| 午夜取消续跑、期限及预算不漂移 | frozen tags/admission/budget/checkpoint | 23:55取消后00:05恢复，原九日列表及deadline不变，已完成日不再次请求；既有真实进程退出、乱序拒绝、预算失败及事件失败隔离回归通过 |
+| 单日源失败 | `announcement_source_timeout`、`announcement_source_call_failed`、`announcement_source_process_exit`在该页三次尝试后仍失败 | 保存该日failed，继续其他日期 |
+| 单日响应/数据错误 | 缺列、类型/日期/分区不符、oversized/repeated page、capture不完整、当日请求上限 | 不提升该日候选；记录具体reason，继续其他日期 |
+| 共享执行/资源错误 | 意图不符、卷/权限/空间失效、总请求预算用尽、writer_busy、目标/候选指纹冲突、执行证据损坏 | 停止本批，保留成功日，列出未尝试日期 |
+| 未预期异常 | 未归入已测试reason集合的异常 | 停止，不默认当成单日源问题 |
+| 主动取消/KeyboardInterrupt | control取消或进程信号 | 不再领取页/日，终止源子进程并保存可恢复状态 |
 
-公告全套及run_contract静态门禁271项通过（现有5条Dagster/Pydantic警告）；scoped Ruff及现有venv、UV_OFFLINE/UV_NO_SYNC下的`dg check defs --use-active-venv`通过。definitions检查使用`/private/tmp/anns-auto-defs-*`的隔离DAGSTER_HOME；没有触发正式job/sensor、正式事件或Lake写入。全部fixture文件位于pytest临时目录，测试源调用为fake，未安装依赖。
+开发时在公告模块集中维护上述reason分类，不复制到job/schedule/页面。现有SDK错误已脱敏，不能从隐藏的异常文本推断认证失败，也不能为分类暴露token或完整SDK响应。
 
-本轮补充的Tushare只读小样本：20261012..13显式六字段limit2返回两条12日公告，ann_date=20261013为空；沿用文档既有提前发布样本证明业务日期语义。它们不是SDK九日全量capture或正式性能验收。源码已完成，正式剩余事项为：确认旧七日窗口均已结束/取消、按批准流程重载code location、保留原08:00和既有实例启用状态，再进行限定九日验收，记录真实页数/请求、源/目标计数与集合差、预算占用、RSS和进度间隔；超350请求或3600秒仍明确失败，不自动提预算。
+批次失败摘要列：固定日期、已尝试日期、文件已提交日期、失败日期及reason、未尝试日期、原执行身份、checkpoint位置和已用请求数。无无限重试、整批自动重跑或成功后再审全局。
 
-> 以下P0–P4章节保留2026-10-04至05的历史实现、测试和授权记录；其中七日/已结束日期及启停状态只对应原时点。九日口径及源码验收以§1–11及§11.1–11.2为准，正式九日运行尚未验收。
+### 5.3 续跑边界
 
-## 12. P0 验收结论与 P1 入口
+- day checkpoint存在validated delivery：先验证完整来源页及候选/目标指纹，再继续promote或恢复promoted。
+- 正式文件等于已保存交付指纹：补齐本次执行记录，复用交付，不再次取源或重写正式文件。
+- capture完整但未build：核来源页SHA，复用完整capture构建候选。
+- capture不完整：用新attempt重新拉该日全部页；旧attempt保留，不把不同观察时刻的offset拼接。
+- 已完成的其他日只做恢复必要的指纹/证据核对，不再次下载；剩余请求仍计入同一budget。
+- 目标文件已被其他批次更新：旧交付不能冒充当前文件，不强行提升旧候选；明确冲突，不擅自新建执行或重置计数。
+- 事件阶段失败：文件不回滚；显式恢复本次执行时按稳定物理证据再次形成本次物化并运行checks，不承诺完全不新增观测事件。
 
-2026-10-04：[报告](../../reports/anns_d_dg_p0_20261004.md)、[结构化证据](../../reports/anns_d_dg_p0_20261004.json)。P0通过，P1未开始。源合同、范围、六字段镜像、读取计划、执行配置及初始空间/耗时预算已核验；正式写入门禁继续有效。
+取消检查保留在每页前后、每日前后及文件计算观察线程。源子进程仍按cancel_grace释放。没有整批总期限，不等于取消单次源请求超时或人工取消能力。
 
-- 月读取修订为ORDER BY ann_date,id；峰值月有界10,000行EXPLAIN ANALYZE约0.222秒，服务端游标MOVE约0.236秒。MOVE不包含网络传输/客户端反序列化，不代替全月计时。
-- 年度700条服务器内字段检查：缺键0、错误类型0、额外键0；单批10,000条临时Parquet读回集合差0。抽样不证明全表，因此P1每批仍验证源JSON键/类型。
-- SDK空日0行但六字段齐全；尾页257行；已知两条记录url分别NaN/字符串，rec_time均None。SDK socket timeout=30秒已查现有代码，但可终止进程及取消5秒上限必须在P1测试，不写为已实现。
-- DuckDB专用2GB/2线程/20GB spill配置可用于隔离连接，不改共享16GB默认；本机未安装pyarrow，P1优先使用现有DuckDB按批JSON/CSV列式读写，不安装依赖。
-- 根环境所需秘密配置均存在（只核验布尔值）；正式instance并发1、路径同文件系统、剩余空间约2.67TiB。资源连通性已通过SSH和SDK核验，未实连ProdPostgresResource；P1须检验其只读属性/隔离级别，不能把SSH成功等同resource验收。
-- P3执行规划15–60分钟、保守空间35GiB；样本不足以证明全月峰值RSS或全量时限，P3先样本校准。原计划81源月/2,465日不变，预算耗尽和类型异常仍fail closed。
+### 5.4 跨日与并发
 
-## 13. P1 实现与计划对账（2026-10-04）
+计划26日的范围始终19..27，即使27日00:10开始也不变。27日的新计划有独立身份与20..28范围，不自动合并或重写旧执行。
 
-[验收报告](../../reports/anns_d_dg_p1_20261004.md)、[结构化证据](../../reports/anns_d_dg_p1_20261004.json)。P1 核心完成，P2 接线未开始。§12保留P0时点的历史结论，以本节作为最新状态。
+本机当前全局max_concurrent_runs=1，本轮不改；同一job文件循环不会与另一个DG run并行。保留公告源执行锁及每日提升锁；锁冲突明确失败，不伪称已有等待重试能力。CLI/历史工具也必须遵守现有写入保护，人工恢复前核查无同范围并行写者。
 
-| 硬口径 | 当前实现、测试与证据 |
-|---|---|
-| R01/R02 六字段与源值 | anns_d_contract / anns_d_io；固定六 VARCHAR，SDK 缺失值还原 NULL；类型、空白、空字符串、额外列反例测试。真实 SDK 空日六列、两条缺值样本通过 |
-| R03 完全重复 | 显式六列 DISTINCT；NULL 与空字符串分别保留，URL/rec_time 不同版本保留；io 测试包含 155162.SH 样本及幂等重放 |
-| R04/R06 自然日及异常 | 专用日期合同、raw_anns_d_path；空日生成六列文件，无股票池过滤；日期/schema/类型错误阻断并留 staging 证据 |
-| R05 Prod 只读、每日直连源 | prod_db/anns_d 月服务端游标及 anns_d_source；测试 SQL/事务顺序、批次上限、闭合计数；真实资源 transaction_read_only=on、10,000 行读取，未写 Prod |
-| R07 有界内存与分页 | fetchmany=10,000；源单页2,000，逐页持久化；月份在专用 DuckDB 内一次物化，按日构建，不重复扫描全部月页；2GB/2线程/20GB spill，预算与超时测试通过 |
-| R08 取消与恢复 | checkpoint / io / execution / bootstrap；锁、指纹、基线比较、原子改名、逐文件恢复；进程退出、阻塞调用取消、页篡改、磁盘不足、writer 冲突测试通过 |
-| R09 七日和衔接补拉 | 核心支持已结束自然日/闭区间及共享窗口预算；七日 planner、首次衔接范围和调度接线待 P2，正式补拉待 P4 |
-| R10 业务提交独立 | emit 失败后文件仍保留，checkpoint 落盘失败可核验文件续跑；正式 Dagster 事件补报接线及验收待 P2/P4 |
-| R11 阶段门禁 | 没有资产/job/schedule/正式 checks 注册，没有正式 Lake 或事件写入；仅 /private/tmp 隔离文件和只读请求 |
-| R12 不新增正式状态事实 | 仅 run-scoped 文件 checkpoint 与窗口预算，不新增数据库、摘要 asset 或 freshness 投影；boundaries 测试核验核心不注册 Dagster 定义、不依赖 Prod Ops |
+## 6. 源读取、文件写入与配置
 
-源 capture 完成才可构建候选。完整源页须有大小/SHA 指纹、行数和结束证据；提升前再次验证。Prod keys_present 同时检查六键齐全和没有额外键。错误行仅保存内部 id、分区日期、六字段及 reason code 到 run-scoped staging，不输出完整 raw_payload，不静默跳过。
+### 6.1 Tushare请求
 
-P1 使用 codegraph query/impact 分析 ProdPostgresResource、TushareResource、DuckDB 连接及路径调用链，并 sync/status 核验索引；新增 raw_anns_d_path 消费者仅公告 Store 和路径测试。没有修改共享资源行为、业务子系统依赖矩阵或下载器消费者。P2 尚须核验 definitions/catalog/checks/schedule 消费者和实际运行 metadata。
+继续 `announcement_request`：
 
-自动化结果：公告及资源测试82项通过（公告新增67项、既有资源15项），受保护 DuckDB launcher 回归27项通过；4条既有 Dagster/Pydantic 弃用警告。两种真实进程退出路径均在隔离目录验证。只读验收不是完整月份吞吐测试，也不证明所有 Tushare 日期的全集覆盖。
+~~~python
+{
+    "ann_date": day_as_YYYYMMDD,
+    "limit": 2000,
+    "offset": actual_rows_already_captured,
+}
+# TushareResource.call("anns_d", params, ANNOUNCEMENT_FIELDS)
+~~~
 
-执行配置由 AnnouncementPolicy 集中管理，持久窗口额度包含失败和重试，重启不退还未决请求；完整月/全量成本仍待正式阶段测量。
+不加ts_code/title过滤，不改为九天一次请求。短页结束，满页继续；零行也必须六字段schema完整。每页保存原始响应、规范化输入和Parquet及SHA，checkpoint完整后推进offset。
 
-## 14. P2 接线执行约束
+每页最多三次尝试，只有已知调用超时/调用失败/子进程退出会重试，重试不推进offset；每次尝试都消耗持久化请求数。开始捕获前及请求结束后保持默认五秒间隔，恢复未决请求也保留间隔，不增加源并发。
 
-本轮沿用用户已批准的 P2 范围：资产 raw_tushare_anns_d，job raw_anns_d_update_job，schedule raw_anns_d_update_schedule；两个 blocking check 分别为 raw_tushare_anns_d_file_contract_check、raw_tushare_anns_d_delivery_reconciliation_check。catalog 登记专属 ann_date_partition_raw_anns_d，自然日从2020-01-01起，六 VARCHAR schema。不得增加股票池、交易日依赖、Silver/Gold 或永久状态表。
+### 6.2 文件提交
 
-七日 schedule 只生成请求，不读写 Lake/instance；共享窗口身份、范围及起始时刻通过内部 run tags 传递，间隔通过资产 config 传递。按日期优先级排队，执行时 admission 核验更早日期已物理提交；乱序或并发领取失败关闭，不先请求源，不假定队列顺序等于执行顺序。窗口超时或前日未完成时明确失败，保留已完成日；运营可续跑同窗口或另建手工窗口。只在 run-scoped staging 保存 admission、预算与日 checkpoint。
+正式路径保留：
 
-仅运营日期范围和间隔开放为手工 CLI 参数；内部窗口/续跑身份不进入面向用户的页面。日补拉 CLI 默认 plan，run 必须显式选择，固定正式根目录，不能透传 SQL/表/根路径。历史文件与 runless 事件入口仍分阶段提供，不用日更新入口替代 bootstrap。
+~~~text
+/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=<day>/part-000.parquet
+~~~
 
-检查只读当日文件、当前 materialization 引用的 run-scoped 证据；不能借用其它分区或正在 materializing 的其它 run。缺证据、目标或源页指纹改变时红灯。正式 check 分区事件在隔离 instance 验证；默认 STOPPED、definitions/catalog/schema、七日跨月年、重复 tick、乱序/取消/预算、合法空日与缺值、观测失败后续跑均需正反测试。
+页、候选、DuckDB spill在本批staging。只读取本日现有文件及本日来源页，显式六列建立relation，用DuckDB合并、审计、COPY；完整候选检查通过后，在同文件系统 `os.replace`、fsync并保存delivery。
 
-性能沿用 P0/P1 预算：每 tick7日/7请求计划、350源请求/60分钟共享上限，checks仅单日文件和对应证据，不重拉源；schedule求值不得扫描任何数据文件。本轮全部执行测试位于临时目录及隔离instance，未获授权的正式 job、文件、事件、调度均不执行。
+`build_day`、`promote_day`中的schema、来源/候选集合、计数、基线及来源页SHA校验保持，不在本轮顺带重写计算算法。失败候选不进正式Lake，已提交其他日期不回滚；不能自动删除stage、生成备份或调用Kopia。
 
-## 15. P2 实现与验收对账（2026-10-04）
+### 6.3 配置审计表
 
-[验收报告](../../reports/anns_d_dg_p2_20261004.md)、[结构化证据](../../reports/anns_d_dg_p2_20261004.json)。P1 已提交 aa08fbd0；本节是最新状态，§12/§13保留各阶段历史结论。
+| 名称 | 值及来源/持久化 | 消费者与本次处理 |
+| --- | --- | --- |
+| ANNOUNCEMENT_CRON/TIMEZONE | 08:00 / Asia/Shanghai，run_contracts代码常量 | schedule和日期归一化；不改钟点、不改实例启停 |
+| ANNOUNCEMENT_REFRESH_DAYS | 7，代码常量 | 过去七天+D+D+1；不能改为9后多取两天 |
+| execution_version | 2，公告执行代码常量，run tags/checkpoint | 区分新的执行意图；不是运营可调参数，不提升字段合同版本 |
+| page_size | 2000，Policy及执行记录 | builder/分页/check，保持 |
+| interval_seconds | 默认5，RawConfig或现有CLI，run config/checkpoint | 唯一既有运营可覆盖调用参数，要求有限且≥0 |
+| max_attempts/call_timeout/cancel_grace | 3 / 30s / 5s，Policy及记录 | 单页尝试、调用进程及取消；保持，不与整批期限混淆 |
+| max_day_requests/max_window_requests | 100 / 350，Policy及budget | 单日/整批源请求次数，含重试与续跑；保持，不宣称源站硬限 |
+| max_window_seconds | 从新执行Policy、校验、序列化、调用方和catalog中移除 | 不写deadline，不检查运行年龄，不用极大值或inf伪装取消 |
+| duckdb_memory/threads/spill_limit | 2GB / 2 / 20GB，Policy | 专用受控连接，spill进本批staging；不改其他资产默认 |
+| min_free_reserve | 5GiB，Policy | 保留现有卷/空间检查，不视为整批总空间估算 |
+| Prod历史控制 | fetch=10000、月200万行、月1800s、SQL60000ms | 保留，仅解除历史证据与日更Policy整体构造的耦合 |
+| token/连接 | 既有resource/env，秘密不进入记录 | 不新增环境变量，不复制秘密；Prod无日更fallback |
+| 根路径 | 正式paths及staging固定路径 | 不从旧config/env/旧Lake兜底 |
 
-| 约束 | 实现与验收 |
-|---|---|
-| Raw-only、稳定schema/metadata | assets/anns_d.py、RAW_ANNS_D_SCHEMA、catalog/name_mapping与lake_assets；asset无上游交易日/股票池依赖；测试核验六VARCHAR、名称、路径、checks及分区模型 |
-| 自然日分区事件 | anns_d_partitions.py；asset和两个check同一DailyPartitionsDefinition；隔离实际 materialize 的返回evaluation、持久化event和materialization均为2023-06-09；零行和缺值版本通过 |
-| 七日08:00、默认停止、同tick去重 | schedules/anns_d.py；集中cron/timezone/refresh defaults；通用run key builder生成anns_d:<tick-date>:<target-date>，显式tags共享窗口；跨月年和重复tick测试通过；schedule只构造请求，不扫描文件或写预算 |
-| 顺序、配额、截止与取消 | anns_d_window.py；执行锁+前日已提交核验，乱序不请求源；保持窗口已完成日；policy/range冻结、截止时间不能重启延长；取消终态、过期、危险窗口标签与非有限时间反例通过 |
-| Checks不借证据、不重拉源 | checks/anns_d_checks.py；文件check独立检查物理合同，交付check读取同日当前materialization指向的checkpoint，核验run归属、源页/目标指纹、行数与结束证据；缺证据、错误身份、其它run、篡改和越界源页红灯 |
-| 业务提交独立、续跑 | asset调用P1核心，物理交付先完成再返回MaterializeResult；同window/day使用稳定run目录，复用已经提交的证据。事件失败不删除文件；P1崩溃/观测失败回归继续通过 |
-| 运营入口默认只读 | anns_d_cli.py；默认plan只输出日期/预算/窗口身份；不读秘密、不连接源、不建Store；run显式执行，固定Lake/staging；asset/check也拒绝共享resource覆盖正式Lake根，访问前阻断并有反例测试；interval有限且非负；plan零写入与危险输入测试通过 |
+代码变更随code location重载生效；重载与正式触发另获执行批准。所有有效非敏感配置、固定范围和执行版本在run摘要可见；删除的参数不能继续作为新运行可传字段。
 
-集中配置来源：AnnouncementRawConfig和CLI间隔默认引用AnnouncementPolicy；cron/timezone/refresh_days在run_contracts/anns_d.py定义。窗口内部tags为window_id/start_date/end_date/started_at，由schedule或CLI构造，不进入Raw；持久化仅windows/<id>/admission.json、budget.json及稳定日run目录的delivery.json，身份包含日期与policy。临时目录是执行证据，不作为freshness事实。
+## 7. 原生按日物化和检查
 
-CLI例子（从orchestrator目录运行，当前仅plan可用于未批准阶段）：
+### 7.1 必须采用的范围适配
 
-```bash
-.venv/bin/python -B -m orchestrator.defs.anns_d_cli plan --start-date 2026-10-01 --end-date 2026-10-03 --interval-seconds 5
-```
+本机Dagster1.13.26核验：范围运行不能读 `context.partition_key`；`AssetCheckResult`无partition参数，直接返回会把range检查写为partition=None。不能仅加single_run policy而保留旧单日函数。
 
-默认省略plan效果相同。显式run会写正式Raw与staging，必须按阶段获得执行授权；需要TUSHARE_TOKEN。--window-id用于恢复同一窗口，日期和间隔不得改变。完成日可重复核验；过期窗口中的未完成日不能靠重启重置预算，须形成新的运营补拉意图。CLI不写Dagster事件，文件完成不代表正式事件已齐；历史CLI和runless补报入口继续在P3/P4完成，未发布伪命令。
+采用第4节的逐日metadata、一次MaterializeResult方案。两个独立 `@asset_check` 的名称、分区及blocking定义保留；不把它们替换成只记整批结果的新check。
 
-124项自动化回归通过，包括P1核心、27项P2测试、既有资源/metadata/ETF catalog。隔离dg check defs通过，dg list defs确认asset/job/schedule/check被自动发现，无需改definitions.py装配。正式instance、Prod、Lake、事件、调度均未变更。源端真值沿用P0/P1只读证据，本轮没有新增真实源请求。
+`evaluate_announcement_check`改成显式接收day和当前run身份的纯核验调用，不在其中从context猜单日日期；返回每日本次检查的passed、metadata和目标物化引用。check-only单日运行继续支持，不能要求每次检查一定重写asset。
 
-CodeGraph query/impact/sync/status与源码核验覆盖共享资源、definition metadata、路径、公告asset/check/window/job/schedule、catalog消费者和现有下载器。新增natural_date_partition不会进入仅支持trade_date的historical_materialization_reconciliation白名单；其余catalog条目及消费者语义未迁移。无子系统依赖矩阵变化，无下载器/前端改动。
+### 7.2 每个检查节点的输出
 
-风险：当前固定Dagster1.13.18的partitioned AssetCheckSpec有PreviewWarning，已通过真实隔离事件测试；升级时须重新验收。队列乱序不会越过前日，但会明确失败，运营须按窗口续跑；七天之外迟到仍需显式补拉。正式全月性能、运行—取消—续跑读回、事件补报和启用验收留待P3/P4。
+每个检查节点：
 
-## 16. P3 历史入口开发约束
+1. 取并校验 `context.partition_keys`，对每个day执行原schema或交付规则。
+2. 查该day的目标物化；选中asset共同执行时必须是当前run；只跑check时按既有规则取该day最新物化。
+3. 原生发出 `AssetCheckEvaluation`，显式设置asset_key、check_name、partition=day、passed、severity=ERROR、blocking=True、metadata及 `target_materialization_data`。
+4. 单日核验返回未通过且节点可继续时，仍对其余day产生结果；最后发出该check节点所需的一次 `dg.Output(None)`，让框架完成节点输出并按blocking失败决定run终态。取消、公共故障或未处理异常不属于这一继续承诺，必须按第5节停止并报告未核验日期。
 
-沿用已批准的2020-01-01..2026-09-30范围，历史执行按完整自然月选择子范围，不改变公告字段或日更新入口。新增bootstrap/anns_d_history_plan.py、anns_d_history_execution.py、anns_d_history_audit.py和anns_d_history_cli.py；复用现有六字段source、Store、checkpoint，不引入长期状态实体。
+`AssetCheckEvaluation`使用本机已验证的 `dagster._core.definitions.asset_checks.asset_check_evaluation` 类型，事件由正在执行的check step yield进入正常引擎；不调用instance.report_runless_asset_event，不直写event表。内部API的使用仅封装在本数据集checks模块，并由固定版本隔离事件测试保护，不能扩散成通用事件框架。
 
-plan仅用Prod只读日期/id/行数聚合和本地卷/目标指纹读取，报告写/private/tmp；不创建正式Lake/staging目录。计划冻结范围、每月上界id、逐日源行数、目标基线、policy、合同版本、成本及SHA身份。CLI只接受受控日期、计划身份、月份、阶段和报告路径，不透传SQL、表名或Lake根；capture/build/promote明确要求计划SHA。
+仅yield逐日Evaluation而不发节点Output会造成缺result输出失败；仅yield一个AssetCheckResult会丢分区归属。两者均需反向回归测试。两个检查节点互不依赖，不因其中一个day失败而主动跳过另一个check。
 
-数据阶段分开执行：capture按月快照及10,000条批次保存六字段；同快照行数必须等于计划。build逐日记录候选，取消后不丢已完成候选引用；audit用月级DuckDB集合差、物理schema/footer和路径日期校验，禁止只比较行数；promote只接纳同计划的绿色audit并复核指纹，逐日原子提交。已经提交日可续跑核验，目标冲突不覆盖、不备份、不删除。最终formal audit按月扫描正式文件，不对2,465日逐日打开大表查询。
+### 7.3 两项原有规则
 
-预算沿用P0：81月、2,465自然日，约1,206万行；每月最多200万行、1800秒、SQL60秒、DuckDB2GB/2线程/20GB spill。计划空间门禁为至少35GiB且同文件系统，成本估算保留误差，不当作实测吞吐；执行按月记录实际耗时和行数。事件期望为2,465 materialization及4,930 check，但P3不写事件或启动调度。新增35GiB门禁为bootstrap固定预算，不增加env或运营可调参数；消费者仅历史plan/执行卷检查，随进程启动生效，并有磁盘不足反例。
+文件check：普通正式文件、安全路径、六列顺序/类型、日期与目录一致、全字段重复组为零；合法空日及缺URL/rec_time等不误拦。
 
-隔离正反验收覆盖：默认plan不创建Lake/staging、计划篡改/越界/超预算、源数量变更、取消capture重启、候选逐日续跑、目标/页/候选变化、无绿色audit不能promote、中途提交后续跑幂等、月级集合差及最终formal audit。实际只读计划先落地，再列样本/全量的完整命令、卷路径、执行范围、取消与恢复方法；正式文件与事件批准分开记录。
+交付check：目标checkpoint属于本日、本次交付；完整capture/末页证据；来源页与目标SHA未变；计数/集合对账及保存的readback一致；核验期间最新物化及文件保持稳定。不会重新请求Tushare或Prod。
 
-## 17. P3 开发与计划对账（2026-10-04）
+目标引用必须是 `AssetCheckEvaluationTargetMaterializationData(run_id=..., timestamp=..., storage_id=...)` 对应本日物化，不能用整批最后一天的引用。读取现有events要有asset+day过滤和limit；正常收尾只汇总本run 9/18条事件，不增加全历史readiness循环。
 
-[验收和正式样本完整命令](../../reports/anns_d_dg_p3_20261004.md)、[结构化证据](../../reports/anns_d_dg_p3_20261004.json)。P3开发与只读计划完成，正式样本/全量尚未执行；本节是最新状态，§12–§15保留历史记录。
+沿用现有有界查询时，文件check增加每日本次物化查询一次，交付check保留每日前后各一次：九日最多27次`limit=1`元数据查询，均核对asset/day及目标run；不是扫描事件历史。不得为了收尾再重复九日readiness深查。后续若复用同一批已查结果，仍须保留交付检查的物化稳定性验证，不能只为减少次数删规则。
 
-| 硬口径 | 代码与验证 |
-|---|---|
-| 默认plan、正式卷先验、固定范围/根 | history_cli/plan及prod_db.inventory；日期/count/id只读聚合，未创建Lake/staging；启动卷失败不打开Prod、越界/部分月/目标篡改反例 |
-| 冻结逐日源量、上界id、基线、policy、SHA | history_plan；snapshot源计数不同阻断，报告不可覆盖；真实81月预检冻结12,064,049行/2,465日 |
-| 单批1万、月200万/1800秒/SQL60秒 | P1源复用与HistoryControl；预算/超时正反测试；35GiB同卷门禁；每阶段实际耗时存checkpoint，完整月峰值资源待正式样本 |
-| 六字段/完全重复/NULL | history_capture及Store；六VARCHAR、DISTINCT和源值不变；隔离测试重复3行变2行，NULL URL与有URL均保留，空日生成空文件 |
-| 每日候选/提交可恢复 | build逐日checkpoint，promote独立child交付checkpoint；取消保留2日候选及2正式文件并恢复，重放指纹不变；child身份包含day/policy供P2check读取 |
-| 审计不只比行数 | history_audit月级批量集合双向差、footer、文件名日期、前后指纹；同量错误内容及交换日期文件反例阻断 |
-| 无绿色审计不可提升/不覆盖冲突 | history_execution冻结audit计划身份及文件SHA，提升前复核；无证明/目标冲突反例；原子提升复用P1 |
-| 文件与事件隔离 | 边界测试覆盖全部历史模块，CLI无events；未访问正式instance或写Prod/事件/调度；正式样本与全量批准仍分开 |
+### 7.4 已完成的框架核验及证据边界
 
-156项回归及scoped Ruff/全目录致命检查通过；4条既有Pydantic及1条分区check预览警告。CodeGraph query/impact/sync/status核验入口、源、历史build及消费者，只有公告历史helper/CLI增加调用，不改变依赖矩阵、下载器或前端。正式全月吞吐、峰值RSS、运行—取消—续跑真实读回尚未验收，不能把隔离测试替代正式阶段。
+本轮只在隔离内存环境核验Dagster1.13.26接口，未导入正式项目defs或连接正式instance、DB、Lake：
 
-## 18. P3 正式样本事实（2026-10-04）
+- 单次schedule evaluate_tick返回一个范围RunRequest，partition_key=None、范围19..27、显式config保留；解析结果无需backfill daemon。
+- 阅读调度提交源码确认没有强制单日partition_key；单日tag不能与range tags并存。
+- 固定九日的单run产生恰好9条物化及18项检查，各日metadata和target_run_id正确。
+- 证明无Output的检查节点会失败，普通AssetCheckResult在range下分区为空。
+- 一个日期的交付检查返回未通过时，仍生成两个check各九条结果，兄弟检查未跳过，run最终失败；仅证明可继续的规则失败，不包括异常退出。
+- check-only单日通过既有单日tag/选择路径得到两项检查、零新物化，目标绑定原物化；不新增检查专属job。独立仅checks job不能直接假设`execute_in_process(partition_key=...)`会从check specs推导分区，隔离测试必须使用真实可解析的入口。
+- 已独立读取隔离instance的检查执行历史：两个check各九条持久记录，`record.partition`与evaluation.partition均为19..27且无None，run_id和target storage_id逐日正确。失败样本同样保留十八条记录，其中一个FAILED，其余SUCCEEDED。该证明只涉及临时实例，不是正式PostgreSQL或业务验收。
 
-[完整验收、性能及全量待批准命令](../../reports/anns_d_dg_p3_sample_20261004.md)、[结构化证据](../../reports/anns_d_dg_p3_sample_20261004.json)。用户批准此前列明的2023-06样本；本节是最新执行状态，§17为开发/预检时点。
+这些只证明框架路径可行，不证明本次公告业务代码、真实daemon/RPC提交或正式补数已经通过。未来开发必须将此路径固化到项目测试，不能只引用会话中的临时验证结果。
 
-六字段source/readback集合一致：147,952→147,952行，完全重复0、reject0、集合差0，30日期文件/1空日；URL缺值3、rec_time缺值66,669保留。capture22.571秒，恢复build1.367秒，候选audit0.904秒，恢复promote1.324秒，重放1.014秒，最终formal audit0.870秒；最大采样进程RSS414,433,280字节。每次测量日志和真实命令保留/private/tmp，时间是实测而非估算。
+## 8. 历史证据读取及切换
 
-两次SIGINT分别证明build候选2日和promote正式文件2日持久化；相同计划续跑后既有SHA一致，重放后30个SHA一致、零新增；30日child checkpoint均promoted。正式月audit再验证全部文件，未重新请求源或报事件。既有缺值原始版本逐条读回一致。
+### 8.1 删除参数的实际影响
 
-本轮没有主代码、配置、API或依赖矩阵变更，没有Prod/instance事件/调度写入。只执行正式样本，剩余80月/2,435文件/11,916,097源行需按阶段批准；P3尚未全量完成。采样月吞吐不能证明最大月峰值，硬内存/时间/空间门禁继续适用；最终Dagster readiness在P4事件及日常验收完成后确认。
+现有window/day checkpoint的identity保存 `asdict(policy)`；checks及history/event-files直接 `AnnouncementPolicy(**stored_policy)`。旧成功物化中包含被删除的配置，若只删新类字段，会使历史检查抛TypeError并变红。旧冻结历史计划也有同样问题。
 
-## 19. P3 全量事实与退出（2026-10-04）
+必须在同次开发统一调整所有证据消费者：
 
-[全量报告/实测性能](../../reports/anns_d_dg_p3_full_20261004.md)、[聚合证据](../../reports/anns_d_dg_p3_full_20261004.json)、[冻结计划](../../reports/anns_d_dg_p3_frozen_plan_20261004.json)、[正式审计](../../reports/anns_d_dg_p3_formal_audit_20261004.json)。用户明确授权全量五阶段命令，本节是最新状态，§17/§18保留开发/样本时点。
+- `checks/anns_d_checks.py`
+- `bootstrap/anns_d_event_files.py`
+- `bootstrap/anns_d_history_plan.py`
+- `bootstrap/anns_d_history_execution.py`
+- `bootstrap/anns_d_history_cli.py`
+- 这些模块直接调用的校验、store和checkpoint构造路径
 
-六字段业务数据source/readback均12,064,049行，81月/2,465日/83空日，重复0、拒绝0、双向集合差0。URL缺值15、rec_time缺值4,039,070均保留；全部目标集合/schema/日期分区/指纹通过formal audit，原六月30文件SHA不变。81个捕获checkpoint及2,465日交付checkpoint promoted，源1,249 shards/258,488,034字节，正式200,709,132字节。
+开发前以符号引用审计清零“把整份历史policy当成当前执行参数”的残留，不只修新job。
 
-五阶段合计2,049.396秒（约34.2分钟），最大观测RSS1,841,954,816字节，峰值月543,563行capture81.189秒，结束剩余空间约2.66TiB；预算/超时/空间拒绝未触发。RSS采样不证明绝对峰值，也不是DuckDB内部用量。本轮没有Python/配置/入口/依赖矩阵变更，没有Prod写入、Tushare/PDF请求、Dagster事件或启用动作。开发156项回归和样本取消/续跑/重放证明保持有效，此次以全部月正式集合读回完成文件验收。
+### 8.2 统一读法
 
-P3退出条件全部达成。P4衔接补拉、独立runless事件、正式日更新恢复/事件失败补报及调度启用尚未执行，不能把物理完成记为Dagster readiness已通过。文件授权不扩大至事件或schedule；后续依照原阶段精确范围审批。
+历史policy是那次执行的原始记录，不是今天运行参数。证据读取保持一套流程：
 
-## 20. P4 开发约束（2026-10-05）
+1. 原identity字典完整读取，与原checkpoint严格匹配；原文件SHA、计划fingerprint、日期及路径不变。
+2. 文件核验只显式提取真正需要的page_size、DuckDB配置及文件/交付字段，构造专用只读核验输入；不把整个policy作为kwargs实例化当前执行Policy。
+3. bootstrap冻结计划同样只读取月捕获实际需要的fetch/行数/SQL/月份配置，仍验证原始计划fingerprint及范围，不重新封存旧计划。
+4. 所需字段缺失、类型非法、日期/路径/identity/SHA错误仍拒绝；不能因不再使用旧执行时间字段就放宽文件合同。
+5. 新执行配置严格只允许当前有效字段；移除参数不接受为运行输入。六字段合同及原checkpoint合同版本不提升、不批量改旧物化metadata。
+6. 全部新旧证据走统一的按用途读取，不维护按旧设计执行的分支、旧executor或长期兼容入口。
 
-P4先开发独立事件plan/materializations/checks/audit入口，随后按明确命令分别批准正式事件样本、全量、衔接补拉、日任务恢复和调度启用。日asset/job和STOPPED定义不改合同，不下载PDF、不写Prod，不增加永久状态表或动态分区。源请求/间隔保持P2。
+实现落点固定在`anns_d_contract.py`的证据解析helper及既有消费者：`announcement_file_settings_from_evidence(identity)`显式读取`page_size、duckdb_memory、duckdb_threads、spill_limit、min_free_reserve`，验证类型与正值，返回只用于文件核验的结构；不能接受或启动源请求。历史计划的`announcement_history_settings_from_plan(plan)`显式读取`prod_fetch_rows、max_month_rows、month_deadline、sql_timeout_ms`及同一文件计算配置。调用方保留完整原identity做严格匹配，不把提取结果写回原记录。来源字段、日期、路径、SHA和fingerprint验证仍使用原有规则；已经完成的交付不会仅因原执行的总期限已过而失效。
 
-事件文件事实：历史复用P3冻结计划及formal audit，重新按月完整集合审计；日补拉最多7个delivery.json复用P2交付验证。固定正式Lake/staging及DAGSTER_HOME，只打开已有本机PostgreSQL stores，should_autocreate_tables=False，默认连接transaction_read_only=on，SQL10秒。禁止默认instance发现、初始化、DDL、任意表/SQL/根路径。实例身份冻结配置SHA、主机/端口/库/用户及artifact根（不保存秘密）。
+历史计划若用于真正执行，仍必须校验并使用其冻结的月份、上界id、范围、源/目标路径及上述全部历史执行配置；缺字段、非法值、超原有界限均拒绝，不能以“仅为历史记录”为由跳过执行检查，或用当前默认值替代冻结值。移除的是日常整批总期限，原Prod月/SQL控制继续保护历史执行。
 
-成本：历史最多2,465文件/7,395事件，日补拉最多7文件/21事件；每自然月≤31日期，批量读最新物化、check partition info和对应storage IDs，整次最多30,000返回记录（含info+body），不逐日深扫event history。每月物理扫描只做一轮集合审计，源/目标文件SHA前后固定；存储查询SQL10秒，每月apply最多93事件、1800秒，超预算阻断。原P3完整formal audit18秒/RSS1.72GiB是文件校验测量依据，事件读写性能须真实只读计划/获批样本校准，不能预先声明全量通过。
+已结束的历史文件和观测保持可核验；旧未完成window不自动纳入新job续跑。新执行身份不得借旧完成标记跳过来源观察，也不得覆盖旧执行现场。
 
-计算只读边界：不使用Store构造及staging spill；复用只读schema/audit方法，DuckDB临时计算仅在/private/tmp，固定2GB/2线程/20GBspill和25GiB空闲门禁。
+### 8.3 正式切换
 
-配置审计：以上25GiB/31日/30,000记录/1800秒/SQL10秒为公告事件模块固定安全预算，不新增env或Settings参数；消费者为state reader、planner、apply和instance opener，随进程启动生效；测试涵盖超预算、分页不推进和不初始化stores。入口仅运营阶段、计划SHA、已有manifest/审计引用、月份及/private/tmp报告；不增加用户页面输入。
+本轮不实施。未来顺序为：隔离测试通过→列清批准的重载范围及旧活动任务→停止本公告旧入口领取新任务并让活动任务正常结束或按批准取消→重载→确认只有一个正式公告job/schedule定义→恢复原实例持久启停状态→另获准运行一次新九日job。
 
-plan冻结日文件、child checkpoint及source页/完整审计证据、当前事件storage IDs和instance身份。物化metadata复用P2 announcement_identity/checkpoint，补文件SHA和合同/schema；check显式partition、blocking ERROR、checked_row_count以及target_materialization_data指向正确storage ID/run/timestamp。日文件改变/证据缺失、旧红灯、错误关联或外部事件变化均阻断。相同文件身份重复报告跳过，不仅按行数或绿灯判断。
+不同时保留两套自动schedule，不启停其他数据集，不提升全局并发，不擅自重启整机服务。旧失败run不改成成功，旧checkpoint/staging不自动删除。核验新run的执行版本、范围、1/9/18数量及物理结果后汇报。
 
-物化和checks分两阶段，月内先批量读当前状态，提交事件后批量读回。每事件前后取消检查，每事件checkpoint写失败不回滚已提交事件；重启靠实际事件身份继续，不能靠checkpoint猜已完成。完整月读回通过后形成月checkpoint，检查提交不覆盖业务文件。文件SHA在单事件前复核、源及交付证据在每月开始重验；事件变更用冻结ID/自身计划token比较并最终复核，禁止借其它分区check。只追加正确事实，不删除事件。
+08:00到实际创建任务之间的延迟原因仍是独立审计事项：现有记录只能排除该批run排队数小时，不能断定停机或休眠；更不能宣称单job改造已解决后台准点运行。
 
-隔离正反测试必须覆盖正确日期/target绑定、空日/缺值、partial取消和进程退出、写后报错/读回/观测失败续跑、幂等、文件/源/identity/实例变化、外部事件竞争、旧failed check阻断、超预算与分页停滞、默认只读无初始化。正式只读计划可执行；完成样本完整命令/范围/数量后再审批执行，不把开发授权当成正式event或schedule写入授权。
+## 9. 测试、夹具和开发步骤
 
+使用本工程已有.venv；无安装/升级、隐式uv同步。测试资源只用临时目录与隔离instance，禁止正式DAGSTER_HOME、正式Lake或token。夹具依据 `ANNOUNCEMENT_FIELDS`、现有source/Prod生产者及既有真实缺值样本；expected用独立字面日期/数据，不由待测函数生成。
 
-## 21. P4 开发与只读预检（2026-10-05）
+| 测试组/拟落点 | 正向与反向验收 |
+| --- | --- |
+| `test_anns_d_window.py`、`test_anns_d_definitions.py` | 08:00 schedule只返回1请求，固定19..27；跨月/年、北京时间跨日；重复tick同key；tag冲突、D+2、错范围/版本拒绝 |
+| 同上 | 计划08点实际15:35、运行超过一小时、隔日恢复均可继续；新执行无deadline检查；日期不随时钟漂移 |
+| `test_anns_d_execution.py`及window测试 | 中间日失败后后续日期确实被调用；最终失败摘要准确；共享故障/未知异常立即停并标未尝试，不吞错 |
+| `test_anns_d_source.py` | 满页/短页/空页schema、offset、三次尝试、单次30秒与取消进程；请求间隔与100/350计数不重置 |
+| `test_anns_d_io.py`、execution测试 | 完全重复及NULL/空白/不同版本；budget/execution初始化中间退出、已消耗预算缺证据拒绝；候选失败、提交后崩溃、目标变化、已提交复用、不完整capture重拉 |
+| definitions/checks隔离测试 | 单run9条物化、18项检查、各日metadata、partition及target绑定；同时读取隔离instance的`asset_check_executions`记录，两个check各九个非空且正确的partition；重复MR/空分区Result/无Output错误路径；单日规则返回未通过时其余结果仍完整，异常/取消不伪造已检查 |
+| 同上 | 第4日失败但第5..9日实际尝试；成功文件保留、范围asset无假物化；同意图恢复只拉失败日后形成9/18结果 |
+| checks-only隔离测试 | 单日检查不触源、不重写文件；历史成功证据仍可读；缺物化、错run/day/path/SHA/必要配置缺失不假绿 |
+| bootstrap相关测试 | 原生产者生成的旧冻结计划/交付及新证据均按同一读法验证，fingerprint原样；删除参数不能作为新运行输入 |
+| catalog/static gates | 资产/检查身份、schema、路径、end_offset保持；公告performance policy无总期限；无旧九请求、前日成功门禁、runless正式日更或共享resource行为变化 |
 
-[实现对账、预检和正式样本完整命令](../../reports/anns_d_dg_p4_20261005.md)、[聚合证据](../../reports/anns_d_dg_p4_20261005.json)、[冻结事件计划](../../reports/anns_d_dg_p4_frozen_event_plan_20261005.json)。本节为最新状态，P4尚未全部退出。
+测试实施按项目现有实际文件继续组织，新增测试只覆盖本次必要边界，不为低风险文档变化另造测试框架。开发前确认各测试路径与授权边界。
 
-独立anns_d_events_cli默认plan，物化/checks/audit分离；history引用既有P3报告重新完整集合审计，daily最多7个已promoted凭据。物理读取不创建Lake/staging，固定PG存储不初始化且plan/audit强制只读；冻结源/目标/交付/父捕获/实例/事件身份。每月批读事件并读回，正确日期与target_materialization_data绑定，逐事件checkpoint、SIGINT/SIGTERM取消、实际事件身份续跑；旧红灯和外部变化阻断，业务文件不参与事件事务。
+推荐开发顺序：
 
-正式只读预检重新核验81月/2,465文件/12,064,049行；现有公告事件0，待补2,465物化+4,930检查。166项自动化通过（P4新增25项），完整30日隔离物理文件到90事件读回通过；取消/退出/丢响应/观测失败恢复和幂等、反例均通过，scoped Ruff通过。CodeGraph query/impact/sync/status和源码核验覆盖交付/check/CLI消费者，不改变依赖矩阵或原入口。
+1. 统一证据读取、移除总期限配置与全部消费者，先防止历史检查失效。
+2. 实现范围身份、单请求schedule及window逐日执行，覆盖失败、取消及续跑。
+3. asset与两个checks范围适配、catalog对账和run key文档同步。
+4. 全部定向单元/隔离集成通过，再做计划逐条对账；本阶段不触正式资源。
+5. 汇报变更与测试后，再按批准范围重载和正式运行；不用本轮文档批准替代执行批准。
 
-尚未正式写事件、请求Tushare、补衔接区间、执行正式日任务恢复或启用schedule；2023-06样本30物化/60check的命令、取消续跑/重放及授权范围已具体落档，必须获样本执行批准。全量及后续步骤各自保留阶段审批，不以开发/只读验收替代正式readiness和写入性能证据。
+## 10. 性能、读写与恢复预算
 
+### 10.1 正常一批
 
-## 22. P4 正式事件样本验收（2026-10-05）
+自动模式N=9。对第i日设来源行数n_i、更新前正式Parquet大小F_i、完整来源页Parquet总大小S_i、候选大小C_i；源JSON总字节、checkpoint及spill另计。
 
-[实测、读回及全量待批准命令](../../reports/anns_d_dg_p4_sample_20261005.md)、[结构化证据](../../reports/anns_d_dg_p4_sample_20261005.json)。用户授权2023-06的30物化/60check和取消续跑重放，本节为最新执行事实，§21保留开发时点。
+- 基础页数 `p_i=floor(n_i/2000)+1`，空日一页，满页后继续取结束页。
+- 实际请求数Q含失败尝试，单日≤100、整批≤350；未完成不得因达到上限当作完整日。
+- 正常最多9次同文件系统替换；Parquet写入 `W=Σ(S_i+C_i)`。rename不再完整复制C_i，也不备份旧F_i。
+- SDK调用响应、原始offset JSON及规范化输入JSON均写staging，大小不能从压缩Parquet反推；按实际字节累计。
+- Python只持一页2000行及九份小型结果；DuckDB专用连接2GB/2线程/20GB spill，文件计算仍列式。
+- 不承诺实际磁盘I/O等于文件大小；按SQL relation引用加完整SHA保守计，正常Parquet输入预算如下。
 
-样本30日/147,952行/1空日，正式30物化+60正确日期且绑定同日mat的绿色检查读回通过；SIGINT取消分别0.238/0.227秒，实际各保留3提交事件；续跑新增27物化/57checks。两阶段重放均新增0。最终audit和首/尾/缺值/空日readiness通过，全范围只读复核全部81月文件/交付/父捕获证据不变。无业务文件/Prod写入，无Tushare/PDF请求及启用；本轮无源码/配置/依赖变化。
+| 现有阶段 | 保守读取量 |
+| --- | --- |
+| build_day | 9F_i + 6S_i + 5C_i |
+| promote_day | F_i + S_i + 3C_i |
+| 文件check | 4C_i |
+| 交付check | 7C_i + S_i |
+| capture完成后的源页SHA | S_i |
+| 一批合计 | R=Σ(10F_i + 9S_i + 19C_i) |
 
-剩余80月需新增2,435物化+4,870检查，共7,305事件。报告已列原计划三条完整全量命令、估算5–15分钟（非实测承诺）、取消续跑及精确写范围；尚未获全量执行批准，因此未执行。衔接补拉、正式日任务恢复及schedule各自待具体阶段批准，P4仍未全部退出。
+这是按每次SQL引用完整输入估计的逻辑读入量，不是OS实测I/O封顶；列裁剪/缓存可能减少，footer、JSON、绑定及spill另计。原因是merged为VIEW，count、audit、COPY和双向EXCEPT会再次引用输入，不能写“旧文件只读一次”。
 
+本次保留原检查语义，不新增一遍完整源抓取或全局审计。实现时显式记录各阶段输入文件/字节、SQL/请求数和输出字节；正常9/18结果完成后只做本run收尾。
 
-## 23. P4 全量历史事件事实（2026-10-05）
+### 10.2 中断、恢复和空间
 
-[全量报告、实测及下一阶段具体流程](../../reports/anns_d_dg_p4_full_20261005.md)、[结构化证据](../../reports/anns_d_dg_p4_full_20261005.json)。用户明确授权样本报告三条全量命令，本节为最新事实，§21/§22保留开发/样本时点。
+| 恢复位置 | 必要工作及开销 |
+| --- | --- |
+| 已完成其他日 | 仅必要文件指纹/身份核对；不再请求，不因一个日失败重做九日审计 |
+| capture不完整 | 新attempt重拉该日；已消耗请求不退还，旧页/JSON保留，所以预算同时含旧attempt与新attempt |
+| capture完整、未形成delivery | 复核来源页SHA后构建候选；仅该日新增候选写入C_i，无源下载 |
+| delivery已validated、未promote | promote及两检查，保守约F_i+2S_i+14C_i读取，rename不增加完整候选写入 |
+| 目标已是已交付SHA | 恢复分支及两检查，保守约2S_i+12C_i读取，不重写正式文件 |
+| 事件/检查失败 | 只恢复已有文件证据及重新需要的事件/检查，不新抓来源；事件可有恢复重放记录，不能承诺数据库零新增 |
 
-本輪新增2,435物化+4,870check，六月已完成样本跳过；总2,465物化/4,930check、81月/2,465日/12,064,049行，最终audit和新只读缺口plan通过，缺物化0/缺check0。全部文件/源页/日交付/父捕获证据与原冻结计划不变，81事件月checkpoint checks_verified；5个代表日期readiness通过。月批查询audit返回24,650记录，低于30,000门禁，不逐日深历史扫描。三阶段观测94.693/183.384/47.390秒，累计约5.4分钟，计量口径见报告，未测RSS。
+上述只对相应日生效；不能把每个恢复公式再对已完成九天各执行一遍。真实恢复位置与文件状态决定采用哪一项，不能默认自动重跑一次整批。
 
-无业务文件/Prod写入，无Tushare/PDF请求、日job执行或启用；无源码/配置/入口/依赖改动。历史文件+事件退出，P4整体尚未退出。下一阶段只读plan已明确2026-10-01..04四日、5秒间隔、稳定窗口及原请求/时间/内存预算；四日文件和至多12事件的具体命令、取消恢复、绿色交付门禁及拒绝策略已列明，尚未获该阶段执行授权。正式日任务与schedule继续分别审批，不扩大全量历史事件授权。
+额外空间包括来源Parquet、三类JSON、待提升候选、checkpoint、失败attempt及DuckDB spill；正式数据增长为各日新C_i替换旧F_i后的差额。现有5GiB空闲保留是空间检查，不是总开销估算。正式执行前仅对目标日stat和已有执行记录估算这些量，不读取全历史；不能因文档有20GB spill配置就预先生成或扫描20GB文件。
 
-## 24. P4 衔接补拉验收（2026-10-05）
+### 10.3 测量与收尾
 
-[衔接报告](../../reports/anns_d_dg_p4_bridge_20261005.md)、[结构化证据](../../reports/anns_d_dg_p4_bridge_20261005.json)。用户授权四日文件和至多12事件流程。本节为最新事实；前文待批准描述保留原时点。
+最近30天原方式已有10个成功九日批次，耗时约139—166秒；只说明当时规模，不能作为新job必须在固定时间内结束的门槛。取消的是整批期限，不取消观测及单次请求控制。
 
-2026-10-01..04源/写入/读回724行，四日分别724/0/0/0，真实请求4、间隔5秒、重复0/reject0/六字段集合差0。三个空日有真实源返回。首日提交后SIGINT保留文件，恢复修复尚未落盘的窗口完成状态且不再请求首日；完成重放新增请求0、四文件SHA不变、原窗口预算与deadline未重置。取消到退出0.096秒；首次/恢复/重放6.649/18.236/0.460秒。
+隔离验证记录实际文件数、行数、请求与SQL次数、峰值RSS、临时文件和恢复增量；不做额外正式性能压测。本次自动目标固定九日，日常收尾为本run的9条物化、18项检查及九日文件统计；不反复审全历史。未知来源规模不预填“全部通过”，请求/空间等非时间限制触发时准确报告失败。
 
-新增4物化+8正确日期及target绑定的绿色检查；audit和四日期readiness通过，物化/check重放均新增0。结合既有历史验收合计2,469日期文件/12,064,773行/86空日及2,469物化/4,938检查；本轮没有重审全历史。此前实现提交7cd72297，166项回归通过；此次仅文档与证据变化，不改配置/API/依赖矩阵，不写Prod或下载PDF。
+## 11. 授权、部署与交付
 
-衔接阶段已完成，P4整体仍未退出。正式日job取消恢复及schedule启用未执行；仍按后续具体阶段验收和批准推进，不能把独立CLI/事件验收替代正式日任务证据。
+本轮只允许文档细化和已完成的隔离框架能力核验；没有改生产代码、安装依赖、访问正式源、触发job、重载或改正式实例。后续开发按本LLD的硬约束—代码—测试逐条对账，不能只以测试总数作验收。
 
-## 25. 公告调度启用与 DG 停机交付（2026-10-05）
+正式执行前说明命令、DAGSTER_HOME、目标九日、读写及恢复开销、当前执行记录和重载影响；历史全局读取/初始化批准不覆盖新任务。真实源验证仅补仍缺的有界证据，不用每个测试重读正式数据。
 
-[启用及停机报告](../../reports/anns_d_dg_p4_enablement_20261005.md)、[独立读回证据](../../reports/anns_d_dg_p4_enablement_20261005.json)。用户明确授权启用并停止DG，后续手工启动。正式实例公告raw_anns_d_update_schedule已持久化RUNNING，每天08:00 Asia/Shanghai更新最近七个已结束自然日，其余105条instigator状态保持不变。代码默认STOPPED不改，已有实例显式状态生效；禁止自动建表，未执行任务或写Lake/Prod。
+交付至少列清：改动模块、一个schedule请求、单run固定九日、无整批期限、文件/物化/check数量、每项失败和未完成日期、恢复依据、旧证据可读结果、实际读写与临时空间、未执行事项。代码开发、正式写入与08:00迟到根因分别说明，不混为已完成。
 
-操作前后DG webserver/daemon/code location均未运行，无需发送停止信号；独立其它月线bootstrap CLI保留。后续用户手工启动同一DAGSTER_HOME及daemon后调度生效，停机超过七日须显式补齐缺口。本轮无源码/配置/API/依赖变更，完成用户指定启用与停机交付；正式日job运行/取消恢复真实验收尚未执行，P4完整验收不标为全部通过。
+## 12. 历史报告与引用保留
+
+本节只保留追溯链接，旧执行设计不再作为当前方案。对应[方案历史索引](dagster-anns-d-onboarding-plan-v1.md#11-历史证据索引)，以下JSON仍为当时独立证据，不能当作本轮新实现已通过。
+
+<a id="15-p2-实现与验收对账2026-10-04"></a>
+
+- [P0证据](../../reports/anns_d_dg_p0_20261004.json)
+- [核心实现证据](../../reports/anns_d_dg_p1_20261004.json)
+- [初始接线报告](../../reports/anns_d_dg_p2_20261004.md) / [证据](../../reports/anns_d_dg_p2_20261004.json)
+- [历史入口证据](../../reports/anns_d_dg_p3_20261004.json) / [样本证据](../../reports/anns_d_dg_p3_sample_20261004.json) / [全量证据](../../reports/anns_d_dg_p3_full_20261004.json)
+- [冻结计划](../../reports/anns_d_dg_p3_frozen_plan_20261004.json) / [历史正式审计](../../reports/anns_d_dg_p3_formal_audit_20261004.json)
+- [历史事件接线证据](../../reports/anns_d_dg_p4_20261005.json) / [样本证据](../../reports/anns_d_dg_p4_sample_20261005.json) / [全量证据](../../reports/anns_d_dg_p4_full_20261005.json)
+- [历史事件冻结计划](../../reports/anns_d_dg_p4_frozen_event_plan_20261005.json)
+- [衔接补拉证据](../../reports/anns_d_dg_p4_bridge_20261005.json) / [启用及停机证据](../../reports/anns_d_dg_p4_enablement_20261005.json)
+
+保留既有自动窗口和历史接线锚点，只为外部文档可追溯；锚点下均以本次正文或历史报告索引为准，不恢复被取消的执行设计。
