@@ -28,7 +28,7 @@ export function buildDailyWavePresentation(
 ): DailyWavePresentation {
   const colors = new Map(response.colorSegments.map((color) => [color.id, color]));
   const mappings = new Map(response.mappings.map((mapping) => [mapping.priceSegmentId, mapping]));
-  const grouped = new Map<string, DailyWaveMarkerInput>();
+  const drawableFacts: DailyWaveEndpointFact[] = [];
   const byDate = new Map<string, DailyWaveEndpointFact[]>();
   const explanations: DailyWaveExplanation[] = [];
   const inside = (day: string) => day >= response.observationStart && day <= response.observationEnd;
@@ -62,10 +62,7 @@ export function buildDailyWavePresentation(
     for (const role of roles) {
       const endpoint = segment[role]!;
       if (!inside(endpoint.date)) continue;
-      const key = `${endpoint.date}|${segment.direction}`;
-      const marker = grouped.get(key);
-      grouped.set(key, { date: endpoint.date, direction: segment.direction,
-        segmentIds: marker ? [...marker.segmentIds, segment.id] : [segment.id] });
+      drawableFacts.push({ segment, role });
     }
     for (const issue of layoutIssues) if (issue.segmentIds.includes(segment.id))
       reasons.add(issue.reason === "SPACE_UNAVAILABLE"
@@ -75,12 +72,46 @@ export function buildDailyWavePresentation(
   }
   explanations.sort((a, b) => a.colorStart.localeCompare(b.colorStart) || a.segment.id.localeCompare(b.segment.id));
   return {
-    markers: [...grouped.values()].sort((a, b) => a.date.localeCompare(b.date) || a.direction.localeCompare(b.direction)),
+    markers: buildDailyWaveMarkers(drawableFacts),
     explanations,
     byDate,
     unavailableEndpointCount: new Set(layoutIssues.map((issue) => `${issue.date}|${issue.direction}`)).size,
     spaceUnavailableEndpointCount: new Set(layoutIssues.filter((issue) => issue.reason === "SPACE_UNAVAILABLE").map((issue) => `${issue.date}|${issue.direction}`)).size,
   };
+}
+
+/** Join an eligible previous end and following start before grouping drawn positions. */
+function buildDailyWaveMarkers(facts: readonly DailyWaveEndpointFact[]): DailyWaveMarkerInput[] {
+  const starts = new Map<string, DailyWaveEndpointFact>();
+  const knownAt = new Map(facts.map(({ segment }) => [segment.id, segment.startKnownAt!]));
+  for (const fact of facts) if (fact.role === "start" && fact.segment.previousColorSegmentId !== null)
+    starts.set(`${fact.segment.previousColorSegmentId}|${fact.segment.start!.date}`, fact);
+
+  const pairedEnds = new Map<DailyWaveEndpointFact, DailyWaveEndpointFact>();
+  const pairedStarts = new Set<DailyWaveEndpointFact>();
+  for (const fact of facts) {
+    if (fact.role !== "end") continue;
+    const next = starts.get(`${fact.segment.sourceColorSegmentId}|${fact.segment.end!.date}`);
+    if (next && next.segment.id !== fact.segment.id && next.segment.direction !== fact.segment.direction) {
+      pairedEnds.set(fact, next);
+      pairedStarts.add(next);
+    }
+  }
+
+  const grouped = new Map<string, DailyWaveMarkerInput>();
+  for (const fact of facts) {
+    if (pairedStarts.has(fact)) continue;
+    const next = pairedEnds.get(fact);
+    const date = fact.segment[fact.role]!.date;
+    const direction = next?.segment.direction ?? fact.segment.direction;
+    const key = `${date}|${direction}`;
+    const ids = [...(grouped.get(key)?.segmentIds ?? []), fact.segment.id];
+    if (next) ids.push(next.segment.id);
+    grouped.set(key, { date, direction, segmentIds: [...new Set(ids)] });
+  }
+  return [...grouped.values()].map((marker) => ({ ...marker,
+    segmentIds: [...marker.segmentIds].sort((a, b) => knownAt.get(a)!.localeCompare(knownAt.get(b)!) || a.localeCompare(b)),
+  })).sort((a, b) => a.date.localeCompare(b.date) || a.direction.localeCompare(b.direction));
 }
 
 function describeIssue(issue: { message: string; dates: readonly string[] }): string {

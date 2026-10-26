@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DailyWaveLayerUi, DailyWaveLegend, DailyWaveResearchDetails } from "./DailyWaveLayerUi";
-import { dailyWaveEmptyFixture, dailyWaveNeutralFixture, dailyWaveReadyFixture } from "./dailyWaveFixtures.test-support";
+import { dailyWaveEmptyFixture, dailyWaveEndedFixture, dailyWaveNeutralFixture, dailyWaveReadyFixture, dailyWaveSharedLowFixture } from "./dailyWaveFixtures.test-support";
 import { buildDailyWavePresentation } from "./presentation";
 import type { DailyWaveReviewState } from "./types";
 
@@ -103,6 +103,8 @@ describe("wave-review bottom bar and read-only explanation", () => {
     const images = container.querySelectorAll("img");
     expect(images).toHaveLength(2);
     for (const image of images) { expect(image).toHaveAttribute("width", "8"); expect(image).toHaveAttribute("height", "6"); }
+    expect(screen.getByTitle("共用低点只画红色上三角，同时表示下降结束、上涨开始。")).toBeInTheDocument();
+    expect(screen.getByTitle("共用高点只画绿色下三角，同时表示上涨结束、下降开始。")).toBeInTheDocument();
     const details = screen.getByLabelText("波段起止详情");
     expect(details).toHaveAttribute("tabindex", "0");
     expect(details).toHaveAttribute("data-detail-chart-interactive", "true");
@@ -111,5 +113,28 @@ describe("wave-review bottom bar and read-only explanation", () => {
     expect(details).toHaveTextContent("最长绿柱：-2（2023-10-23）");
     expect(details).toHaveTextContent("结束确认：未确认");
     expect(details).toHaveTextContent("DIF峰 5");
+  });
+
+  it.each([
+    [dailyWaveEndedFixture, "DOWN", "上涨 · 终止", "下降 · 起始",
+      "000001.SH:day:RED:2023-10-24:PRICE:UP", "000001.SH:day:GREEN:2023-10-27:PRICE:DOWN", "收盘120"],
+    [dailyWaveSharedLowFixture, "UP", "下降 · 终止", "上涨 · 起始",
+      "000001.SH:day:GREEN:2023-10-24:PRICE:DOWN", "000001.SH:day:RED:2023-10-27:PRICE:UP", "收盘90"],
+  ] as const)("keeps both original endpoint roles in hover when the shared triangle points %s", (fixture, direction, endLabel, startLabel, previousId, nextId, price) => {
+    const response = fixture();
+    const view = buildDailyWavePresentation(response);
+    expect(view.markers.filter((m) => m.date === "2023-10-26")).toEqual([
+      { date: "2023-10-26", direction, segmentIds: [previousId, nextId] },
+    ]);
+    render(<DailyWaveResearchDetails response={response} facts={view.byDate.get("2023-10-26")!} />);
+    const details = screen.getByLabelText("波段起止详情");
+    expect(within(details).getByText(endLabel, { exact: true })).toBeInTheDocument();
+    expect(within(details).getByText(startLabel, { exact: true })).toBeInTheDocument();
+    expect(details).toHaveTextContent(previousId);
+    expect(details).toHaveTextContent(nextId);
+    expect(details).toHaveTextContent(price);
+    expect(details).toHaveTextContent("2023-10-26 15:00");
+    expect(details.querySelectorAll("section")).toHaveLength(2);
+    expect(details).not.toHaveTextContent("终止（暂定）");
   });
 });
