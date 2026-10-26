@@ -10,19 +10,20 @@
     "required_failed": 0,
     "required_setup_or_teardown_errors": 0,
     "original_passed_not_rerun": 20,
-    "combined_distinct_passed_items": 26,
+    "combined_distinct_passed_items": 27,
     "historical_failed_attempts_preserved": 2,
-    "automatic_retries": 0
+    "automatic_retries": 0,
+    "calculate_output_bytes_passed": 1
   },
   "consumed": {
-    "input_rows": 21130,
-    "sql_logical_rows": 1324739,
+    "input_rows": 21139,
+    "sql_logical_rows": 1324859,
     "real_controls": 4,
-    "fixture_rows": 10052
+    "fixture_rows": 10055
   },
   "remaining": {
-    "input_rows": 78870,
-    "sql_logical_rows": 3675261,
+    "input_rows": 78861,
+    "sql_logical_rows": 3675141,
     "real_controls": 0
   },
   "required_resume_delta": {
@@ -33,9 +34,9 @@
   },
   "source_price_rows_added": 0,
   "fixture_files_written": 3,
-  "program_seconds": 1.4802520000375807,
-  "combined_program_seconds": 17.342889042105526,
-  "ledger_elapsed_seconds": 16.882576584350318,
+  "program_seconds": 1.634241874795407,
+  "combined_program_seconds": 18.977130916900933,
+  "ledger_elapsed_seconds": 18.349156833719462,
   "time_semantics": "combined_program_seconds includes all prior failed/successful pytest programs and startup; ledger_elapsed_seconds is the narrower internal state clock",
   "cleanup": {
     "owned_directory": {
@@ -94,7 +95,7 @@
     "git_commit_this_resume": false,
     "git_push": false
   },
-  "next": "D4 LLD and implementation-plan audit before approved development; do not assume full performance or DG retirement ready",
+  "next": "Stop: both requested findings resolved. No other work authorized in this turn",
   "final_static_checks": {
     "original_HTML_ids_tables_links": "passed",
     "LLD_design_Python_JSON_syntax": "passed",
@@ -108,5 +109,71 @@
     "D3_remaining": [],
     "later_stages_not_started": true,
     "current_changes_uncommitted": true
-  }
+  },
+  "audit_findings_resolution": {
+    "status": "resolved",
+    "scope": "Only independent audit findings F1 and F2; no other actions",
+    "F1": {
+      "status": "passed",
+      "test_function": "test_d3_calculate_output_bytes.py::test_calculate_utf8_limits_and_cleanup",
+      "pytest_items": 1,
+      "direct_calculate_calls": 3,
+      "independent_result_bytes": 1205,
+      "thresholds": [
+        1206,
+        1205,
+        1204
+      ],
+      "returns_success": [
+        true,
+        true,
+        false
+      ],
+      "over_limit_error": "ResourceLimitError",
+      "all_three_real_connections_closed": true,
+      "all_three_tables_and_arrow_empty": true,
+      "control_substitute_cleanup_ready": true,
+      "real_interrupt_control_objects_added": 0,
+      "prior_26_tests_rerun": false
+    },
+    "F2": {
+      "status": "fixed",
+      "document": "technical-indicator-kernel-low-level-design-v1.html",
+      "anchor": "d3-final-audit-pause-20261026",
+      "change": "Current-status label replaced by historical record and links to later19.28/19.29; original pause facts retained"
+    },
+    "delta": {
+      "input_rows": 9,
+      "sql_logical_rows": 120,
+      "real_controls": 0,
+      "fixture_rows": 3
+    },
+    "consumed": {
+      "input_rows": 21139,
+      "sql_logical_rows": 1324859,
+      "real_controls": 4,
+      "fixture_rows": 10055
+    },
+    "program_seconds": 1.634241874795407,
+    "cumulative_program_seconds": 18.977130916900933,
+    "automatic_retries": 0,
+    "fixture_directory_removed": true,
+    "old_record_prefixes_unchanged": true,
+    "protected_files_unchanged": 66,
+    "independent_reference_unchanged": true,
+    "product_SQL_configuration_dependency_changes": false,
+    "formal_data_or_API_page_DG_changes": false,
+    "git_commit_or_push": false,
+    "D4_started": false,
+    "evidence_files": [
+      "calculate_output_bytes_details_20261026.json",
+      "execution_calculate_output_bytes_20261026.json",
+      "pytest_calculate_output_bytes_20261026.txt",
+      "fixture_calculate_output_bytes_20261026.json",
+      "calculate_output_bytes_baseline_20261026.json"
+    ],
+    "next": "Stop: both requested findings resolved. No other work authorized in this turn"
+  },
+  "latest_scope": "Only F1/F2 resolution; existing receipt sections retained",
+  "latest_program_record": "execution_calculate_output_bytes_20261026.json"
 }

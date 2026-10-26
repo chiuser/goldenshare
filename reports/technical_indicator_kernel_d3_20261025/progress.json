@@ -1,5 +1,5 @@
 {
-  "status": "D3_complete",
+  "status": "F1_F2_complete",
   "executed_cases": [
     {
       "case": "fixture_and_independent_reference",
@@ -194,14 +194,30 @@
       "input_rows": 0,
       "sql_logical_rows": 0,
       "real_controls": 0
+    },
+    {
+      "case": "required_fixture_three_literals",
+      "status": "passed",
+      "elapsed_seconds": 0.831946374848485,
+      "input_rows": 0,
+      "sql_logical_rows": 3,
+      "real_controls": 0
+    },
+    {
+      "case": "calculate_utf8_limits_and_cleanup",
+      "status": "passed",
+      "elapsed_seconds": 0.17020883318036795,
+      "input_rows": 9,
+      "sql_logical_rows": 117,
+      "real_controls": 0
     }
   ],
-  "input_rows": 21130,
-  "sql_logical_rows": 1324739,
+  "input_rows": 21139,
+  "sql_logical_rows": 1324859,
   "real_controls": 4,
-  "fixture_rows": 10052,
-  "elapsed_seconds": 16.882576584350318,
-  "fixture_root": "/private/tmp/ti_d3_required_qg4x1o5y",
+  "fixture_rows": 10055,
+  "elapsed_seconds": 18.349156833719462,
+  "fixture_root": "/private/tmp/ti_d3_required_uuy4_f5p",
   "queries": [
     {
       "name": "fixture_numbered_prices",
@@ -636,6 +652,51 @@
       "status": "passed",
       "output_rows": 1,
       "elapsed_seconds": 0.0005255001597106457
+    },
+    {
+      "name": "fixture_required_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.5865650000050664
+    },
+    {
+      "name": "fixture_required_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0007747500203549862
+    },
+    {
+      "name": "fixture_required_literal",
+      "logical_input_rows": 1,
+      "status": "passed",
+      "output_rows": 1,
+      "elapsed_seconds": 0.0005707498639822006
+    },
+    {
+      "name": "closed_connection_probe",
+      "logical_input_rows": 1,
+      "status": "failed",
+      "error_type": "ConnectionException",
+      "error": "Connection Error: Connection already closed!",
+      "elapsed_seconds": 0.00077420799061656
+    },
+    {
+      "name": "closed_connection_probe",
+      "logical_input_rows": 1,
+      "status": "failed",
+      "error_type": "ConnectionException",
+      "error": "Connection Error: Connection already closed!",
+      "elapsed_seconds": 0.00014108279719948769
+    },
+    {
+      "name": "closed_connection_probe",
+      "logical_input_rows": 1,
+      "status": "failed",
+      "error_type": "ConnectionException",
+      "error": "Connection Error: Connection already closed!",
+      "elapsed_seconds": 0.00014366628602147102
     }
   ],
   "calls": [
@@ -5311,6 +5372,236 @@
       "steps": [],
       "live_tables": [],
       "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 3,
+      "sql_logical_rows": 38,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "passed",
+      "source_rows": 3,
+      "sql_logical_rows": 38,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
+    },
+    {
+      "real_control": false,
+      "period": "day",
+      "status": "failed",
+      "error_type": "ResourceLimitError",
+      "error": "The complete UTF-8 output exceeds max_output_bytes",
+      "source_rows": 3,
+      "sql_logical_rows": 38,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "template_reads": [],
+      "steps": [
+        {
+          "step_name": "stage_input",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "target_price",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "input_window",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "inspect_columns",
+          "logical_input_rows": 11,
+          "output_rows": 11,
+          "failed": false
+        },
+        {
+          "step_name": "check_batch_rows",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "merge_batch",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "retain_tail",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        },
+        {
+          "step_name": "rename_table",
+          "logical_input_rows": 3,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "step_name": "count_tail",
+          "logical_input_rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "step_name": "select_result",
+          "logical_input_rows": 3,
+          "output_rows": 3,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": []
     }
   ],
   "template_reads": [
@@ -5345,7 +5636,7 @@
   ],
   "fixture_files": [
     {
-      "path": "/private/tmp/ti_d3_required_qg4x1o5y/literal/silver/quote/stock_daily/trade_date=2026-01-05/part-000.parquet",
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-05/part-000.parquet",
       "rows": 1,
       "fields": [
         [
@@ -5395,7 +5686,7 @@
       ]
     },
     {
-      "path": "/private/tmp/ti_d3_required_qg4x1o5y/literal/silver/quote/stock_daily/trade_date=2026-01-06/part-000.parquet",
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-06/part-000.parquet",
       "rows": 1,
       "fields": [
         [
@@ -5445,7 +5736,7 @@
       ]
     },
     {
-      "path": "/private/tmp/ti_d3_required_qg4x1o5y/literal/silver/quote/stock_daily/trade_date=2026-01-07/part-000.parquet",
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-07/part-000.parquet",
       "rows": 1,
       "fields": [
         [
@@ -5495,6 +5786,9 @@
       ]
     }
   ],
-  "D3_complete": true,
-  "program_validation_elapsed_seconds": 17.342889042105526
+  "program_validation_elapsed_seconds": 18.977130916900933,
+  "resolved_findings": [
+    "F1",
+    "F2"
+  ]
 }

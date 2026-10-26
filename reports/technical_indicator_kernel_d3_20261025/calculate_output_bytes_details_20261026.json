@@ -1,0 +1,398 @@
+{
+  "status": "passed",
+  "calls": [
+    {
+      "index": 1,
+      "threshold": 1206,
+      "status": "passed",
+      "result_returned": true,
+      "actual_matches_expected": true,
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "actual_utf8_bytes": 1205,
+      "actual_payload": {
+        "kernel_version": "1.0.0",
+        "series": {
+          "security_type": "stock",
+          "ts_code": "600000.SH",
+          "period": "day",
+          "adjustment": "none",
+          "timezone": "Asia/Shanghai",
+          "price_unit": "CNY",
+          "volume_unit": "lot",
+          "amount_unit": "thousand_CNY"
+        },
+        "requested": {
+          "start": null,
+          "end": null,
+          "before": null,
+          "limit": 1000
+        },
+        "source": {
+          "id": "lake_stock_daily",
+          "contract_version": "1",
+          "input_adjustment": "none",
+          "history_start": null,
+          "read_start": "2026-01-05",
+          "read_end": "2026-01-07",
+          "available_through": null
+        },
+        "price_adjustment": {
+          "input_basis_rule": null,
+          "output_basis_rule": null,
+          "basis_date": null,
+          "basis_value": null,
+          "converted": false,
+          "formula_version": "1.0.0"
+        },
+        "times": [
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07"
+        ],
+        "source_as_of": null,
+        "calculations": [
+          {
+            "instance_id": "price",
+            "calculation_id": "price",
+            "algorithm_version": "1.0.0",
+            "parameters": {},
+            "fields": {
+              "open": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "high": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "low": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "close": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "volume": [
+                100.0,
+                100.0,
+                100.0
+              ],
+              "amount": [
+                1000.0,
+                1000.0,
+                1000.0
+              ]
+            }
+          }
+        ],
+        "range": {
+          "actual_start": "2026-01-05",
+          "actual_end": "2026-01-07",
+          "count": 3
+        },
+        "statistics": {
+          "source_rows": 3,
+          "sql_processed_rows": 38,
+          "source_files": 3,
+          "source_file_bytes": 4422,
+          "source_data_passes": 1,
+          "price_conversion_batches": 0,
+          "elapsed_ms": 0.0
+        },
+        "msg": ""
+      },
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 0.0,
+      "cleanup_status": "passed"
+    },
+    {
+      "index": 2,
+      "threshold": 1205,
+      "status": "passed",
+      "result_returned": true,
+      "actual_matches_expected": true,
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "actual_utf8_bytes": 1205,
+      "actual_payload": {
+        "kernel_version": "1.0.0",
+        "series": {
+          "security_type": "stock",
+          "ts_code": "600000.SH",
+          "period": "day",
+          "adjustment": "none",
+          "timezone": "Asia/Shanghai",
+          "price_unit": "CNY",
+          "volume_unit": "lot",
+          "amount_unit": "thousand_CNY"
+        },
+        "requested": {
+          "start": null,
+          "end": null,
+          "before": null,
+          "limit": 1000
+        },
+        "source": {
+          "id": "lake_stock_daily",
+          "contract_version": "1",
+          "input_adjustment": "none",
+          "history_start": null,
+          "read_start": "2026-01-05",
+          "read_end": "2026-01-07",
+          "available_through": null
+        },
+        "price_adjustment": {
+          "input_basis_rule": null,
+          "output_basis_rule": null,
+          "basis_date": null,
+          "basis_value": null,
+          "converted": false,
+          "formula_version": "1.0.0"
+        },
+        "times": [
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07"
+        ],
+        "source_as_of": null,
+        "calculations": [
+          {
+            "instance_id": "price",
+            "calculation_id": "price",
+            "algorithm_version": "1.0.0",
+            "parameters": {},
+            "fields": {
+              "open": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "high": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "low": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "close": [
+                10.0,
+                12.0,
+                11.0
+              ],
+              "volume": [
+                100.0,
+                100.0,
+                100.0
+              ],
+              "amount": [
+                1000.0,
+                1000.0,
+                1000.0
+              ]
+            }
+          }
+        ],
+        "range": {
+          "actual_start": "2026-01-05",
+          "actual_end": "2026-01-07",
+          "count": 3
+        },
+        "statistics": {
+          "source_rows": 3,
+          "sql_processed_rows": 38,
+          "source_files": 3,
+          "source_file_bytes": 4422,
+          "source_data_passes": 1,
+          "price_conversion_batches": 0,
+          "elapsed_ms": 0.0
+        },
+        "msg": ""
+      },
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 0.0,
+      "cleanup_status": "passed"
+    },
+    {
+      "index": 3,
+      "threshold": 1204,
+      "status": "passed",
+      "result_returned": false,
+      "actual_matches_expected": null,
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "error_type": "ResourceLimitError",
+      "error": "The complete UTF-8 output exceeds max_output_bytes",
+      "cleanup_notes": [],
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 0.0,
+      "cleanup_status": "passed"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-05/part-000.parquet",
+      "bytes": 1474
+    },
+    {
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-06/part-000.parquet",
+      "bytes": 1474
+    },
+    {
+      "path": "/private/tmp/ti_d3_required_uuy4_f5p/literal/silver/quote/stock_daily/trade_date=2026-01-07/part-000.parquet",
+      "bytes": 1474
+    }
+  ],
+  "expected_payload": {
+    "kernel_version": "1.0.0",
+    "series": {
+      "security_type": "stock",
+      "ts_code": "600000.SH",
+      "period": "day",
+      "adjustment": "none",
+      "timezone": "Asia/Shanghai",
+      "price_unit": "CNY",
+      "volume_unit": "lot",
+      "amount_unit": "thousand_CNY"
+    },
+    "requested": {
+      "start": null,
+      "end": null,
+      "before": null,
+      "limit": 1000
+    },
+    "source": {
+      "id": "lake_stock_daily",
+      "contract_version": "1",
+      "input_adjustment": "none",
+      "history_start": null,
+      "read_start": "2026-01-05",
+      "read_end": "2026-01-07",
+      "available_through": null
+    },
+    "price_adjustment": {
+      "input_basis_rule": null,
+      "output_basis_rule": null,
+      "basis_date": null,
+      "basis_value": null,
+      "converted": false,
+      "formula_version": "1.0.0"
+    },
+    "times": [
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07"
+    ],
+    "source_as_of": null,
+    "calculations": [
+      {
+        "instance_id": "price",
+        "calculation_id": "price",
+        "algorithm_version": "1.0.0",
+        "parameters": {},
+        "fields": {
+          "open": [
+            10.0,
+            12.0,
+            11.0
+          ],
+          "high": [
+            10.0,
+            12.0,
+            11.0
+          ],
+          "low": [
+            10.0,
+            12.0,
+            11.0
+          ],
+          "close": [
+            10.0,
+            12.0,
+            11.0
+          ],
+          "volume": [
+            100.0,
+            100.0,
+            100.0
+          ],
+          "amount": [
+            1000.0,
+            1000.0,
+            1000.0
+          ]
+        }
+      }
+    ],
+    "range": {
+      "actual_start": "2026-01-05",
+      "actual_end": "2026-01-07",
+      "count": 3
+    },
+    "statistics": {
+      "source_rows": 3,
+      "sql_processed_rows": 38,
+      "source_files": 3,
+      "source_file_bytes": 4422,
+      "source_data_passes": 1,
+      "price_conversion_batches": 0,
+      "elapsed_ms": 0.0
+    },
+    "msg": ""
+  },
+  "expected_utf8_bytes": 1205,
+  "thresholds": [
+    1206,
+    1205,
+    1204
+  ],
+  "actual_increment": {
+    "input_rows": 9,
+    "sql_logical_rows": 117,
+    "real_controls": 0
+  }
+}
