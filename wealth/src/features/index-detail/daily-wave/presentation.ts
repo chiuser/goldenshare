@@ -80,34 +80,17 @@ export function buildDailyWavePresentation(
   };
 }
 
-/** Join an eligible previous end and following start before grouping drawn positions. */
+/** Map every eligible start/end to its triangle direction, then share drawn positions. */
 function buildDailyWaveMarkers(facts: readonly DailyWaveEndpointFact[]): DailyWaveMarkerInput[] {
-  const starts = new Map<string, DailyWaveEndpointFact>();
   const knownAt = new Map(facts.map(({ segment }) => [segment.id, segment.startKnownAt!]));
-  for (const fact of facts) if (fact.role === "start" && fact.segment.previousColorSegmentId !== null)
-    starts.set(`${fact.segment.previousColorSegmentId}|${fact.segment.start!.date}`, fact);
-
-  const pairedEnds = new Map<DailyWaveEndpointFact, DailyWaveEndpointFact>();
-  const pairedStarts = new Set<DailyWaveEndpointFact>();
-  for (const fact of facts) {
-    if (fact.role !== "end") continue;
-    const next = starts.get(`${fact.segment.sourceColorSegmentId}|${fact.segment.end!.date}`);
-    if (next && next.segment.id !== fact.segment.id && next.segment.direction !== fact.segment.direction) {
-      pairedEnds.set(fact, next);
-      pairedStarts.add(next);
-    }
-  }
-
-  const grouped = new Map<string, DailyWaveMarkerInput>();
-  for (const fact of facts) {
-    if (pairedStarts.has(fact)) continue;
-    const next = pairedEnds.get(fact);
-    const date = fact.segment[fact.role]!.date;
-    const direction = next?.segment.direction ?? fact.segment.direction;
+  const grouped = new Map<string, { date: string; direction: DailyWaveMarkerInput["direction"]; segmentIds: Set<string> }>();
+  for (const { segment, role } of facts) {
+    const date = segment[role]!.date;
+    const direction = role === "start" ? segment.direction : segment.direction === "UP" ? "DOWN" : "UP";
     const key = `${date}|${direction}`;
-    const ids = [...(grouped.get(key)?.segmentIds ?? []), fact.segment.id];
-    if (next) ids.push(next.segment.id);
-    grouped.set(key, { date, direction, segmentIds: [...new Set(ids)] });
+    const marker = grouped.get(key) ?? { date, direction, segmentIds: new Set<string>() };
+    marker.segmentIds.add(segment.id);
+    grouped.set(key, marker);
   }
   return [...grouped.values()].map((marker) => ({ ...marker,
     segmentIds: [...marker.segmentIds].sort((a, b) => knownAt.get(a)!.localeCompare(knownAt.get(b)!) || a.localeCompare(b)),

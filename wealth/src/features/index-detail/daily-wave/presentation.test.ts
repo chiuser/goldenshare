@@ -10,6 +10,25 @@ const lowDown = "000001.SH:day:GREEN:2023-10-24:PRICE:DOWN";
 const lowUp = "000001.SH:day:RED:2023-10-27:PRICE:UP";
 
 describe("daily-wave presentation from published facts", () => {
+  // Isolate one already-confirmed record from the independently authored contract
+  // fixtures. This tests projection only, not acceptance of a partial HTTP response.
+  it.each([
+    ["UP", dailyWaveEndedFixture, "DOWN", highUp, "90", "120"],
+    ["DOWN", dailyWaveSharedLowFixture, "UP", lowDown, "120", "90"],
+  ] as const)("draws both roles of an isolated %s wave without needing a following start", (startDirection, fixture, endDirection, id, startClose, endClose) => {
+    const response = fixture();
+    response.segments = [response.segments[0]!];
+    const original = structuredClone(response);
+    const view = buildDailyWavePresentation(response);
+    expect(view.markers).toEqual([
+      { date: "2023-10-24", direction: startDirection, segmentIds: [id] },
+      { date: "2023-10-26", direction: endDirection, segmentIds: [id] },
+    ]);
+    expect(view.byDate.get("2023-10-24")?.map(({ role, segment }) => [role, segment[role]?.close])).toEqual([["start", startClose]]);
+    expect(view.byDate.get("2023-10-26")?.map(({ role, segment }) => [role, segment[role]?.close])).toEqual([["end", endClose]]);
+    expect(response).toEqual(original);
+  });
+
   it("draws one green high-point triangle for UP end and the following open DOWN start", () => {
     const response = dailyWaveEndedFixture();
     expect(() => decodeDailyWaveResponse(response)).not.toThrow();
@@ -41,15 +60,14 @@ describe("daily-wave presentation from published facts", () => {
     expect(response).toEqual(original);
   });
 
-  // Deliberately altered projection inputs below isolate non-matching or ineligible
-  // roles. They are negative presentation tests, not accepted HTTP fixtures.
-  it("does not merge opposite endpoints on the same date without the predecessor relationship", () => {
+  // Deliberately altered projection inputs below isolate role/eligibility cases;
+  // these are presentation unit inputs, not accepted HTTP fixtures.
+  it("shares the same drawn high point even without the predecessor relationship", () => {
     const response = dailyWaveEndedFixture();
     response.segments[1]!.previousColorSegmentId = response.colorSegments[0]!.id;
     const shared = buildDailyWavePresentation(response).markers.filter((m) => m.date === "2023-10-26");
     expect(shared).toEqual([
-      { date: "2023-10-26", direction: "DOWN", segmentIds: [highDown] },
-      { date: "2023-10-26", direction: "UP", segmentIds: [highUp] },
+      { date: "2023-10-26", direction: "DOWN", segmentIds: [highUp, highDown] },
     ]);
   });
 
@@ -57,11 +75,11 @@ describe("daily-wave presentation from published facts", () => {
     const response = dailyWaveEndedFixture();
     response.segments[1]!.start!.date = "2023-10-25";
     expect(buildDailyWavePresentation(response).markers.map((m) => [m.date, m.direction])).toEqual([
-      ["2023-10-24", "UP"], ["2023-10-25", "DOWN"], ["2023-10-26", "UP"],
+      ["2023-10-24", "UP"], ["2023-10-25", "DOWN"], ["2023-10-26", "DOWN"],
     ]);
   });
 
-  it.each(["start", "end"] as const)("does not join two %s roles into a shared turn", (role) => {
+  it.each(["start", "end"] as const)("retains different drawn directions for two opposite-wave %s roles", (role) => {
     const response = dailyWaveEndedFixture();
     const [first, next] = response.segments;
     if (role === "start") {
@@ -73,7 +91,10 @@ describe("daily-wave presentation from published facts", () => {
       next!.start = { ...next!.start!, date: "2023-10-25" };
       next!.end = { ...first!.end! };
     }
-    expect(buildDailyWavePresentation(response).markers.filter((m) => m.date === "2023-10-26").map((m) => m.direction)).toEqual(["DOWN", "UP"]);
+    expect(buildDailyWavePresentation(response).markers.filter((m) => m.date === "2023-10-26")).toEqual([
+      { date: "2023-10-26", direction: "DOWN", segmentIds: [role === "start" ? highDown : highUp] },
+      { date: "2023-10-26", direction: "UP", segmentIds: [role === "start" ? highUp : highDown] },
+    ]);
   });
 
   it.each(["open", "invalid", "future"] as const)("never borrows eligibility for a %s previous end", (state) => {
@@ -108,6 +129,40 @@ describe("daily-wave presentation from published facts", () => {
       date: "2023-10-24", direction: "UP", segmentIds: [highUp, "independent-up"],
     });
     expect(buildDailyWavePresentation({ ...response, segments: [...response.segments].reverse() }).markers).toEqual(view.markers);
+  });
+
+  it.each([
+    ["UP", dailyWaveEndedFixture, "DOWN", highUp, highDown],
+    ["DOWN", dailyWaveSharedLowFixture, "UP", lowDown, lowUp],
+  ] as const)("shares same-direction ends for %s waves and retains every associated ID", (_sourceDirection, fixture, drawDirection, previousId, nextId) => {
+    const response = fixture();
+    const independent = structuredClone(response.segments[0]!);
+    independent.id = "independent-ended-wave";
+    response.segments.push(independent);
+    const original = structuredClone(response);
+    const view = buildDailyWavePresentation(response);
+    expect(view.markers.filter((m) => m.date === "2023-10-26")).toEqual([
+      { date: "2023-10-26", direction: drawDirection, segmentIds: [previousId, "independent-ended-wave", nextId] },
+    ]);
+    expect(view.byDate.get("2023-10-26")?.map(({ segment, role }) => [segment.id, role])).toEqual([
+      [previousId, "end"], [nextId, "start"], ["independent-ended-wave", "end"],
+    ]);
+    expect(buildDailyWavePresentation({ ...response, segments: [...response.segments].reverse() }).markers).toEqual(view.markers);
+    expect(response).toEqual(original);
+  });
+
+  it("does not invent an intervening green triangle for separate red starts", () => {
+    const response = dailyWaveEndedFixture();
+    const first = response.segments[0]!;
+    first.isEnded = false;
+    const next = structuredClone(first);
+    next.id = "independent-later-up";
+    next.start = { ...next.start!, date: "2023-10-25", close: "100", tiedDates: ["2023-10-25"] };
+    response.segments = [first, next];
+    expect(buildDailyWavePresentation(response).markers).toEqual([
+      { date: "2023-10-24", direction: "UP", segmentIds: [highUp] },
+      { date: "2023-10-25", direction: "UP", segmentIds: [next.id] },
+    ]);
   });
 
   it("reports one blocked shared triangle to both segments without removing their original facts", () => {

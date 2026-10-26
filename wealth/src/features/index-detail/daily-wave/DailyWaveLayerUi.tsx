@@ -85,8 +85,8 @@ export function DailyWaveLayerUi({ review, presentation }: Props) {
 
 export function DailyWaveLegend({ response }: { response: DailyWaveReadyResponse }) {
   return <span aria-label="波段起止图例" className="daily-wave-legend">
-    <span title="共用低点只画红色上三角，同时表示下降结束、上涨开始。"><img alt="" height={6} src={waveUp} width={8} />上升起止</span>
-    <span title="共用高点只画绿色下三角，同时表示上涨结束、下降开始。"><img alt="" height={6} src={waveDown} width={8} />下降起止</span>
+    <span title="上涨开始或下降结束：红色上三角，位于K线下方。"><img alt="" height={6} src={waveUp} width={8} />上涨开始 / 下降结束</span>
+    <span title="上涨结束或下降开始：绿色下三角，位于K线上方。"><img alt="" height={6} src={waveDown} width={8} />上涨结束 / 下降开始</span>
     <span className="num">研究截至{response.observationEnd}</span>
   </span>;
 }

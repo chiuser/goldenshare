@@ -2,7 +2,7 @@ export type DailyWaveDirection = "UP" | "DOWN";
 
 export interface DailyWaveMarkerInput {
   date: string;
-  /** Drawing direction only. A shared turn uses the following segment's direction. */
+  /** Triangle direction: UP for an UP start / DOWN end, DOWN for an UP end / DOWN start. */
   direction: DailyWaveDirection;
   segmentIds: readonly string[];
 }

@@ -4,6 +4,8 @@
 
 <a id="xxm-daily-method-design"></a>
 
+**当前三角实现以§15.5和§15.9为准：全部开始/结束位置统一四种画法，开发与回归完成，待管理员页面review；§15.8只保留上轮历史。**
+
 ## 0. 当前方向：先记录日线行情，再按规则匹配标签
 
 **先整理价格波段、DIF峰谷、完整红绿柱区间及各自极值和时间，再用判别规则产生标签。当前从000001.SH日线开始，先输出图和逐段记录让管理员纠偏，不直接以最终标签代替波段识别。**方向和已确认要求以[方案§0](../../../../docs/product/xxm-next-implementation-plan-v0.6.md#xxm-daily-method-direction)为准；本节仅说明下一步应保存什么和怎样核对，不宣称划周期算法已经定稿。
@@ -1340,7 +1342,7 @@ HTTP200/ready、Cache-Control:no-store、application/json；实际主2023-10-24�
 
 红上三角8×6 CSS px，顶端位于该根low像素以下8px；绿下三角同尺寸，底端位于high像素以上8px。x严格等于该日期K线中心，价格口径仍为close；数值不取整用于定位，像素按设备比例画。缩放不放大三角。图例与文字用现中文/数字token，颜色只用`--cs-color-market-up/down`，不借用系统错误/成功色。
 
-同日期同方向合用一个三角并保留全部关联id。按15.8，前段结束与后段开始共用同一真实转折K线时合成一个：共用低点红色上三角、共用高点绿色下三角，保留两段全部身份。其它同日但不相接的上下方向仍分别绘制。使用当前可视范围**所有**九转和可视极值占位（包括相邻K线的文字），按日期/方向稳定排序逐一排放，只向原侧外移，每次4px，最多外移到K线高低点外40px。不得横移时间、改起止K线值、修改九转内容或静默删除起止K线；无位置时列“有N个起止K线空间不足，暂未绘制”，详情仍可读其事实，这批不能验成全部起止K线可见。主图/轴/标题外一律裁剪，不进入MACD窗格。
+所有可画位置按§15.9先确定三角方向：上涨开始/下降结束用UP（红、下方），上涨结束/下降开始用DOWN（绿、上方）。同日期同三角方向合用一个标记并保留全部关联id及原身份；同日不同三角方向分别绘制，不要求色段前后相接。这里的方向指marker.direction，不是原segment.direction。使用当前可视范围**所有**九转和可视极值占位（包括相邻K线的文字），按日期/三角方向稳定排序逐一排放，只向原侧外移，每次4px，最多外移到K线高低点外40px。不得横移时间、改起止K线值、修改九转内容或静默删除起止K线；无位置时列“有N个起止K线空间不足，暂未绘制”，详情仍可读其事实，这批不能验成全部起止K线可见。主图/轴/标题外一律裁剪，不进入MACD窗格。
 
 为给正常情况提供空间，在`DetailChartWorkspaceBaseProps`新增可选`mainPriceScalePaddingPx?: {top:number;bottom:number}`；本层ready且开启时传`{top:44,bottom:44}`，未传保持现上下0.12。在`detailChartViewport.ts`新增纯函数：H为主图host实际像素高度，top=max(0.12,topPx/H)、bottom镜像；要求有限非负、H>0且两比例之和<1，否则明确空间不足，不偷减留白。创建主图、参数变化、ResizeObserver高度变化时只更新主图价格轴留白；当前observer只有宽度处理，须补高度。该操作本身不改dataKey、时间范围或价格；MACD/VOL/KDJ、分钟和股票默认不变。44px用于覆盖九转8+18px、间隔4px、三角6px及边缘余量，不是改变极值数值。
 
@@ -1438,26 +1440,13 @@ Figma说明列表设计已经认可。第一批结果见14.3.2；第二批候选
 **2026-10-26管理员交接决定：第四批开发完成，浏览器验收由管理员自行执行。**上文浏览器转发授权请求不再继续，代理不启动转发、不再操作浏览器；尚缺的宽度/历史拖动/悬停/说明/四窗/控制台验收保留并由管理员执行。当前状态为“开发完成、待管理员浏览器验收”，不宣称验收通过；管理员随后授权本轮本地提交；未部署，浏览器验收仍由管理员执行，不进入后续研究。
 
 
-### 15.8 共用转折K线的绘图调整（2026-10-26，开发完成，待管理员review）
+### 15.8 上轮共用转折K线调整记录（2026-10-26，已由§15.9补全）
 
-**目标与禁止项。**按方案0.14，仅合并图上标记；PriceSegment及原start/end日期/close/tiedDates、方向、ID、确认时间、所有极值、DIF/柱长和计算范围均不变。不改后端、DTO/API、Hook请求、1000根、44px留白、尺寸/避让、普通图/右栏和任务1/2/9。看图review由管理员执行，不申请或启用浏览器转发；新增仅人工测试样本，不读真实行情、不落盘业务结果。
+上轮按方案§0.14仅处理相邻波段共用K线：通过previousColorSegmentId/sourceColorSegmentId配对后借后段方向绘图，独立起止沿旧画法；图例只补title。管理员看图发现独立上涨终点仍为红色上三角，说明该设计和测试遗漏了独立结束位置。**以上限制已撤回，当前统一执行§15.5和§15.9；不再保留前后配对或孤立位置沿旧方向的绘图分支。**不改原波段数据和绘制资格。
 
-**代码依据与落点。**现presentation.ts在原资格通过后直接按date|segment.direction聚合，因此同一真实转折会留下上下两个三角。改为buildDailyWavePresentation先收集可画的DailyWaveEndpointFact（segment及role），调用本文件私有buildDailyWaveMarkers配对，最后聚合；原byDate继续保留全部事实，DailyWaveResearchDetails按原角色显示，不根据三角方向改写波段。DailyWaveMarkerInput接口不新增字段，direction注释明确仅指当前三角画向；源方向仍取segment.direction。DailyWavePrimitive/markerGeometry仍消费date/direction/segmentIds，无第二套绘图实现。
+下节保留上轮实际结果；其中“不相邻不合”等预期仅属于上轮历史，不能作为当前四种画法的验收依据。原数据不变、开放/无效/未来确认不画、几何/身份不丢等约束仍有效；本轮按新规则增加独立结束位置反例，并修正被撤回的旧测试预期。
 
-| 硬要求 | 编码细节与次序 | 独立验收 |
-|---|---|---|
-| 原资格先行 | 继续原startAllowed/pairAllowed、确认时间<=asOf、观察范围规则。开放只收集起点；无效/未确认终点不得借合并取得资格 | 旧末端无效/未来确认/开放暂定末端均不参与；合法后起点仍按原规则可画 |
-| 只合并实际相接 | 在可画事实中，以后start的previousColorSegmentId匹配前end的sourceColorSegmentId，要求两个不同波段、方向相反、endpoint.date严格相同。先配角色、后按最终date|direction聚合，不先把原方向同日标记全部混组 | 同日start+start、end+end、不相邻色段不误合；不同日不移动；合并旁的独立同日标记保留 |
-| 合并画向 | DOWN end+UP start用UP，仍以真实low定位红色上三角；UP end+DOWN start用DOWN，仍以真实high定位绿色下三角。即仅合并三角采用后段direction；孤立端点沿原segment.direction | 高点只一个绿色DOWN，低点只一个红色UP，8×6/8px/4px/40px及日期不变 |
-| 完整身份 | 合并marker.segmentIds去重保存双方ID；原response和byDate中两个角色/方向不改、不挪下一根。悬停同时有前结束和后开始、全部日期/值/确认事实。图例保持尺寸/布局，仅title补共用含义 | 高低点两侧ID均可读；前后snapshot相同；反复计算/输入顺序不同结果稳定 |
-| 空间不足 | 几何沿原把marker全部segmentIds带入issue；presentation为每个关联段保留原因，未绘制位置仍按date|最终direction去重 | 一个合并三角放不下，双方说明都保留，未绘制位置计1。其它计算问题/待核对段计数不以三角数替代 |
-
-实现文件为presentation.ts、markerGeometry.ts（仅注释）、DailyWaveLayerUi.tsx（仅图例title）及对应presentation/UI/几何测试；不修改通用chart、CSS和后端。新增测试输入优先复用已核合同的人工fixture；需要低点镜像时以人工日线作为未改生产者的输入生成合同样本，预期仍独立写明共享日期、收盘、两个ID和三角方向，禁止由待测presentation生成expected。
-
-**失败、预算与验收。**无新增网络、文件、状态或缓存；既有异常/释放/重试不变，未绘制继续保留原因，不吞掉其它波段。收集和匹配以Map固定次数遍历，排序沿原方法，不做逐候选全量重扫；800/1300和10秒原预算不变。先用新高/低点回归证旧实现失败，再修实现；定向包含presentation、几何/primitive、UI悬停和页面集成；随后Wealth完整测试、typecheck/build和docs/diff检查，各组<=60秒，超过停查，不安装依赖。API合同和后端无变化，本轮不重复DB/20次采样或已交接的浏览器验收，不以人工fixture声称真实页面通过。完成回写本节结果，交管理员review，不自动提交/部署。
-
-
-#### 15.8.1 实现与验证结果（2026-10-26）
+#### 15.8.1 上轮实现与验证结果（2026-10-26，历史记录）
 
 本轮8份文件：方案/本文各一份；presentation.ts、markerGeometry.ts注释、DailyWaveLayerUi.tsx图例title；presentation.test.ts、DailyWaveLayerUi.test.tsx、原dailyWaveFixtures.test-support.ts新增人工低点样本。未修改原DTO/types/adapter/hook、请求/后端/primitive/共享chart/CSS；同一转折只改marker的绘图方向及ID集合，不改byDate、输入或任一PriceSegment。
 
@@ -1471,3 +1460,53 @@ Figma说明列表设计已经认可。第一批结果见14.3.2；第二批候选
 | 计算和边界 | 后端日线目录6份py源码SHA与开工前一致；原API/请求/鉴权/研究日期/1000限制不变。CodeGraph explore/impact核presentation→IndexChartWorkspace及primitive/几何/UI消费者；独立只读复核代码与正反测试通过，无遗漏 |
 
 全部使用现有环境，无安装、DB读取/写入、行情保存、新缓存或后台；不重复真实接口采样。浏览器呈现由管理员按前述交接继续review，尚不宣称视觉验收通过；管理员已授权本轮本地提交，尚未部署或推进后续研究。docs完整性、明确链接及diff检查通过。
+
+
+### 15.9 全部起止位置的四种画法（2026-10-26，开发完成，待管理员review）
+
+**目标、范围与依据。**方案§0.15和管理员四种画法决定为唯一当前口径。修正前presentation.ts的私有buildDailyWaveMarkers仅对实际配对的共享位置换向，未配对的end仍按segment.direction绘制，导致“上涨·终止”画红色上三角。删除这套配对分支，统一根据每条原事实的role和segment.direction确定画向。仅修改本目录presentation、markerGeometry注释、DailyWaveLayerUi图例及对应测试；不改后端、PriceSegment、DTO/API、数据校验/请求Hook、1000根、primitive、几何、通用chart、CSS、右栏或冻结任务1/2/9。Figma仍为布局基准，颜色、方向和图例以本节为准，不要求修改Figma。
+
+| segment.direction | role | marker.direction | 颜色、位置与含义 |
+|---|---|---|---|
+| UP | start | UP | 红色上三角，K线下方，上涨开始 |
+| UP | end | DOWN | 绿色下三角，K线上方，上涨结束 |
+| DOWN | start | DOWN | 绿色下三角，K线上方，下降开始 |
+| DOWN | end | UP | 红色上三角，K线下方，下降结束 |
+
+**编码次序与交接。**
+
+1. buildDailyWavePresentation原startAllowed/pairAllowed、确认时间不晚于asOf、观察范围检查不变，先收集可画DailyWaveEndpointFact。已结束候选仍须整对合法才画；开放候选只收集有效已知start，暂定end不参与，未知/未来确认/无效位置不借合用取得资格。
+2. buildDailyWaveMarkers对每条已获资格的事实计算：`direction = role === "start" ? segment.direction : segment.direction === "UP" ? "DOWN" : "UP"`。对所有end均执行反向，不查询是否有同日下一段，不用previousColorSegmentId作为绘图条件；删除starts、pairedEnds、pairedStarts，不保留两种并行画法。
+3. 按原endpoint.date与最终direction组成Map键，累计segmentIds并去重。同日UP end与DOWN start均为DOWN，可合用绿色三角，即使二者不是相邻色段，也不合并其数据。相同画向的两个start或两个end同样合用；同日不同画向各画一个，不同日不移动。ID继续按startKnownAt和ID稳定排序，标记按日期/三角方向排序，输入顺序不得影响结果。不强制红绿交替、不人工增删候选。
+4. 原response与byDate完全保留全部segment/role、编号、原方向、日期/close/tiedDates、确认时间、DIF及柱长统计。悬停仍显示“上涨·终止”等原身份，不按三角颜色改成“下降”；一个合用标记关联的全部ID均能在原事实中找到。原暂定end仍可在详情阅读，不能因此绘制。
+5. DailyWaveMarkerInput.direction注释改为最终三角画向，其接口不变。primitive继续UP取真实K线low下方红色上三角，DOWN取high上方绿色下三角；尺寸8×6、8px起始间隔、4px向外避让、40px上限、44px留白和裁剪不变。空间/坐标问题携带标记内全部ID，每段原说明保留；无法绘制的位置按date|marker.direction计一次，待核对段数仍按不同波段计，不等于三角数量。
+6. DailyWaveLegend可见文字必须改为红“上涨开始 / 下降结束”、绿“上涨结束 / 下降开始”，不能仅改title。title分别为“上涨开始或下降结束：红色上三角，位于K线下方。”“上涨结束或下降开始：绿色下三角，位于K线上方。”继续原8×6资源和行情色。页面状态、说明条目、原波段详情以及MACD标签含义不改。
+
+**失败、读写及预算。**无新增依赖、配置、请求、文件或缓存，仅页面内存。沿原错误/关闭/重试释放规则，布局失败保留原因及数据，不偷偷换回旧画法。事实收集和Map合用为有限次数遍历，最终稳定排序，禁止逐候选重扫所有行情；原800/1300数量与10秒请求总预算不变，无新增中断恢复或最后验收的数据开销。不读DB、不保存源行情或研究响应、不启动服务、不操作浏览器。重建三角和说明使用本次现有response，不能修改已返回对象；开启/重试仍按原Hook重新读取计算，不复用旧结果。
+
+**独立测试和验收顺序。**先用人工字面预期新增“只有上涨段、终点没有同日后段起点”“只有下降段、终点没有同日后段起点”，在旧代码上证明分别因结束画向错误而失败；图例测试同时要求可见四种含义。投影单元可从已核人工合同样本隔离一条记录，但明确这不是新的API响应验收。再修改实现；原“不相邻不合、孤立沿原方向”的预期按本轮明确变更修正，不能删除资格或身份断言来迎合实现。
+
+| 必须核验 | 独立预期 |
+|---|---|
+| 四角色及独立终点 | UP/start红下、UP/end绿上、DOWN/start绿上、DOWN/end红下；没有后段仍正确，原起止日期/收盘不变 |
+| 合用与分开 | 共用高/低点、同日非相邻同画向、两start/两end同画向合用并保存全部ID；同日不同画向分别保留，不同日不挪；连续同色位置不凭空补反色 |
+| 资格与数据 | 开放/未来确认/无效end不画，观察范围外不钳到边界；response/byDate及极值统计不变，逆序输入结果稳定 |
+| 几何与说明 | 一个合用标记空间不足，全部ID关联段都有说明、位置只计一次；红下绿上尺寸及避让沿原几何回归 |
+| 图例与悬停 | 可见四种含义、title及资源尺寸一致；独立结束和合用位置的悬停保留原方向/role/ID/日期/数值 |
+
+定向覆盖presentation、markerGeometry、primitive、UI及指数页面/工作区集成，再执行Wealth完整测试、typecheck、build、docs完整性和git diff检查；每组≤60秒，超时停止查因，不安装依赖。核验未触及后端/合同/请求文件，不重跑真实数据或性能采样。完成后回写方案和本节结果，交管理员review页面；不自动提交、部署或恢复后续研究。自动测试通过不代表真实视觉验收通过。
+
+#### 15.9.1 实现与回归结果（2026-10-26）
+
+本轮7份文件：原方案/本文、presentation.ts、markerGeometry.ts注释、DailyWaveLayerUi.tsx可见图例及presentation/UI两份测试。没有修改几何、primitive、CSS、API/DTO、请求Hook、共享chart或后端算法。旧配对分支已删除，所有可画事实统一先按role取三角方向，再按date|marker.direction合用；源segment和byDate保持原样。
+
+| 要求 | 实现与独立证据 |
+|---|---|
+| 全部四种画法，独立结束同样正确 | presentation私有buildDailyWaveMarkers执行§15.9公式；人工UP90→120、DOWN120→90各隔离一段，字面预期分别红开始/绿结束、绿开始/红结束；旧代码上这两项因end方向错误失败，图例同时失败，共3失败/26通过；修复后两文件34项通过 |
+| 合用不丢身份、不强制交替 | 同日非相邻色段同画向合用；异向两start/两end各保留、相同画向多个end全ID；不同日不挪、逆序结果一致、连续两红start不插绿。快照证明原response/byDate保留原方向/role/日期/收盘及极值 |
+| 原资格与空间说明 | buildDailyWavePresentation中的startAllowed/pairAllowed、确认时间和范围判断没有本轮改动；开放/无效/未来确认负例、范围外及拥挤回归通过。一个合用标记放不下时关联段都保留原因，位置计1 |
+| 图例及悬停 | DailyWaveLegend可见红“上涨开始 / 下降结束”、绿“上涨结束 / 下降开始”，title说明上下位置，8×6资源不变；独立结束及共享高/低点悬停仍显示原波段方向、起止身份、ID、日期、原值和确认时间 |
+| 定向及完整回归 | daily-wave目录与IndexChartWorkspace/IndexDetailDailyWave共9文件173项通过；完整Wealth178文件1387项通过，15.15秒；typecheck和build通过。build沿用已有chunk>500kB提示，未放宽限制或做无关拆包 |
+| 文档/依赖/实际边界 | 方案§0.15/13.2与本文§15.5/15.9一致；旧限制只留历史。CodeGraph explore/impact结合源码追presentation→IndexChartWorkspace→primitive/几何及UI/byDate消费者，边界不变；开发后sync/status通过。6份后端源码和types/adapter/Hook/primitive/人工fixture共11份文件SHA与开工前相同；独立只读复核7文件diff无遗漏；docs完整性及diff检查通过 |
+
+全部测试使用现有环境，每组未超过60秒；未安装依赖、读取真实行情/数据库、保存研究结果或启动服务。当前为“开发和自动回归完成、待管理员页面review”；页面视觉、拥挤和悬停实看仍由管理员执行，不用单元测试冒充浏览器验收。管理员已授权本轮本地提交，未部署或推进后续研究。
