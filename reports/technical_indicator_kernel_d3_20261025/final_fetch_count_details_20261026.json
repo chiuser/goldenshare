@@ -1,0 +1,159 @@
+{
+  "status": "passed",
+  "calls": [
+    {
+      "mode": "normal",
+      "status": "passed",
+      "result_returned": true,
+      "count_results": [
+        [
+          [
+            3
+          ]
+        ]
+      ],
+      "real_final_query_calls": 1,
+      "native_fetch_sizes": [
+        3,
+        0
+      ],
+      "delivered_fetch_sizes": [
+        3,
+        0
+      ],
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "call_status": "passed",
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "final_read": {
+        "output_rows": 3,
+        "failed": false,
+        "logical_input_rows": 3
+      },
+      "connection_restored": true,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 3393529.4811295,
+      "cleanup_status": "passed"
+    },
+    {
+      "mode": "short",
+      "status": "passed",
+      "result_returned": false,
+      "count_results": [
+        [
+          [
+            3
+          ]
+        ]
+      ],
+      "real_final_query_calls": 1,
+      "native_fetch_sizes": [
+        3,
+        0
+      ],
+      "delivered_fetch_sizes": [
+        2,
+        0
+      ],
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "error_type": "OutputContractError",
+      "reason": "fetch_count_mismatch",
+      "stage": "final_fetch",
+      "diagnostics": {
+        "expected_count": 3,
+        "actual_count": 2
+      },
+      "cleanup_notes": [],
+      "call_status": "failed",
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "final_read": {
+        "output_rows": 2,
+        "failed": false,
+        "logical_input_rows": 3
+      },
+      "connection_restored": true,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 3393529.495672083,
+      "cleanup_status": "passed"
+    },
+    {
+      "mode": "over",
+      "status": "passed",
+      "result_returned": false,
+      "count_results": [
+        [
+          [
+            3
+          ]
+        ]
+      ],
+      "real_final_query_calls": 1,
+      "native_fetch_sizes": [
+        3
+      ],
+      "delivered_fetch_sizes": [
+        4
+      ],
+      "closed_connection_probe": {
+        "status": "passed_expected_error",
+        "error_type": "ConnectionException",
+        "error": "Connection Error: Connection already closed!",
+        "logical_input_rows": 1
+      },
+      "error_type": "OutputContractError",
+      "reason": "fetch_count_mismatch",
+      "stage": "final_fetch",
+      "diagnostics": {
+        "expected_count": 3,
+        "actual_count": 4
+      },
+      "cleanup_notes": [],
+      "call_status": "failed",
+      "source_rows": 3,
+      "batches": [
+        3
+      ],
+      "source_open_calls": 1,
+      "sql_logical_rows": 38,
+      "final_read": {
+        "output_rows": 4,
+        "failed": true,
+        "logical_input_rows": 3
+      },
+      "connection_restored": true,
+      "live_tables": [],
+      "live_arrow": [],
+      "cleanup_ready": true,
+      "resources_released_at": 3393529.509569416,
+      "cleanup_status": "passed"
+    }
+  ],
+  "actual_increment": {
+    "input_rows": 9,
+    "sql_logical_rows": 117,
+    "real_controls": 0
+  }
+}

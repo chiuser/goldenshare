@@ -1,11 +1,12 @@
 {
-  "status": "F1_F2_complete",
+  "status": "D3_complete_after_final_fetch_count",
   "basis": [
     "LLD04,07,09,14,18.1,19.10,19.13,19.20,21,22",
     "LLD19.27",
-    "LLD19.29"
+    "LLD19.29",
+    "LLD19.30"
   ],
-  "scope": "Only independent audit F1 direct calculate UTF8 boundary/cleanup and F2 historical label; no other action",
+  "scope": "Only final fetch count refusal checks and evidence-backed D3 confirmation; no product or D4 changes",
   "limits": {
     "input_rows": 100000,
     "sql_logical_rows": 5000000,
@@ -114,31 +115,31 @@
   "remaining_node_ids": [],
   "automatic_retry_performed": false,
   "resume": {
-    "baseline_file": "calculate_output_bytes_baseline_20261026.json",
+    "baseline_file": "final_fetch_count_baseline_20261026.json",
     "node_ids": [
-      "tests/foundation/technical_indicators/test_d3_calculate_output_bytes.py::test_calculate_utf8_limits_and_cleanup"
+      "tests/foundation/technical_indicators/test_d3_final_fetch_count.py::test_calculate_final_fetch_count_and_cleanup"
     ],
     "expected_items": 1,
-    "elapsed_before_seconds": 17.342889042105526,
+    "elapsed_before_seconds": 18.977130916900933,
     "source_input_rows_upper_bound": 9,
     "sql_logical_rows_upper_bound": 256,
     "new_real_controls": 0,
     "automatic_retries": 0,
     "generate_or_load_long_reference": false,
-    "authorization": "2026-10-26 user: only resolve the two audit findings; no other actions",
+    "authorization": "2026-10-26 user: follow audit recommendation, then complete D3 audit and confirmation",
     "fixture_mode": "owned_required_literals",
     "fixture_parent": "/private/tmp",
     "fixture_prefix": "ti_d3_required_",
     "fixture_rows_upper_bound": 3,
     "source_price_rows_upper_bound": 9,
-    "historical_fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-1964/ti_d3_acceptance",
-    "lifecycle_record": "fixture_calculate_output_bytes_20261026.json",
-    "execution_record": "execution_calculate_output_bytes_20261026.json"
+    "historical_fixture_root": "/private/tmp/ti_d3_required_uuy4_f5p",
+    "lifecycle_record": "fixture_final_fetch_count_20261026.json",
+    "execution_record": "execution_final_fetch_count_20261026.json"
   },
   "resume_completed": true,
-  "final_audit_file": "d3_final_audit.json",
-  "completion_evidence": "d3_final_audit.json",
-  "next": "Stop after resolving F1 and F2; no commit or other work",
+  "final_audit_file": "d3_final_confirmation_20261026.json",
+  "completion_evidence": "d3_final_confirmation_20261026.json",
+  "next": "Stop at D3 confirmation; recommend D4 LLD audit and detailed plan for review before development",
   "historical_failure_record": "required_acceptance_pause_20261026.json",
-  "resolution_evidence": "calculate_output_bytes_acceptance_20261026.json"
+  "resolution_evidence": "final_fetch_count_acceptance_20261026.json"
 }

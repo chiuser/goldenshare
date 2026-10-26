@@ -1,5 +1,5 @@
 {
-  "status": "D3_complete",
+  "status": "D3_complete_after_independent_audit",
   "D3_complete": true,
   "completed_scope": "LLD D3 steps5 and6; no D4 or formal consumer migration",
   "implementation_commit": "1fcac21a44ca6ff5a89a29bec55ba3d2adb789bf",
@@ -10,20 +10,21 @@
     "required_failed": 0,
     "required_setup_or_teardown_errors": 0,
     "original_passed_not_rerun": 20,
-    "combined_distinct_passed_items": 27,
+    "combined_distinct_passed_items": 28,
     "historical_failed_attempts_preserved": 2,
     "automatic_retries": 0,
-    "calculate_output_bytes_passed": 1
+    "calculate_output_bytes_passed": 1,
+    "final_fetch_count_passed": 1
   },
   "consumed": {
-    "input_rows": 21139,
-    "sql_logical_rows": 1324859,
+    "input_rows": 21148,
+    "sql_logical_rows": 1324979,
     "real_controls": 4,
-    "fixture_rows": 10055
+    "fixture_rows": 10058
   },
   "remaining": {
-    "input_rows": 78861,
-    "sql_logical_rows": 3675141,
+    "input_rows": 78852,
+    "sql_logical_rows": 3675021,
     "real_controls": 0
   },
   "required_resume_delta": {
@@ -34,9 +35,9 @@
   },
   "source_price_rows_added": 0,
   "fixture_files_written": 3,
-  "program_seconds": 1.634241874795407,
-  "combined_program_seconds": 18.977130916900933,
-  "ledger_elapsed_seconds": 18.349156833719462,
+  "program_seconds": 1.1433410830795765,
+  "combined_program_seconds": 20.12047199998051,
+  "ledger_elapsed_seconds": 19.516118375584483,
   "time_semantics": "combined_program_seconds includes all prior failed/successful pytest programs and startup; ledger_elapsed_seconds is the narrower internal state clock",
   "cleanup": {
     "owned_directory": {
@@ -50,7 +51,7 @@
     "coefficient_rejection_cleanup": "original error has no cleanup notes; live tables and arrow empty"
   },
   "checks": {
-    "protected_files_unchanged": 66,
+    "protected_files_unchanged": 67,
     "independent_reference_unchanged": true,
     "old_record_prefixes_unchanged": true,
     "source_fixture_created_once": true,
@@ -64,7 +65,14 @@
     "fixture_owned_20261026.json",
     "required_fixture_baseline_20261026.json",
     "d3_final_audit.json",
-    "d3_requirement_reconciliation_20261026.md"
+    "d3_requirement_reconciliation_20261026.md",
+    "final_fetch_count_acceptance_20261026.json",
+    "execution_final_fetch_count_20261026.json",
+    "pytest_final_fetch_count_20261026.txt",
+    "fixture_final_fetch_count_20261026.json",
+    "final_fetch_count_details_20261026.json",
+    "d3_final_confirmation_20261026.json",
+    "d3_final_confirmation_20261026.md"
   ],
   "historical_evidence_retained": [
     "execution_20261026.json",
@@ -95,13 +103,16 @@
     "git_commit_this_resume": false,
     "git_push": false
   },
-  "next": "Stop: both requested findings resolved. No other work authorized in this turn",
+  "next": "Stop at D3 confirmation; recommend D4 LLD audit and detailed plan for review before development",
   "final_static_checks": {
-    "original_HTML_ids_tables_links": "passed",
-    "LLD_design_Python_JSON_syntax": "passed",
-    "repository_docs_integrity": "passed",
-    "scoped_tracked_diff_whitespace": "passed",
-    "test_AST_and_preflight": "passed"
+    "component_and_LLD_HTML_ids_tables_links": "passed",
+    "documentation_integrity": "passed",
+    "changed_Python_syntax": "passed",
+    "report_JSON_syntax": "passed",
+    "protected_67_files_and_reference": "unchanged",
+    "historical_record_prefixes": "unchanged",
+    "task_diff_whitespace": "passed",
+    "codegraph_sync_status": "completed"
   },
   "independent_closeout_review": {
     "status": "passed",
@@ -174,6 +185,80 @@
     ],
     "next": "Stop: both requested findings resolved. No other work authorized in this turn"
   },
-  "latest_scope": "Only F1/F2 resolution; existing receipt sections retained",
-  "latest_program_record": "execution_calculate_output_bytes_20261026.json"
+  "latest_scope": "LLD D3 steps5 and6 only; final fetch count checks completed under19.30",
+  "latest_program_record": "execution_final_fetch_count_20261026.json",
+  "latest_final_confirmation": "d3_final_confirmation_20261026.json",
+  "final_fetch_count_resolution": {
+    "status": "passed",
+    "basis": "LLD19.30; final fetch count checks from14.5",
+    "test_function": "test_d3_final_fetch_count.py::test_calculate_final_fetch_count_and_cleanup",
+    "pytest_items": 1,
+    "direct_calculate_calls": 3,
+    "actual_results": [
+      {
+        "mode": "normal",
+        "returned": true,
+        "expected_count": 3,
+        "actual_count": 3,
+        "error_type": null,
+        "reason": null,
+        "stage": null,
+        "cleanup": "passed"
+      },
+      {
+        "mode": "short",
+        "returned": false,
+        "expected_count": 3,
+        "actual_count": 2,
+        "error_type": "OutputContractError",
+        "reason": "fetch_count_mismatch",
+        "stage": "final_fetch",
+        "cleanup": "passed"
+      },
+      {
+        "mode": "over",
+        "returned": false,
+        "expected_count": 3,
+        "actual_count": 4,
+        "error_type": "OutputContractError",
+        "reason": "fetch_count_mismatch",
+        "stage": "final_fetch",
+        "cleanup": "passed"
+      }
+    ],
+    "all_real_connections_closed": true,
+    "all_live_tables_and_arrow_empty": true,
+    "fixture_directory_removed": true,
+    "delta": {
+      "input_rows": 9,
+      "sql_logical_rows": 120,
+      "real_controls": 0,
+      "fixture_rows": 3
+    },
+    "consumed": {
+      "input_rows": 21148,
+      "sql_logical_rows": 1324979,
+      "real_controls": 4,
+      "fixture_rows": 10058
+    },
+    "program_seconds": 1.1433410830795765,
+    "cumulative_program_seconds": 20.12047199998051,
+    "automatic_retries": 0,
+    "prior_27_tests_rerun": false,
+    "old_record_prefixes_unchanged": true,
+    "protected_files_unchanged": 67,
+    "independent_reference_unchanged": true,
+    "product_SQL_configuration_dependency_changes": false,
+    "formal_data_API_page_DG_changes": false,
+    "D4_started": false,
+    "git_commit_or_push": false,
+    "evidence_files": [
+      "final_fetch_count_details_20261026.json",
+      "execution_final_fetch_count_20261026.json",
+      "pytest_final_fetch_count_20261026.txt",
+      "fixture_final_fetch_count_20261026.json",
+      "final_fetch_count_baseline_20261026.json"
+    ],
+    "next": "Independent verification of new evidence and final D3 requirements reconciliation; no new computations"
+  }
 }

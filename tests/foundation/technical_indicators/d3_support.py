@@ -406,14 +406,14 @@ def d3_data(tmp_path_factory, request):
         selected = tuple(dict.fromkeys(item.nodeid.split("[", 1)[0] for item in items))
         assert selected == tuple(resume["node_ids"])
         assert len(items) == resume["expected_items"]
-        assert plan["status"] == "approved_D3_calculate_output_bytes"
-        assert resume["baseline_file"] == "calculate_output_bytes_baseline_20261026.json"
+        assert plan["status"] == "approved_D3_final_fetch_count"
+        assert resume["baseline_file"] == "final_fetch_count_baseline_20261026.json"
         assert resume["fixture_mode"] == "owned_required_literals"
         baseline = REPORT / resume["baseline_file"]
         if baseline in _CACHE:
             return _CACHE[baseline]
         saved = json.loads(baseline.read_text())["progress.json"]
-        lifecycle_record = REPORT / "fixture_calculate_output_bytes_20261026.json"
+        lifecycle_record = REPORT / "fixture_final_fetch_count_20261026.json"
         assert not lifecycle_record.exists(), "Do not recreate a fixture after a prior attempt"
         temporary = TemporaryDirectory(dir="/private/tmp", prefix="ti_d3_required_")
         root = Path(temporary.name)

@@ -1,0 +1,73 @@
+{
+  "status": "passed",
+  "basis": "LLD19.30; final fetch count checks from14.5",
+  "test_function": "test_d3_final_fetch_count.py::test_calculate_final_fetch_count_and_cleanup",
+  "pytest_items": 1,
+  "direct_calculate_calls": 3,
+  "actual_results": [
+    {
+      "mode": "normal",
+      "returned": true,
+      "expected_count": 3,
+      "actual_count": 3,
+      "error_type": null,
+      "reason": null,
+      "stage": null,
+      "cleanup": "passed"
+    },
+    {
+      "mode": "short",
+      "returned": false,
+      "expected_count": 3,
+      "actual_count": 2,
+      "error_type": "OutputContractError",
+      "reason": "fetch_count_mismatch",
+      "stage": "final_fetch",
+      "cleanup": "passed"
+    },
+    {
+      "mode": "over",
+      "returned": false,
+      "expected_count": 3,
+      "actual_count": 4,
+      "error_type": "OutputContractError",
+      "reason": "fetch_count_mismatch",
+      "stage": "final_fetch",
+      "cleanup": "passed"
+    }
+  ],
+  "all_real_connections_closed": true,
+  "all_live_tables_and_arrow_empty": true,
+  "fixture_directory_removed": true,
+  "delta": {
+    "input_rows": 9,
+    "sql_logical_rows": 120,
+    "real_controls": 0,
+    "fixture_rows": 3
+  },
+  "consumed": {
+    "input_rows": 21148,
+    "sql_logical_rows": 1324979,
+    "real_controls": 4,
+    "fixture_rows": 10058
+  },
+  "program_seconds": 1.1433410830795765,
+  "cumulative_program_seconds": 20.12047199998051,
+  "automatic_retries": 0,
+  "prior_27_tests_rerun": false,
+  "old_record_prefixes_unchanged": true,
+  "protected_files_unchanged": 67,
+  "independent_reference_unchanged": true,
+  "product_SQL_configuration_dependency_changes": false,
+  "formal_data_API_page_DG_changes": false,
+  "D4_started": false,
+  "git_commit_or_push": false,
+  "evidence_files": [
+    "final_fetch_count_details_20261026.json",
+    "execution_final_fetch_count_20261026.json",
+    "pytest_final_fetch_count_20261026.txt",
+    "fixture_final_fetch_count_20261026.json",
+    "final_fetch_count_baseline_20261026.json"
+  ],
+  "next": "Independent verification of new evidence and final D3 requirements reconciliation; no new computations"
+}
