@@ -2,7 +2,7 @@
 
 日期：2026-10-26。依据：[方案§13.4](../../docs/design/dagster-stock-technical-factor-onboarding-plan-v1.md)、[LLD§15](../../docs/design/dagster-stock-technical-factor-onboarding-low-level-design-v1.md)。第一批已限定提交为`0daf0b5e`，没有push，`paths.py`中其他任务的指数日线改动未混入。
 
-结论：**第二批日下载、校验与发布通过本批验收，具备申请第三批的条件。**本批未实现历史回刷、bootstrap、PG结果读取和正式资产/job/sensor/catalog装配；整个数据集尚未接入完成。第三批未开始，正式执行未开展。
+当前结论：**独立审计发现的路径遗漏已修复，针对性23项及第二批离线回归113项通过，再次独立复核未发现新的确证问题，第二批具备申请第三批条件。**详见[独立审计收尾](independent-audit.md)。下文保留此前开发验收的实际证据；最新修复结果另见[path-fix-results.json](path-fix-results.json)。本批未实现历史回刷、bootstrap、PG结果读取和正式资产/job/sensor/catalog装配；整个数据集尚未接入完成。第三批未开始，正式执行未开展。
 
 ## 实现和计划逐项核实
 

@@ -28,6 +28,44 @@ SILVER_EXPECTED = "stk_factor_pro_silver_expected"
 Source = Literal["http", "prod_postgres"]
 
 
+def require_stk_factor_pro_safe_path(path: Path) -> None:
+    if (
+        not path.is_absolute()
+        or ".." in path.parts
+        or any(p.is_symlink() for p in (path, *path.parents))
+    ):
+        raise ValueError("技术因子路径必须绝对、无越界且无符号链接")
+    retired = Path("/Volumes/datasource/goldenshare-tushare-lake")
+    if path == retired or retired in path.parents:
+        raise ValueError("技术因子禁止使用退役Lake")
+
+
+def require_stk_factor_pro_candidate_path(
+    *, candidate_path: Path, run_root: Path
+) -> None:
+    require_stk_factor_pro_safe_path(run_root)
+    require_stk_factor_pro_safe_path(candidate_path)
+    candidate_root = run_root / "candidates"
+    if candidate_path == candidate_root or not candidate_path.is_relative_to(
+        candidate_root
+    ):
+        raise ValueError("技术因子候选路径必须属于当前run的candidates目录")
+    if candidate_path.exists():
+        raise ValueError("技术因子候选已存在，不接受覆盖或续跑")
+
+
+def _prepare_stk_factor_pro_candidate_path(
+    *, candidate_path: Path, run_root: Path
+) -> None:
+    require_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    require_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
+
+
 def stk_factor_pro_raw_trade_date(value: object, *, source: Source) -> str:
     if source == "http" and type(value) is str and re.fullmatch(r"[0-9]{8}", value):
         parsed = date(int(value[:4]), int(value[4:6]), int(value[6:8]))
@@ -168,8 +206,11 @@ def release_stk_factor_pro_day_source(connection) -> None:
 
 
 def build_stk_factor_pro_raw_candidate(
-    connection, *, source, prior_path: Path | None, candidate_path: Path
+    connection, *, source, prior_path: Path | None, candidate_path: Path, run_root: Path
 ):
+    require_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
     target = source.identity.target_trade_date
     if prior_path is None:
         connection.execute(
@@ -198,7 +239,9 @@ def build_stk_factor_pro_raw_candidate(
     ).fetchone()
     if actual != base - overlap + new:
         raise ValueError("技术因子Raw合并数量不符合B-K+U")
-    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
     connection.execute(
         copy_query_to_parquet(
             f"SELECT {factor_columns()} FROM {RAW_EXPECTED} ORDER BY ts_code,trade_date",
@@ -220,7 +263,11 @@ def build_stk_factor_pro_silver_candidate(
     verified_raw_path: Path,
     target_trade_date: date,
     candidate_path: Path,
+    run_root: Path,
 ):
+    require_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
     projection = ", ".join(
         "CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date"
         if name == "trade_date"
@@ -234,7 +281,9 @@ def build_stk_factor_pro_silver_candidate(
     require_factor_relation(
         connection, SILVER_EXPECTED, target_trade_date=target_trade_date, layer="silver"
     )
-    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_stk_factor_pro_candidate_path(
+        candidate_path=candidate_path, run_root=run_root
+    )
     connection.execute(
         copy_query_to_parquet(
             f"SELECT {factor_columns()} FROM {SILVER_EXPECTED} ORDER BY ts_code,trade_date",

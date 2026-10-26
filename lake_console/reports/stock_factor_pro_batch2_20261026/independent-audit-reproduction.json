@@ -1,0 +1,8 @@
+{
+  "root": "/private/tmp/stk-factor-batch2-independent-y2s5pq_f",
+  "error": "ValueError: 技术因子路径必须绝对、无越界且无符号链接",
+  "outside_files": [
+    "day/raw/data.parquet"
+  ],
+  "formal_test_files": []
+}

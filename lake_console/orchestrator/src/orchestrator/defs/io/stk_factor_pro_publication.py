@@ -20,6 +20,10 @@ from orchestrator.defs.io.stk_factor_pro_candidates import (
     SILVER_EXPECTED,
     build_stk_factor_pro_raw_candidate,
     build_stk_factor_pro_silver_candidate,
+    require_stk_factor_pro_candidate_path,
+)
+from orchestrator.defs.io.stk_factor_pro_candidates import (
+    require_stk_factor_pro_safe_path as _safe,
 )
 from orchestrator.defs.io.stk_factor_pro_download import (
     require_stk_factor_pro_current_day_source,
@@ -39,18 +43,6 @@ from orchestrator.defs.run_contracts.stk_factor_pro import (
     RunIdentity,
     StkFactorProPublicationRecord,
 )
-
-
-def _safe(path: Path) -> None:
-    if (
-        not path.is_absolute()
-        or ".." in path.parts
-        or any(p.is_symlink() for p in (path, *path.parents))
-    ):
-        raise ValueError("技术因子路径必须绝对、无越界且无符号链接")
-    retired = Path("/Volumes/datasource/goldenshare-tushare-lake")
-    if path == retired or retired in path.parents:
-        raise ValueError("技术因子禁止使用退役Lake")
 
 
 def _roots(lake: Path, staging: Path) -> None:
@@ -301,6 +293,10 @@ def publish_stk_factor_pro_day(
     silver = silver_stock_factor_pro_path(lake_root, day)
     for path in (root, raw, silver):
         _safe(path)
+    raw_candidate = root / "candidates" / "day" / "raw" / "data.parquet"
+    silver_candidate = root / "candidates" / "day" / "silver" / "data.parquet"
+    for path in (raw_candidate, silver_candidate):
+        require_stk_factor_pro_candidate_path(candidate_path=path, run_root=root)
     if (root / "candidates" / "day").exists() or (
         root / "publication" / "day"
     ).exists():
@@ -312,12 +308,12 @@ def publish_stk_factor_pro_day(
         return
     check_cancel()
     prior_raw = _hash_if_exists(raw)
-    raw_candidate = root / "candidates" / "day" / "raw" / "data.parquet"
     raw_audit = build_stk_factor_pro_raw_candidate(
         connection,
         source=source,
         prior_path=raw if prior_raw else None,
         candidate_path=raw_candidate,
+        run_root=root,
     )
     raw_target, raw_audit = _publish_file(
         connection,
@@ -339,12 +335,12 @@ def publish_stk_factor_pro_day(
 
     raw_guard()
     prior_silver = _hash_if_exists(silver)
-    silver_candidate = root / "candidates" / "day" / "silver" / "data.parquet"
     silver_audit = build_stk_factor_pro_silver_candidate(
         connection,
         verified_raw_path=raw,
         target_trade_date=source.identity.target_trade_date,
         candidate_path=silver_candidate,
+        run_root=root,
     )
     raw_guard()
     yield _publish_file(

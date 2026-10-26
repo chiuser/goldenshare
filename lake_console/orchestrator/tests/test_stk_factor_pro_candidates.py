@@ -1,11 +1,14 @@
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
 from orchestrator.defs.io.stk_factor_pro_candidates import (
     build_stk_factor_pro_raw_batch,
+    build_stk_factor_pro_raw_candidate,
+    build_stk_factor_pro_silver_candidate,
     release_stk_factor_pro_day_source,
     stk_factor_pro_double,
     stk_factor_pro_raw_trade_date,
@@ -22,6 +25,104 @@ from tests.stk_factor_pro_test_support import (
     row,
     summary,
 )
+
+
+@pytest.mark.parametrize("layer", ["raw", "silver"])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "live_parent_link",
+        "dangling_parent_link",
+        "live_file_link",
+        "dangling_file_link",
+        "other_run",
+        "relative",
+        "parent_traversal",
+        "existing_candidate",
+        "candidate_directory",
+    ],
+)
+def test_candidate_builders_reject_bad_paths_before_sql_or_write(tmp_path, layer, kind):
+    # Independent forbidden layouts from LLD 15.9. The real native source is
+    # prepared first; only SQL after the builder call is forbidden by this probe.
+    run_root, outside = tmp_path / "run-a", tmp_path / "outside"
+    run_root.mkdir()
+    candidate = run_root / "candidates" / "day" / layer / "data.parquet"
+    if kind.endswith("parent_link"):
+        candidate.parent.parent.mkdir(parents=True)
+        if kind == "live_parent_link":
+            outside.mkdir()
+        candidate.parent.symlink_to(outside, target_is_directory=True)
+    elif kind.endswith("file_link"):
+        outside.mkdir()
+        external_file = outside / "data.parquet"
+        if kind == "live_file_link":
+            external_file.write_bytes(b"existing external file")
+        candidate.parent.mkdir(parents=True)
+        candidate.symlink_to(external_file)
+    elif kind == "other_run":
+        candidate = (
+            tmp_path / "other-run" / "candidates" / "day" / layer / "data.parquet"
+        )
+    elif kind == "relative":
+        candidate = Path("relative") / "data.parquet"
+    elif kind == "parent_traversal":
+        candidate = run_root / "candidates" / ".." / "outside" / "data.parquet"
+    elif kind == "existing_candidate":
+        candidate.parent.mkdir(parents=True)
+        candidate.write_bytes(b"old candidate must not be reused or overwritten")
+    elif kind == "candidate_directory":
+        candidate = run_root / "candidates"
+
+    class NoSQL:
+        calls = 0
+
+        def execute(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("invalid candidate path reached SQL")
+
+    with connection(tmp_path) as conn:
+        source = verify_stk_factor_pro_day_source(
+            conn,
+            identity=identity(),
+            result=result((row(),)),
+            summary=summary(1),
+            contract=contract(),
+        )
+        before = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*"))
+        probe = NoSQL()
+        try:
+            with pytest.raises(ValueError, match="路径|候选"):
+                if layer == "raw":
+                    build_stk_factor_pro_raw_candidate(
+                        probe,
+                        source=source,
+                        prior_path=None,
+                        candidate_path=candidate,
+                        run_root=run_root,
+                    )
+                else:
+                    build_stk_factor_pro_silver_candidate(
+                        probe,
+                        verified_raw_path=tmp_path / "must-not-read.parquet",
+                        target_trade_date=date(2026, 10, 16),
+                        candidate_path=candidate,
+                        run_root=run_root,
+                    )
+            assert probe.calls == 0
+            assert (
+                sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*"))
+                == before
+            )
+            if kind == "live_file_link":
+                assert external_file.read_bytes() == b"existing external file"
+            if kind == "existing_candidate":
+                assert (
+                    candidate.read_bytes()
+                    == b"old candidate must not be reused or overwritten"
+                )
+        finally:
+            release_stk_factor_pro_day_source(conn)
 
 
 @pytest.mark.parametrize(

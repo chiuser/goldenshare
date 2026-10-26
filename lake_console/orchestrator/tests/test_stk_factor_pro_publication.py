@@ -261,6 +261,72 @@ def test_symlink_roots_and_relative_roots_rejected(tmp_path):
         release_stk_factor_pro_day_source(conn)
 
 
+@pytest.mark.parametrize("dangling", [False, True])
+def test_candidate_directory_symlink_rejected_before_any_write(tmp_path, dangling):
+    # LLD 15.9: this is the independently reproduced bad directory layout,
+    # not a simulated COPY failure. An ordinary run root may already exist.
+    lake, staging = roots(tmp_path)
+    outside = tmp_path / "outside"
+    if not dangling:
+        outside.mkdir()
+    run_root = staging / "stk_factor_pro" / f"trade_date={DAY}" / "run_id=run-a"
+    run_root.mkdir(parents=True)
+    (run_root / "candidates").symlink_to(outside, target_is_directory=True)
+    with connection(tmp_path) as conn, pytest.raises(ValueError, match="路径|候选"):
+        run_day(conn, lake, staging, (row(),))
+    assert list(outside.rglob("*")) == []
+    assert outside.exists() is (not dangling)
+    assert list(lake.rglob("*")) == []
+    assert not (run_root / "publication").exists()
+
+
+@pytest.mark.parametrize("dangling", [False, True])
+def test_silver_symlink_after_raw_yield_rejected_before_write(tmp_path, dangling):
+    lake, staging = roots(tmp_path)
+    outside = tmp_path / "outside"
+    if not dangling:
+        outside.mkdir()
+    with connection(tmp_path) as conn:
+        source = download_stk_factor_pro_day(
+            conn,
+            identity=identity(),
+            contract=contract(),
+            downloader=Downloader(result((row(),))),
+            check_cancel=lambda: None,
+        )
+        iterator = publication.publish_stk_factor_pro_day(
+            conn,
+            source=source,
+            lake_root=lake,
+            staging_root=staging,
+            check_cancel=lambda: None,
+        )
+        try:
+            target, _ = next(iterator)
+            assert target.layer == "raw"
+            raw = raw_stk_factor_pro_path(lake, DAY.isoformat())
+            raw_bytes = raw.read_bytes()
+            run_root = staging / "stk_factor_pro" / f"trade_date={DAY}" / "run_id=run-a"
+            complete = (
+                run_root / "publication" / "day" / str(DAY) / "raw" / "complete.json"
+            )
+            complete_bytes = complete.read_bytes()
+            (run_root / "candidates" / "day" / "silver").symlink_to(
+                outside, target_is_directory=True
+            )
+            with pytest.raises(ValueError, match="路径|候选"):
+                next(iterator)
+            assert raw.read_bytes() == raw_bytes
+            assert complete.read_bytes() == complete_bytes
+            assert not silver_stock_factor_pro_path(lake, DAY.isoformat()).exists()
+            assert not (complete.parent.parent / "silver").exists()
+        finally:
+            iterator.close()
+            release_stk_factor_pro_day_source(conn)
+    assert list(outside.rglob("*")) == []
+    assert outside.exists() is (not dangling)
+
+
 def test_unmounted_formal_volume_rejected_without_accessing_formal_files(monkeypatch):
     # Only exercise the mount branch; every filesystem probe is a stub. This is
     # not a real Lake readiness or permissions acceptance test.

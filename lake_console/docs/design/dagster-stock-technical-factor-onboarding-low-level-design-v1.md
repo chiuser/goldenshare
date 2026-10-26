@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-10-26。状态：第一批“契约与基础结构”已开发并通过本批验收，结果见§14.6；第二批日下载、校验与发布已通过本批验收（§15.7），其余批次尚未开发，整个数据集尚未完成。以下日更/历史行为是后续已批准设计：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
+日期：2026-10-26。状态：第一批“契约与基础结构”已开发并通过本批验收，结果见§14.6；第二批日下载、校验与发布已开发，提交后发现的路径遗漏已修复，针对性回归及再次独立审计通过（§15.10），其余批次尚未开发，整个数据集尚未完成。以下日更/历史行为是后续已批准设计：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -908,7 +908,7 @@ def write_stk_factor_pro_raw_fragment(
 ) -> StkFactorProFragment: ...
 def build_stk_factor_pro_silver_candidate(
     *, connection: DuckDBPyConnection, verified_raw_path: Path,
-    target_trade_date: date, candidate_path: Path,
+    target_trade_date: date, candidate_path: Path, run_root: Path,
 ) -> StkFactorProFileAudit: ...
 ```
 
@@ -2066,7 +2066,7 @@ PublishedTarget沿§5.4.3固定结构，日scope三项均None、unrefreshed_coun
 
 HTTP实际UnitResult/每记录fields与values按§9.1处理，不复制整份行列表；两来源标量类型检查及build_stk_factor_pro_raw_batch实现共享转换，Prod片段写函数留第四批。本批只构造当前日DataFrame列和临时U，不写源片段。
 
-Raw候选函数`build_stk_factor_pro_raw_candidate(connection, *, source, prior_path:Path|None, candidate_path:Path) -> StkFactorProFileAudit`。先将合法旧B物化到本连接独立临时表，不能留下指向即将被替换文件的view；U主键唯一后生成固定expected临时表B−K+U，COPY一次Raw候选。expected在正式读回前保持不变，不能提升后从新Raw反推expected。
+Raw候选函数`build_stk_factor_pro_raw_candidate(connection, *, source, prior_path:Path|None, candidate_path:Path, run_root:Path) -> StkFactorProFileAudit`。先将合法旧B物化到本连接独立临时表，不能留下指向即将被替换文件的view；U主键唯一后生成固定expected临时表B−K+U，COPY一次Raw候选。expected在正式读回前保持不变，不能提升后从新Raw反推expected。
 
 Silver函数沿§9.1签名，只从verified_raw_path显式转换日期建立固定expected临时表，COPY本层候选；没有旧Silver独立合并。无旧Raw且U空不COPY；有旧Raw而U空保留B，可由最终Raw重建缺失Silver。
 
@@ -2105,3 +2105,42 @@ Silver构造及提升同时核对应正式Raw SHA未变；不能从变化后的R
 正常两轮unit引用数回到基线，U及转换临时关系均已释放；失败/取消清表，不以RSS回落或强制GC作证明。独立子进程在Raw已发布后退出，新进程实际重新调用下载且最终Silver为新值，未接旧候选。原T旧未返行保留、Raw先交结果后才处理Silver、等价不replace、源成功0行不造文件、已发布不回滚及覆盖未知不伪0均已验证。发布后以相同实际字节/schema/行数复用候选完整audit，避免重复整套259列JOIN；记录日期/层/run物理路径、+08时刻、候选固定位置及挂载门槛有反向测试。
 
 首次0源的完整缺失/阶段观察后业务Failure，含instance的readiness/覆盖复用及PG事件，仍由第五批落实；第三批历史、第四批bootstrap和正式装配均未开始。本批不存在新增需管理员拍板的业务设计问题，具备申请第三批条件，不自动推进。
+
+### 15.8 提交后的独立审计（2026-10-26）
+
+第二批已提交`5edb6409`，未push。发现§15.4的符号链接拒绝检查未在候选生成前落实：run目录下candidates子目录可指向外部，COPY先写出候选，发布函数随后才报错。1行临时样本已复现，正式文件未替换。本轮91项隔离回归通过，但既有根目录符号链接测试未覆盖该分支。暂停§15.7的第三批推进条件，先修候选写入前的路径检查、补Raw/Silver反例及正常run交接回归，再重新验收；不改变业务设计，不增加锁。本轮未修代码。完整依据与建议见[独立审计](../../reports/stock_factor_pro_batch2_20261026/independent-audit.md)。
+
+### 15.9 第二批候选路径修复方案（2026-10-26，已批准）
+
+目标是修正§15.8已复现的写入顺序错误：Raw/Silver候选的完整路径在首次目录创建和COPY之前就必须被拒绝，不能先写到符号链接指向的位置再报错。本轮只修改`io/stk_factor_pro_candidates.py`、`io/stk_factor_pro_publication.py`及对应候选/发布测试，报告同步原方案与本LLD；不改字段、下载模式、源配置、正式资产/任务或其他数据集，不开发第三批。
+
+**依据及依赖：**CodeGraph与全仓引用搜索确认两个候选构造函数当前各只有日发布函数这个正式调用方，另有隔离测试替身；未装配PG/正式资产。现行`_safe`已有绝对路径、父级遍历、任意祖先符号链接及退役根拒绝规则，只需把它移为候选模块内`require_stk_factor_pro_safe_path(path:Path)->None`并由发布模块引用同一函数，不复制规则、不反向import发布模块、不新增通用平台或配置。
+
+**内部接口及调用顺序：**
+
+1. 新增`require_stk_factor_pro_candidate_path(*, candidate_path:Path, run_root:Path)->None`，对run_root及完整candidate_path使用上述同一安全函数，并要求candidate严格位于`run_root/candidates/`下、不是该目录本身；现存候选文件拒绝覆盖。日发布仍固定生成`candidates/day/raw/data.parquet`和`candidates/day/silver/data.parquet`，run_root只由当前RunIdentity及既定staging路径函数产生。这里不改变日目标和候选命名，也不通过resolve把非法链接转换为合法路径。
+2. `build_stk_factor_pro_raw_candidate`与`build_stk_factor_pro_silver_candidate`均增加必填`run_root:Path`关键字参数，唯一正式调用方同步传当前run目录，不保留旧签名或缺省兜底。两个构造函数在执行候选SQL前先检查路径；已有计算完成后、mkdir前重检，mkdir后、COPY前再检。任何检查失败立即抛ValueError，不能继续COPY或记录intent。
+3. 日发布入口在旧候选存在性判断前对两层固定候选路径作预检查；Raw交付后进入Silver时，候选构造函数仍独立重检，覆盖业务处理Raw结果期间出现的错误子目录。后续发布前的候选/目标校验、prior SHA、设备/空间及原子替换流程保留。
+4. 允许先前步骤已经写入`history-plan`的普通run目录；拒绝越界、相对路径、`..`、存在或悬空的符号链接及旧日候选。检查只在当前任务路径上读取目录元信息，不扫描其他任务或全湖。
+
+**读写、失败及性能边界：**正常仍只有T日内存源、两个候选/两个正式目标及既有逐文件记录，网络/SQL/数据行/候选数/正式写入数不增加；新增成本只是有限路径深度的元信息检查，单日固定两层。非法路径在候选写入前结束，预存Raw/Silver及前序名单不删不改；若Raw已经发布后才发现Silver路径异常，则保留Raw及其完成记录，Silver不生成，调用方finally清理内存。获准的新run按原规则重新下载，失败候选不复用；不引入锁、线程或并发修改目录的对抗性机制，不声称重复路径检查能提供多进程安全。最终验收复用1行261字段样本，失败重做与最终读回沿§15.6，无正式IO、无全量跑数。
+
+**硬口径与验收映射：**
+
+| 约束 | 代码落点 | 正向/反向验证 |
+| --- | --- | --- |
+| 首次候选mkdir/COPY前拒绝链接 | 共用路径检查及两候选函数 | 原复现：run下candidates指向外部空目录；报错且外部目录没有任何新增子目录/文件、正式测试目标0文件 |
+| Raw/Silver均由构造函数保护，不只依赖入口 | 两候选函数必填run_root | 直接调用两函数，候选叶文件、层目录的已存在/悬空链接均在写前拒绝；外部文件内容保持不变 |
+| 绑定当前run，禁止越界及旧候选 | candidate_path精确归属检查、发布固定路径 | 相对路径、`..`、其他run路径、已有候选拒绝，断言COPY未执行 |
+| Raw先交付后Silver路径仍复核 | 日发布与Silver构造入口 | Raw yield后设置Silver子目录链接；下一次迭代拒绝，Raw内容及complete保留，链接指向处没有新增 |
+| 正常目录不误拦 | 原run目录及日发布 | 存在history-plan仍正常生成两层，名单内容不改；既有合并、等价发布及失败新下载回归保留 |
+
+先增加能在修复前暴露真实越界写入的反例并确认失败，再实施修复；本批四个离线测试文件（仅排除本机HTTP适配测试）及修改文件Ruff、全src/tests致命错误门禁、文档完整性执行一次。HTTP/组件协议未变，本轮不重复源请求；独立审计继续覆盖源生命周期、取消/清理、Raw→Silver、失败新下载、纯覆盖。通过后回填实际结果，未通过不恢复第三批条件。
+
+### 15.10 路径修复后的验收与独立复核（2026-10-26）
+
+§15.9已落实到两个候选/发布模块及两份测试，所有正式调用方同步必填run_root。原布局4项在修复前实际失败、修复后通过；18项直接builder反例明确先于任何SQL拒绝，1项history-plan普通目录正例保留，针对性合计23项通过。第二批四文件离线回归113项通过、1项本机HTTP适配明确未重复、23.22秒；默认Ruff、全src/tests致命错误及文档检查通过。没有新增skip、未改HTTP测试断言，HTTP代码及组件未变。
+
+1行261字段读回仍正确，正常/等价更新0.5057/0.8806秒，52/70条SQL、候选各2份、正式替换2/0次，没有增加数据IO或源请求，不把该样本当全市场预算验收。修复前后完整输出与成本见[独立审计](../../reports/stock_factor_pro_batch2_20261026/independent-audit.md)及[path-fix-results.json](../../reports/stock_factor_pro_batch2_20261026/path-fix-results.json)。失败不写外部位置，Raw已完成而Silver失败仍保留Raw和complete；重试新run重新下载的原规则不变。
+
+修复后独立只读复核全部调用方与写前检查，并复核本批源生命周期、取消/清理、两层合并发布、失败新下载及纯覆盖，未发现新的确证问题。CodeGraph修改前explore、修改后sync/status完成。§15.8的路径缺陷及验收暂停关闭，第二批具备申请第三批条件；本轮未提交、未push，没有正式执行，不自动推进第三批。

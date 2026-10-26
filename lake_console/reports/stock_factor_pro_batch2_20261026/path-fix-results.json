@@ -1,0 +1,65 @@
+{
+  "base_commit": "5edb6409",
+  "date": "2026-10-26",
+  "before": {
+    "failed": 4,
+    "deselected": 21,
+    "seconds": 2.05
+  },
+  "targeted": {
+    "passed": 23,
+    "deselected": 55,
+    "seconds": 3.49
+  },
+  "regression": {
+    "passed": 113,
+    "deselected": 1,
+    "seconds": 23.22,
+    "excluded_test": "test_real_component_http_to_day_adapter_progress_and_retry",
+    "reason": "HTTP/组件协议未改，本轮仅离线路径修复与回归"
+  },
+  "bounded_roundtrip": {
+    "rows": 1,
+    "fields": 261,
+    "source_requests": 0,
+    "date": "2026-10-16",
+    "elapsed_seconds": [
+      0.5057,
+      0.8806
+    ],
+    "measurements": [
+      {
+        "run": "normal",
+        "sql_statements": 52,
+        "parquet_read_statements": 7,
+        "hash_file_reads": 17,
+        "hash_read_bytes": 519627,
+        "atomic_file_operations": 6,
+        "atomic_file_bytes": 74501,
+        "target_file_replaces": 2,
+        "candidate_parquet_files": 2,
+        "candidate_bytes": 68889,
+        "completed_records": 2
+      },
+      {
+        "run": "same-day",
+        "sql_statements": 70,
+        "parquet_read_statements": 10,
+        "hash_file_reads": 27,
+        "hash_read_bytes": 864196,
+        "atomic_file_operations": 4,
+        "atomic_file_bytes": 5860,
+        "target_file_replaces": 0,
+        "candidate_parquet_files": 2,
+        "candidate_bytes": 68889,
+        "completed_records": 2
+      }
+    ],
+    "published_bytes": 68889,
+    "source_cache_files": 0
+  },
+  "formal_io": 0,
+  "tushare_requests": 0,
+  "independent_review": "未发现新的确证问题；候选路径缺陷关闭",
+  "code_committed": false
+}
