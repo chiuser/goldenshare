@@ -20,6 +20,7 @@ from orchestrator.defs.io.stk_factor_pro_candidates import SILVER_EXPECTED
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    check_test_space,
     native_row,
     source_fixture,
 )
@@ -52,7 +53,11 @@ def _raw_only(conn, args, monkeypatch):
     with monkeypatch.context() as scoped:
         scoped.setattr(P, "build_stk_factor_pro_silver_candidate", stop)
         with pytest.raises(OSError, match="intentional stop"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
 
 
 def _silver_intent(conn, args):
@@ -119,7 +124,11 @@ def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
                 wrong,
             )
             with pytest.raises(ValueError, match="Raw完成事实"):
-                P.publish_bootstrap_date(conn, **args)
+                P.publish_bootstrap_date(
+                    conn,
+                    **args,
+                    check_space=check_test_space,
+                )
         else:
             with pytest.raises(ValueError, match="Raw完成事实"):
                 P.write_stk_factor_pro_bootstrap_publication_intent(
@@ -127,6 +136,7 @@ def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
                     staging_root=args["staging_root"],
                     approval=args["approval"],
                     record=wrong,
+                    check_space=check_test_space,
                 )
         silver = P._target(args["lake_root"], wrong.trade_date, "silver")
         assert not silver.exists()
@@ -149,7 +159,11 @@ def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path)
         target = P._target(args["lake_root"], source.trade_date, "raw")
         target.parent.mkdir(parents=True)
         copyfile(source_file, target)
-        raw, silver = P.publish_bootstrap_date(conn, **args)
+        raw, silver = P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        )
         assert raw.passed and silver.passed
         raw_intent, _ = P.read_stk_factor_pro_bootstrap_publication(
             lake_root=args["lake_root"],
@@ -190,8 +204,16 @@ def test_empty_source_requires_same_operation_but_valid_empty_has_no_files(tmp_p
             ),
         )
         with pytest.raises(ValueError, match="本operation"):
-            P.publish_bootstrap_date(conn, **{**args, "source_complete": wrong})
-        assert P.publish_bootstrap_date(conn, **args) == (None, None)
+            P.publish_bootstrap_date(
+                conn,
+                **{**args, "source_complete": wrong},
+                check_space=check_test_space,
+            )
+        assert P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        ) == (None, None)
         assert not P._target(args["lake_root"], day, "raw").exists()
         assert not P._target(args["lake_root"], day, "silver").exists()
 
@@ -224,7 +246,11 @@ def test_diagnostics_are_saved_as_operation_relative_path(
         monkeypatch.setattr(
             P, "write_stk_factor_pro_bootstrap_publication_complete", attach
         )
-        raw, silver = P.publish_bootstrap_date(conn, **args)
+        raw, silver = P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        )
         assert raw.passed and silver.passed
         _, saved = P.read_stk_factor_pro_bootstrap_publication(
             lake_root=args["lake_root"],
@@ -270,7 +296,11 @@ def test_diagnostics_cannot_leave_approved_operation(tmp_path, monkeypatch, outs
             P, "write_stk_factor_pro_bootstrap_publication_complete", attach
         )
         with pytest.raises(ValueError):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         assert not R.operation_path(
             args["staging_root"],
             args["approval"],
@@ -304,7 +334,11 @@ def test_complete_rejects_audit_consistent_but_wrong_intent_content_or_rows(
             P, "write_stk_factor_pro_bootstrap_publication_complete", wrong_fact
         )
         with pytest.raises(ValueError, match="完成记录与意图"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         assert not R.operation_path(
             args["staging_root"],
             args["approval"],

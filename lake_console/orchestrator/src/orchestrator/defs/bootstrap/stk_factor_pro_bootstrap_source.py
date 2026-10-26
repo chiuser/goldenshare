@@ -356,6 +356,8 @@ def _complete_day(
     approved_rows,
     close_reason,
     next_trade_date,
+    check_space,
+    verification=None,
 ):
     paths = [
         str(records.operation_path(staging_root, approval, ref.fragment.relative_path))
@@ -422,7 +424,12 @@ def _complete_day(
         ),
     )
     return records.write_stk_factor_pro_bootstrap_source_complete(
-        connection, staging_root=staging_root, approval=approval, record=record
+        connection,
+        staging_root=staging_root,
+        approval=approval,
+        record=record,
+        check_space=check_space,
+        verification=verification,
     )
 
 
@@ -456,6 +463,9 @@ def export_stk_factor_pro_bootstrap_month(
     month,
     selected_dates,
     on_complete_date,
+    check_space,
+    verification=None,
+    progress=None,
 ):
     """Fetch whole pending days, save batches, and synchronously publish closed days."""
     counts, evidence, sample = _approved_inputs(
@@ -466,6 +476,8 @@ def export_stk_factor_pro_bootstrap_month(
     ):
         raise ValueError("bootstrap待读取日期必须是批准月扣除有效完整源日期")
     attempt_id = uuid4().hex
+    if progress is not None:
+        progress.start_attempt(attempt_id)
     if not selected_dates:
         return C.StkFactorProBootstrapMonthResult(month, attempt_id, 0, (), (), (), ())
     require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
@@ -488,10 +500,17 @@ def export_stk_factor_pro_bootstrap_month(
             approved_rows=counts[day],
             close_reason=reason,
             next_trade_date=following,
+            check_space=check_space,
+            verification=verification,
         )
         completed.append(day)
         audits.extend(_validate_date_result(record, on_complete_date(record)))
 
+    check_space(
+        "月源明细读取前",
+        path=records.operation_root(staging_root, approval),
+        month_start=month.month_start,
+    )
     with _readonly_transaction(prod_postgres) as remote:
         control = remote.cursor()
         with records.resource_cleanup(control.close):
@@ -529,6 +548,13 @@ def export_stk_factor_pro_bootstrap_month(
                     require_stk_factor_pro_bootstrap_source_window(
                         approval=approval, now=_now()
                     )
+                    check_space(
+                        "领取下一批源前",
+                        path=records.operation_root(staging_root, approval),
+                        month_start=month.month_start,
+                    )
+                    if progress is not None:
+                        progress.set_stage("读取源批次")
                     rows = cursor.fetchmany(
                         min(
                             C.STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS,
@@ -572,11 +598,35 @@ def export_stk_factor_pro_bootstrap_month(
                         approval,
                         f"source/month={month.month_start:%Y-%m}/attempt_id={attempt_id}/fragment-{number:06d}.parquet",
                     )
+                    check_space(
+                        "源片段保存前",
+                        path=path,
+                        rows=len(rows),
+                        month_start=month.month_start,
+                    )
                     fragment = write_stk_factor_pro_raw_fragment(
                         connection=connection,
                         frame=frame,
                         candidate_path=path,
                         expected_row_count=len(rows),
+                        on_verified_fragment=(
+                            None
+                            if verification is None
+                            else lambda **facts: verification.remember_saved(
+                                connection=connection, **facts
+                            )
+                        ),
+                    )
+                    if progress is not None:
+                        progress.batch_saved(
+                            batch_no=number, rows=len(rows), trade_date=last_key[0]
+                        )
+                    check_space(
+                        "源片段已保存",
+                        path=path,
+                        rows=len(rows),
+                        month_start=month.month_start,
+                        event="source_saved",
                     )
                     seen += len(rows)
                     del rows, frame
@@ -591,6 +641,8 @@ def export_stk_factor_pro_bootstrap_month(
                         if open_day is not None and day != open_day:
                             complete(open_day, "next_date", day)
                         open_day = day
+                if progress is not None:
+                    progress.set_stage("关闭源游标和只读事务")
     return C.StkFactorProBootstrapMonthResult(
         month,
         attempt_id,

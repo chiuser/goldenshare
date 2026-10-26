@@ -207,5 +207,35 @@ def source_fixture(
         ),
     )
     return write_stk_factor_pro_bootstrap_source_complete(
-        connection, staging_root=staging_root, approval=approval, record=source
+        connection,
+        staging_root=staging_root,
+        approval=approval,
+        record=source,
+        check_space=check_test_space,
+    )
+
+
+def check_test_space(stage, *, path, rows=None, **facts):
+    """Real temp-filesystem check; only full-operation planning is replaced.
+
+    Entry integration tests use the real operation guard instead. This explicit
+    seam does not prove cumulative budgets, which have independent literal tests.
+    """
+    from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as records
+
+    number = rows if type(rows) is int else 0
+    estimate = records.estimate_bootstrap_space(
+        pending_source_rows_by_month=(),
+        remaining_layer_rows=(),
+        work_rows=(number, number),
+        pending_fetch_rows=0,
+        remaining_date_count=1,
+    )
+    directory = path if path.is_dir() else path.parent
+    records.require_bootstrap_space(
+        operation_id="isolated-bootstrap",
+        stage=stage,
+        estimate=estimate,
+        staging_root=directory,
+        temp_directory=directory,
     )

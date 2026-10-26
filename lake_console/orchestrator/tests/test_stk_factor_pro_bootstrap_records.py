@@ -11,6 +11,7 @@ from orchestrator.defs.paths import stk_factor_pro_bootstrap_record_path
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    check_test_space,
     native_row,
     source_fixture,
 )
@@ -48,7 +49,11 @@ def test_source_saved_read_back_immutable_and_content_verified(tmp_path):
         ).fetchone() == ("000001.SZ", "20191016", 1.25, 10.0)
         assert (
             R.write_stk_factor_pro_bootstrap_source_complete(
-                conn, staging_root=staging, approval=approval, record=record
+                conn,
+                staging_root=staging,
+                approval=approval,
+                record=record,
+                check_space=check_test_space,
             )
             == record
         )
@@ -61,7 +66,11 @@ def test_source_saved_read_back_immutable_and_content_verified(tmp_path):
         )
         with pytest.raises(ValueError, match="业务内容"):
             R.write_stk_factor_pro_bootstrap_source_complete(
-                conn, staging_root=staging, approval=approval, record=wrong
+                conn,
+                staging_root=staging,
+                approval=approval,
+                record=wrong,
+                check_space=check_test_space,
             )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterable, Sequence
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -382,14 +383,34 @@ def describe_stk_factor_pro_fragment(connection, *, path, root, relation):
     )
 
 
+def stk_factor_pro_fragment_file_signature(path):
+    """Read a regular, confined fragment's identity without reading business rows."""
+    from stat import S_ISREG
+
+    require_stk_factor_pro_safe_path(path)
+    observed = path.stat()
+    if not S_ISREG(observed.st_mode):
+        raise ValueError("bootstrap源片段必须是普通文件")
+    return (
+        observed.st_dev,
+        observed.st_ino,
+        observed.st_size,
+        observed.st_mtime_ns,
+        observed.st_ctime_ns,
+    )
+
+
 def write_stk_factor_pro_raw_fragment(
-    *, connection, frame, candidate_path, expected_row_count
+    *, connection, frame, candidate_path, expected_row_count, on_verified_fragment=None
 ):
     """Save one approved Prod source batch on the caller's existing connection."""
     import os
     from uuid import uuid4
 
-    from orchestrator.defs.checks.stk_factor_pro import compare_factor_relations
+    from orchestrator.defs.checks.stk_factor_pro import (
+        compare_factor_relations,
+        factor_file_sha,
+    )
     from orchestrator.defs.duckdb_sql import read_parquet
 
     require_stk_factor_pro_safe_path(candidate_path)
@@ -446,6 +467,7 @@ def write_stk_factor_pro_raw_fragment(
         connection.execute(
             f"CREATE TEMP VIEW {saved} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
         )
+        before = stk_factor_pro_fragment_file_signature(temporary)
         comparison = compare_factor_relations(
             connection, expected=relation, actual=saved
         )
@@ -458,9 +480,12 @@ def write_stk_factor_pro_raw_fragment(
         ):
             raise ValueError("源片段读回完整业务字段不符")
         # Metadata validation includes source schema, key uniqueness and finite numbers.
-        describe_stk_factor_pro_fragment(
+        fragment = describe_stk_factor_pro_fragment(
             connection, path=temporary, root=root, relation=saved
         )
+        verified = stk_factor_pro_fragment_file_signature(temporary)
+        if verified != before:
+            raise ValueError("源片段完整读回期间文件改变")
         if (
             candidate_path.exists()
             or temporary.stat().st_dev != candidate_path.parent.stat().st_dev
@@ -474,15 +499,22 @@ def write_stk_factor_pro_raw_fragment(
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        # Rebind after replace: DuckDB must never lazily read the moved temporary.
-        connection.execute(
-            f"CREATE OR REPLACE TEMP VIEW {saved} AS SELECT * FROM {read_parquet(candidate_path, hive_partitioning=False)}"
-        )
-        fragment = describe_stk_factor_pro_fragment(
-            connection, path=candidate_path, root=root, relation=saved
+        # Rename may update ctime. The same inode, size and mtime plus the exact
+        # validated bytes let us retain the full readback without scanning again.
+        final = stk_factor_pro_fragment_file_signature(candidate_path)
+        if (
+            final[:4] != verified[:4]
+            or factor_file_sha(candidate_path) != fragment.file_sha256
+            or stk_factor_pro_fragment_file_signature(candidate_path) != final
+        ):
+            raise ValueError("源片段原子保存后身份或字节改变")
+        fragment = replace(
+            fragment, relative_path=candidate_path.relative_to(root).as_posix()
         )
         if fragment.row_count != expected_row_count:
             raise ValueError("源片段最终行数不符")
+        if on_verified_fragment is not None:
+            on_verified_fragment(path=candidate_path, fragment=fragment)
         return fragment
     except BaseException as error:
         primary = error

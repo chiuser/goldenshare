@@ -87,9 +87,7 @@ def _save_costs(path, costs, remote, instance):
         prod_control_queries=sum(
             not named for named, _, _ in captured.get("queries", ())
         ),
-        prod_detail_queries=sum(
-            named for named, _, _ in captured.get("queries", ())
-        ),
+        prod_detail_queries=sum(named for named, _, _ in captured.get("queries", ())),
         prod_detail_fetches=len(captured.get("fetch_sizes", ())),
         active_queries=instance.active_queries,
         registered=sorted(instance.registered),

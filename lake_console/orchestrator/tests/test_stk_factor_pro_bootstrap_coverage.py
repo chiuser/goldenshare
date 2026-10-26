@@ -37,6 +37,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    check_test_space,
     native_row,
     source_fixture,
 )
@@ -164,6 +165,7 @@ def setup(
         approval=approval,
         source_complete=source,
         before_publish=lambda: None,
+        check_space=check_test_space,
     )
     inputs = B.prepare_stk_factor_pro_bootstrap_coverage_month(
         conn,
@@ -186,11 +188,16 @@ def setup(
 
 
 def save(conn, args):
-    result = B.evaluate_stk_factor_pro_bootstrap_coverage_date(conn, **args)
+    result = B.evaluate_stk_factor_pro_bootstrap_coverage_date(
+        conn,
+        **args,
+        check_space=check_test_space,
+    )
     return B.write_stk_factor_pro_bootstrap_coverage_date(
         conn,
         **{k: args[k] for k in ("lake_root", "staging_root", "approval")},
         result=result,
+        check_space=check_test_space,
     )
 
 
@@ -200,6 +207,7 @@ def summary(args, imported=(DAY,), current=(DAY,)):
         inputs=(args["inputs"],),
         verified_import_dates=imported,
         verified_current_dates=current,
+        check_space=check_test_space,
     )
 
 
@@ -566,12 +574,18 @@ def test_update_same_publication_reuses_counts_no_key_scan(tmp_path, monkeypatch
             )
         }
         updated = B.update_stk_factor_pro_bootstrap_after_publication(
-            conn, **kwargs, publication=publication
+            conn,
+            **kwargs,
+            publication=publication,
+            check_space=check_test_space,
         )
         assert updated.current_publication == publication and updated.missing_count == 1
         assert (
             B.update_stk_factor_pro_bootstrap_after_publication(
-                conn, **kwargs, publication=publication
+                conn,
+                **kwargs,
+                publication=publication,
+                check_space=check_test_space,
             )
             == updated
         )
@@ -661,6 +675,7 @@ def test_supplement_current_counts_update_original_facts_unchanged(
                     **{k: args[k] for k in ("lake_root", "staging_root", "approval")},
                     source_complete=source,
                     before_publish=lambda: None,
+                    check_space=check_test_space,
                 )
                 other = {
                     **args,
@@ -699,6 +714,7 @@ def test_supplement_current_counts_update_original_facts_unchanged(
             publication=publication,
             raw_audit=raw,
             silver_audit=silver,
+            check_space=check_test_space,
         )
         assert (
             updated.source_rows == len(original_codes)
@@ -763,6 +779,7 @@ def test_wrong_current_publication_contract_or_raw_binding_rejected(tmp_path):
                         )
                     },
                     publication=wrong,
+                    check_space=check_test_space,
                 )
 
 

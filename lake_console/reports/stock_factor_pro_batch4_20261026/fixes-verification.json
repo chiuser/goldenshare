@@ -1,0 +1,249 @@
+{
+  "as_of": "2026-10-27T01:48:31.882458+08:00",
+  "scope": "第四批五项修复，隔离开发验收；未正式执行",
+  "ordinary": {
+    "passed": 868,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "time_seconds": 351.202,
+    "files": 40
+  },
+  "protected": [
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "completed": 113,
+      "passed": true,
+      "batches": [
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:1",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "54d6fc7829965cbf0c80c46aa516c5099f1f9df2c8812e7f0366f392a2676a23",
+          "resource_report": "/private/tmp/stock-suspend-isolated-iyk2rxit/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:10",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "439fc8bb5ac51ede4a092a90199d8219b8978896e667552c7e0d03909f8608be",
+          "resource_report": "/private/tmp/stock-suspend-isolated-fafvxyof/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:11",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "e42677f952da66068591c4f357efd6d7733c938186a77ffeef63b61f42436e3a",
+          "resource_report": "/private/tmp/stock-suspend-isolated-zaq0kvnv/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:12",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "1406432dfb4bb3fd619aa16af1c322dd6023d0bf07ba8f14b5311f656fa2543f",
+          "resource_report": "/private/tmp/stock-suspend-isolated-g4h6udgh/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:13",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "806bfd3d0b5ed3123f7172b5f377a78b483fc8a585e71fdca2122280d5443ecc",
+          "resource_report": "/private/tmp/stock-suspend-isolated-q9_03cs_/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:14",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "628050812e24559fbbf2ad7ad55a15cfaf46cefce32a84ee4cdca28175b8c3bd",
+          "resource_report": "/private/tmp/stock-suspend-isolated-3mr20e0r/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:15",
+          "expected": 1,
+          "completed": 1,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "d6467e57a09479b855d97d1270bf6f940b6ee3d92779b5ebb8ce3797ce0872f9",
+          "resource_report": "/private/tmp/stock-suspend-isolated-iksii0uu/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:2",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "144796875d0fb003ea3eea15f8596254311fdde92106b20494507afe55741a03",
+          "resource_report": "/private/tmp/stock-suspend-isolated-6utvv66n/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:3",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "49333d7439147f8a53752887eebdea249ca4b544fccbf69613805cd29af225c3",
+          "resource_report": "/private/tmp/stock-suspend-isolated-sky2xnte/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:4",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "b4d12ac47515bd7521c499e94c5d48294d6d8e610377f60ec91e51a9837fb2e9",
+          "resource_report": "/private/tmp/stock-suspend-isolated-vqtj_du_/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:5",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "4d5807a789346ed698b35d318af1c968b26bf623d1fc5f1a9bc0717641310e41",
+          "resource_report": "/private/tmp/stock-suspend-isolated-6qtv012z/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:6",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "ed017713843ebb673f868c26986be31162969ae33469486ca6b1fca5d413d0ed",
+          "resource_report": "/private/tmp/stock-suspend-isolated-r6e1t7vh/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:7",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "4a824fed9e7e6e5ca3d06d5e324193597163bb707374657dd574e96276020ae3",
+          "resource_report": "/private/tmp/stock-suspend-isolated-jm420tpd/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:8",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "ca59ce9c852fb7df50d7c4447773a1ad1d9fbde66a5105cb520eda4aaa475722",
+          "resource_report": "/private/tmp/stock-suspend-isolated-muw1fqzd/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_run_contract_static_gates.py:9",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "5fc42ac389ae1b655d5dd4545ca3cc0943496b03967ae061dc7e90d5ebecca1d",
+          "resource_report": "/private/tmp/stock-suspend-isolated-vimqemiq/allowed/resource-result.json"
+        }
+      ]
+    },
+    {
+      "suite": "test_asset_governance_contracts.py",
+      "completed": 12,
+      "passed": true,
+      "batches": [
+        {
+          "slice": "G-regression:test_asset_governance_contracts.py:1",
+          "expected": 8,
+          "completed": 8,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "4749ac71f4902c13737f23602ca7d667ac1c200ce574d94a65d5a4f1df221261",
+          "resource_report": "/private/tmp/stock-suspend-isolated-cvjo3m05/allowed/resource-result.json"
+        },
+        {
+          "slice": "G-regression:test_asset_governance_contracts.py:2",
+          "expected": 4,
+          "completed": 4,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "893622a02a86120221d6c136d7a9c13c651dfaa5298a4a899f43dd9b0ffb3197",
+          "resource_report": "/private/tmp/stock-suspend-isolated-bfwqmofu/allowed/resource-result.json"
+        }
+      ]
+    },
+    {
+      "suite": "test_stk_factor_pro_definitions.py",
+      "completed": 1,
+      "passed": true,
+      "batches": [
+        {
+          "slice": "G-regression:test_stk_factor_pro_definitions.py:1",
+          "expected": 1,
+          "completed": 1,
+          "passed": true,
+          "connection_count": 0,
+          "policy_sha256": "76b7d99bbf01ad5f50d2ea0d836646f8bb50c433388b75ba62e53e2d70ba1503",
+          "resource_report": "/private/tmp/stock-suspend-isolated-f4wab42x/allowed/resource-result.json"
+        }
+      ]
+    }
+  ],
+  "distinct_passed": 994,
+  "final_boundary_rerun": {
+    "passed": 28,
+    "overlaps_ordinary": true,
+    "purpose": "最后的月份索引优化后核空间和日志边界，不能重复累计"
+  },
+  "new_tests": {
+    "sha_binding": 16,
+    "space_estimate": 58,
+    "space_integration": 12,
+    "fragment_verification": 16,
+    "coverage_inputs": 18,
+    "progress": 16,
+    "total": 136
+  },
+  "source_and_test_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_history.py": "fdbda44d85adea19c37bbacc02a7d1bcfc6a1e1f52459846af4e655627870d2c",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_bootstrap_records.py": "077836ba6cf9c8476d1a974a40137a4cd445cdf10a17d3486478032ca7505b87",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_bootstrap_source.py": "b0ebd7d339c1cca0e1424ccf693378058cfcd71b59b46c455a47c170e327e935",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_bootstrap_publication.py": "67fe6ea4bbb4a09f3917c58e9c8c5b0bad621de86acd15ad8d4e8b9161097c21",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_bootstrap_coverage.py": "9d8588b1fcc5be34633307ef4d7458f89d3d43d1fbfa7761cb7b17bd90bdc707",
+    "lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_factor_pro_readiness.py": "5d25a1413e16f07266e0243907f9869119ef55a1dd86b8f53481d3f24464ecfe",
+    "lake_console/orchestrator/src/orchestrator/defs/io/stk_factor_pro_candidates.py": "15de1ab96352ab232cf89ea29ec5e1014154d5df6bd043287143b2bbde4c1967",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_audit_regressions.py": "524aaf10ae1f29660ac13e93023858a1c924945f9b8c993e2e4d6c4f89627052",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_contracts.py": "194f2b871418c1472b16f95c9d850e7caa730369c0d216dc124b87a159acb78b",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_coverage.py": "0c7237b03b339c632db49b2b01f2fe3b49818d61184452181ea32457842009eb",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_coverage_inputs.py": "f572b5b8b537137db9298eeec3ca3dbd4471599ab2d23de8a626182bcaedb3e6",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_fragment_verification.py": "08fe667c0edc7091fb42ef874d974424e64d9495fea6b6fc4cd73cbc37dd01bc",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_process.py": "7c6da860b014d65597629a916ad375f5bf2bbaf8ac5dad136d5f0e7711da89f0",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_progress.py": "6a3a09af4f5d12042330405c398fbebc757dccda2cfb00c1d25a904fae3e87ab",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_publication.py": "a87394eb11c4433800f83dcbe59071930f211e06e3462e48aea5fe348c43d476",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_records.py": "d434c0c82406ee2199365d7a178ba4e8a8e99edf728c613f3b91a53e86decc4f",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_sha_binding.py": "dc3ef25a8ca1b0f3852d1409943ad52fe18ae011c05cc24d7cbddc82a261a845",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_source.py": "2a8682a5529085d344d8ef50fc143195ee8f527442a68f7265668b2b7a60966d",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_space.py": "8288423b0053eb12b011a5722ef49e7b8c7dc2d0782202fd5df398687448ae0f",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_space_estimate.py": "38520ad90f6d738713645482d3cb2ed417162e71a37318b31b7a5fd7df7eb161",
+    "lake_console/orchestrator/tests/stk_factor_pro_bootstrap_test_support.py": "c388f5291c30cc57ed0668d333406bfc04a1951e56b04ca76bc32aa40adbcfe8"
+  },
+  "formal_operations": {
+    "prod_read": false,
+    "tushare_request": false,
+    "lake_write": false,
+    "formal_partition_write": false,
+    "event_backfill": false,
+    "job_sensor": false
+  },
+  "audit": {
+    "known_five_issues_closed": true,
+    "new_confirmed_code_issue": false,
+    "codegraph": "explore/impact before changes; sync/status after changes"
+  },
+  "warnings": "既有Pydantic/Dagster preview/时间API及JUnit record_property提示，未改依赖或屏蔽测试"
+}

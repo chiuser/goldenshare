@@ -7,6 +7,7 @@ from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_records import operati
 from orchestrator.defs.checks.stk_factor_pro import factor_file_sha
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    check_test_space,
     native_row,
     source_fixture,
 )
@@ -30,7 +31,11 @@ def setup(conn, tmp_path):
 def test_full_two_layer_publication_and_repeat_zero_source_reads(tmp_path, monkeypatch):
     with connection(tmp_path) as conn:
         args = setup(conn, tmp_path)
-        raw, silver = P.publish_bootstrap_date(conn, **args)
+        raw, silver = P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        )
         assert raw.passed and silver.passed and raw.row_count == silver.row_count == 1
         assert conn.execute(
             "SELECT ts_code,trade_date,open,close FROM read_parquet(?)",
@@ -41,7 +46,11 @@ def test_full_two_layer_publication_and_repeat_zero_source_reads(tmp_path, monke
             "load_complete_source",
             lambda *_a, **_k: pytest.fail("complete date source must not be rescanned"),
         )
-        assert P.publish_bootstrap_date(conn, **args) == (raw, silver)
+        assert P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        ) == (raw, silver)
         assert (
             conn.execute(
                 "SELECT count(*) FROM duckdb_tables() WHERE temporary AND table_name LIKE 'stk_factor_pro_%'"
@@ -62,14 +71,22 @@ def test_raw_completed_silver_failure_then_same_operation_continues(
 
         monkeypatch.setattr(P, "build_stk_factor_pro_silver_candidate", fail)
         with pytest.raises(OSError, match="silver failure"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         monkeypatch.setattr(P, "build_stk_factor_pro_silver_candidate", original)
         monkeypatch.setattr(
             P,
             "load_complete_source",
             lambda *_a, **_k: pytest.fail("Raw complete must be reused"),
         )
-        raw, silver = P.publish_bootstrap_date(conn, **args)
+        raw, silver = P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        )
         assert raw.passed and silver.passed
 
 
@@ -87,7 +104,11 @@ def test_replace_completed_but_record_write_failed_can_recover(tmp_path, monkeyp
             P, "write_stk_factor_pro_bootstrap_publication_complete", fail
         )
         with pytest.raises(OSError, match="checkpoint"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         assert not operation_path(
             args["staging_root"],
             args["approval"],
@@ -96,17 +117,32 @@ def test_replace_completed_but_record_write_failed_can_recover(tmp_path, monkeyp
         monkeypatch.setattr(
             P, "write_stk_factor_pro_bootstrap_publication_complete", original
         )
-        assert all(a.passed for a in P.publish_bootstrap_date(conn, **args))
+        assert all(
+            a.passed
+            for a in P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
+        )
 
 
 def test_changed_complete_target_never_overwritten(tmp_path):
     with connection(tmp_path) as conn:
         args = setup(conn, tmp_path)
-        raw, _ = P.publish_bootstrap_date(conn, **args)
+        raw, _ = P.publish_bootstrap_date(
+            conn,
+            **args,
+            check_space=check_test_space,
+        )
         raw.path.write_bytes(b"external modification")
         before = factor_file_sha(raw.path)
         with pytest.raises(ValueError, match="改变"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         assert factor_file_sha(raw.path) == before
 
 
@@ -130,5 +166,9 @@ def test_existing_different_target_stops_before_replace(tmp_path):
         )
         before = factor_file_sha(target)
         with pytest.raises(ValueError, match="内容不同"):
-            P.publish_bootstrap_date(conn, **args)
+            P.publish_bootstrap_date(
+                conn,
+                **args,
+                check_space=check_test_space,
+            )
         assert factor_file_sha(target) == before

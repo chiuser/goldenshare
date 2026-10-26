@@ -8,6 +8,15 @@ from orchestrator.defs.checks.stk_factor_pro import relation_identifier
 from orchestrator.defs.run_contracts.stk_factor_pro import StkFactorProCoverageCounts
 
 
+def stk_factor_pro_invalid_code_sql(column: str) -> str:
+    """The one existing stock-code rule shared by coverage and its inputs."""
+    field = relation_identifier(column)
+    return (
+        f"({field} IS NULL OR NOT regexp_full_match("
+        f"{field}, '[0-9]{{6}}\\.(SH|SZ|BJ)'))"
+    )
+
+
 def build_stk_factor_pro_coverage_keys(
     connection,
     *,
@@ -41,8 +50,8 @@ def build_stk_factor_pro_coverage_keys(
         if schema != (("trade_date", "DATE"), ("ts_code", "VARCHAR")):
             raise ValueError("覆盖输入必须是本日DATE/VARCHAR代码关系")
         bad = connection.execute(
-            f"SELECT count(*) FROM {relation} WHERE trade_date IS DISTINCT FROM ? OR ts_code IS NULL "
-            "OR NOT regexp_full_match(ts_code, '[0-9]{6}\\.(SH|SZ|BJ)')",
+            f"SELECT count(*) FROM {relation} WHERE trade_date IS DISTINCT FROM ? OR "
+            f"{stk_factor_pro_invalid_code_sql('ts_code')}",
             [target_trade_date],
         ).fetchone()[0]
         if bad:
@@ -68,7 +77,7 @@ def build_stk_factor_pro_coverage_keys(
     )
     missing, ambiguous = connection.execute(
         "SELECT count(*) FILTER (WHERE mappings=0),count(*) FILTER (WHERE mappings>1 OR (mappings=1 AND "
-        "(latest IS NULL OR NOT regexp_full_match(latest,'[0-9]{6}\\.(SH|SZ|BJ)')))) FROM stk_factor_pro_coverage_mapping"
+        f"{stk_factor_pro_invalid_code_sql('latest')})) FROM stk_factor_pro_coverage_mapping"
     ).fetchone()
     if missing or ambiguous:
         absent = tuple(
@@ -80,7 +89,9 @@ def build_stk_factor_pro_coverage_keys(
         conflict = tuple(
             r[0]
             for r in connection.execute(
-                "SELECT ts_code FROM stk_factor_pro_coverage_mapping WHERE mappings>1 OR (mappings=1 AND (latest IS NULL OR NOT regexp_full_match(latest,'[0-9]{6}\\.(SH|SZ|BJ)'))) ORDER BY ts_code LIMIT 20"
+                "SELECT ts_code FROM stk_factor_pro_coverage_mapping WHERE mappings>1 OR "
+                f"(mappings=1 AND {stk_factor_pro_invalid_code_sql('latest')}) "
+                "ORDER BY ts_code LIMIT 20"
             ).fetchall()
         )
         return StkFactorProCoverageCounts(

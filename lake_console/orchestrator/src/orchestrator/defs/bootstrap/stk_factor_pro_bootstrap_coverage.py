@@ -11,6 +11,7 @@ import duckdb
 
 from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
     build_stk_factor_pro_coverage_keys,
+    stk_factor_pro_invalid_code_sql,
 )
 from orchestrator.defs.assets.stock_identity_map import (
     STOCK_IDENTITY_ALLOWED_CONFIDENCE,
@@ -168,7 +169,25 @@ def _basis_current(lake_root, basis_files, cache=None, connection=None):
     return True
 
 
+def _invalid_code_reason(connection, table, column):
+    predicate = stk_factor_pro_invalid_code_sql(column)
+    count = connection.execute(
+        f"SELECT count(*) FROM {table} WHERE {predicate}"
+    ).fetchone()[0]
+    if not count:
+        return ""
+    sample = tuple(
+        r[0]
+        for r in connection.execute(
+            f"SELECT {column} FROM {table} WHERE {predicate} "
+            f"ORDER BY {column} NULLS FIRST LIMIT 20"
+        ).fetchall()
+    )
+    return f"{column}非法代码{count}行，样本{sample}"
+
+
 def _validate_lifecycle(connection, table):
+    code_reason = _invalid_code_reason(connection, table, "ts_code")
     required = ("ts_code", "symbol", "name", "exchange", "curr_type", "list_status")
     empty = " OR ".join(f"{name} IS NULL OR trim({name})=''" for name in required)
     invalid = connection.execute(
@@ -179,16 +198,21 @@ def _validate_lifecycle(connection, table):
     duplicates = connection.execute(
         f"SELECT count(*) FROM (SELECT ts_code FROM {table} GROUP BY ts_code HAVING count(*)>1)"
     ).fetchone()[0]
-    if invalid or duplicates:
-        raise ValueError("生命周期必需字段、股票域、日期或唯一键不符")
+    rule_reason = (
+        "生命周期必需字段、股票域、日期或唯一键不符" if invalid or duplicates else ""
+    )
+    return "; ".join(value for value in (code_reason, rule_reason) if value)
 
 
-def _validate_identity(connection, table):
+def _validate_identity(connection, table, *, lifecycle_valid):
+    code_reasons = tuple(
+        _invalid_code_reason(connection, table, column)
+        for column in ("source_ts_code", "latest_ts_code")
+    )
     invalid = connection.execute(
         f"SELECT count(*) FROM {table} i WHERE source_ts_code IS NULL OR trim(source_ts_code)='' "
         "OR latest_ts_code IS NULL OR trim(latest_ts_code)='' OR valid_from IS NULL "
         "OR (valid_to IS NOT NULL AND valid_to<valid_from) "
-        f"OR NOT EXISTS (SELECT 1 FROM {_PREFIX}lifecycle l WHERE l.ts_code=i.latest_ts_code) "
         "OR identity_source IS NULL OR identity_source NOT IN (SELECT unnest(?::VARCHAR[])) "
         "OR confidence IS NULL OR confidence NOT IN (SELECT unnest(?::VARCHAR[]))",
         [
@@ -199,13 +223,88 @@ def _validate_identity(connection, table):
     duplicates = connection.execute(
         f"SELECT count(*) FROM (SELECT source_ts_code FROM {table} GROUP BY source_ts_code HAVING count(*)>1)"
     ).fetchone()[0]
-    if invalid or duplicates:
-        raise ValueError("身份映射字段、来源域、日期、唯一键或生命周期引用不符")
+    rule_reason = (
+        "身份映射字段、来源域、日期或唯一键不符" if invalid or duplicates else ""
+    )
+    # An unavailable lifecycle is already reported as lifecycle unknown. Its
+    # absence must neither skip identity's own checks nor create a false error.
+    missing_reference = (
+        connection.execute(
+            f"SELECT count(*) FROM {table} i WHERE NOT EXISTS "
+            f"(SELECT 1 FROM {_PREFIX}lifecycle l WHERE l.ts_code=i.latest_ts_code)"
+        ).fetchone()[0]
+        if lifecycle_valid
+        else 0
+    )
+    reference_reason = "身份映射生命周期引用不符" if missing_reference else ""
     # Producer seed completeness is checked by stock_identity_map_checks; this
     # consumer verifies the four approved physical inputs, not a fifth seed file.
+    return "; ".join(
+        value for value in (*code_reasons, rule_reason, reference_reason) if value
+    )
 
 
-def _load_basis(connection, *, path, kind, trade_date=None, dependency=""):
+def _validate_basis_rules(
+    connection, *, table, kind, row_count, trade_date, lifecycle_valid
+):
+    if kind == "calendar":
+        # Per-day duplicates/missing/NULL flags only invalidate that day.
+        invalid = connection.execute(
+            f"SELECT count(*) FROM {table} WHERE exchange IS NULL OR trim(exchange)='' "
+            "OR trade_date IS NULL"
+        ).fetchone()[0]
+        return "日历含无法归属日期的行" if invalid else ""
+    if kind == "lifecycle":
+        return _validate_lifecycle(connection, table) if row_count else "生命周期为空"
+    if kind == "identity":
+        return (
+            _validate_identity(connection, table, lifecycle_valid=lifecycle_valid)
+            if row_count
+            else "身份映射为空"
+        )
+    code_reason = _invalid_code_reason(connection, table, "ts_code")
+    invalid = connection.execute(
+        f"SELECT count(*) FROM {table} WHERE trade_date IS DISTINCT FROM ? "
+        "OR suspend_type IS NULL OR suspend_type NOT IN ('S','R') "
+        "OR (suspend_timing IS NOT NULL AND trim(suspend_timing)='')",
+        [trade_date],
+    ).fetchone()[0]
+    duplicates = connection.execute(
+        f"SELECT count(*) FROM (SELECT ts_code,trade_date,suspend_type,coalesce(suspend_timing,'') "
+        f"FROM {table} GROUP BY ALL HAVING count(*)>1)"
+    ).fetchone()[0]
+    # Nonempty producer timing remains intraday, without a new timing regex.
+    rule_reason = (
+        "最终停牌日期、类型、时段或业务键不符" if invalid or duplicates else ""
+    )
+    return "; ".join(value for value in (code_reason, rule_reason) if value)
+
+
+def _read_basis_table(connection, *, path, table, expected):
+    """Classify bad input only at the direct Parquet read boundary."""
+    query = read_parquet(path, hive_partitioning=False)
+    try:
+        observed = _schema(connection, query)
+    except (OSError, duckdb.IOException, duckdb.InvalidInputException) as error:
+        return None, None, f"依据文件无法读取：{error}"
+    digest = content_digest(observed)
+    if observed != tuple((c.name, c.type) for c in expected):
+        return digest, None, "依据schema不符"
+    try:
+        connection.execute(
+            f"CREATE OR REPLACE TEMP TABLE {table} AS SELECT * FROM {query}"
+        )
+    except (OSError, duckdb.IOException, duckdb.InvalidInputException) as error:
+        return digest, None, f"依据文件无法读取：{error}"
+    # Everything after reading the file is program/SQL execution. In particular,
+    # Binder/Internal/OOM and ordinary ValueError must propagate, not become data.
+    count = connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+    return digest, count, ""
+
+
+def _load_basis(
+    connection, *, path, kind, trade_date=None, dependency="", lifecycle_valid=True
+):
     table = _PREFIX + ("probe" if kind == "suspend" else kind)
     expected = (
         SILVER_STOCK_SUSPEND_DAILY_SCHEMA if kind == "suspend" else _GLOBALS[kind][1]
@@ -225,52 +324,21 @@ def _load_basis(connection, *, path, kind, trade_date=None, dependency=""):
             return C.StkFactorProBootstrapBasisFile(kind, None, *cached[:4]), cached[4]
     schema_digest = row_count = None
     valid, reason = False, f"{kind}依据文件不存在"
-    try:
-        if before is not None:
-            query = read_parquet(path, hive_partitioning=False)
-            observed = _schema(connection, query)
-            schema_digest = content_digest(observed)
-            if observed != tuple((c.name, c.type) for c in expected):
-                raise ValueError(f"{kind}依据schema不符")
-            connection.execute(
-                f"CREATE OR REPLACE TEMP TABLE {table} AS SELECT * FROM {query}"
+    if before is not None:
+        schema_digest, row_count, invalid_reason = _read_basis_table(
+            connection, path=path, table=table, expected=expected
+        )
+        if not invalid_reason:
+            invalid_reason = _validate_basis_rules(
+                connection,
+                table=table,
+                kind=kind,
+                row_count=row_count,
+                trade_date=trade_date,
+                lifecycle_valid=lifecycle_valid,
             )
-            row_count = connection.execute(f"SELECT count(*) FROM {table}").fetchone()[
-                0
-            ]
-            if kind == "calendar":
-                # Per-day duplicates/missing/NULL flags only invalidate that day.
-                if connection.execute(
-                    f"SELECT count(*) FROM {table} WHERE exchange IS NULL OR trim(exchange)='' "
-                    "OR trade_date IS NULL"
-                ).fetchone()[0]:
-                    raise ValueError("日历含无法归属日期的行")
-            elif kind == "lifecycle":
-                if not row_count:
-                    raise ValueError("生命周期为空")
-                _validate_lifecycle(connection, table)
-            elif kind == "identity":
-                if not row_count:
-                    raise ValueError("身份映射为空")
-                _validate_identity(connection, table)
-            else:
-                invalid = connection.execute(
-                    f"SELECT count(*) FROM {table} WHERE ts_code IS NULL OR trim(ts_code)='' "
-                    "OR trade_date IS DISTINCT FROM ? OR suspend_type IS NULL OR suspend_type NOT IN ('S','R') "
-                    "OR (suspend_timing IS NOT NULL AND trim(suspend_timing)='')",
-                    [trade_date],
-                ).fetchone()[0]
-                duplicates = connection.execute(
-                    f"SELECT count(*) FROM (SELECT ts_code,trade_date,suspend_type,coalesce(suspend_timing,'') "
-                    f"FROM {table} GROUP BY ALL HAVING count(*)>1)"
-                ).fetchone()[0]
-                # duckdb_sql._suspend_d_normalized_from_sql maps blank timing to
-                # NULL. Nonempty timing stays intraday; there is no HH:MM regex.
-                if invalid or duplicates:
-                    raise ValueError("最终停牌日期、类型、时段或业务键不符")
-            valid, reason = True, ""
-    except (OSError, ValueError, duckdb.Error) as error:
-        valid, reason = False, f"{kind}依据无效：{error}"
+        valid = not invalid_reason
+        reason = f"{kind}依据无效：{invalid_reason}" if invalid_reason else ""
     if _cached_sha(connection, path) != before:
         _drop(connection, (table,))
         raise ValueError("覆盖依据读取期间改变，请仅重新准备本地依据")
@@ -335,25 +403,13 @@ def prepare_stk_factor_pro_bootstrap_coverage_month(
     by_kind = {}
     for kind in ("calendar", "lifecycle", "identity"):
         dependency = str(by_kind.get("lifecycle")) if kind == "identity" else ""
-        if kind == "identity" and not by_kind["lifecycle"].valid:
-            # Validate schema/rows as possible, but never reference an invalid
-            # lifecycle table left over from another preparation.
-            basis = C.StkFactorProBootstrapBasisFile(
-                kind,
-                None,
-                _cached_sha(connection, _GLOBALS[kind][0](lake_root)),
-                None,
-                None,
-                False,
-            )
-            reason = "生命周期无效，无法核验身份映射引用"
-        else:
-            basis, reason = _load_basis(
-                connection,
-                path=_GLOBALS[kind][0](lake_root),
-                kind=kind,
-                dependency=dependency,
-            )
+        basis, reason = _load_basis(
+            connection,
+            path=_GLOBALS[kind][0](lake_root),
+            kind=kind,
+            dependency=dependency,
+            lifecycle_valid=by_kind["lifecycle"].valid if kind == "identity" else True,
+        )
         by_kind[kind] = basis
         files.append(basis)
         if not basis.valid:
@@ -591,20 +647,24 @@ def _validate_codes(connection, path, *, day, count):
         if _schema(connection, table) != _CODE_SCHEMA:
             raise ValueError("覆盖差集明细schema错误")
         observed, invalid, unique = connection.execute(
-            f"SELECT count(*),count(*) FILTER (WHERE trade_date IS DISTINCT FROM ? OR ts_code IS NULL "
-            f"OR NOT regexp_full_match(ts_code,'[0-9]{{6}}\\.(SH|SZ|BJ)')),count(DISTINCT (trade_date,ts_code)) FROM {table}",
+            "SELECT count(*),count(*) FILTER (WHERE trade_date IS DISTINCT FROM ? OR "
+            f"{stk_factor_pro_invalid_code_sql('ts_code')}),"
+            f"count(DISTINCT (trade_date,ts_code)) FROM {table}",
             [day],
         ).fetchone()
         if observed != count or invalid or unique != count:
             raise ValueError("覆盖差集明细日期、代码、数量或唯一键不符")
 
 
-def _write_codes(connection, *, staging_root, approval, day, digest, kind, count):
+def _write_codes(
+    connection, *, staging_root, approval, day, digest, kind, count, check_space
+):
     if not count:
         return None, ()
     relative = f"coverage/{day.isoformat()}/input={digest}/{kind}-codes.parquet"
     path = operation_path(staging_root, approval, relative)
     relation = "stk_factor_pro_coverage_" + kind
+    check_space("覆盖差集保存前", path=path, trade_date=day)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + f".{uuid4().hex}.tmp")
     with resource_cleanup(lambda: temporary.unlink(missing_ok=True)):
@@ -646,6 +706,7 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
     raw_audit,
     silver_audit,
     current_publication,
+    check_space,
 ):
     digest, basis = _require_inputs(
         connection,
@@ -667,6 +728,12 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
         silver_audit=silver_audit,
         current_publication=current_publication,
         connection=connection,
+    )
+    check_space(
+        "计算本日覆盖前",
+        path=operation_path(staging_root, approval, "coverage"),
+        trade_date=trade_date,
+        rows=raw_rows,
     )
     is_open = True if trade_date in inputs.open_dates else None
     input_digest = _date_digest(
@@ -739,6 +806,7 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
                         digest=input_digest,
                         kind=k,
                         count=n,
+                        check_space=check_space,
                     )
                     for k, n in (
                         ("missing", counts.missing_count),
@@ -883,6 +951,7 @@ def write_stk_factor_pro_bootstrap_coverage_date(
     staging_root,
     approval,
     result,
+    check_space,
 ):
     _verify_result(
         lake_root=lake_root,
@@ -911,10 +980,14 @@ def write_stk_factor_pro_bootstrap_coverage_date(
         result=result,
         connection=connection,
     )
+    check_space(
+        "覆盖记录保存前", path=path, trade_date=result.trade_date, rows=result.raw_rows
+    )
     return write_json(
         path,
         result,
         mutable=True,
+        check_space=check_space,
     )
 
 
@@ -928,6 +1001,7 @@ def update_stk_factor_pro_bootstrap_after_publication(
     publication,
     raw_audit,
     silver_audit,
+    check_space,
 ):
     day = publication.trade_date
     digest, basis = _require_inputs(
@@ -979,6 +1053,7 @@ def update_stk_factor_pro_bootstrap_after_publication(
             staging_root=staging_root,
             approval=approval,
             result=replace(old, current_publication=publication, evaluated_at=_now()),
+            check_space=check_space,
         )
     result = evaluate_stk_factor_pro_bootstrap_coverage_date(
         connection,
@@ -991,6 +1066,7 @@ def update_stk_factor_pro_bootstrap_after_publication(
         raw_audit=raw_audit,
         silver_audit=silver_audit,
         current_publication=publication,
+        check_space=check_space,
     )
     return write_stk_factor_pro_bootstrap_coverage_date(
         connection,
@@ -998,6 +1074,7 @@ def update_stk_factor_pro_bootstrap_after_publication(
         staging_root=staging_root,
         approval=approval,
         result=result,
+        check_space=check_space,
     )
 
 
@@ -1009,6 +1086,7 @@ def summarize_stk_factor_pro_bootstrap_coverage(
     verified_import_dates,
     verified_current_dates,
     inputs,
+    check_space,
 ):
     digest = approval_sha(staging_root, approval)
     natural = _days(
@@ -1212,8 +1290,13 @@ def summarize_stk_factor_pro_bootstrap_coverage(
     )
     if any(_file_sha(path) != sha for path, sha in file_shas.items()):
         raise ValueError("覆盖汇总期间输入发生改变，请仅重算本地统计")
+    check_space(
+        "最终覆盖汇总保存前",
+        path=operation_path(staging_root, approval, "coverage/summary.json"),
+    )
     return write_json(
         operation_path(staging_root, approval, "coverage/summary.json"),
         result,
         mutable=True,
+        check_space=check_space,
     )

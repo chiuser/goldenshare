@@ -13,6 +13,7 @@ from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_source as sourc
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    check_test_space,
     native_row,
     source_fixture,
 )
@@ -154,6 +155,7 @@ def execute(conn, staging, approval, remote, *, callback, month=None, selected=N
         month=month,
         selected_dates=selected,
         on_complete_date=callback,
+        check_space=check_test_space,
     )
 
 

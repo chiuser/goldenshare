@@ -158,7 +158,7 @@ def read_stk_factor_pro_bootstrap_publication(
 
 
 def write_stk_factor_pro_bootstrap_publication_intent(
-    *, lake_root, staging_root, approval, record
+    *, lake_root, staging_root, approval, record, check_space
 ):
     _publication_identity(
         lake_root=lake_root,
@@ -177,11 +177,20 @@ def write_stk_factor_pro_bootstrap_publication_intent(
     if current != record.prior_file_sha256:
         raise ValueError("bootstrap保存意图前目标已改变")
     relative = f"publication/{record.trade_date.isoformat()}/{record.layer}/intent.json"
-    return write_json(operation_path(staging_root, approval, relative), record)
+    check_space(
+        "发布意图保存前",
+        path=operation_path(staging_root, approval, relative),
+        trade_date=record.trade_date,
+    )
+    return write_json(
+        operation_path(staging_root, approval, relative),
+        record,
+        check_space=check_space,
+    )
 
 
 def write_stk_factor_pro_bootstrap_publication_complete(
-    *, lake_root, staging_root, approval, record
+    *, lake_root, staging_root, approval, record, check_space
 ):
     diagnostics = record.audit.diagnostics_path
     if diagnostics is not None and diagnostics.is_absolute():
@@ -212,6 +221,11 @@ def write_stk_factor_pro_bootstrap_publication_complete(
         != record.actual_file_sha256
     ):
         raise ValueError("bootstrap完成记录目标身份不符")
+    check_space(
+        "发布完成记录保存前",
+        path=operation_root(staging_root, approval),
+        trade_date=record.trade_date,
+    )
     return write_json(
         operation_path(
             staging_root,
@@ -219,6 +233,7 @@ def write_stk_factor_pro_bootstrap_publication_complete(
             f"publication/{record.trade_date.isoformat()}/{record.layer}/complete.json",
         ),
         record,
+        check_space=check_space,
     )
 
 
@@ -249,6 +264,7 @@ def _publish_layer(
     layer,
     expected_relation,
     before_publish,
+    check_space,
 ):
     root = operation_root(staging_root, approval)
     target = _target(lake_root, source.trade_date, layer)
@@ -276,8 +292,16 @@ def _publish_layer(
         and intent.source_complete_digest != source.source_complete_digest
     ):
         raise ValueError("bootstrap发布意图来源不符")
+    creating_intent = intent is None
     if intent is None:
         if not candidate.exists():
+            check_space(
+                "两层候选构造前",
+                path=candidate,
+                trade_date=source.trade_date,
+                layer=layer,
+                rows=source.actual_rows,
+            )
             if layer == "raw":
                 candidate_audit = build_stk_factor_pro_raw_candidate_from_relation(
                     connection,
@@ -303,8 +327,14 @@ def _publish_layer(
                 target_trade_date=source.trade_date,
                 layer=layer,
             )
-        if not candidate_audit.passed:
+        if (
+            not candidate_audit.passed
+            or candidate_audit.path != candidate
+            or candidate_audit.layer != layer
+            or candidate_audit.trade_date != source.trade_date
+        ):
             raise ValueError("bootstrap候选未通过完整业务对账")
+        validated_candidate_sha = candidate_audit.file_sha256
         fragment = (
             fragment_from_relation(
                 connection,
@@ -317,6 +347,21 @@ def _publish_layer(
                 connection, candidate, root, expected_relation, source.trade_date
             )
         )
+        if (
+            fragment.file_sha256 != validated_candidate_sha
+            or fragment.row_count != candidate_audit.row_count
+            or fragment.observed_schema != candidate_audit.observed_schema
+            or fragment.schema_content_digest != C.stk_factor_pro_schema_digest(layer)
+        ):
+            raise ValueError("bootstrap候选描述与原完整检查不符")
+        check_space(
+            "候选完整检查通过",
+            path=candidate,
+            trade_date=source.trade_date,
+            layer=layer,
+            rows=candidate_audit.row_count,
+            event="candidate_verified",
+        )
         current = factor_file_sha(target) if target.exists() else None
         if current is not None:
             old = audit_stk_factor_pro_file(
@@ -326,9 +371,14 @@ def _publish_layer(
                 target_trade_date=source.trade_date,
                 layer=layer,
             )
-            if not old.passed:
+            if not old.passed or old.file_sha256 != current:
                 raise ValueError("bootstrap已有目标内容不同，停止并交管理员处理")
+            current = old.file_sha256
         before_publish()
+        if factor_file_sha(candidate) != validated_candidate_sha:
+            raise ValueError("bootstrap保存意图前候选已改变")
+        if (factor_file_sha(target) if target.exists() else None) != current:
+            raise ValueError("bootstrap保存意图前目标已改变")
         intent = C.StkFactorProBootstrapPublicationIntent(
             1,
             approval.operation_id,
@@ -342,7 +392,7 @@ def _publish_layer(
             "reuse" if current is not None else "replace",
             current,
             fragment,
-            current or fragment.file_sha256,
+            current or validated_candidate_sha,
             "0" * 64,
             datetime.now(ZoneInfo(C.STK_FACTOR_PRO_TIMEZONE)),
         )
@@ -354,7 +404,15 @@ def _publish_layer(
             staging_root=staging_root,
             approval=approval,
             record=intent,
+            check_space=check_space,
         )
+    check_space(
+        "正式提升前",
+        path=candidate if candidate.exists() else target,
+        trade_date=source.trade_date,
+        layer=layer,
+        rows=source.actual_rows,
+    )
     before_publish()
     if (
         layer == "silver"
@@ -363,6 +421,14 @@ def _publish_layer(
     ):
         raise ValueError("bootstrap Silver提升前Raw身份已改变")
     current = factor_file_sha(target) if target.exists() else None
+    # A completed replace may have moved the candidate before the checkpoint
+    # was written. New intents and still-present recovery candidates must
+    # nevertheless remain the exact file accepted by the original audit.
+    if (creating_intent or candidate.exists()) and (
+        not candidate.is_file()
+        or factor_file_sha(candidate) != intent.candidate.file_sha256
+    ):
+        raise ValueError("bootstrap提升前候选已改变")
     if current != intent.expected_file_sha256:
         if (
             current != intent.prior_file_sha256
@@ -410,6 +476,7 @@ def _publish_layer(
         staging_root=staging_root,
         approval=approval,
         record=complete,
+        check_space=check_space,
     )
     return audit
 
@@ -433,7 +500,15 @@ def _silver_fragment(connection, path, root, relation, trade_date):
 
 
 def publish_bootstrap_date(
-    connection, *, lake_root, staging_root, approval, source_complete, before_publish
+    connection,
+    *,
+    lake_root,
+    staging_root,
+    approval,
+    source_complete,
+    before_publish,
+    check_space,
+    verification=None,
 ):
     """Return two verified formal audits; caller handles coverage afterward."""
     _roots(lake_root, staging_root)
@@ -470,6 +545,7 @@ def publish_bootstrap_date(
                 staging_root=staging_root,
                 approval=approval,
                 record=source_complete,
+                verification=verification,
             )
             connection.execute(
                 f"CREATE TEMP TABLE {RAW_EXPECTED} AS SELECT * FROM {BOOTSTRAP_DAY_SOURCE}"
@@ -491,6 +567,7 @@ def publish_bootstrap_date(
                 layer="raw",
                 expected_relation=RAW_EXPECTED,
                 before_publish=before_publish,
+                check_space=check_space,
             )
         else:
             raw = _verify_target_identity(
@@ -545,5 +622,15 @@ def publish_bootstrap_date(
                 layer="silver",
                 expected_relation=SILVER_EXPECTED,
                 before_publish=before_publish,
+                check_space=check_space,
+            )
+        for audit in (raw, silver):
+            check_space(
+                "正式两层读回通过",
+                path=audit.path,
+                trade_date=day,
+                layer=audit.layer,
+                rows=audit.row_count,
+                event="publication_verified",
             )
         return raw, silver
