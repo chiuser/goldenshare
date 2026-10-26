@@ -2370,3 +2370,41 @@ finally:
 正常、真实退出、重新下载、最终读回的查询/SHA/文件/空间与耗时分阶段见[integration-evidence.json](../../reports/stock_factor_pro_batch3_20261026/integration-evidence.json)。最终范围收尾对实际存在的目标文件各补一次字节SHA（至多2D次）及小记录引用核验，不重读所有unit或再做261字段JOIN；清理调用责任按§16.2明确。查询数不等同物理IO，磁盘峰值仅在写入边界采样，未测RSS、17股全历史或真实10,000满页，不能据此宣称全历史性能和正式事件验收通过。
 
 第三批通过隔离验收，具备制定第四批详细计划的条件；不自动推进第四批。bootstrap仍按§10独立批准、导出和恢复合同实施，不能套用Tushare失败重新下载规则或把本批固定单日期关系当作Prod导出入口。正式执行及自动化启用仍另行授权。
+
+### 16.5 提交后4处清理修正（2026-10-26，已批准）
+
+**目标及范围。**提交`d1564587`后的独立审计已用真实临时DuckDB复现：记录写入、源字段核验、名单规划取消或因子变化已经失败，随后清理也失败时，最外层错误被替代，部分清理不再执行。这里只修`io/stk_factor_pro_history.py`的4处finally，并新增`tests/test_stk_factor_pro_history_cleanup.py`；原方案、报告同步结果。不改已通过的下载unit/历史发布清理，不改业务字段、范围、摘要、记录结构、接口、配置或正式入口，不推进第四批。
+
+**当前代码与依赖。**CodeGraph及实际源码确认：记录writer供ranges/manifest共用，源核验用于下载后和发布前，名单规划及三次输入再核仍用同一主要连接。download和publication已经依赖history；history不能为复用清理而反向import它们，否则形成循环依赖。只在本模块定义一个私有contextmanager，四处使用同一规则，不移动已有实现、不新增公共平台。
+
+**私有接口及错误规则。**固定为`_history_resource_cleanup(*releases: Callable[[], object]) -> Iterator[None]`，由contextmanager装饰。releases仅由本模块以下固定unregister/DROP动作构成，不接受运营配置、任意SQL或外部业务回调。
+
+1. 在进入主体前令primary=None；主体任意BaseException（包括取消/退出）均保存原对象并原样raise。
+2. finally按给定顺序逐项调用清理。每项DuckDBError单独收集后继续，不因第一项失败跳过第二项。DuckDB的IOException、InterruptException、InvalidInputException均在此范围；不新增错误码或把清理失败转换为空结果。
+3. 有primary时，在同一原异常对象的notes中附每项清理错误的类型，不用后续异常替代原错误。没有primary但有清理错误时，抛第一个清理错误对象，附完整清理错误类型；没有错误时正常返回。清理错误不得静默吞掉，不重新执行COPY、请求或清理。
+4. 四个入口保持普通同步函数，不改为生成器；内部contextmanager的yield仅用于管理with范围，不套用publication生成器.close对GeneratorExit的专有处理。成功或失败清理只释放本函数使用的临时关系/注册，不关闭调用方连接、不回滚或删除任何文件。
+
+| 入口 | 进入with的位置 | 固定清理顺序及约束 |
+| --- | --- | --- |
+| `_write_rows` | DataFrame注册/临时表构造前，包住原写入及读回全过程 | unregister(`stk_factor_pro_record_frame`)；DROP TABLE IF EXISTS `stk_factor_pro_record_rows`。合法0行同样适用，不改变12/17列schema或固定排序 |
+| `_verify_source_unit` | CREATE TEMP VIEW前 | DROP VIEW IF EXISTS `stk_factor_pro_verified_source_unit`；源字段、代码、日期、行数及SHA检查保持不变 |
+| `build_stk_factor_pro_history_plan` | T/P读取和比较前 | DROP TABLE IF EXISTS `stk_factor_pro_history_factor_t`，再DROP同名`factor_p`；保存名单后的失败仍报告失败，已写证据保留 |
+| `recheck_stk_factor_pro_history_inputs` | 实际因子临时关系可能创建前 | DROP TABLE IF EXISTS `stk_factor_pro_history_recheck_t`，再DROP同名`recheck_p`；范围外因子变化仍允许，范围内变化仍停止 |
+
+**测试与验收。**先写4入口×4模式共16项：正常、仅主体失败、仅首项清理失败、主体与首项清理同时失败。必须在修复前确认能暴露原缺陷，再实施修复；不得改变旧夹具/预期迎合实现。
+
+- writer走正式plan writer及完整12列真实范围夹具，确认COPY实际进入后才注入本地写入错误；首项unregister再失败，必须仍尝试DROP并核实际表已删除。
+- 源核验使用已登记完整合同的缺列文件，让真实字段检查报错；清理再失败时，仍抛同一个字段错误对象。失败的DROP不要求最终成功，不伪造资源已清空。
+- 规划在T/P两表均已创建后由原check_cancel抛同一个取消对象；首DROP失败后仍尝试第二张表，正常/仅清理失败也核表的实际状态。
+- 再核的主体失败用目标股因子由2变3触发真实检查；正常/仅清理失败则只修订范围外股票的T/P值，让两张临时表都实际建立，证明合法变化不误拦，第二个DROP真实执行。
+- 主体失败断言异常对象身份保持；双故障另断言清理notes；仅清理失败断言首个清理错误对象可见并尝试剩余项。原错误仍可定位，不能只比较报错文本。
+
+回归覆盖原记录/源核验/起点/规划/实际unit/再核及既有下载、发布清理测试，另做小型正常历史发布。没有更改批次/合并算法，不重复1/20/21/41/45全套或真实请求，不重跑正式Definitions/事件写入；既有保护门禁证据只覆盖未改变的装配边界。执行项目默认及致命Ruff、文档/空白检查，并独立复核四处调用与剩余finally。
+
+**资源与失败开销。**不增加对象、日期、unit、分页、业务SQL、COPY、SHA、候选或正式写入。正常清理次数不变：writer2项、源核验1项、规划2项、再核2项；发生首项清理失败时最多补做原本被跳过的1项。只保存至多2个清理异常引用，不加锁、线程、连接、持久状态或清理重试。新增16项故障回归仅用临时资源、一股源1行261列或两股T/P小文件；正常及进程退出后的链路复用既有一股五日响应和一份宽日期文件，不扩大原有界验证范围。故障后重做及最终验收沿原完整新下载与文件保留规则，不读失败缓存，不做全历史跑数。
+
+**本次修复验收结果。**上述同一16项测试修前8失败/8通过（1.51秒），修后16通过（1.29秒），未调整断言消除失败。包含新测试的17文件相关回归307项通过（46.01秒）；独立复核又验证多项清理同时失败和取消保持，未发现新确定问题。已核四处都在创建自身资源前进入同一helper、finally没有吞错的return、T/P动作各自固定绑定；仅清理失败不能返回计划/事实或可发布源。
+
+复用保存响应重新验证正常链和真实进程退出后全范围重下，共8.497秒；新run仍1个完整unit/5行、8历史目标、旧source/candidates读取0。正常链SQL371条、批源CTAS1次，与修前相同；T不覆盖、无关5,567股261字段不变、临时关系清空。证据单独保存，不覆盖原验收JSON，见[修复后链路](../../reports/stock_factor_pro_batch3_20261026/cleanup-chain-evidence.json)及[修复回归](../../reports/stock_factor_pro_batch3_20261026/cleanup-regression.json)。没有据此扩大真实源/正式事件或全历史性能结论。
+
+默认Ruff、全src/tests致命规则、CodeGraph sync/status、文档及差异空白检查通过；4处清理P2关闭，第三批恢复完整的隔离验收结论。当前只有单模块生产修正及新增测试/文档，未提交、未推进第四批或正式执行；完整发现及修复过程见[独立审计](../../reports/stock_factor_pro_batch3_20261026/independent-audit.md)。

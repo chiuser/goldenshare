@@ -1,0 +1,673 @@
+..FF..FF..FF..FF                                                         [100%]
+=================================== FAILURES ===================================
+___ test_record_cleanup_preserves_copy_error_and_attempts_drop[cleanup_only] ___
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_record_cleanup_preserves_2')
+mode = 'cleanup_only'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_record_cleanup_preserves_copy_error_and_attempts_drop(tmp_path, mode):
+        with connection(tmp_path) as conn:
+            wrapped = CleanupConnection(conn, "writer", mode)
+>           plan = assert_outcome(
+                wrapped,
+                lambda: history.write_stk_factor_pro_history_plan(
+                    root_for(tmp_path), new_plan(), ranges(), connection=wrapped
+                ),
+                OSError,
+                wrapped.primary_error,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:140:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wrapped = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x1027d47d0>
+invoke = <function test_record_cleanup_preserves_copy_error_and_attempts_drop.<locals>.<lambda> at 0x10a7fa3e0>
+expected_primary_type = <class 'OSError'>
+known_primary = OSError('controlled record COPY failure')
+
+    def assert_outcome(wrapped, invoke, expected_primary_type, known_primary=None):
+        if not wrapped.fail_primary and not wrapped.fail_cleanup:
+            result = invoke()
+        else:
+            error_type = (
+                expected_primary_type if wrapped.fail_primary else DuckDBError
+            )
+            with pytest.raises(error_type) as caught:
+                invoke()
+            if wrapped.fail_primary:
+                # Capture the independently produced body error at the first
+                # cleanup, rather than regenerating an expected error message.
+                assert caught.value is wrapped.first_cleanup_primary
+                if known_primary is not None:
+                    assert caught.value is known_primary
+            else:
+                assert caught.value is wrapped.cleanup_error
+                assert wrapped.first_cleanup_primary is None
+            if wrapped.fail_cleanup:
+>               assert any(
+                    type(wrapped.cleanup_error).__name__ in note
+                    for note in getattr(caught.value, "__notes__", ())
+                )
+E               assert False
+E                +  where False = any(<generator object assert_outcome.<locals>.<genexpr> at 0x10a714f20>)
+
+tests/test_stk_factor_pro_history_cleanup.py:121: AssertionError
+_ test_record_cleanup_preserves_copy_error_and_attempts_drop[primary_and_cleanup] _
+
+self = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a58efd0>
+statement = "COPY (SELECT * FROM stk_factor_pro_record_rows ORDER BY ts_code) TO '/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w48...nup_preserves_3/staging/stk_factor_pro/trade_date=2026-10-16/run_id=run-a/history-ranges.parquet.tmp' (FORMAT PARQUET)"
+parameters = None
+
+    def execute(self, statement, parameters=None):
+        text = str(statement).strip()
+        if self.entry == "writer" and text.upper().startswith("COPY "):
+            self.copy_attempts += 1
+            if self.fail_primary:
+>               raise self.primary_error
+E               OSError: controlled record COPY failure
+
+tests/test_stk_factor_pro_history_cleanup.py:87: OSError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_record_cleanup_preserves_3')
+mode = 'primary_and_cleanup'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_record_cleanup_preserves_copy_error_and_attempts_drop(tmp_path, mode):
+        with connection(tmp_path) as conn:
+            wrapped = CleanupConnection(conn, "writer", mode)
+>           plan = assert_outcome(
+                wrapped,
+                lambda: history.write_stk_factor_pro_history_plan(
+                    root_for(tmp_path), new_plan(), ranges(), connection=wrapped
+                ),
+                OSError,
+                wrapped.primary_error,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:140:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_stk_factor_pro_history_cleanup.py:110: in assert_outcome
+    invoke()
+tests/test_stk_factor_pro_history_cleanup.py:142: in <lambda>
+    lambda: history.write_stk_factor_pro_history_plan(
+src/orchestrator/defs/io/stk_factor_pro_history.py:388: in write_stk_factor_pro_history_plan
+    reference = _write_rows(
+src/orchestrator/defs/io/stk_factor_pro_history.py:290: in _write_rows
+    connection.unregister(registered)
+tests/test_stk_factor_pro_history_cleanup.py:97: in unregister
+    return self._release(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a58efd0>
+action = 'unregister:stk_factor_pro_record_frame'
+call = <function CleanupConnection.unregister.<locals>.<lambda> at 0x10a6989a0>
+
+    def _release(self, action, call):
+        if action not in self.actions:
+            return call()
+        if not self.attempts:
+            self.first_cleanup_primary = sys.exception()
+        self.attempts.append(action)
+        if self.fail_cleanup and action == self.actions[0]:
+>           raise self.cleanup_error
+E           _duckdb.Error: controlled first cleanup failure
+
+tests/test_stk_factor_pro_history_cleanup.py:79: Error
+_____ test_source_cleanup_keeps_original_field_error_visible[cleanup_only] _____
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_source_cleanup_keeps_orig2')
+mode = 'cleanup_only'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_source_cleanup_keeps_original_field_error_visible(tmp_path, mode):
+        with connection(tmp_path) as conn:
+            root = root_for(tmp_path)
+            bad_source = mode in ("primary_only", "primary_and_cleanup")
+            _, source, unit, path = save_source(
+                conn, root, kind="missing_column" if bad_source else "normal"
+            )
+            before = path.read_bytes()
+            wrapped = CleanupConnection(conn, "verify", mode)
+>           verified = assert_outcome(
+                wrapped,
+                lambda: history.verify_stk_factor_pro_current_source(
+                    root,
+                    source,
+                    connection=wrapped,
+                    current_run_id="run-a",
+                    expected_units=(unit,),
+                ),
+                ValueError,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:168:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wrapped = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a583350>
+invoke = <function test_source_cleanup_keeps_original_field_error_visible.<locals>.<lambda> at 0x10382b4c0>
+expected_primary_type = <class 'ValueError'>, known_primary = None
+
+    def assert_outcome(wrapped, invoke, expected_primary_type, known_primary=None):
+        if not wrapped.fail_primary and not wrapped.fail_cleanup:
+            result = invoke()
+        else:
+            error_type = (
+                expected_primary_type if wrapped.fail_primary else DuckDBError
+            )
+            with pytest.raises(error_type) as caught:
+                invoke()
+            if wrapped.fail_primary:
+                # Capture the independently produced body error at the first
+                # cleanup, rather than regenerating an expected error message.
+                assert caught.value is wrapped.first_cleanup_primary
+                if known_primary is not None:
+                    assert caught.value is known_primary
+            else:
+                assert caught.value is wrapped.cleanup_error
+                assert wrapped.first_cleanup_primary is None
+            if wrapped.fail_cleanup:
+>               assert any(
+                    type(wrapped.cleanup_error).__name__ in note
+                    for note in getattr(caught.value, "__notes__", ())
+                )
+E               assert False
+E                +  where False = any(<generator object assert_outcome.<locals>.<genexpr> at 0x10a59ec00>)
+
+tests/test_stk_factor_pro_history_cleanup.py:121: AssertionError
+_ test_source_cleanup_keeps_original_field_error_visible[primary_and_cleanup] __
+
+connection = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a583570>
+path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_source_cleanup...2026-10-16/run_id=run-a/source/history/units/bba4e8fe37d98e7e7fcd86fb3347566dce8daa68c0f3935342f0eadc2e0a5c71.parquet')
+file = SourceFileRecord(phase='history', unit_key='bba4e8fe37d98e7e7fcd86fb3347566dce8daa68c0f3935342f0eadc2e0a5c71', compone...2cc2d50068cd2ee225', verified_at=datetime.datetime(2026, 10, 16, 19, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')))
+
+    def _verify_source_unit(connection, path: Path, file: SourceFileRecord) -> None:
+        relation = "stk_factor_pro_verified_source_unit"
+        before = factor_file_sha(path)
+        try:
+            connection.execute(
+                f"CREATE TEMP VIEW {relation} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
+            )
+>           count, _ = require_factor_history_relation(
+                connection,
+                relation,
+                object_code=file.object_code,
+                start_date=file.start_date,
+                end_date=file.end_date,
+            )
+
+src/orchestrator/defs/io/stk_factor_pro_history.py:499:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/orchestrator/defs/checks/stk_factor_pro.py:128: in require_factor_history_relation
+    return _require_factor_relation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+connection = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a583570>
+relation = 'stk_factor_pro_verified_source_unit'
+types = mappingproxy({'ts_code': 'VARCHAR', 'trade_date': 'VARCHAR', 'open': 'DOUBLE', 'open_hfq': 'DOUBLE', 'open_qfq': 'DOUB...fq': 'DOUBLE', 'xsii_td3_qfq': 'DOUBLE', 'xsii_td4_bfq': 'DOUBLE', 'xsii_td4_hfq': 'DOUBLE', 'xsii_td4_qfq': 'DOUBLE'})
+invalid_date_sql = "trade_date IS NULL OR NOT regexp_full_match(trade_date,'[0-9]{8}') OR try_strptime(trade_date,'%Y%m%d') IS NULL OR trade_date < ? OR trade_date > ?"
+parameters = ('20261014', '20261016'), object_code = '000001.SZ'
+
+    def _require_factor_relation(
+        connection,
+        relation: str,
+        *,
+        types,
+        invalid_date_sql: str,
+        parameters: tuple,
+        object_code: str | None = None,
+    ):
+        """Use the same schema/key/value checks for fixed day or history predicates."""
+        name = relation_identifier(relation)
+        observed = tuple(
+            (row[0], row[1]) for row in connection.execute(f"DESCRIBE {name}").fetchall()
+        )
+        if observed != tuple(types.items()):
+>           raise ValueError("技术因子字段名称、顺序或类型与完整合同不符")
+E           ValueError: 技术因子字段名称、顺序或类型与完整合同不符
+
+src/orchestrator/defs/checks/stk_factor_pro.py:60: ValueError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_source_cleanup_keeps_orig3')
+mode = 'primary_and_cleanup'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_source_cleanup_keeps_original_field_error_visible(tmp_path, mode):
+        with connection(tmp_path) as conn:
+            root = root_for(tmp_path)
+            bad_source = mode in ("primary_only", "primary_and_cleanup")
+            _, source, unit, path = save_source(
+                conn, root, kind="missing_column" if bad_source else "normal"
+            )
+            before = path.read_bytes()
+            wrapped = CleanupConnection(conn, "verify", mode)
+>           verified = assert_outcome(
+                wrapped,
+                lambda: history.verify_stk_factor_pro_current_source(
+                    root,
+                    source,
+                    connection=wrapped,
+                    current_run_id="run-a",
+                    expected_units=(unit,),
+                ),
+                ValueError,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:168:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_stk_factor_pro_history_cleanup.py:110: in assert_outcome
+    invoke()
+tests/test_stk_factor_pro_history_cleanup.py:170: in <lambda>
+    lambda: history.verify_stk_factor_pro_current_source(
+src/orchestrator/defs/io/stk_factor_pro_history.py:599: in verify_stk_factor_pro_current_source
+    _verify_source_unit(connection, path, file)
+src/orchestrator/defs/io/stk_factor_pro_history.py:511: in _verify_source_unit
+    connection.execute(f"DROP VIEW IF EXISTS {relation}")
+tests/test_stk_factor_pro_history_cleanup.py:94: in execute
+    return self._release(text, call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a583570>
+action = 'DROP VIEW IF EXISTS stk_factor_pro_verified_source_unit'
+call = <function CleanupConnection.execute.<locals>.call at 0x103829d00>
+
+    def _release(self, action, call):
+        if action not in self.actions:
+            return call()
+        if not self.attempts:
+            self.first_cleanup_primary = sys.exception()
+        self.attempts.append(action)
+        if self.fail_cleanup and action == self.actions[0]:
+>           raise self.cleanup_error
+E           _duckdb.Error: controlled first cleanup failure
+
+tests/test_stk_factor_pro_history_cleanup.py:79: Error
+_ test_plan_cleanup_retains_cancellation_and_attempts_both_tables[cleanup_only] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_plan_cleanup_retains_canc2')
+mode = 'cleanup_only'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mode):
+        lake, staging = roots(tmp_path)
+        with connection(tmp_path) as conn:
+            refs = inputs(conn, lake)
+            wrapped = CleanupConnection(conn, "plan", mode)
+            cancellation = KeyboardInterrupt("controlled planning cancellation")
+            cancellation_checks = 0
+
+            def cancel():
+                nonlocal cancellation_checks
+                cancellation_checks += 1
+                if cancellation_checks == 2:
+                    assert table_count(conn, "stk_factor_pro_history_factor_t") == 1
+                    assert table_count(conn, "stk_factor_pro_history_factor_p") == 1
+                    if wrapped.fail_primary:
+                        raise cancellation
+
+>           plan = assert_outcome(
+                wrapped,
+                lambda: build(wrapped, lake, staging, refs, cancel=cancel),
+                KeyboardInterrupt,
+                cancellation,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:208:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wrapped = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10ab84230>
+invoke = <function test_plan_cleanup_retains_cancellation_and_attempts_both_tables.<locals>.<lambda> at 0x10a69b420>
+expected_primary_type = <class 'KeyboardInterrupt'>
+known_primary = KeyboardInterrupt('controlled planning cancellation')
+
+    def assert_outcome(wrapped, invoke, expected_primary_type, known_primary=None):
+        if not wrapped.fail_primary and not wrapped.fail_cleanup:
+            result = invoke()
+        else:
+            error_type = (
+                expected_primary_type if wrapped.fail_primary else DuckDBError
+            )
+            with pytest.raises(error_type) as caught:
+                invoke()
+            if wrapped.fail_primary:
+                # Capture the independently produced body error at the first
+                # cleanup, rather than regenerating an expected error message.
+                assert caught.value is wrapped.first_cleanup_primary
+                if known_primary is not None:
+                    assert caught.value is known_primary
+            else:
+                assert caught.value is wrapped.cleanup_error
+                assert wrapped.first_cleanup_primary is None
+            if wrapped.fail_cleanup:
+>               assert any(
+                    type(wrapped.cleanup_error).__name__ in note
+                    for note in getattr(caught.value, "__notes__", ())
+                )
+E               assert False
+E                +  where False = any(<generator object assert_outcome.<locals>.<genexpr> at 0x10ab19fc0>)
+
+tests/test_stk_factor_pro_history_cleanup.py:121: AssertionError
+_ test_plan_cleanup_retains_cancellation_and_attempts_both_tables[primary_and_cleanup] _
+
+    def cancel():
+        nonlocal cancellation_checks
+        cancellation_checks += 1
+        if cancellation_checks == 2:
+            assert table_count(conn, "stk_factor_pro_history_factor_t") == 1
+            assert table_count(conn, "stk_factor_pro_history_factor_p") == 1
+            if wrapped.fail_primary:
+>               raise cancellation
+E               KeyboardInterrupt: controlled planning cancellation
+
+tests/test_stk_factor_pro_history_cleanup.py:206: KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_plan_cleanup_retains_canc3')
+mode = 'primary_and_cleanup'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mode):
+        lake, staging = roots(tmp_path)
+        with connection(tmp_path) as conn:
+            refs = inputs(conn, lake)
+            wrapped = CleanupConnection(conn, "plan", mode)
+            cancellation = KeyboardInterrupt("controlled planning cancellation")
+            cancellation_checks = 0
+
+            def cancel():
+                nonlocal cancellation_checks
+                cancellation_checks += 1
+                if cancellation_checks == 2:
+                    assert table_count(conn, "stk_factor_pro_history_factor_t") == 1
+                    assert table_count(conn, "stk_factor_pro_history_factor_p") == 1
+                    if wrapped.fail_primary:
+                        raise cancellation
+
+>           plan = assert_outcome(
+                wrapped,
+                lambda: build(wrapped, lake, staging, refs, cancel=cancel),
+                KeyboardInterrupt,
+                cancellation,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:208:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_stk_factor_pro_history_cleanup.py:110: in assert_outcome
+    invoke()
+tests/test_stk_factor_pro_history_cleanup.py:210: in <lambda>
+    lambda: build(wrapped, lake, staging, refs, cancel=cancel),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_stk_factor_pro_history_plan.py:66: in build
+    return history.build_stk_factor_pro_history_plan(
+src/orchestrator/defs/io/stk_factor_pro_history.py:1127: in build_stk_factor_pro_history_plan
+    connection.execute(f"DROP TABLE IF EXISTS {relation}")
+tests/test_stk_factor_pro_history_cleanup.py:94: in execute
+    return self._release(text, call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a7db6b0>
+action = 'DROP TABLE IF EXISTS stk_factor_pro_history_factor_t'
+call = <function CleanupConnection.execute.<locals>.call at 0x10382a7a0>
+
+    def _release(self, action, call):
+        if action not in self.actions:
+            return call()
+        if not self.attempts:
+            self.first_cleanup_primary = sys.exception()
+        self.attempts.append(action)
+        if self.fail_cleanup and action == self.actions[0]:
+>           raise self.cleanup_error
+E           _duckdb.Error: controlled first cleanup failure
+
+tests/test_stk_factor_pro_history_cleanup.py:79: Error
+_ test_recheck_cleanup_retains_factor_error_and_attempts_second_table[cleanup_only] _
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_recheck_cleanup_retains_f2')
+mode = 'cleanup_only'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_recheck_cleanup_retains_factor_error_and_attempts_second_table(tmp_path, mode):
+        lake, staging = roots(tmp_path)
+        with connection(tmp_path) as conn:
+            plan, saved_ranges, _, _ = prepared(conn, lake, staging)
+            units = resolve(conn, staging, plan, saved_ranges)
+            wrapped = CleanupConnection(conn, "recheck", mode)
+            # Both files have real byte changes. Legitimate changes to B alone
+            # create both relations without invalidating requested stock A.
+            ft = write_factor_file(
+                conn, lake, T, ((A, 3.0 if wrapped.fail_primary else 2.0), (B, 2.0))
+            )
+            fp = write_factor_file(conn, lake, P, ((A, 1.0), (B, 2.0)))
+            allowed = eligibility(plan.identity, plan)
+            facts = (ft, fp, allowed.raw_coverage, allowed.target_silver)
+>           result = assert_outcome(
+                wrapped,
+                lambda: history.recheck_stk_factor_pro_history_inputs(
+                    wrapped,
+                    plan=plan,
+                    ranges=saved_ranges,
+                    expected_units=units,
+                    lake_root=lake,
+                    recheck_inputs=lambda: facts,
+                ),
+                ValueError,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:238:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+wrapped = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10abb4a10>
+invoke = <function test_recheck_cleanup_retains_factor_error_and_attempts_second_table.<locals>.<lambda> at 0x10ab8d620>
+expected_primary_type = <class 'ValueError'>, known_primary = None
+
+    def assert_outcome(wrapped, invoke, expected_primary_type, known_primary=None):
+        if not wrapped.fail_primary and not wrapped.fail_cleanup:
+            result = invoke()
+        else:
+            error_type = (
+                expected_primary_type if wrapped.fail_primary else DuckDBError
+            )
+            with pytest.raises(error_type) as caught:
+                invoke()
+            if wrapped.fail_primary:
+                # Capture the independently produced body error at the first
+                # cleanup, rather than regenerating an expected error message.
+                assert caught.value is wrapped.first_cleanup_primary
+                if known_primary is not None:
+                    assert caught.value is known_primary
+            else:
+                assert caught.value is wrapped.cleanup_error
+                assert wrapped.first_cleanup_primary is None
+            if wrapped.fail_cleanup:
+>               assert any(
+                    type(wrapped.cleanup_error).__name__ in note
+                    for note in getattr(caught.value, "__notes__", ())
+                )
+E               assert False
+E                +  where False = any(<generator object assert_outcome.<locals>.<genexpr> at 0x10ab18820>)
+
+tests/test_stk_factor_pro_history_cleanup.py:121: AssertionError
+_ test_recheck_cleanup_retains_factor_error_and_attempts_second_table[primary_and_cleanup] _
+
+connection = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a6c28d0>
+plan = HistoryPlanRecord(record_version=1, identity=RunIdentity(creator_run_id='run-a', source_run_id=None, execution_day=dat...', rows=2), revision_of=None, origin_plan_ref=None, origin_history_plan_digest=None, origin_history_ranges_digest=None)
+ranges = (HistoryRange(ts_code='000001.SZ', t_present=True, p_present=True, t_value=2.0, p_value=1.0, start_date=datetime.date(...me.date(2026, 10, 16),), origin_record_refs=(), earliest_basis_kind=1, earliest_basis_date=datetime.date(2015, 1, 5)),)
+expected_units = (UnitProjection(mode=5, object_code='000001.SZ', point=None, start_date=datetime.date(2015, 1, 5), end_date=datetime.date(2026, 10, 16)),)
+lake_root = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_recheck_cleanup_retains_f3/lake')
+recheck_inputs = <function test_recheck_cleanup_retains_factor_error_and_attempts_second_table.<locals>.<lambda>.<locals>.<lambda> at 0x10ab8e200>
+
+    def recheck_stk_factor_pro_history_inputs(
+        connection,
+        *,
+        plan: HistoryPlanRecord,
+        ranges: tuple[HistoryRange, ...],
+        expected_units: tuple[UnitProjection, ...],
+        lake_root: Path,
+        recheck_inputs,
+    ) -> tuple[
+        FactorFileRef, FactorFileRef, StkFactorProRawCoverage, StkFactorProTargetSilver
+    ]:
+        """Recheck only the requested business factor projection when bytes change."""
+        _require_registered_history_plan(plan, ranges)
+        _check_history_unit_subset(plan, ranges, expected_units)
+        if not expected_units:
+            raise ValueError("无实际历史请求范围，不应进入历史下载或发布重查")
+        facts = recheck_inputs()
+        kinds = (
+            FactorFileRef,
+            FactorFileRef,
+            StkFactorProRawCoverage,
+            StkFactorProTargetSilver,
+        )
+        if (
+            type(facts) is not tuple
+            or len(facts) != 4
+            or any(
+                not isinstance(value, kind)
+                for value, kind in zip(facts, kinds, strict=True)
+            )
+        ):
+            raise TypeError("历史输入重查必须返回T/P及Raw/Silver四项冻结结果")
+        factor_t, factor_p, raw, silver = facts
+        if (factor_t.trade_date, factor_p.trade_date) != (
+            plan.identity.target_trade_date,
+            plan.identity.previous_trade_date,
+        ):
+            raise ValueError("历史输入重查不是原T/P")
+        require_stk_factor_pro_history_eligibility(
+            plan,
+            HistoryEligibilityRecord(
+                1,
+                plan.identity,
+                plan.history_plan_digest,
+                plan.history_ranges_digest,
+                raw,
+                silver,
+                datetime.now(ZoneInfo(STK_FACTOR_PRO_TIMEZONE)),
+            ),
+        )
+        require_stk_factor_pro_safe_path(lake_root)
+        by_code = {row.ts_code: row for row in ranges}
+        relations = ("stk_factor_pro_history_recheck_t", "stk_factor_pro_history_recheck_p")
+        try:
+            for position, (reference, original) in enumerate(
+                ((factor_t, plan.factor_t_ref), (factor_p, plan.factor_p_ref))
+            ):
+                path = raw_adj_factor_path(lake_root, reference.trade_date.isoformat())
+                require_stk_factor_pro_safe_path(path)
+                if not path.is_file() or factor_file_sha(path) != reference.file_sha256:
+                    raise ValueError("历史输入重查实际因子文件缺失或SHA不符")
+                if reference.file_sha256 == original.file_sha256:
+                    if reference.rows != original.rows:
+                        raise ValueError("同一因子文件的行数引用不一致")
+                    continue
+                _read_history_factor(
+                    connection,
+                    lake_root=lake_root,
+                    reference=reference,
+                    relation=relations[position],
+                )
+                values = dict(
+                    connection.execute(
+                        f"SELECT ts_code,adj_factor FROM {relations[position]} WHERE ts_code=ANY(?) ORDER BY ts_code",
+                        [[unit.object_code for unit in expected_units]],
+                    ).fetchall()
+                )
+                for unit in expected_units:
+                    row = by_code[unit.object_code]
+                    wanted = row.t_value if position == 0 else row.p_value
+                    if values.get(unit.object_code) != wanted:
+>                       raise ValueError(
+                            f"历史请求范围权威复权因子已改变：{unit.object_code}"
+                        )
+E                       ValueError: 历史请求范围权威复权因子已改变：000001.SZ
+
+src/orchestrator/defs/io/stk_factor_pro_history.py:1420: ValueError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2045/test_recheck_cleanup_retains_f3')
+mode = 'primary_and_cleanup'
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_recheck_cleanup_retains_factor_error_and_attempts_second_table(tmp_path, mode):
+        lake, staging = roots(tmp_path)
+        with connection(tmp_path) as conn:
+            plan, saved_ranges, _, _ = prepared(conn, lake, staging)
+            units = resolve(conn, staging, plan, saved_ranges)
+            wrapped = CleanupConnection(conn, "recheck", mode)
+            # Both files have real byte changes. Legitimate changes to B alone
+            # create both relations without invalidating requested stock A.
+            ft = write_factor_file(
+                conn, lake, T, ((A, 3.0 if wrapped.fail_primary else 2.0), (B, 2.0))
+            )
+            fp = write_factor_file(conn, lake, P, ((A, 1.0), (B, 2.0)))
+            allowed = eligibility(plan.identity, plan)
+            facts = (ft, fp, allowed.raw_coverage, allowed.target_silver)
+>           result = assert_outcome(
+                wrapped,
+                lambda: history.recheck_stk_factor_pro_history_inputs(
+                    wrapped,
+                    plan=plan,
+                    ranges=saved_ranges,
+                    expected_units=units,
+                    lake_root=lake,
+                    recheck_inputs=lambda: facts,
+                ),
+                ValueError,
+            )
+
+tests/test_stk_factor_pro_history_cleanup.py:238:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_stk_factor_pro_history_cleanup.py:110: in assert_outcome
+    invoke()
+tests/test_stk_factor_pro_history_cleanup.py:240: in <lambda>
+    lambda: history.recheck_stk_factor_pro_history_inputs(
+src/orchestrator/defs/io/stk_factor_pro_history.py:1433: in recheck_stk_factor_pro_history_inputs
+    connection.execute(f"DROP TABLE IF EXISTS {relation}")
+tests/test_stk_factor_pro_history_cleanup.py:94: in execute
+    return self._release(text, call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.test_stk_factor_pro_history_cleanup.CleanupConnection object at 0x10a6c28d0>
+action = 'DROP TABLE IF EXISTS stk_factor_pro_history_recheck_t'
+call = <function CleanupConnection.execute.<locals>.call at 0x10ab8e8e0>
+
+    def _release(self, action, call):
+        if action not in self.actions:
+            return call()
+        if not self.attempts:
+            self.first_cleanup_primary = sys.exception()
+        self.attempts.append(action)
+        if self.fail_cleanup and action == self.actions[0]:
+>           raise self.cleanup_error
+E           _duckdb.Error: controlled first cleanup failure
+
+tests/test_stk_factor_pro_history_cleanup.py:79: Error
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[primary_only]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[cleanup_only]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[primary_and_cleanup]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[cleanup_only]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[primary_and_cleanup]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[cleanup_only]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[primary_and_cleanup]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[cleanup_only]
+FAILED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[primary_and_cleanup]
+8 failed, 8 passed in 1.51s

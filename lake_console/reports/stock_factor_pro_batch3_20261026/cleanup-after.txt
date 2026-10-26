@@ -1,0 +1,20 @@
+................                                                         [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[cleanup_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_record_cleanup_preserves_copy_error_and_attempts_drop[primary_and_cleanup]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[cleanup_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_source_cleanup_keeps_original_field_error_visible[primary_and_cleanup]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[cleanup_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_plan_cleanup_retains_cancellation_and_attempts_both_tables[primary_and_cleanup]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[normal]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[primary_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[cleanup_only]
+PASSED tests/test_stk_factor_pro_history_cleanup.py::test_recheck_cleanup_retains_factor_error_and_attempts_second_table[primary_and_cleanup]
+16 passed in 1.29s

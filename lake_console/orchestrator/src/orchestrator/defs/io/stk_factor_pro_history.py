@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import fields, replace
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+from duckdb import Error as DuckDBError
 
 from orchestrator.defs.checks.stk_factor_pro import (
     factor_file_sha,
@@ -98,6 +101,32 @@ SOURCE_FILE_SCHEMA = (
     ("contract_content_digest", "VARCHAR"),
     ("verified_at", "TIMESTAMP WITH TIME ZONE"),
 )
+
+
+@contextmanager
+def _history_resource_cleanup(*releases: Callable[[], object]) -> Iterator[None]:
+    """Attempt every owned DuckDB cleanup without replacing the body error."""
+    primary = None
+    try:
+        yield
+    except BaseException as error:
+        primary = error
+        raise
+    finally:
+        failures = []
+        for release in releases:
+            try:
+                release()
+            except DuckDBError as cleanup:
+                failures.append(cleanup)
+        if failures:
+            reported = primary if primary is not None else failures[0]
+            for cleanup in failures:
+                reported.add_note(
+                    f"历史记录清理同时失败：{type(cleanup).__name__}"
+                )
+            if primary is None:
+                raise reported
 
 
 def _run_root(root: Path, *, run_id: str, target: date) -> None:
@@ -251,7 +280,10 @@ def _write_rows(
     temporary = _prepare(path)
     relation, registered = "stk_factor_pro_record_rows", "stk_factor_pro_record_frame"
     definitions = ", ".join(f'"{name}" {kind}' for name, kind in schema)
-    try:
+    with _history_resource_cleanup(
+        lambda: connection.unregister(registered),
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}"),
+    ):
         if rows:
             frame = pd.DataFrame(
                 {
@@ -286,9 +318,6 @@ def _write_rows(
         ):
             raise ValueError("历史Parquet最终内容与输入不符")
         return RecordRef(identity.creator_run_id, relative, factor_file_sha(path))
-    finally:
-        connection.unregister(registered)
-        connection.execute(f"DROP TABLE IF EXISTS {relation}")
 
 
 def read_stk_factor_pro_history_plan(
@@ -492,7 +521,9 @@ def write_stk_factor_pro_source_complete(
 def _verify_source_unit(connection, path: Path, file: SourceFileRecord) -> None:
     relation = "stk_factor_pro_verified_source_unit"
     before = factor_file_sha(path)
-    try:
+    with _history_resource_cleanup(
+        lambda: connection.execute(f"DROP VIEW IF EXISTS {relation}"),
+    ):
         connection.execute(
             f"CREATE TEMP VIEW {relation} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
         )
@@ -507,8 +538,6 @@ def _verify_source_unit(connection, path: Path, file: SourceFileRecord) -> None:
             raise ValueError("历史unit实际行数与完整记录不符")
         if before != file.file_sha256 or factor_file_sha(path) != before:
             raise ValueError("历史unit文件在核验期间改变或SHA不符")
-    finally:
-        connection.execute(f"DROP VIEW IF EXISTS {relation}")
 
 
 def verify_stk_factor_pro_current_source(
@@ -943,7 +972,10 @@ def build_stk_factor_pro_history_plan(
         "stk_factor_pro_history_factor_t",
         "stk_factor_pro_history_factor_p",
     )
-    try:
+    with _history_resource_cleanup(
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {t_relation}"),
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {p_relation}"),
+    ):
         t_path = _read_history_factor(
             connection, lake_root=lake_root, reference=factor_t, relation=t_relation
         )
@@ -1122,9 +1154,6 @@ def build_stk_factor_pro_history_plan(
         return write_stk_factor_pro_history_plan(
             root, plan, ranges, connection=connection
         )
-    finally:
-        for relation in (t_relation, p_relation):
-            connection.execute(f"DROP TABLE IF EXISTS {relation}")
 
 
 def _require_registered_history_plan(plan, ranges):
@@ -1389,7 +1418,10 @@ def recheck_stk_factor_pro_history_inputs(
     require_stk_factor_pro_safe_path(lake_root)
     by_code = {row.ts_code: row for row in ranges}
     relations = ("stk_factor_pro_history_recheck_t", "stk_factor_pro_history_recheck_p")
-    try:
+    with _history_resource_cleanup(
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {relations[0]}"),
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {relations[1]}"),
+    ):
         for position, (reference, original) in enumerate(
             ((factor_t, plan.factor_t_ref), (factor_p, plan.factor_p_ref))
         ):
@@ -1428,6 +1460,3 @@ def recheck_stk_factor_pro_history_inputs(
             if factor_file_sha(path) != reference.file_sha256:
                 raise ValueError("历史输入重查因子在返回前改变")
         return facts
-    finally:
-        for relation in relations:
-            connection.execute(f"DROP TABLE IF EXISTS {relation}")

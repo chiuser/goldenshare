@@ -1,0 +1,344 @@
+{
+  "cleanup_fix_validation": {
+    "formal_resources_used": false,
+    "history_source_sha256": "a1ad8f260e1c799901951f8354ce6c1482f01e6a78cc940d82301c036977baaf",
+    "original_integration_evidence_overwritten": false,
+    "real_network_requests": 0,
+    "seconds": 8.497
+  },
+  "normal": {
+    "all_261_fields_compared_both_directions": true,
+    "cost": {
+      "counts": {
+        "atomic_replaces": 39,
+        "batch_source_ctas": 1,
+        "candidate_copies": 8,
+        "copy_queries": 19,
+        "diagnostic_parquet_writes": 8,
+        "formal_replaces": 8,
+        "json_record_writes": 20,
+        "parquet_read_queries": 87,
+        "read_parquet_calls": 95,
+        "sha_bytes": 119493448,
+        "sha_reads": 242,
+        "source_unit_copies": 1,
+        "sql_queries": 371,
+        "staging_parquet_promotions": 3
+      },
+      "counts_by_phase": {
+        "download": {
+          "atomic_replaces": 4,
+          "copy_queries": 2,
+          "json_record_writes": 2,
+          "parquet_read_queries": 14,
+          "read_parquet_calls": 14,
+          "sha_bytes": 312774,
+          "sha_reads": 50,
+          "source_unit_copies": 1,
+          "sql_queries": 36,
+          "staging_parquet_promotions": 2
+        },
+        "final_readback": {
+          "atomic_replaces": 1,
+          "json_record_writes": 1,
+          "sha_bytes": 10914789,
+          "sha_reads": 43,
+          "sql_queries": 2
+        },
+        "planning": {
+          "atomic_replaces": 2,
+          "copy_queries": 1,
+          "json_record_writes": 1,
+          "parquet_read_queries": 12,
+          "read_parquet_calls": 12,
+          "sha_bytes": 30408,
+          "sha_reads": 24,
+          "sql_queries": 22,
+          "staging_parquet_promotions": 1
+        },
+        "publication": {
+          "atomic_replaces": 32,
+          "batch_source_ctas": 1,
+          "candidate_copies": 8,
+          "copy_queries": 16,
+          "diagnostic_parquet_writes": 8,
+          "formal_replaces": 8,
+          "json_record_writes": 16,
+          "parquet_read_queries": 57,
+          "read_parquet_calls": 65,
+          "sha_bytes": 108156127,
+          "sha_reads": 121,
+          "sql_queries": 306
+        },
+        "verification": {
+          "parquet_read_queries": 4,
+          "read_parquet_calls": 4,
+          "sha_bytes": 79350,
+          "sha_reads": 4,
+          "sql_queries": 5
+        }
+      },
+      "disk_scan_measurement_seconds": 0.121874,
+      "measurement_only_count_queries": 30,
+      "observed_peak_lake_bytes_at_write_boundaries": 10916899,
+      "observed_peak_staging_bytes_at_write_boundaries": 5378960,
+      "observed_peak_total_bytes_at_write_boundaries": 11002733,
+      "phase_seconds": {
+        "download": 0.334806,
+        "final_readback": 0.030185,
+        "planning": 0.023552,
+        "publication": 2.601093,
+        "verification": 0.712039
+      },
+      "scope_note": "SQL/Parquet are query counts, not physical disk read counts; SHA bytes are actual whole-file hash input. Disk peaks are sampled before/after writes, no RSS pressure test.",
+      "temporary_table_max_rows": {
+        "stk_factor_pro_day_prior": 5568,
+        "stk_factor_pro_history_batch_source": 4,
+        "stk_factor_pro_history_current_unit": 5,
+        "stk_factor_pro_history_day_source": 1,
+        "stk_factor_pro_history_factor_p": 1,
+        "stk_factor_pro_history_factor_t": 1,
+        "stk_factor_pro_history_unrefreshed_keys": 0,
+        "stk_factor_pro_raw_expected": 5568,
+        "stk_factor_pro_record_rows": 1,
+        "stk_factor_pro_silver_expected": 5568
+      },
+      "wall_clock_seconds": 3.701677
+    },
+    "events": [
+      "RETRY_SCHEDULED",
+      "PAGE_COMPLETED",
+      "UNIT_COMPLETED"
+    ],
+    "observer_error_count": 1,
+    "old_date_rows": 5568,
+    "published_dates": 4,
+    "requests": 2,
+    "retry_count": 1,
+    "source_T_preserved_and_formal_T_unchanged": true,
+    "source_dates": [
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16"
+    ],
+    "source_evidence": "stock_factor_pro_batch1_20261026/source/component-rows.canonical.json",
+    "source_files": 1,
+    "source_rows": 5,
+    "targets": 8,
+    "temporary_relations_cleaned": true,
+    "transport_boundary": "Real TushareDownloader/registry/planner/session, ScriptTransport only; zero network requests",
+    "units": 1,
+    "unrelated_rows_compared": 5567,
+    "upstream_boundary": "Raw/Silver readiness facts are closed mock-reader inputs, no PG or Dagster instance"
+  },
+  "process_exit_and_redownload": {
+    "failed_process": {
+      "cleanup_note": "os._exit intentionally bypasses finally; a new OS process owns fresh in-memory state",
+      "cost": {
+        "counts": {
+          "atomic_replaces": 10,
+          "batch_source_ctas": 1,
+          "candidate_copies": 1,
+          "copy_queries": 5,
+          "diagnostic_parquet_writes": 1,
+          "formal_replaces": 1,
+          "json_record_writes": 5,
+          "parquet_read_queries": 42,
+          "read_parquet_calls": 43,
+          "sha_bytes": 705503,
+          "sha_reads": 114,
+          "source_unit_copies": 1,
+          "sql_queries": 108,
+          "staging_parquet_promotions": 3
+        },
+        "counts_by_phase": {
+          "download": {
+            "atomic_replaces": 4,
+            "copy_queries": 2,
+            "json_record_writes": 2,
+            "parquet_read_queries": 14,
+            "read_parquet_calls": 14,
+            "sha_bytes": 312676,
+            "sha_reads": 50,
+            "source_unit_copies": 1,
+            "sql_queries": 36,
+            "staging_parquet_promotions": 2
+          },
+          "planning": {
+            "atomic_replaces": 2,
+            "copy_queries": 1,
+            "json_record_writes": 1,
+            "parquet_read_queries": 12,
+            "read_parquet_calls": 12,
+            "sha_bytes": 30380,
+            "sha_reads": 24,
+            "sql_queries": 22,
+            "staging_parquet_promotions": 1
+          },
+          "publication": {
+            "atomic_replaces": 4,
+            "batch_source_ctas": 1,
+            "candidate_copies": 1,
+            "copy_queries": 2,
+            "diagnostic_parquet_writes": 1,
+            "formal_replaces": 1,
+            "json_record_writes": 2,
+            "parquet_read_queries": 16,
+            "read_parquet_calls": 17,
+            "sha_bytes": 362447,
+            "sha_reads": 40,
+            "sql_queries": 50
+          }
+        },
+        "disk_scan_measurement_seconds": 0.018167,
+        "measurement_only_count_queries": 10,
+        "observed_peak_lake_bytes_at_write_boundaries": 104257,
+        "observed_peak_staging_bytes_at_write_boundaries": 89706,
+        "observed_peak_total_bytes_at_write_boundaries": 161152,
+        "phase_seconds": {
+          "download": 0.309494,
+          "planning": 0.023132,
+          "publication": 0.292897
+        },
+        "scope_note": "SQL/Parquet are query counts, not physical disk read counts; SHA bytes are actual whole-file hash input. Disk peaks are sampled before/after writes, no RSS pressure test.",
+        "temporary_table_max_rows": {
+          "stk_factor_pro_day_prior": 0,
+          "stk_factor_pro_history_batch_source": 4,
+          "stk_factor_pro_history_current_unit": 5,
+          "stk_factor_pro_history_day_source": 1,
+          "stk_factor_pro_history_factor_p": 1,
+          "stk_factor_pro_history_factor_t": 1,
+          "stk_factor_pro_history_unrefreshed_keys": 0,
+          "stk_factor_pro_raw_expected": 1,
+          "stk_factor_pro_record_rows": 1
+        },
+        "wall_clock_seconds": 0.625522
+      },
+      "exit_code": 17,
+      "first_raw_sha": "1e9bd8ab4408878192a93c8dd6434f2d5268fb675adcb28d255929b11909c370",
+      "requests": 1,
+      "rows": 5,
+      "source_complete": true,
+      "targets": 1,
+      "units": 1
+    },
+    "formal_first_Raw_preserved": true,
+    "network_requests": 0,
+    "new_process": {
+      "cost": {
+        "counts": {
+          "atomic_replaces": 38,
+          "batch_source_ctas": 1,
+          "candidate_copies": 8,
+          "copy_queries": 19,
+          "diagnostic_parquet_writes": 8,
+          "formal_replaces": 7,
+          "json_record_writes": 20,
+          "parquet_read_queries": 85,
+          "read_parquet_calls": 93,
+          "sha_bytes": 3210713,
+          "sha_reads": 250,
+          "source_unit_copies": 1,
+          "sql_queries": 369,
+          "staging_parquet_promotions": 3
+        },
+        "counts_by_phase": {
+          "download": {
+            "atomic_replaces": 4,
+            "copy_queries": 2,
+            "json_record_writes": 2,
+            "parquet_read_queries": 14,
+            "read_parquet_calls": 14,
+            "sha_bytes": 319172,
+            "sha_reads": 50,
+            "source_unit_copies": 1,
+            "sql_queries": 36,
+            "staging_parquet_promotions": 2
+          },
+          "final_readback": {
+            "atomic_replaces": 1,
+            "json_record_writes": 1,
+            "sha_bytes": 344490,
+            "sha_reads": 43,
+            "sql_queries": 2
+          },
+          "planning": {
+            "atomic_replaces": 2,
+            "copy_queries": 1,
+            "json_record_writes": 1,
+            "parquet_read_queries": 14,
+            "read_parquet_calls": 14,
+            "sha_bytes": 52713,
+            "sha_reads": 33,
+            "sql_queries": 24,
+            "staging_parquet_promotions": 1
+          },
+          "publication": {
+            "atomic_replaces": 31,
+            "batch_source_ctas": 1,
+            "candidate_copies": 8,
+            "copy_queries": 16,
+            "diagnostic_parquet_writes": 8,
+            "formal_replaces": 7,
+            "json_record_writes": 16,
+            "parquet_read_queries": 57,
+            "read_parquet_calls": 65,
+            "sha_bytes": 2449311,
+            "sha_reads": 121,
+            "sql_queries": 306
+          },
+          "verification": {
+            "sha_bytes": 45027,
+            "sha_reads": 3,
+            "sql_queries": 1
+          }
+        },
+        "disk_scan_measurement_seconds": 0.160696,
+        "measurement_only_count_queries": 30,
+        "observed_peak_lake_bytes_at_write_boundaries": 345356,
+        "observed_peak_staging_bytes_at_write_boundaries": 205618,
+        "observed_peak_total_bytes_at_write_boundaries": 523485,
+        "phase_seconds": {
+          "download": 0.339604,
+          "final_readback": 0.026025,
+          "planning": 0.030881,
+          "publication": 2.162611,
+          "verification": 0.002487
+        },
+        "scope_note": "SQL/Parquet are query counts, not physical disk read counts; SHA bytes are actual whole-file hash input. Disk peaks are sampled before/after writes, no RSS pressure test.",
+        "temporary_table_max_rows": {
+          "stk_factor_pro_day_prior": 1,
+          "stk_factor_pro_history_batch_source": 4,
+          "stk_factor_pro_history_current_unit": 5,
+          "stk_factor_pro_history_day_source": 1,
+          "stk_factor_pro_history_factor_p": 1,
+          "stk_factor_pro_history_factor_t": 1,
+          "stk_factor_pro_history_unrefreshed_keys": 0,
+          "stk_factor_pro_raw_expected": 1,
+          "stk_factor_pro_record_rows": 1,
+          "stk_factor_pro_silver_expected": 1
+        },
+        "wall_clock_seconds": 2.561609
+      },
+      "first_raw_sha": "1e9bd8ab4408878192a93c8dd6434f2d5268fb675adcb28d255929b11909c370",
+      "old_source_guard": "Path.open and SQL reject prior-run source/candidates, metadata intent reads allowed",
+      "old_source_reads": 0,
+      "requests": 1,
+      "rows": 5,
+      "scope": [
+        [
+          "000001.SZ",
+          "2026-10-12",
+          "2026-10-16"
+        ]
+      ],
+      "targets": 8,
+      "temporary_relations_cleaned": true,
+      "units": 1
+    },
+    "new_process_restarted_complete_scope": true,
+    "old_download_evidence_retained": true
+  }
+}

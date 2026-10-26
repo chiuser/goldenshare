@@ -1,0 +1,57 @@
+{
+  "argv": [
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_stk_factor_pro_history_candidates.py",
+    "tests/test_stk_factor_pro_history_cleanup.py",
+    "tests/test_stk_factor_pro_history_completion.py",
+    "tests/test_stk_factor_pro_history_completion_boundaries.py",
+    "tests/test_stk_factor_pro_history_completion_model.py",
+    "tests/test_stk_factor_pro_history_contract_boundaries.py",
+    "tests/test_stk_factor_pro_history_contracts.py",
+    "tests/test_stk_factor_pro_history_download.py",
+    "tests/test_stk_factor_pro_history_download_integrity.py",
+    "tests/test_stk_factor_pro_history_plan.py",
+    "tests/test_stk_factor_pro_history_plan_boundaries.py",
+    "tests/test_stk_factor_pro_history_publication.py",
+    "tests/test_stk_factor_pro_history_records.py",
+    "tests/test_stk_factor_pro_history_scope.py",
+    "tests/test_stk_factor_pro_history_scope_boundaries.py",
+    "tests/test_stk_factor_pro_history_source_checks.py",
+    "tests/test_stk_factor_pro_history_starts.py"
+  ],
+  "file_count": 17,
+  "exit_code": 0,
+  "seconds": 46.374,
+  "formal_resources_used": false,
+  "omitted_expensive_batch_suite": "batch algorithm unchanged; existing 1/20/21/41/45 evidence retained",
+  "native_saved_response_chain": "separately validated with evidence redirected outside original acceptance files",
+  "new_regression_cases": 16,
+  "before": {
+    "failed": 8,
+    "passed": 8,
+    "seconds": 1.51
+  },
+  "after": {
+    "passed": 16,
+    "seconds": 1.29
+  },
+  "combined_passed": 307,
+  "test_file_sha256": "beab01203ed0a00ed09d05b017ee07da107125c4989c777c3c96aabda4561241",
+  "history_file_sha256": "a1ad8f260e1c799901951f8354ce6c1482f01e6a78cc940d82301c036977baaf",
+  "new_tests_unchanged_between_red_and_green": true,
+  "log_normalization": "pytest log trailing spaces trimmed, results unchanged",
+  "static_body_comparison": {
+    "all_original_functions_business_ast_unchanged": true,
+    "cleanup_only_functions": [
+      "_verify_source_unit",
+      "_write_rows",
+      "build_stk_factor_pro_history_plan",
+      "recheck_stk_factor_pro_history_inputs"
+    ],
+    "only_new_function": "_history_resource_cleanup"
+  }
+}

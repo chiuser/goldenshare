@@ -1,0 +1,89 @@
+{
+  "audit_commit": "d1564587614026cd23ae4892198c449e3e3bc8e3",
+  "formal_resources_used": false,
+  "repository_source_changed": false,
+  "record_writer": {
+    "entry": "write_stk_factor_pro_history_plan",
+    "range_schema_columns": 12,
+    "copy_attempts": 1,
+    "top_error_type": "Error",
+    "top_error": "secondary: simulated unregister failed",
+    "primary_in_context_type": "OSError",
+    "primary_in_context": "primary: simulated local disk write failed",
+    "drop_attempts": [],
+    "remaining_record_table": 1
+  },
+  "source_verification": {
+    "top_error": "secondary: simulated DROP VIEW failed",
+    "primary_in_context": "技术因子字段名称、顺序或类型与完整合同不符",
+    "primary_in_context_type": "ValueError",
+    "drop_attempts": [
+      "DROP VIEW IF EXISTS stk_factor_pro_verified_source_unit"
+    ],
+    "remaining_view": 1
+  },
+  "planning_and_recheck": [
+    {
+      "case": "planning",
+      "raised": "Error",
+      "message": "controlled first DROP failure",
+      "context": "ValueError",
+      "context_message": "primary planning cancellation",
+      "drop_attempts": [
+        "DROP TABLE IF EXISTS stk_factor_pro_history_factor_t"
+      ],
+      "remaining": [
+        [
+          "stk_factor_pro_history_factor_p"
+        ],
+        [
+          "stk_factor_pro_history_factor_t"
+        ]
+      ]
+    },
+    {
+      "case": "recheck",
+      "raised": "Error",
+      "message": "controlled first DROP failure",
+      "context": "ValueError",
+      "context_message": "历史请求范围权威复权因子已改变：000001.SZ",
+      "drop_attempts": [
+        "DROP TABLE IF EXISTS stk_factor_pro_history_recheck_t"
+      ],
+      "remaining": [
+        [
+          "stk_factor_pro_history_recheck_t"
+        ]
+      ]
+    }
+  ],
+  "root_regression": {
+    "output": "............................................................             [100%]\n60 passed in 12.87s\n",
+    "test_files": [
+      "test_stk_factor_pro_history_contract_boundaries.py",
+      "test_stk_factor_pro_history_scope_boundaries.py",
+      "test_stk_factor_pro_history_download_integrity.py",
+      "test_stk_factor_pro_history_completion_boundaries.py",
+      "test_stk_factor_pro_history_candidates.py"
+    ]
+  },
+  "independent_review_regressions": [
+    {
+      "scope": "starts/plan/plan_boundaries/scope/scope_boundaries",
+      "passed": 95,
+      "seconds": 3.75
+    },
+    {
+      "scope": "download and record/source verification targeted selection",
+      "passed": 62,
+      "seconds": 1.84
+    },
+    {
+      "scope": "publication targeted 5 test nodes expanded",
+      "passed": 11,
+      "seconds": 6.21
+    }
+  ],
+  "case_count_note": "Selections overlap; do not add these counts or add them to the earlier 656 unique acceptance cases.",
+  "source_file_sha256": "d8d7a4c4d9ccf1f6e4b9f8b68dc83fdc62ad284ee78930bf9fc18747ff366b62"
+}
