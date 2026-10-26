@@ -92,6 +92,7 @@ class _BootstrapProgress:
             "completed_dates": 0,
             "total_dates": None,
             "trade_date": None,
+            "source_rows": None,
             "raw_rows": None,
             "silver_rows": None,
             "coverage_state": None,
@@ -99,6 +100,14 @@ class _BootstrapProgress:
             "elapsed_seconds": 0.0,
             "updated_at": None,
             "outcome": None,
+            "space_estimate_stage": None,
+            "space_initial_estimate": None,
+            "space_latest_estimate": None,
+            "space_initial_row_bytes": 4178,
+            "space_observed_row_bytes": None,
+            "space_initial_record_bytes": 1024**2,
+            "space_observed_record_bytes": None,
+            "space_latest_observation": None,
         }
 
     def configure(self, *, total_dates, reused_source_rows):
@@ -126,6 +135,8 @@ class _BootstrapProgress:
             self.fields["trade_date"] = trade_date.isoformat()
 
     def emit(self, event, **values):
+        if event != "date_completed":
+            values["source_rows"] = None
         self.fields.update(
             values,
             event=event,
@@ -190,7 +201,7 @@ class _BootstrapProgress:
             outcome="源已保存，完整日期另行处理",
         )
 
-    def date_completed(self, *, day, raw, silver, coverage):
+    def date_completed(self, *, day, source_rows, raw, silver, coverage):
         self.done.add(day)
         state = (
             None
@@ -207,6 +218,7 @@ class _BootstrapProgress:
             "date_completed",
             stage="完整日期处理完成",
             trade_date=day.isoformat(),
+            source_rows=source_rows,
             raw_rows=0 if raw is None else raw.row_count,
             silver_rows=0 if silver is None else silver.row_count,
             coverage_state=state,
@@ -214,6 +226,25 @@ class _BootstrapProgress:
             if raw is None
             else "两层及覆盖记录已保存",
         )
+
+    def observe_space(self, *, stage, estimate, observed, observation=None):
+        """Attach existing arithmetic and file observations; never log or read IO."""
+        values = {
+            "source_bytes": estimate.source_bytes,
+            "candidate_bytes": estimate.candidate_bytes,
+            "temp_bytes": estimate.temp_bytes,
+            "record_bytes": estimate.record_bytes,
+        }
+        if self.fields["space_initial_estimate"] is None:
+            self.fields["space_initial_estimate"] = dict(values)
+        self.fields.update(
+            space_estimate_stage=stage,
+            space_latest_estimate=values,
+            space_observed_row_bytes=observed["row"],
+            space_observed_record_bytes=observed["record"],
+        )
+        if observation is not None:
+            self.fields["space_latest_observation"] = observation
 
     def finish(self, summary):
         state = (
@@ -477,7 +508,7 @@ def _classify_date(
 
 
 def _bootstrap_space_check(
-    connection, *, lake_root, staging_root, approval, counts, classified
+    connection, *, lake_root, staging_root, approval, counts, classified, progress=None
 ):
     """One operation's remaining disk needs; no extra data reads or durable state."""
     temp_directory = Path(
@@ -560,6 +591,7 @@ def _bootstrap_space_check(
             remaining_layer_file_count
         if month_start is not None:
             active_month = month_start
+        observation = None
         if path.is_file():
             size = path.stat().st_size
             if path.suffix == ".json":
@@ -576,11 +608,18 @@ def _bootstrap_space_check(
                 observed["record"] = max(
                     observed["record"], record_group_sizes[trade_date]
                 )
+                observation = (
+                    "record_group",
+                    None,
+                    1024**2,
+                    record_group_sizes[trade_date],
+                )
             elif rows:
                 observed["row"] = max(
                     observed["row"],
                     (max(0, size - observed["file"]) + rows - 1) // rows,
                 )
+                observation = ("data_file", rows, 4178 * rows + 4 * 1024**2, size)
         if event == "final_statistics":
             active_month = None
             remaining_dates.update(counts)
@@ -644,6 +683,24 @@ def _bootstrap_space_check(
         estimate = replace(
             estimate, record_bytes=max(0, estimate.record_bytes - known_record_bytes)
         )
+        if progress is not None:
+            details = None
+            if observation is not None:
+                kind, observed_rows, initial_bytes, actual_bytes = observation
+                details = {
+                    "stage": stage,
+                    "trade_date": None
+                    if trade_date is None
+                    else trade_date.isoformat(),
+                    "kind": kind,
+                    "rows": observed_rows,
+                    "initial_estimate_bytes": initial_bytes,
+                    "actual_bytes": actual_bytes,
+                    "difference_bytes": actual_bytes - initial_bytes,
+                }
+            progress.observe_space(
+                stage=stage, estimate=estimate, observed=observed, observation=details
+            )
         # A record just persisted is an observation, not another future write.
         # All following read/write boundaries recheck actual free space.
         if event == "record_saved":
@@ -715,6 +772,7 @@ def _execute_stk_factor_pro_bootstrap(
         approval=approval,
         counts=counts,
         classified=classified,
+        progress=progress,
     )
     check_space("读取前核磁盘空间", path=root)
     checked = False
@@ -800,6 +858,7 @@ def _execute_stk_factor_pro_bootstrap(
                 current.add(source.trade_date)
                 progress.date_completed(
                     day=source.trade_date,
+                    source_rows=source.actual_rows,
                     raw=value.raw_audit,
                     silver=value.silver_audit,
                     coverage=value.coverage,
@@ -842,7 +901,11 @@ def _execute_stk_factor_pro_bootstrap(
                     )
                     current.add(day)
                     progress.date_completed(
-                        day=day, raw=raw, silver=silver, coverage=value
+                        day=day,
+                        source_rows=source.actual_rows,
+                        raw=raw,
+                        silver=silver,
+                        coverage=value,
                     )
                     check_space(
                         "当前日期统计完成",

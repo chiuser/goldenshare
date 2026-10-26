@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-10-27。状态：第一至第四批已开发并通过各自隔离验收，见§14.6、§15.10、§16.4及§17.7；本轮五项修复见§17.8和第四批当前验收记录，994项不同用例通过。第五批及以后、整个数据集尚未完成，正式bootstrap及自动化未执行。以下为已确认业务规则，正式编排由后续批次装配：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
+日期：2026-10-27。状态：第一至第四批已开发并通过各自隔离验收，见§14.6、§15.10、§16.4及§17.7。本轮三处补齐见§17.8.7：98项定向回归通过，末次1项补验与前述重叠；14处已实现接口与代码一致，独立审计未发现新的确定问题。此前994项为28b7894a五项主体修复证据，不替代本轮验收。第五批及以后、整个数据集尚未完成，正式bootstrap及自动化未执行。以下为已确认业务规则，正式编排由后续批次装配：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -1200,11 +1200,15 @@ def require_stk_factor_pro_bootstrap_source_window(
 ) -> None: ...
 def export_stk_factor_pro_bootstrap_month(
     *, prod_postgres: ProdPostgresResource, connection: DuckDBPyConnection,
+    staging_root: Path,
     approval: StkFactorProBootstrapApproval, month: StkFactorProBootstrapMonthLimit,
     selected_dates: tuple[date, ...],
     on_complete_date: Callable[
         [StkFactorProBootstrapSourceComplete], StkFactorProBootstrapDateResult
     ],
+    check_space: Callable[..., BootstrapSpaceEstimate],
+    verification: BootstrapFragmentVerification | None = None,
+    progress: _BootstrapProgress | None = None,
 ) -> StkFactorProBootstrapMonthResult: ...
 ```
 
@@ -1317,6 +1321,10 @@ def process_stk_factor_pro_bootstrap_complete_date(
     approval: StkFactorProBootstrapApproval,
     source_complete: StkFactorProBootstrapSourceComplete,
     inputs: StkFactorProBootstrapCoverageInputs,
+    before_publish: Callable[[], None] | None = None,
+    check_space: Callable[..., BootstrapSpaceEstimate],
+    verification: BootstrapFragmentVerification | None = None,
+    progress: _BootstrapProgress | None = None,
 ) -> StkFactorProBootstrapDateResult: ...
 
 def read_stk_factor_pro_bootstrap_source_complete(
@@ -1328,6 +1336,8 @@ def write_stk_factor_pro_bootstrap_source_complete(
     connection: DuckDBPyConnection, *, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     record: StkFactorProBootstrapSourceComplete,
+    check_space: Callable[..., BootstrapSpaceEstimate],
+    verification: BootstrapFragmentVerification | None = None,
 ) -> StkFactorProBootstrapSourceComplete: ...
 ```
 
@@ -1404,12 +1414,14 @@ def write_stk_factor_pro_bootstrap_publication_intent(
     *, lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     record: StkFactorProBootstrapPublicationIntent,
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapPublicationIntent: ...
 
 def write_stk_factor_pro_bootstrap_publication_complete(
     *, lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     record: StkFactorProBootstrapPublicationComplete,
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapPublicationComplete: ...
 ```
 
@@ -1469,6 +1481,7 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
     raw_audit: StkFactorProFileAudit | None,
     silver_audit: StkFactorProFileAudit | None,
     current_publication: StkFactorProBootstrapCurrentPublication | None,
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapDateCoverage: ...
 
 def write_stk_factor_pro_bootstrap_coverage_date(
@@ -1476,6 +1489,7 @@ def write_stk_factor_pro_bootstrap_coverage_date(
     lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     result: StkFactorProBootstrapDateCoverage,
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapDateCoverage: ...
 
 def summarize_stk_factor_pro_bootstrap_coverage(
@@ -1484,6 +1498,7 @@ def summarize_stk_factor_pro_bootstrap_coverage(
     verified_import_dates: tuple[date, ...],
     verified_current_dates: tuple[date, ...],
     inputs: tuple[StkFactorProBootstrapCoverageInputs, ...],
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapCoverageSummary: ...
 ~~~
 
@@ -1763,10 +1778,19 @@ def update_stk_factor_pro_bootstrap_after_publication(
     publication: StkFactorProBootstrapCurrentPublication,
     raw_audit: StkFactorProFileAudit,
     silver_audit: StkFactorProFileAudit,
+    check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapDateCoverage: ...
 ```
 
 第一个函数只核事件/运行身份，不写文件；第二个复用prepare/evaluate/write，不查询事件或新建连接。context和approval同operation/摘要，context.target_trade_date等于该run原T；首次/重新执行/repair继承按§10.7及§4.1核验。正常无关联的阶段观察Context显式null，有关联者在开始观察保存并读回；不能将其误写成DagsterRun有任意metadata属性，也不能从任意同T run猜授权。发布日期可以为T或已核原plan范围内的d<T，Context里的原T不随历史日期改写。
+
+**补数收尾的空间检查绑定。**本段是第五批控制层的编码要求，本轮只校准接口，不提前实现控制层。它不经过bootstrap主入口，不能把内部必填`check_space`遗漏或传测试用`check_test_space`。具体顺序固定为：
+
+1. 在本批真实两层发布/check及授权核验后，以现有主要DuckDB连接、已核Context/approval及本批受影响日期创建内部闭包；日补数为1日，历史批次最多20日。不调用`_bootstrap_space_check`重做整个operation分类，也不重启bootstrap。
+2. 读取当前连接的`current_setting('temp_directory')`一次。闭包复用`estimate_bootstrap_space`和`require_bootstrap_space`，固定`statistics_only=True`，`pending_source_rows_by_month=()`、`remaining_layer_rows=()`、`pending_fetch_rows=0`。本日`work_rows=(raw_audit.row_count, raw_audit.row_count)`；无指定单日时取本批已核Raw audit最大行数，两者均不重新读取业务数据。同批直接evaluate/write已确认合法无文件的日期可取0；`update_after_publication`自身仍须完整CurrentPublication及两层audit，不允许传None或用空间回调放宽合同。其他缺audit情况仍拒绝，不能猜0。S=C_new=0，T沿§17.8.2仅统计公式，J覆盖尚需写的本批result及1份summary。
+3. 同一闭包显式传给本批`update_after_publication → evaluate/write`及最后`summarize`。参数为§17.8的`stage/path/trade_date/rows/event`；路径只接受已核operation内的位置。尚待日期由本批待更新日期建立去重集合；update正常返回且result读回核验后才用`event=date_completed`移除该日，同结果复用而没有重写也只移除一次。`record_saved`仅观察已持久大小，不提前移除日期。全部日期完成后remaining_date_count=0，仍为summary保留1份J，summary保存读回后结束闭包。后续读写边界按设备重新检查free；实际JSON大小按日期组增量维护，已占字节不重复计为新增，设备归并及16MiB余量仍由原函数处理。
+4. 回调与批次同生命周期，仅保存预算元信息。统计失败或空间不足继续抛出，保留已发布文件；重执行仍按既定日/历史新下载规则，不把统计回调变成下载缓存或恢复入口。来源/候选预算和校验均不能借统计闭包绕过。
+5. 不新增运营输入、连接、表、锁、磁盘扫描或Prod请求。summary仍按原小记录求和，不能为了绑定此回调扫描全部业务字段。第五批验收须覆盖正常日收尾、20日尾批、原源0补出、空间不足、重复收尾不累加及零Prod/零业务全历史读取。
 
 事件读取接收整批实际完成audits（含Raw-only尾日）、本批需文件计划expected_file_dates（skip_no_file不加入）及真正进入文件发布边界的attempted_dates。后者在写intent/replace前记录，不能用整个未执行计划代替；未触及日期沿原有效事实核验。先匹配全部实际事件，再求原批准交集；publications只含本日两层/check俱全，incomplete_dates只含已改变/无法确认当前两层的日期。attempted但核目标仍未变且原依据有效可归unchanged_dates，不能因尾日失败丢前19日，也不能把未执行的后18日一律标无效。N按整批实际yield事件数，至多40，N=0不查；不匹配/伪造/坏授权报错。调用方更新完整凭据、保留unchanged_dates的有效结果，仅incomplete_dates排除verified_current_dates；历史任务仍整范围未完成，不能以统计状态缩减下次网络范围。
 
@@ -2471,7 +2495,7 @@ prepare/evaluate/write/summarize按§10.5接口实现，复用build_stk_factor_p
 
 ### 17.7 第四批实际验收与后批条件
 
-2026-10-27当前验收：五项修复完成；40个明确列出的普通测试文件868项、原受保护入口126项（Definitions 1、资产治理12、静态合同113）通过，合计994项不同用例。最后的空间月份索引调整后，空间/日志28项再测通过，与前述重叠不累计；Ruff默认与全src/tests致命规则、CodeGraph sync/status、文档和差异检查通过。新增136项为SHA16、空间纯预算58、空间接线12、片段复用16、覆盖依据18、日志16。逐项代码/反例/成本及未覆盖范围见[当前验收](../../reports/stock_factor_pro_batch4_20261026/README.md)、[修复验证](../../reports/stock_factor_pro_batch4_20261026/fixes-verification.json)。
+2026-10-27当前验收：提交28b7894a后的三处补齐已完成，进度18、空间接线12、空间纯预算58、bootstrap入口9及真实进程恢复1，共98项不同用例通过；最后观察边界补验1项与前述重叠不累计。14处已实现固定接口AST对照一致，独立审计未发现新的确定问题；默认Ruff、全src/tests致命规则、CodeGraph同步、文档/局部链接及差异检查通过。具体证据见§17.8.7和[当前验收](../../reports/stock_factor_pro_batch4_20261026/README.md)。此前868项普通回归及126项受保护门禁，共994项，保留为五项主体修复阶段证据；本轮未重跑完整994或受保护门禁，不将旧摘要冒充当前改动的全套验证。
 
 以下保留2026-10-26原主体测试证据，不作为五项修复的当前结论。
 
@@ -2579,7 +2603,21 @@ prepare/evaluate/write/summarize按§10.5接口实现，复用build_stk_factor_p
 | date_completed | 该日两层发布/读回及覆盖result写入均完成后；说明Raw/Silver行数、该日源行数、覆盖complete/incomplete/unknown、已完成日期数。不把Raw已完成但Silver失败记成日期成功。源0且无两层文件时明确说明合法无文件结果，不伪造发布数量。 |
 | operation_finished / operation_failed | 最后summary保存读回且资源关闭结果已知后报完成；任一业务/容量/关闭异常报失败，包含出错阶段、已持久完成量及下一动作。失败日志不把未保存的内存行计为完成。 |
 
-字段固定包含operation_id、attempt_id（尚未创建则None）、month（操作级可None）、stage、event、batch_no、batch_rows、saved_rows、completed_dates、total_dates、trade_date、raw_rows、silver_rows、coverage_state、reused_source_rows、elapsed_seconds、updated_at及outcome。无该事实用None，不填0冒充结果；stage使用现有阶段的清晰中文说明。耗时由同进程monotonic计算，updated_at为带Asia/Shanghai时区的当前时间；不承诺ETA或请求阻塞期间定时更新。失败原因及next_action用中文，不打印token、密码、DSN、整行业务数据或完整缺失列表。
+字段固定包含operation_id、attempt_id（尚未创建则None）、month（操作级可None）、stage、event、batch_no、batch_rows、saved_rows、completed_dates、total_dates、trade_date、source_rows、raw_rows、silver_rows、coverage_state、reused_source_rows、elapsed_seconds、updated_at及outcome。无该事实用None，不填0冒充结果；stage使用现有阶段的清晰中文说明。耗时由同进程monotonic计算，updated_at为带Asia/Shanghai时区的当前时间；不承诺ETA或请求阻塞期间定时更新。失败原因及next_action用中文，不打印token、密码、DSN、整行业务数据或完整缺失列表。
+
+`date_completed(..., source_rows: int)`显式接收该日原`SourceComplete.actual_rows`，普通导入、完整源恢复及补数后本地统计三个调用分支一致；不能用本attempt的saved_rows或当前Raw行数代替。原源0行、当前补数两层各5行时必须输出source_rows=0、raw_rows=silver_rows=5。月份、批次及最终操作汇总的source_rows为None，避免沿用前一日数值；它不改变原SourceComplete/result或任何业务记录。
+
+**空间摘要接线。**`_bootstrap_space_check(..., progress=None)`仅增加内部观察依赖，主入口传本次`_BootstrapProgress`。在每次已有预算算完、`require_bootstrap_space`及`record_saved`返回前调用`progress.observe_space`更新内存快照；此方法不emit、不做I/O。所有既有事件携带以下固定字段，不新增事件或逐边界日志：
+
+| 字段 | 精确含义 |
+| --- | --- |
+| space_estimate_stage | 最近计算预算时的stage。批/日完成日志先于保存后容量检查，可能携带上一边界快照，必须保留此字段，不宣称是本事件即时free。 |
+| space_initial_estimate / space_latest_estimate | 首次/最近四项`source_bytes,candidate_bytes,temp_bytes,record_bytes`，均为尚需新增字节的估算；首次固定不变。最近值会因完成工作或最终统计重开范围而升降，不把二者差额当成真实磁盘增减。尚未完成首次预算时为None。 |
+| space_initial_row_bytes / space_observed_row_bytes | 4178与原容量算法按实际文件更新的保守每行估算。观测值是后续预算用的余量，不是Parquet真实平均行宽。 |
+| space_initial_record_bytes / space_observed_record_bytes | 1MiB与原算法按已观察日期记录组更新的保守余量；不是额外存储或文件大小硬限。 |
+| space_latest_observation | 最近一次原检查路径已取得的文件观测，或None。固定stage、trade_date、kind、rows、initial_estimate_bytes、actual_bytes、difference_bytes。数据文件kind=data_file，初估为4178*rows+4MiB；JSON按同日期已观察记录组累计，kind=record_group、rows=None、初估1MiB。差额=实际−初估，可以为负；不含文件路径或业务明细。 |
+
+初始/最近预算均复制已有纯预算结果；观测只复用原`path.stat().st_size`、已得行数及记录组大小，不增加stat、disk_usage、SHA、SQL或业务扫描。observe_space只复制常数规模字典；普通日志错误仍在原emit处理。后检不足时先更新最近预算再抛容量错误，failed日志因此保留当前预算及已完成量；不调整原“通知持久完成后才后检”的顺序。按设备required/free仍由原容量函数检查及报错，不把四分量简单相加冒充跨设备要求。
 
 saved_rows指本attempt真正保存并读回的源行数；operation内复用的旧完整日另以reused_source_rows说明，不混成新导出行数。completed_dates按同operation已核日期处理完成的唯一集合计算：有数据日期要求两层完成及覆盖记录；合法源0且无文件的日期要求完整空源事实及覆盖/日历分类结果，不能要求不存在的两层complete。恢复时先使用已读且与当前文件一致的日期结果恢复基数；已确认休市且具有合法完整空源、无业务文件的日期，月准备后恢复其分类基数。本轮成功日期只新增一次，不因重复执行累加。完整日两层及统计记录保存并核实后，先更新完成量并通知，再执行容量后检；后检失败不能把已完成事实显示成0。total_dates为批准范围内纳入当前operation日期处理的日期数，包含合法源0日；确认休市无源可完成日历分类，不能伪装成资产物化。已保存源行数或日期进度100%不表示市场覆盖齐备，coverage_state必须分别展示。
 
@@ -2599,4 +2637,17 @@ saved_rows指本attempt真正保存并读回的源行数；operation内复用的
 
 #### 17.8.6 修复顺序及对账完成条件
 
-先完成发布SHA绑定和空间检查，再完成片段复用及覆盖分类，最后补运行摘要；每步先定向正反例再进入下一步。五项分别对账当前实现位置、正常/失败测试与成本；旧858项仅作既有回归基线，不能用测试总数代替本节反例。最终分别报告单元、隔离串联、既有真实有界证据及未执行的正式操作。五项修复与独立审计现已完成，已同步§17.7、原方案和验收报告状态。第四批通过隔离验收，不自动授权第五批或正式执行。
+先完成发布SHA绑定和空间检查，再完成片段复用及覆盖分类，最后补运行摘要；每步先定向正反例再进入下一步。五项分别对账当前实现位置、正常/失败测试与成本；旧858项仅作既有回归基线，不能用测试总数代替本节反例。最终分别报告单元、隔离串联、既有真实有界证据及未执行的正式操作。提交28b7894a保留五项主体修复及当次994项证据；随后审计的三处补齐已按下节完成，当前结论以本轮定向回归和独立核验为依据。不自动授权第五批或正式执行。
+
+#### 17.8.7 三处补齐的限定实现与验收
+
+本轮依据原方案§13.6.2和管理员批准实施，不扩大开发范围。当前代码依据为28b7894a的`_BootstrapProgress`、`_bootstrap_space_check`及9处既有bootstrap签名；只改`stk_factor_pro_history.py`的日志字段/接线及直接测试，records/source/publication/coverage的容量计算、数据与持久接口行为保持。LLD签名只同步当前真实参数；补数回调的正式装配留第五批。
+
+| 硬要求 | 实现位置及输入/输出 | 失败及验收 |
+| --- | --- | --- |
+| 本日源行数 | date_completed显式source_rows；两处主流程调用都传当前SourceComplete.actual_rows，输出与当前Raw/Silver分别独立。其余事件清本日值为None。 | 普通跨日不同计数、恢复源及原0补5均使用独立字面预期；不能从待测日志反造expected。 |
+| 空间估算与实测摘要 | 工厂progress可选，主入口显式传入；observe_space保存固定初始及最近预算/余量/文件观测，字段见§17.8.5。预算计算后、require前更新，不调用emit。 | 相同小样本开启/关闭观察时预算、容量检查次数、日志事件顺序和文件结果一致；实际尺寸增长时用已取得size输出准确差额；首次/途中不足包含最近快照，记录写后观察不变成新写入许可。 |
+| 日志不干预业务 | 继续原emit隔离普通日志异常，关闭成功才finished。源/日期完成量更新与容量后检时序不改。 | 原异常、取消、关闭失败、坏handler及后检失败定向回归；不重复fetch/replace、不吞主体错误。 |
+| 接口和下一批交接 | §10九个实现签名按参数顺序/必填/默认值同步；check_space及verification/progress都是内部依赖。§10.5.6明确仅统计绑定。 | 静态AST逐项比对接口，不能靠文档完整性检查证明API匹配；不实现新控制层或借测试回调充当正式方案。 |
+
+性能和读写边界：网络请求/业务扫描/连接/SQL/新数据文件均增量0；磁盘检查次数及元信息读取沿原实现，新增工作只为每个既有边界复制常数规模摘要。常驻只保留初始、最近和最近文件观测，不按文件/日期累计日志副本；中断/最终统计同样只更新这份快照。定向真实临时Parquet测试不超过三日、每日至多5行；观察增长可用已有大小注入，不读取巨型文件或压测。正常及失败成本断言沿原查询/替换计数，禁止安装依赖、正式读写、启停DG或推进第五批。定向98项通过，末次1项补验通过且与前述重叠不累计。14处已实现签名按AST逐项匹配；独立审计已核本轮日志及第四批原链，未发现新的确定问题。原发布/范围/恢复/覆盖实现未改，正式执行和第五批仍未推进。

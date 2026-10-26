@@ -1,0 +1,513 @@
+{
+  "as_of": "2026-10-27",
+  "base_commit": "28b7894a",
+  "scope": "第四批三处补齐及定向隔离验收，未正式执行",
+  "targeted": {
+    "tests": 98,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xml_time_seconds": 53.69
+  },
+  "final_observation_rerun": {
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xml_time_seconds": 0.824,
+    "overlaps_targeted": true
+  },
+  "distinct_passed": 98,
+  "files_and_counts": {
+    "test_stk_factor_pro_bootstrap_progress.py": 18,
+    "test_stk_factor_pro_bootstrap_space.py": 12,
+    "test_stk_factor_pro_bootstrap_space_estimate.py": 58,
+    "test_stk_factor_pro_bootstrap.py": 9,
+    "test_stk_factor_pro_bootstrap_process.py": 1
+  },
+  "before_code": {
+    "baseline_commit": "28b7894a",
+    "source_rows_missing": true,
+    "space_observation_method_missing": true,
+    "initial_space_budget_missing": true
+  },
+  "implemented_signature_count": 14,
+  "implemented_signatures": {
+    "validate_stk_factor_pro_bootstrap_approval": {
+      "pos": [],
+      "kw": [
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "now",
+          "required"
+        ],
+        [
+          "source_identity",
+          "required"
+        ]
+      ]
+    },
+    "require_stk_factor_pro_bootstrap_source_window": {
+      "pos": [],
+      "kw": [
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "now",
+          "required"
+        ]
+      ]
+    },
+    "export_stk_factor_pro_bootstrap_month": {
+      "pos": [],
+      "kw": [
+        [
+          "prod_postgres",
+          "required"
+        ],
+        [
+          "connection",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "month",
+          "required"
+        ],
+        [
+          "selected_dates",
+          "required"
+        ],
+        [
+          "on_complete_date",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ],
+        [
+          "verification",
+          "None"
+        ],
+        [
+          "progress",
+          "None"
+        ]
+      ]
+    },
+    "process_stk_factor_pro_bootstrap_complete_date": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "source_complete",
+          "required"
+        ],
+        [
+          "inputs",
+          "required"
+        ],
+        [
+          "before_publish",
+          "None"
+        ],
+        [
+          "check_space",
+          "required"
+        ],
+        [
+          "verification",
+          "None"
+        ],
+        [
+          "progress",
+          "None"
+        ]
+      ]
+    },
+    "read_stk_factor_pro_bootstrap_source_complete": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "trade_date",
+          "required"
+        ]
+      ]
+    },
+    "write_stk_factor_pro_bootstrap_source_complete": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "record",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ],
+        [
+          "verification",
+          "None"
+        ]
+      ]
+    },
+    "read_stk_factor_pro_bootstrap_publication": {
+      "pos": [],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "trade_date",
+          "required"
+        ],
+        [
+          "layer",
+          "required"
+        ]
+      ]
+    },
+    "write_stk_factor_pro_bootstrap_publication_intent": {
+      "pos": [],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "record",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    },
+    "write_stk_factor_pro_bootstrap_publication_complete": {
+      "pos": [],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "record",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    },
+    "prepare_stk_factor_pro_bootstrap_coverage_month": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "month",
+          "required"
+        ]
+      ]
+    },
+    "evaluate_stk_factor_pro_bootstrap_coverage_date": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "inputs",
+          "required"
+        ],
+        [
+          "trade_date",
+          "required"
+        ],
+        [
+          "source_complete",
+          "required"
+        ],
+        [
+          "raw_audit",
+          "required"
+        ],
+        [
+          "silver_audit",
+          "required"
+        ],
+        [
+          "current_publication",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    },
+    "write_stk_factor_pro_bootstrap_coverage_date": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "result",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    },
+    "summarize_stk_factor_pro_bootstrap_coverage": {
+      "pos": [],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "verified_import_dates",
+          "required"
+        ],
+        [
+          "verified_current_dates",
+          "required"
+        ],
+        [
+          "inputs",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    },
+    "update_stk_factor_pro_bootstrap_after_publication": {
+      "pos": [
+        [
+          "connection",
+          "required"
+        ]
+      ],
+      "kw": [
+        [
+          "lake_root",
+          "required"
+        ],
+        [
+          "staging_root",
+          "required"
+        ],
+        [
+          "approval",
+          "required"
+        ],
+        [
+          "inputs",
+          "required"
+        ],
+        [
+          "publication",
+          "required"
+        ],
+        [
+          "raw_audit",
+          "required"
+        ],
+        [
+          "silver_audit",
+          "required"
+        ],
+        [
+          "check_space",
+          "required"
+        ]
+      ]
+    }
+  },
+  "file_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_factor_pro_history.py": "62b16c4fd4b31dd32ec5819afb2afd94e8191aaa7b866b45dafffe0529a80e7c",
+    "lake_console/orchestrator/tests/test_stk_factor_pro_bootstrap_progress.py": "272b1f11d593531fad6c8740f74f83f744887f66f3b8fa95cabdb74f0f0d2bde",
+    "lake_console/docs/design/dagster-stock-technical-factor-onboarding-plan-v1.md": "c40f910e8740e561a1f1f5e492bfdca293d348bbe7b76c4d8c2ca5ff74e58d1a",
+    "lake_console/docs/design/dagster-stock-technical-factor-onboarding-low-level-design-v1.md": "7f0638b2bf666cb2e156df8c749bc1f15b6f1733dec5d9b3a53d29e8523c3820",
+    "lake_console/reports/stock_factor_pro_batch4_20261026/README.md": "bd3b3f6b6e75a4d6e984e6fdc9ccac56b6e97ef2c40c44ec7c49fa9252175fe5"
+  },
+  "performance": {
+    "extra_source_queries": 0,
+    "extra_business_scans": 0,
+    "extra_connections": 0,
+    "stat_and_disk_usage_counts_unchanged": true,
+    "extra_log_events": 0,
+    "observation_state": "initial/latest budget and one latest file observation only",
+    "same_device_and_failure_semantics": "unchanged"
+  },
+  "checks": {
+    "ruff_default": "passed for two changed Python files",
+    "ruff_fatal": "passed src/tests",
+    "codegraph": "explore/impact and sync/status",
+    "docs_integrity": "passed",
+    "signature_ast": "14 matched"
+  },
+  "independent_audit": {
+    "production_scope": "only bootstrap history logging and observer wiring",
+    "publication_range_recovery_coverage": "unchanged and reviewed",
+    "confirmed_new_problems": 0,
+    "reviewers": [
+      "batch4_reaudit_publication",
+      "batch4_reaudit_coverage_docs",
+      "batch4_reaudit_space"
+    ]
+  },
+  "formal_operations": {
+    "prod_read": false,
+    "tushare_request": false,
+    "lake_write": false,
+    "partition_write": false,
+    "event_write": false,
+    "job_sensor_operations": false,
+    "dg_service_operation": false,
+    "batch5_development": false,
+    "dependency_install": false,
+    "commit": false
+  },
+  "prior_994_full_regression": "historical evidence from base commit, not rerun for this change",
+  "warnings": "four existing Pydantic deprecation warnings retained"
+}
