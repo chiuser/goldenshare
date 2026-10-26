@@ -5,7 +5,6 @@ import shutil
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -14,7 +13,12 @@ from orchestrator.defs.anns_d_checkpoint import (
     announcement_file_fingerprint,
     assert_safe_announcement_path,
 )
-from orchestrator.defs.anns_d_contract import AnnouncementError, announcement_dates
+from orchestrator.defs.anns_d_contract import (
+    AnnouncementError,
+    announcement_dates,
+    announcement_file_settings_from_evidence,
+    announcement_history_settings_from_plan,
+)
 from orchestrator.defs.anns_d_execution import verify_announcement_delivery
 from orchestrator.defs.anns_d_io import AnnouncementStore
 from orchestrator.defs.bootstrap.anns_d_history_audit import (
@@ -35,7 +39,6 @@ from orchestrator.defs.duckdb_connection import (
     connect_configured_duckdb,
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
-from orchestrator.defs.run_contracts.anns_d import AnnouncementPolicy
 
 EVENT_COMPUTE_MIN_FREE_BYTES = 25 * 1024**3
 
@@ -162,7 +165,7 @@ def read_announcement_event_files(spec, control, *, month=None):
             )
             store = AnnouncementEvidenceReader(
                 directory,
-                AnnouncementPolicy(**plan["policy"]),
+                announcement_history_settings_from_plan(plan),
                 control,
                 root=plan["lake_root"],
                 staging=plan["staging_root"],
@@ -225,18 +228,11 @@ def read_announcement_event_files(spec, control, *, month=None):
             doc = json.loads(path.read_text())
             identity = doc["identity"]
             day = identity["day"]
-            expected_policy = AnnouncementPolicy(
-                interval_seconds=identity["policy"]["interval_seconds"]
-            )
-
-            if identity["policy"] != asdict(expected_policy):
-                raise AnnouncementError("announcement_event_daily_policy")
+            settings = announcement_file_settings_from_evidence(identity)
             if month and day[:7] + "-01" != month:
                 continue
             cp = AnnouncementCheckpoint(path, identity)
-            store = AnnouncementEvidenceReader(
-                path.parent, AnnouncementPolicy(**identity["policy"]), control
-            )
+            store = AnnouncementEvidenceReader(path.parent, settings, control)
             verify_announcement_delivery(store, day, cp)
             entries.append(_entry(store, day, cp))
     else:

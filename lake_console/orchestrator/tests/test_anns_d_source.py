@@ -282,16 +282,18 @@ def test_captured_pages_changed_block_resume(archive):
         )
 
 
-def test_window_expiry_does_not_claim_new_request(archive):
+def test_window_budget_has_no_total_time_deadline(archive, monkeypatch):
     _, budget = capture_context(archive)
     budget.claim(archive.control, "2023-06-09")
     budget.finish()
     document = json.loads(budget.path.read_text())
-    document["deadline"] = 0
-    budget.path.write_text(json.dumps(document))
-    with pytest.raises(AnnouncementError, match="window_budget"):
-        budget.claim(archive.control, "2023-06-10")
-    assert json.loads(budget.path.read_text())["requests"] == 1
+    assert "deadline" not in document
+    import time
+
+    later = time.time() + 7200
+    monkeypatch.setattr("orchestrator.defs.anns_d_checkpoint.time.time", lambda: later)
+    budget.claim(archive.control, "2023-06-10")
+    assert json.loads(budget.path.read_text())["requests"] == 2
 
 
 def test_business_progress_is_monotone_within_capture_attempt(archive):

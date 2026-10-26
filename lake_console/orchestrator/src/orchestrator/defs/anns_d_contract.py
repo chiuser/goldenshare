@@ -3,6 +3,8 @@
 import hashlib
 import json
 import math
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -21,6 +23,100 @@ class AnnouncementError(RuntimeError):
 
 class AnnouncementCancelled(AnnouncementError):
     pass
+
+
+@dataclass(frozen=True)
+class AnnouncementFileSettings:
+    """Only the saved settings needed to verify an announcement file."""
+
+    page_size: int
+    duckdb_memory: str
+    duckdb_threads: int
+    spill_limit: str
+    min_free_reserve: int
+
+
+@dataclass(frozen=True)
+class AnnouncementHistorySettings(AnnouncementFileSettings):
+    """Frozen bounded source settings, without daily source execution controls."""
+
+    prod_fetch_rows: int
+    max_month_rows: int
+    month_deadline: float
+    sql_timeout_ms: int
+
+
+def _announcement_saved_policy(record, reason):
+    if not isinstance(record, Mapping) or not isinstance(record.get("policy"), Mapping):
+        raise AnnouncementError(reason)
+    return record["policy"]
+
+
+def _announcement_saved_positive_int(policy, field, reason):
+    value = policy.get(field)
+    if type(value) is not int or value <= 0:
+        raise AnnouncementError(reason)
+    return value
+
+
+def _announcement_saved_capacity(policy, field, reason):
+    value = policy.get(field)
+    # DuckDB owns the unit grammar; preserve legal saved values such as a 0B spill.
+    if not isinstance(value, str) or not value.strip():
+        raise AnnouncementError(reason)
+    return value
+
+
+def _announcement_saved_file_values(policy, reason):
+    page_size = _announcement_saved_positive_int(policy, "page_size", reason)
+    if page_size != 2000:
+        raise AnnouncementError(reason)
+    return {
+        "page_size": page_size,
+        "duckdb_memory": _announcement_saved_capacity(policy, "duckdb_memory", reason),
+        "duckdb_threads": _announcement_saved_positive_int(
+            policy, "duckdb_threads", reason
+        ),
+        "spill_limit": _announcement_saved_capacity(policy, "spill_limit", reason),
+        "min_free_reserve": _announcement_saved_positive_int(
+            policy, "min_free_reserve", reason
+        ),
+    }
+
+
+def announcement_file_settings_from_evidence(identity):
+    """Read the fields used by file checks; preserve the complete original identity."""
+    reason = "announcement_evidence_policy"
+    policy = _announcement_saved_policy(identity, reason)
+    return AnnouncementFileSettings(**_announcement_saved_file_values(policy, reason))
+
+
+def announcement_history_settings_from_plan(plan):
+    """Read actual history controls, not unrelated saved daily execution metadata."""
+    reason = "announcement_plan_policy"
+    policy = _announcement_saved_policy(plan, reason)
+    seconds = policy.get("month_deadline")
+    try:
+        valid_seconds = (
+            type(seconds) in (int, float) and math.isfinite(seconds) and seconds > 0
+        )
+    except OverflowError:
+        valid_seconds = False
+    if not valid_seconds:
+        raise AnnouncementError(reason)
+    return AnnouncementHistorySettings(
+        **_announcement_saved_file_values(policy, reason),
+        prod_fetch_rows=_announcement_saved_positive_int(
+            policy, "prod_fetch_rows", reason
+        ),
+        max_month_rows=_announcement_saved_positive_int(
+            policy, "max_month_rows", reason
+        ),
+        month_deadline=seconds,
+        sql_timeout_ms=_announcement_saved_positive_int(
+            policy, "sql_timeout_ms", reason
+        ),
+    )
 
 
 def announcement_date(value):

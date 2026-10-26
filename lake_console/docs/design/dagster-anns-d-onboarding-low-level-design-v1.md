@@ -1,6 +1,6 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
-状态：2026-10-26 管理员已确认单job九日更新与取消整批时间期限；本轮只更新设计，以下改动尚未落地。现行代码仍须按本LLD开发、隔离验收后才能另行申请正式执行。
+状态：2026-10-26 已按本LLD完成开发和隔离验收，逐条对账见第14节。正式重载、正式源读取、任务及补数均未执行，另行批准。
 
 对应[技术方案](dagster-anns-d-onboarding-plan-v1.md)，约束编号R01—R10以方案第10节为准。遵守[编码规范](../../orchestrator/CODING_STANDARDS.md)、[性能治理](dagster-data-pipeline-performance-governance.md)、[schema contract](dagster-asset-schema-contract-design.md)及[接入模板7A](../templates/dagster-dataset-onboarding-template.html#source-contract-budget)。
 
@@ -30,13 +30,14 @@
 | `defs/anns_d_execution.py` | 复用 `update_announcement_day` 的完整capture/build/promote，保留提交与取消边界 |
 | `defs/anns_d_checkpoint.py` | 保留请求计数/间隔/未决请求恢复；移除总期限，保存单次执行信息 |
 | `defs/checks/anns_d_checks.py` | 核验helper显式接收day；两个检查节点逐日发出正确分区与物化目标的结果 |
+| `defs/checks/anns_d_check_targets.py` | 只承接检查目标、实际执行步骤和根run分类、同日物化及未重跑兄弟检查的有界引用核验；不复制文件/交付规则 |
 | `defs/run_contracts/anns_d.py` | 移除已取消配置，集中执行版本和配置校验；请求控制保持 |
 | `defs/anns_d_cli.py` | 参数和只写文件语义保持，复用同一范围执行helper；plan仍零写入 |
 | `defs/bootstrap/anns_d_event_files.py`、`anns_d_history_plan.py`、`anns_d_history_execution.py`、`anns_d_history_cli.py` | 只改证据配置解析的耦合，不改变历史SQL、范围或执行方式 |
 | `defs/catalog/lake_assets.py` | 从公告source_request_policy删除整批时间预算；历史event_policy保留`SUPPORTS_RUNLESS_EVENT_BACKFILL`，字段及路径合同保持 |
 | `defs/anns_d_partitions.py`、`paths.py`、schema模块 | 核验并保留当前定义，没有必要则不改 |
 
-当前代码的 `context.partition_key`、只返回一日MaterializeResult及基于单日上下文的checks不能直接用于范围运行。CodeGraph已覆盖上述入口、window/day执行helper、CLI、checks与测试；原始代码核验补充了catalog及bootstrap证据消费者。没有跨Prod/Ops/biz依赖变更。
+开发前基线的 `context.partition_key`、只返回一日MaterializeResult及基于单日上下文的checks不能直接用于范围运行。CodeGraph已覆盖上述入口、window/day执行helper、CLI、checks与测试；原始代码核验补充了catalog及bootstrap证据消费者。没有跨Prod/Ops/biz依赖变更；本轮实现对账见第14节。
 
 ## 2. 资产、字段与时间合同
 
@@ -97,7 +98,7 @@ run_key = build_asset_update_run_key(
 )
 ~~~
 
-run_key只用于去重，不从它解析日期或配置；不得含event storage id。新身份与既有未完成执行不碰撞，同一tick重复求值则保持同一身份。未来实施时同步[run key方案](dagster-run-key-governance-optimization-plan.md)及[run key LLD](dagster-run-key-governance-low-level-design.md)，本轮不提前声称运行合同已实现。
+run_key只用于去重，不从它解析日期或配置；不得含event storage id。新身份与既有未完成执行不碰撞，同一tick重复求值则保持同一身份。[run key方案](dagster-run-key-governance-optimization-plan.md)第14节及[run key LLD](dagster-run-key-governance-low-level-design.md)第18节同步本次实现；正式调度执行仍须另行验收。
 
 ### 3.2 单个RunRequest
 
@@ -221,6 +222,8 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 每个day的最新phase/reason是汇总来源，不用只能追加的failed列表：失败日恢复为promoted后移除其旧reason，重新派生attempted_days、files_completed、failed_days和未尝试日期。一次attempt的错误历史可保留，不能让旧failed标记使已成功的本批继续报失败；测试必须验证“首轮中间日失败、同意图恢复成功后整批成功”。
 
+若日记录已经持久化为promoted，随后进度日志等步骤失败，不得覆盖已提交事实或删除checkpoint/fingerprint。`update_announcement_day`及window两层都须保留已持久化的promoted：day helper在promote后的日志失败时保留delivery；window在返回前异常时也从该日checkpoint读取已确认的promoted和指纹，不能只判断自己是否已经接到返回值。保留该日phase=promoted，另存failure_phase（failed或cancelled）和reason；files_completed继续包含此日，failed_days同时包含failure_phase=failed的日期。停止后续日期；同意图恢复先核验该文件及原指纹，不重新取源，成功后清除两层failure_phase/reason。用临时文件及分别在promoted/file_promoted日志时抛错的反例验证，额外读写限单日测试夹具及小型checkpoint，不新增正式数据读取。原子替换后、promoted持久化前退出仍按既有validated交付与正式指纹恢复，不在无证据时冒称已完成。
+
 两个check节点在同一run内可能并发，不能以max_concurrent_runs=1推断它们串行。检查节点不共同累加execution.json；各自发出带check_name、day、evaluated_count/total、phase和updated_at的结构化进度日志及原生检查事件，最终按本run的两个check结果汇总。无需新增共享检查计数文件，也避免read-modify-write丢更新。
 
 ### 5.2 失败分类
@@ -233,7 +236,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 | 未预期异常 | 未归入已测试reason集合的异常 | 停止，不默认当成单日源问题 |
 | 主动取消/KeyboardInterrupt | control取消或进程信号 | 不再领取页/日，终止源子进程并保存可恢复状态 |
 
-开发时在公告模块集中维护上述reason分类，不复制到job/schedule/页面。现有SDK错误已脱敏，不能从隐藏的异常文本推断认证失败，也不能为分类暴露token或完整SDK响应。
+执行层reason分类集中在公告window模块，检查规则白名单集中在checks模块；两者只管理各自语义，目标引用模块不复制文件规则，不扩成通用异常框架，也不复制到job/schedule/页面。现有SDK错误已脱敏，不能从隐藏的异常文本推断认证失败，也不能为分类暴露token或完整SDK响应。
 
 批次失败摘要列：固定日期、已尝试日期、文件已提交日期、失败日期及reason、未尝试日期、原执行身份、checkpoint位置和已用请求数。无无限重试、整批自动重跑或成功后再审全局。
 
@@ -329,13 +332,15 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 3. 原生发出 `AssetCheckEvaluation`，显式设置asset_key、check_name、partition=day、passed、severity=ERROR、blocking=True、metadata及 `target_materialization_data`。
 4. 单日核验返回未通过且节点可继续时，仍对其余day产生结果；最后发出该check节点所需的一次 `dg.Output(None)`，让框架完成节点输出并按blocking失败决定run终态。取消、公共故障或未处理异常不属于这一继续承诺，停止当前检查节点后续日期并报告未核验范围；不能声称一个节点异常会自动取消已经并发运行的兄弟节点，整run取消仍由Dagster执行。
 
+检查wrapper创建的AnnouncementControl必须绑定当前run的CANCELING/CANCELED状态，沿用asset的同一判断；不能使用永远返回False的默认取消回调。此control同时传入文件核验，使现有DuckDB观察线程可中断计算。Dagster执行中断异常继续向外传播。隔离测试通过真实wrapper及当前run状态替身证明取消前/首日后不再进入后续日期，并确认核验收到同一control；不以直接让audit_file抛取消异常替代回调接线验收。取消状态查询为运行控制开销，按现有观察周期执行；第7.3/7.5节的27/47次上界仅计算目标物化和检查证据查询，不包含Dagster内部日志及取消状态查询，不新增配置项。
+
 `AssetCheckEvaluation`使用本机已验证的 `dagster._core.definitions.asset_checks.asset_check_evaluation` 类型，事件由正在执行的check step yield进入正常引擎；不调用instance.report_runless_asset_event，不直写event表。内部API的使用仅封装在本数据集checks模块，并由固定版本隔离事件测试保护，不能扩散成通用事件框架。
 
 仅yield逐日Evaluation而不发节点Output会造成缺result输出失败；仅yield一个AssetCheckResult会丢分区归属。两者均需反向回归测试。两个检查节点互不依赖，不因其中一个day失败而主动跳过另一个check。
 
 ### 7.3 两项原有规则
 
-文件check：普通正式文件、安全路径、六列顺序/类型、日期与目录一致、全字段重复组为零；合法空日及缺URL/rec_time等不误拦。
+文件check：普通正式文件、安全路径、六列顺序/类型、日期与目录一致、全字段重复组为零；合法空日及缺URL/rec_time等不误拦。独立手工只检查时，合法文件即使没有物化记录也可通过文件规则，此时目标引用为空；交付check仍须因缺少物化而未通过。实际执行asset的同run检查及冻结执行的恢复，继续遵守当前run或原冻结物化的目标要求。
 
 交付check：目标checkpoint属于本日、本次交付；完整capture/末页证据；来源页与目标SHA未变；计数/集合对账及保存的readback一致；核验期间最新物化及文件保持稳定。不会重新请求Tushare或Prod。
 
@@ -378,13 +383,15 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 复用交付检查还必须确认来源页及正式文件仍匹配原delivery SHA；若本次选中的交付检查会执行同一指纹核验，则复用其验证，不另外重复读取。仅重跑文件检查时，来源页及文件SHA的必要核对用于证明未重跑的交付检查仍有效，不重做其集合SQL、不抓来源。独立手工单日检查不承担九日窗口的兄弟检查恢复，不增加上述整窗前置条件。
 
+仅重跑文件检查的证据前置核验限版本2日更交付：capture_complete必须为True；source_pages必须为非空列表（合法空日同样有一个空页）；page_count、页offset/rows、source_rows、last_offset及last_page_rows须与2000行分页和短末页一致，所有页须有path和fingerprint。不能把缺失列表默认为空并跳过核验。元数据不完整或不一致即拒绝复用；通过后才执行现有SHA核验，不加集合SQL或取源。该严格前置核验不改变独立历史检查或bootstrap证据格式。以原source生产者的单日临时交付验证正常/空日及逐项缺失反例，同时验证无自动tags的手工文件执行恢复、缺失execution拒绝和外来window物化拒绝；不新增正式读写。
+
 恢复收尾区分“本次所选步骤成功”与“整个冻结九日两项检查均有效”。正常9/18、只检查0/9或0/18按本次实际步骤对账；确认窗口整体通过时，还要核对应保留的另一项检查与同日物化目标及指纹一致。全部查询限本次九日，不查全历史；元数据读取保守上限为27次日物化/稳定性查询，加最多18次按check/day的最新一条引用或结果核对，加两个节点各最多一次根run读取，共47次。可复用已查结果，不因到达此上界再扫描历史；不能按run总状态猜测或直接改写旧事件。
 
 ## 8. 历史证据读取及切换
 
 ### 8.1 删除参数的实际影响
 
-现有window/day checkpoint的identity保存 `asdict(policy)`；checks及history/event-files直接 `AnnouncementPolicy(**stored_policy)`。旧成功物化中包含被删除的配置，若只删新类字段，会使历史检查抛TypeError并变红。旧冻结历史计划也有同样问题。
+开发前window/day checkpoint的identity保存 `asdict(policy)`；checks及history/event-files直接 `AnnouncementPolicy(**stored_policy)`。旧成功物化中包含被删除的配置，若只删新类字段，会使历史检查抛TypeError并变红。旧冻结历史计划也有同样问题；本轮按下述职责拆分证据读取。
 
 必须在同次开发统一调整所有证据消费者：
 
@@ -426,7 +433,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 使用本工程已有.venv；无安装/升级、隐式uv同步。测试资源只用临时目录与隔离instance，禁止正式DAGSTER_HOME、正式Lake或token。夹具依据 `ANNOUNCEMENT_FIELDS`、现有source/Prod生产者及既有真实缺值样本；expected用独立字面日期/数据，不由待测函数生成。
 
-| 测试组/拟落点 | 正向与反向验收 |
+| 测试组/落点 | 正向与反向验收 |
 | --- | --- |
 | `test_anns_d_window.py`、`test_anns_d_definitions.py` | 08:00 schedule只返回1请求，固定19..27；跨月/年、北京时间跨日；重复tick同key；tag冲突、D+2、错范围/版本拒绝 |
 | 同上 | 计划08点实际15:35、运行超过一小时、隔日恢复均可继续；新执行无deadline检查；日期不随时钟漂移 |
@@ -501,7 +508,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 ## 11. 授权、部署与交付
 
-本轮只允许文档细化和已完成的隔离框架能力核验；没有改生产代码、安装依赖、访问正式源、触发job、重载或改正式实例。后续开发按本LLD的硬约束—代码—测试逐条对账，不能只以测试总数作验收。
+管理员本轮已授权按本LLD开发和隔离测试；按硬约束—代码—测试逐条对账，不能只以测试总数作验收。本轮不安装依赖，不访问正式源，不触发正式job、重载或修改正式实例；设计阶段框架核验不替代本轮业务实现验收。
 
 正式执行前说明命令、DAGSTER_HOME、目标九日、读写及恢复开销、当前执行记录和重载影响；历史全局读取/初始化批准不覆盖新任务。真实源验证仅补仍缺的有界证据，不用每个测试重读正式数据。
 
@@ -539,3 +546,34 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 | 证据和读写成本 | 原identity/fingerprint保持；恢复成本按真实分支及所选检查计算，不重抓已提交来源，不另加全局审计；第8/10节 |
 
 本次审计范围内没有待讨论的执行设计选择或前后冲突。后续开发与正式验收是明确列出的工作，不属于待补的方案决策；本结论不把计划或框架样本提升为业务代码/正式数据已通过。
+
+## 14. 本轮实现与测试对账（2026-10-26）
+
+按第9节顺序完成证据读取、范围执行、原生事件和检查恢复；未增加新job/sensor、配置项、业务状态表或正式入口。使用CodeGraph explore及sync/status核对入口和调用关系，并逐项阅读原代码补核同名符号、动态调用、catalog和bootstrap消费者；影响限定于公告链，无Prod/Ops/biz跨层变更。架构快照只补本链局部记录。
+
+| 约束 | 代码落点（相对defs） | 测试与独立证据 |
+| --- | --- | --- |
+| R01 六字段及合并规则 | `anns_d_contract.py`证据配置拆分；`anns_d_source.py`/`anns_d_io.py`源值、分页、DISTINCT算法未改 | contract/source/io及definitions测试保留NULL、空白、版本和错类型反例；临时文件由原生产者输出，字面行数和六字段独立断言 |
+| R02 一次九日 | `schedules/anns_d.py`单请求；`anns_d_window.py`冻结范围/hash；`assets/anns_d.py`使用partition_keys | definitions/window测试固定19..27、跨月/年、同tick字面key、单请求及范围tags；backfill_policy仍为None |
+| R03 无整批期限 | `run_contracts/anns_d.py`移除max_window_seconds；window/checkpoint无年龄拒绝 | source/window/recovery测试超过一小时、晚启动及隔日恢复；新Policy拒绝已删除参数，旧证据字段保持原样 |
+| R04 单日失败独立 | `anns_d_window.py`本域reason集合、逐日结果和汇总失败 | 中间日错误后后续日确实取源；共享/未知故障停止；同意图恢复只抓失败日并清旧失败 |
+| R05 保留请求控制 | `anns_d_checkpoint.py`严格冻结预算；source原请求/分页/重试不改 | source/window_recovery验证100/350、间隔、重试、初始化中断及耗尽后无源恢复；缺/坏预算不重置 |
+| R06 交付与续跑 | `anns_d_execution.py`、window保存两层promoted事实与失败信息；原IO原子提交不改 | execution/window_recovery测试rename后硬退出、promoted/file_promoted后异常或取消、指纹冲突、无源恢复和清除两层错误 |
+| R07 原生按日结果及恢复 | asset逐日metadata+一次MR；`checks/anns_d_checks.py`显式Evaluation+一次Output；`anns_d_check_targets.py`核实际steps/root/同日目标 | definitions/range_checks用临时instance实读9/18持久分区和target；check_recovery用原生KnownExecutionState产生0/9、0/18；失败规则仍逐日记录，取消/框架中断向外传播 |
+| R08 保留历史证据 | contract中独立FileSettings/HistorySettings；四个bootstrap消费者只取所需配置，不重写identity | evidence_settings/history_execution/events及check_recovery验证旧生产者结构、真实临时交付、原identity/SHA不变及缺字段拒绝；reused_delivery验证空/短/满页、来源引用缺失拒绝、手工根定位与外来物化拒绝 |
+| R09 有界读取 | 每日文件及当前执行证据；目标查询含day及limit=1，兄弟检查只取最新一条 | source请求计数、target查询参数、缺execution时不读物化、最新兄弟失败不找旧绿；严格复用只读元数据和原SHA，不加集合SQL或源请求 |
+| R10 只改公告链 | job选择、自然日分区、schema、路径和共享builder保持；catalog仅公告描述更新 | definitions/catalog合同及通用run_contract static gates/run_keys通过；正式资源未执行，其他dirty改动不纳入本提交 |
+
+独立手工文件检查无物化时仍可通过文件规则，交付检查明确失败；冻结执行的检查恢复必须保留同一物化目标。取消回调在真实wrapper测试，状态服务使用替身；未通过改变预期或吞异常获得通过。文件证据使用实际临时source/capture/build/promote链，包含0、1、2000（满页后空结束页）、2001行，既证明缺证据拒绝，也证明合法分页不被误拦。
+
+最终命令在orchestrator现有.venv执行，pytest使用专用系统临时目录，关闭测试缓存；临时目录在测试后清理：
+
+~~~sh
+.venv/bin/python -B -m pytest -q --tb=short -p no:cacheprovider --basetemp=<系统临时目录>/pytest tests/test_anns_d*.py tests/test_run_contract_static_gates.py tests/test_run_contract_run_keys.py
+~~~
+
+结果：**440 passed，40 subtests passed，27.09秒**。5条警告来自现有Pydantic弃用及Dagster分区检查preview提示；未安装或升级依赖。全工程`E9,F63,F7,F82`基线、本次修改Python文件默认Ruff及差异空白检查通过。
+
+测试过程记录：首次整组发现旧history_execution测试尚未显式传day，按真实同日合同迁移调用；后来专用basetemp放在/private/tmp，使既有“非/private/tmp路径应拒绝”的反例变成合法路径，未修改其断言，改用系统临时目录后最终整组通过。另曾运行通用asset_governance_contracts组，其新增停牌专用测试因fixture模块导入失败，整组未通过；没有改动、跳过或将其计入最终440项通过结论。该组其余已运行结果也未重复累加。
+
+证据边界：原生事件和文件链是临时资源的隔离集成验证；源响应、Prod数据库及部分run/record查找使用已有合同夹具或替身。没有当前Tushare/Prod/Lake真实读写或正式PostgreSQL事件验收；源请求/IO算法未改，故不追加真实源或大范围审计。本轮性能只验证既有次数/范围和小型隔离执行，不冒称正式耗时或实际磁盘IO测量。后续严格按第8.3节先批准重载及旧活动任务处理，再运行一次明确九日job核对结果，不用本轮开发通过替代正式批准。

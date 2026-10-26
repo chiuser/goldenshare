@@ -541,3 +541,11 @@ key 不含评价日期、时间戳、UUID、源指纹或事件 id；跨日、重
 管理员已确认typed run_config保存恢复身份、STEP_FAILURE metadata保存失败事实，自定义run tags方案退出，不放宽现有门禁。Raw job config使用typed外层`source_proof`与可选`recovery_identity`；后者只保存`policy_version`、`automatic_attempt`、`source_failure_run_id`，不能声明retryable或跳过proof。自动首次1、恢复2/3；人工执行不填自动身份。原生key只与builder预期key比较，不反解析执行参数。
 
 模型与全部构造/消费方迁移集中见[DC LLD §10.9](./dagster-dc-board-quote-availability-low-level-design-v1.md#109-已确认的-typed-run_config-与全消费者口径2026-10-11)。三asset/builder/sensor迁移外层config，writer/source确认/bootstrap直接调用保持纯proof；旧flat config只作legacy历史记录，不保留旧执行兼容。记录保留核验见§10.8，确认后的开工审计见§10.10：设计层面满足开发条件，隔离实现与测试对账见§10.11；当前按 §10.12 只在自然失败时做首次到第二次自动运行的最小只读核验；不构造环境或故障，不安排额外正式恢复任务，不把上线检查当成真实恢复成功。
+
+## 14. 公告单job九日执行身份（2026-10-26）
+
+公告按[接入方案](dagster-anns-d-onboarding-plan-v1.md)和[LLD第3节](dagster-anns-d-onboarding-low-level-design-v1.md#3-请求日期和执行身份)改为每日08:00仅提交一次D−7..D+1范围运行。执行参数来自显式范围tags及run config，不解析run key；不改变其他数据集的builder、输出或恢复策略。
+
+统一调用 `build_asset_update_run_key(subject="anns_d", unit_id=f"update:2:{scheduled_local_date}:{first}:{last}")`，例如 `anns_d:update:2:2026-10-26:2026-10-19:2026-10-27`。同计划日和范围重复求值去重；下一计划日生成独立身份，新观察不能复用旧完成标记。只修改公告schedule的key，不增加公告专属builder，不把事件id、SHA或实际启动时间写入key。
+
+手工UI使用原生root_run_id区分意图；CLI保留window-id。显式重新执行保持原冻结执行身份和请求消耗，不删除旧run key释放额度，不自动重试整批。范围9/18及仅检查恢复0/9、0/18由公告LLD规定，key不承担结果状态。开发/隔离验收记录见公告LLD，正式重载及任务未在本增量自动获准。

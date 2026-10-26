@@ -3,6 +3,7 @@
 import fcntl
 import hashlib
 import json
+import math
 import os
 import stat
 import time
@@ -129,39 +130,86 @@ class AnnouncementCheckpoint:
 
 
 class AnnouncementWindowBudget:
-    def __init__(self, path, window_id, policy):
-        self.path, self.window_id, self.policy = Path(path), window_id, policy
+    """Persistent request counts; an executing window requires preinitialized evidence."""
 
-    def _read(self):
-        if self.path.exists():
-            document = json.loads(self.path.read_text())
-            if document["window_id"] != self.window_id:
-                raise AnnouncementError("announcement_window_identity")
-            return document
-        return {
+    def __init__(
+        self, path, window_id, policy, *, identity=None, require_existing=False
+    ):
+        self.path = assert_safe_announcement_path(path)
+        self.window_id, self.policy = window_id, policy
+        self.identity = identity
+        self.require_existing = require_existing
+
+    def initial_document(self):
+        document = {
             "window_id": self.window_id,
             "requests": 0,
-            "deadline": time.time() + self.policy.max_window_seconds,
             "next_request": 0,
             "in_flight": False,
             "day_requests": {},
         }
+        if self.identity is not None:
+            document["identity"] = self.identity
+        return document
+
+    def _read(self):
+        if not self.path.exists():
+            if self.require_existing:
+                raise AnnouncementError("announcement_window_budget_missing")
+            return self.initial_document()
+        try:
+            document = json.loads(self.path.read_text())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise AnnouncementError("announcement_window_budget_invalid") from None
+        if not isinstance(document, dict) or document.get("window_id") != self.window_id:
+            raise AnnouncementError("announcement_window_identity")
+        if self.identity is not None and document.get("identity") != self.identity:
+            raise AnnouncementError("announcement_window_contract_changed")
+        requests = document.get("requests")
+        day_requests = document.get("day_requests")
+        next_request = document.get("next_request")
+        if (
+            isinstance(requests, bool)
+            or not isinstance(requests, int)
+            or not 0 <= requests <= self.policy.max_window_requests
+            or not isinstance(day_requests, dict)
+            or not isinstance(document.get("in_flight"), bool)
+            or isinstance(next_request, bool)
+            or not isinstance(next_request, (int, float))
+            or not math.isfinite(next_request)
+            or next_request < 0
+        ):
+            raise AnnouncementError("announcement_window_budget_invalid")
+        for day, count in day_requests.items():
+            if (
+                not isinstance(day, str)
+                or isinstance(count, bool)
+                or not isinstance(count, int)
+                or not 0 <= count <= self.policy.max_day_requests
+                or (
+                    self.identity is not None
+                    and day not in self.identity["days"]
+                )
+            ):
+                raise AnnouncementError("announcement_window_budget_invalid")
+        if sum(day_requests.values()) != requests:
+            raise AnnouncementError("announcement_window_budget_invalid")
+        if self.identity is not None and set(document) != set(self.initial_document()):
+            raise AnnouncementError("announcement_window_budget_invalid")
+        return document
 
     def claim(self, control, day):
         with announcement_file_lock(self.path.with_suffix(".lock")):
             document = self._read()
             if document["in_flight"]:
                 raise AnnouncementError("announcement_request_in_flight")
-            if (
-                time.time() >= document["deadline"]
-                or document["requests"] >= self.policy.max_window_requests
-            ):
+            if document["requests"] >= self.policy.max_window_requests:
                 raise AnnouncementError("announcement_window_budget")
             if document["day_requests"].get(day, 0) >= self.policy.max_day_requests:
                 raise AnnouncementError("announcement_day_budget")
+            if self.identity is not None and day not in self.identity["days"]:
+                raise AnnouncementError("announcement_day_outside_window")
             control.wait(max(0, document["next_request"] - time.time()))
-            if time.time() >= document["deadline"]:
-                raise AnnouncementError("announcement_window_budget")
             control.check()
             document["requests"] += 1
             document["day_requests"][day] = document["day_requests"].get(day, 0) + 1
@@ -178,7 +226,7 @@ class AnnouncementWindowBudget:
             announcement_atomic_json(self.path, document)
 
     def recover_interrupted(self):
-        # Caller must own the unique active-window execution before recovery.
+        # Caller owns the exclusive source-execution lock; consumed claims are retained.
         with announcement_file_lock(self.path.with_suffix(".lock")):
             document = self._read()
             document.update(

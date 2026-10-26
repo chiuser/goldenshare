@@ -17,6 +17,7 @@ from orchestrator.defs.anns_d_contract import (
     ANNOUNCEMENT_VERSION,
     AnnouncementError,
     announcement_dates,
+    announcement_history_settings_from_plan,
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -24,7 +25,6 @@ from orchestrator.defs.paths import (
     raw_anns_d_path,
 )
 from orchestrator.defs.prod_db.anns_d import announcement_month_bounds
-from orchestrator.defs.run_contracts.anns_d import AnnouncementPolicy
 
 BOOTSTRAP_MIN_FREE_BYTES = 35 * 1024**3
 ANNOUNCEMENT_REPORT_MAX_BYTES = 8 * 1024**2
@@ -112,10 +112,7 @@ def validate_announcement_history_plan(
         raise AnnouncementError("announcement_plan_identity")
     if (plan["lake_root"], plan["staging_root"]) != tuple(map(str, roots)):
         raise AnnouncementError("announcement_cli_formal_roots_only")
-    try:
-        AnnouncementPolicy(**plan["policy"])
-    except (TypeError, ValueError):
-        raise AnnouncementError("announcement_plan_policy") from None
+    settings = announcement_history_settings_from_plan(plan)
     if (
         not plan["run_id"]
         or not plan["run_id"].replace("-", "").replace("_", "").isalnum()
@@ -148,7 +145,7 @@ def validate_announcement_history_plan(
             raise AnnouncementError("announcement_plan_month")
         if (
             sum(day["source_rows"] for day in month["days"]) != month["source_rows"]
-            or month["source_rows"] > plan["policy"]["max_month_rows"]
+            or month["source_rows"] > settings.max_month_rows
         ):
             raise AnnouncementError("announcement_plan_count")
         for day in month["days"]:

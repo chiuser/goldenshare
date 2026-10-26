@@ -11,9 +11,10 @@ from orchestrator.defs.anns_d_contract import announcement_dates
 from orchestrator.defs.anns_d_io import AnnouncementStore
 from orchestrator.defs.anns_d_source import AnnouncementProcessCall
 from orchestrator.defs.anns_d_window import (
+    ANNOUNCEMENT_STARTED_TAG,
     announcement_day_run_id,
-    announcement_window_tags,
-    execute_announcement_window_day,
+    announcement_restore_window_tags,
+    execute_announcement_window,
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.resources import TushareResource
@@ -42,7 +43,13 @@ def announcement_cli(argv=None):
     days = announcement_dates(args.start_date, args.end_date)
     policy = AnnouncementPolicy(interval_seconds=args.interval_seconds)
     window_id = args.window_id or uuid.uuid4().hex
-    tags = announcement_window_tags(window_id, days[0], days[-1])
+    tags = announcement_restore_window_tags(
+        window_id,
+        days[0],
+        days[-1],
+        Path(DEFAULT_LAKE_STAGING_ROOT),
+        policy,
+    )
     print(
         json.dumps(
             {
@@ -53,7 +60,7 @@ def announcement_cli(argv=None):
                 "days_total": len(days),
                 "interval_seconds": policy.interval_seconds,
                 "max_window_requests": policy.max_window_requests,
-                "max_window_seconds": policy.max_window_seconds,
+                "started_at": float(tags[ANNOUNCEMENT_STARTED_TAG]),
                 "event_write": False,
             },
             ensure_ascii=False,
@@ -67,19 +74,28 @@ def announcement_cli(argv=None):
     control = AnnouncementControl(
         emit=lambda event: print(json.dumps(event, ensure_ascii=False), flush=True)
     )
-    for day in days:
-        control.check()
-        store = AnnouncementStore(
+    def store_factory(day):
+        return AnnouncementStore(
             Path(DEFAULT_LAKE_ROOT),
             Path(DEFAULT_LAKE_STAGING_ROOT),
             announcement_day_run_id(window_id, day),
             policy,
             control,
         )
-        call = AnnouncementProcessCall(
+
+    def call_factory(day, store):
+        return AnnouncementProcessCall(
             TushareResource(token=token).token, store.directory, policy
         )
-        execute_announcement_window_day(day, call, store, control, tags)
+
+    execute_announcement_window(
+        days,
+        tags=tags,
+        policy=policy,
+        control=control,
+        store_factory=store_factory,
+        call_factory=call_factory,
+    )
     return 0
 
 

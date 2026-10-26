@@ -11,7 +11,10 @@ from orchestrator.defs.anns_d_checkpoint import (
     AnnouncementControl,
     assert_safe_announcement_path,
 )
-from orchestrator.defs.anns_d_contract import AnnouncementError
+from orchestrator.defs.anns_d_contract import (
+    AnnouncementError,
+    announcement_history_settings_from_plan,
+)
 from orchestrator.defs.bootstrap.anns_d_history_execution import (
     announcement_history_run_id,
     run_announcement_history_stage,
@@ -117,7 +120,7 @@ def execute_announcement_history_cli(args, control):
             raise AnnouncementError("announcement_history_green_audit_required")
     source = (
         AnnouncementHistorySource(
-            ProdPostgresResource(), AnnouncementPolicy(**plan["policy"])
+            ProdPostgresResource(), announcement_history_settings_from_plan(plan)
         )
         if args.stage == "capture"
         else None

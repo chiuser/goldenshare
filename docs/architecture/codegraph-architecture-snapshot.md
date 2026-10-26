@@ -317,6 +317,8 @@ CodeGraph query/impact/sync/status覆盖共享metadata/resource/path及新增ass
 
 2026-10-05 公告P4入口局部复核：bootstrap/anns_d_events_cli → event_files（P3月集合proof/P2已交付凭据）→ event_instance/state/events（已有PG、月批事件、独立物化/check/audit）。不调用源、不写业务文件，不替代日asset/job；CodeGraph query/impact/sync/status及源码补核消费者，无跨子系统依赖变化。正式事件样本、全量与启用仍待分阶段批准。
 
+2026-10-26 DG公告范围执行局部复核：schedule以一个RunRequest固定D−7..D+1 → asset调用anns_d_window逐日执行 → anns_d_execution/source/io保持原六字段取源及合并 → asset逐日metadata并一次MaterializeResult → 两个check节点逐日发原生检查事件。execution/budget代替旧admission，不再有整批总期限；仅检查恢复由anns_d_check_targets按实际steps、root_run_id和同日物化选择目标。历史证据读取拆出所需配置，不改原identity/SHA。CodeGraph explore、sync/status与源码补核完成，无跨子系统依赖变化；440项隔离测试及40项子用例通过，未重载或正式执行。详见[公告LLD第14节](../../lake_console/docs/design/dagster-anns-d-onboarding-low-level-design-v1.md#14-本轮实现与测试对账2026-10-26)。
+
 ## 2026-10-06局部复核：公告归档DC1
 
 原两个CLI入口路径保持；共享主实现从src/scripts/announcement_download移到Foundation clients/announcement_archive及DAO/announcement_archive；执行循环和单文件修复在Ops runtime/announcement_archive。DAO仅查询/最小持久化，文件核验在Files。链路为CLI→Ops→Foundation，Foundation无反向Ops/Biz/App依赖。旧实现包和旧import清零；core/source原身份/读者逐字节保持，DG/Prod数据合同不改。

@@ -249,6 +249,7 @@ def test_bootstrap_day_evidence_is_consumable_by_registered_daily_check(
     result = checks.evaluate_announcement_check(
         context,
         LakeRootResource(root_path=str(archive.root)),
+        day="2023-06-09",
         reconciliation=True,
         staging_root=archive.staging,
     )

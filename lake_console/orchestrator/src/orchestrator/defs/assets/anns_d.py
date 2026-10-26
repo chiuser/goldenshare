@@ -17,8 +17,8 @@ from orchestrator.defs.anns_d_source import AnnouncementProcessCall
 from orchestrator.defs.anns_d_window import (
     ANNOUNCEMENT_WINDOW_TAG,
     announcement_day_run_id,
-    announcement_single_day_tags,
-    execute_announcement_window_day,
+    announcement_manual_window_tags,
+    execute_announcement_window,
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -72,13 +72,20 @@ def raw_tushare_anns_d(
 ) -> dg.MaterializeResult:
     if lake_root.root() != Path(DEFAULT_LAKE_ROOT):
         raise AnnouncementError("announcement_formal_root_contract")
-    lake_root.ensure_available_for_run()
     policy = AnnouncementPolicy(interval_seconds=config.interval_seconds)
-    day = context.partition_key
-    tags = context.run.tags
+    days = tuple(context.partition_keys)
+    tags = dict(context.run.tags)
     if ANNOUNCEMENT_WINDOW_TAG not in tags:
-        intent_id = tags.get("dagster/root_run_id", context.run.run_id)
-        tags = announcement_single_day_tags(intent_id, day)
+        if len(days) != 1:
+            raise AnnouncementError("announcement_manual_range_unsupported")
+        intent_id = context.run.root_run_id or context.run.run_id
+        tags = announcement_manual_window_tags(
+            intent_id,
+            days[0],
+            days[-1],
+            staging=Path(DEFAULT_LAKE_STAGING_ROOT),
+            policy=policy,
+        )
     window_id = tags[ANNOUNCEMENT_WINDOW_TAG]
 
     def cancelled():
@@ -92,34 +99,50 @@ def raw_tushare_anns_d(
         cancelled=cancelled,
         emit=lambda event: context.log.info(json.dumps(event, ensure_ascii=False)),
     )
-    store = AnnouncementStore(
-        lake_root.root(),
-        Path(DEFAULT_LAKE_STAGING_ROOT),
-        announcement_day_run_id(window_id, day),
-        policy,
-        control,
-    )
-    call = AnnouncementProcessCall(tushare.token, store.directory, policy)
-    checkpoint, delivery = execute_announcement_window_day(
-        day, call, store, control, tags
-    )
-    return dg.MaterializeResult(
-        metadata=build_materialization_metadata(
-            uri=store.target(day),
-            row_count=delivery["written_rows"],
-            observed_columns=ANNOUNCEMENT_FIELDS,
-            extra_metadata={
-                **{
-                    key: value
-                    for key, value in delivery.items()
-                    if key not in ("source_pages", "candidate", "baseline")
-                },
-                "rejected_rows": 0,
-                "non_exact_duplicate_filter_rows": 0,
-                "announcement_checkpoint": str(checkpoint.path),
-                "announcement_identity": checkpoint.identity,
-                "summary": "上市公司公告已交付。",
-                "next_action": "等待文件合同与交付对账检查。",
-            },
+    control.progress(active_run_id=context.run.run_id)
+
+    def store_factory(day):
+        lake_root.ensure_available_for_run()
+        return AnnouncementStore(
+            lake_root.root(),
+            Path(DEFAULT_LAKE_STAGING_ROOT),
+            announcement_day_run_id(window_id, day),
+            policy,
+            control,
         )
+
+    deliveries = execute_announcement_window(
+        days,
+        tags=tags,
+        policy=policy,
+        control=control,
+        store_factory=store_factory,
+        call_factory=lambda day, store: AnnouncementProcessCall(
+            tushare.token, store.directory, policy
+        ),
     )
+    for day in days:
+        result = deliveries[day]
+        delivery = result.delivery
+        context.add_asset_metadata(
+            build_materialization_metadata(
+                uri=raw_anns_d_path(lake_root.root(), day),
+                row_count=delivery["written_rows"],
+                observed_columns=ANNOUNCEMENT_FIELDS,
+                extra_metadata={
+                    **{
+                        key: value
+                        for key, value in delivery.items()
+                        if key not in ("source_pages", "candidate", "baseline")
+                    },
+                    "rejected_rows": 0,
+                    "non_exact_duplicate_filter_rows": 0,
+                    "announcement_checkpoint": str(result.checkpoint_path),
+                    "announcement_identity": dict(result.identity),
+                    "summary": "上市公司公告已交付。",
+                    "next_action": "等待文件合同与交付对账检查。",
+                },
+            ),
+            partition_key=day,
+        )
+    return dg.MaterializeResult()

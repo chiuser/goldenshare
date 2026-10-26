@@ -943,3 +943,11 @@ subject 固定为 `raw_tushare_dc_index_update`、`raw_tushare_dc_member_update`
 本增量已完成隔离开发与验证，逐项代码/测试对账见 DC LLD §10.11；已提交为 `8ecea622` 并上线，正常运行只读检查通过；真实自动恢复链路待自然失败时验证，最小方式见 DC LLD §10.12。已通过DC身份正反例、3次总上限、冷却、重复tick、cursor丢失、跨日、旧失败/人工取消、记录截断和同日人工活动任务测试；复用既有builder单测与static gates，仅按用途审查原生tags读取，禁止放开项目tags写入。
 
 保留核验见DC LLD §10.8，确认后的开工审计见§10.10：设计层面满足开发条件，原身份载体阻断已解除；这不等于代码、生产发布或正式执行验收通过。上线前后只读核验已通过，事实及验收记录见 DC LLD §10.12。后续只在自然失败时按一个 job、一个日期核对首次失败—至少 10 分钟冷却—第二次自动身份链路；不构造环境或故障、不新增任务、不删旧 key、不补造失败原因、不迁移全历史。
+
+## 18. 公告每日范围请求（2026-10-26）
+
+本增量只修改 `defs/schedules/anns_d.py` 的公告请求，规则见[公告LLD第3节](dagster-anns-d-onboarding-low-level-design-v1.md#3-请求日期和执行身份)。schedule直接调用既有 `build_asset_update_run_key`，subject固定anns_d，unit_id为 `update:2:<计划日>:<起日>:<止日>`；不新增专属key函数，不从key重建参数。
+
+请求数量固定1，partition_key=None，显式提供公告config以及范围起止tags；不得同时带单日dagster/partition或逐日priority。格式版本2区分此次执行方式，与六字段数据合同版本独立；window id依公告统一helper生成并由执行器校验。旧逐日key及失败记录保留，不反向改写。
+
+回归要求：固定2026-10-26得到字面key `anns_d:update:2:2026-10-26:2026-10-19:2026-10-27`；同tick相同、不同计划日不同；单RunRequest、零源/文件IO；检查恢复不消费新的schedule key；无事件id或实际运行时间进入key。其他运行合同与静态门禁保持。实现状态及实际测试结果集中记录在公告LLD。

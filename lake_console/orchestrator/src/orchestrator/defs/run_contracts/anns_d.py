@@ -16,7 +16,6 @@ class AnnouncementPolicy:
     cancel_grace: float = 5
     max_day_requests: int = 100
     max_window_requests: int = 350
-    max_window_seconds: float = 3600
     max_month_rows: int = 2000000
     month_deadline: float = 1800
     sql_timeout_ms: int = 60000
@@ -48,7 +47,6 @@ class AnnouncementPolicy:
             "interval_seconds",
             "call_timeout",
             "cancel_grace",
-            "max_window_seconds",
             "month_deadline",
         ):
             value = getattr(self, name)
@@ -66,5 +64,6 @@ class AnnouncementRawConfig(dg.Config):
 
 
 ANNOUNCEMENT_REFRESH_DAYS = 7
+ANNOUNCEMENT_EXECUTION_VERSION = 2
 ANNOUNCEMENT_TIMEZONE = "Asia/Shanghai"
 ANNOUNCEMENT_CRON = "0 8 * * *"

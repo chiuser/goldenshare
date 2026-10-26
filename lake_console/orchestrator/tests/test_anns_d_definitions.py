@@ -53,6 +53,8 @@ def test_catalog_definition_schema_names_and_scope():
         == "ann_date"
     )
     assert raw_tushare_anns_d.partitions_def == anns_d_natural_days
+    assert raw_tushare_anns_d.backfill_policy is None
+    assert "60min" not in entry.performance_contract.source_request_policy
     assert not raw_tushare_anns_d.asset_deps[raw_tushare_anns_d.key]
     assert {
         c.name
@@ -74,7 +76,7 @@ def test_catalog_definition_schema_names_and_scope():
     )
 
 
-def test_schedule_nine_requests_zero_io_same_tick_dedup():
+def test_schedule_one_range_request_zero_io_same_tick_dedup():
     defs = dg.Definitions(
         assets=[raw_tushare_anns_d],
         asset_checks=[
@@ -96,21 +98,17 @@ def test_schedule_nine_requests_zero_io_same_tick_dedup():
     ) as context:
         first = raw_anns_d_update_schedule.evaluate_tick(context).run_requests
         second = raw_anns_d_update_schedule.evaluate_tick(context).run_requests
-    assert [r.partition_key for r in first] == [
-        "2025-12-27",
-        "2025-12-28",
-        "2025-12-29",
-        "2025-12-30",
-        "2025-12-31",
-        "2026-01-01",
-        "2026-01-02",
-        "2026-01-03",
-        "2026-01-04",
-    ]
+    assert len(first) == len(second) == 1
+    assert first[0].partition_key is None
+    assert first[0].partition_key_range == dg.PartitionKeyRange(
+        "2025-12-27", "2026-01-04"
+    )
     assert [r.run_key for r in first] == [r.run_key for r in second]
     assert len({r.tags["anns_d/window_id"] for r in first}) == 1
-    assert first[0].run_key == "anns_d:2026-01-03:2025-12-27"
-    assert [r.tags["dagster/priority"] for r in first] == [str(i) for i in range(9, 0, -1)]
+    assert first[0].run_key == ("anns_d:update:2:2026-01-03:2025-12-27:2026-01-04")
+    assert "dagster/priority" not in first[0].tags
+    assert "dagster/partition" not in first[0].tags
+    assert first[0].tags["anns_d/execution_version"] == "2"
     assert all(r.tags["anns_d/automatic"] == "true" for r in first)
 
 
@@ -126,53 +124,43 @@ def test_isolated_asset_and_check_events_have_same_partition(
     import orchestrator.defs.checks.anns_d_checks as check_module
 
     monkeypatch.setattr(asset_module, "DEFAULT_LAKE_STAGING_ROOT", str(store.staging))
-    # Wrappers bind the formal default at declaration; redirect only test evaluation.
-    real_evaluate = check_module.evaluate_announcement_check
-    monkeypatch.setattr(
-        check_module,
-        "evaluate_announcement_check",
-        lambda context, lake_root, **kwargs: real_evaluate(
-            context, lake_root, staging_root=store.staging, **kwargs
-        ),
-    )
+    monkeypatch.setattr(check_module, "DEFAULT_LAKE_STAGING_ROOT", str(store.staging))
     monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda self: None)
     day, tags = "2023-06-09", {}
+    days = [day]
     if future_partition:
-        from orchestrator.defs.anns_d_io import AnnouncementStore
+        from datetime import timedelta
+
         from orchestrator.defs.anns_d_window import (
-            announcement_day_run_id,
-            announcement_refresh_dates,
-            announcement_window_tags,
-            execute_announcement_window_day,
+            announcement_schedule_tags,
         )
 
-        scheduled = datetime.now(ZoneInfo("Asia/Shanghai"))
-        days = announcement_refresh_dates(scheduled)
-        day = days[-1]
-        tags = announcement_window_tags(
-            "future-events", days[0], day, scheduled.timestamp(), automatic=True
+        scheduled = datetime.now(ZoneInfo("Asia/Shanghai")).replace(
+            hour=0, minute=0, second=0, microsecond=0
         )
-        # Admit tomorrow through the actual ordered window, using temporary files only.
-        for prior in days[:-1]:
-            prior_store = AnnouncementStore(
-                store.root,
-                store.staging,
-                announcement_day_run_id("future-events", prior),
-                store.policy,
-                store.control,
-            )
-            execute_announcement_window_day(
-                prior,
-                lambda *args: ([], ANNOUNCEMENT_FIELDS),
-                prior_store,
-                store.control,
-                tags,
-            )
-        rows = [{**row, "ann_date": day.replace("-", "")} for row in rows]
+        # Independent calendar expectation: seven prior days, today, tomorrow.
+        days = [
+            (scheduled.date() + timedelta(days=offset)).isoformat()
+            for offset in range(-7, 2)
+        ]
+        tags = {
+            **announcement_schedule_tags(scheduled),
+            "dagster/asset_partition_range_start": days[0],
+            "dagster/asset_partition_range_end": days[-1],
+        }
+        day = None
+    calls = []
+
+    def source(params, control):
+        calls.append(params["ann_date"])
+        return [
+            dict(row, ann_date=params["ann_date"]) for row in rows
+        ], ANNOUNCEMENT_FIELDS
+
     monkeypatch.setattr(
         asset_module,
         "AnnouncementProcessCall",
-        lambda *args: lambda *a: (rows, ANNOUNCEMENT_FIELDS),
+        lambda *args: source,
     )
     with dg.DagsterInstance.ephemeral() as instance:
         result = dg.materialize(
@@ -194,20 +182,45 @@ def test_isolated_asset_and_check_events_have_same_partition(
         )
         assert result.success
         events = result.get_asset_check_evaluations()
-        assert len(events) == 2 and all(
-            event.passed and event.partition == day for event in events
-        )
+        assert len(events) == 2 * len(days)
+        assert all(event.passed for event in events)
+        assert {event.partition for event in events} == set(days)
         records = instance.all_logs(result.run_id)
         checks = [
             r.asset_check_evaluation
             for r in records
             if r.asset_check_evaluation is not None
         ]
-        assert len(checks) == 2 and all(r.partition == day for r in checks)
-        assert (
-            result.get_asset_materialization_events()[0].materialization.partition
-            == day
-        )
+        assert len(checks) == 2 * len(days)
+        mats = result.get_asset_materialization_events()
+        assert len(mats) == len(days)
+        assert {m.materialization.partition for m in mats} == set(days)
+        assert calls == [d.replace("-", "") for d in days]
+        for check_name in ANNOUNCEMENT_CHECKS:
+            persisted = instance.event_log_storage.get_asset_check_execution_history(
+                dg.AssetCheckKey(dg.AssetKey(ANNOUNCEMENT_ASSET), check_name), limit=30
+            )
+            assert len(persisted) == len(days)
+            assert {record.partition for record in persisted} == set(days)
+        for target_day in days:
+            mat = instance.fetch_materializations(
+                dg.AssetRecordsFilter(
+                    asset_key=dg.AssetKey(ANNOUNCEMENT_ASSET),
+                    asset_partitions=[target_day],
+                ),
+                limit=1,
+            ).records[0]
+            metadata = mat.asset_materialization.metadata
+            assert (
+                metadata["goldenshare/announcement_identity"].value["day"] == target_day
+            )
+            assert metadata["dagster/row_count"].value == len(rows)
+            for event in events:
+                if event.partition == target_day:
+                    assert event.target_materialization_data.run_id == result.run_id
+                    assert (
+                        event.target_materialization_data.storage_id == mat.storage_id
+                    )
 
 
 def test_missing_delivery_is_red_even_when_valid_empty_file_exists(archive):
@@ -230,10 +243,18 @@ def test_missing_delivery_is_red_even_when_valid_empty_file_exists(archive):
         )
         root = LakeRootResource(root_path=str(archive.root))
         assert evaluate_announcement_check(
-            context, root, reconciliation=False, staging_root=archive.staging
+            context,
+            root,
+            day="2023-06-09",
+            reconciliation=False,
+            staging_root=archive.staging,
         ).passed
         result = evaluate_announcement_check(
-            context, root, reconciliation=True, staging_root=archive.staging
+            context,
+            root,
+            day="2023-06-09",
+            reconciliation=True,
+            staging_root=archive.staging,
         )
         assert not result.passed and result.metadata[
             "goldenshare/failed_rule_names"
@@ -250,19 +271,34 @@ def test_reconciliation_cannot_borrow_or_accept_changed_evidence(archive, corrup
 
     from orchestrator.defs.anns_d_checkpoint import announcement_atomic_json
     from orchestrator.defs.anns_d_window import (
+        announcement_day_run_id,
         announcement_window_tags,
-        execute_announcement_window_day,
+        execute_announcement_window,
     )
 
     tags = announcement_window_tags("verified", "2023-06-09", "2023-06-09")
-    checkpoint, delivery = execute_announcement_window_day(
-        "2023-06-09",
-        lambda *a: ([source_row()], ANNOUNCEMENT_FIELDS),
-        archive,
-        archive.control,
-        tags,
+    from orchestrator.defs.anns_d_io import AnnouncementStore
+
+    deliveries = execute_announcement_window(
+        ("2023-06-09",),
+        tags=tags,
+        policy=archive.policy,
+        control=archive.control,
+        store_factory=lambda day: AnnouncementStore(
+            archive.root,
+            archive.staging,
+            announcement_day_run_id("verified", day),
+            archive.policy,
+            archive.control,
+        ),
+        call_factory=lambda day, store: (
+            lambda *a: ([source_row()], ANNOUNCEMENT_FIELDS)
+        ),
     )
-    identity = checkpoint.identity
+    result = deliveries["2023-06-09"]
+    delivery = result.delivery
+    identity = dict(result.identity)
+    checkpoint_path = result.checkpoint_path
     selected = set()
     if corruption == "source_page":
         from pathlib import Path
@@ -273,11 +309,11 @@ def test_reconciliation_cannot_borrow_or_accept_changed_evidence(archive, corrup
     elif corruption == "checkpoint_identity":
         identity = {**identity, "day": "2023-06-08"}
     elif corruption == "outside_staging":
-        document = json.loads(checkpoint.path.read_text())
+        document = json.loads(checkpoint_path.read_text())
         document["delivery"]["source_pages"][0]["path"] = str(
             archive.root / "outside.parquet"
         )
-        announcement_atomic_json(checkpoint.path, document)
+        announcement_atomic_json(checkpoint_path, document)
     else:
         selected = {dg.AssetKey(ANNOUNCEMENT_ASSET)}
     with dg.DagsterInstance.ephemeral() as instance:
@@ -287,7 +323,7 @@ def test_reconciliation_cannot_borrow_or_accept_changed_evidence(archive, corrup
                 partition="2023-06-09",
                 metadata={
                     "goldenshare/announcement_identity": identity,
-                    "goldenshare/announcement_checkpoint": str(checkpoint.path),
+                    "goldenshare/announcement_checkpoint": str(checkpoint_path),
                 },
             )
         )
@@ -298,13 +334,23 @@ def test_reconciliation_cannot_borrow_or_accept_changed_evidence(archive, corrup
                 run_id="other-run", asset_selection=selected, step_keys_to_execute=None
             ),
         )
-        result = evaluate_announcement_check(
-            context,
-            LakeRootResource(root_path=str(archive.root)),
-            reconciliation=True,
-            staging_root=archive.staging,
-        )
-        assert not result.passed
+
+        def evaluate():
+            return evaluate_announcement_check(
+                context,
+                LakeRootResource(root_path=str(archive.root)),
+                day="2023-06-09",
+                reconciliation=True,
+                staging_root=archive.staging,
+            )
+
+        if corruption in {"source_page", "target", "outside_staging"}:
+            with pytest.raises(
+                Exception, match="changed|schema|parquet|Parquet|staging"
+            ):
+                evaluate()
+        else:
+            assert not evaluate().passed
 
 
 def test_asset_rejects_resource_root_override_before_any_access(monkeypatch):

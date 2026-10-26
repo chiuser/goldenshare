@@ -1,11 +1,38 @@
 """Daily execution composition without Dagster registration or event side effects."""
 
 from orchestrator.defs.anns_d_checkpoint import (
+    AnnouncementCheckpoint,
     announcement_file_fingerprint,
     announcement_file_lock,
 )
 from orchestrator.defs.anns_d_contract import AnnouncementCancelled, AnnouncementError
 from orchestrator.defs.anns_d_source import capture_announcement_day
+
+
+def _record_day_failure(checkpoint, error, *, cancelled):
+    phase = "cancelled" if cancelled else "failed"
+    reason = str(error) if isinstance(error, AnnouncementError) else type(error).__name__
+    # save() updates memory before writing: only persisted proof establishes promotion.
+    persisted = (
+        AnnouncementCheckpoint(checkpoint.path, checkpoint.identity).document
+        if checkpoint.path.exists()
+        else None
+    )
+    if persisted and persisted.get("phase") == "promoted" and persisted.get("delivery"):
+        checkpoint.document = persisted
+        checkpoint.save(failure_phase=phase, reason=reason)
+    else:
+        checkpoint.save(
+            phase=phase,
+            reason="announcement_cancelled" if cancelled else "announcement_execution_failed",
+        )
+
+
+def _clear_day_failure(checkpoint):
+    if "failure_phase" in checkpoint.document or "reason" in checkpoint.document:
+        checkpoint.document.pop("failure_phase", None)
+        checkpoint.document.pop("reason", None)
+        checkpoint.save()
 
 
 def update_announcement_day(
@@ -29,6 +56,7 @@ def update_announcement_day(
                         for key in ("source_rows", "written_rows", "new_unique_rows")
                     },
                 )
+                _clear_day_failure(checkpoint)
                 return delivery
             captured = capture_announcement_day(
                 day,
@@ -61,12 +89,13 @@ def update_announcement_day(
             written_rows=delivery["written_rows"],
             new_unique_rows=delivery["new_unique_rows"],
         )
+        _clear_day_failure(checkpoint)
         return delivery
-    except (AnnouncementCancelled, KeyboardInterrupt):
-        checkpoint.save(phase="cancelled", reason="announcement_cancelled")
+    except (AnnouncementCancelled, KeyboardInterrupt) as error:
+        _record_day_failure(checkpoint, error, cancelled=True)
         raise
-    except Exception:
-        checkpoint.save(phase="failed", reason="announcement_execution_failed")
+    except Exception as error:
+        _record_day_failure(checkpoint, error, cancelled=False)
         raise
 
 

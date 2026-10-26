@@ -1845,9 +1845,9 @@ LAKE_ASSET_CATALOG = (
         ingestion_sources=(IngestionSource.TUSHARE_API,), default_daily_ingestion_source=IngestionSource.TUSHARE_API,
         bootstrap_sources=(IngestionSource.PROD_DB_READONLY,), blocking_check_names=ANNOUNCEMENT_CHECKS,
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE, event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-        performance_contract=_perf(batch_grain="ann_date; bootstrap capture month", compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="2000 rows/page; 5s interval; 100/day; 350/window; 60min/window",
-            notes="六字段版本合并；逐页持久化；2GB/2threads/20GB spill；自然日原子提升；事件不回滚文件"),
+        performance_contract=_perf(batch_grain="one scheduled run: D-7..D+1; source/commit ann_date; bootstrap capture month", compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="2000 rows/page; 5s interval; 100/day; 350/window; no window time limit",
+            notes="单job九日；六字段版本合并；逐页持久化；2GB/2threads/20GB spill；自然日原子提升；事件不回滚文件"),
     ),
     _tushare_raw_entry(
         asset_key=DAILY_BASIC_ASSET,

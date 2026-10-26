@@ -10,7 +10,11 @@ from orchestrator.defs.anns_d_checkpoint import (
     announcement_file_fingerprint,
     announcement_file_lock,
 )
-from orchestrator.defs.anns_d_contract import AnnouncementCancelled, AnnouncementError
+from orchestrator.defs.anns_d_contract import (
+    AnnouncementCancelled,
+    AnnouncementError,
+    announcement_history_settings_from_plan,
+)
 from orchestrator.defs.anns_d_io import AnnouncementStore
 from orchestrator.defs.bootstrap.anns_d_history import (
     build_announcement_month,
@@ -23,7 +27,6 @@ from orchestrator.defs.bootstrap.anns_d_history_plan import (
     announcement_bootstrap_volume_gate,
     history_document_fingerprint,
 )
-from orchestrator.defs.run_contracts.anns_d import AnnouncementPolicy
 
 
 class AnnouncementHistoryControl(AnnouncementControl):
@@ -65,7 +68,7 @@ def announcement_history_store(plan, month, control):
     announcement_bootstrap_volume_gate(root, staging)
     run_id = announcement_history_run_id(plan, month)
     return AnnouncementStore(
-        root, staging, run_id, AnnouncementPolicy(**plan["policy"]), control
+        root, staging, run_id, announcement_history_settings_from_plan(plan), control
     )
 
 
@@ -101,7 +104,8 @@ def run_announcement_history_stage(
     stage, plan, month, control, *, source=None, audit=None, formal=False
 ):
     started_at = time.monotonic()
-    control = AnnouncementHistoryControl(control, plan["policy"]["month_deadline"])
+    settings = announcement_history_settings_from_plan(plan)
+    control = AnnouncementHistoryControl(control, settings.month_deadline)
     store = announcement_history_store(plan, month, control)
     with announcement_file_lock(
         store.staging / "anns_d" / "locks" / "history-execution.lock"

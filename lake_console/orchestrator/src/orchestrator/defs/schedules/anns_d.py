@@ -1,18 +1,19 @@
 """Stopped by default; refresh seven past days plus today and tomorrow."""
 
-import hashlib
 from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET
+from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET, AnnouncementError
 from orchestrator.defs.anns_d_window import (
-    announcement_refresh_dates,
-    announcement_window_tags,
+    ANNOUNCEMENT_END_TAG,
+    ANNOUNCEMENT_START_TAG,
+    announcement_schedule_tags,
 )
 from orchestrator.defs.jobs.anns_d import raw_anns_d_update_job
 from orchestrator.defs.run_contracts.anns_d import (
     ANNOUNCEMENT_CRON,
+    ANNOUNCEMENT_EXECUTION_VERSION,
     ANNOUNCEMENT_TIMEZONE,
     AnnouncementPolicy,
 )
@@ -28,26 +29,29 @@ from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 )
 def raw_anns_d_update_schedule(context: dg.ScheduleEvaluationContext):
     scheduled = context.scheduled_execution_time
-    days = announcement_refresh_dates(scheduled)
+    if scheduled is None:
+        raise AnnouncementError("announcement_schedule_time_missing")
+    tags = announcement_schedule_tags(scheduled)
     tick = scheduled.astimezone(ZoneInfo(ANNOUNCEMENT_TIMEZONE)).date().isoformat()
-    window_id = hashlib.sha256(f"anns_d:{tick}".encode()).hexdigest()[:32]
-    tags = announcement_window_tags(
-        window_id, days[0], days[-1], scheduled.timestamp(), automatic=True
-    )
-    for index, day in enumerate(days):
-        yield dg.RunRequest(
-            run_key=build_asset_update_run_key(
-                subject="anns_d", unit_id=f"{tick}:{day}"
-            ),
-            partition_key=day,
-            run_config={
-                "ops": {
-                    ANNOUNCEMENT_ASSET: {
-                        "config": {
-                            "interval_seconds": AnnouncementPolicy().interval_seconds
-                        }
+    first, last = tags[ANNOUNCEMENT_START_TAG], tags[ANNOUNCEMENT_END_TAG]
+    yield dg.RunRequest(
+        run_key=build_asset_update_run_key(
+            subject="anns_d",
+            unit_id=f"update:{ANNOUNCEMENT_EXECUTION_VERSION}:{tick}:{first}:{last}",
+        ),
+        partition_key=None,
+        run_config={
+            "ops": {
+                ANNOUNCEMENT_ASSET: {
+                    "config": {
+                        "interval_seconds": AnnouncementPolicy().interval_seconds
                     }
                 }
-            },
-            tags={**tags, "dagster/priority": str(len(days) - index)},
-        )
+            }
+        },
+        tags={
+            **tags,
+            "dagster/asset_partition_range_start": first,
+            "dagster/asset_partition_range_end": last,
+        },
+    )
