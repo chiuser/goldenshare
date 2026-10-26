@@ -1,0 +1,40 @@
+{
+  "rows": 1,
+  "fields": 261,
+  "source_requests": 0,
+  "date": "2026-10-16",
+  "elapsed_seconds": [
+    0.521,
+    0.9202
+  ],
+  "measurements": [
+    {
+      "run": "normal",
+      "sql_statements": 52,
+      "parquet_read_statements": 7,
+      "hash_file_reads": 17,
+      "hash_read_bytes": 519627,
+      "atomic_file_operations": 6,
+      "atomic_file_bytes": 74501,
+      "target_file_replaces": 2,
+      "candidate_parquet_files": 2,
+      "candidate_bytes": 68889,
+      "completed_records": 2
+    },
+    {
+      "run": "same-day",
+      "sql_statements": 70,
+      "parquet_read_statements": 10,
+      "hash_file_reads": 27,
+      "hash_read_bytes": 864196,
+      "atomic_file_operations": 4,
+      "atomic_file_bytes": 5860,
+      "target_file_replaces": 0,
+      "candidate_parquet_files": 2,
+      "candidate_bytes": 68889,
+      "completed_records": 2
+    }
+  ],
+  "published_bytes": 68889,
+  "source_cache_files": 0
+}

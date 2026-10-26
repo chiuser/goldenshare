@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from enum import IntEnum
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -643,3 +643,166 @@ def stk_factor_pro_schema_digest(layer: StkFactorProLayer) -> str:
             "value": [{"name": name, "type": kind} for name, kind in columns.items()],
         }
     )
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedTarget:
+    trade_date: date
+    layer: StkFactorProLayer
+    skip_no_file: bool
+    file_sha256: str | None
+    file_rows: int
+    checkpoint_ref: RecordRef | None
+    unrefreshed_count: int
+    scope_rows: int | None = None
+    scope_content_sha256: str | None = None
+    scope_content_version: int | None = None
+
+    def __post_init__(self) -> None:
+        _day(self.trade_date)
+        _count(self.file_rows)
+        _count(self.unrefreshed_count)
+        if self.layer not in ("raw", "silver") or type(self.skip_no_file) is not bool:
+            raise ValueError("发布目标层或跳过标志错误")
+        _optional_digest(self.file_sha256)
+        if self.skip_no_file:
+            if (
+                self.file_sha256 is not None
+                or self.checkpoint_ref is not None
+                or self.file_rows != 0
+            ):
+                raise ValueError("无文件目标不得伪造文件或记录")
+        elif self.file_sha256 is None or not isinstance(self.checkpoint_ref, RecordRef):
+            raise ValueError("发布目标缺少实际文件或完成记录")
+        values = (
+            self.scope_rows,
+            self.scope_content_sha256,
+            self.scope_content_version,
+        )
+        if any(v is not None for v in values):
+            if any(v is None for v in values):
+                raise ValueError("历史范围摘要三项必须同时提供")
+            _count(self.scope_rows)
+            _digest(self.scope_content_sha256)
+            if (
+                type(self.scope_content_version) is not int
+                or self.scope_content_version != 1
+            ):
+                raise ValueError("未知历史内容摘要版本")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProPublicationRecord:
+    """The reviewed per-file wire record. Batch two implements day only."""
+
+    record_version: int
+    identity: RunIdentity
+    phase: Literal["day"]
+    trade_date: date
+    layer: StkFactorProLayer
+    contract: ContractIdentity
+    scope_digest: str
+    history_input_digest: None
+    day_source_digest: str
+    source_manifest_digest: None
+    target_path: str
+    candidate_relative_path: str
+    prior_sha256: str | None
+    candidate_sha256: str
+    candidate_rows: int
+    expected_published_sha256: str
+    mode: Literal["reuse", "replace"]
+    stage: Literal["intent", "complete"]
+    unrefreshed_keys_ref: None
+    unrefreshed_count: None
+    verified_at: datetime | None
+    actual_sha256: str | None
+    actual_rows: int | None
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.record_version) is not int
+            or self.record_version != 1
+            or self.phase != "day"
+        ):
+            raise ValueError("本批发布记录仅支持版本1的日阶段")
+        if not isinstance(self.identity, RunIdentity) or not isinstance(
+            self.contract, ContractIdentity
+        ):
+            raise TypeError("发布记录身份类型错误")
+        _day(self.trade_date)
+        if self.trade_date != self.identity.target_trade_date or self.layer not in (
+            "raw",
+            "silver",
+        ):
+            raise ValueError("日发布记录日期或层不符")
+        for digest in (
+            self.scope_digest,
+            self.day_source_digest,
+            self.candidate_sha256,
+            self.expected_published_sha256,
+        ):
+            _digest(digest)
+        _optional_digest(self.prior_sha256)
+        _count(self.candidate_rows)
+        if any(
+            value is not None
+            for value in (
+                self.history_input_digest,
+                self.source_manifest_digest,
+                self.unrefreshed_keys_ref,
+                self.unrefreshed_count,
+            )
+        ):
+            raise ValueError("日发布不得混入历史来源或差集引用")
+        if (
+            type(self.target_path) is not str
+            or not Path(self.target_path).is_absolute()
+            or ".." in Path(self.target_path).parts
+        ):
+            raise ValueError("发布目标不是受控绝对路径")
+        RecordRef(
+            self.identity.creator_run_id,
+            self.candidate_relative_path,
+            self.candidate_sha256,
+        )
+        if self.candidate_relative_path != f"candidates/day/{self.layer}/data.parquet":
+            raise ValueError("日候选路径必须属于本层固定候选目录")
+        suffix = (
+            ("raw", "tushare", "stk_factor_pro")
+            if self.layer == "raw"
+            else ("silver", "stock_factor_pro")
+        )
+        expected_parts = (
+            *suffix,
+            f"trade_date={self.trade_date.isoformat()}",
+            "data.parquet",
+        )
+        if Path(self.target_path).parts[-len(expected_parts) :] != expected_parts:
+            raise ValueError("发布目标路径与日期或层不符")
+        if self.mode not in ("reuse", "replace") or self.stage not in (
+            "intent",
+            "complete",
+        ):
+            raise ValueError("发布记录状态错误")
+        expected = self.prior_sha256 if self.mode == "reuse" else self.candidate_sha256
+        if expected != self.expected_published_sha256:
+            raise ValueError("发布预期与模式不符")
+        if self.stage == "intent":
+            if any(
+                v is not None
+                for v in (self.verified_at, self.actual_sha256, self.actual_rows)
+            ):
+                raise ValueError("intent不能冒充已读回完成")
+        else:
+            if not isinstance(
+                self.verified_at, datetime
+            ) or self.verified_at.utcoffset() != timedelta(hours=8):
+                raise ValueError("发布完成缺少带时区时刻")
+            _digest(self.actual_sha256)
+            _count(self.actual_rows)
+            if (
+                self.actual_sha256 != self.expected_published_sha256
+                or self.actual_rows != self.candidate_rows
+            ):
+                raise ValueError("发布完成实际文件与预期不符")

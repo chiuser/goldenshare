@@ -1,0 +1,25 @@
+{
+  "asset_governance": {
+    "tests": 12,
+    "subtests": 513,
+    "batches": 2,
+    "passed": true
+  },
+  "run_contract_static": {
+    "tests": 113,
+    "subtests": 5,
+    "batches": 15,
+    "passed": true
+  },
+  "pure_regressions": {
+    "tests": 34,
+    "passed": true,
+    "seconds": 0.52
+  },
+  "definitions": {
+    "tests": 1,
+    "passed": true,
+    "seconds": 1.77,
+    "evidence": "definitions-resource-result.json"
+  }
+}
