@@ -1,0 +1,14 @@
+{
+  "active_queries": 4,
+  "copy_sql": 2,
+  "duckdb_sql": 170,
+  "file_sha": 151,
+  "parquet_sql": 21,
+  "prod_connections": 1,
+  "prod_control_queries": 5,
+  "prod_detail_fetches": 2,
+  "prod_detail_queries": 1,
+  "registered": [
+    "2019-10-16"
+  ]
+}

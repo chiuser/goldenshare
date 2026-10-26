@@ -26,6 +26,7 @@ from orchestrator.tushare_download import UnitResult
 
 DAY_SOURCE = "stk_factor_pro_day_source"
 HISTORY_DAY_SOURCE = "stk_factor_pro_history_day_source"
+BOOTSTRAP_DAY_SOURCE = "stk_factor_pro_bootstrap_day_source"
 DAY_PRIOR = "stk_factor_pro_day_prior"
 RAW_EXPECTED = "stk_factor_pro_raw_expected"
 SILVER_EXPECTED = "stk_factor_pro_silver_expected"
@@ -235,10 +236,12 @@ def build_stk_factor_pro_raw_candidate_from_relation(
 ):
     """Build B-K+U from an already verified, internal single-date relation."""
     if (
-        source_relation not in (DAY_SOURCE, HISTORY_DAY_SOURCE)
+        source_relation not in (DAY_SOURCE, HISTORY_DAY_SOURCE, BOOTSTRAP_DAY_SOURCE)
         or type(target_trade_date) is not date
     ):
         raise ValueError("Raw候选只接受内部已核单日关系及DATE处理日期")
+    if source_relation == BOOTSTRAP_DAY_SOURCE and prior_path is not None:
+        raise ValueError("bootstrap必须忠实导入完整源，不允许合并旧目标")
     require_stk_factor_pro_candidate_path(
         candidate_path=candidate_path, run_root=run_root
     )
@@ -329,3 +332,177 @@ def build_stk_factor_pro_silver_candidate(
         target_trade_date=target_trade_date,
         layer="silver",
     )
+
+
+def describe_stk_factor_pro_fragment(connection, *, path, root, relation):
+    """Describe a saved full-field source fragment, never a daily download cache."""
+    from orchestrator.defs.checks.stk_factor_pro import (
+        _require_factor_relation,
+        factor_content_sha,
+        factor_file_sha,
+        relation_identifier,
+    )
+    from orchestrator.defs.run_contracts.stk_factor_pro import (
+        STK_FACTOR_PRO_RAW_COLUMN_TYPES,
+        StkFactorProFragment,
+        stk_factor_pro_schema_digest,
+    )
+
+    relation_identifier(relation)
+    require_stk_factor_pro_safe_path(root)
+    require_stk_factor_pro_safe_path(path)
+    if not path.is_relative_to(root) or path == root:
+        raise ValueError("源片段必须属于本operation")
+    rows, schema = _require_factor_relation(
+        connection,
+        relation,
+        types=STK_FACTOR_PRO_RAW_COLUMN_TYPES,
+        invalid_date_sql="trade_date IS NULL OR NOT regexp_full_match(trade_date,'[0-9]{8}') OR try_strptime(trade_date,'%Y%m%d') IS NULL",
+        parameters=(),
+    )
+    first = connection.execute(
+        f"SELECT trade_date,ts_code FROM {relation} ORDER BY trade_date,ts_code LIMIT 1"
+    ).fetchone()
+    last = connection.execute(
+        f"SELECT trade_date,ts_code FROM {relation} ORDER BY trade_date DESC,ts_code DESC LIMIT 1"
+    ).fetchone()
+    return StkFactorProFragment(
+        path.relative_to(root).as_posix(),
+        factor_file_sha(path),
+        factor_content_sha(connection, relation),
+        stk_factor_pro_schema_digest("raw"),
+        rows,
+        schema,
+        date(int(first[0][:4]), int(first[0][4:6]), int(first[0][6:8]))
+        if first
+        else None,
+        date(int(last[0][:4]), int(last[0][4:6]), int(last[0][6:8])) if last else None,
+        first[1] if first else None,
+        last[1] if last else None,
+    )
+
+
+def write_stk_factor_pro_raw_fragment(
+    *, connection, frame, candidate_path, expected_row_count
+):
+    """Save one approved Prod source batch on the caller's existing connection."""
+    import os
+    from uuid import uuid4
+
+    from orchestrator.defs.checks.stk_factor_pro import compare_factor_relations
+    from orchestrator.defs.duckdb_sql import read_parquet
+
+    require_stk_factor_pro_safe_path(candidate_path)
+    roots = [p for p in candidate_path.parents if p.name.startswith("operation_id=")]
+    if len(roots) != 1 or not candidate_path.is_relative_to(roots[0] / "source"):
+        raise ValueError("bootstrap片段必须位于当前operation的source")
+    root = roots[0]
+    if (
+        candidate_path.exists()
+        or type(expected_row_count) is not int
+        or expected_row_count < 0
+    ):
+        raise ValueError("源片段已存在或行数不合法")
+    if (
+        tuple(frame.columns) != STK_FACTOR_PRO_SOURCE_COLUMNS
+        or len(frame) != expected_row_count
+    ):
+        raise ValueError("源片段批次字段/行数不符")
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    require_stk_factor_pro_safe_path(candidate_path)
+    temporary = candidate_path.with_name(candidate_path.name + f".{uuid4().hex}.tmp")
+    relation, saved = (
+        "stk_factor_bootstrap_fragment_batch",
+        "stk_factor_bootstrap_fragment_saved",
+    )
+    registered = False
+    primary = None
+    try:
+        connection.register("stk_factor_bootstrap_frame", frame)
+        registered = True
+        projection = ",".join(
+            f'CAST("{name}" AS {"VARCHAR" if i < 2 else "DOUBLE"}) AS "{name}"'
+            for i, name in enumerate(STK_FACTOR_PRO_SOURCE_COLUMNS)
+        )
+        connection.execute(
+            f"CREATE TEMP TABLE {relation} AS SELECT {projection} FROM stk_factor_bootstrap_frame"
+        )
+        nulls = ",".join(
+            f'count(*) FILTER (WHERE "{name}" IS NULL)'
+            for name in STK_FACTOR_PRO_SOURCE_COLUMNS
+        )
+        if tuple(
+            connection.execute(f"SELECT {nulls} FROM {relation}").fetchone()
+        ) != tuple(
+            int(frame[name].isna().sum()) for name in STK_FACTOR_PRO_SOURCE_COLUMNS
+        ):
+            raise ValueError("源片段转换NULL发生变化")
+        connection.execute(
+            copy_query_to_parquet(
+                f"SELECT {factor_columns()} FROM {relation} ORDER BY trade_date,ts_code",
+                temporary,
+            )
+        )
+        connection.execute(
+            f"CREATE TEMP VIEW {saved} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
+        )
+        comparison = compare_factor_relations(
+            connection, expected=relation, actual=saved
+        )
+        if comparison.expected_rows != expected_row_count or any(
+            (
+                comparison.missing_key_count,
+                comparison.unexpected_key_count,
+                comparison.changed_row_count,
+            )
+        ):
+            raise ValueError("源片段读回完整业务字段不符")
+        # Metadata validation includes source schema, key uniqueness and finite numbers.
+        describe_stk_factor_pro_fragment(
+            connection, path=temporary, root=root, relation=saved
+        )
+        if (
+            candidate_path.exists()
+            or temporary.stat().st_dev != candidate_path.parent.stat().st_dev
+        ):
+            raise ValueError("源片段目标冲突或非同文件系统")
+        with temporary.open("rb") as stream:
+            os.fsync(stream.fileno())
+        os.replace(temporary, candidate_path)
+        descriptor = os.open(candidate_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        # Rebind after replace: DuckDB must never lazily read the moved temporary.
+        connection.execute(
+            f"CREATE OR REPLACE TEMP VIEW {saved} AS SELECT * FROM {read_parquet(candidate_path, hive_partitioning=False)}"
+        )
+        fragment = describe_stk_factor_pro_fragment(
+            connection, path=candidate_path, root=root, relation=saved
+        )
+        if fragment.row_count != expected_row_count:
+            raise ValueError("源片段最终行数不符")
+        return fragment
+    except BaseException as error:
+        primary = error
+        raise
+    finally:
+        errors = []
+        actions = [
+            lambda: connection.execute(f"DROP VIEW IF EXISTS {saved}"),
+            lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}"),
+        ]
+        if registered:
+            actions.append(lambda: connection.unregister("stk_factor_bootstrap_frame"))
+        for action in actions:
+            try:
+                action()
+            except BaseException as error:  # noqa: BLE001 - attempt every owned cleanup
+                errors.append(error)
+        if errors:
+            reported = primary if primary is not None else errors[0]
+            for error in errors:
+                reported.add_note(f"源片段清理同时失败：{type(error).__name__}")
+            if primary is None:
+                raise reported

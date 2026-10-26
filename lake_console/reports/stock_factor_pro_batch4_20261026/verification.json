@@ -1,0 +1,65 @@
+{
+  "definitions": {
+    "groups": 1,
+    "passed": true,
+    "reports": [
+      "/private/tmp/stock-suspend-isolated-97ccc0j9/allowed/resource-result.json"
+    ],
+    "tests": 1
+  },
+  "entry_tests": [
+    {
+      "errors": "0",
+      "failures": "0",
+      "hostname": "localhost",
+      "name": "pytest",
+      "skipped": "0",
+      "tests": "9",
+      "time": "7.133",
+      "timestamp": "2026-10-26T23:08:29.806740+08:00"
+    }
+  ],
+  "full_tests": [
+    {
+      "errors": "0",
+      "failures": "0",
+      "hostname": "localhost",
+      "name": "pytest",
+      "skipped": "0",
+      "tests": "731",
+      "time": "267.576",
+      "timestamp": "2026-10-26T23:00:44.509420+08:00"
+    }
+  ],
+  "governance": {
+    "groups": 2,
+    "passed": true,
+    "reports": [
+      "/private/tmp/stock-suspend-isolated-wf1ar66n/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-x4kw47pz/allowed/resource-result.json"
+    ],
+    "tests": 12
+  },
+  "static_contracts": {
+    "groups": 15,
+    "passed": true,
+    "reports": [
+      "/private/tmp/stock-suspend-isolated-24d52xwe/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-7lqlla2a/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-goeus9tw/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-xl4bfe37/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-1eqx_40u/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-lf_3392e/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-19fgkq14/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-tjancsmf/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-gvxzmy9w/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-i8z28cxw/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-0jspyk22/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-i8zcxb22/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-4aj7ryz4/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-53kj13uo/allowed/resource-result.json",
+      "/private/tmp/stock-suspend-isolated-249qv95_/allowed/resource-result.json"
+    ],
+    "tests": 113
+  }
+}

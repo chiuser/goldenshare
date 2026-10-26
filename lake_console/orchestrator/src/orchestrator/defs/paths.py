@@ -1503,3 +1503,38 @@ def stk_factor_pro_record_path(
     if relative == "source/day" or relative.startswith("source/day/"):
         raise ValueError("日下载没有source/day缓存记录")
     return _stk_factor_pro_confined_path(run_root, relative, staging=True)
+
+
+def stk_factor_pro_bootstrap_operation_root(staging_root: Path, operation_id: str) -> Path:
+    """Locate one approved bootstrap; path construction never creates files."""
+    operation_id = validate_stk_factor_pro_identifier(operation_id)
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", operation_id) is None:
+        raise ValueError("bootstrap operation标识必须是受控路径单元")
+    root = Path(staging_root)
+    if not root.is_absolute() or ".." in root.parts:
+        raise ValueError("bootstrap staging必须是绝对安全路径")
+    path = _stk_factor_pro_confined_path(
+        root, "stk_factor_pro", "bootstrap", f"operation_id={operation_id}", staging=True
+    )
+    if any(part.is_symlink() for part in (path, *path.parents)):
+        raise ValueError("bootstrap路径不得经过符号链接")
+    return path
+
+
+def stk_factor_pro_bootstrap_record_path(
+    staging_root: Path, operation_id: str, relative: str,
+) -> Path:
+    from pathlib import PurePosixPath
+
+    root = stk_factor_pro_bootstrap_operation_root(staging_root, operation_id)
+    if (
+        type(relative) is not str or not relative or "\\" in relative
+        or PurePosixPath(relative).is_absolute()
+        or any(part in ("", ".", "..") for part in relative.split("/"))
+        or PurePosixPath(relative).as_posix() != relative
+    ):
+        raise ValueError("bootstrap引用必须是本operation内的规范相对路径")
+    path = root / relative
+    if any(part.is_symlink() for part in (path, *path.parents)):
+        raise ValueError("bootstrap引用不得经过符号链接")
+    return path

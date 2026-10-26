@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-10-26。状态：第一至第三批均已开发并通过各自隔离验收，分别见§14.6、§15.10、§16.4；第四批及以后、整个数据集尚未完成。第三批最终656项回归与门禁通过，未装配正式入口、执行bootstrap或启用自动化。以下为已确认业务规则，正式编排由后续批次装配：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
+日期：2026-10-26。状态：第一至第四批均已开发并通过各自隔离验收，分别见§14.6、§15.10、§16.4及§17.7；第五批及以后、整个数据集尚未完成。第三批最终656项回归与门禁通过，未装配正式入口、执行bootstrap或启用自动化。以下为已确认业务规则，正式编排由后续批次装配：自动日更先发布日Raw→Silver，再检查原目标日Raw是否齐备；只有齐备后才处理历史。手动repair先检查原目标日Raw齐备，再确认原目标日Silver存在、已有检查通过且对应当前Raw，之后核T/P复权因子及原历史范围；不执行日更新。Raw缺失、不齐或无法确认时直接报“原日期数据缺失”；Silver缺失、无有效检查或不对应当前Raw时直接报“原日期Silver不可用”，交管理员处理，不代补当天Raw/Silver。Tushare日更或历史任务失败、取消、异常退出后，获准重执行均重新下载所需原完整范围，不复用失败任务的源或候选；已发布正式数据、完整名单、授权范围和失败证据保留。参数、编码和验收要求分别见§10～12；正式读取、写入、历史事件及自动化启用仍分别授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -2408,3 +2408,71 @@ finally:
 复用保存响应重新验证正常链和真实进程退出后全范围重下，共8.497秒；新run仍1个完整unit/5行、8历史目标、旧source/candidates读取0。正常链SQL371条、批源CTAS1次，与修前相同；T不覆盖、无关5,567股261字段不变、临时关系清空。证据单独保存，不覆盖原验收JSON，见[修复后链路](../../reports/stock_factor_pro_batch3_20261026/cleanup-chain-evidence.json)及[修复回归](../../reports/stock_factor_pro_batch3_20261026/cleanup-regression.json)。没有据此扩大真实源/正式事件或全历史性能结论。
 
 默认Ruff、全src/tests致命规则、CodeGraph sync/status、文档及差异空白检查通过；4处清理P2关闭，第三批恢复完整的隔离验收结论。当前只有单模块生产修正及新增测试/文档，未提交、未推进第四批或正式执行；完整发现及修复过程见[独立审计](../../reports/stock_factor_pro_batch3_20261026/independent-audit.md)。
+
+## 17. 第四批编码约束与逐步验收
+
+2026-10-26管理员批准方案§13.6的八步开发。本节是编码前约束，实际完成情况另记验收，不代表已经开发或正式执行。§9～11全部合同继续生效；不修改公共下载器、261字段源契约、Prod实现或其他数据集。
+
+### 17.1 代码结构与依赖
+
+对外接口保持在`defs/bootstrap/stk_factor_pro_history.py`，负责唯一入口、依赖绑定及重导出§10既定函数。同目录私有实现按稳定职责分为`stk_factor_pro_bootstrap_records.py`（批准/路径引用/记录与摘要）、`stk_factor_pro_bootstrap_source.py`（月规划、来源预检、游标及完整日）、`stk_factor_pro_bootstrap_publication.py`（候选/逐文件恢复）、`stk_factor_pro_bootstrap_coverage.py`（本地依据、日期统计、summary和补数更新）。它们不是新增运行入口；不新增子目录、CLI、job、sensor、check或配置。公共冻结类型仍统一在run_contracts/stk_factor_pro.py，受控路径统一在paths.py。依赖单向：入口调用各实现；source/publication/coverage可依赖records和既有纯IO/check/contract；records不得反向导入入口或后三模块。日更/历史IO不得import bootstrap。
+
+新增固定内部单日关系`BOOTSTRAP_DAY_SOURCE`供共用Raw候选构造使用；该来源必须prior_path=None，只生成完整源U，不做正式旧文件合并。DAY_SOURCE/HISTORY_DAY_SOURCE现行行为不变，日入口仍要求VerifiedDaySource。首次候选创建继续使用既有禁止覆盖检查；bootstrap恢复自行核既存候选及原intent，不能放宽公共候选保护。
+
+### 17.2 合同、路径与读写
+
+严格落实§10所有frozen类型及已有类型复用。完整FileAudit的Path显式转文本再读回Path；正式path由日期/层复算，diagnostics仅允许本operation受控位置。不可变approval/source-complete/intent/complete写入相同内容可读回，不同内容拒绝；result/summary按§10原子替换。JSON拒绝重复键、未知/缺字段、bool冒充计数、非法ISO日期/时区、坏摘要及引用。不存在固定记录才返回None，损坏不伪装成未完成。文件字节SHA、业务内容SHA与各kind摘要按原精确投影计算，不新造hash算法，不将operation伪装成run。
+
+### 17.3 顺序、来源读取与失败
+
+主流程只接受受控operation标识及现有resource/instance内部依赖，读取固定approval；不接受根目录、表、字段、SQL、overwrite、模式开关或运营传入的passed/event id。正式根由现有资源/默认路径解析；隔离测试通过内部依赖使用临时目录。入口拥有唯一主要DuckDB连接，helper只借用并释放自身关系。
+
+1. 入口先核§4.2活动任务，再读回批准、计数、来源证据与日完成事实；核实际剩余工作，不按summary自称完成跳过核验。
+2. 月规划完整覆盖批准源首尾全部自然日期，含0源日、退市股票及2020前数据；selected_dates仅扣同operation已核完整日期。
+3. 本批实现§4.2.3最小活动reader/require及固定五状态，两个job每个limit=2。入口和首次提升前各一次；bootstrap own_run_id=None，失败立即停止，不等待/取消/重试。真实物化/check和完成结果reader仍第五批实现。
+4. bootstrap注册原批准范围中已确认SSE开市日，包括源0开市日；只新增，不删除，不注册休市/未知。这不是第六批日常注册sensor，正式分区写入仍独立批准。
+5. 每月借现有只读事务，control cursor设置绑定timeout，named cursor固定without hold及5000批量；显式261列、闭开月范围、DATE数组及R+1。不fetchall、不offset、不普通cursor取明细、不累计整月，不更改resource。
+6. 每批先核R+1/字段/日期/严格键序，保存并读回完整片段后释放；只有下一日期或真实EOF关闭日期。遇R+1的当前批在写片段及回调前拒绝，此前完整日期保留。EOF复核selected各日及合计计数，源0也必须有EOF证明。
+7. 完整日记录保存/读回后，同线程同连接同步process；回调异常立即停止fetch。Raw/Silver完成后才统计；半日不发布，0源无旧文件不造空业务文件。
+8. 收尾逐个尝试关闭named/control cursor及事务，再释放主要DuckDB；保留业务/取消原始异常，关闭异常作为附注；仅关闭失败时任务失败。现有resource退出若另抛异常，由本数据集局部包装保留原异常，不改公共resource。
+
+### 17.4 发布与恢复的准确分支
+
+完整源→候选→完整检查→核维护/活动及目标→保存读回intent→原子replace或等价reuse→正式读回→保存读回complete。首次无目标才replace；等价目标reuse；不同目标拒绝。已有候选无intent时按固定路径/完整源/全部字段核验，合法才继续首次意图，非法保留证据并停止。intent一旦存在不得改prior/expected。
+
+目标等于expected时可由源/最终Raw重建必要期望关系并核正式文件后补complete，不要求已被移走的候选仍存在；目标等于prior且候选完整时沿原intent继续；两者都不符则停止。Raw完整Silver未完时从当前已核Raw继续。两层complete与身份未变时复用检查事实，不再扫源261列。
+
+半日失败整日重读；完整日源可复用；记录不得覆盖旧attempt片段。需要来源或业务文件恢复时核原维护窗口；仅统计不访问Prod，窗口过期不阻拦。未知改写、缺文件或缺合法补数凭据时停止，不自动改为旧Prod恢复。统计失败不回滚已发布文件。上述仅bootstrap适用，Tushare日更/历史失败始终新下载。
+
+### 17.5 覆盖、补数及后批交接
+
+prepare/evaluate/write/summarize按§10.5接口实现，复用build_stk_factor_pro_coverage_keys，三侧原代码只映射一次。全局依据文件身份未变复用，月停牌一次规划；先核原完整schema/物理规则，再筛CNY上市区间、北交所边界、仅全天停牌。未知依据返回None；休市有源停止；源4800导入4800为传输成功、覆盖另算，导入4799为传输失败。
+
+完整明细先写、JSON后写，summary从全批准自然日期和当前有效小记录求和，不累加、不因未知给出全范围0缺口。原源/原导入计数与当前补数状态分别核，result/summary写失败不回滚文件；最后重新prepare检查引用失效，至多局部复算，不循环直到稳定。
+
+第四批实现update_after_publication纯内核及结构/SHA/Raw→Silver/audit交叉核验。可信输入固定为CurrentPublication、raw_audit、silver_audit；主流程内部按日期接收不可变tuple，不成为运营配置。DateCoverage仅保存CurrentPublication引用，完整audit由第五批真实DG读取交接，不从JSON id猜passed，不新增audit状态文件或空reader。本地复算已补数日期要求可信发布与已保存引用一致；本轮补数更新接收新发布，允许run/id/SHA变化，不要求等同旧result。缺可信三项时须在Prod读取、旧源恢复、候选提升前拒绝。第四批测试用真实临时文件audit及来源明确的发布输入验证内核，不宣称已验收正式DG事件读取。
+
+### 17.6 逐步验收与成本
+
+按方案八步分别测试后继续。合同/路径/摘要先验收；再测月规划和活动/分区；再测游标；再测两层恢复；再测覆盖/补数；最后串联及独立审计。每项硬口径对账代码、正反测试及证据。测试覆盖§10.4/10.5.5/10.5.6全表，并包括0/4999/5000/5001、跨批同日/同批多日、R−1/R/R+1、未知/合法0停牌、原源0补出、重复补数、统计失败、窗口过期、目标改写、双重清理异常。至少一次真实子进程退出后同operation恢复；已完整日期零重复远程明细，半日整日重读。
+
+资源沿原5000行约9.94MiB净字段、128MiB估算/256MiB余量及单主要DuckDB设置，无新硬限。分别计正常、半日重读、完整源复用、本地统计及最终验收的查询、Parquet/SHA读取、记录/候选/提升数量、临时关系、峰值空间及耗时；月计数/EOF也计入，不能宣称全程序只读一次。汇总一遍小记录，不为统计重扫261列。Prod类型复用既有schema/有界证据，HTTP样本不冒充PG游标实测，不新增真实源请求或5000行压测。
+
+只用临时文件、隔离DuckDB/instance及模拟Prod；受保护测试走既有runner。默认Ruff、本项目致命规则、文档/空白检查及CodeGraph核验通过后独立审计。正式PG、全量bootstrap、分区写入、事件补录均未执行；第四批通过不自动推进第五批。
+
+§17编码补充：export/preflight的staging_root是主入口传入的内部依赖，正式入口不暴露根路径；正常export在同月事务内完成预检，不由入口重复开连接。日历BasisFile.valid只表达文件级可读/schema/身份稳定及不可归属坏行检查；可归属某日的缺失、重复或空开市标志按unknown_by_date仅使对应日未知，不能把无关日期一起置未知。其他三类依据仍执行完整物理规则。全局三类依据的已载入身份允许保存在同连接TEMP小表以复用，随连接释放，不持久化或新增配置。最终停牌非空timing按现行producer保留为盘中，不新增时间格式正则；producer本应转为NULL的空白最终timing列依据异常未知，不推定全天停牌。
+
+§17来源与校验补充：非零日期随游标确认完整后即时处理；源0日期只能真实EOF后确认，因此EOF阶段把待处理末非零日与零日合并升序，不承诺含源0月份的全月回调绝对升序。bootstrap只核四类正式输入文件的消费物理规则；identity producer的seed_latest_code_explainable检查的是仓库种子最新码是否出现在生命周期，不检查本次映射行，本批不引入种子作为第五类统计依据、不修改该正式上游check。
+
+§17清理审计补充：第四批复用的audit_stk_factor_pro_file原finally直接DROP VIEW，若主体字段检查已失败且DROP也失败会掩盖原始错误。本批在同一本数据集纯检查函数保留主体异常并附注清理错误，仅清理失败时仍失败；增加真实临时缺列文件与DROP失败的回归，不变更检查规则或其他数据集。
+
+
+### 17.7 第四批实际验收与后批条件
+
+2026-10-26八步开发完成。最终明确文件清单的整批回归731项通过；新增真实临时DagsterInstance分区注册用例通过（入口文件9项重测通过，其中8项已含整批），独立不同数据集用例共732项。受保护Definitions/资产治理/静态合同仍走原runner，分别1/12/113项通过，合计858项不同用例。没有通过skip/修改预期绕过错误；初次批量命令错误包含受保护Definitions，已按正确入口重测，原执行记录保留。
+
+真实进程在Raw完成、Silver前退出后，新进程同operation恢复：Prod仅5条控制查询、0明细SELECT/0fetch，原完整源和Raw的SHA/mtime不变；第三进程在来源窗口到期、无Prod凭据时，仅本地统计通过。真实临时instance验证只新增已知开市日（含源0），不删除旧键、不注册未知，重复执行键集合不变。纯覆盖计数证明首次日期集合1次、未变重执行0次，result不替换；summary只重写自身，不累加。
+
+独立审计与14项专项反例已核发布Raw绑定、空源身份、诊断相对路径、complete业务摘要/行数和共享audit双异常。月份关系finally释放，全局身份缓存不随批准历史扩大；修后审计未发现新的确定问题。完整成本/测试/逐项对账见[第四批验收](../../reports/stock_factor_pro_batch4_20261026/README.md)。报告明确SQL/SHA与真实物理扫描的区别、小样本观测空间与估算边界，不能外推为全源性能已通过。
+
+第四批具备交付并制定第五批计划的条件。第五批须落实真实DG物化/check及完成结果读取、开始授权/BootstrapContext、日更和历史repair装配、首次人工补数及事件持久后调用统计更新。第四批没有空reader占位，也没有提前接正式Definitions；正式Prod范围/窗口/月R/timeout和磁盘、正式写入/分区/事件仍各自批准。本批提交不包含正式执行，不自动推进第五批。

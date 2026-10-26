@@ -1,0 +1,61 @@
+{
+  "notes": [
+    "SQL counts are statements, not physical scans",
+    "peak is observed retained bytes at atomic-save boundaries; not RSS or whole execution transient peak"
+  ],
+  "results": {
+    "failure_then_restore": {
+      "atomic_replace_calls": 10,
+      "copy_sql": 3,
+      "detail_queries": 1,
+      "duckdb_sql": 453,
+      "elapsed_seconds": 1.548493,
+      "fetch_calls": 2,
+      "peak_bytes_at_atomic_boundaries": 180941,
+      "prod_connections": 2,
+      "read_parquet_sql": 32,
+      "retained_bytes": 180941
+    },
+    "failure_then_restore_last_readback": {
+      "duckdb_sql": 2,
+      "elapsed_seconds": 0.001476,
+      "read_parquet_sql": 2
+    },
+    "failure_then_restore_local_replay": {
+      "atomic_replace_calls": 1,
+      "detail_queries": 0,
+      "duckdb_sql": 180,
+      "elapsed_seconds": 0.28931,
+      "peak_bytes_at_atomic_boundaries": 181927,
+      "prod_connections": 0,
+      "read_parquet_sql": 5
+    },
+    "normal": {
+      "atomic_replace_calls": 10,
+      "copy_sql": 3,
+      "detail_queries": 1,
+      "duckdb_sql": 394,
+      "elapsed_seconds": 1.537715,
+      "fetch_calls": 2,
+      "peak_bytes_at_atomic_boundaries": 180941,
+      "prod_connections": 1,
+      "read_parquet_sql": 27,
+      "retained_bytes": 180941
+    },
+    "normal_last_readback": {
+      "duckdb_sql": 2,
+      "elapsed_seconds": 0.001267,
+      "read_parquet_sql": 2
+    },
+    "normal_local_replay": {
+      "atomic_replace_calls": 1,
+      "detail_queries": 0,
+      "duckdb_sql": 180,
+      "elapsed_seconds": 0.261743,
+      "peak_bytes_at_atomic_boundaries": 181927,
+      "prod_connections": 0,
+      "read_parquet_sql": 5
+    }
+  },
+  "scope": "synthetic one stock, one day, 261 fields; no real source"
+}

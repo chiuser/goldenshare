@@ -180,6 +180,7 @@ def audit_stk_factor_pro_file(
     connection.execute(
         f"CREATE OR REPLACE TEMP VIEW {actual} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
     )
+    primary = None
     try:
         rows, schema = require_factor_relation(
             connection, actual, target_trade_date=target_trade_date, layer=layer
@@ -243,5 +244,13 @@ def audit_stk_factor_pro_file(
             passed,
             saved_diagnostics,
         )
+    except BaseException as error:
+        primary = error
+        raise
     finally:
-        connection.execute(f"DROP VIEW IF EXISTS {actual}")
+        try:
+            connection.execute(f"DROP VIEW IF EXISTS {actual}")
+        except BaseException as cleanup:
+            if primary is None:
+                raise
+            primary.add_note(f"技术因子文件检查清理同时失败：{type(cleanup).__name__}")

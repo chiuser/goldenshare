@@ -129,3 +129,48 @@ def build_stk_factor_pro_coverage_keys(
         (),
         "已按上市、全天停牌和有效身份计算覆盖",
     )
+
+
+def read_stk_factor_pro_other_active_runs(instance, *, own_run_id=None):
+    """Two bounded queries; bootstrap has no own Dagster run to exclude."""
+    import dagster as dg
+
+    from orchestrator.defs.run_contracts.stk_factor_pro import (
+        STK_FACTOR_PRO_ACTIVE_RUN_STATUSES,
+        STK_FACTOR_PRO_WRITE_JOB_NAMES,
+    )
+
+    active = []
+    for name in STK_FACTOR_PRO_WRITE_JOB_NAMES:
+        records = instance.get_run_records(
+            filters=dg.RunsFilter(
+                job_name=name, statuses=STK_FACTOR_PRO_ACTIVE_RUN_STATUSES
+            ),
+            limit=2,
+        )
+        active.extend(
+            record.dagster_run
+            for record in records
+            if record.dagster_run.run_id != own_run_id
+        )
+    return tuple(sorted(active, key=lambda run: (run.job_name, run.run_id)))
+
+
+def require_stk_factor_pro_no_other_active_runs(instance, *, own_run_id=None):
+    import dagster as dg
+
+    try:
+        active = read_stk_factor_pro_other_active_runs(instance, own_run_id=own_run_id)
+    except Exception as error:
+        raise dg.Failure(
+            "无法确认股票技术因子任务状态；保持自动更新停止，核实后重新发起",
+            allow_retries=False,
+        ) from error
+    if active:
+        sample = ", ".join(
+            f"{run.job_name}/{run.run_id}/{run.status.value}" for run in active
+        )
+        raise dg.Failure(
+            f"存在其他股票技术因子任务：{sample}；保持自动更新停止，处理完活动任务后重新发起",
+            allow_retries=False,
+        )

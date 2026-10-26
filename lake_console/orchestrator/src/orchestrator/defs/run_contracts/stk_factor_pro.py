@@ -31,6 +31,13 @@ STK_FACTOR_PRO_WRITE_JOB_NAMES = (
     STK_FACTOR_PRO_UPDATE_JOB_NAME,
     STK_FACTOR_PRO_REPAIR_JOB_NAME,
 )
+STK_FACTOR_PRO_ACTIVE_RUN_STATUSES = (
+    dg.DagsterRunStatus.NOT_STARTED,
+    dg.DagsterRunStatus.QUEUED,
+    dg.DagsterRunStatus.STARTING,
+    dg.DagsterRunStatus.STARTED,
+    dg.DagsterRunStatus.CANCELING,
+)
 STK_FACTOR_PRO_PARTITIONS = "cn_a_stock_factor_pro_trade_days"
 STK_FACTOR_PRO_UPDATE_SENSOR_NAME = "raw_tushare_stk_factor_pro_update_job_sensor"
 STK_FACTOR_PRO_PARTITION_SENSOR_NAME = "stock_factor_pro_trade_day_sensor"
@@ -1641,6 +1648,9 @@ def stk_factor_pro_record_to_dict(record: object):
     if type(record) is datetime:
         _instant(record)
         return record.isoformat(timespec="microseconds")
+    if isinstance(record, Path):
+        _bootstrap_path_text(record.as_posix())
+        return record.as_posix()
     if is_dataclass(record) and not isinstance(record, type):
         return {
             field.name: stk_factor_pro_record_to_dict(getattr(record, field.name))
@@ -1694,6 +1704,9 @@ def _parse_record_value(annotation, value):
         if parsed.isoformat(timespec="microseconds") != value:
             raise ValueError("历史JSON时刻必须固定微秒和+08:00")
         return parsed
+    if annotation is Path:
+        _bootstrap_path_text(value)
+        return Path(value)
     if isinstance(annotation, type) and is_dataclass(annotation):
         return parse_stk_factor_pro_record(annotation, value)
     if annotation in (str, int, float, bool):
@@ -1716,4 +1729,1333 @@ def parse_stk_factor_pro_record(record_type: type, value: dict):
             field.name: _parse_record_value(hints[field.name], value[field.name])
             for field in definitions
         }
+    )
+
+
+# Bootstrap records describe one approved operation. They deliberately do not
+# extend the run-scoped day/history publication contract.
+CoverageInputKind = Literal["calendar", "lifecycle", "identity", "suspend"]
+_BOOTSTRAP_INPUT_KINDS = ("calendar", "identity", "lifecycle", "suspend")
+_EMPTY_CONTENT_SHA256 = hashlib.sha256(b"").hexdigest()
+
+
+def _bootstrap_text(value: object) -> None:
+    if type(value) is not str or not value.strip() or "\x00" in value:
+        raise ValueError("bootstrap文本必须非空且不能含NUL")
+
+
+def _bootstrap_bool(value: object) -> None:
+    if type(value) is not bool:
+        raise ValueError("bootstrap标志必须是精确bool")
+
+
+def _bootstrap_path_text(value: object) -> None:
+    if (
+        type(value) is not str
+        or not value
+        or "\x00" in value
+        or "\\" in value
+        or ".." in PurePosixPath(value).parts
+        or PurePosixPath(value).as_posix() != value
+    ):
+        raise ValueError("bootstrap路径必须是规范的安全POSIX文本")
+
+
+def _bootstrap_relative(value: object) -> None:
+    _bootstrap_path_text(value)
+    if PurePosixPath(value).is_absolute() or value == ".":
+        raise ValueError("bootstrap引用必须是受控相对路径")
+
+
+def _bootstrap_attempt(value: object) -> None:
+    if type(value) is not str or re.fullmatch(r"[0-9a-f]{32}", value) is None:
+        raise ValueError("bootstrap attempt_id必须是32位小写hex")
+
+
+def _bootstrap_dates(value: object) -> None:
+    if (
+        type(value) is not tuple
+        or any(type(day) is not date for day in value)
+        or tuple(sorted(set(value))) != value
+    ):
+        raise ValueError("bootstrap日期必须为升序去重date元组")
+
+
+def _bootstrap_codes(value: object, *, count: int | None = None) -> None:
+    _sample(value, count=count)
+    for code in value:
+        _code(code)
+
+
+def _bootstrap_code_sequence(value: object) -> None:
+    if type(value) is not tuple or tuple(sorted(set(value))) != value:
+        raise ValueError("bootstrap代码清单必须是升序唯一元组")
+    for code in value:
+        _code(code)
+
+
+def _bootstrap_source_schema(value: object) -> None:
+    if type(value) is not tuple or len(value) != len(STK_FACTOR_PRO_SOURCE_COLUMNS):
+        raise ValueError("bootstrap源schema必须包含完整261字段")
+    for expected, column in zip(STK_FACTOR_PRO_SOURCE_COLUMNS, value, strict=True):
+        if (
+            type(column) is not tuple
+            or len(column) != 3
+            or column[0] != expected
+            or type(column[0]) is not str
+            or type(column[2]) is not bool
+        ):
+            raise ValueError("bootstrap源schema字段顺序/类型/nullable错误")
+        _bootstrap_text(column[1])
+
+
+def _bootstrap_schema(value: object) -> StkFactorProLayer:
+    for layer, column_types in (
+        ("raw", STK_FACTOR_PRO_RAW_COLUMN_TYPES),
+        ("silver", STK_FACTOR_PRO_SILVER_COLUMN_TYPES),
+    ):
+        expected = tuple(column_types.items())
+        if (
+            type(value) is tuple
+            and value == expected
+            and all(
+                type(item) is tuple
+                and len(item) == 2
+                and all(type(part) is str for part in item)
+                for item in value
+            )
+        ):
+            return layer
+    raise ValueError("bootstrap文件schema必须是完整有序Raw或Silver合同")
+
+
+def _bootstrap_optional_count(value: object) -> None:
+    if value is not None:
+        _count(value)
+
+
+def _bootstrap_basis_files(value: object, *, day: date | None = None) -> None:
+    _tuple(value, StkFactorProBootstrapBasisFile)
+    keys = tuple((item.kind, item.trade_date or date.min) for item in value)
+    if keys != tuple(sorted(set(keys))):
+        raise ValueError("bootstrap依据必须按种类/日期升序唯一")
+    if day is not None and any(
+        item.kind == "suspend" and item.trade_date != day for item in value
+    ):
+        raise ValueError("bootstrap日结果不能引用其他日期停牌")
+
+
+def _bootstrap_unknown_kinds(value: object) -> None:
+    if (
+        type(value) is not tuple
+        or any(
+            type(kind) is not str or kind not in _BOOTSTRAP_INPUT_KINDS
+            for kind in value
+        )
+        or tuple(sorted(set(value))) != value
+    ):
+        raise ValueError("bootstrap未知依据种类必须是固定四类的升序唯一元组")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProFragment:
+    relative_path: str
+    file_sha256: str
+    content_sha256: str
+    schema_content_digest: str
+    row_count: int
+    observed_schema: tuple[tuple[str, str], ...]
+    min_trade_date: date | None
+    max_trade_date: date | None
+    first_code: str | None
+    last_code: str | None
+
+    def __post_init__(self) -> None:
+        _bootstrap_relative(self.relative_path)
+        for digest in (
+            self.file_sha256,
+            self.content_sha256,
+            self.schema_content_digest,
+        ):
+            _digest(digest)
+        _count(self.row_count)
+        layer = _bootstrap_schema(self.observed_schema)
+        if self.schema_content_digest != stk_factor_pro_schema_digest(layer):
+            raise ValueError("bootstrap片段schema摘要不符")
+        bounds = (
+            self.min_trade_date,
+            self.max_trade_date,
+            self.first_code,
+            self.last_code,
+        )
+        if self.row_count == 0:
+            if (
+                any(item is not None for item in bounds)
+                or self.content_sha256 != _EMPTY_CONTENT_SHA256
+            ):
+                raise ValueError("bootstrap空片段边界/空内容摘要不符")
+        else:
+            _day(self.min_trade_date)
+            _day(self.max_trade_date)
+            _code(self.first_code)
+            _code(self.last_code)
+            if self.min_trade_date > self.max_trade_date or (
+                self.min_trade_date == self.max_trade_date
+                and self.first_code > self.last_code
+            ):
+                raise ValueError("bootstrap片段首尾业务键逆序")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProSourceIdentity:
+    host: str
+    port: int
+    database: str
+    schema: str
+    table: str
+    columns: tuple[tuple[str, str, bool], ...]
+    contract_content_digest: str
+
+    def __post_init__(self) -> None:
+        _bootstrap_text(self.host)
+        _bootstrap_text(self.database)
+        if type(self.port) is not int or not 1 <= self.port <= 65535:
+            raise ValueError("bootstrap源端口必须为1至65535")
+        if self.schema != "raw_tushare" or self.table != "stk_factor_pro":
+            raise ValueError("bootstrap来源只能是raw_tushare.stk_factor_pro")
+        _bootstrap_source_schema(self.columns)
+        _digest(self.contract_content_digest)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapMonthLimit:
+    month_start: date
+    month_end_exclusive: date
+    row_upper_bound: int
+
+    def __post_init__(self) -> None:
+        _day(self.month_start)
+        _day(self.month_end_exclusive)
+        _count(self.row_upper_bound)
+        if self.month_start >= self.month_end_exclusive or (
+            self.month_start.year,
+            self.month_start.month,
+        ) != (
+            (self.month_end_exclusive - timedelta(days=1)).year,
+            (self.month_end_exclusive - timedelta(days=1)).month,
+        ):
+            raise ValueError("bootstrap窗口必须是同一自然月内的非空闭开范围")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapApproval:
+    record_version: int
+    operation_id: str
+    start_trade_date: date
+    end_trade_date: date
+    source_cutoff_trade_date: date
+    source_maintenance_start: datetime
+    source_maintenance_end: datetime
+    source_identity_digest: str
+    contract_content_digest: str
+    approved_daily_counts_ref: str
+    approved_daily_counts_digest: str
+    approved_source_evidence_ref: str
+    approved_source_evidence_digest: str
+    month_limits: tuple[StkFactorProBootstrapMonthLimit, ...]
+    source_statement_timeout_ms: int
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        for day in (
+            self.start_trade_date,
+            self.end_trade_date,
+            self.source_cutoff_trade_date,
+        ):
+            _day(day)
+        if (
+            self.start_trade_date > self.end_trade_date
+            or self.source_cutoff_trade_date != self.end_trade_date
+        ):
+            raise ValueError("bootstrap批准首尾或截止日期不符")
+        _instant(self.source_maintenance_start)
+        _instant(self.source_maintenance_end)
+        if self.source_maintenance_start >= self.source_maintenance_end:
+            raise ValueError("bootstrap来源维护窗口必须先开始后结束")
+        for digest in (
+            self.source_identity_digest,
+            self.contract_content_digest,
+            self.approved_daily_counts_digest,
+            self.approved_source_evidence_digest,
+        ):
+            _digest(digest)
+        _bootstrap_relative(self.approved_daily_counts_ref)
+        _bootstrap_relative(self.approved_source_evidence_ref)
+        _tuple(self.month_limits, StkFactorProBootstrapMonthLimit)
+        if (
+            not self.month_limits
+            or self.month_limits[0].month_start != self.start_trade_date
+            or self.month_limits[-1].month_end_exclusive
+            != self.end_trade_date + timedelta(days=1)
+        ):
+            raise ValueError("bootstrap月份必须完整覆盖批准实际首尾")
+        for previous, current in zip(self.month_limits, self.month_limits[1:]):
+            if (
+                previous.month_end_exclusive != current.month_start
+                or current.month_start.day != 1
+            ):
+                raise ValueError("bootstrap月份存在缺月、重叠或非自然月切分")
+        if (
+            type(self.source_statement_timeout_ms) is not int
+            or self.source_statement_timeout_ms <= 0
+        ):
+            raise ValueError("bootstrap语句超时必须是正精确整数")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapSourceEvidence:
+    record_version: int
+    operation_id: str
+    source_identity: StkFactorProSourceIdentity
+    source_identity_digest: str
+    contract_content_digest: str
+    min_trade_date: date
+    max_trade_date: date
+    total_rows: int
+    approved_daily_counts_ref: str
+    approved_daily_counts_digest: str
+    source_maintenance_start: datetime
+    source_maintenance_end: datetime
+    maintenance_statement: str
+    verified_at: datetime
+    source_sample_ref: str
+    source_sample_file_sha256: str
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        if not isinstance(self.source_identity, StkFactorProSourceIdentity):
+            raise TypeError("bootstrap来源证据缺完整来源身份")
+        for digest in (
+            self.source_identity_digest,
+            self.contract_content_digest,
+            self.approved_daily_counts_digest,
+            self.source_sample_file_sha256,
+        ):
+            _digest(digest)
+        if (
+            self.source_identity_digest
+            != stk_factor_pro_bootstrap_source_identity_digest(self.source_identity)
+            or self.contract_content_digest
+            != self.source_identity.contract_content_digest
+        ):
+            raise ValueError("bootstrap来源证据与完整身份摘要不符")
+        _day(self.min_trade_date)
+        _day(self.max_trade_date)
+        _count(self.total_rows)
+        if self.min_trade_date > self.max_trade_date or self.total_rows == 0:
+            raise ValueError("bootstrap来源必须有真实非空首尾范围")
+        _bootstrap_relative(self.approved_daily_counts_ref)
+        _bootstrap_relative(self.source_sample_ref)
+        _bootstrap_text(self.maintenance_statement)
+        for instant in (
+            self.source_maintenance_start,
+            self.source_maintenance_end,
+            self.verified_at,
+        ):
+            _instant(instant)
+        if self.source_maintenance_start >= self.source_maintenance_end:
+            raise ValueError("bootstrap来源证据维护窗口逆序")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapSourceSample:
+    record_version: int
+    operation_id: str
+    source_identity_digest: str
+    contract_content_digest: str
+    sample_date: date
+    sample_codes: tuple[str, ...]
+    row_limit: int
+    request_columns: tuple[str, ...]
+    returned_rows: int
+    observed_source_schema: tuple[tuple[str, str, bool], ...]
+    passed: bool
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _digest(self.source_identity_digest)
+        _digest(self.contract_content_digest)
+        _day(self.sample_date)
+        _bootstrap_code_sequence(self.sample_codes)
+        if type(self.row_limit) is not int or self.row_limit <= 0:
+            raise ValueError("bootstrap固定样本上限必须是正精确整数")
+        _count(self.returned_rows)
+        if self.returned_rows > self.row_limit:
+            raise ValueError("bootstrap样本行数超过批准上限")
+        if (
+            type(self.request_columns) is not tuple
+            or self.request_columns != STK_FACTOR_PRO_SOURCE_COLUMNS
+        ):
+            raise ValueError("bootstrap样本必须请求完整有序261字段")
+        _bootstrap_source_schema(self.observed_source_schema)
+        _bootstrap_bool(self.passed)
+        _instant(self.verified_at)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapFragmentRef:
+    fragment_no: int
+    attempt_id: str
+    fragment: StkFactorProFragment
+
+    def __post_init__(self) -> None:
+        if type(self.fragment_no) is not int or self.fragment_no < 1:
+            raise ValueError("bootstrap片段号必须为正精确整数")
+        _bootstrap_attempt(self.attempt_id)
+        if not isinstance(self.fragment, StkFactorProFragment):
+            raise TypeError("bootstrap引用缺完整片段")
+        pattern = rf"source/month=([0-9]{{4}}-[0-9]{{2}})/attempt_id={self.attempt_id}/fragment-{self.fragment_no:06d}\.parquet"
+        if re.fullmatch(pattern, self.fragment.relative_path) is None:
+            raise ValueError("bootstrap片段路径与attempt/编号不符")
+        if self.fragment.schema_content_digest != stk_factor_pro_schema_digest("raw"):
+            raise ValueError("bootstrap源片段必须是Raw schema")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapSourceComplete:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    source_identity_digest: str
+    contract_content_digest: str
+    source_cutoff_trade_date: date
+    month_start: date
+    month_end_exclusive: date
+    attempt_id: str
+    query_scope_digest: str
+    selected_dates: tuple[date, ...]
+    row_upper_bound: int
+    trade_date: date
+    approved_rows: int
+    actual_rows: int
+    fragments: tuple[StkFactorProBootstrapFragmentRef, ...]
+    fragments_manifest_digest: str
+    schema_content_digest: str
+    date_content_sha256: str
+    date_content_version: int
+    close_reason: Literal["next_date", "eof"]
+    next_trade_date: date | None
+    source_empty: bool
+    source_complete_digest: str
+    completed_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        _version(self.date_content_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        for digest in (
+            self.approval_digest,
+            self.source_identity_digest,
+            self.contract_content_digest,
+            self.query_scope_digest,
+            self.fragments_manifest_digest,
+            self.schema_content_digest,
+            self.date_content_sha256,
+            self.source_complete_digest,
+        ):
+            _digest(digest)
+        _bootstrap_attempt(self.attempt_id)
+        _day(self.source_cutoff_trade_date)
+        month = StkFactorProBootstrapMonthLimit(
+            self.month_start, self.month_end_exclusive, self.row_upper_bound
+        )
+        _day(self.trade_date)
+        _bootstrap_dates(self.selected_dates)
+        if (
+            not self.selected_dates
+            or self.trade_date not in self.selected_dates
+            or any(
+                not month.month_start <= day < month.month_end_exclusive
+                or day > self.source_cutoff_trade_date
+                for day in self.selected_dates
+            )
+        ):
+            raise ValueError("bootstrap完整日不在本次已选批准月范围")
+        _count(self.approved_rows)
+        _count(self.actual_rows)
+        if (
+            self.actual_rows != self.approved_rows
+            or self.actual_rows > self.row_upper_bound
+        ):
+            raise ValueError("bootstrap完整日实际/批准计数或月上限不符")
+        _tuple(self.fragments, StkFactorProBootstrapFragmentRef)
+        numbers = tuple(ref.fragment_no for ref in self.fragments)
+        if numbers != tuple(sorted(set(numbers))):
+            raise ValueError("bootstrap完整日片段号必须升序唯一")
+        for ref in self.fragments:
+            fragment = ref.fragment
+            if (
+                ref.attempt_id != self.attempt_id
+                or not fragment.relative_path.startswith(
+                    f"source/month={self.month_start:%Y-%m}/"
+                )
+                or fragment.min_trade_date is None
+                or fragment.min_trade_date < self.month_start
+                or fragment.max_trade_date >= self.month_end_exclusive
+                or not fragment.min_trade_date
+                <= self.trade_date
+                <= fragment.max_trade_date
+            ):
+                raise ValueError("bootstrap完整日引用了其他attempt/月或不含本日的片段")
+        if self.schema_content_digest != stk_factor_pro_schema_digest("raw"):
+            raise ValueError("bootstrap完整日schema必须为Raw")
+        _bootstrap_bool(self.source_empty)
+        if self.actual_rows == 0:
+            if (
+                not self.source_empty
+                or self.fragments
+                or self.close_reason != "eof"
+                or self.next_trade_date is not None
+                or self.date_content_sha256 != _EMPTY_CONTENT_SHA256
+            ):
+                raise ValueError("bootstrap完整空源必须有真实EOF和空内容")
+        elif self.source_empty or not self.fragments:
+            raise ValueError("bootstrap非空完整日必须含源片段")
+        if self.close_reason == "next_date":
+            _day(self.next_trade_date)
+            if (
+                self.next_trade_date <= self.trade_date
+                or self.next_trade_date not in self.selected_dates
+            ):
+                raise ValueError("bootstrap下一日期必须严格晚于本日且已选")
+        elif self.close_reason != "eof" or self.next_trade_date is not None:
+            raise ValueError("bootstrap完整日关闭依据不符")
+        _instant(self.completed_at)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapMonthResult:
+    month: StkFactorProBootstrapMonthLimit
+    attempt_id: str
+    source_rows: int
+    fragments: tuple[StkFactorProFragment, ...]
+    complete_dates: tuple[date, ...]
+    pending_dates: tuple[date, ...]
+    file_audits: tuple[StkFactorProFileAudit, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.month, StkFactorProBootstrapMonthLimit):
+            raise TypeError("bootstrap月结果缺批准月窗口")
+        _bootstrap_attempt(self.attempt_id)
+        _count(self.source_rows)
+        _tuple(self.fragments, StkFactorProFragment)
+        _tuple(self.file_audits, StkFactorProFileAudit)
+        for index, fragment in enumerate(self.fragments, start=1):
+            StkFactorProBootstrapFragmentRef(index, self.attempt_id, fragment)
+            if (
+                fragment.row_count == 0
+                or fragment.min_trade_date < self.month.month_start
+                or fragment.max_trade_date >= self.month.month_end_exclusive
+                or not fragment.relative_path.startswith(
+                    f"source/month={self.month.month_start:%Y-%m}/"
+                )
+            ):
+                raise ValueError("bootstrap月结果片段日期/月或行数不符")
+        for dates in (self.complete_dates, self.pending_dates):
+            _bootstrap_dates(dates)
+            if any(
+                not self.month.month_start <= day < self.month.month_end_exclusive
+                for day in dates
+            ):
+                raise ValueError("bootstrap月结果日期越界")
+        if set(self.complete_dates) & set(self.pending_dates):
+            raise ValueError("bootstrap月结果完成/未完成日期不能重叠")
+        if (
+            self.source_rows > self.month.row_upper_bound
+            or sum(item.row_count for item in self.fragments) != self.source_rows
+        ):
+            raise ValueError("bootstrap月结果片段行数或月上限不符")
+        if any(
+            not audit.passed or audit.trade_date not in self.complete_dates
+            for audit in self.file_audits
+        ):
+            raise ValueError("bootstrap月结果不能含未完整日期或失败audit")
+        audit_keys = tuple(
+            (audit.trade_date, audit.layer) for audit in self.file_audits
+        )
+        if audit_keys != tuple(sorted(set(audit_keys))):
+            raise ValueError("bootstrap月结果audit必须按日期/层升序唯一")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapDateResult:
+    trade_date: date
+    source_complete_digest: str
+    raw_audit: StkFactorProFileAudit | None
+    silver_audit: StkFactorProFileAudit | None
+    coverage: StkFactorProBootstrapDateCoverage | None
+
+    def __post_init__(self) -> None:
+        _day(self.trade_date)
+        _digest(self.source_complete_digest)
+        if (self.raw_audit is None) != (self.silver_audit is None):
+            raise ValueError("bootstrap完整日结果必须同时具有两层audit")
+        for layer, audit in (("raw", self.raw_audit), ("silver", self.silver_audit)):
+            if audit is not None and (
+                not isinstance(audit, StkFactorProFileAudit)
+                or not audit.passed
+                or audit.layer != layer
+                or audit.trade_date != self.trade_date
+            ):
+                raise ValueError("bootstrap日结果audit不通过或日期/层不符")
+        if self.coverage is not None:
+            if (
+                not isinstance(self.coverage, StkFactorProBootstrapDateCoverage)
+                or self.coverage.trade_date != self.trade_date
+                or self.coverage.source_complete_digest != self.source_complete_digest
+            ):
+                raise ValueError("bootstrap日结果与覆盖记录不符")
+            if self.coverage.raw_rows > 0 and self.raw_audit is None:
+                raise ValueError("bootstrap有业务文件的日结果缺两层audit")
+            if self.raw_audit is not None and (
+                self.raw_audit.row_count != self.coverage.raw_rows
+                or self.silver_audit.row_count != self.coverage.silver_rows
+                or self.raw_audit.file_sha256 != self.coverage.raw_file_sha256
+                or self.silver_audit.file_sha256 != self.coverage.silver_file_sha256
+            ):
+                raise ValueError("bootstrap日结果两层身份/行数与覆盖不符")
+        elif self.raw_audit is not None:
+            raise ValueError("bootstrap有源行的完整日结果缺覆盖记录")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapPublicationIntent:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    trade_date: date
+    layer: Literal["raw", "silver"]
+    source_complete_digest: str
+    raw_file_sha256: str | None
+    mode: Literal["reuse", "replace"]
+    prior_file_sha256: str | None
+    candidate: StkFactorProFragment
+    expected_file_sha256: str
+    intent_digest: str
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _day(self.trade_date)
+        for digest in (
+            self.approval_digest,
+            self.source_complete_digest,
+            self.expected_file_sha256,
+            self.intent_digest,
+        ):
+            _digest(digest)
+        _optional_digest(self.raw_file_sha256)
+        _optional_digest(self.prior_file_sha256)
+        if self.layer not in ("raw", "silver") or (self.layer == "raw") != (
+            self.raw_file_sha256 is None
+        ):
+            raise ValueError("bootstrap发布层与来源Raw绑定不符")
+        if (
+            not isinstance(self.candidate, StkFactorProFragment)
+            or self.candidate.row_count == 0
+            or self.candidate.relative_path
+            != f"candidates/{self.trade_date.isoformat()}/{self.layer}/part-000.parquet"
+            or self.candidate.min_trade_date != self.trade_date
+            or self.candidate.max_trade_date != self.trade_date
+            or self.candidate.schema_content_digest
+            != stk_factor_pro_schema_digest(self.layer)
+        ):
+            raise ValueError("bootstrap发布候选路径/日期/层或行数不符")
+        if self.mode == "replace":
+            if (
+                self.prior_file_sha256 is not None
+                or self.expected_file_sha256 != self.candidate.file_sha256
+            ):
+                raise ValueError("bootstrap replace只能创建没有旧目标的文件")
+        elif (
+            self.mode != "reuse"
+            or self.prior_file_sha256 is None
+            or self.expected_file_sha256 != self.prior_file_sha256
+        ):
+            raise ValueError("bootstrap reuse必须绑定现有等价目标")
+        _instant(self.created_at)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapPublicationComplete:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    trade_date: date
+    layer: Literal["raw", "silver"]
+    source_complete_digest: str
+    intent_relative_path: str
+    intent_file_sha256: str
+    intent_digest: str
+    actual_file_sha256: str
+    actual_rows: int
+    schema_content_digest: str
+    content_sha256: str
+    content_version: int
+    audit: StkFactorProFileAudit
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        _version(self.content_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _day(self.trade_date)
+        for digest in (
+            self.approval_digest,
+            self.source_complete_digest,
+            self.intent_file_sha256,
+            self.intent_digest,
+            self.actual_file_sha256,
+            self.schema_content_digest,
+            self.content_sha256,
+        ):
+            _digest(digest)
+        _count(self.actual_rows)
+        if (
+            self.layer not in ("raw", "silver")
+            or self.intent_relative_path
+            != f"publication/{self.trade_date.isoformat()}/{self.layer}/intent.json"
+        ):
+            raise ValueError("bootstrap完成记录的意图路径/层不符")
+        if self.schema_content_digest != stk_factor_pro_schema_digest(self.layer):
+            raise ValueError("bootstrap完成记录schema摘要不符")
+        if (
+            not isinstance(self.audit, StkFactorProFileAudit)
+            or not self.audit.passed
+            or self.audit.trade_date != self.trade_date
+            or self.audit.layer != self.layer
+            or self.audit.file_sha256 != self.actual_file_sha256
+            or self.audit.row_count != self.actual_rows
+            or self.actual_rows == 0
+        ):
+            raise ValueError("bootstrap完成记录必须对应本日有效非空正式audit")
+        _instant(self.verified_at)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapBasisFile:
+    kind: CoverageInputKind
+    trade_date: date | None
+    file_sha256: str | None
+    schema_content_digest: str | None
+    row_count: int | None
+    valid: bool
+
+    def __post_init__(self) -> None:
+        if self.kind not in _BOOTSTRAP_INPUT_KINDS:
+            raise ValueError("bootstrap覆盖依据种类错误")
+        if self.kind == "suspend":
+            _day(self.trade_date)
+        elif self.trade_date is not None:
+            raise ValueError("bootstrap全局依据不接受日期")
+        _optional_digest(self.file_sha256)
+        _optional_digest(self.schema_content_digest)
+        _bootstrap_optional_count(self.row_count)
+        _bootstrap_bool(self.valid)
+        if self.valid and any(
+            item is None
+            for item in (self.file_sha256, self.schema_content_digest, self.row_count)
+        ):
+            raise ValueError("bootstrap有效依据缺文件身份/schema/行数")
+        if self.file_sha256 is None and (
+            self.schema_content_digest is not None or self.row_count is not None
+        ):
+            raise ValueError("bootstrap缺文件不能有schema/行数")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapCoverageInputs:
+    operation_id: str
+    month: StkFactorProBootstrapMonthLimit
+    natural_dates: tuple[date, ...]
+    open_dates: tuple[date, ...]
+    closed_dates: tuple[date, ...]
+    calendar_unknown_dates: tuple[date, ...]
+    basis_files: tuple[StkFactorProBootstrapBasisFile, ...]
+    unknown_by_date: tuple[tuple[date, tuple[str, ...], str], ...]
+    input_digest: str
+
+    def __post_init__(self) -> None:
+        validate_stk_factor_pro_identifier(self.operation_id)
+        if not isinstance(self.month, StkFactorProBootstrapMonthLimit):
+            raise TypeError("bootstrap月覆盖缺月范围")
+        for dates in (
+            self.natural_dates,
+            self.open_dates,
+            self.closed_dates,
+            self.calendar_unknown_dates,
+        ):
+            _bootstrap_dates(dates)
+        expected = tuple(
+            self.month.month_start + timedelta(days=index)
+            for index in range(
+                (self.month.month_end_exclusive - self.month.month_start).days
+            )
+        )
+        classified = self.open_dates + self.closed_dates + self.calendar_unknown_dates
+        if (
+            self.natural_dates != expected
+            or len(set(classified)) != len(classified)
+            or set(classified) != set(expected)
+        ):
+            raise ValueError("bootstrap本月自然日分类必须完整且互斥")
+        _bootstrap_basis_files(self.basis_files)
+        if any(
+            item.trade_date is not None and item.trade_date not in expected
+            for item in self.basis_files
+        ):
+            raise ValueError("bootstrap月依据日期越界")
+        _bootstrap_unknown_rows(self.unknown_by_date, set(expected))
+        _digest(self.input_digest)
+
+
+def _bootstrap_unknown_rows(value: object, allowed: set[date]) -> None:
+    if type(value) is not tuple:
+        raise ValueError("bootstrap未知日期必须是元组")
+    dates = []
+    for item in value:
+        if type(item) is not tuple or len(item) != 3:
+            raise ValueError("bootstrap未知日期必须含日期/种类/原因")
+        day, kinds, reason = item
+        _day(day)
+        _bootstrap_unknown_kinds(kinds)
+        _bootstrap_text(reason)
+        if day not in allowed:
+            raise ValueError("bootstrap未知日期越界")
+        dates.append(day)
+    if dates != sorted(set(dates)):
+        raise ValueError("bootstrap未知日期必须升序唯一")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapCurrentPublication:
+    run_id: str
+    trade_date: date
+    raw_materialization_storage_id: int
+    raw_check_event_storage_id: int
+    silver_materialization_storage_id: int
+    silver_check_event_storage_id: int
+    raw_file_sha256: str
+    silver_file_sha256: str
+    silver_source_raw_sha256: str
+    contract_content_digest: str
+    processing_version: str
+
+    def __post_init__(self) -> None:
+        validate_stk_factor_pro_identifier(self.run_id)
+        _day(self.trade_date)
+        for event_id in (
+            self.raw_materialization_storage_id,
+            self.raw_check_event_storage_id,
+            self.silver_materialization_storage_id,
+            self.silver_check_event_storage_id,
+        ):
+            _optional_id(event_id)
+            if event_id is None:
+                raise ValueError("bootstrap补数发布必须有四个真实事件ID")
+        for digest in (
+            self.raw_file_sha256,
+            self.silver_file_sha256,
+            self.silver_source_raw_sha256,
+            self.contract_content_digest,
+        ):
+            _digest(digest)
+        if (
+            self.silver_source_raw_sha256 != self.raw_file_sha256
+            or self.processing_version != STK_FACTOR_PRO_PROCESSING_VERSION
+        ):
+            raise ValueError("bootstrap补数Silver来源Raw或处理版本不符")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapPublicationBatch:
+    publications: tuple[StkFactorProBootstrapCurrentPublication, ...]
+    incomplete_dates: tuple[date, ...]
+    unchanged_dates: tuple[date, ...]
+
+    def __post_init__(self) -> None:
+        _tuple(self.publications, StkFactorProBootstrapCurrentPublication)
+        published = tuple(item.trade_date for item in self.publications)
+        for dates in (published, self.incomplete_dates, self.unchanged_dates):
+            _bootstrap_dates(dates)
+        combined = published + self.incomplete_dates + self.unchanged_dates
+        if len(set(combined)) != len(combined):
+            raise ValueError("bootstrap补数发布三组日期必须互斥")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapDateCoverage:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    trade_date: date
+    source_rows: int
+    raw_rows: int
+    silver_rows: int
+    raw_physical_code_count: int
+    source_complete_digest: str
+    raw_file_sha256: str | None
+    silver_file_sha256: str | None
+    import_complete: bool
+    source_empty: bool
+    current_publication: StkFactorProBootstrapCurrentPublication | None
+    is_open: bool | None
+    basis_files: tuple[StkFactorProBootstrapBasisFile, ...]
+    unknown_input_kinds: tuple[CoverageInputKind, ...]
+    input_digest: str
+    identity_unmapped_count: int | None
+    identity_ambiguous_count: int | None
+    identity_unmapped_sample_codes: tuple[str, ...]
+    identity_ambiguous_sample_codes: tuple[str, ...]
+    expected_count: int | None
+    actual_count: int | None
+    matched_count: int | None
+    missing_count: int | None
+    extra_count: int | None
+    coverage_complete: bool | None
+    reason: str
+    missing_codes_ref: StkFactorProBootstrapCodesRef | None
+    extra_codes_ref: StkFactorProBootstrapCodesRef | None
+    missing_sample_codes: tuple[str, ...]
+    extra_sample_codes: tuple[str, ...]
+    evaluated_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _day(self.trade_date)
+        for digest in (
+            self.approval_digest,
+            self.source_complete_digest,
+            self.input_digest,
+        ):
+            _digest(digest)
+        for count in (
+            self.source_rows,
+            self.raw_rows,
+            self.silver_rows,
+            self.raw_physical_code_count,
+        ):
+            _count(count)
+        for digest in (self.raw_file_sha256, self.silver_file_sha256):
+            _optional_digest(digest)
+        for flag in (self.import_complete, self.source_empty):
+            _bootstrap_bool(flag)
+        if (
+            not self.import_complete
+            or self.source_empty != (self.source_rows == 0)
+            or self.raw_rows != self.silver_rows
+            or self.raw_physical_code_count > self.raw_rows
+        ):
+            raise ValueError("bootstrap原导入/当前两层行数事实不符")
+        if self.is_open is not None and (
+            type(self.is_open) is not bool or not self.is_open
+        ):
+            raise ValueError("bootstrap日覆盖只允许开市或未知")
+        if (self.raw_file_sha256 is None) != (self.silver_file_sha256 is None) or (
+            self.raw_rows > 0 and self.raw_file_sha256 is None
+        ):
+            raise ValueError("bootstrap当前文件必须有两层身份")
+        if self.current_publication is None:
+            if self.source_rows != self.raw_rows or (
+                self.source_empty and self.raw_file_sha256 is not None
+            ):
+                raise ValueError("bootstrap原导入当前数量必须忠实等于来源")
+        else:
+            current = self.current_publication
+            if (
+                not isinstance(current, StkFactorProBootstrapCurrentPublication)
+                or current.trade_date != self.trade_date
+                or current.raw_file_sha256 != self.raw_file_sha256
+                or current.silver_file_sha256 != self.silver_file_sha256
+            ):
+                raise ValueError("bootstrap补数当前发布与日期/文件不符")
+        _bootstrap_basis_files(self.basis_files, day=self.trade_date)
+        _bootstrap_unknown_kinds(self.unknown_input_kinds)
+        for count, sample in (
+            (self.identity_unmapped_count, self.identity_unmapped_sample_codes),
+            (self.identity_ambiguous_count, self.identity_ambiguous_sample_codes),
+        ):
+            _bootstrap_optional_count(count)
+            _bootstrap_codes(sample, count=count)
+            if count is None and sample:
+                raise ValueError("bootstrap无法核身份时样本必须为空")
+        values = (
+            self.expected_count,
+            self.actual_count,
+            self.matched_count,
+            self.missing_count,
+            self.extra_count,
+        )
+        for count in values:
+            _bootstrap_optional_count(count)
+        if self.coverage_complete is None:
+            if any(count is not None for count in values):
+                raise ValueError("bootstrap未知覆盖不能混入已知集合计数")
+        else:
+            _bootstrap_bool(self.coverage_complete)
+            if (
+                any(count is None for count in values)
+                or self.is_open is not True
+                or self.unknown_input_kinds
+                or self.identity_unmapped_count != 0
+                or self.identity_ambiguous_count != 0
+            ):
+                raise ValueError("bootstrap已知覆盖缺有效输入或完整计数")
+            if (
+                self.expected_count != self.matched_count + self.missing_count
+                or self.actual_count != self.matched_count + self.extra_count
+                or self.coverage_complete != (self.missing_count == 0)
+            ):
+                raise ValueError("bootstrap覆盖集合计数或齐备结论不符")
+        for kind, count, ref, sample in (
+            (
+                "missing",
+                self.missing_count,
+                self.missing_codes_ref,
+                self.missing_sample_codes,
+            ),
+            ("extra", self.extra_count, self.extra_codes_ref, self.extra_sample_codes),
+        ):
+            _bootstrap_codes(sample, count=count)
+            if count is None or count == 0:
+                if ref is not None or sample:
+                    raise ValueError("bootstrap未知/零差集不能有明细或样本")
+            elif (
+                not isinstance(ref, StkFactorProBootstrapCodesRef)
+                or ref.row_count != count
+                or ref.relative_path
+                != f"coverage/{self.trade_date.isoformat()}/input={self.input_digest}/{kind}-codes.parquet"
+            ):
+                raise ValueError("bootstrap差集引用必须匹配日期/输入摘要/数量")
+        _bootstrap_text(self.reason)
+        _instant(self.evaluated_at)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapCoverageSummary:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    start_trade_date: date
+    end_trade_date: date
+    evaluated_at: datetime
+    known_open_dates: tuple[date, ...]
+    known_closed_dates: tuple[date, ...]
+    calendar_unknown_dates: tuple[date, ...]
+    imported_dates: tuple[date, ...]
+    source_empty_dates: tuple[date, ...]
+    import_pending_dates: tuple[date, ...]
+    known_coverage_dates: tuple[date, ...]
+    coverage_unknown_dates: tuple[tuple[date, tuple[CoverageInputKind, ...], str], ...]
+    gap_dates: tuple[date, ...]
+    verified_source_rows: int
+    verified_raw_rows: int
+    verified_silver_rows: int
+    current_raw_rows: int | None
+    current_silver_rows: int | None
+    current_files_unverified_dates: tuple[date, ...]
+    date_result_digests: tuple[tuple[date, str], ...]
+    expected_count_known_dates: int
+    actual_count_known_dates: int
+    matched_count_known_dates: int
+    missing_count_known_dates: int
+    extra_count_known_dates: int
+    all_coverage_determined: bool
+    total_missing_count: int | None
+    all_expected_present: bool | None
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _digest(self.approval_digest)
+        _day(self.start_trade_date)
+        _day(self.end_trade_date)
+        _instant(self.evaluated_at)
+        if self.start_trade_date > self.end_trade_date:
+            raise ValueError("bootstrap汇总日期范围逆序")
+        natural = {
+            self.start_trade_date + timedelta(days=index)
+            for index in range((self.end_trade_date - self.start_trade_date).days + 1)
+        }
+        date_fields = (
+            self.known_open_dates,
+            self.known_closed_dates,
+            self.calendar_unknown_dates,
+            self.imported_dates,
+            self.source_empty_dates,
+            self.import_pending_dates,
+            self.known_coverage_dates,
+            self.gap_dates,
+            self.current_files_unverified_dates,
+        )
+        for dates in date_fields:
+            _bootstrap_dates(dates)
+            if not set(dates) <= natural:
+                raise ValueError("bootstrap汇总日期越界")
+        classified = (
+            self.known_open_dates
+            + self.known_closed_dates
+            + self.calendar_unknown_dates
+        )
+        if len(set(classified)) != len(classified) or set(classified) != natural:
+            raise ValueError("bootstrap汇总自然日分类不完整或重叠")
+        if (
+            not set(self.source_empty_dates) <= set(self.imported_dates)
+            or not set(self.current_files_unverified_dates) <= set(self.imported_dates)
+            or set(self.import_pending_dates)
+            != natural - set(self.known_closed_dates) - set(self.imported_dates)
+        ):
+            raise ValueError("bootstrap汇总原导入/空源/未完成日期不符")
+        _bootstrap_unknown_rows(self.coverage_unknown_dates, natural)
+        unknown_dates = {item[0] for item in self.coverage_unknown_dates}
+        if (
+            not set(self.current_files_unverified_dates) <= unknown_dates
+            or not set(self.known_coverage_dates)
+            <= set(self.known_open_dates) & set(self.imported_dates)
+            or set(self.known_coverage_dates)
+            & (unknown_dates | set(self.current_files_unverified_dates))
+            or not set(self.gap_dates) <= set(self.known_coverage_dates)
+        ):
+            raise ValueError("bootstrap汇总已知/未知覆盖日期不符")
+        for count in (
+            self.verified_source_rows,
+            self.verified_raw_rows,
+            self.verified_silver_rows,
+            self.expected_count_known_dates,
+            self.actual_count_known_dates,
+            self.matched_count_known_dates,
+            self.missing_count_known_dates,
+            self.extra_count_known_dates,
+        ):
+            _count(count)
+        if (
+            not self.verified_source_rows
+            == self.verified_raw_rows
+            == self.verified_silver_rows
+        ):
+            raise ValueError("bootstrap汇总原忠实导入数量不一致")
+        for count in (
+            self.current_raw_rows,
+            self.current_silver_rows,
+            self.total_missing_count,
+        ):
+            _bootstrap_optional_count(count)
+        if self.current_raw_rows != self.current_silver_rows or (
+            (self.import_pending_dates or self.current_files_unverified_dates)
+            and self.current_raw_rows is not None
+        ):
+            raise ValueError("bootstrap汇总当前全范围数量不可确认")
+        if (
+            self.expected_count_known_dates
+            != self.matched_count_known_dates + self.missing_count_known_dates
+            or self.actual_count_known_dates
+            != self.matched_count_known_dates + self.extra_count_known_dates
+        ):
+            raise ValueError("bootstrap汇总集合计数不符")
+        if type(self.date_result_digests) is not tuple:
+            raise ValueError("bootstrap汇总日期摘要必须是元组")
+        digest_dates = []
+        for item in self.date_result_digests:
+            if type(item) is not tuple or len(item) != 2:
+                raise ValueError("bootstrap汇总摘要必须为日期/摘要对")
+            day, digest = item
+            _day(day)
+            _digest(digest)
+            if day not in natural:
+                raise ValueError("bootstrap汇总日期摘要越界")
+            digest_dates.append(day)
+        if digest_dates != sorted(set(digest_dates)):
+            raise ValueError("bootstrap汇总日期摘要必须升序唯一")
+        _bootstrap_bool(self.all_coverage_determined)
+        determined = (
+            not self.calendar_unknown_dates
+            and not self.import_pending_dates
+            and not self.current_files_unverified_dates
+            and set(self.known_open_dates) <= set(self.known_coverage_dates)
+        )
+        if self.all_coverage_determined != determined:
+            raise ValueError("bootstrap汇总全范围可判断标志不符")
+        if determined:
+            _bootstrap_bool(self.all_expected_present)
+            if (
+                self.total_missing_count != self.missing_count_known_dates
+                or self.all_expected_present != (self.total_missing_count == 0)
+            ):
+                raise ValueError("bootstrap汇总全范围缺口结论不符")
+        elif (
+            self.total_missing_count is not None
+            or self.all_expected_present is not None
+        ):
+            raise ValueError("bootstrap部分范围不能产生全范围缺口结论")
+
+
+def stk_factor_pro_bootstrap_source_identity_digest(
+    identity: StkFactorProSourceIdentity,
+) -> str:
+    if not isinstance(identity, StkFactorProSourceIdentity):
+        raise TypeError("bootstrap来源摘要需要完整来源身份")
+    return _business_digest(
+        "stk_factor_pro.bootstrap_source_identity",
+        stk_factor_pro_record_to_dict(identity),
+    )
+
+
+def stk_factor_pro_bootstrap_query_digest(
+    approval: StkFactorProBootstrapApproval,
+    approval_digest: str,
+    month: StkFactorProBootstrapMonthLimit,
+    selected_dates: tuple[date, ...],
+) -> str:
+    if (
+        not isinstance(approval, StkFactorProBootstrapApproval)
+        or not isinstance(month, StkFactorProBootstrapMonthLimit)
+        or month not in approval.month_limits
+    ):
+        raise ValueError("bootstrap查询摘要缺批准月窗口")
+    _digest(approval_digest)
+    _bootstrap_dates(selected_dates)
+    if not selected_dates or any(
+        not month.month_start <= day < month.month_end_exclusive
+        for day in selected_dates
+    ):
+        raise ValueError("bootstrap查询日期必须在批准月内且非空")
+    return _business_digest(
+        "stk_factor_pro.bootstrap_query",
+        {
+            "approval_digest": approval_digest,
+            "source_identity_digest": approval.source_identity_digest,
+            "contract_content_digest": approval.contract_content_digest,
+            "source_cutoff_trade_date": approval.source_cutoff_trade_date.isoformat(),
+            "month_start": month.month_start.isoformat(),
+            "month_end_exclusive": month.month_end_exclusive.isoformat(),
+            "selected_dates": [day.isoformat() for day in selected_dates],
+            "row_upper_bound": month.row_upper_bound,
+        },
+    )
+
+
+def fragments_manifest_digest(
+    refs: tuple[StkFactorProBootstrapFragmentRef, ...],
+) -> str:
+    _tuple(refs, StkFactorProBootstrapFragmentRef)
+    numbers = tuple(ref.fragment_no for ref in refs)
+    if numbers != tuple(sorted(set(numbers))):
+        raise ValueError("bootstrap片段摘要输入必须升序唯一")
+    return _business_digest(
+        "stk_factor_pro.bootstrap_fragments", stk_factor_pro_record_to_dict(refs)
+    )
+
+
+def stk_factor_pro_bootstrap_source_complete_digest(
+    record: StkFactorProBootstrapSourceComplete,
+) -> str:
+    if not isinstance(record, StkFactorProBootstrapSourceComplete):
+        raise TypeError("bootstrap完整源摘要缺封闭类型")
+    projection = stk_factor_pro_record_to_dict(record)
+    for name in ("source_complete_digest", "completed_at", "fragments"):
+        del projection[name]
+    return _business_digest("stk_factor_pro.bootstrap_source_complete", projection)
+
+
+def stk_factor_pro_bootstrap_intent_digest(
+    record: StkFactorProBootstrapPublicationIntent,
+) -> str:
+    if not isinstance(record, StkFactorProBootstrapPublicationIntent):
+        raise TypeError("bootstrap发布意图摘要缺封闭类型")
+    projection = stk_factor_pro_record_to_dict(record)
+    for name in ("record_version", "intent_digest", "created_at"):
+        del projection[name]
+    return _business_digest("stk_factor_pro.bootstrap_publication_intent", projection)
+
+
+def stk_factor_pro_bootstrap_month_basis_digest(
+    *,
+    operation_id: str,
+    approval_digest: str,
+    month: StkFactorProBootstrapMonthLimit,
+    natural_dates: tuple[date, ...],
+    open_dates: tuple[date, ...],
+    closed_dates: tuple[date, ...],
+    calendar_unknown_dates: tuple[date, ...],
+    basis_files: tuple[StkFactorProBootstrapBasisFile, ...],
+) -> str:
+    validate_stk_factor_pro_identifier(operation_id)
+    _digest(approval_digest)
+    if not isinstance(month, StkFactorProBootstrapMonthLimit):
+        raise TypeError("bootstrap月摘要缺批准月")
+    for dates in (natural_dates, open_dates, closed_dates, calendar_unknown_dates):
+        _bootstrap_dates(dates)
+    _bootstrap_basis_files(basis_files)
+    return _business_digest(
+        "stk_factor_pro.bootstrap_month_basis",
+        {
+            "operation_id": operation_id,
+            "approval_digest": approval_digest,
+            "month_start": month.month_start.isoformat(),
+            "month_end_exclusive": month.month_end_exclusive.isoformat(),
+            "natural_dates": stk_factor_pro_record_to_dict(natural_dates),
+            "open_dates": stk_factor_pro_record_to_dict(open_dates),
+            "closed_dates": stk_factor_pro_record_to_dict(closed_dates),
+            "calendar_unknown_dates": stk_factor_pro_record_to_dict(
+                calendar_unknown_dates
+            ),
+            "basis_files": stk_factor_pro_record_to_dict(basis_files),
+        },
+    )
+
+
+def stk_factor_pro_bootstrap_date_coverage_input_digest(
+    *,
+    operation_id: str,
+    approval_digest: str,
+    trade_date: date,
+    is_open: bool | None,
+    source_complete_digest: str,
+    source_rows: int,
+    raw_file_sha256: str | None,
+    silver_file_sha256: str | None,
+    source_empty: bool,
+    basis_files: tuple[StkFactorProBootstrapBasisFile, ...],
+) -> str:
+    validate_stk_factor_pro_identifier(operation_id)
+    _digest(approval_digest)
+    _day(trade_date)
+    if is_open is not None:
+        _bootstrap_bool(is_open)
+    _digest(source_complete_digest)
+    _count(source_rows)
+    _optional_digest(raw_file_sha256)
+    _optional_digest(silver_file_sha256)
+    _bootstrap_bool(source_empty)
+    _bootstrap_basis_files(basis_files, day=trade_date)
+    return _business_digest(
+        "stk_factor_pro.bootstrap_date_coverage",
+        {
+            "operation_id": operation_id,
+            "approval_digest": approval_digest,
+            "trade_date": trade_date.isoformat(),
+            "is_open": is_open,
+            "source_complete_digest": source_complete_digest,
+            "source_rows": source_rows,
+            "raw_file_sha256": raw_file_sha256,
+            "silver_file_sha256": silver_file_sha256,
+            "source_empty": source_empty,
+            "basis_files": stk_factor_pro_record_to_dict(basis_files),
+        },
     )
